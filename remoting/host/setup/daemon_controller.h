@@ -8,7 +8,9 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
+#include "base/containers/flat_set.h"
 #include "base/containers/queue.h"
 #include "base/functional/callback.h"
 #include "base/memory/ref_counted.h"
@@ -22,6 +24,7 @@ namespace remoting {
 
 class AutoThread;
 class AutoThreadTaskRunner;
+class HostType;
 
 class DaemonController : public base::RefCountedThreadSafe<DaemonController> {
  public:
@@ -92,6 +95,9 @@ class DaemonController : public base::RefCountedThreadSafe<DaemonController> {
   typedef base::OnceCallback<void(const UsageStatsConsent&)>
       GetUsageStatsConsentCallback;
 
+  // The configuration keys whose values may be read by GetConfig().
+  static const base::flat_set<std::string_view>& GetUnprivilegedConfigKeys();
+
   // Interface representing the platform-spacific back-end. Most of its methods
   // are blocking and should be called on a background thread. There are two
   // exceptions:
@@ -140,7 +146,24 @@ class DaemonController : public base::RefCountedThreadSafe<DaemonController> {
 
     // Get the user's consent to crash reporting.
     virtual UsageStatsConsent GetUsageStatsConsent() = 0;
+
+    // Returns true if the current process has the required privileges to change
+    // the daemon. Note that read-only operations such as GetState() are always
+    // unprivileged.
+    virtual bool is_privileged() const = 0;
+
+#if BUILDFLAG(IS_LINUX)
+    // Returns true if the host has a multi-process architecture.
+    virtual bool is_multi_process() const = 0;
+#endif
   };
+
+#if BUILDFLAG(IS_LINUX)
+  // Set the host type. If nullptr is passed (the default), the host type will
+  // be automatically determined by checking which host type is running. If none
+  // is running, HostType::GetDefaultHostType() will be used.
+  static void SetHostType(const HostType* type);
+#endif
 
   static scoped_refptr<DaemonController> Create();
 
@@ -198,6 +221,16 @@ class DaemonController : public base::RefCountedThreadSafe<DaemonController> {
 
   // Get the user's consent to crash reporting.
   void GetUsageStatsConsent(GetUsageStatsConsentCallback done);
+
+  // Returns true if the current process has the required privileges to change
+  // the daemon. Note that read-only operations such as GetState() are always
+  // unprivileged.
+  bool is_privileged() const;
+
+#if BUILDFLAG(IS_LINUX)
+  // Returns true if the host has a multi-process architecture.
+  bool is_multi_process() const;
+#endif
 
  private:
   friend class base::RefCountedThreadSafe<DaemonController>;

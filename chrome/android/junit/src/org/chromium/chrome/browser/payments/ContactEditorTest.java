@@ -23,6 +23,7 @@ import static org.chromium.chrome.browser.autofill.editors.common.EditorComponen
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.ItemType.TEXT_INPUT;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.IMPORTANT_FOR_ACCESSIBILITY;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.NOTICE_TEXT;
+import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.NOTICE_VISIBLE;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.SHOW_BACKGROUND;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.isEditable;
 import static org.chromium.chrome.browser.autofill.editors.common.field.FieldProperties.ERROR_MESSAGE;
@@ -111,9 +112,11 @@ public class ContactEditorTest {
                 mActivity.getString(R.string.payments_required_field_message),
                 requiredNotice.get(NOTICE_TEXT));
         assertFalse(requiredNotice.get(SHOW_BACKGROUND));
-        assertEquals(false, requiredNotice.get(IMPORTANT_FOR_ACCESSIBILITY));
+        assertFalse(requiredNotice.get(IMPORTANT_FOR_ACCESSIBILITY));
+        assertTrue(requiredNotice.get(NOTICE_VISIBLE));
     }
 
+    @SuppressWarnings("unchecked") // hamcrest anyOf varargs
     private void validateErrorMessages(PropertyModel editorModel, boolean errorsPresent) {
         assertNotNull(editorModel);
         ListModel<EditorItem> editorFields = editorModel.get(EDITOR_FIELDS);

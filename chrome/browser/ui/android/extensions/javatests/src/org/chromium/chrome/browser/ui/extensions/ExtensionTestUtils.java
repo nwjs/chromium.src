@@ -60,6 +60,19 @@ public class ExtensionTestUtils {
     }
 
     /**
+     * Enable the extension with the given ID.
+     *
+     * @param profile The profile to enable the extension for.
+     * @param extensionId The ID of the extension to disable.
+     */
+    public static void enableExtension(Profile profile, String extensionId) {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    ExtensionTestUtilsJni.get().enableExtension(profile, extensionId);
+                });
+    }
+
+    /**
      * Disables the extension with the given ID.
      *
      * @param profile The profile to disable the extension for.
@@ -99,6 +112,17 @@ public class ExtensionTestUtils {
                     ExtensionTestUtilsJni.get()
                             .setExtensionActionVisible(profile, extensionId, visible);
                 });
+    }
+
+    /**
+     * Returns the list of pinned actions.
+     *
+     * @param profile The profile that the extension belongs to.
+     * @return The list of IDs of pinned actions.
+     */
+    public static String[] getPinnedActionIds(Profile profile) {
+        return ThreadUtils.runOnUiThreadBlocking(
+                () -> ExtensionTestUtilsJni.get().getPinnedActionIds(profile));
     }
 
     /**
@@ -166,6 +190,60 @@ public class ExtensionTestUtils {
     }
 
     /**
+     * Helper to create a {@link ExtensionsMenuTypes.ExtensionSitePermissionsState}. The returned
+     * state has the following defaults:
+     *
+     * <ul>
+     *   <li>All site access options (on click, on site, on all sites) are ENABLED.
+     *   <li>The "on all sites" option is toggled ON.
+     *   <li>The "show requests" toggle is ENABLED and toggled ON.
+     * </ul>
+     */
+    public static ExtensionsMenuTypes.ExtensionSitePermissionsState
+            createExtensionSitePermissionsState(
+                    String extensionName, @Nullable Bitmap extensionIcon) {
+        ExtensionsMenuTypes.ControlState onClickOption =
+                new ExtensionsMenuTypes.ControlState(
+                        ExtensionsMenuTypes.ControlState.Status.ENABLED,
+                        /* text= */ "",
+                        /* accessibleName= */ "",
+                        /* tooltipText= */ "",
+                        /* isOn= */ false,
+                        /* icon= */ null);
+        ExtensionsMenuTypes.ControlState onSiteOption =
+                new ExtensionsMenuTypes.ControlState(
+                        ExtensionsMenuTypes.ControlState.Status.ENABLED,
+                        /* text= */ "",
+                        /* accessibleName= */ "",
+                        /* tooltipText= */ "",
+                        /* isOn= */ false,
+                        /* icon= */ null);
+        ExtensionsMenuTypes.ControlState onAllSitesOption =
+                new ExtensionsMenuTypes.ControlState(
+                        ExtensionsMenuTypes.ControlState.Status.ENABLED,
+                        /* text= */ "",
+                        /* accessibleName= */ "",
+                        /* tooltipText= */ "",
+                        /* isOn= */ true,
+                        /* icon= */ null);
+        ExtensionsMenuTypes.ControlState toggleState =
+                new ExtensionsMenuTypes.ControlState(
+                        ExtensionsMenuTypes.ControlState.Status.ENABLED,
+                        /* text= */ "",
+                        /* accessibleName= */ "",
+                        /* tooltipText= */ "",
+                        /* isOn= */ true,
+                        /* icon= */ null);
+        return new ExtensionsMenuTypes.ExtensionSitePermissionsState(
+                extensionName,
+                extensionIcon,
+                onClickOption,
+                onSiteOption,
+                onAllSitesOption,
+                toggleState);
+    }
+
+    /**
      * Helper to create a {@link ExtensionsMenuTypes.MenuEntryState} for a simple extension without
      * host permissions. The entry will have a disabled action button, and hidden site access toggle
      * and site permissions button.
@@ -197,7 +275,8 @@ public class ExtensionTestUtils {
                 extensionIcon,
                 isPinned,
                 siteAccessToggle,
-                sitePermissionsButton);
+                sitePermissionsButton,
+                /* isEnterprise= */ false);
     }
 
     /**
@@ -233,7 +312,8 @@ public class ExtensionTestUtils {
                 extensionIcon,
                 isPinned,
                 siteAccessToggle,
-                sitePermissionsButton);
+                sitePermissionsButton,
+                /* isEnterprise= */ false);
     }
 
     /** Helper to create a {@link ExtensionsMenuTypes.MenuEntryState}. */
@@ -243,7 +323,8 @@ public class ExtensionTestUtils {
             @Nullable Bitmap extensionIcon,
             boolean isPinned,
             ExtensionsMenuTypes.ControlState siteAccessToggle,
-            ExtensionsMenuTypes.ControlState sitePermissionsButton) {
+            ExtensionsMenuTypes.ControlState sitePermissionsButton,
+            boolean isEnterprise) {
         ExtensionsMenuTypes.ControlState actionButton =
                 new ExtensionsMenuTypes.ControlState(
                         ExtensionsMenuTypes.ControlState.Status.DISABLED,
@@ -265,7 +346,8 @@ public class ExtensionTestUtils {
                 actionButton,
                 contextMenuButton,
                 siteAccessToggle,
-                sitePermissionsButton);
+                sitePermissionsButton,
+                isEnterprise);
     }
 
     /** Helper to create a simple icon with the given color. */
@@ -285,6 +367,9 @@ public class ExtensionTestUtils {
                 @JniType("std::string") String rootDir,
                 Callback<String> callback);
 
+        void enableExtension(
+                @JniType("Profile*") Profile profile, @JniType("std::string") String extensionId);
+
         void disableExtension(
                 @JniType("Profile*") Profile profile, @JniType("std::string") String extensionId);
 
@@ -295,6 +380,9 @@ public class ExtensionTestUtils {
                 @JniType("Profile*") Profile profile,
                 @JniType("std::string") String extensionId,
                 boolean visible);
+
+        @JniType("std::vector<std::string>")
+        String[] getPinnedActionIds(@JniType("Profile*") Profile profile);
 
         int getRenderFrameHostCount(
                 @JniType("Profile*") Profile profile, @JniType("std::string") String extensionId);

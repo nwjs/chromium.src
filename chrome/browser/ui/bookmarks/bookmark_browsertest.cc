@@ -28,7 +28,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -36,6 +35,7 @@
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -128,7 +128,8 @@ class BookmarkBrowsertest : public InProcessBrowserTest {
   }
 
   static void CheckAnimation(Browser* browser, base::RunLoop* loop) {
-    if (!browser->window()->IsBookmarkBarAnimating()) {
+    if (!BrowserView::GetBrowserViewForBrowser(browser)
+             ->IsBookmarkBarAnimating()) {
       loop->Quit();
     }
   }
@@ -258,7 +259,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBrowsertest, IncognitoPersistence) {
 
 // Regression for crash caused by opening folder as a group in an incognito
 // window when the folder contains URLs that cannot be displayed in incognito.
-// See discussion starting at crbug.com/1242351#c15
+// See discussion starting at crbug.com/40786567#comment16
 IN_PROC_BROWSER_TEST_F(
     BookmarkBrowsertest,
     OpenFolderAsGroupInIncognitoWhenBookmarksCantOpenInIncognito) {
@@ -672,7 +673,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBrowsertest, DragSingleBookmark) {
 #if !BUILDFLAG(IS_WIN)
         // On Windows, GetDragImage() is a NOTREACHED() as the Windows
         // implementation of OSExchangeData just sets the drag image on the OS
-        // API. https://crbug.com/893388
+        // API. https://crbug.com/41419592
         EXPECT_FALSE(drag_data->provider().GetDragImage().isNull());
 #endif
         EXPECT_EQ(expected_point, point);
@@ -694,7 +695,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBrowsertest, DragSingleBookmark) {
 
 // A favicon update during drag shouldn't trigger the drag flow again. The test
 // passes if the favicon update does not cause a crash. (see
-// https://crbug.com/1364056)
+// https://crbug.com/40865326)
 IN_PROC_BROWSER_TEST_F(BookmarkBrowsertest, FaviconChangeDuringBookmarkDrag) {
   BookmarkModel* model = WaitForBookmarkModel(browser()->profile());
   const std::u16string kPageTitle(u"foo");
@@ -759,7 +760,7 @@ IN_PROC_BROWSER_TEST_F(BookmarkBrowsertest, DragMultipleBookmarks) {
 #if !BUILDFLAG(IS_WIN)
         // On Windows, GetDragImage() is a NOTREACHED() as the Windows
         // implementation of OSExchangeData just sets the drag image on the OS
-        // API. https://crbug.com/893388
+        // API. https://crbug.com/41419592
         EXPECT_FALSE(drag_data->provider().GetDragImage().isNull());
 #endif
         EXPECT_EQ(expected_point, point);

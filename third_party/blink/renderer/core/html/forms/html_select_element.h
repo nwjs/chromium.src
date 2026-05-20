@@ -359,7 +359,22 @@ class CORE_EXPORT HTMLSelectElement final
   void DefaultEventHandler(Event&) override;
   void ChildrenChanged(const ChildrenChange&) override;
 
-  void UpdateAllSelectedcontents(HTMLOptionElement* selected_option);
+  // UpdateAllSelectedcontentsSingle and UpdateAllSelectedcontentsMultiple both
+  // clone the selected option(s) into all descendant selectedcontent elements.
+  // the Single method is for single-selects, and the Multiple method is for
+  // multi-selects. These methods are separate because the single-select case
+  // can use the cached currently-selected option element as an optimization.
+  void UpdateAllSelectedcontentsSingle(HTMLOptionElement*);
+  void UpdateAllSelectedcontentsMultiple();
+  // UpdateAllSelectedcontents calls either UpdateAllSelectedcontentsSingle or
+  // UpdateAllSelectedcontentsMultiple based on whether this element IsMultiple
+  // or not. Using the other two UpdateAllSelectedcontents methods is preferred
+  // since they are more optimized.
+  void UpdateAllSelectedcontents();
+  // UpdateSelectedcontent clones the contents of all selected option
+  // elements into the provided selectedcontent element. This is called when the
+  // provided selectedcontent is added to the subtree of this select element.
+  void UpdateIndividualSelectedcontent(HTMLSelectedContentElement&);
 
   // Returns the localized "X selected" text used for MenuList multiple select
   // elements.
@@ -424,13 +439,18 @@ class CORE_EXPORT HTMLSelectElement final
   void DidRecalcStyle(const StyleRecalcChange) override;
   void AttachLayoutTree(AttachContext&) override;
   void DetachLayoutTree(bool performing_reattach) override;
+  void RemovedFrom(ContainerNode&) override;
   void AppendToFormData(FormData&) override;
   void DidAddUserAgentShadowRoot(ShadowRoot&) override;
   void ManuallyAssignSlots() override;
 
   void SetRecalcListItems();
   void RecalcListItems() const;
-  enum ResetReason { kResetReasonSelectedOptionRemoved, kResetReasonOthers };
+  enum ResetReason {
+    kResetReasonSelectedOptionRemoved,
+    kResetReasonOptionInsertedOrRemoved,
+    kResetReasonOthers
+  };
   void ResetToDefaultSelection(ResetReason = kResetReasonOthers);
   void TypeAheadFind(const KeyboardEvent&);
 
@@ -445,6 +465,11 @@ class CORE_EXPORT HTMLSelectElement final
     kDeselectOtherOptionsFlag = 1 << 0,
     kDispatchInputAndChangeEventFlag = 1 << 1,
     kMakeOptionDirtyFlag = 1 << 2,
+    // The kDontUpdateSelectedcontentFlag was added in order to defer the DOM of
+    // selectedcontent elements from being updated in the case that options are
+    // inserted or removed because we shouldn't be updating the DOM during
+    // insertion or removal steps.
+    kDontUpdateSelectedcontentFlag = 1 << 3,
   };
   typedef unsigned SelectOptionFlags;
   void SelectOption(HTMLOptionElement*,

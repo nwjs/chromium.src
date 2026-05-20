@@ -12,6 +12,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/observer_list.h"
+#include "base/rand_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/thread_pool.h"
@@ -19,8 +20,9 @@
 #include "chrome/browser/download/download_item_warning_data.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_downloads_delegate.h"
+#include "chrome/browser/enterprise/connectors/common.h"
+#include "chrome/browser/enterprise/connectors/connectors_service.h"
 #include "chrome/browser/enterprise/connectors/reporting/reporting_event_router_factory.h"
-#include "chrome/browser/enterprise/data_protection/data_protection_features.h"
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/file_analysis_request.h"
@@ -51,13 +53,12 @@
 
 #if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_dialog_controller.h"
-#include "chrome/browser/enterprise/connectors/common.h"
-#include "chrome/browser/enterprise/connectors/connectors_service.h"
+#include "chrome/browser/enterprise/data_protection/data_protection_features.h"
 #endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -74,6 +75,8 @@ TriggeredRule::ForceSaveToCloudDestination
 GetHighestPrecedenceForceSaveToCloudDestination(
     TriggeredRule::ForceSaveToCloudDestination destination_1,
     TriggeredRule::ForceSaveToCloudDestination destination_2) {
+  // Force download to Google Drive/One Drive is only applicable to desktop.
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   // Prefer G_DRIVE over ONEDRIVE.
   if (base::FeatureList::IsEnabled(
           enterprise_data_protection::kEnableForceDownloadToCloud) &&
@@ -86,7 +89,21 @@ GetHighestPrecedenceForceSaveToCloudDestination(
               destination_2 == TriggeredRule::CORP_ONEDRIVE)) {
     return TriggeredRule::CORP_ONEDRIVE;
   }
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   return TriggeredRule::UNSPECIFIED;
+}
+
+TriggeredRule::CustomRuleMessage GetForceSaveToCloudCustomRuleMessage(
+    const enterprise_connectors::ContentAnalysisResponse& response) {
+  for (const auto& result : response.results()) {
+    for (const auto& rule : result.triggered_rules()) {
+      if (rule.action() == TriggeredRule::FORCE_SAVE_TO_CLOUD &&
+          rule.has_custom_rule_message()) {
+        return rule.custom_rule_message();
+      }
+    }
+  }
+  return TriggeredRule::CustomRuleMessage();
 }
 
 DownloadCheckResult GetHighestPrecedenceResult(DownloadCheckResult result_1,
@@ -216,6 +233,7 @@ GetFinalAction(enterprise_connectors::EventResult event_result) {
     // BLOCKED behaviour.
     case enterprise_connectors::EventResult::FORCED_SAVE_TO_CLOUD:
     case enterprise_connectors::EventResult::BLOCKED:
+    case enterprise_connectors::EventResult::CANCELLED:
       final_action =
           enterprise_connectors::ContentAnalysisAcknowledgement::BLOCK;
       break;
@@ -375,7 +393,6 @@ DownloadCheckResult ResponseToDownloadCheckResult(
 /* static */
 std::optional<enterprise_connectors::AnalysisSettings>
 DeepScanningRequest::ShouldUploadBinary(const DeepScanningMetadata& metadata) {
-#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
   // Files already on the disk shouldn't be uploaded for scanning.
   if (metadata.GetURL().SchemeIsFile()) {
     return std::nullopt;
@@ -398,9 +415,6 @@ DeepScanningRequest::ShouldUploadBinary(const DeepScanningMetadata& metadata) {
   return service->GetAnalysisSettings(
       metadata.GetURL(),
       enterprise_connectors::AnalysisConnector::FILE_DOWNLOADED);
-#else
-  return std::nullopt;
-#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 }
 
 DeepScanningRequest::DeepScanningRequest(
@@ -420,6 +434,7 @@ DeepScanningRequest::DeepScanningRequest(
       pre_scan_download_check_result_(pre_scan_download_check_result),
       password_(password.CopyAsOptional()),
       reason_(enterprise_connectors::ContentAnalysisRequest::NORMAL_DOWNLOAD),
+      user_action_id_(base::HexEncode(base::RandBytesAsVector(128))),
       weak_ptr_factory_(this) {
   base::UmaHistogramEnumeration("SBClientDownload.DeepScanType",
                                 DeepScanType::NORMAL);
@@ -443,6 +458,7 @@ DeepScanningRequest::DeepScanningRequest(
       pending_scan_requests_(save_package_files_.size()),
       pre_scan_download_check_result_(pre_scan_download_check_result),
       reason_(enterprise_connectors::ContentAnalysisRequest::SAVE_AS_DOWNLOAD),
+      user_action_id_(base::HexEncode(base::RandBytesAsVector(128))),
       weak_ptr_factory_(this) {
   base::UmaHistogramEnumeration("SBClientDownload.DeepScanType",
                                 DeepScanType::SAVE_PACKAGE);
@@ -730,6 +746,10 @@ void DeepScanningRequest::OnEnterpriseScanComplete(
 
   DownloadCheckResult download_result = DownloadCheckResult::UNKNOWN;
 
+  enterprise_connectors::ContentAnalysisResponse::Result::TriggeredRule::
+      CustomRuleMessage custom_message =
+          GetForceSaveToCloudCustomRuleMessage(response);
+
   if (result == enterprise_connectors::ScanRequestUploadResult::kFileTooLarge &&
       analysis_settings_.block_large_files) {
     download_result = DownloadCheckResult::BLOCKED_TOO_LARGE;
@@ -793,9 +813,9 @@ void DeepScanningRequest::OnEnterpriseScanComplete(
                          weak_ptr_factory_.GetWeakPtr(),
                          DownloadCheckResult::SENSITIVE_CONTENT_BLOCK);
 
-      ShowForceSaveToCloudDialog(std::move(keep_closure),
-                                 std::move(discard_closure),
-                                 force_save_web_contents, /*file_count=*/1);
+      ShowForceSaveToCloudDialog(
+          std::move(keep_closure), std::move(discard_closure),
+          force_save_web_contents, custom_message, /*file_count=*/1);
       return;
     }
 #endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
@@ -841,6 +861,21 @@ void DeepScanningRequest::OnDownloadDestroyed(
   // scan has finished.
   callback_.Reset();
 
+  Profile* profile =
+      Profile::FromBrowserContext(metadata_->GetBrowserContext());
+  enterprise_connectors::BinaryUploadService* upload_service =
+      download_service_->GetBinaryUploadService(profile, analysis_settings_);
+
+  if (upload_service) {
+    auto cancel =
+        std::make_unique<enterprise_connectors::BinaryUploadCancelRequests>(
+            analysis_settings_.cloud_or_local_settings);
+    cancel->set_user_action_id(user_action_id_);
+
+    // We do the best effort to cancel the requests in upload service.
+    upload_service->MaybeCancelRequests(std::move(cancel));
+  }
+
   // `FinishRequest` always clears the `download_observation` and `metadata`,
   // preventing use-after-free issues for `download_item` after it's been
   // destroyed.
@@ -869,7 +904,7 @@ std::string DeepScanningRequest::tab_title() const {
 }
 
 std::string DeepScanningRequest::user_action_id() const {
-  return "";
+  return user_action_id_;
 }
 
 std::string DeepScanningRequest::email() const {
@@ -931,7 +966,10 @@ void DeepScanningRequest::MaybeFinishRequest(DownloadCheckResult result) {
 
         ShowForceSaveToCloudDialog(
             std::move(keep_closure), std::move(discard_closure),
-            force_save_web_contents, save_package_files_.size());
+            force_save_web_contents,
+            enterprise_connectors::ContentAnalysisResponse::Result::
+                TriggeredRule::CustomRuleMessage(),
+            save_package_files_.size());
         return;
 #endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
       }
@@ -1034,6 +1072,9 @@ void DeepScanningRequest::CallbackAndCleanup(DownloadCheckResult result) {
 
 content::WebContents* DeepScanningRequest::MaybeGetWebContentsForForceSave(
     DownloadCheckResult& result) {
+#if BUILDFLAG(IS_ANDROID)
+  return nullptr;
+#else
   if (result != DownloadCheckResult::FORCE_SAVE_TO_GDRIVE &&
       result != DownloadCheckResult::FORCE_SAVE_TO_ONEDRIVE) {
     return nullptr;
@@ -1056,17 +1097,18 @@ content::WebContents* DeepScanningRequest::MaybeGetWebContentsForForceSave(
   // external application. For those cases, try to find the active web
   // contents of the browser to show the dialog on.
   if (!force_save_web_contents) {
-#if !BUILDFLAG(IS_ANDROID)
-    Browser* browser = chrome::FindLastActiveWithProfile(
-        Profile::FromBrowserContext(metadata_->GetBrowserContext()));
+    BrowserWindowInterface* browser =
+        ProfileBrowserCollection::GetForProfile(
+            Profile::FromBrowserContext(metadata_->GetBrowserContext()))
+            ->GetLastActiveBrowser();
     if (browser) {
       force_save_web_contents =
-          browser->tab_strip_model()->GetActiveWebContents();
+          browser->GetTabStripModel()->GetActiveWebContents();
     }
-#endif
   }
 
   return force_save_web_contents;
+#endif  // BUILDFLAG(IS_ANDROID)
 }
 
 #if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
@@ -1074,14 +1116,14 @@ void DeepScanningRequest::ShowForceSaveToCloudDialog(
     base::OnceClosure keep_closure,
     base::OnceClosure discard_closure,
     content::WebContents* web_contents,
+    const enterprise_connectors::ContentAnalysisResponse::Result::
+        TriggeredRule::CustomRuleMessage& custom_message,
     size_t file_count) {
   new enterprise_connectors::ContentAnalysisDialogController(
       std::make_unique<enterprise_connectors::ContentAnalysisDownloadsDelegate>(
           metadata_->GetTargetFilePath().BaseName().AsUTF16Unsafe(), u"",
           GURL(), false, std::move(keep_closure), std::move(discard_closure),
-          nullptr,
-          enterprise_connectors::ContentAnalysisResponse::Result::
-              TriggeredRule::CustomRuleMessage()),
+          nullptr, custom_message),
       true,  // Downloads are always cloud-based for now.
       web_contents, enterprise_connectors::DeepScanAccessPoint::DOWNLOAD,
       file_count,

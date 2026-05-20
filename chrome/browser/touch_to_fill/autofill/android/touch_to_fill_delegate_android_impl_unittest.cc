@@ -21,6 +21,7 @@
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/form_structure.h"
+#include "components/autofill/core/browser/foundations/mock_autofill_manager_observer.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/foundations/test_autofill_driver.h"
 #include "components/autofill/core/browser/foundations/test_browser_autofill_manager.h"
@@ -204,16 +205,8 @@ class MockBrowserAutofillManager : public TestBrowserAutofillManager {
                const FormData& form,
                const FormFieldData& field,
                const std::u16string& value,
-               SuggestionType type,
+               FillingProduct filling_product,
                std::optional<FieldType> field_type),
-              (override));
-  MOCK_METHOD(void,
-              DidShowSuggestions,
-              (base::span<const Suggestion> suggestions,
-               const FormData& form,
-               const FieldGlobalId& field_id,
-               AutofillExternalDelegate::UpdateSuggestionsCallback
-                   update_suggestions_callback),
               (override));
   MOCK_METHOD(bool, CanShowAutofillUi, (), (const, override));
   MOCK_METHOD(AutofillField*,
@@ -666,11 +659,14 @@ TEST_P(TouchToFillDelegateAndroidImplPaymentMethodUnitTest,
        TryToShowTouchToFillSucceeds) {
   ASSERT_FALSE(touch_to_fill_delegate_->IsShowingTouchToFill());
 
-  EXPECT_CALL(autofill_manager(), DidShowSuggestions);
+  MockAutofillManagerObserver observer;
+  autofill_manager().AddObserver(&observer);
+  EXPECT_CALL(observer, OnSuggestionsShown);
   TryToShowTouchToFill(/*expected_success=*/true);
   histogram_tester_.ExpectUniqueSample(
       GetTriggerOutcomeHistogramName(),
       TouchToFillPaymentMethodTriggerOutcome::kShown, 1);
+  autofill_manager().RemoveObserver(&observer);
 }
 
 TEST_P(TouchToFillDelegateAndroidImplPaymentMethodUnitTest,
@@ -1481,7 +1477,7 @@ TEST_F(TouchToFillDelegateAndroidImplLoyaltyCardUnitTest,
       FillOrPreviewField(
           mojom::ActionPersistence::kFill, mojom::FieldActionType::kReplaceAll,
           _, _, base::UTF8ToUTF16(kLoyaltyCard.loyalty_card_number()),
-          SuggestionType::kLoyaltyCardEntry, Optional(LOYALTY_MEMBERSHIP_ID)));
+          FillingProduct::kLoyaltyCard, Optional(LOYALTY_MEMBERSHIP_ID)));
   EXPECT_CALL(autofill_manager(),
               LogAndRecordLoyaltyCardFill(kLoyaltyCard, _, _));
   touch_to_fill_delegate_->LoyaltyCardSuggestionSelected(kLoyaltyCard);
@@ -1532,7 +1528,7 @@ TEST_F(
       FillOrPreviewField(
           mojom::ActionPersistence::kFill, mojom::FieldActionType::kReplaceAll,
           _, _, base::UTF8ToUTF16(kLoyaltyCard.loyalty_card_number()),
-          SuggestionType::kLoyaltyCardEntry, Optional(LOYALTY_MEMBERSHIP_ID)));
+          FillingProduct::kLoyaltyCard, Optional(LOYALTY_MEMBERSHIP_ID)));
   EXPECT_CALL(autofill_manager(),
               LogAndRecordLoyaltyCardFill(kLoyaltyCard, _, _));
   touch_to_fill_delegate_->LoyaltyCardSuggestionSelected(kLoyaltyCard);

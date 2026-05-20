@@ -41,7 +41,7 @@ async function readAllEntries(dirEntry) {
   for (;;) {
     const entries = await new Promise(
         (resolve, reject) => reader.readEntries(resolve, reject));
-    if (entries.length == 0) {
+    if (entries.length === 0) {
       break;
     }
     allEntries.push(...entries);
@@ -92,7 +92,7 @@ async function main() {
           !!error, 'Succeeded getting a non-existent directory entry.');
       chrome.test.assertEq('NotFoundError', error.name);
       chrome.test.succeed();
-    }
+    },
   ]);
 }
 

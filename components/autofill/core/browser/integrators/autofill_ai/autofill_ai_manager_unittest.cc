@@ -91,17 +91,17 @@ using ::testing::WithArgs;
 constexpr auto kAcceptBubble =
     AutofillClient::AutofillAiBubbleResult::kAccepted;
 const AutofillClient::EntityImportUIContext kAcceptUIContext(
-    /*consent_string_id=*/123,
-    /*clicked_button_string_id=*/234);
+    /*accepted_consent_string_id=*/123,
+    /*accept_button_string_id=*/234);
 constexpr auto kDeclineBubble = AutofillClient::AutofillAiBubbleResult::kClosed;
 const AutofillClient::EntityImportUIContext kDeclineUIContext(
-    /*consent_string_id=*/123,
-    /*clicked_button_string_id=*/345);
+    /*accepted_consent_string_id=*/123,
+    /*accept_button_string_id=*/345);
 constexpr auto kIgnoreBubble =
     AutofillClient::AutofillAiBubbleResult::kNotInteracted;
 const AutofillClient::EntityImportUIContext kIgnoreUIContext(
-    /*consent_string_id=*/123,
-    /*clicked_button_string_id=*/std::nullopt);
+    /*accepted_consent_string_id=*/123,
+    /*accept_button_string_id=*/std::nullopt);
 
 auto FirstElementIs(auto&& matcher) {
   return ResultOf(
@@ -304,7 +304,11 @@ TEST_F(AutofillAiManagerTest,
 // Tests that IPH should be displayed if the user is opted out of the feature,
 // has an address, and form submission with filled out fields would lead to
 // entity import.
+// TODO(crbug.com/440488776): Remove this test when cleaning up
+// kAutofillAiAvailableByDefault. This feature deprecated the IPH.
 TEST_F(AutofillAiManagerTest, ShouldDisplayIph) {
+  base::test::ScopedFeatureList feature;
+  feature.InitAndDisableFeature(features::kAutofillAiAvailableByDefault);
   test::FormDescription form_description = {.fields = {{}}};
   FormData form = test::GetFormData(form_description);
   FormStructure form_structure = FormStructure(form);
@@ -318,8 +322,12 @@ TEST_F(AutofillAiManagerTest, ShouldDisplayIph) {
 
 // Tests that IPH should be displayed when the user is opted out of the feature
 // and does not have address or payments data stored.
+// TODO(crbug.com/440488776): Remove this test when cleaning up
+// kAutofillAiAvailableByDefault. This feature deprecated the IPH.
 TEST_F(AutofillAiManagerTest,
        ShouldDisplayIphWhenUserHasNoAddressOrPaymentsData) {
+  base::test::ScopedFeatureList feature;
+  feature.InitAndDisableFeature(features::kAutofillAiAvailableByDefault);
   test::FormDescription form_description = {.fields = {{}}};
   FormData form = test::GetFormData(form_description);
   FormStructure form_structure = FormStructure(form);
@@ -1335,9 +1343,9 @@ TEST_F(AutofillAiManagerImportFormTest, PassportSaveToWalletConsent) {
   EXPECT_EQ(session_id_consent_auditor, session_id_api_call);
   sync_pb::UserConsentTypes::WalletPrivatePassConsent expected_consent;
   expected_consent.mutable_description_grd_ids()->Add(
-      *kAcceptUIContext.consent_string_id);
+      *kAcceptUIContext.accepted_consent_string_id);
   expected_consent.set_confirmation_grd_id(
-      *kAcceptUIContext.clicked_button_string_id);
+      *kAcceptUIContext.accept_button_string_id);
   EXPECT_THAT(consent, base::test::EqualsProto(expected_consent));
 }
 

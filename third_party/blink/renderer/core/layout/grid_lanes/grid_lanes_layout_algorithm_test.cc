@@ -309,6 +309,62 @@ TEST_F(GridLanesLayoutAlgorithmTest, CollectGridLanesItemGroups) {
   }
 }
 
+TEST_F(GridLanesLayoutAlgorithmTest, CollectGridLanesItemGroupsWithBaseline) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes">
+      <div style="justify-self: first baseline"></div>
+      <div style="justify-self: baseline"></div>
+      <div style="justify-self: last baseline"></div>
+      <div style="grid-column: span 2"></div>
+      <div style="grid-column: span 2; justify-self: first baseline"></div>
+      <div style="grid-column: span 2; justify-self: first baseline"></div>
+      <div style="grid-column: span 2; justify-self: last baseline"></div>
+      <div style="grid-column: span 2; justify-self: last baseline"></div>
+      <div style="grid-column: span 2; justify-self: last baseline"></div>
+    </div>
+  )HTML");
+
+  GridLanesNode node(GetLayoutBoxByElementId("grid-lanes"));
+
+  wtf_size_t max_end_line, start_offset;
+  const GridLineResolver line_resolver(node.Style(), /*auto_repetitions=*/0);
+  const auto* grid_lanes_items = node.ConstructGridItems(
+      line_resolver, /*must_invalidate_placement_cache=*/nullptr,
+      /*opt_oof_children=*/nullptr);
+  wtf_size_t unplaced_item_span_count = 0;
+  const auto item_groups =
+      node.CollectItemGroups(line_resolver, *grid_lanes_items, max_end_line,
+                             start_offset, unplaced_item_span_count);
+
+  EXPECT_EQ(item_groups.size(), 5u);
+  const auto grid_axis_direction = node.Style().GridLanesTrackSizingDirection();
+
+  for (const auto& [items, properties] : item_groups) {
+    const auto& span = properties.Span();
+    if (span == GridSpan::IndefiniteGridSpan(1)) {
+      BaselineGroup baseline_group =
+          items.size() == 2u ? BaselineGroup::kMajor : BaselineGroup::kMinor;
+      for (const auto& item : items) {
+        EXPECT_TRUE(item->IsBaselineAligned(grid_axis_direction));
+        EXPECT_EQ(item->BaselineGroup(grid_axis_direction), baseline_group);
+      }
+    } else if (span == GridSpan::IndefiniteGridSpan(2)) {
+      bool is_baseline_aligned =
+          items[0]->IsBaselineAligned(grid_axis_direction);
+      if (is_baseline_aligned) {
+        BaselineGroup baseline_group =
+            items.size() == 2u ? BaselineGroup::kMajor : BaselineGroup::kMinor;
+        for (const auto& item : items) {
+          EXPECT_TRUE(item->IsBaselineAligned(grid_axis_direction));
+          EXPECT_EQ(item->BaselineGroup(grid_axis_direction), baseline_group);
+        }
+      } else {
+        EXPECT_EQ(items.size(), 1u);
+      }
+    }
+  }
+}
+
 TEST_F(GridLanesLayoutAlgorithmTest, ExplicitlyPlacedVirtualItems) {
   LoadAhem();
   SetBodyInnerHTML(R"HTML(
@@ -1949,6 +2005,192 @@ TEST_F(GridLanesLayoutAlgorithmTest,
   }
   EXPECT_EQ(total_count, 2u);
   EXPECT_EQ(subgridded_count, 0u);
+}
+
+// Two definite subgrids at different positions, each with a child that has the
+// same grid-column style. The subgridded children should produce virtual items
+// at their respective subgrid positions, not be merged into one group.
+TEST_F(GridLanesLayoutAlgorithmTest,
+       DefiniteSubgridsAtDifferentPositionsProduceSeparateVirtualItems) {
+  LoadAhem();
+  SetBodyInnerHTML(R"HTML(
+    <style>
+    body { font: 10px/1 Ahem }
+    #grid-lanes {
+      display: grid-lanes;
+      grid-template-columns: repeat(4, auto);
+    }
+    .subgrid {
+      display: grid;
+      grid-template-columns: subgrid;
+    }
+    #s1 { grid-column: 1 / 3; }
+    #s2 { grid-column: 3 / 5; }
+    .child { grid-column: 1 / 2; }
+    </style>
+    <div id="grid-lanes">
+      <div id="s1" class="subgrid">
+        <div class="child">XXXX</div>
+      </div>
+      <div id="s2" class="subgrid">
+        <div class="child">XXXXXXXX</div>
+      </div>
+    </div>
+  )HTML");
+
+  BlockNode node(GetLayoutBoxByElementId("grid-lanes"));
+  const auto space = ConstructBlockLayoutTestConstraintSpace(
+      {WritingMode::kHorizontalTb, TextDirection::kLtr},
+      LogicalSize(LayoutUnit(1000), kIndefiniteSize),
+      /*stretch_inline_size_if_auto=*/true,
+      /*is_new_formatting_context=*/true);
+  const auto fragment_geometry =
+      CalculateInitialFragmentGeometry(space, node, /*break_token=*/nullptr);
+  GridLanesLayoutAlgorithm algorithm({node, fragment_geometry, space});
+  ComputeGeometry(algorithm);
+
+  // The two subgridded children have the same style (grid-column: 1 / 2)
+  // but are at different positions in the parent grid (column 1 vs column 3).
+  // They should produce separate virtual items. The subgrids themselves also
+  // produce virtual items with zero contributions.
+  const auto item_count = VirtualItemCount();
+  EXPECT_EQ(item_count, 4u);
+
+  for (wtf_size_t i = 0; i < item_count; ++i) {
+    LayoutUnit expected_max_size;
+    const auto& span = VirtualItemSpan(i);
+    if (span == GridSpan::TranslatedDefiniteGridSpan(0, 1)) {
+      expected_max_size = LayoutUnit(40);
+    } else if (span == GridSpan::TranslatedDefiniteGridSpan(2, 3)) {
+      expected_max_size = LayoutUnit(80);
+    }
+    EXPECT_EQ(MaxContentContribution(i), expected_max_size);
+  }
+}
+
+// An auto-placed subgrid's children should be treated as auto-placed for
+// virtual item grouping.
+TEST_F(GridLanesLayoutAlgorithmTest,
+       AutoPlacedSubgridChildrenAreAutoPlacedForVirtualItems) {
+  LoadAhem();
+  SetBodyInnerHTML(R"HTML(
+    <style>
+    body { font: 10px/1 Ahem }
+    #grid-lanes {
+      display: grid-lanes;
+      grid-template-columns: repeat(3, auto);
+    }
+    #subgrid {
+      display: grid;
+      grid-template-columns: subgrid;
+      grid-column: span 2;
+    }
+    #placed { grid-column: 1 / 2; }
+    </style>
+    <div id="grid-lanes">
+      <div id="subgrid">
+        <div id="placed">XXXX</div>
+      </div>
+      <div>XX</div>
+    </div>
+  )HTML");
+
+  BlockNode node(GetLayoutBoxByElementId("grid-lanes"));
+  const auto space = ConstructBlockLayoutTestConstraintSpace(
+      {WritingMode::kHorizontalTb, TextDirection::kLtr},
+      LogicalSize(LayoutUnit(1000), kIndefiniteSize),
+      /*stretch_inline_size_if_auto=*/true,
+      /*is_new_formatting_context=*/true);
+  const auto fragment_geometry =
+      CalculateInitialFragmentGeometry(space, node, /*break_token=*/nullptr);
+  GridLanesLayoutAlgorithm algorithm({node, fragment_geometry, space});
+  ComputeGeometry(algorithm);
+
+  // The auto-placed subgrid's child (span 1) should produce virtual items at
+  // every track of the parent grid, not just at position 0. The parent has 3
+  // tracks, so we expect span-1 virtual items at [0,1), [1,2), [2,3), plus
+  // span-2 virtual items from the subgrid itself at [0,2) and [1,3).
+  const auto item_count = VirtualItemCount();
+  EXPECT_EQ(item_count, 5u);
+
+  const GridSpan expected_spans[] = {
+      GridSpan::TranslatedDefiniteGridSpan(0, 1),
+      GridSpan::TranslatedDefiniteGridSpan(1, 2),
+      GridSpan::TranslatedDefiniteGridSpan(2, 3),
+      GridSpan::TranslatedDefiniteGridSpan(0, 2),
+      GridSpan::TranslatedDefiniteGridSpan(1, 3),
+  };
+  wtf_size_t matched = 0;
+  for (const auto& expected : expected_spans) {
+    for (wtf_size_t i = 0; i < item_count; ++i) {
+      if (VirtualItemSpan(i) == expected) {
+        ++matched;
+        break;
+      }
+    }
+  }
+  EXPECT_EQ(matched, std::size(expected_spans));
+}
+
+// Definite subgrid with an auto-placed child: the subgrid's auto-placement
+// algorithm resolves the child to a definite position within the subgrid, so
+// by the time we group items for virtual items, the child should have a
+// definite translated span at the correct parent position.
+TEST_F(GridLanesLayoutAlgorithmTest,
+       DefiniteSubgridAutoPlacedChildProducesDefiniteVirtualItem) {
+  LoadAhem();
+  SetBodyInnerHTML(R"HTML(
+    <style>
+    body { font: 10px/1 Ahem }
+    #grid-lanes {
+      display: grid-lanes;
+      grid-template-columns: repeat(4, auto);
+    }
+    #subgrid {
+      display: grid;
+      grid-template-columns: subgrid;
+      grid-column: 2 / 4;
+    }
+    #placed { grid-column: 1 / 2; }
+    </style>
+    <div id="grid-lanes">
+      <div id="subgrid">
+        <div id="placed">XXXX</div>
+        <div>XXXXXXXX</div>
+      </div>
+    </div>
+  )HTML");
+
+  BlockNode node(GetLayoutBoxByElementId("grid-lanes"));
+  const auto space = ConstructBlockLayoutTestConstraintSpace(
+      {WritingMode::kHorizontalTb, TextDirection::kLtr},
+      LogicalSize(LayoutUnit(1000), kIndefiniteSize),
+      /*stretch_inline_size_if_auto=*/true,
+      /*is_new_formatting_context=*/true);
+  const auto fragment_geometry =
+      CalculateInitialFragmentGeometry(space, node, /*break_token=*/nullptr);
+  GridLanesLayoutAlgorithm algorithm({node, fragment_geometry, space});
+  ComputeGeometry(algorithm);
+
+  // The subgrid is at columns [1, 3) in the parent (grid-column: 2 / 4).
+  // #placed is at subgrid column 1/2 → parent column [1, 2).
+  // The auto-placed child is resolved to subgrid column 2/3 → parent [2, 3).
+  // Both should produce virtual items at their definite parent positions.
+  // The subgrid itself also produces a virtual item at [1, 3) with zero
+  // contribution.
+  const auto item_count = VirtualItemCount();
+  EXPECT_EQ(item_count, 3u);
+
+  for (wtf_size_t i = 0; i < item_count; ++i) {
+    LayoutUnit expected_max_size;
+    const auto& span = VirtualItemSpan(i);
+    if (span == GridSpan::TranslatedDefiniteGridSpan(1, 2)) {
+      expected_max_size = LayoutUnit(40);
+    } else if (span == GridSpan::TranslatedDefiniteGridSpan(2, 3)) {
+      expected_max_size = LayoutUnit(80);
+    }
+    EXPECT_EQ(MaxContentContribution(i), expected_max_size);
+  }
 }
 
 }  // namespace blink

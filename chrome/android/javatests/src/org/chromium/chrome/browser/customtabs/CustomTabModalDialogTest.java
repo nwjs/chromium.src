@@ -30,6 +30,7 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.cc.input.BrowserControlsState;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -95,7 +96,7 @@ public class CustomTabModalDialogTest {
 
     @Test
     @SmallTest
-    @DisabledTest(message = "https://crbug.com/1511082")
+    @DisabledTest(message = "https://crbug.com/41483669")
     public void testShowAndDismissTabModalDialog() throws InterruptedException {
         Context context = getInstrumentation().getTargetContext().getApplicationContext();
         Intent intent = CustomTabsIntentTestUtils.createMinimalCustomTabIntent(context, mTestPage);
@@ -116,12 +117,10 @@ public class CustomTabModalDialogTest {
                                     .with(ModalDialogProperties.TITLE, "test")
                                     .with(
                                             ModalDialogProperties.POSITIVE_BUTTON_TEXT,
-                                            context.getString(
-                                                    org.chromium.chrome.test.R.string.delete))
+                                            context.getString(R.string.delete))
                                     .with(
                                             ModalDialogProperties.NEGATIVE_BUTTON_TEXT,
-                                            context.getString(
-                                                    org.chromium.chrome.test.R.string.cancel))
+                                            context.getString(R.string.cancel))
                                     .with(
                                             ModalDialogProperties.CONTROLLER,
                                             new ModalDialogProperties.Controller() {
@@ -171,12 +170,10 @@ public class CustomTabModalDialogTest {
                                     .with(ModalDialogProperties.TITLE, "test")
                                     .with(
                                             ModalDialogProperties.POSITIVE_BUTTON_TEXT,
-                                            context.getString(
-                                                    org.chromium.chrome.test.R.string.delete))
+                                            context.getString(R.string.delete))
                                     .with(
                                             ModalDialogProperties.NEGATIVE_BUTTON_TEXT,
-                                            context.getString(
-                                                    org.chromium.chrome.test.R.string.cancel))
+                                            context.getString(R.string.cancel))
                                     .with(
                                             ModalDialogProperties.CONTROLLER,
                                             new ModalDialogProperties.Controller() {
@@ -227,12 +224,10 @@ public class CustomTabModalDialogTest {
                                     .with(ModalDialogProperties.TITLE, "test")
                                     .with(
                                             ModalDialogProperties.POSITIVE_BUTTON_TEXT,
-                                            context.getString(
-                                                    org.chromium.chrome.test.R.string.delete))
+                                            context.getString(R.string.delete))
                                     .with(
                                             ModalDialogProperties.NEGATIVE_BUTTON_TEXT,
-                                            context.getString(
-                                                    org.chromium.chrome.test.R.string.cancel))
+                                            context.getString(R.string.cancel))
                                     .with(
                                             ModalDialogProperties.CONTROLLER,
                                             new ModalDialogProperties.Controller() {

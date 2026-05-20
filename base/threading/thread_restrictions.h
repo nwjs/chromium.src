@@ -248,7 +248,6 @@ class ContentMainRunnerImpl;
 class DesktopCaptureDevice;
 class DWriteFontCollectionProxy;
 class DWriteFontProxyImpl;
-class EmergencyTraceFinalisationCoordinator;
 class InProcessUtilityThread;
 class NestedMessagePumpAndroid;
 class NetworkServiceInstancePrivate;
@@ -445,6 +444,7 @@ class GetLocalChangesRequest;
 class HttpBridge;
 }  // namespace syncer
 namespace tracing {
+class EmergencyTraceFinalisationCoordinator;
 class FuchsiaPerfettoProducerConnector;
 }
 namespace ui {
@@ -880,7 +880,6 @@ class BASE_EXPORT
   friend class cc::CategorizedWorkerPool;
   friend class cc::TileTaskManagerImpl;
   friend class content::DesktopCaptureDevice;
-  friend class content::EmergencyTraceFinalisationCoordinator;
   friend class content::InProcessUtilityThread;
   friend class content::RenderProcessHost;
   friend class content::SandboxHostLinux;
@@ -899,6 +898,7 @@ class BASE_EXPORT
   friend class mojo::SyncCallRestrictions;
   friend class mojo::core::ipcz_driver::MojoTrap;
   friend class net::NetworkConfigWatcherAppleThread;
+  friend class ::tracing::EmergencyTraceFinalisationCoordinator;
   friend class ui::DrmThreadProxy;
   friend class vr::VrShell;
 

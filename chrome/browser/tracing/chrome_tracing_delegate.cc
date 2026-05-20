@@ -16,6 +16,7 @@
 #include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/system/sys_info.h"
 #include "base/time/time.h"
 #include "base/trace_event/named_trigger.h"
 #include "base/values.h"
@@ -23,6 +24,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_otr_state.h"
+#include "chrome/common/channel_info.h"
 #include "chrome/common/pref_names.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -41,8 +43,8 @@
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #else
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"  // nogncheck
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -68,7 +70,7 @@ ChromeTracingDelegate::ChromeTracingDelegate() {
       content::BrowserThread::CurrentlyOn(content::BrowserThread::UI) ||
       !content::BrowserThread::IsThreadInitialized(content::BrowserThread::UI));
 #if !BUILDFLAG(IS_ANDROID)
-  BrowserList::AddObserver(this);
+  GlobalBrowserCollection::GetInstance()->AddObserver(this);
 #else
   TabModelList::AddObserver(this);
 #endif
@@ -76,9 +78,7 @@ ChromeTracingDelegate::ChromeTracingDelegate() {
 
 ChromeTracingDelegate::~ChromeTracingDelegate() {
   CHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
-#if !BUILDFLAG(IS_ANDROID)
-  BrowserList::RemoveObserver(this);
-#else
+#if BUILDFLAG(IS_ANDROID)
   TabModelList::RemoveObserver(this);
 #endif
 }
@@ -101,14 +101,14 @@ void ChromeTracingDelegate::OnTabModelRemoved(TabModel* tab_model) {
 
 #else
 
-void ChromeTracingDelegate::OnBrowserAdded(Browser* browser) {
-  if (browser->profile()->IsOffTheRecord()) {
+void ChromeTracingDelegate::OnBrowserCreated(BrowserWindowInterface* browser) {
+  if (browser->GetProfile()->IsOffTheRecord()) {
     latest_incognito_launched_ = base::TimeTicks::Now();
     base::trace_event::EmitNamedTrigger("incognito-start");
   }
 }
 
-void ChromeTracingDelegate::OnBrowserRemoved(Browser* browser) {
+void ChromeTracingDelegate::OnBrowserClosed(BrowserWindowInterface* browser) {
   if (!IsOffTheRecordSessionActive()) {
     base::trace_event::EmitNamedTrigger("incognito-end");
   }
@@ -163,6 +163,12 @@ std::string ChromeTracingDelegate::RecordSerializedSystemProfileMetrics()
 tracing::MetadataDataSource::BundleRecorder
 ChromeTracingDelegate::CreateSystemProfileMetadataRecorder() const {
   return base::BindRepeating(&tracing::RecordSystemProfileMetadata);
+}
+
+tracing::MetadataDataSource::ChromeMetadataRecorder
+ChromeTracingDelegate::CreateChromeMetadataPacketRecorder() const {
+  return base::BindRepeating(&tracing::FillChromeMetadataPacket,
+                             chrome::GetChannel());
 }
 
 #if BUILDFLAG(IS_WIN)

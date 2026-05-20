@@ -81,7 +81,7 @@ ci.builder(
     ),
     targets = targets.bundle(
         targets = [
-            "chromium_webkit_isolated_scripts",
+            "chromium_blink_isolated_scripts",
         ],
         mixins = [
             "win10",
@@ -235,10 +235,6 @@ ci.builder(
             ),
             "content_shell_crash_test": targets.mixin(
                 # https://crbug.com/861730
-                experiment_percentage = 100,
-            ),
-            "extensions_browsertests": targets.mixin(
-                # https://crbug.com/876615
                 experiment_percentage = 100,
             ),
             "interactive_ui_tests": targets.mixin(
@@ -552,7 +548,7 @@ ci.thin_tester(
             "x86-64",
             targets.mixin(
                 args = [
-                    "--enable-features=InitialWebUI,WebUIReloadButton,WebUISplitTabsButton,SkipIPCChannelPausingForNonGuests,WebUIInProcessResourceLoadingV2,InitialWebUISyncNavStartToCommit",
+                    "--enable-features=InitialWebUI:high_stream_priority/true,WebUIReloadButton:WebUIReloadButtonDeferBrowserViewShow/true/WebUIReloadButtonKeepVisibleUntilPaint/true,SkipIPCChannelPausingForNonGuests,WebUIInProcessResourceLoadingV2,InitialWebUISyncNavStartToCommit,InitialWebUIWithoutExtensions,SendGPUChannelEarly",
                 ],
             ),
         ],
@@ -732,7 +728,10 @@ ci.builder(
     contact_team_email = "chrome-desktop-engprod@google.com",
     # 20min (bot update) + 3hr (compile time without cache) +
     # 40min (isolate tests) with 1hr buffer
-    execution_timeout = 5 * time.hour,
+    # TODO: crbug.com/506222555: Extend timeout to let builds to
+    # upload logs.
+    # execution_timeout = 5 * time.hour,
+    execution_timeout = 7 * time.hour,
 )
 
 ci.thin_tester(

@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/byte_size.h"
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/compiler_specific.h"
@@ -418,8 +419,9 @@ void HttpCache::Transaction::StopCaching() {
   }
 }
 
-int64_t HttpCache::Transaction::GetTotalReceivedBytes() const {
-  int64_t total_received_bytes = network_transaction_info_.total_received_bytes;
+base::ByteSize HttpCache::Transaction::GetTotalReceivedBytes() const {
+  base::ByteSize total_received_bytes =
+      network_transaction_info_.total_received_bytes;
   const HttpTransaction* transaction = GetOwnedOrMovedNetworkTransaction();
   if (transaction) {
     total_received_bytes += transaction->GetTotalReceivedBytes();
@@ -427,8 +429,8 @@ int64_t HttpCache::Transaction::GetTotalReceivedBytes() const {
   return total_received_bytes;
 }
 
-int64_t HttpCache::Transaction::GetTotalSentBytes() const {
-  int64_t total_sent_bytes = network_transaction_info_.total_sent_bytes;
+base::ByteSize HttpCache::Transaction::GetTotalSentBytes() const {
+  base::ByteSize total_sent_bytes = network_transaction_info_.total_sent_bytes;
   const HttpTransaction* transaction = GetOwnedOrMovedNetworkTransaction();
   if (transaction) {
     total_sent_bytes += transaction->GetTotalSentBytes();
@@ -436,8 +438,9 @@ int64_t HttpCache::Transaction::GetTotalSentBytes() const {
   return total_sent_bytes;
 }
 
-int64_t HttpCache::Transaction::GetReceivedBodyBytes() const {
-  int64_t received_body_bytes = network_transaction_info_.received_body_bytes;
+base::ByteSize HttpCache::Transaction::GetReceivedBodyBytes() const {
+  base::ByteSize received_body_bytes =
+      network_transaction_info_.received_body_bytes;
   const HttpTransaction* transaction = GetOwnedOrMovedNetworkTransaction();
   if (transaction) {
     received_body_bytes = transaction->GetReceivedBodyBytes();
@@ -1190,8 +1193,7 @@ int HttpCache::Transaction::DoOpenOrCreateEntry() {
     // If the URL was rewritten by the NoVarySearchCache we may want to use it
     // again. The transaction will be restarted with the unmodified URL, so we
     // don't need to delete the entry for correctness.
-    if (!(features::kHttpCacheNoVarySearchKeepNotSuitable.Get() &&
-          IsUsingURLFromNoVarySearchCache())) {
+    if (!IsUsingURLFromNoVarySearchCache()) {
       cache_->GetCurrentBackend()->DoomEntry(cache_key_, priority_,
                                              base::DoNothing());
     }
@@ -1310,9 +1312,7 @@ int HttpCache::Transaction::DoOpenOrCreateEntryComplete(int result) {
   if (IsUsingURLFromNoVarySearchCache()) {
     if (result == ERR_CACHE_ENTRY_NOT_SUITABLE) {
       return RestartWithoutNoVarySearchCache(
-          features::kHttpCacheNoVarySearchKeepNotSuitable.Get()
-              ? RestartCacheEntryAction::kDontErase
-              : RestartCacheEntryAction::kErase,
+          RestartCacheEntryAction::kDontErase,
           NoVarySearchUseResult::kNotSuitable);
     }
 

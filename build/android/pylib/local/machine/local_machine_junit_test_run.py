@@ -136,6 +136,8 @@ class LocalMachineJunitTestRun(test_run.TestRun):
         '-Drobolectric.logging=stdout',
         '-Djava.library.path=%s' % self._test_instance.native_libs_dir,
     ]
+    if self._test_instance.run_disabled:
+      jvm_args += ['-Dchromium.run_disabled=1']
     if self._test_instance.debug_socket and allow_debugging:
       jvm_args += [
           '-Dchromium.jdwp_active=true',
@@ -270,6 +272,9 @@ class LocalMachineJunitTestRun(test_run.TestRun):
     for config in json_config['configs'].values():
       for class_name, methods in config.items():
         ret.extend(f'{class_name}.{method}' for method in methods)
+    for config in json_config.get('disabled', {}).values():
+      for class_name, methods in config.items():
+        ret.extend(f'{class_name}.{method} (disabled)' for method in methods)
     ret.sort()
     return ret
 
@@ -288,6 +293,16 @@ class LocalMachineJunitTestRun(test_run.TestRun):
       except (subprocess.CalledProcessError, IOError):
         results.append(_MakeUnknownFailureResult('Filter matched no tests'))
         return
+
+    # Disabled tests are nested in a top-level "disabled" key.
+    # Merge them into the main "configs".
+    if self._test_instance.run_disabled:
+      for config, classes in json_config.get('disabled', {}).items():
+        target_classes = json_config['configs'].setdefault(config, {})
+        for class_name, methods in classes.items():
+          target_methods = target_classes.setdefault(class_name, [])
+          target_methods.extend(methods)
+
     json_config = self._ApplyExternalSharding(json_config)
     test_groups = GroupTests(json_config, _MAX_TESTS_PER_JOB)
 
@@ -393,6 +408,38 @@ class LocalMachineJunitTestRun(test_run.TestRun):
 
     test_run_results = base_test_result.TestRunResults()
     test_run_results.AddResults(results_list)
+
+    num_actual = len(test_run_results.GetAll())
+    num_expected = sum(
+        len(methods) for classes in json_config['configs'].values()
+        for methods in classes.values())
+
+    # Check that all tests actually ran that we expected to run.
+    if num_actual != num_expected:
+      sb = [
+          f'Expected {num_expected} tests, but got only {num_actual} results.',
+          'Missing results for:',
+      ]
+      actual_test_names = {r.GetName() for r in test_run_results.GetAll()}
+      for config, classes in json_config['configs'].items():
+        for class_name, methods in classes.items():
+          for method in methods:
+            test_name = f'{class_name}#{method}'
+            if test_name not in actual_test_names:
+              sb.append(f'  {test_name} ({config})')
+      if self._test_instance.run_disabled:
+        sb.append('The missing tests could be due to not using '
+                  'BaseJUnit4ClassRunner / BaseRobolectricTestRunner, since '
+                  'these are required for --run-disabled.')
+      results.append(
+          _MakeUnknownFailureResult('Not Enough Results', '\n'.join(sb)))
+
+    if json_config.get('disabled') and not self._test_instance.run_disabled:
+      num_disabled = sum(
+          len(methods) for classes in json_config['disabled'].values()
+          for methods in classes.values())
+      test_run.ShowDisabledTestsHint(count=num_disabled)
+
     results.append(test_run_results)
 
   # override
@@ -433,13 +480,16 @@ def GroupTests(json_config, max_per_job):
   return ret
 
 
-def _MakeUnknownFailureResult(message):
+def _MakeUnknownFailureResult(name, details=None):
+  # TODO(504602174): These result types are not handled properly.
   results_list = [
-      base_test_result.BaseTestResult(message,
-                                      base_test_result.ResultType.UNKNOWN)
+      base_test_result.BaseTestResult(name,
+                                      base_test_result.ResultType.UNKNOWN,
+                                      log=details)
   ]
   test_run_results = base_test_result.TestRunResults()
   test_run_results.AddResults(results_list)
+  logging.error('%s. Details: %s', name, details)
   return test_run_results
 
 

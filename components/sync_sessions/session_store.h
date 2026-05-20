@@ -22,6 +22,10 @@
 #include "components/sync_device_info/device_info.h"
 #include "components/sync_sessions/synced_session_tracker.h"
 
+namespace syncer {
+class MetadataChangeList;
+}  // namespace syncer
+
 namespace sync_sessions {
 
 // Class responsible for maintaining an in-memory representation of sync
@@ -53,24 +57,6 @@ class SessionStore {
                    SyncSessionsClient* sessions_client,
                    OpenCallback callback);
 
-  // These values are persisted to logs. Entries should not be renumbered and
-  // numeric values should never be reused.
-  // LINT.IfChange(SessionSpecificsInvalidReason)
-  enum class SpecificsInvalidReason {
-    kMissingSessionTag = 0,
-    kBothHeaderAndTab = 1,
-    kNeitherHeaderNorTab = 2,
-    kTabBadTabNodeId = 3,
-    kTabBadTabId = 4,
-    kHeaderWithDuplicateTabIds = 5,
-    kHeaderWithTabNodeId = 6,
-    kMaxValue = kHeaderWithTabNodeId
-  };
-  // LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SessionSpecificsInvalidReason)
-
-  // Returns the reason the given `specifics` is invalid, or nullopt if valid.
-  static std::optional<SpecificsInvalidReason> GetSpecificsInvalidReason(
-      const sync_pb::SessionSpecifics& specifics);
   // Verifies whether a proto is malformed (e.g. required fields are missing).
   static bool AreValidSpecifics(const sync_pb::SessionSpecifics& specifics);
   // |specifics| must be valid, see AreValidSpecifics().
@@ -80,6 +66,8 @@ class SessionStore {
   static std::string GetHeaderStorageKey(const std::string& session_tag);
   static std::string GetTabStorageKey(const std::string& session_tag,
                                       int tab_node_id);
+  static std::string GetTabScreenshotStorageKey(const std::string& session_tag,
+                                                int tab_node_id);
   // Verifies if |storage_key| corresponds to an entity in the local session,
   // identified by the session tag.
   bool StorageKeyMatchesLocalSession(const std::string& storage_key) const;
@@ -122,7 +110,8 @@ class SessionStore {
     // the caller's responsibility to do so *before* calling these functions.
     std::string PutWithoutUpdatingTracker(
         const sync_pb::SessionSpecifics& specifics);
-    std::string DeleteLocalTabWithoutUpdatingTracker(int tab_node_id);
+    std::vector<std::string> DeleteLocalTabWithoutUpdatingTracker(
+        int tab_node_id);
 
     syncer::MetadataChangeList* GetMetadataChangeList();
 
@@ -157,6 +146,17 @@ class SessionStore {
   std::unique_ptr<WriteBatch> CreateWriteBatch(
       syncer::OnceModelErrorHandler error_handler);
 
+  // Reads an individual tab screenshot from persisted storage and returns it
+  // to the `callback`. If no matching screenshot is available or an error
+  // occurs while reading it, the callback is invoked with nullopt.
+  // Note: This special API is required since screenshots (as opposed to the
+  // tabs themselves) are not stored in the in-memory model and are hence
+  // not available through the normal read APIs.
+  void ReadTabScreenshot(
+      const std::string& session_tag,
+      SessionID tab_id,
+      base::OnceCallback<void(std::optional<std::string>)> callback);
+
   using RecreateEmptyStoreCallback =
       base::OnceCallback<std::unique_ptr<SessionStore>(
           const std::string& cache_guid,
@@ -166,6 +166,7 @@ class SessionStore {
   // Returns a callback that allows synchronously re-creating an empty
   // SessionStore, by reusing the underlying DataTypeStore.
   static RecreateEmptyStoreCallback DeleteAllDataAndMetadata(
+      std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
       std::unique_ptr<SessionStore> session_store);
 
   // TODO(crbug.com/41295474): Avoid exposing a mutable tracker, because that
@@ -187,6 +188,13 @@ class SessionStore {
       std::unique_ptr<syncer::MetadataBatch> metadata_batch);
   static void OnReadAllData(std::unique_ptr<Builder> builder,
                             const std::optional<syncer::ModelError>& error);
+
+  static void OnReadTabScreenshotDone(
+      const GURL& tab_url,
+      base::OnceCallback<void(std::optional<std::string>)> callback,
+      const std::optional<syncer::ModelError>& error,
+      std::unique_ptr<syncer::DataTypeStore::RecordList> data_records,
+      std::unique_ptr<syncer::DataTypeStore::IdList> missing_id_list);
 
   static std::unique_ptr<SessionStore> RecreateEmptyStore(
       SessionInfo local_session_info_without_session_tag,

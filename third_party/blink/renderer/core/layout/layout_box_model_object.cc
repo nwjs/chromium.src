@@ -207,9 +207,7 @@ void LayoutBoxModelObject::StyleDidChange(
 
       CreateLayerAfterStyleChange();
     }
-  } else if (Layer() && (RuntimeEnabledFeatures::
-                             LayoutReinsertOnInFlowStateChangeEnabled() ||
-                         Layer()->Parent())) {
+  } else if (Layer()) {
     Layer()->UpdateFilters(diff, old_style, StyleRef());
     Layer()->UpdateBackdropFilters(old_style, StyleRef());
     Layer()->UpdateClipPath(old_style, StyleRef());
@@ -558,8 +556,8 @@ StickyConstraintsData LayoutBoxModelObject::ComputeStickyPositionConstraints(
 
   const auto* scroll_container = scroll_container_layer.GetLayoutBox();
   DCHECK(scroll_container);
-  const PhysicalOffset scroll_container_border_offset(
-      scroll_container->BorderLeft(), scroll_container->BorderTop());
+  const PhysicalOffset scroll_container_border_offset =
+      scroll_container->BorderOutsets().Offset();
 
   MapCoordinatesFlags flags = kIgnoreTransforms | kIgnoreScrollOffset |
                               kIgnoreStickyOffset |
@@ -807,28 +805,38 @@ PhysicalOffset LayoutBoxModelObject::AdjustedPositionRelativeTo(
           To<LayoutBox>(this)->AnchorPositionScrollTranslationOffset();
     }
 
-    if (offset_parent_object->IsLayoutInline()) {
-      const auto* inline_parent = To<LayoutInline>(offset_parent_object);
+    if (const auto* inline_parent =
+            DynamicTo<LayoutInline>(offset_parent_object)) {
       reference_point -= inline_parent->FirstLineBoxTopLeft();
     }
 
-    if (offset_parent_object->IsBox() && !offset_parent_object->IsBody()) {
-      auto* box = To<LayoutBox>(offset_parent_object);
-      reference_point -= PhysicalOffset(box->BorderLeft(), box->BorderTop());
+    if (const auto* box_parent = DynamicTo<LayoutBox>(offset_parent_object)) {
+      if (!box_parent->IsBody()) {
+        reference_point -= box_parent->BorderOutsets().Offset();
+      }
     }
   }
 
   return reference_point;
 }
 
-LayoutUnit LayoutBoxModelObject::ComputedCSSPadding(
-    const Length& padding) const {
+PhysicalBoxStrut LayoutBoxModelObject::ComputedPaddingOutsets() const {
   NOT_DESTROYED();
-  LayoutUnit w;
-  if (padding.HasPercent()) {
-    w = ContainingBlockLogicalWidthForContent();
+
+  const ComputedStyle& style = StyleRef();
+  if (!style.MayHavePadding()) {
+    return PhysicalBoxStrut();
   }
-  return MinimumValueForLength(padding, w);
+
+  const LayoutUnit percentage_size =
+      (style.PaddingTop().HasPercent() || style.PaddingRight().HasPercent() ||
+       style.PaddingBottom().HasPercent() || style.PaddingLeft().HasPercent())
+          ? ContainingBlockLogicalWidthForContent()
+          : LayoutUnit();
+  return {MinimumValueForLength(style.PaddingTop(), percentage_size),
+          MinimumValueForLength(style.PaddingRight(), percentage_size),
+          MinimumValueForLength(style.PaddingBottom(), percentage_size),
+          MinimumValueForLength(style.PaddingLeft(), percentage_size)};
 }
 
 LayoutUnit LayoutBoxModelObject::ContainingBlockLogicalWidthForContent() const {
@@ -837,11 +845,19 @@ LayoutUnit LayoutBoxModelObject::ContainingBlockLogicalWidthForContent() const {
 }
 
 LogicalRect LayoutBoxModelObject::LocalCaretRectForEmptyElement(
-    LayoutUnit width,
+    LayoutUnit inline_size,
     LayoutUnit text_indent_offset,
     CaretShape caret_shape) const {
   NOT_DESTROYED();
   DCHECK(!SlowFirstChild() || SlowFirstChild()->IsPseudoElement());
+
+  const SimpleFontData* font_data = StyleRef().GetFont()->PrimaryFont();
+  const Node* node = GetNode();
+
+  // Caret-shape only applies to text or elements that accept text input.
+  if (!node || !IsEditable(*node) || !font_data) {
+    caret_shape = CaretShape::kBar;
+  }
 
   // FIXME: This does not take into account either :first-line or :first-letter
   // However, as soon as some content is entered, the line boxes will be
@@ -893,16 +909,34 @@ LogicalRect LayoutBoxModelObject::LocalCaretRectForEmptyElement(
       break;
   }
 
-  LayoutUnit x = BorderLeft() + PaddingLeft();
-  LayoutUnit max_x = width - BorderRight() - PaddingRight();
-  BoxStrut border_padding =
+  const LayoutUnit line_height = current_style.ComputedLineHeightAsFixed();
+
+  // `bar_caret_width` is used for both "bar" and "underscore" carets.
+  const LayoutUnit bar_caret_width = GetFrameView()->BarCaretWidth();
+  const LayoutUnit bar_caret_height =
+      font_data ? LayoutUnit(font_data->GetFontMetrics().Height())
+                : line_height;
+
+  const LogicalSize caret_size = ([&]() -> LogicalSize {
+    switch (caret_shape) {
+      case CaretShape::kBar:
+        return {bar_caret_width, bar_caret_height};
+      case CaretShape::kBlock:
+        return {LayoutUnit(font_data->GetFontMetrics().ZeroWidth()),
+                bar_caret_height};
+      case CaretShape::kUnderscore:
+        return {LayoutUnit(font_data->GetFontMetrics().ZeroWidth()),
+                bar_caret_width};
+    }
+  })();
+
+  const BoxStrut border_padding =
       (BorderOutsets() + PaddingOutsets())
           .ConvertToLogical(
               {current_style.GetWritingMode(), TextDirection::kLtr});
-  x = border_padding.inline_start;
-  max_x = width - border_padding.inline_end;
-  LayoutUnit caret_width = GetFrameView()->BarCaretWidth();
 
+  const LayoutUnit max_x = inline_size - border_padding.inline_end;
+  LayoutUnit x = border_padding.inline_start;
   switch (alignment) {
     case kAlignLeft:
       if (current_style.IsLeftToRightDirection())
@@ -916,40 +950,24 @@ LogicalRect LayoutBoxModelObject::LocalCaretRectForEmptyElement(
         x -= text_indent_offset / 2;
       break;
     case kAlignRight:
-      x = max_x - caret_width;
+      x = max_x - caret_size.inline_size;
       if (!current_style.IsLeftToRightDirection())
         x -= text_indent_offset;
       break;
   }
-  x = std::min(x, (max_x - caret_width).ClampNegativeToZero());
+  x = std::min(x, (max_x - caret_size.inline_size).ClampNegativeToZero());
 
-  const Font* font = StyleRef().GetFont();
-  const SimpleFontData* font_data = font->PrimaryFont();
-  LayoutUnit height;
-  // crbug.com/595692 This check should not be needed but sometimes
-  // primaryFont is null.
-  if (font_data)
-    height = LayoutUnit(font_data->GetFontMetrics().Height());
-  LayoutUnit vertical_space =
-      current_style.ComputedLineHeightAsFixed() - height;
-  LayoutUnit block_start = border_padding.block_start + (vertical_space / 2);
-  // Care-shape applies to text or elements that accept text input.
-  const Node* node = GetNode();
-  if (!node || !IsEditable(*node)) {
-    caret_shape = CaretShape::kBar;
+  const LayoutUnit free_space = line_height - bar_caret_height;
+  switch (caret_shape) {
+    case CaretShape::kBar:
+    case CaretShape::kBlock:
+      return {LogicalOffset(x, border_padding.block_start + (free_space / 2)),
+              caret_size};
+    case CaretShape::kUnderscore:
+      return {LogicalOffset(x, border_padding.block_start + (free_space / 2) +
+                                   bar_caret_height),
+              caret_size};
   }
-  if (caret_shape != CaretShape::kBar && font_data) [[unlikely]] {
-    if (caret_shape == CaretShape::kBlock) {
-      caret_width = LayoutUnit(font_data->GetFontMetrics().ZeroWidth());
-    } else if (caret_shape == CaretShape::kUnderscore) {
-      height = caret_width;
-      caret_width = LayoutUnit(font_data->GetFontMetrics().ZeroWidth());
-      block_start =
-          block_start + LayoutUnit(font_data->GetFontMetrics().Height());
-    }
-  }
-
-  return LogicalRect(x, block_start, caret_width, height);
 }
 
 void LayoutBoxModelObject::MoveChildTo(

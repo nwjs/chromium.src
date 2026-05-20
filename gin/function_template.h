@@ -20,6 +20,7 @@
 #include "gin/gin_export.h"
 #include "gin/per_isolate_data.h"
 #include "gin/public/gin_embedders.h"
+#include "v8/include/cppgc/macros.h"
 #include "v8/include/v8-external.h"
 #include "v8/include/v8-forward.h"
 #include "v8/include/v8-persistent-handle.h"
@@ -34,18 +35,26 @@ struct InvokerOptions {
 
 namespace internal {
 
-template<typename T>
+template <typename T>
 struct CallbackParamTraits {
   typedef T LocalType;
 };
-template<typename T>
+template <typename T>
 struct CallbackParamTraits<const T&> {
   typedef T LocalType;
 };
-template<typename T>
+template <typename T>
 struct CallbackParamTraits<const T*> {
   typedef T* LocalType;
 };
+
+// kSignatureId provides a unique memory address for each function signature.
+// This identifier is stored in CallbackHolderBase and used for runtime type
+// checks before casting to a specific CallbackHolder in DispatchToCallbackImpl.
+// This allows all gin callbacks to share a single ExternalPointerTable tag,
+// avoiding the need to register unique tags for every possible signature.
+template <typename Sig>
+inline constexpr int kSignatureId = 0;
 
 // CallbackHolder and CallbackHolderBase are used to pass a
 // base::RepeatingCallback from CreateFunctionTemplate through v8 (via
@@ -68,8 +77,10 @@ class GIN_EXPORT CallbackHolderBase {
 
   v8::Local<v8::External> GetHandle(v8::Isolate* isolate);
 
+  uintptr_t type_identifier() const { return type_identifier_; }
+
  protected:
-  explicit CallbackHolderBase(v8::Isolate* isolate);
+  CallbackHolderBase(v8::Isolate* isolate, const uintptr_t type_identifier);
   virtual ~CallbackHolderBase();
 
  private:
@@ -91,17 +102,19 @@ class GIN_EXPORT CallbackHolderBase {
   static void SecondWeakCallback(
       const v8::WeakCallbackInfo<CallbackHolderBase>& data);
 
+  uintptr_t type_identifier_;
   v8::Global<v8::External> v8_ref_;
   DisposeObserver dispose_observer_;
 };
 
-template<typename Sig>
+template <typename Sig>
 class CallbackHolder : public CallbackHolderBase {
  public:
   CallbackHolder(v8::Isolate* isolate,
                  base::RepeatingCallback<Sig> callback,
                  InvokerOptions invoker_options)
-      : CallbackHolderBase(isolate),
+      : CallbackHolderBase(isolate,
+                           reinterpret_cast<uintptr_t>(&kSignatureId<Sig>)),
         callback(std::move(callback)),
         invoker_options(std::move(invoker_options)) {}
   CallbackHolder(const CallbackHolder&) = delete;
@@ -161,6 +174,9 @@ GIN_EXPORT void ThrowConversionError(Arguments* args,
 // at position |index|.
 template <size_t index, typename ArgType, typename = void>
 struct ArgumentHolder {
+  CPPGC_STACK_ALLOCATED();
+
+ public:
   using ArgLocalType = typename CallbackParamTraits<ArgType>::LocalType;
 
   ArgLocalType value;
@@ -168,8 +184,9 @@ struct ArgumentHolder {
 
   ArgumentHolder(Arguments* args, const InvokerOptions& invoker_options)
       : ok(GetNextArgument(args, invoker_options, index == 0, &value)) {
-    if (!ok)
+    if (!ok) {
       ThrowConversionError(args, invoker_options, index);
+    }
   }
 };
 
@@ -183,6 +200,9 @@ template <size_t index, typename ArgType>
       std::is_constructible_v<typename CallbackParamTraits<ArgType>::LocalType,
                               v8::Isolate*>)
 struct ArgumentHolder<index, ArgType> {
+  CPPGC_STACK_ALLOCATED();
+
+ public:
   using ArgLocalType = typename CallbackParamTraits<ArgType>::LocalType;
 
   ArgLocalType value;
@@ -214,9 +234,7 @@ class Invoker<std::index_sequence<indices...>, ArgTypes...>
       : ArgumentHolder<indices, ArgTypes>(args, invoker_options)...,
         args_(args) {}
 
-  bool IsOK() {
-    return And(ArgumentHolder<indices, ArgTypes>::ok...);
-  }
+  bool IsOK() { return And(ArgumentHolder<indices, ArgTypes>::ok...); }
 
   template <typename ReturnType>
   void DispatchToCallback(
@@ -256,12 +274,16 @@ struct Dispatcher<ReturnType(ArgTypes...)> {
         v8_holder->Value(kGinInternalCallbackHolderBaseTag));
 
     typedef CallbackHolder<ReturnType(ArgTypes...)> HolderT;
+    CHECK_EQ(
+        holder_base->type_identifier(),
+        reinterpret_cast<uintptr_t>(&kSignatureId<ReturnType(ArgTypes...)>));
     HolderT* holder = static_cast<HolderT*>(holder_base);
 
     using Indices = std::index_sequence_for<ArgTypes...>;
     Invoker<Indices, ArgTypes...> invoker(args, holder->invoker_options);
-    if (invoker.IsOK())
+    if (invoker.IsOK()) {
       invoker.DispatchToCallback(holder->callback);
+    }
   }
 
   static void DispatchToCallback(

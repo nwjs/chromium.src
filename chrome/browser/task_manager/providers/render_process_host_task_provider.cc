@@ -5,6 +5,7 @@
 #include "chrome/browser/task_manager/providers/render_process_host_task_provider.h"
 
 #include "base/process/process.h"
+#include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/public/glic_enabling.h"  // nogncheck
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
@@ -15,33 +16,12 @@
 #include "content/public/browser/child_process_data.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/process_type.h"
-#include "extensions/buildflags/buildflags.h"
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "extensions/browser/process_map.h"  // nogncheck
-#endif
 
 using content::BrowserThread;
 using content::ChildProcessData;
 using content::RenderProcessHost;
 
 namespace task_manager {
-
-namespace {
-
-bool IsHostForGlic(content::RenderProcessHost* host) {
-  // This needs to match the GlicKeyedServiceFactory initialization logic in
-  // EnsureBrowserContextKeyedServiceFactoriesBuilt().
-  if (!glic::GlicEnabling::IsEnabledByFlags()) {
-    return false;
-  }
-
-  auto* glic_service = glic::GlicKeyedServiceFactory::GetGlicKeyedService(
-      host->GetBrowserContext());
-  return glic_service && glic_service->IsProcessHostForGlic(host);
-}
-
-}  // namespace
 
 RenderProcessHostTaskProvider::RenderProcessHostTaskProvider() = default;
 
@@ -95,7 +75,7 @@ void RenderProcessHostTaskProvider::CreateTask(
   data.SetProcess(host->GetProcess().Duplicate());
 
   auto subtype = ChildProcessTask::ProcessSubtype::kUnknownRenderProcess;
-  if (IsHostForGlic(host)) {
+  if (glic::IsProcessHostForGlic(host)) {
     subtype = ChildProcessTask::ProcessSubtype::kGlicRenderProcess;
   }
   std::unique_ptr<ChildProcessTask>& task =

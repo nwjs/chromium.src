@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/feature.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/user_metrics_action.h"
@@ -57,8 +58,17 @@ constexpr base::FeatureParam<int>
 
 BASE_FEATURE(kBundledSecuritySettings, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kBundledSecuritySettingsAskBeforeHttp,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kBundledSecuritySettingsSecureDnsV2,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kClientSideDetectionBypassTiers,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<std::string> kClientSideDetectionBypassTiersList{
+    &kClientSideDetectionBypassTiers, "ClientSideDetectionBypassTiersList",
+    /*default_value=*/""};
 
 BASE_FEATURE(kClientSideDetectionClipboardCopyApi,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -105,6 +115,9 @@ const base::FeatureParam<double> kCsdCreditCardFormSampleRate{
 const base::FeatureParam<int> kCsdCreditCardFormMaxUserVisit{
     &kClientSideDetectionCreditCardForm, "MaxUserVisit",
     /*default_value=*/1};
+const base::FeatureParam<int> kCsdCreditCardFormUserVisitLookback{
+    &kClientSideDetectionCreditCardForm, "UserVisitLookback",
+    /*default_value=*/10};
 const base::FeatureParam<bool> kCsdCreditCardFormEnableNewSiteFilter{
     &kClientSideDetectionCreditCardForm, "EnableNewSiteFilter",
     /*default_value=*/false};
@@ -113,6 +126,12 @@ const base::FeatureParam<bool> kCsdCreditCardFormEnableHeuristicFilter{
     /*default_value=*/false};
 const base::FeatureParam<bool> kCsdCreditCardFormEnableReferringAppFilter{
     &kClientSideDetectionCreditCardForm, "EnableReferringAppFilter",
+    /*default_value=*/false};
+const base::FeatureParam<bool> kCsdCreditCardFormEnableInteractionTrigger{
+    &kClientSideDetectionCreditCardForm, "EnableInteractionTrigger",
+    /*default_value=*/false};
+const base::FeatureParam<bool> kCsdCreditCardFormEnableDetectionTrigger{
+    &kClientSideDetectionCreditCardForm, "EnableDetectionTrigger",
     /*default_value=*/false};
 
 BASE_FEATURE(kClientSideDetectionDeprecateDOMModel,
@@ -129,9 +148,6 @@ const base::FeatureParam<bool> kCsdImageEmbeddingMatchWithIntelligentScan{
 
 BASE_FEATURE(kClientSideDetectionKillswitch, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kClientSideDetectionLlamaForcedTriggerInfoForScamDetection,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kClientSideDetectionNewObservers,
              base::FEATURE_DISABLED_BY_DEFAULT);
 constexpr base::FeatureParam<double> kCsdClassificationDelay{
@@ -139,7 +155,7 @@ constexpr base::FeatureParam<double> kCsdClassificationDelay{
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kClientSideDetectionOnDeviceModelLazyDownloadAndroid,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kClientSideDetectionOnlyESBClassification,
@@ -156,32 +172,25 @@ constexpr base::FeatureParam<int> kClientSideDetectionRetryLimitTime{
 BASE_FEATURE(kClientSideDetectionSamplePing, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kClientSideDetectionSendIntelligentScanInfoAndroid,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
-BASE_FEATURE(kClientSideDetectionSendLlamaForcedTriggerInfo,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kClientSideDetectionServerModelForScamDetectionAndroid,
              base::FEATURE_DISABLED_BY_DEFAULT);
 constexpr base::FeatureParam<int> kClientSideDetectionServerModelMaxScansPerDay{
     &kClientSideDetectionServerModelForScamDetectionAndroid,
     "MaxIntelligentScansPerDay",
     /*default_value=*/5};
-#endif
 
-BASE_FEATURE(kClientSideDetectionShowLlamaScamVerdictWarning,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kClientSideDetectionShowScamVerdictWarningAndroid,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kClientSideDetectionServerModelRolloutAndroid,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<int>
+    kClientSideDetectionServerModelRolloutVersionAndroid{
+        &kClientSideDetectionServerModelRolloutAndroid, "ModelVersion",
+        /*default_value=*/1000};
 #endif
 
 BASE_FEATURE(kClientSideDetectionSkipErrorPage,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kClientSideDetectionTierSystem, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kConditionalImageResize, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -232,7 +241,7 @@ BASE_FEATURE(kEnterprisePasswordReuseUiRefresh,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnterpriseRealTimeUrlCheckNewUrl,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEsbAsASyncedSetting, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -343,10 +352,8 @@ BASE_FEATURE(kMigrateEnhancedSbUserToEnhancedBundle,
 BASE_FEATURE(kMigrateToBlockV8OptimizerOnUnfamiliarSites,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kModifiedESBFetchErrorHandling, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kMovePasswordLeakDetectionToggleIos,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNoticeQueueForEsb, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -363,6 +370,13 @@ constexpr base::FeatureParam<bool> kNotificationTelemetrySwbSendReports{
 constexpr base::FeatureParam<int> kNotificationTelemetrySwbPollingInterval{
     &kNotificationTelemetrySwb, "NotificationTelemetrySwbPollingInterval",
     /*default_value=*/60};
+
+BASE_FEATURE(kProactivePasswordProtection,
+             "ProactivePasswordProtection",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<double> kCsdProactivePasswordProtectionSampleRate{
+    &kProactivePasswordProtection, "CsdProactivePasswordProtectionSampleRate",
+    0.0};
 
 BASE_FEATURE(kRedWarningSurvey, base::FEATURE_DISABLED_BY_DEFAULT);
 constexpr base::FeatureParam<std::string> kRedWarningSurveyTriggerId{
@@ -446,6 +460,7 @@ base::ListValue GetFeatureStatusList() {
       // keep-sorted start
       &kAutoRevokeSuspiciousNotification,
       &kBundledSecuritySettings,
+      &kBundledSecuritySettingsAskBeforeHttp,
       &kClientSideDetectionClipboardCopyApi,
       &kClientSideDetectionForcedLlamaRedirectChainKillswitch,
       &kClientSideDetectionImageEmbeddingMatch,
@@ -463,6 +478,7 @@ base::ListValue GetFeatureStatusList() {
       &kLocalListsUseSBv5,
       &kMigrateEnhancedSbUserToEnhancedBundle,
       &kNotificationTelemetrySwb,
+      &kProactivePasswordProtection,
       &kReportNotificationContentDetectionData,
       &kShowManualNotificationRevocationsSafetyHub,
       &kShowWarningsForSuspiciousNotifications,
@@ -483,6 +499,8 @@ base::ListValue GetFeatureStatusList() {
   }
 
   // Manually add experimental features that we want param values for.
+  param_list.Append(kCsdProactivePasswordProtectionSampleRate.Get());
+  param_list.Append(kCsdProactivePasswordProtectionSampleRate.name);
   param_list.Append(kHashPrefixRealTimeLookupsRelayUrl.Get());
   param_list.Append(kHashPrefixRealTimeLookupsRelayUrl.name);
   param_list.Append(kHashPrefixRealTimeLookupsKeyFetchUrl.Get());

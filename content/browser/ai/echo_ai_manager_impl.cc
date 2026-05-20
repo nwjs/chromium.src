@@ -9,6 +9,7 @@
 #include "base/time/time.h"
 #include "components/language/core/common/locale_util.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
+#include "content/browser/ai/echo_ai_classifier.h"
 #include "content/browser/ai/echo_ai_language_model.h"
 #include "content/browser/ai/echo_ai_proofreader.h"
 #include "content/browser/ai/echo_ai_rewriter.h"
@@ -329,6 +330,23 @@ void EchoAIManagerImpl::CreateProofreader(
       std::move(client_remote));
 }
 
+void EchoAIManagerImpl::CanCreateClassifier(
+    blink::mojom::AIClassifierCreateOptionsPtr options,
+    CanCreateClassifierCallback callback) {
+  CanCreateClient<CanCreateClassifierCallback>(std::move(callback));
+}
+
+void EchoAIManagerImpl::CreateClassifier(
+    mojo::PendingRemote<blink::mojom::AIManagerCreateClassifierClient> client,
+    blink::mojom::AIClassifierCreateOptionsPtr options) {
+  mojo::Remote<blink::mojom::AIManagerCreateClassifierClient> client_remote(
+      std::move(client));
+
+  CreateClient<blink::mojom::AIManagerCreateClassifierClient,
+               blink::mojom::AIClassifier, EchoAIClassifier>(
+      std::move(client_remote));
+}
+
 void EchoAIManagerImpl::AddModelDownloadProgressObserver(
     mojo::PendingRemote<on_device_model::mojom::DownloadObserver>
         observer_remote) {
@@ -441,7 +459,8 @@ void EchoAIManagerImpl::ReturnAILanguageModelCreationResult(
           std::vector<blink::mojom::AILanguageModelPromptType>(
               enabled_input_types.begin(), enabled_input_types.end()),
           /*audio_sample_rate_hz=*/std::nullopt,
-          /*audio_channel_count=*/std::nullopt));
+          /*audio_channel_count=*/std::nullopt,
+          /*sampling_mode=*/std::nullopt));
 }
 
 void EchoAIManagerImpl::DoMockDownloadingAndReturn(base::OnceClosure callback) {

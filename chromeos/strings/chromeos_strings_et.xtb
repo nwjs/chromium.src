@@ -403,6 +403,7 @@
 <translation id="2618015542787108131">liivaluide</translation>
 <translation id="2619761439309613843">Igapäevane värskendamine</translation>
 <translation id="2620436844016719705">Süsteem</translation>
+<translation id="2626848494898563581">Google'i teenustele ei pääse juurde.</translation>
 <translation id="2637303424821734920">VÄLJAS – kohaliku ilma kuvamiseks <ph name="BEGIN_LINK" />lülitage sisse süsteemi asukohajuurdepääs<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Sisselogimispilt</translation>
 <translation id="2640549051766135490">Album <ph name="TITLE" /> <ph name="DESC" /> on valitud</translation>
@@ -1183,6 +1184,7 @@
 <translation id="6234024205316847054">Kuva piirjooned</translation>
 <translation id="6243280677745499710">Praegu määratud</translation>
 <translation id="6250316632541035980">peekon ja munad</translation>
+<translation id="6262413940100821797">tundmatu saaja</translation>
 <translation id="6265268291107409527">Valitud on klahv <ph name="KEYS" />. <ph name="ASSIGN_INSTRUCTION" /></translation>
 <translation id="6275224645089671689">Paremnool</translation>
 <translation id="6278428485366576908">Teema</translation>

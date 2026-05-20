@@ -64,6 +64,7 @@ source_set("affiliations") {
     "//net",
     "//services/network/public/cpp",
     "//sql",
+    "//third_party/re2",
   ]
   public_deps = [ "//url" ]
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
@@ -110,6 +111,7 @@ source_set("unit_tests") {
     "affiliation_utils_unittest.cc",
     "facet_manager_unittest.cc",
     "hash_affiliation_fetcher_unittest.cc",
+    "lookup_affiliation_response_parser_unittest.cc",
     "sql_table_builder_unittest.cc",
   ]
   deps = [

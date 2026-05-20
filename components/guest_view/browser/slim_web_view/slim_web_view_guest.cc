@@ -11,6 +11,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
+#include "base/strings/string_util.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/expected.h"
 #include "components/guest_view/browser/guest_view_event.h"
@@ -18,6 +19,7 @@
 #include "components/guest_view/browser/slim_web_view/grit/slim_web_view_strings.h"
 #include "components/guest_view/browser/slim_web_view/request_utils.h"
 #include "components/guest_view/browser/slim_web_view/slim_web_view_constants.h"
+#include "components/url_pattern/simple_url_pattern_matcher.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_process_host.h"
@@ -28,6 +30,7 @@
 #include "net/http/http_util.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 #include "url/url_constants.h"
 
 namespace guest_view {
@@ -35,6 +38,7 @@ namespace guest_view {
 namespace {
 
 const char kStoragePartitionId[] = "partition";
+
 const char kPersistPrefix[] = "persist:";
 
 void ParsePartitionParam(const base::DictValue& create_params,
@@ -133,6 +137,55 @@ ParseBeforeSendHeadersParams(const base::DictValue& create_params) {
   return base::ok(std::move(params));
 }
 
+base::expected<std::optional<OriginCheckParams>, std::string>
+ParseOriginCheckParams(const base::DictValue& create_params) {
+  const base::DictValue* allowed_origins_dict =
+      create_params.FindDict("allowedOrigins");
+  if (!allowed_origins_dict) {
+    return base::ok(std::nullopt);
+  }
+  std::optional<OriginCheckParams> params;
+  params.emplace();
+  const auto* resource_types = allowed_origins_dict->FindList("resourceTypes");
+  if (resource_types) {
+    for (const auto& resource_type : *resource_types) {
+      if (!resource_type.is_string()) {
+        return base::unexpected("resourceTypes elements must be strings.");
+      }
+      auto parsed_resource_type =
+          ParseRequestResourceType(resource_type.GetString());
+      if (!parsed_resource_type) {
+        return base::unexpected("Invalid resourceType provided.");
+      }
+      params->resource_types.insert(*parsed_resource_type);
+    }
+  }
+  const auto* allowed_origins =
+      allowed_origins_dict->FindList("allowedOrigins");
+  if (allowed_origins) {
+    for (const auto& allowed_origin : *allowed_origins) {
+      if (!allowed_origin.is_string()) {
+        return base::unexpected("allowedOrigins elements must be strings.");
+      }
+      auto allowed_origin_string = allowed_origin.GetString();
+      allowed_origin_string +=
+          allowed_origin_string.ends_with("/") ? "*" : "/*";
+      auto pattern = url_pattern::SimpleUrlPatternMatcher::Create(
+          allowed_origin_string, nullptr);
+      if (!pattern.has_value()) {
+        return base::unexpected("Invalid url pattern provided: " +
+                                allowed_origin_string);
+      }
+      params->allowed_origin_patterns.push_back(std::move(pattern.value()));
+    }
+  }
+  if (params->IsEmpty()) {
+    // These params have no effect, so we can ignore them.
+    return base::ok(std::nullopt);
+  }
+  return base::ok(std::move(params));
+}
+
 std::string WindowOpenDispositionToString(
     WindowOpenDisposition window_open_disposition) {
   switch (window_open_disposition) {
@@ -211,10 +264,40 @@ base::WeakPtr<SlimWebViewGuest> SlimWebViewGuest::GetWeakPtr() {
 void SlimWebViewGuest::Navigate(const GURL& url) {
   TRACE_EVENT_INSTANT("content", "SlimWebViewGuest::Navigate",
                       perfetto::Flow::FromPointer(this));
-  // TODO(acondor): Implement other security and navigation params, such as
-  // header overrides.
   content::NavigationController::LoadURLParams load_url_params(url);
   GetController().LoadURLWithParams(load_url_params);
+}
+
+bool SlimWebViewGuest::HasAllowedOrigins() const {
+  return !!allowed_origins_params_;
+}
+
+base::expected<void, std::string> SlimWebViewGuest::IsUrlAllowed(
+    RequestResourceType resource_type,
+    const GURL& url) const {
+  if (!url.is_valid()) {
+    return base::unexpected("URL is not valid.");
+  }
+  if (url.IsAboutBlank()) {
+    return base::ok();
+  }
+  if (!url.SchemeIsHTTPOrHTTPS()) {
+    return base::unexpected("URL must be https, http, or about:blank.");
+  }
+  if (!allowed_origins_params_) {
+    return base::ok();
+  }
+  if (!allowed_origins_params_->resource_types.contains(resource_type)) {
+    return base::ok();
+  }
+  url::Origin candidate_origin = url::Origin::Create(url);
+  for (const auto& pattern : allowed_origins_params_->allowed_origin_patterns) {
+    if (pattern->Match(url)) {
+      return base::ok();
+    }
+  }
+  return base::unexpected("URL origin is not allowed: " +
+                          candidate_origin.Serialize());
 }
 
 SlimWebViewGuest::SlimWebViewGuest(
@@ -433,6 +516,15 @@ void SlimWebViewGuest::CreateInnerPage(
     return;
   }
   before_send_headers_params_ = std::move(parse_result.value());
+
+  auto origin_check_params_result = ParseOriginCheckParams(create_params);
+  if (!origin_check_params_result.has_value()) {
+    DVLOG(2) << "Failed to parse allowedOrigins: "
+             << origin_check_params_result.error();
+    RejectGuestCreation(std::move(owned_this), std::move(callback));
+    return;
+  }
+  allowed_origins_params_ = std::move(origin_check_params_result.value());
 
   std::string storage_partition_id;
   bool persist_storage = false;

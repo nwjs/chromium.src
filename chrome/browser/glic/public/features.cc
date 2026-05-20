@@ -13,6 +13,7 @@
 namespace features {
 
 BASE_FEATURE(kGlicTabRestoration, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicAndroidSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicChromeStatusIcon, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<int> kGlicChromeStatusIconSizePx{
@@ -24,8 +25,16 @@ BASE_FEATURE(kGlicOrphanedReattachment, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicSelectionPrompt, base::FEATURE_DISABLED_BY_DEFAULT);
 
+const base::FeatureParam<bool> kGlicSelectionPromptUpdatesOnly{
+    &kGlicSelectionPrompt, "updates_only", false};
 const base::FeatureParam<bool> kGlicSelectionPromptUseWidget{
     &kGlicSelectionPrompt, "use_widget", true};
+const base::FeatureParam<bool> kGlicSelectionPromptEnablePinning{
+    &kGlicSelectionPrompt, "enable_pinning", false};
+const base::FeatureParam<std::string> kGlicSelectionTopCueOnlyList{
+    &kGlicSelectionPrompt, "top_cue_only_list", ""};
+const base::FeatureParam<int> kGlicSelectionPromptWidgetMaxTotalDismisses{
+    &kGlicSelectionPrompt, "max_total_dismisses", 10};
 
 BASE_FEATURE(kGlicDaisyChainViaCoordinator, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -36,13 +45,14 @@ BASE_FEATURE(kAutoOpenGlicForPdf, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<bool> kAutoOpenGlicForPdfWithOnboarding({
     &kAutoOpenGlicForPdf,
     "AutoOpenGlicForPdfWithOnboarding",
-    false,
+    true,
 });
 
 BASE_FEATURE(kGlicInvoke, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicCreateTabAdjacent, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When off, disables both live mode and the glic floating panel.
 BASE_FEATURE(kGlicLiveMode,
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -99,9 +109,27 @@ const base::flat_set<int32_t>& GetGlicTieredRolloutV2EligibleTiers() {
 BASE_FEATURE(kGlicHorizontalTabToolbarButton,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kGlicToolbarButtonLocation, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<GlicToolbarButtonLocation>::Option
+    kGlicButtonLocationOptions[] = {
+        {GlicToolbarButtonLocation::kRightOfOmnibox,
+         kGlicToolbarButtonLocationRightOfOmnibox},
+        {GlicToolbarButtonLocation::kLeftOfProfileChip,
+         kGlicToolbarButtonLocationLeftOfProfileChip}};
+
+const base::FeatureParam<GlicToolbarButtonLocation>
+    kGlicToolbarButtonLocationParam{
+        &kGlicToolbarButtonLocation, "glic-toolbar-button-location",
+        GlicToolbarButtonLocation::kLeftOfProfileChip,
+        &kGlicButtonLocationOptions};
+
 BASE_FEATURE(kGlicButtonAutoSummarize, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicGetTabFaviconById, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicSkipCookieSyncOnOpen, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicCookieSyncOnTokenChange, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicShareImageViaInvoke, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicWebClientLoadTimes, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<int> kGlicPreLoadingTimeMs{
@@ -112,5 +140,10 @@ const base::FeatureParam<int> kGlicMaxLoadingTimeMs{
     &kGlicWebClientLoadTimes, "glic-max-loading-time-ms", 20000};
 const base::FeatureParam<int> kGlicReloadMaxLoadingTimeMs{
     &kGlicWebClientLoadTimes, "glic-reload-max-loading-time-ms", 30000};
+
+BASE_FEATURE(kGlicContextualCueingV2AutoSubmit,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicWebDragAndDropFileUpload, base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

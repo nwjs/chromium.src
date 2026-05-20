@@ -252,7 +252,8 @@ class AutofillMetricsBaseTest : public WithTestAutofillClientDriverManager<
       SuggestionType suggestion_type = SuggestionType::kAddressEntry) {
     Suggestion suggestion(suggestion_type);
     autofill_manager().DidShowSuggestions(
-        {suggestion}, form, form.fields()[field_index].global_id(), {});
+        {suggestion}, form.global_id(), form.fields()[field_index].global_id(),
+        {});
   }
 
   void FillTestProfile(const FormData& form, size_t field_index = 0) {
@@ -276,7 +277,7 @@ class AutofillMetricsBaseTest : public WithTestAutofillClientDriverManager<
         mojom::ActionPersistence::kFill, mojom::FieldActionType::kReplaceAll,
         form, form.fields()[field_index],
         base::UTF8ToUTF16(card.loyalty_card_number()),
-        SuggestionType::kLoyaltyCardEntry, LOYALTY_MEMBERSHIP_ID);
+        FillingProduct::kLoyaltyCard, LOYALTY_MEMBERSHIP_ID);
     autofill_manager().LogAndRecordLoyaltyCardFill(
         card, form.global_id(), form.fields()[field_index].global_id());
   }

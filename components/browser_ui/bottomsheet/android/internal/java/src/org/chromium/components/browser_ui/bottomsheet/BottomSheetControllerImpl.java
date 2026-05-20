@@ -13,6 +13,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
@@ -29,6 +30,7 @@ import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.browser_ui.widget.scrim.ScrimProperties;
 import org.chromium.ui.KeyboardVisibilityDelegate;
+import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.util.TokenHolder;
 
@@ -132,6 +134,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
      * @param alwaysFullWidth Whether bottom sheet is full-width.
      * @param edgeToEdgeBottomInsetSupplier The supplier of bottom inset when e2e is on.
      * @param desktopWindowStateManager The {@link DesktopWindowStateManager} for the app header.
+     * @param insetObserver The {@link InsetObserver} for inset changes.
      */
     public BottomSheetControllerImpl(
             final Supplier<@Nullable ScrimManager> scrimManagerSupplier,
@@ -140,7 +143,8 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
             Supplier<ViewGroup> root,
             boolean alwaysFullWidth,
             Supplier<Integer> edgeToEdgeBottomInsetSupplier,
-            @Nullable DesktopWindowStateManager desktopWindowStateManager) {
+            @Nullable DesktopWindowStateManager desktopWindowStateManager,
+            InsetObserver insetObserver) {
         mScrimManagerSupplier = scrimManagerSupplier;
         mPendingSheetObservers = new ArrayList<>();
         mSuppressionTokens = new TokenHolder(this::onSuppressionTokensChanged);
@@ -154,7 +158,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
 
         mSheetInitializer =
                 () -> {
-                    initializeSheet(window, keyboardDelegate, root);
+                    initializeSheet(window, keyboardDelegate, root, insetObserver);
                 };
 
         mBackPressHandler =
@@ -205,11 +209,13 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
      * @param window A means of accessing the screen size.
      * @param keyboardDelegate A means of hiding the keyboard.
      * @param root The view that should contain the sheet.
+     * @param insetObserver The {@link InsetObserver} for inset changes.
      */
     private void initializeSheet(
             Window window,
             KeyboardVisibilityDelegate keyboardDelegate,
-            Supplier<ViewGroup> root) {
+            Supplier<ViewGroup> root,
+            InsetObserver insetObserver) {
         mBottomSheetContainer = root.get();
         if (mBottomSheetContainer == null) {
             return;
@@ -227,7 +233,8 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
                 mAlwaysFullWidth,
                 mEdgeToEdgeBottomInsetSupplier,
                 mAppHeaderHeight,
-                mBottomControlsOffset);
+                mBottomControlsOffset,
+                insetObserver);
 
         // Initialize the queue with a comparator that checks content priority.
         mContentQueue =
@@ -426,13 +433,23 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
     }
 
     @Override
-    public int getCurrentOffset() {
+    public @Px int getCurrentOffset() {
         return mBottomSheet == null ? 0 : (int) mBottomSheet.getCurrentOffsetPx();
+    }
+
+    @Override
+    public @Px int getMaxOffset() {
+        return mBottomSheet != null ? (int) mBottomSheet.getMaxOffsetPx() : 0;
     }
 
     @Override
     public int getContainerHeight() {
         return mBottomSheet != null ? (int) mBottomSheet.getSheetContainerHeight() : 0;
+    }
+
+    @Override
+    public int getCurrentPeekHeightPx() {
+        return mBottomSheet != null ? mBottomSheet.getPeekHeightPx() : 0;
     }
 
     @Override
@@ -550,11 +567,9 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
             return content == mBottomSheet.getCurrentSheetContent();
         }
 
-        boolean shouldSwapForPriorityContent =
+        boolean shouldSwapContent =
                 mBottomSheet.getCurrentSheetContent() != null
-                        && content.getPriority()
-                                < mBottomSheet.getCurrentSheetContent().getPriority()
-                        && canBottomSheetSwitchContent();
+                        && canBottomSheetSwitchContent(content);
 
         // Always add the content to the queue, it will be handled after the sheet closes if
         // necessary. If already hidden, |showNextContent| will handle the request.
@@ -563,7 +578,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
         if (mBottomSheet.getCurrentSheetContent() == null && !mSuppressionTokens.hasTokens()) {
             showNextContent(animate);
             return true;
-        } else if (shouldSwapForPriorityContent) {
+        } else if (shouldSwapContent) {
             mIsSuppressingCurrentContent = true;
             mContentQueue.add(mBottomSheet.getCurrentSheetContent());
             if (!mSuppressionTokens.hasTokens()) {
@@ -774,14 +789,14 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController, ScrimCo
      *
      * @return Whether the sheet currently supports switching its content.
      */
-    private boolean canBottomSheetSwitchContent() {
+    private boolean canBottomSheetSwitchContent(BottomSheetContent nextContent) {
         BottomSheetContent currentContent = assumeNonNull(mBottomSheet).getCurrentSheetContent();
-        if (!mBottomSheet.isSheetOpen()) {
+        if (nextContent.getPriority() < assumeNonNull(currentContent).getPriority()
+                && !mBottomSheet.isSheetOpen()) {
             return true;
         }
 
-        if (currentContent != null && currentContent.canSuppressInAnyState()) {
-            assert currentContent.getPriority() == BottomSheetContent.ContentPriority.LOW;
+        if (assumeNonNull(currentContent).canBeSuppressed(nextContent)) {
             return true;
         }
 

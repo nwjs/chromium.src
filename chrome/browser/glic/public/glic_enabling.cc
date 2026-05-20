@@ -17,6 +17,7 @@
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/glic_pref_names_internal.h"
 #include "chrome/browser/glic/glic_user_status_code.h"
 #include "chrome/browser/glic/glic_user_status_fetcher.h"
 #include "chrome/browser/glic/host/auth_controller.h"
@@ -24,6 +25,7 @@
 #include "chrome/browser/glic/host/glic_features.mojom-features.h"
 #include "chrome/browser/glic/host/glic_synthetic_trial_manager.h"
 #include "chrome/browser/glic/public/features.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/metrics/chrome_feature_list_creator.h"
 #include "chrome/browser/profiles/profile.h"
@@ -31,7 +33,6 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/startup_data.h"
-#include "chrome/browser/subscription_eligibility/subscription_eligibility_service.h"
 #include "chrome/browser/subscription_eligibility/subscription_eligibility_service_factory.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
@@ -43,6 +44,7 @@
 #include "components/signin/public/identity_manager/account_capabilities.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/subscription_eligibility/subscription_eligibility_service.h"
 #include "components/variations/service/variations_service.h"
 #include "components/variations/service/variations_service_utils.h"
 
@@ -276,6 +278,7 @@ void GlicEnabling::ProfileEnablement::RecordMetrics(
 
   if (feature_disabled) {
     record_reason(Reason::kFeatureDisabled);
+    RecordFeatureDisabledReason(suffix);
   }
   if (not_regular_profile) {
     record_reason(Reason::kNotRegularProfile);
@@ -308,6 +311,28 @@ void GlicEnabling::ProfileEnablement::RecordMetrics(
       !primary_account_not_fully_signed_in);
 }
 
+void GlicEnabling::ProfileEnablement::RecordFeatureDisabledReason(
+    const std::string& suffix) const {
+  auto record_reason = [&](FeatureDisabledReason reason) {
+    base::UmaHistogramEnumeration(
+        base::StrCat({"Glic.GlobalEnabling.FeatureDisabledReason.", suffix}),
+        reason);
+  };
+
+  if (feature_flag_disabled) {
+    record_reason(FeatureDisabledReason::kFeatureFlagDisabled);
+  }
+  if (disallowed_by_country_filter) {
+    record_reason(FeatureDisabledReason::kCountryDisabled);
+  }
+  if (disallowed_by_locale_filter) {
+    record_reason(FeatureDisabledReason::kLocaleDisabled);
+  }
+  if (system_requirement_not_met) {
+    record_reason(FeatureDisabledReason::kSystemRequirementNotMet);
+  }
+}
+
 GlicEnabling::ProfileEnablement GlicEnabling::EnablementForProfile(
     Profile* profile) {
   ProfileEnablement result;
@@ -319,11 +344,16 @@ GlicEnabling::ProfileEnablement GlicEnabling::EnablementForProfile(
   GlicGlobalEnabling& global_enabling =
       g_browser_process->GetFeatures()->glic_global_enabling();
 
-  result.disallowed_by_country_filter = !global_enabling.IsCountryEnabled();
-  result.disallowed_by_locale_filter = !global_enabling.IsLocaleEnabled();
-
-  if (!global_enabling.IsEnabledByFlags()) {
+  if (!global_enabling.IsEnabledByGlobalCriteria()) {
     result.feature_disabled = true;
+
+    result.feature_flag_disabled =
+        !base::FeatureList::IsEnabled(features::kGlic);
+    result.disallowed_by_country_filter = !global_enabling.IsCountryEnabled();
+    result.disallowed_by_locale_filter = !global_enabling.IsLocaleEnabled();
+    result.system_requirement_not_met =
+        !global_enabling.IsSystemRequirementMet();
+
     return result;
   }
 
@@ -443,15 +473,7 @@ GlicGlobalEnabling::GlicGlobalEnabling(Delegate& delegate) {
 
 GlicGlobalEnabling::~GlicGlobalEnabling() = default;
 
-bool GlicGlobalEnabling::IsEnabledByFlags() {
-  if (g_bypass_enablement_checks_for_testing) {
-    return true;
-  }
-  // It is important that this value not change at runtime in production. Any
-  // future updates to this function must maintain that property.
-  bool is_enabled = base::FeatureList::IsEnabled(features::kGlic) &&
-                    locale_enablement_.value_or(true) &&
-                    country_enablement_.value_or(true);
+bool GlicGlobalEnabling::IsSystemRequirementMet() const {
 #if BUILDFLAG(IS_CHROMEOS)
   static const bool supported_system_requirements = [] {
     constexpr base::ByteCount kMinimumMemoryThreshold = base::GiB(8);
@@ -467,15 +489,29 @@ bool GlicGlobalEnabling::IsEnabledByFlags() {
                 chromeos::features::kFeatureManagementGlic));
   }();
 
-  is_enabled = is_enabled && supported_system_requirements;
+  return supported_system_requirements;
+#else
+  return true;
 #endif  // BUILDFLAG(IS_CHROMEOS)
-  return is_enabled;
 }
 
-bool GlicEnabling::IsEnabledByFlags() {
+bool GlicGlobalEnabling::IsEnabledByGlobalCriteria() {
+  if (g_bypass_enablement_checks_for_testing) {
+    return true;
+  }
+  // It is important that this value not change at runtime in production. Any
+  // future updates to this function must maintain that property.
+  bool is_enabled = base::FeatureList::IsEnabled(features::kGlic) &&
+                    locale_enablement_.value_or(true) &&
+                    country_enablement_.value_or(true);
+
+  return is_enabled && IsSystemRequirementMet();
+}
+
+bool GlicEnabling::IsEnabledByGlobalCriteria() {
   return g_browser_process->GetFeatures()
       ->glic_global_enabling()
-      .IsEnabledByFlags();
+      .IsEnabledByGlobalCriteria();
 }
 
 bool GlicEnabling::IsProfileEligible(const Profile* profile) {
@@ -491,7 +527,7 @@ bool GlicEnabling::IsProfileEligible(const Profile* profile) {
 
   // Glic is supported only in regular profiles, i.e. disable in incognito,
   // guest, system profile, etc.
-  return IsEnabledByFlags() && profile && profile->IsRegularProfile();
+  return IsEnabledByGlobalCriteria() && profile && profile->IsRegularProfile();
 }
 
 void GlicEnabling::RecordProfileIneligibilityMetricsAtStartup(
@@ -508,7 +544,7 @@ void GlicEnabling::RecordProfileIneligibilityMetricsAtStartup(
   base::UmaHistogramBoolean("Glic.ProfileEnablement.IsEnabled.Startup", false);
 
   // Log specific causes of ineligibility.
-  if (!IsEnabledByFlags()) {
+  if (!IsEnabledByGlobalCriteria()) {
     base::UmaHistogramEnumeration(
         "Glic.ProfileEnablement.DisabledReason.Startup",
         ProfileEnablement::Reason::kFeatureDisabled);
@@ -538,8 +574,11 @@ bool GlicEnabling::IsEnabledForProfile(Profile* profile) {
 }
 
 bool GlicEnabling::HasConsentedForProfile(Profile* profile) {
-  return profile->GetPrefs()->GetInteger(prefs::kGlicCompletedFre) ==
-         static_cast<int>(prefs::FreStatus::kCompleted);
+  auto* service = GlicKeyedService::Get(profile);
+  if (!service) {
+    return false;
+  }
+  return service->enabling().HasConsented();
 }
 
 bool GlicEnabling::IsEnabledAndConsentForProfile(Profile* profile) {
@@ -547,8 +586,11 @@ bool GlicEnabling::IsEnabledAndConsentForProfile(Profile* profile) {
 }
 
 bool GlicEnabling::DidDismissForProfile(Profile* profile) {
-  return profile->GetPrefs()->GetInteger(glic::prefs::kGlicCompletedFre) ==
-         static_cast<int>(prefs::FreStatus::kIncomplete);
+  auto* service = GlicKeyedService::Get(profile);
+  if (!service) {
+    return false;
+  }
+  return service->enabling().GetCompletedFre() == prefs::FreStatus::kIncomplete;
 }
 
 bool GlicEnabling::IsReadyForProfile(Profile* profile) {
@@ -561,11 +603,6 @@ mojom::ProfileReadyState GlicEnabling::GetProfileReadyState(Profile* profile) {
     return mojom::ProfileReadyState::kDisabledByAdmin;
   }
   if (!enablement.IsEnabled()) {
-    return mojom::ProfileReadyState::kIneligible;
-  }
-
-  if (enablement.not_consented &&
-      !IsTrustFirstOnboardingEnabledForProfile(profile)) {
     return mojom::ProfileReadyState::kIneligible;
   }
 
@@ -647,39 +684,8 @@ bool GlicEnabling::IsChromeOSProfileEligible(const Profile* profile) {
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-bool GlicEnabling::IsTrustFirstOnboardingEnabledForProfile(Profile* profile) {
-  return IsMultiInstanceEnabled() && !HasConsentedForProfile(profile) &&
-         base::FeatureList::IsEnabled(features::kGlicTrustFirstOnboarding);
-}
-
 bool GlicEnabling::IsAutoOpenForPdfEnabled(Profile* profile) {
-  return IsTrustFirstOnboardingGatedFeatureEnabled(
-      profile, features::kAutoOpenGlicForPdf,
-      features::kAutoOpenGlicForPdfWithOnboarding);
-}
-bool GlicEnabling::IsContextualMenuItemEnabled(Profile* profile) {
-  bool enabled = IsEnabledForProfile(profile);
-  if (!enabled) {
-    base::UmaHistogramBoolean("Glic.WebContentContextMenu.Enabled", enabled);
-    return enabled;
-  }
-
-  if (base::FeatureList::IsEnabled(features::kGlicTrustFirstOnboarding)) {
-    enabled = base::FeatureList::IsEnabled(features::kGlicContextMenu);
-  } else {
-    enabled = HasConsentedForProfile(profile) &&
-              base::FeatureList::IsEnabled(features::kGlicContextMenu);
-  }
-  base::UmaHistogramBoolean("Glic.WebContentContextMenu.Enabled", enabled);
-  return enabled;
-}
-
-// static
-bool GlicEnabling::IsTrustFirstOnboardingGatedFeatureEnabled(
-    Profile* profile,
-    const base::Feature& feature,
-    const base::FeatureParam<bool>& onboarding_param) {
-  if (!IsMultiInstanceEnabled() || !base::FeatureList::IsEnabled(feature)) {
+  if (!base::FeatureList::IsEnabled(features::kAutoOpenGlicForPdf)) {
     return false;
   }
 
@@ -687,16 +693,24 @@ bool GlicEnabling::IsTrustFirstOnboardingGatedFeatureEnabled(
     return true;
   }
 
-  // If the user has not consented and the onboarding gate is enabled,
-  // the behavior is gated by the Trust First onboarding feature.
-  if (onboarding_param.Get()) {
-    return base::FeatureList::IsEnabled(features::kGlicTrustFirstOnboarding);
-  }
-  return false;
+  return features::kAutoOpenGlicForPdfWithOnboarding.Get();
 }
 
-bool GlicEnabling::IsMultiInstanceEnabledByFlags() {
-  return true;
+bool GlicEnabling::IsContextualMenuItemEnabled(Profile* profile) {
+  bool enabled = IsEnabledForProfile(profile) &&
+                 base::FeatureList::IsEnabled(features::kGlicContextMenu);
+  base::UmaHistogramBoolean("Glic.WebContentContextMenu.Enabled", enabled);
+  return enabled;
+}
+
+bool GlicEnabling::IsSelectionPromptEnabledForProfile(Profile* profile) {
+  return IsEnabledForProfile(profile) &&
+         base::FeatureList::IsEnabled(features::kGlicSelectionPrompt);
+}
+
+bool GlicEnabling::IsLiveAndFloatyEnabledByFlags() {
+  // Despite the name, when off, this disables live mode and floaty.
+  return base::FeatureList::IsEnabled(features::kGlicLiveMode);
 }
 
 bool GlicEnabling::IsShareImageEnabledForProfile(Profile* profile) {
@@ -705,9 +719,6 @@ bool GlicEnabling::IsShareImageEnabledForProfile(Profile* profile) {
          base::FeatureList::IsEnabled(features::kGlicShareImage);
 }
 
-bool GlicEnabling::IsMultiInstanceEnabled() {
-  return IsMultiInstanceEnabledByFlags();
-}
 
 GlicEnabling::GlicEnabling(Profile* profile,
                            ProfileAttributesStorage* profile_attributes_storage)
@@ -721,6 +732,14 @@ GlicEnabling::GlicEnabling(Profile* profile,
   pref_registrar_.Add(prefs::kGlicCompletedFre,
                       base::BindRepeating(&GlicEnabling::UpdateConsentStatus,
                                           base::Unretained(this)));
+  pref_registrar_.Add(
+      prefs::kGlicUserEnabledActuationOnWeb,
+      base::BindRepeating(&GlicEnabling::OnUserEnabledActuationOnWebChanged,
+                          base::Unretained(this)));
+  pref_registrar_.Add(
+      prefs::kGlicExperimentalTriggeringEnabled,
+      base::BindRepeating(&GlicEnabling::OnExperimentalTriggeringEnabledChanged,
+                          base::Unretained(this)));
   if (!base::FeatureList::IsEnabled(features::kGlicRollout) &&
       base::FeatureList::IsEnabled(features::kGlicTieredRollout)) {
     pref_registrar_.Add(
@@ -753,8 +772,56 @@ bool GlicEnabling::IsAllowed() {
   return IsEnabledForProfile(profile_);
 }
 
-bool GlicEnabling::HasConsented() {
-  return HasConsentedForProfile(profile_);
+bool GlicEnabling::HasConsented() const {
+  return GetCompletedFre() == prefs::FreStatus::kCompleted;
+}
+
+prefs::FreStatus GlicEnabling::GetCompletedFre() const {
+  return static_cast<prefs::FreStatus>(
+      profile_->GetPrefs()->GetInteger(prefs::kGlicCompletedFre));
+}
+
+void GlicEnabling::SetCompletedFre(prefs::FreStatus status) {
+  profile_->GetPrefs()->SetInteger(prefs::kGlicCompletedFre,
+                                   static_cast<int>(status));
+}
+
+bool GlicEnabling::GetUserEnabledActuationOnWeb() const {
+  return profile_->GetPrefs()->GetBoolean(
+      prefs::kGlicUserEnabledActuationOnWeb);
+}
+
+bool GlicEnabling::IsUserEnabledActuationOnWebDefault() const {
+  const PrefService::Preference* pref = profile_->GetPrefs()->FindPreference(
+      prefs::kGlicUserEnabledActuationOnWeb);
+  return pref && pref->IsDefaultValue();
+}
+
+void GlicEnabling::SetUserEnabledActuationOnWeb(bool enabled) {
+  profile_->GetPrefs()->SetBoolean(prefs::kGlicUserEnabledActuationOnWeb,
+                                   enabled);
+}
+
+bool GlicEnabling::GetExperimentalTriggeringEnabled() const {
+  return profile_->GetPrefs()->GetBoolean(
+      prefs::kGlicExperimentalTriggeringEnabled);
+}
+
+syncer::DeviceInfo::GlicExperimentalTriggeringState
+GlicEnabling::GetExperimentalTriggeringState() const {
+  if (!base::FeatureList::IsEnabled(features::kGlicExperimentalTriggering)) {
+    return syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable;
+  }
+  if (HasConsented() && GetUserEnabledActuationOnWeb() &&
+      GetExperimentalTriggeringEnabled()) {
+    return syncer::DeviceInfo::GlicExperimentalTriggeringState::kReady;
+  }
+  return syncer::DeviceInfo::GlicExperimentalTriggeringState::kNeedsOptIn;
+}
+
+void GlicEnabling::SetExperimentalTriggeringEnabled(bool enabled) {
+  profile_->GetPrefs()->SetBoolean(prefs::kGlicExperimentalTriggeringEnabled,
+                                   enabled);
 }
 
 void GlicEnabling::MaybeRecordStartupMetrics() {
@@ -774,6 +841,28 @@ base::CallbackListSubscription GlicEnabling::RegisterAllowedChanged(
 base::CallbackListSubscription GlicEnabling::RegisterOnConsentChanged(
     ConsentChangedCallback callback) {
   return consent_changed_callback_list_.Add(std::move(callback));
+}
+
+base::CallbackListSubscription
+GlicEnabling::RegisterOnUserEnabledActuationOnWebChanged(
+    UserEnabledActuationOnWebChangedCallback callback) {
+  return user_enabled_actuation_on_web_changed_callback_list_.Add(
+      std::move(callback));
+}
+
+void GlicEnabling::OnUserEnabledActuationOnWebChanged() {
+  user_enabled_actuation_on_web_changed_callback_list_.Notify();
+}
+
+base::CallbackListSubscription
+GlicEnabling::RegisterOnExperimentalTriggeringEnabledChanged(
+    ExperimentalTriggeringEnabledChangedCallback callback) {
+  return experimental_triggering_enabled_changed_callback_list_.Add(
+      std::move(callback));
+}
+
+void GlicEnabling::OnExperimentalTriggeringEnabledChanged() {
+  experimental_triggering_enabled_changed_callback_list_.Notify();
 }
 
 base::CallbackListSubscription GlicEnabling::RegisterOnShowSettingsPageChanged(

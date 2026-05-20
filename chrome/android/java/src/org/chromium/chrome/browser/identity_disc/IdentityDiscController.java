@@ -9,7 +9,6 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 
 import androidx.annotation.VisibleForTesting;
@@ -61,7 +60,6 @@ import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.signin.SigninFeatureMap;
 import org.chromium.components.signin.base.CoreAccountInfo;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.identitymanager.PrimaryAccountChangeEvent;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
@@ -153,19 +151,21 @@ public class IdentityDiscController
         mButtonData =
                 new ButtonDataImpl(
                         /* canShow= */ false,
-                        /* drawable= */ null,
-                        /* onClickListener= */ view -> onClick(),
-                        /* contentDescription= */ SigninUtils.getContentDescriptionForIdentityDisc(
-                                mContext, null, UserActionableError.NONE),
-                        /* supportsTinting= */ false,
-                        new IphCommandBuilder(
-                                mContext.getResources(),
-                                FeatureConstants.IDENTITY_DISC_FEATURE,
-                                R.string.iph_identity_disc_text,
-                                R.string.iph_identity_disc_accessibility_text),
                         /* isEnabled= */ true,
-                        AdaptiveToolbarButtonVariant.UNKNOWN,
-                        /* tooltipTextResId= */ Resources.ID_NULL);
+                        new ButtonSpec.Builder(
+                                        /* drawable= */ null,
+                                        /* contentDescription= */ SigninUtils
+                                                .getContentDescriptionForIdentityDisc(
+                                                        mContext, null, UserActionableError.NONE),
+                                        /* supportsTinting= */ false)
+                                .setOnClickListener(view -> onClick())
+                                .setIphCommandBuilder(
+                                        new IphCommandBuilder(
+                                                mContext.getResources(),
+                                                FeatureConstants.IDENTITY_DISC_FEATURE,
+                                                R.string.iph_identity_disc_text,
+                                                R.string.iph_identity_disc_accessibility_text))
+                                .build());
     }
 
     @Override
@@ -299,7 +299,7 @@ public class IdentityDiscController
      */
     @Override
     public void onPrimaryAccountChanged(PrimaryAccountChangeEvent eventDetails) {
-        switch (eventDetails.getEventTypeFor(ConsentLevel.SIGNIN)) {
+        switch (eventDetails.getEventTypeFor()) {
             case PrimaryAccountChangeEvent.Type.SET:
                 notifyObservers(true);
                 break;
@@ -397,9 +397,7 @@ public class IdentityDiscController
      * @return account info for the current profile. Returns null for OTR profile.
      */
     private @Nullable CoreAccountInfo getSignedInAccountInfo() {
-        return mIdentityManager != null
-                ? mIdentityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN)
-                : null;
+        return mIdentityManager != null ? mIdentityManager.getPrimaryAccountInfo() : null;
     }
 
     /**

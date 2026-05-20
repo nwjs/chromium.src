@@ -75,6 +75,9 @@ const char kEligibilityHistogram[] = "IOS.Gemini.Eligibility";
 
 const char kEntryPointHistogram[] = "IOS.Gemini.EntryPoint";
 
+const char kSignInRequiredSnackbarShownHistogram[] =
+    "IOS.Gemini.SignInRequiredSnackbarShown";
+
 const char kEntryPointImpressionHistogram[] =
     "IOS.Gemini.EntryPoint.Impression";
 
@@ -124,6 +127,9 @@ const char kGeminiSessionTimeHistogram[] = "IOS.Gemini.Session.Time";
 const char kFirstPromptSubmissionMethodHistogram[] =
     "IOS.Gemini.FirstPrompt.SubmissionMethod";
 
+const char kPromptSubmissionMethodHistogram[] =
+    "IOS.Gemini.Prompt.SubmissionMethod";
+
 const char kPromptImagesAttachedCountHistogram[] =
     "IOS.Gemini.Prompt.ImagesAttached.Count";
 
@@ -138,6 +144,9 @@ const char kPromptContextAttachmentHistogram[] =
 
 const char kResponseGeneratedImageIncluded[] =
     "IOS.Gemini.Response.GeneratedImage.Included";
+
+const char kRegenerateButtonTappedHistogram[] =
+    "IOS.Gemini.RegenerateButton.Tapped";
 
 const char kResponseLatencyWithContextHistogram[] =
     "IOS.Gemini.Response.Latency.WithContext";
@@ -335,6 +344,10 @@ void RecordFirstPromptSubmission(IOSGeminiFirstPromptSubmissionMethod method) {
   base::UmaHistogramEnumeration(kFirstPromptSubmissionMethodHistogram, method);
 }
 
+void RecordPromptSubmissionMethod(IOSGeminiFirstPromptSubmissionMethod method) {
+  base::UmaHistogramEnumeration(kPromptSubmissionMethodHistogram, method);
+}
+
 void RecordGeminiResponseReceived(bool generated_image_included) {
   base::RecordAction(base::UserMetricsAction("MobileGeminiResponseReceived"));
   base::UmaHistogramBoolean(kResponseGeneratedImageIncluded,
@@ -474,8 +487,19 @@ void RecordGeminiEntryPointClick(gemini::EntryPoint entry_point,
   }
 }
 
+void RecordSignInRequiredSnackbarShown(gemini::EntryPoint entry_point) {
+  base::UmaHistogramEnumeration(kSignInRequiredSnackbarShownHistogram,
+                                entry_point);
+}
+
 void RecordGeminiNewChatButtonTapped() {
   base::RecordAction(base::UserMetricsAction("MobileGeminiNewChatTapped"));
+}
+
+void RecordGeminiRegenerateButtonTapped(gemini::RegenerateOptionType option) {
+  base::RecordAction(
+      base::UserMetricsAction("MobileGeminiRegenerateButtonTapped"));
+  base::UmaHistogramEnumeration(kRegenerateButtonTappedHistogram, option);
 }
 
 void RecordAIHubNewBadgeTapped() {

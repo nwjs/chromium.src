@@ -23,7 +23,6 @@
 #include "third_party/blink/renderer/platform/bindings/enumeration_base.h"
 #include "third_party/blink/renderer/platform/bindings/exception_code.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_or_worker_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/main_thread_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/task_attribution_tracker.h"
@@ -244,7 +243,8 @@ void DOMScheduler::setAsyncData(v8::Isolate* isolate, uint32_t async_data) {
   }
   auto* task_state = MakeGarbageCollected<TaskAttributionInfoImpl>(
       /*soft_navigation_context=*/nullptr,
-      /*resource_timing_context=*/nullptr, async_data);
+      /*resource_timing_context=*/nullptr,
+      /*script_tool_context=*/nullptr, async_data);
   TaskAttributionTaskState::SetCurrent(isolate, task_state);
   auto* scheduler = ThreadScheduler::Current()->ToMainThreadScheduler();
   // This test API is only available on the main thread.

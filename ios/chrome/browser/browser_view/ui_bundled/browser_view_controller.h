@@ -20,6 +20,7 @@
 #import "ios/chrome/browser/omnibox/ui/popup/omnibox_popup_presenter.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/browser_commands.h"
+#import "ios/chrome/browser/shared/ui/util/ui_view_controller_with_display_tracing.h"
 #import "ios/chrome/browser/toolbar/ui/toolbar_height_delegate.h"
 #import "ios/chrome/browser/web/model/web_state_container_view_provider.h"
 
@@ -46,7 +47,7 @@ class TabUsageRecorderBrowserAgent;
 @protocol TextZoomCommands;
 @class ToolbarAccessoryPresenter;
 @protocol ToolbarCommands;
-@class ToolbarCoordinator;
+@class MainToolbarCoordinator;
 class UrlLoadingBrowserAgent;
 @protocol VoiceSearchController;
 
@@ -54,7 +55,7 @@ typedef struct {
   ToolbarAccessoryPresenter* toolbarAccessoryPresenter;
   PopupMenuCoordinator* popupMenuCoordinator;
   NewTabPageCoordinator* ntpCoordinator;
-  ToolbarCoordinator* toolbarCoordinator;
+  MainToolbarCoordinator* toolbarCoordinator;
   SideSwipeCoordinator* sideSwipeCoordinator;
   BookmarksCoordinator* bookmarksCoordinator;
   raw_ptr<FullscreenBrowserAgent> fullscreenBrowserAgent;
@@ -80,16 +81,16 @@ typedef struct {
 // The top-level view controller for the browser UI. Manages other controllers
 // which implement the interface.
 @interface BrowserViewController
-    : UIViewController <BrowserCommands,
-                        BrowserLayoutConsumer,
-                        ContextualSheetPresenter,
-                        IncognitoReauthConsumer,
-                        LensOverlayPresentationEnvironment,
-                        TabConsumer,
-                        OmniboxFocusDelegate,
-                        OmniboxPopupPresenterDelegate,
-                        ToolbarHeightDelegate,
-                        WebStateContainerViewProvider>
+    : UIViewControllerWithDisplayTracing <BrowserCommands,
+                                          BrowserLayoutConsumer,
+                                          ContextualSheetPresenter,
+                                          IncognitoReauthConsumer,
+                                          LensOverlayPresentationEnvironment,
+                                          TabConsumer,
+                                          OmniboxFocusDelegate,
+                                          OmniboxPopupPresenterDelegate,
+                                          ToolbarHeightDelegate,
+                                          WebStateContainerViewProvider>
 
 // Initializes a new BVC.
 // `browserContentViewController` is the container object this BVC will exist

@@ -39,6 +39,17 @@ class MEDIA_EXPORT DataSource : public DataSourceInfo {
  public:
   using ReadCB = base::OnceCallback<void(int)>;
   using DataSourceCb = base::OnceCallback<void(std::unique_ptr<DataSource>)>;
+  using EventCb = base::RepeatingCallback<void(const DataSource*)>;
+
+  enum class RangeMode {
+    kRangeRequest,
+    kFullRequest,
+  };
+
+  enum class CacheMode {
+    kBypassCache,
+    kHitCache,
+  };
 
   enum { kReadError = -1, kAborted = -2 };
 
@@ -59,7 +70,7 @@ class MEDIA_EXPORT DataSource : public DataSourceInfo {
    public:
     virtual ~Factory();
     virtual void Create(const GURL& uri,
-                        bool ignore_cache,
+                        CacheMode cache_mode,
                         DataSourceCb cb) = 0;
   };
 
@@ -108,6 +119,11 @@ class MEDIA_EXPORT DataSource : public DataSourceInfo {
   // Adjusts the buffering algorithm (if there is one) based on the given
   // preload value.
   virtual void SetPreload(media::DataSource::Preload preload);
+
+  // Returns whether this data source was involved in a web-based redirection.
+  // The default implementation is always false, as most data source objects
+  // (like MemoryDataSource and FileDataSource) cannot do redirection at all.
+  virtual bool DidRedirect() const;
 
   // Gets the url for this data source, if it exists. By default this returns
   // an empty GURL.

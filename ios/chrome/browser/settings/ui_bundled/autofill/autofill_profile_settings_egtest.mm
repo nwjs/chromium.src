@@ -6,6 +6,7 @@
 
 #import "base/ios/ios_util.h"
 #import "base/test/ios/wait_util.h"
+#import "components/autofill/core/common/autofill_debug_features.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/ios/common/features.h"
 #import "components/policy/policy_constants.h"
@@ -51,6 +52,13 @@ constexpr base::TimeDelta kSnackbarAppearanceTimeout = base::Seconds(5);
 
 NSString* const kProfileLabel = @"John H. Doe, 666 Erebus St.";
 NSString* const kHomeProfileLabel = @"John H. Doe, 666 Erebus St., Home";
+
+// Constants for testing adding an entity using the add menu.
+NSString* const kPassportEntityType = @"Passport";
+NSString* const kPassportNumberAttributeName = @"Number";
+NSString* const kPassportNameAttributeName = @"Name";
+NSString* const kPassportNumber = @"LR1234567";
+NSString* const kPassportName = @"John Doe";
 
 // Return the edit button from the navigation bar.
 id<GREYMatcher> NavigationBarEditButton() {
@@ -124,31 +132,34 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
 
-  if ([self isRunningTest:@selector(DISABLED_testHomeAndWorkProfileEditPage)] ||
-      [self isRunningTest:@selector
-            (DISABLED_testHomeAndWorkProfileDeleteOnEdit)] ||
-      [self isRunningTest:@selector(DISABLED_testHomeAndWorkProfileRemove)] ||
+  if ([self isRunningTest:@selector(testHomeAndWorkProfileEditPage)] ||
+      [self isRunningTest:@selector(testHomeAndWorkProfileDeleteOnEdit)] ||
+      [self isRunningTest:@selector(testHomeAndWorkProfileRemove)] ||
       [self isRunningTest:@selector(testConfirmationShownOnDeletion)] ||
       [self isRunningTest:@selector(testConfirmationShownOnSwipeToDelete)]) {
     config.features_enabled.push_back(
         autofill::features::kAutofillEnableSupportForHomeAndWork);
   }
 
-  if ([self isRunningTest:@selector(testToggleEnhancedAutofillSwitch)]) {
+  if ([self isRunningTest:@selector(testToggleEnhancedAutofillSwitch)] ||
+      [self isRunningTest:@selector(testAddAndDeleteEntityUsingMenu)] ||
+      [self isRunningTest:@selector(testVerificationSwitchReauthFailure)] ||
+      [self isRunningTest:@selector(testVerificationSwitchReauthSuccess)]) {
     config.features_enabled.push_back(
         autofill::features::kAutofillAiCreateEntityDataManager);
     config.features_enabled.push_back(
         autofill::features::kAutofillAiWithDataSchema);
   }
 
+  if ([self isRunningTest:@selector(testAddAndDeleteEntityUsingMenu)]) {
+    config.features_enabled.push_back(
+        autofill::features::debug::kAutofillAiForceOptIn);
+  }
+
   if ([self isRunningTest:@selector(testVerificationSwitchReauthFailure)] ||
       [self isRunningTest:@selector(testVerificationSwitchReauthSuccess)]) {
     config.features_enabled.push_back(
-        autofill::features::kAutofillAiCreateEntityDataManager);
-    config.features_enabled.push_back(
         autofill::features::kAutofillAiReauthRequired);
-    config.features_enabled.push_back(
-        autofill::features::kAutofillAiWithDataSchema);
   }
 
   if ([self isRunningTest:@selector(testToggleToolbarAddButtonByPolicy)] ||
@@ -177,6 +188,11 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 // Helper to open the settings page for the Autofill profile with `label`.
 - (void)openEditProfile:(NSString*)label {
   [self openAutofillProfilesSettings];
+
+  // Scroll to the bottom to ensure the profile cell is not obscured by Autofill
+  // AI sections.
+  [self
+      scrollDownWithMatcher:grey_accessibilityID(kAutofillProfileTableViewID)];
 
   [[EarlGrey selectElementWithMatcher:grey_accessibilityLabel(label)]
       performAction:grey_tap()];
@@ -286,8 +302,7 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 }
 
 // Test that the edit mode for Home and Work profiles is not accessible.
-// TODO(crbug.com/498593923): Fix this test.
-- (void)DISABLED_testHomeAndWorkProfileEditPage {
+- (void)testHomeAndWorkProfileEditPage {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleHomeAndWorkAccountProfile];
   [self openEditProfile:kHomeProfileLabel];
@@ -374,6 +389,82 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
   // Verify the "Add" button is enabled.
   [[EarlGrey selectElementWithMatcher:SettingsToolbarAddButton()]
       assertWithMatcher:grey_enabled()];
+}
+
+// Checks that a new entity (passport) can be added, saved, and deleted using
+// the add menu.
+- (void)testAddAndDeleteEntityUsingMenu {
+  [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
+
+  [self openAutofillProfilesSettings];
+
+  // Verify the "Add" button is visible.
+  [ChromeEarlGrey
+      waitForSufficientlyVisibleElementWithMatcher:SettingsToolbarAddButton()];
+
+  // Tap the "Add" button.
+  [[EarlGrey selectElementWithMatcher:SettingsToolbarAddButton()]
+      performAction:grey_tap()];
+
+  // Tap the "Passport" menu item.
+  id<GREYMatcher> passportMenuItem =
+      grey_allOf(grey_accessibilityLabel(kPassportEntityType),
+                 grey_accessibilityTrait(UIAccessibilityTraitButton),
+                 grey_sufficientlyVisible(), nil);
+  [[EarlGrey selectElementWithMatcher:passportMenuItem]
+      performAction:grey_tap()];
+
+  // Fill "Number".
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
+                                          kPassportNumberAttributeName)]
+      performAction:grey_replaceText(kPassportNumber)];
+
+  // Fill "Name".
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(kPassportNameAttributeName)]
+      performAction:grey_replaceText(kPassportName)];
+
+  // Save the entity.
+  id<GREYMatcher> saveButton = chrome_test_util::ButtonWithAccessibilityLabel(
+      l10n_util::GetNSString(IDS_IOS_SAVE_ENTITY_IN_SETTINGS_BUTTON_TEXT));
+  [[EarlGrey selectElementWithMatcher:saveButton] performAction:grey_tap()];
+
+  // Verify the entity appears in the list.
+  id<GREYMatcher> entityCell = grey_allOf(
+      grey_accessibilityLabel(kPassportName), grey_sufficientlyVisible(), nil);
+  [[EarlGrey selectElementWithMatcher:entityCell]
+      assertWithMatcher:grey_notNil()];
+
+  // Swipe to delete the entity.
+  [[EarlGrey selectElementWithMatcher:grey_accessibilityLabel(kPassportName)]
+      performAction:chrome_test_util::SwipeToShowDeleteButton()];
+
+  // Tap the "Delete" button.
+  [[EarlGrey
+      selectElementWithMatcher:grey_allOf(
+                                   ButtonWithAccessibilityLabel(@"Delete"),
+                                   grey_not(grey_accessibilityTrait(
+                                       UIAccessibilityTraitNotEnabled)),
+                                   nil)] performAction:grey_tap()];
+
+  // Tap the confirm button.
+  [[EarlGrey selectElementWithMatcher:
+                 chrome_test_util::ActionSheetItemWithAccessibilityLabelId(
+                     IDS_IOS_DELETE_ACTION_TITLE)] performAction:grey_tap()];
+  WaitForActivityOverlayToDisappear();
+
+  // Verify the entity has been deleted.
+  ConditionBlock wait_for_disappearance = ^{
+    NSError* error = nil;
+    [[EarlGrey selectElementWithMatcher:grey_accessibilityLabel(kPassportName)]
+        assertWithMatcher:grey_notVisible()
+                    error:&error];
+    return error == nil;
+  };
+  GREYAssert(
+      base::test::ios::WaitUntilConditionOrTimeout(
+          base::test::ios::kWaitForUIElementTimeout, wait_for_disappearance),
+      @"Passport cell did not disappear.");
 }
 
 // Checks that the toolbar "Add" button's enabled state changes based on the
@@ -571,8 +662,7 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 // Checks when the country field is changed to Germany in the edit mode, the
 // city is added to the required fields. When it is emptied, the save button in
 // displayed. The profile is an account profile.
-// TODO(crbug.com/498593923): Fix this test.
-- (void)DISABLED_testRequiredFields {
+- (void)testRequiredFields {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleAccountProfile];
   [self openEditProfile:kProfileLabel];
@@ -646,8 +736,7 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 
 // Tests that when the state data is removed, the "Done" button is enabled for
 // "Germany" but not for "India". Similarly, the "Done" is disabled for "US".
-// TODO(crbug.com/498593923): Fix this test.
-- (void)DISABLED_testDoneButtonByRequirementsOfCountries {
+- (void)testDoneButtonByRequirementsOfCountries {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleAccountProfile];
   [self openEditProfile:kProfileLabel];
@@ -714,8 +803,7 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 
 // Tests that the footer text is correctly displayed when there are multiple
 // required empty fields.
-// TODO(crbug.com/498593923): Fix this test.
-- (void)DISABLED_testFooterWithMultipleErrors {
+- (void)testFooterWithMultipleErrors {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleAccountProfile];
   [self openEditProfile:kProfileLabel];
@@ -788,8 +876,7 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 
 // Tests that a local incomplete profile can be migrated to account after
 // editing the profile.
-// TODO(crbug.com/498593923): Fix this test.
-- (void)DISABLED_testIncompleteProfileMigrateToAccount {
+- (void)testIncompleteProfileMigrateToAccount {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleProfile];
 
@@ -844,6 +931,8 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
   // Go back to the list view page.
   [[EarlGrey selectElementWithMatcher:SettingsMenuBackButton(0)]
       performAction:grey_tap()];
+  [self
+      scrollDownWithMatcher:grey_accessibilityID(kAutofillProfileTableViewID)];
   // Open the profile view.
   [[EarlGrey selectElementWithMatcher:grey_accessibilityLabel(kProfileLabel)]
       performAction:grey_tap()];
@@ -864,12 +953,14 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 
 // Tests that the home/work address delete results in showing a confirmation
 // sheet that contains an option to remove the profile from Chrome.
-// TODO(crbug.com/498593923): Fix this test.
-- (void)DISABLED_testHomeAndWorkProfileRemove {
+- (void)testHomeAndWorkProfileRemove {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleHomeAndWorkAccountProfile];
 
   [self openProfileListInEditMode];
+  [self
+      scrollDownWithMatcher:grey_accessibilityID(kAutofillProfileTableViewID)];
+
   [[EarlGrey
       selectElementWithMatcher:grey_accessibilityLabel(
                                    [AutofillAppInterface exampleProfileName])]
@@ -895,12 +986,13 @@ id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
 
 // Tests that the home/work address delete results in showing a confirmation
 // sheet that contains an option to edit the profile in the Google Account.
-// TODO(crbug.com/498593923): Fix this test.
-- (void)DISABLED_testHomeAndWorkProfileDeleteOnEdit {
+- (void)testHomeAndWorkProfileDeleteOnEdit {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [AutofillAppInterface saveExampleHomeAndWorkAccountProfile];
 
   [self openProfileListInEditMode];
+  [self
+      scrollDownWithMatcher:grey_accessibilityID(kAutofillProfileTableViewID)];
   [[EarlGrey
       selectElementWithMatcher:grey_accessibilityLabel(
                                    [AutofillAppInterface exampleProfileName])]

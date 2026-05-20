@@ -99,7 +99,7 @@ public class IncognitoNewTabPage extends BasicNativePage
                 (IncognitoNewTabPageView) inflater.inflate(R.layout.new_tab_page_incognito, null);
         mIncognitoNewTabPageView.initialize(mIncognitoNewTabPageManager);
 
-        // Work around https://crbug.com/943873 and https://crbug.com/963385 where default focus
+        // Work around https://crbug.com/41447943 and https://crbug.com/41458988 where default focus
         // highlight shows up after toggling dark mode.
         mIncognitoNewTabPageView.setDefaultFocusHighlightEnabled(false);
 
@@ -217,9 +217,7 @@ public class IncognitoNewTabPage extends BasicNativePage
                     @Override
                     public void onPageLoadStarted(Tab tab, GURL url) {
                         if (!UrlUtilities.isNtpUrl(url)) {
-                            if (mIncognitoNtpMetrics != null) {
-                                mIncognitoNtpMetrics.recordNavigatedAway();
-                            }
+                            mIncognitoNtpMetrics.recordNavigatedAway();
 
                             if (mTabObserver != null) {
                                 tab.removeObserver(mTabObserver);

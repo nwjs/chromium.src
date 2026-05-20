@@ -84,8 +84,8 @@
 #include "ash/constants/ash_switches.h"
 #include "chrome/browser/ash/sync/sync_error_notifier.h"
 #include "chrome/browser/ash/sync/sync_error_notifier_factory.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "components/trusted_vault/features.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/widget/any_widget_observer.h"
@@ -626,7 +626,7 @@ IN_PROC_BROWSER_TEST_P(SingleClientNigoriSyncTest,
 // Tests that client can decrypt |pending_keys| with implicit passphrase in
 // backward-compatible keystore mode, when |keystore_decryptor_token| is
 // non-decryptable (corrupted). Additionally verifies that there is no
-// regression causing crbug.com/1042203.
+// regression causing crbug.com/40668359.
 IN_PROC_BROWSER_TEST_P(
     SingleClientNigoriSyncTest,
     ShouldDecryptWithImplicitPassphraseInBackwardCompatibleKeystoreMode) {
@@ -1368,7 +1368,7 @@ IN_PROC_BROWSER_TEST_P(SingleClientNigoriWithWebApiTest,
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 }
 
-// Regression test for crbug.com/1479879: test verifies that client is able to
+// Regression test for crbug.com/40930088: test verifies that client is able to
 // fix degraded recoverability if trusted vault keys were obtained by key
 // retrieval. In particular, this requires plumbing correct key version
 // (verified by FakeSecurityDomainsServer).
@@ -1442,8 +1442,10 @@ class SingleClientNigoriWithWebApiAndDialogUIParamTest
   ~SingleClientNigoriWithWebApiAndDialogUIParamTest() override = default;
 
   bool WaitForTrustedVaultReauthCompletion() {
-    auto* browser = chrome::FindTabbedBrowser(GetProfile(0), false);
-    return TabClosedChecker(browser->tab_strip_model()->GetActiveWebContents())
+    BrowserWindowInterface* browser =
+        ProfileBrowserCollection::GetForProfile(GetProfile(0))
+            ->FindTabbedBrowser();
+    return TabClosedChecker(browser->GetTabStripModel()->GetActiveWebContents())
         .Wait();
   }
 };
@@ -1864,14 +1866,8 @@ IN_PROC_BROWSER_TEST_P(
 
   base::HistogramTester histogram_tester;
 
-  // The manual sequence below, instead of invoking SetupSync() manually,
-  // reproduces a more realistic case of the first-time turn-sync-on experience,
-  // with a temporary stage where the user is signed in without sync-the-feature
-  // being enabled. Except on Ash where the two steps happen at once.
 #if !BUILDFLAG(IS_CHROMEOS)
-  ASSERT_TRUE(SetupClients());
-  ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
-  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
+  ASSERT_TRUE(SignIn());
 #endif  // !BUILDFLAG(IS_CHROMEOS)
   // TODO(crbug.com/40914333): SetupSync(WAIT_FOR_COMMITS_TO_COMPLETE) (e.g.
   // with default argument) causes test flakiness here due to unrelated issue in
@@ -2275,7 +2271,7 @@ IN_PROC_BROWSER_TEST_P(SingleClientNigoriWithWebApiTest,
       /*expected_bucket_count=*/1);
 }
 
-// Regression test for crbug.com/1267391: after following key rotation the
+// Regression test for crbug.com/40802753: after following key rotation the
 // client should still send all trusted vault keys (including keys that predate
 // key rotation) to the server when adding recovery method.
 IN_PROC_BROWSER_TEST_P(SingleClientNigoriWithWebApiTest,
@@ -2421,9 +2417,7 @@ IN_PROC_BROWSER_TEST_P(SingleClientNigoriWithWebApiTest,
   SetNigoriInFakeServer(BuildTrustedVaultNigoriSpecifics({kTestEncryptionKey}),
                         GetFakeServer());
 
-  ASSERT_TRUE(SetupClients());
-  ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
-  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
+  ASSERT_TRUE(SignIn());
   ASSERT_FALSE(GetSyncService(0)->IsSyncFeatureEnabled());
 
   // The error is now shown, because PASSWORDS is trying to sync. The data
@@ -2479,8 +2473,7 @@ IN_PROC_BROWSER_TEST_P(
       /*last_key_version=*/GetSecurityDomainsServer()->GetCurrentEpoch(),
       /*trigger=*/std::nullopt);
 
-  ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
-  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
+  ASSERT_TRUE(SignIn());
   ASSERT_FALSE(GetSyncService(0)->IsSyncFeatureEnabled());
 
   ASSERT_TRUE(TrustedVaultRecoverabilityDegradedStateChecker(GetSyncService(0),

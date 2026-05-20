@@ -21,9 +21,10 @@
 #include "components/unexportable_keys/background_task_origin.h"
 #include "components/unexportable_keys/background_task_priority.h"
 #include "components/unexportable_keys/mock_unexportable_key.h"
-#include "components/unexportable_keys/ref_counted_unexportable_signing_key.h"
+#include "components/unexportable_keys/ref_counted_unexportable_key.h"
 #include "components/unexportable_keys/scoped_mock_unexportable_key_provider.h"
 #include "components/unexportable_keys/service_error.h"
+#include "components/unexportable_keys/unexportable_key_id.h"
 #include "components/unexportable_keys/unexportable_key_task_manager.h"
 #include "crypto/scoped_fake_unexportable_key_provider.h"
 #include "crypto/signature_verifier.h"
@@ -124,7 +125,7 @@ TEST_F(UnexportableKeyServiceImplTest, IsUnexportableKeyProviderSupported) {
       crypto::UnexportableKeyProvider::Config()));
 
   // Test that the service returns a `ServiceError::kNoKeyProvider` error.
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>> future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           future.GetCallback());
   EXPECT_THAT(future.Get(), ErrorIs(ServiceError::kNoKeyProvider));
@@ -149,13 +150,13 @@ TEST_F(UnexportableKeyServiceImplTest,
 }
 
 TEST_F(UnexportableKeyServiceImplTest, GenerateKey) {
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>> future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           future.GetCallback());
   EXPECT_FALSE(future.IsReady());
   RunBackgroundTasks();
   EXPECT_TRUE(future.IsReady());
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, future.Get());
 
   // Verify that we can get info about the generated key.
   EXPECT_OK(service().GetSubjectPublicKeyInfo(key_id));
@@ -166,7 +167,7 @@ TEST_F(UnexportableKeyServiceImplTest, GenerateKey) {
 
 TEST_F(UnexportableKeyServiceImplTest, GenerateKeyMultiplePendingRequests) {
   constexpr size_t kPendingRequests = 5;
-  std::array<base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>>,
+  std::array<base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>,
              kPendingRequests>
       futures;
   for (auto& future : futures) {
@@ -180,7 +181,7 @@ TEST_F(UnexportableKeyServiceImplTest, GenerateKeyMultiplePendingRequests) {
   std::set<UnexportableKeyId> key_ids;
   for (auto& future : futures) {
     EXPECT_TRUE(future.IsReady());
-    ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, future.Get());
+    ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, future.Get());
     // Verify that we can get info about the generated key.
     EXPECT_OK(service().GetSubjectPublicKeyInfo(key_id));
     EXPECT_OK(service().GetWrappedKey(key_id));
@@ -195,7 +196,7 @@ TEST_F(UnexportableKeyServiceImplTest, GenerateKeyFails) {
   // RSA_PKCS1_SHA1 is not supported by the protocol, so the key generation
   // should fail.
   auto unsupported_algorithm = {crypto::SignatureVerifier::RSA_PKCS1_SHA1};
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>> future;
   service().GenerateSigningKeySlowlyAsync(unsupported_algorithm, kTaskPriority,
                                           future.GetCallback());
   RunBackgroundTasks();
@@ -203,18 +204,20 @@ TEST_F(UnexportableKeyServiceImplTest, GenerateKeyFails) {
 }
 
 TEST_F(UnexportableKeyServiceImplTest, FromWrappedKey) {
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
 
   ASSERT_OK_AND_ASSIGN(std::vector<uint8_t> wrapped_key,
                        service().GetWrappedKey(key_id));
 
   ResetService();
 
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> from_wrapped_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      from_wrapped_future;
   service().FromWrappedSigningKeySlowlyAsync(wrapped_key, kTaskPriority,
                                              from_wrapped_future.GetCallback());
   EXPECT_FALSE(from_wrapped_future.IsReady());
@@ -224,11 +227,12 @@ TEST_F(UnexportableKeyServiceImplTest, FromWrappedKey) {
 }
 
 TEST_F(UnexportableKeyServiceImplTest, FromWrappedKeyMultiplePendingRequests) {
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
 
   ASSERT_OK_AND_ASSIGN(std::vector<uint8_t> wrapped_key,
                        service().GetWrappedKey(key_id));
@@ -236,7 +240,7 @@ TEST_F(UnexportableKeyServiceImplTest, FromWrappedKeyMultiplePendingRequests) {
   ResetService();
 
   constexpr size_t kPendingRequests = 5;
-  std::array<base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>>,
+  std::array<base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>,
              kPendingRequests>
       from_wrapped_key_futures;
   for (auto& future : from_wrapped_key_futures) {
@@ -248,7 +252,7 @@ TEST_F(UnexportableKeyServiceImplTest, FromWrappedKeyMultiplePendingRequests) {
   RunBackgroundTasks();
 
   // All callbacks should return the same key ID.
-  ServiceErrorOr<UnexportableKeyId> unwrapped_key_id =
+  ServiceErrorOr<UnexportableSigningKeyId> unwrapped_key_id =
       from_wrapped_key_futures[0].Get();
   EXPECT_OK(unwrapped_key_id);
   for (auto& future : from_wrapped_key_futures) {
@@ -264,12 +268,12 @@ TEST_F(UnexportableKeyServiceImplTest,
        FromWrappedKeyNewRequestFromFailedCallback) {
   std::vector<uint8_t> invalid_wrapped_key = {1, 2, 3};
 
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>>
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
       inner_request_future;
   service().FromWrappedSigningKeySlowlyAsync(
       invalid_wrapped_key, kTaskPriority,
       base::BindLambdaForTesting(
-          [&](ServiceErrorOr<UnexportableKeyId> key_id_or_error) {
+          [&](ServiceErrorOr<UnexportableSigningKeyId> key_id_or_error) {
             service().FromWrappedSigningKeySlowlyAsync(
                 invalid_wrapped_key, kTaskPriority,
                 inner_request_future.GetCallback());
@@ -284,7 +288,7 @@ TEST_F(UnexportableKeyServiceImplTest,
        FromWrappedKeyMultiplePendingRequestsFail) {
   std::vector<uint8_t> empty_wrapped_key;
   constexpr size_t kPendingRequests = 5;
-  std::array<base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>>,
+  std::array<base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>,
              kPendingRequests>
       from_wrapped_key_futures;
   for (auto& future : from_wrapped_key_futures) {
@@ -304,16 +308,18 @@ TEST_F(UnexportableKeyServiceImplTest,
 
 TEST_F(UnexportableKeyServiceImplTest,
        FromWrappedKeyReturnsTheSameIdWhenExists) {
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
 
   ASSERT_OK_AND_ASSIGN(std::vector<uint8_t> wrapped_key,
                        service().GetWrappedKey(key_id));
 
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> from_wrapped_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      from_wrapped_future;
   service().FromWrappedSigningKeySlowlyAsync(wrapped_key, kTaskPriority,
                                              from_wrapped_future.GetCallback());
   // `service()` should return the result immediately.
@@ -327,16 +333,18 @@ TEST_F(UnexportableKeyServiceImplTest,
        FromWrappedKeyReturnsTheSameIdWhenExistsWithTaggedConfig) {
   ResetService(/*config=*/{.application_tag = "TagA"});
 
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
 
   ASSERT_OK_AND_ASSIGN(std::vector<uint8_t> wrapped_key,
                        service().GetWrappedKey(key_id));
 
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> from_wrapped_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      from_wrapped_future;
   service().FromWrappedSigningKeySlowlyAsync(wrapped_key, kTaskPriority,
                                              from_wrapped_future.GetCallback());
   // `service()` should return the result immediately.
@@ -364,7 +372,7 @@ TEST_F(UnexportableKeyServiceImplTest,
   ON_CALL(*key_b, GetKeyTag).WillByDefault(Return("TagB"));
 
   // Load all keys into the service.
-  EXPECT_CALL(SwitchToMockKeyProvider().mock(), GetAllSigningKeysSlowly())
+  EXPECT_CALL(SwitchToMockKeyProvider().mock(), GetAllKeysSlowly())
       .WillOnce(Return(
           base::ToVector<std::unique_ptr<crypto::UnexportableSigningKey>>({
               std::move(key_a),
@@ -373,7 +381,7 @@ TEST_F(UnexportableKeyServiceImplTest,
 
   base::test::TestFuture<ServiceErrorOr<std::vector<UnexportableKeyId>>>
       get_all_future;
-  service().GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+  service().GetAllKeysForGarbageCollectionSlowlyAsync(
       kTaskPriority, get_all_future.GetCallback());
   RunBackgroundTasks();
   ASSERT_OK_AND_ASSIGN(auto ids, get_all_future.Get());
@@ -382,7 +390,8 @@ TEST_F(UnexportableKeyServiceImplTest,
 
   // Request a key from the wrapped key data.
   // The service should use its config ("TagA") to find the matching key.
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> from_wrapped_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      from_wrapped_future;
   service().FromWrappedSigningKeySlowlyAsync(kWrappedKey, kTaskPriority,
                                              from_wrapped_future.GetCallback());
   RunBackgroundTasks();
@@ -406,7 +415,8 @@ TEST_F(
               FromWrappedSigningKeySlowly(Eq(kWrappedKey)))
       .WillOnce(Return(std::move(key_for_from_wrapped)));
 
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> from_wrapped_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      from_wrapped_future;
   service().FromWrappedSigningKeySlowlyAsync(kWrappedKey, kTaskPriority,
                                              from_wrapped_future.GetCallback());
 
@@ -417,14 +427,14 @@ TEST_F(
 }
 
 TEST_F(UnexportableKeyServiceImplTest,
-       GetAllSigningKeysForGarbageCollectionSlowlyAsyncStatelessProvider) {
+       GetAllKeysForGarbageCollectionSlowlyAsyncStatelessProvider) {
   ASSERT_EQ(UnexportableKeyTaskManager::GetUnexportableKeyProvider({})
                 ->AsStatefulUnexportableKeyProvider(),
             nullptr);
 
   base::test::TestFuture<ServiceErrorOr<std::vector<UnexportableKeyId>>>
       get_all_keys_future;
-  service().GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+  service().GetAllKeysForGarbageCollectionSlowlyAsync(
       kTaskPriority, get_all_keys_future.GetCallback());
   RunBackgroundTasks();
   EXPECT_THAT(get_all_keys_future.Get(),
@@ -432,12 +442,12 @@ TEST_F(UnexportableKeyServiceImplTest,
 }
 
 TEST_F(UnexportableKeyServiceImplTest,
-       GetAllSigningKeysForGarbageCollectionSlowlyAsyncAddsKeysToService) {
+       GetAllKeysForGarbageCollectionSlowlyAsyncAddsKeysToService) {
   const std::vector<uint8_t> kWrappedKey = {1, 2, 3};
   auto provider_key = std::make_unique<NiceMock<MockUnexportableKey>>();
   ON_CALL(*provider_key, GetWrappedKey).WillByDefault(Return(kWrappedKey));
 
-  EXPECT_CALL(SwitchToMockKeyProvider().mock(), GetAllSigningKeysSlowly())
+  EXPECT_CALL(SwitchToMockKeyProvider().mock(), GetAllKeysSlowly())
       .WillOnce(Return(
           base::ToVector<std::unique_ptr<crypto::UnexportableSigningKey>>({
               std::move(provider_key),
@@ -445,7 +455,7 @@ TEST_F(UnexportableKeyServiceImplTest,
 
   base::test::TestFuture<ServiceErrorOr<std::vector<UnexportableKeyId>>>
       get_all_keys_future;
-  service().GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+  service().GetAllKeysForGarbageCollectionSlowlyAsync(
       kTaskPriority, get_all_keys_future.GetCallback());
   RunBackgroundTasks();
 
@@ -457,15 +467,15 @@ TEST_F(UnexportableKeyServiceImplTest,
   EXPECT_THAT(service().GetWrappedKey(key_id), ValueIs(kWrappedKey));
 
   // A subsequent `FromWrappedKey` call should return the same ID immediately.
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> from_wrapped_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      from_wrapped_future;
   service().FromWrappedSigningKeySlowlyAsync(kWrappedKey, kTaskPriority,
                                              from_wrapped_future.GetCallback());
   EXPECT_TRUE(from_wrapped_future.IsReady());
   EXPECT_THAT(from_wrapped_future.Get(), ValueIs(key_id));
 }
 
-TEST_F(UnexportableKeyServiceImplTest,
-       FromWrappedSigningKeyBeforeGetAllSigningKeys) {
+TEST_F(UnexportableKeyServiceImplTest, FromWrappedSigningKeyBeforeGetAllKeys) {
   const std::vector<uint8_t> kWrappedKey = {1, 2, 3};
   MockUnexportableKeyProvider& mock_provider = SwitchToMockKeyProvider().mock();
 
@@ -475,47 +485,48 @@ TEST_F(UnexportableKeyServiceImplTest,
       .WillByDefault(Return(kWrappedKey));
   EXPECT_CALL(mock_provider, FromWrappedSigningKeySlowly(Eq(kWrappedKey)))
       .WillOnce(Return(std::move(key_for_from_wrapped)));
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> from_wrapped_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      from_wrapped_future;
   service().FromWrappedSigningKeySlowlyAsync(kWrappedKey, kTaskPriority,
                                              from_wrapped_future.GetCallback());
 
-  // Then, `GetAllSigningKeysSlowly` will be called.
+  // Then, `GetAllKeysSlowly` will be called.
   auto key_for_get_all = std::make_unique<NiceMock<MockUnexportableKey>>();
   ON_CALL(*key_for_get_all, GetWrappedKey).WillByDefault(Return(kWrappedKey));
-  EXPECT_CALL(mock_provider, GetAllSigningKeysSlowly())
+  EXPECT_CALL(mock_provider, GetAllKeysSlowly())
       .WillOnce(Return(
           base::ToVector<std::unique_ptr<crypto::UnexportableSigningKey>>({
               std::move(key_for_get_all),
           })));
   base::test::TestFuture<ServiceErrorOr<std::vector<UnexportableKeyId>>>
       get_all_keys_future;
-  service().GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+  service().GetAllKeysForGarbageCollectionSlowlyAsync(
       kTaskPriority, get_all_keys_future.GetCallback());
 
   RunBackgroundTasks();
 
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, from_wrapped_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id,
+                       from_wrapped_future.Get());
   ASSERT_OK_AND_ASSIGN(std::vector<UnexportableKeyId> key_ids,
                        get_all_keys_future.Get());
   ASSERT_THAT(key_ids, ElementsAre(key_id));
 }
 
-TEST_F(UnexportableKeyServiceImplTest,
-       GetAllSigningKeysBeforeFromWrappedSigningKey) {
+TEST_F(UnexportableKeyServiceImplTest, GetAllKeysBeforeFromWrappedSigningKey) {
   const std::vector<uint8_t> kWrappedKey = {1, 2, 3};
   MockUnexportableKeyProvider& mock_provider = SwitchToMockKeyProvider().mock();
 
-  // First, `GetAllSigningKeysSlowly` will be called.
+  // First, `GetAllKeysSlowly` will be called.
   auto key_for_get_all = std::make_unique<NiceMock<MockUnexportableKey>>();
   ON_CALL(*key_for_get_all, GetWrappedKey).WillByDefault(Return(kWrappedKey));
-  EXPECT_CALL(mock_provider, GetAllSigningKeysSlowly())
+  EXPECT_CALL(mock_provider, GetAllKeysSlowly())
       .WillOnce(Return(
           base::ToVector<std::unique_ptr<crypto::UnexportableSigningKey>>({
               std::move(key_for_get_all),
           })));
   base::test::TestFuture<ServiceErrorOr<std::vector<UnexportableKeyId>>>
       get_all_keys_future;
-  service().GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+  service().GetAllKeysForGarbageCollectionSlowlyAsync(
       kTaskPriority, get_all_keys_future.GetCallback());
 
   // Then, `FromWrappedSigningKeySlowlyAsync` will be called.
@@ -524,7 +535,8 @@ TEST_F(UnexportableKeyServiceImplTest,
       .WillByDefault(Return(kWrappedKey));
   EXPECT_CALL(mock_provider, FromWrappedSigningKeySlowly(Eq(kWrappedKey)))
       .WillOnce(Return(std::move(key_for_from_wrapped)));
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> from_wrapped_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      from_wrapped_future;
   service().FromWrappedSigningKeySlowlyAsync(kWrappedKey, kTaskPriority,
                                              from_wrapped_future.GetCallback());
 
@@ -532,19 +544,20 @@ TEST_F(UnexportableKeyServiceImplTest,
 
   ASSERT_OK_AND_ASSIGN(std::vector<UnexportableKeyId> key_ids,
                        get_all_keys_future.Get());
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, from_wrapped_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id,
+                       from_wrapped_future.Get());
   ASSERT_THAT(key_ids, ElementsAre(key_id));
 }
 
 TEST_F(UnexportableKeyServiceImplTest,
-       GetAllSigningKeysBeforeFromWrappedSigningKeyWithDeletion) {
+       GetAllKeysBeforeFromWrappedSigningKeyWithDeletion) {
   const std::vector<uint8_t> kWrappedKey = {1, 2, 3};
   MockUnexportableKeyProvider& mock_provider = SwitchToMockKeyProvider().mock();
 
-  // First, `GetAllSigningKeysSlowly` will be called.
+  // First, `GetAllKeysSlowly` will be called.
   auto key_for_get_all = std::make_unique<NiceMock<MockUnexportableKey>>();
   ON_CALL(*key_for_get_all, GetWrappedKey).WillByDefault(Return(kWrappedKey));
-  EXPECT_CALL(mock_provider, GetAllSigningKeysSlowly())
+  EXPECT_CALL(mock_provider, GetAllKeysSlowly())
       .WillOnce(Return(
           base::ToVector<std::unique_ptr<crypto::UnexportableSigningKey>>({
               std::move(key_for_get_all),
@@ -553,11 +566,11 @@ TEST_F(UnexportableKeyServiceImplTest,
       get_all_keys_future;
 
   // Simulate a scenario where the key is deleted after it's returned by
-  // `GetAllSigningKeysSlowly`, but before `FromWrappedSigningKeySlowly`'s
+  // `GetAllKeysSlowly`, but before `FromWrappedSigningKeySlowly`'s
   // handling logic is executed. This should be handled gracefully.
-  // It is important that the GetAllSigningKeys task is scheduled before the
+  // It is important that the `GetAllKeys` task is scheduled before the
   // FromWrappedSigningKey task below.
-  service().GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+  service().GetAllKeysForGarbageCollectionSlowlyAsync(
       kTaskPriority,
       base::BindLambdaForTesting(
           [&](ServiceErrorOr<std::vector<UnexportableKeyId>> result) {
@@ -572,7 +585,8 @@ TEST_F(UnexportableKeyServiceImplTest,
       .WillByDefault(Return(kWrappedKey));
   EXPECT_CALL(mock_provider, FromWrappedSigningKeySlowly(Eq(kWrappedKey)))
       .WillOnce(Return(std::move(key_for_from_wrapped)));
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> from_wrapped_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      from_wrapped_future;
   service().FromWrappedSigningKeySlowlyAsync(kWrappedKey, kTaskPriority,
                                              from_wrapped_future.GetCallback());
 
@@ -582,14 +596,15 @@ TEST_F(UnexportableKeyServiceImplTest,
   // known to the service.
   ASSERT_OK_AND_ASSIGN(std::vector<UnexportableKeyId> key_ids,
                        get_all_keys_future.Get());
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, from_wrapped_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id,
+                       from_wrapped_future.Get());
   ASSERT_THAT(key_ids, ElementsAre(key_id));
   EXPECT_THAT(service().GetWrappedKey(key_id),
               ErrorIs(ServiceError::kKeyNotFound));
 }
 
 TEST_F(UnexportableKeyServiceImplTest,
-       GetAllSigningKeysForGarbageCollectionSlowlyAsyncWithKeyCollisions) {
+       GetAllKeysForGarbageCollectionSlowlyAsyncWithKeyCollisions) {
   const std::vector<uint8_t> kWrappedKey = {1, 2, 3};
   const std::string kTag1 = "tag1";
   const std::string kTag2 = "tag2";
@@ -604,7 +619,7 @@ TEST_F(UnexportableKeyServiceImplTest,
   ON_CALL(*key2, GetKeyTag).WillByDefault(Return(kTag2));
 
   // The provider returns both keys.
-  EXPECT_CALL(SwitchToMockKeyProvider().mock(), GetAllSigningKeysSlowly())
+  EXPECT_CALL(SwitchToMockKeyProvider().mock(), GetAllKeysSlowly())
       .WillOnce(Return(
           base::ToVector<std::unique_ptr<crypto::UnexportableSigningKey>>({
               std::move(key1),
@@ -613,7 +628,7 @@ TEST_F(UnexportableKeyServiceImplTest,
 
   base::test::TestFuture<ServiceErrorOr<std::vector<UnexportableKeyId>>>
       get_all_keys_future;
-  service().GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+  service().GetAllKeysForGarbageCollectionSlowlyAsync(
       kTaskPriority, get_all_keys_future.GetCallback());
   RunBackgroundTasks();
 
@@ -632,9 +647,10 @@ TEST_F(UnexportableKeyServiceImplTest,
 }
 
 TEST_F(UnexportableKeyServiceImplTest,
-       GetAllSigningKeysForGarbageCollectionSlowlyAsyncKeyAlreadyExists) {
+       GetAllKeysForGarbageCollectionSlowlyAsyncKeyAlreadyExists) {
   // Generate a key to have it in the service.
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
@@ -647,7 +663,7 @@ TEST_F(UnexportableKeyServiceImplTest,
   auto provider_key = std::make_unique<NiceMock<MockUnexportableKey>>();
   ON_CALL(*provider_key, GetWrappedKey).WillByDefault(Return(wrapped_key));
 
-  EXPECT_CALL(SwitchToMockKeyProvider().mock(), GetAllSigningKeysSlowly())
+  EXPECT_CALL(SwitchToMockKeyProvider().mock(), GetAllKeysSlowly())
       .WillOnce(Return(
           base::ToVector<std::unique_ptr<crypto::UnexportableSigningKey>>({
               std::move(provider_key),
@@ -655,23 +671,23 @@ TEST_F(UnexportableKeyServiceImplTest,
 
   base::test::TestFuture<ServiceErrorOr<std::vector<UnexportableKeyId>>>
       get_all_keys_future;
-  service().GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+  service().GetAllKeysForGarbageCollectionSlowlyAsync(
       kTaskPriority, get_all_keys_future.GetCallback());
   RunBackgroundTasks();
 
-  // `GetAllSigningKeys` should return the existing key ID.
+  // `GetAllKeys` should return the existing key ID.
   ASSERT_OK_AND_ASSIGN(const auto& key_ids, get_all_keys_future.Get());
   ASSERT_THAT(key_ids, ElementsAre(existing_key_id));
 }
 
 TEST_F(UnexportableKeyServiceImplTest,
-       GetAllSigningKeysForGarbageCollectionSlowlyAsyncProviderFails) {
-  EXPECT_CALL(SwitchToMockKeyProvider().mock(), GetAllSigningKeysSlowly())
+       GetAllKeysForGarbageCollectionSlowlyAsyncProviderFails) {
+  EXPECT_CALL(SwitchToMockKeyProvider().mock(), GetAllKeysSlowly())
       .WillOnce(Return(std::nullopt));
 
   base::test::TestFuture<ServiceErrorOr<std::vector<UnexportableKeyId>>>
       get_all_keys_future;
-  service().GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+  service().GetAllKeysForGarbageCollectionSlowlyAsync(
       kTaskPriority, get_all_keys_future.GetCallback());
   RunBackgroundTasks();
 
@@ -681,12 +697,12 @@ TEST_F(UnexportableKeyServiceImplTest,
 
 TEST_F(
     UnexportableKeyServiceImplTest,
-    GetAllSigningKeysForGarbageCollectionSlowlyAsyncCallbackIsCancelledOnServiceDestruction) {
+    GetAllKeysForGarbageCollectionSlowlyAsyncCallbackIsCancelledOnServiceDestruction) {
   auto provider_key = std::make_unique<NiceMock<MockUnexportableKey>>();
   ON_CALL(*provider_key, GetWrappedKey)
       .WillByDefault(Return(std::vector<uint8_t>{1, 2, 3}));
 
-  EXPECT_CALL(SwitchToMockKeyProvider().mock(), GetAllSigningKeysSlowly())
+  EXPECT_CALL(SwitchToMockKeyProvider().mock(), GetAllKeysSlowly())
       .WillOnce(Return(
           base::ToVector<std::unique_ptr<crypto::UnexportableSigningKey>>({
               std::move(provider_key),
@@ -694,7 +710,7 @@ TEST_F(
 
   base::test::TestFuture<ServiceErrorOr<std::vector<UnexportableKeyId>>>
       get_all_keys_future;
-  service().GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+  service().GetAllKeysForGarbageCollectionSlowlyAsync(
       kTaskPriority, get_all_keys_future.GetCallback());
 
   DestroyService();
@@ -704,11 +720,12 @@ TEST_F(
 }
 
 TEST_F(UnexportableKeyServiceImplTest, Sign) {
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
 
   base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
   std::vector<uint8_t> data = {1, 2, 3};
@@ -722,11 +739,12 @@ TEST_F(UnexportableKeyServiceImplTest, Sign) {
 
 TEST_F(UnexportableKeyServiceImplTest,
        SignSlowlyAsyncCallbackIsCancelledOnServiceDestruction) {
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
 
   base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
   std::vector<uint8_t> data = {1, 2, 3};
@@ -739,7 +757,7 @@ TEST_F(UnexportableKeyServiceImplTest,
 }
 
 TEST_F(UnexportableKeyServiceImplTest, NonExistingKeyId) {
-  UnexportableKeyId fake_key_id;
+  UnexportableSigningKeyId fake_key_id;
 
   // `service()` does not return any info about non-existing key ID.
   EXPECT_THAT(service().GetSubjectPublicKeyInfo(fake_key_id),
@@ -768,11 +786,12 @@ TEST_F(UnexportableKeyServiceImplTest, SignFailed) {
       .WillRepeatedly(Return(std::nullopt));
   SwitchToMockKeyProvider().AddNextGeneratedKey(std::move(key_to_generate));
 
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
 
   base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
   service().SignSlowlyAsync(key_id, data, kTaskPriority,
@@ -803,11 +822,12 @@ TEST_F(UnexportableKeyServiceImplTest, SignWithRetry) {
           Invoke(&key->key(), &crypto::UnexportableSigningKey::SignSlowly));
   SwitchToMockKeyProvider().AddNextGeneratedKey(std::move(key_to_generate));
 
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
 
   base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
   service().SignSlowlyAsync(key_id, data, kTaskPriority,
@@ -831,11 +851,13 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteKeys) {
 
     raw_keys.push_back(
         scoped_provider.AddNextGeneratedKey(std::move(mock_key)));
-    base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+    base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+        generate_future;
     service().GenerateSigningKeySlowlyAsync(
         kAcceptableAlgorithms, kTaskPriority, generate_future.GetCallback());
     RunBackgroundTasks();
-    ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+    ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id,
+                         generate_future.Get());
     key_ids.push_back(key_id);
   }
 
@@ -846,7 +868,7 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteKeys) {
 
   // Delete all keys.
   EXPECT_CALL(scoped_provider.mock(),
-              DeleteSigningKeysSlowly(ElementsAreArray(raw_keys)))
+              DeleteKeysSlowly(ElementsAreArray(raw_keys)))
       .WillOnce(Return(kKeysToGenerate));
 
   base::test::TestFuture<ServiceErrorOr<size_t>> delete_future;
@@ -869,11 +891,12 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteKeysWithNonExistingKey) {
   // Generate a key.
   auto* raw_key = scoped_provider.AddNextGeneratedKey(
       std::make_unique<MockUnexportableKey>());
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
 
   // The key should exist before deletion.
   ASSERT_OK(service().GetWrappedKey(key_id));
@@ -882,8 +905,7 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteKeysWithNonExistingKey) {
   std::vector<UnexportableKeyId> key_ids_to_delete = {key_id, fake_key_id};
 
   // Delete the keys. Only the existing key will be passed to the provider.
-  EXPECT_CALL(scoped_provider.mock(),
-              DeleteSigningKeysSlowly(ElementsAre(raw_key)))
+  EXPECT_CALL(scoped_provider.mock(), DeleteKeysSlowly(ElementsAre(raw_key)))
       .WillOnce(Return(1));
 
   base::test::TestFuture<ServiceErrorOr<size_t>> delete_future;
@@ -902,8 +924,7 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteKeysOnlyNonExistingKeys) {
   std::vector<UnexportableKeyId> key_ids_to_delete = {fake_key_id};
 
   // The provider should not be called.
-  EXPECT_CALL(SwitchToMockKeyProvider().mock(), DeleteSigningKeysSlowly)
-      .Times(0);
+  EXPECT_CALL(SwitchToMockKeyProvider().mock(), DeleteKeysSlowly).Times(0);
 
   base::test::TestFuture<ServiceErrorOr<size_t>> delete_future;
   service().DeleteKeysSlowlyAsync(key_ids_to_delete, kTaskPriority,
@@ -920,18 +941,18 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteKeysProviderFails) {
   // Generate a key.
   auto* raw_key = scoped_provider.AddNextGeneratedKey(
       std::make_unique<MockUnexportableKey>());
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
 
   // The key should exist before deletion.
   ASSERT_OK(service().GetWrappedKey(key_id));
 
   // Try to delete the key.
-  EXPECT_CALL(scoped_provider.mock(),
-              DeleteSigningKeysSlowly(ElementsAre(raw_key)))
+  EXPECT_CALL(scoped_provider.mock(), DeleteKeysSlowly(ElementsAre(raw_key)))
       .WillOnce(Return(std::nullopt));
 
   base::test::TestFuture<ServiceErrorOr<size_t>> delete_future;
@@ -955,15 +976,15 @@ TEST_F(UnexportableKeyServiceImplTest,
   auto* raw_key = scoped_provider.AddNextGeneratedKey(
       std::make_unique<MockUnexportableKey>());
 
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
 
   // Delete the key.
-  EXPECT_CALL(scoped_provider.mock(),
-              DeleteSigningKeysSlowly(ElementsAre(raw_key)))
+  EXPECT_CALL(scoped_provider.mock(), DeleteKeysSlowly(ElementsAre(raw_key)))
       .WillOnce(Return(1));
   base::test::TestFuture<ServiceErrorOr<size_t>> delete_future;
   service().DeleteKeysSlowlyAsync({key_id}, kTaskPriority,
@@ -979,11 +1000,12 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteKeysStatelessProvider) {
                 ->AsStatefulUnexportableKeyProvider(),
             nullptr);
 
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
 
   base::test::TestFuture<ServiceErrorOr<size_t>> delete_future;
   service().DeleteKeysSlowlyAsync({key_id}, kTaskPriority,
@@ -1004,11 +1026,13 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteAllKeys) {
   constexpr size_t kKeysToGenerate = 3;
   std::vector<UnexportableKeyId> key_ids;
   for (size_t i = 0; i < kKeysToGenerate; ++i) {
-    base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+    base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+        generate_future;
     service().GenerateSigningKeySlowlyAsync(
         kAcceptableAlgorithms, kTaskPriority, generate_future.GetCallback());
     RunBackgroundTasks();
-    ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+    ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id,
+                         generate_future.Get());
     key_ids.push_back(key_id);
   }
 
@@ -1018,7 +1042,7 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteAllKeys) {
   }
 
   // Delete all keys.
-  EXPECT_CALL(SwitchToMockKeyProvider().mock(), DeleteAllSigningKeysSlowly)
+  EXPECT_CALL(SwitchToMockKeyProvider().mock(), DeleteAllKeysSlowly)
       .WillOnce(Return(kKeysToGenerate));
 
   base::test::TestFuture<ServiceErrorOr<size_t>> delete_all_future;
@@ -1039,11 +1063,13 @@ TEST_F(UnexportableKeyServiceImplTest,
   constexpr size_t kKeysToGenerate = 3;
   std::vector<UnexportableKeyId> key_ids;
   for (size_t i = 0; i < kKeysToGenerate; ++i) {
-    base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+    base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+        generate_future;
     service().GenerateSigningKeySlowlyAsync(
         kAcceptableAlgorithms, kTaskPriority, generate_future.GetCallback());
     RunBackgroundTasks();
-    ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+    ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id,
+                         generate_future.Get());
     key_ids.push_back(key_id);
   }
 
@@ -1053,7 +1079,7 @@ TEST_F(UnexportableKeyServiceImplTest,
   }
 
   // Delete all keys.
-  EXPECT_CALL(SwitchToMockKeyProvider().mock(), DeleteAllSigningKeysSlowly)
+  EXPECT_CALL(SwitchToMockKeyProvider().mock(), DeleteAllKeysSlowly)
       .WillOnce(Return(kKeysToGenerate));
 
   base::test::TestFuture<ServiceErrorOr<size_t>> delete_all_future;
@@ -1069,7 +1095,8 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteAllKeysWithPendingFromWrappedKey) {
   std::vector<uint8_t> wrapped_key =
       GenerateSigningKey()->key().GetWrappedKey();
 
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> from_wrapped_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      from_wrapped_future;
   service().FromWrappedSigningKeySlowlyAsync(wrapped_key, kTaskPriority,
                                              from_wrapped_future.GetCallback());
 
@@ -1082,7 +1109,8 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteAllKeysWithPendingFromWrappedKey) {
 }
 
 TEST_F(UnexportableKeyServiceImplTest, DeleteAllKeysWithPendingGenerateKey) {
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
 
@@ -1108,7 +1136,8 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteAllKeysStatelessProvider) {
               ErrorIs(ServiceError::kOperationNotSupported));
 
   // Service should be usable after deleting all keys.
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
@@ -1118,13 +1147,14 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteAllKeysStatelessProvider) {
 TEST_F(UnexportableKeyServiceImplTest, DeleteAllKeysProviderFails) {
   // Generate a key to make sure there is at least one key to delete from the
   // service's perspective.
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
   ASSERT_OK(generate_future.Get());
 
-  EXPECT_CALL(SwitchToMockKeyProvider().mock(), DeleteAllSigningKeysSlowly())
+  EXPECT_CALL(SwitchToMockKeyProvider().mock(), DeleteAllKeysSlowly())
       .WillOnce(Return(std::nullopt));
 
   base::test::TestFuture<ServiceErrorOr<size_t>> delete_all_future;
@@ -1134,11 +1164,12 @@ TEST_F(UnexportableKeyServiceImplTest, DeleteAllKeysProviderFails) {
 }
 
 TEST_F(UnexportableKeyServiceImplTest, DeleteAllKeysWithPendingSign) {
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
 
   base::test::TestFuture<ServiceErrorOr<std::vector<uint8_t>>> sign_future;
   std::vector<uint8_t> data = {1, 2, 3};
@@ -1171,11 +1202,12 @@ TEST_F(UnexportableKeyServiceImplTest, GetCreationTimeWithStatefulKey) {
       .WillByDefault(Return(base::Time::Now()));
   SwitchToMockKeyProvider().AddNextGeneratedKey(std::move(key_to_generate));
 
-  base::test::TestFuture<ServiceErrorOr<UnexportableKeyId>> generate_future;
+  base::test::TestFuture<ServiceErrorOr<UnexportableSigningKeyId>>
+      generate_future;
   service().GenerateSigningKeySlowlyAsync(kAcceptableAlgorithms, kTaskPriority,
                                           generate_future.GetCallback());
   RunBackgroundTasks();
-  ASSERT_OK_AND_ASSIGN(UnexportableKeyId key_id, generate_future.Get());
+  ASSERT_OK_AND_ASSIGN(UnexportableSigningKeyId key_id, generate_future.Get());
   EXPECT_EQ(service().GetCreationTime(key_id), base::Time::Now());
 }
 

@@ -165,8 +165,6 @@
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "third_party/skia/include/core/SkFontMgr.h"
 #include "third_party/skia/include/core/SkGraphics.h"
-#include "third_party/skia/include/private/chromium/SkCodecsICCProfileChromium.h"
-#include "third_party/skia/include/private/chromium/SkExifChromium.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/base/ui_base_switches_util.h"
 #include "ui/display/display_switches.h"
@@ -579,7 +577,12 @@ void RenderThreadImpl::Init() {
             base::MemoryPressureListenerTag::kRenderThreadImpl, this);
   }
 
-  discardable_memory_allocator_ = CreateDiscardableMemoryAllocator();
+  mojo::PendingRemote<discardable_memory::mojom::DiscardableSharedMemoryManager>
+      manager_remote;
+  BindHostReceiver(manager_remote.InitWithNewPipeAndPassReceiver());
+  discardable_memory_allocator_ = base::MakeRefCounted<
+      discardable_memory::ClientDiscardableSharedMemoryManager>(
+      std::move(manager_remote), GetIOTaskRunner());
 
   // TODO(boliu): In single process, browser main loop should set up the
   // discardable memory manager, and should skip this if kSingleProcess.
@@ -800,22 +803,6 @@ void RenderThreadImpl::InitializeWebKit(mojo::BinderMap* binders) {
 
   RenderMediaClient::Initialize();
 
-  // Configure the ICC profile parser kill-switch early, before any image
-  // decoding occurs. When the feature is enabled, this forces skcms to be
-  // used instead of the Rust-based ICC parser.
-  // TODO(crbug.com/463653726): Remove this once the feature is validated in
-  // Stable.
-  SkCodecs::ICCProfileChromium::ForceSkcms(
-      base::FeatureList::IsEnabled(blink::features::kForceSkcmsICCParsing));
-
-  // Configure the EXIF parser kill-switch early, before any image decoding
-  // occurs. When the feature is enabled, this forces the C++ SkExif parser to
-  // be used instead of the Rust-based EXIF parser.
-  // TODO(crbug.com/463653726): Remove this once the feature is validated in
-  // Stable.
-  SkExif::ForceSkExif(
-      base::FeatureList::IsEnabled(blink::features::kForceSkExifCppParsing));
-
   // Hook up blink's codecs so skia can call them. Since only the renderer
   // processes should be doing image decoding, this is not done in the common
   // skia initialization code for the GPU.
@@ -834,7 +821,7 @@ void RenderThreadImpl::InitializeRenderer(
               perfetto::TerminatingFlow::Global(trace_id));
   DCHECK(user_agent_.IsNull());
 
-  user_agent_ = WebString::FromUTF8(user_agent);
+  user_agent_ = WebString::FromUtf8(user_agent);
   GetContentClient()->renderer()->DidSetUserAgent(user_agent);
   user_agent_metadata_ = user_agent_metadata;
   cors_exempt_header_list_ = cors_exempt_header_list;

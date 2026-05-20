@@ -559,13 +559,6 @@ void BoxFragmentPainter::Paint(const PaintInfo& paint_info) {
     return;
   }
   auto* layout_object = box_fragment_.GetLayoutObject();
-
-  if (layout_object && layout_object->NeedsLayout() &&
-      !layout_object->ChildLayoutBlockedByDisplayLock()) {
-    // TODO(crbug.com/478682594): Remove when done investigating.
-    layout_object->DumpForBug478682594();
-  }
-
   if (GetPhysicalFragment().IsPaintedAtomically() &&
       !box_fragment_.HasSelfPaintingLayer() &&
       paint_info.phase != PaintPhase::kOverlayOverflowControls) {
@@ -1413,7 +1406,8 @@ void BoxFragmentPainter::PaintCompositeBackgroundAttachmentFixed(
           .Effect());
   const ScrollableArea* layout_viewport = box.GetFrameView()->LayoutViewport();
   DCHECK(layout_viewport);
-  gfx::Rect background_rect(layout_viewport->VisibleContentRect().size());
+  gfx::Rect background_rect(
+      layout_viewport->VisibleContentRect(kExcludeScrollbars).size());
   ScopedPaintChunkProperties fixed_background_properties(
       paint_info.context.GetPaintController(), state, background_client,
       DisplayItem::kFixedAttachmentBackground);

@@ -87,6 +87,15 @@ typedef NS_ENUM(NSInteger, ItemType) {
   [self validateFields];
 
   [self loadModel];
+
+  // This is used to dismiss date picker UI when the user taps outside of it.
+  UITapGestureRecognizer* tapGesture = [[UITapGestureRecognizer alloc]
+      initWithTarget:self
+              action:@selector(handleTapOutside:)];
+  // This allows the user to both dismiss a date picker and select another field
+  // with a single tap.
+  tapGesture.cancelsTouchesInView = NO;
+  [self.view addGestureRecognizer:tapGesture];
 }
 
 #pragma mark - LegacyChromeTableViewController
@@ -116,6 +125,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
           base::apple::ObjCCastStrict<AutofillAIEntityEditDateItem>(item);
       dateItem.editingEnabled = self.tableView.editing;
       dateItem.delegate = self;
+      dateItem.textFieldDelegate = self;
     }
   }
 
@@ -139,7 +149,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 - (void)setupBottomSaveButton {
   _saveButton = [[ChromeButton alloc] initWithStyle:ChromeButtonStylePrimary];
   _saveButton.title =
-      l10n_util::GetNSString(IDS_IOS_SAVE_ENTITY_IN_SETTINGS_BUTTON_TEXT);
+      l10n_util::GetNSString(autofill::GetSaveEntityAcceptButtonStringId());
   _saveButton.translatesAutoresizingMaskIntoConstraints = NO;
   [_saveButton addTarget:self
                   action:@selector(didTapSaveNewEntity)
@@ -274,7 +284,19 @@ typedef NS_ENUM(NSInteger, ItemType) {
   [self.mutator didChangeDate:date forItem:item];
 }
 
+- (void)didDismissDateItem:(AutofillAIEntityEditDateItem*)item {
+  [self.view endEditing:YES];
+}
+
 #pragma mark - Actions
+
+- (void)handleTapOutside:(UITapGestureRecognizer*)gesture {
+  if (gesture.state == UIGestureRecognizerStateEnded) {
+    // Whenever a user taps outside of the current field or date picker, stop
+    // editing. This will dismiss the date picker UI used by date items.
+    [self.view endEditing:YES];
+  }
+}
 
 - (void)didTapCancel {
   [self.delegate dismissViewController:self];
@@ -438,6 +460,25 @@ typedef NS_ENUM(NSInteger, ItemType) {
   [self validateFields];
 }
 
+#pragma mark - UITextFieldDelegate
+
+- (BOOL)textField:(UITextField*)textField
+    shouldChangeCharactersInRange:(NSRange)range
+                replacementString:(NSString*)string {
+  // If the text field has a custom input view, block all direct keyboard input.
+  return !textField.inputView;
+}
+
+- (UIMenu*)textField:(UITextField*)textField
+    editMenuForCharactersInRange:(NSRange)range
+                suggestedActions:(NSArray<UIMenuElement*>*)suggestedActions {
+  // If the text field has a custom input view, prevent menu actions such as
+  // "paste", "autofill" or "contacts" from showing up and writing data into the
+  // text field.
+  return [UIMenu menuWithTitle:@""
+                      children:textField.inputView ? @[] : suggestedActions];
+}
+
 #pragma mark - TableViewLinkHeaderFooterItemDelegate
 
 - (void)view:(TableViewLinkHeaderFooterView*)view didTapLinkURL:(CrURL*)URL {
@@ -472,15 +513,15 @@ typedef NS_ENUM(NSInteger, ItemType) {
   return present;
 }
 
-- (autofill::DenseSet<autofill::AttributeType>)missingRequiredFields {
+- (autofill::DenseSet<autofill::AttributeType>)missingFields {
   const autofill::DenseSet<autofill::AttributeType> presentAttributes =
       [self presentAttributes];
-  return [self.mutator getMissingRequiredFieldsFor:presentAttributes];
+  return [self.mutator getMissingImportConstraintsFor:presentAttributes];
 }
 
 - (BOOL)validateFields {
   const autofill::DenseSet<autofill::AttributeType> missingFields =
-      [self missingRequiredFields];
+      [self missingFields];
 
   NSMutableArray<TableViewItem*>* itemsToReconfigure =
       [[NSMutableArray alloc] init];
@@ -514,6 +555,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
           base::apple::ObjCCastStrict<AutofillAIEntityEditDateItem>(item);
       BOOL itemIsValid = !missingFields.contains(
           autofill::AttributeType(dateItem.attributeType));
+      if (!_setEditItemsCompleted) {
+        itemIsValid = YES;
+      }
       if (dateItem.hasValidValueStatus != itemIsValid) {
         dateItem.hasValidValueStatus = itemIsValid;
         [itemsToReconfigure addObject:dateItem];

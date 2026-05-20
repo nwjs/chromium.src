@@ -65,8 +65,6 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
   ~SendTabToSelfBridge() override;
 
   // syncer::DataTypeSyncBridge overrides.
-  std::unique_ptr<syncer::MetadataChangeList> CreateMetadataChangeList()
-      override;
   std::optional<syncer::ModelError> MergeFullSyncData(
       std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
       syncer::EntityChangeList entity_data) override;
@@ -85,18 +83,23 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
   bool IsEntityDataValid(const syncer::EntityData& entity_data) const override;
   void ApplyDisableSyncChanges(std::unique_ptr<syncer::MetadataChangeList>
                                    delete_metadata_change_list) override;
+  void OnCommitAttemptErrors(
+      const syncer::FailedCommitResponseDataList& error_response_list) override;
+  CommitAttemptFailedBehavior OnCommitAttemptFailed(
+      syncer::SyncCommitError error) override;
 
   // SendTabToSelfModel overrides.
   std::vector<std::string> GetAllGuids() const override;
   const SendTabToSelfEntry* GetEntryByGUID(
       const std::string& guid) const override;
-  const SendTabToSelfEntry* AddEntry(
+  const SendTabToSelfEntry* SendEntry(
       const GURL& url,
       const std::string& title,
       const std::string& target_device_cache_guid,
       const PageContext& context,
-      NavigationHistory navigation_history) override;
-  void DeleteEntry(const std::string& guid) override;
+      NavigationHistory navigation_history,
+      base::OnceCallback<void(SendTabToSelfResult)> commit_confirmation)
+      override;
   void DismissEntry(const std::string& guid) override;
   void MarkEntryOpened(const std::string& guid) override;
   bool IsReady() override;
@@ -172,8 +175,32 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
   void EraseEntryInBatch(const std::string& guid,
                          syncer::DataTypeStore::WriteBatch* batch);
 
+  // Notifies callbacks for entries that have been successfully committed.
+  void NotifySuccessForPendingCommits();
+
+  // Handles a timeout for a pending commit.
+  void HandleCommitTimeout(const syncer::ClientTagHash& client_tag_hash);
+
+  struct PendingCommit {
+    PendingCommit(std::string guid,
+                  base::OnceCallback<void(SendTabToSelfResult)> callback);
+    ~PendingCommit();
+    PendingCommit(PendingCommit&&);
+    PendingCommit& operator=(PendingCommit&&);
+
+    std::string guid;
+    base::OnceCallback<void(SendTabToSelfResult)> callback;
+  };
+
   // |entries_| is keyed by GUIDs.
   SendTabToSelfEntries entries_;
+
+  // Callbacks waiting for a commit response from the Sync server.
+  // The key is the ClientTagHash of the SendTabToSelf entry.
+  // The value contains the entry's GUID and the callback that will be
+  // invoked when the commit is either acknowledged by the sync server
+  // or fails due to a sync error.
+  base::flat_map<syncer::ClientTagHash, PendingCommit> pending_commits_;
 
   // Stores guids of entries that have been opened from a layer other than
   // SendTabToSelfModel, along with the time the open was requested. Once

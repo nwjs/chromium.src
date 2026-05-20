@@ -4,6 +4,7 @@
 
 #include "base/debug/stack_trace.h"
 
+#include <ptrauth.h>
 #include <stddef.h>
 
 #include <limits>
@@ -52,7 +53,7 @@ TEST_F(StackTraceTest, OutputToStream) {
   // Dump the trace into a string.
   std::ostringstream os;
   trace.OutputToStream(&os);
-  std::string backtrace_message = os.str();
+  std::string backtrace_message = std::move(os).str();
 
   // ToString() should produce the same output.
   EXPECT_EQ(backtrace_message, trace.ToString());
@@ -119,7 +120,7 @@ TEST_F(StackTraceTest, DebugOutputToStream) {
   StackTrace trace;
   std::ostringstream os;
   trace.OutputToStream(&os);
-  VLOG(1) << os.str();
+  VLOG(1) << os.view();
 }
 
 // The test is used for manual testing, e.g., to see the raw output.
@@ -145,7 +146,7 @@ TEST_F(StackTraceTest, DebugOutputToStreamWithPrefix) {
   cstring_view prefix_string = "[test]";
   std::ostringstream os;
   trace.OutputToStreamWithPrefix(&os, prefix_string);
-  std::string backtrace_message = os.str();
+  std::string backtrace_message = std::move(os).str();
 
   // ToStringWithPrefix() should produce the same output.
   EXPECT_EQ(backtrace_message, trace.ToStringWithPrefix(prefix_string));
@@ -173,23 +174,27 @@ namespace {
 // In an actual implementation, this could cause infinite recursion into the
 // signal handler or other problems. Because malloc() is not guaranteed to be
 // async signal safe.
-void* BadMalloc(size_t, AllocToken, void*) {
+void* BadMalloc(size_t, allocator_shim::AllocToken, void*) {
   base::ImmediateCrash();
 }
 
-void* BadCalloc(size_t, size_t, AllocToken, void* context) {
+void* BadCalloc(size_t, size_t, allocator_shim::AllocToken, void* context) {
   base::ImmediateCrash();
 }
 
-void* BadAlignedAlloc(size_t, size_t, AllocToken, void*) {
+void* BadAlignedAlloc(size_t, size_t, allocator_shim::AllocToken, void*) {
   base::ImmediateCrash();
 }
 
-void* BadAlignedRealloc(void*, size_t, size_t, AllocToken, void*) {
+void* BadAlignedRealloc(void*,
+                        size_t,
+                        size_t,
+                        allocator_shim::AllocToken,
+                        void*) {
   base::ImmediateCrash();
 }
 
-void* BadRealloc(void*, size_t, AllocToken, void*) {
+void* BadRealloc(void*, size_t, allocator_shim::AllocToken, void*) {
   base::ImmediateCrash();
 }
 
@@ -346,8 +351,10 @@ code_start:
 
   constexpr size_t frame_index = Depth - 1;
   const void* frame = frames[frame_index];
-  EXPECT_GE(frame, &&code_start) << "For frame at index " << frame_index;
-  EXPECT_LE(frame, &&code_end) << "For frame at index " << frame_index;
+  const void* start = ptrauth_strip(&&code_start, ptrauth_key_function_pointer);
+  const void* end = ptrauth_strip(&&code_end, ptrauth_key_function_pointer);
+  EXPECT_GE(frame, start) << "For frame at index " << frame_index;
+  EXPECT_LE(frame, end) << "For frame at index " << frame_index;
 code_end:
   return;
 }
@@ -362,8 +369,10 @@ code_start:
   ASSERT_EQ(frames.size(), count);
 
   const void* frame = frames[0];
-  EXPECT_GE(frame, &&code_start) << "For the top frame";
-  EXPECT_LE(frame, &&code_end) << "For the top frame";
+  const void* start = ptrauth_strip(&&code_start, ptrauth_key_function_pointer);
+  const void* end = ptrauth_strip(&&code_end, ptrauth_key_function_pointer);
+  EXPECT_GE(frame, start) << "For the top frame";
+  EXPECT_LE(frame, end) << "For the top frame";
 code_end:
   return;
 }

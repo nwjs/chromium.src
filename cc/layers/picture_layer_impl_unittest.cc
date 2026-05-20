@@ -28,7 +28,7 @@
 #include "cc/test/fake_impl_task_runner_provider.h"
 #include "cc/test/fake_layer_tree_frame_sink.h"
 #include "cc/test/fake_layer_tree_host.h"
-#include "cc/test/fake_layer_tree_host_client.h"
+#include "cc/test/fake_layer_tree_host_delegate.h"
 #include "cc/test/fake_layer_tree_host_impl.h"
 #include "cc/test/fake_picture_layer_impl.h"
 #include "cc/test/fake_raster_source.h"
@@ -1073,17 +1073,9 @@ TEST_F(LegacySWPictureLayerImplTest, ScaledBackdropFilterMaskLayer) {
   EXPECT_EQ(gfx::SizeF(1.0f, 1.0f), mask_uv_size);
 }
 
-// TODO(crbug.com/450651370): Fix flakiness on Linux UBSan and CFI builder.
-#if BUILDFLAG(IS_LINUX)
-#define MAYBE_GetContentsResourceIdComputesUVMaskSizeCorrectlyWhenTilingRectIsSmallerThanResourceSize \
-  DISABLED_GetContentsResourceIdComputesUVMaskSizeCorrectlyWhenTilingRectIsSmallerThanResourceSize
-#else
-#define MAYBE_GetContentsResourceIdComputesUVMaskSizeCorrectlyWhenTilingRectIsSmallerThanResourceSize \
-  GetContentsResourceIdComputesUVMaskSizeCorrectlyWhenTilingRectIsSmallerThanResourceSize
-#endif
 TEST_F(
     PictureLayerImplTest,
-    MAYBE_GetContentsResourceIdComputesUVMaskSizeCorrectlyWhenTilingRectIsSmallerThanResourceSize) {
+    GetContentsResourceIdComputesUVMaskSizeCorrectlyWhenTilingRectIsSmallerThanResourceSize) {
   gfx::Size layer_bounds(100, 200);
   scoped_refptr<FakeRasterSource> valid_raster_source =
       FakeRasterSource::CreateFilled(layer_bounds);
@@ -4635,7 +4627,7 @@ void PictureLayerImplTest::TestQuadsForSolidColor(bool test_for_solid,
   FakeContentLayerClient client;
   client.set_bounds(layer_bounds);
   scoped_refptr<PictureLayer> layer = PictureLayer::Create(&client);
-  FakeLayerTreeHostClient host_client;
+  FakeLayerTreeHostDelegate host_client;
   TestTaskGraphRunner task_graph_runner;
   auto animation_host = AnimationHost::CreateForTesting(ThreadInstance::kMain);
   std::unique_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create(
@@ -4722,7 +4714,7 @@ TEST_F(LegacySWPictureLayerImplTest, NonSolidToSolidNoTilings) {
   FakeContentLayerClient client;
   client.set_bounds(layer_bounds);
   scoped_refptr<PictureLayer> layer = PictureLayer::Create(&client);
-  FakeLayerTreeHostClient host_client;
+  FakeLayerTreeHostDelegate host_client;
   TestTaskGraphRunner task_graph_runner;
   auto animation_host = AnimationHost::CreateForTesting(ThreadInstance::kMain);
   std::unique_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create(

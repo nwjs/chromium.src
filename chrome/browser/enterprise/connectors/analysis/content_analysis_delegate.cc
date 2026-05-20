@@ -13,6 +13,7 @@
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
@@ -227,14 +228,20 @@ void ContentAnalysisDelegate::Cancel(bool warning) {
         "CancelledByUser", false);
   }
 
-  // Ask the binary upload service to cancel requests if it can.
-  auto cancel = std::make_unique<BinaryUploadCancelRequests>(
-      data_.settings.cloud_or_local_settings);
-  cancel->set_user_action_id(user_action_id_);
-
   BinaryUploadService* upload_service = GetBinaryUploadService();
+
+  // This will cancel requests if there are any, on the closure, and ensure that
+  // callbacks are not called twice.
+  base::ScopedClosureRunner cancel_requests;
   if (upload_service) {
-    upload_service->MaybeCancelRequests(std::move(cancel));
+    // Ask the binary upload service to cancel requests if it can.
+    auto cancel = std::make_unique<BinaryUploadCancelRequests>(
+        data_.settings.cloud_or_local_settings);
+    cancel->set_user_action_id(user_action_id_);
+
+    cancel_requests.ReplaceClosure(
+        base::BindOnce(&BinaryUploadService::MaybeCancelRequests,
+                       upload_service->AsWeakPtr(), std::move(cancel)));
   }
 
   // Make sure to reject everything.
@@ -310,6 +317,7 @@ std::u16string ContentAnalysisDelegate::GetBypassJustificationLabel() const {
       id = IDS_DEEP_SCANNING_DIALOG_DOWNLOAD_BYPASS_JUSTIFICATION_LABEL;
       break;
     case DeepScanAccessPoint::PASTE:
+    case DeepScanAccessPoint::ACTOR:
       id = IDS_DEEP_SCANNING_DIALOG_PASTE_BYPASS_JUSTIFICATION_LABEL;
       break;
     case DeepScanAccessPoint::PRINT:
@@ -590,7 +598,7 @@ void ContentAnalysisDelegate::FilesRequestCallback(
   MaybeCompleteScanRequest();
 }
 
-FilesRequestHandler*
+FilesRequestHandlerBase*
 ContentAnalysisDelegate::GetFilesRequestHandlerForTesting() {
   return files_request_handler_.get();
 }
@@ -881,12 +889,13 @@ void ContentAnalysisDelegate::RunCallback() {
   // Since `result_` might have been tweaked by `callback_`, `final_actions_`
   // need to be updated before Acks are sent.
   for (size_t i = 0; i < result_.paths_results.size(); ++i) {
-    if (!result_.paths_results[i] && files_request_results_.size() > i &&
-        final_actions_.count(files_request_results_[i].request_token) &&
-        final_actions_[files_request_results_[i].request_token] ==
-            ContentAnalysisAcknowledgement::ALLOW) {
-      final_actions_[files_request_results_[i].request_token] =
-          ContentAnalysisAcknowledgement::BLOCK;
+    if (!result_.paths_results[i] && files_request_results_.size() > i) {
+      if (auto it =
+              final_actions_.find(files_request_results_[i].request_token);
+          it != final_actions_.end() &&
+          it->second == ContentAnalysisAcknowledgement::ALLOW) {
+        it->second = ContentAnalysisAcknowledgement::BLOCK;
+      }
     }
   }
 

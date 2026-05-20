@@ -322,9 +322,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // id attributes, if present).
   String ToString() const;
 
-  // TODO(crbug.com/478682594): Remove when done investigating.
-  void DumpForBug478682594() const;
-
   // This is an inexact determination of whether the display of this objects is
   // altered or obscured by CSS effects.
   bool HasDistortingVisualEffects() const;
@@ -1052,18 +1049,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     NOT_DESTROYED();
     return IsTableCell() || IsLayoutTableCol() || IsTableCaption() ||
            IsTableRow() || IsTableSection();
-  }
-  inline bool IsCheckContent() const;
-  inline bool IsBeforeContent() const;
-  inline bool IsAfterContent() const;
-  inline bool IsMarkerContent() const;
-  inline bool IsScrollButtonContent() const;
-  inline bool IsScrollMarkerContent() const;
-  inline bool IsScrollButtonOrMarkerContent() const;
-  inline bool IsBeforeOrAfterContent() const;
-  inline bool IsInterestHintContent() const;
-  static inline bool IsAfterContent(const LayoutObject* obj) {
-    return obj && obj->IsAfterContent();
   }
 
   bool IsOverscrollAreaParent() const {
@@ -2244,9 +2229,10 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // See layout_block.h for some extra explanations on containing blocks.
   LayoutBlock* ContainingBlock(AncestorSkipInfo* = nullptr) const;
 
-  // Returns the containing block, resolving anonymous blocks to their
-  // Parent(). This mirrors the lookup in ShouldTruncateOverflowingText().
-  LayoutObject* NonAnonymousContainingBlock() const;
+  // Returns the containing block that owns the text-overflow style,
+  // resolving anonymous blocks to their parent. Returns nullptr if the
+  // resolved parent is not a block container (e.g., flex or inline).
+  LayoutObject* ContainingBlockForTextOverflow() const;
 
   // Returns the nearest ancestor in the layout tree that IsForElement(),
   // or null if there is none.
@@ -3463,9 +3449,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // Context used by StyleWillChange() and StyleDidChange(). The former will
   // typically set members, and the latter will check them.
   struct StyleChangeContext {
-    // An object ceased to be floating or out-of-flow.
-    bool became_normal_flow = false;
-
     // An object prevented descendants from becoming column spanners (before
     // style change).
     bool did_prevent_spanner_descendants = false;
@@ -3661,10 +3644,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // Call |SetShouldDoFullPaintInvalidation| for LayoutNG or
   // |SetShouldInvalidateSelection| on all selected children.
   void InvalidateSelectedChildrenOnStyleChange();
-
-  // Returns `true` if the LayoutObject is for the specified pseudo-element
-  // type.
-  inline bool IsPseudoElementContent(PseudoId pseudo_id) const;
 
   // It's unclear why Clang doesn't inline this.
   ALWAYS_INLINE
@@ -4249,74 +4228,6 @@ struct ThreadingTrait<T> {
 // Allow equality comparisons of LayoutObjects by reference or pointer,
 // interchangeably.
 DEFINE_COMPARISON_OPERATORS_WITH_REFERENCES(LayoutObject)
-
-inline bool LayoutObject::IsPseudoElementContent(PseudoId pseudo_id) const {
-  NOT_DESTROYED();
-  if (StyleRef().StyleType() != pseudo_id) {
-    return false;
-  }
-  // Text nodes don't have their own styles, so ignore the style on a text node.
-  if (IsText() && !IsBR()) {
-    return false;
-  }
-  return true;
-}
-
-inline bool LayoutObject::IsCheckContent() const {
-  NOT_DESTROYED();
-  return IsPseudoElementContent(kPseudoIdCheckMark);
-}
-
-inline bool LayoutObject::IsBeforeContent() const {
-  NOT_DESTROYED();
-  return IsPseudoElementContent(kPseudoIdBefore);
-}
-
-inline bool LayoutObject::IsAfterContent() const {
-  NOT_DESTROYED();
-  return IsPseudoElementContent(kPseudoIdAfter);
-}
-
-inline bool LayoutObject::IsMarkerContent() const {
-  NOT_DESTROYED();
-  return IsPseudoElementContent(kPseudoIdMarker);
-}
-
-inline bool LayoutObject::IsScrollButtonContent() const {
-  NOT_DESTROYED();
-  if (StyleRef().StyleType() != kPseudoIdScrollButton &&
-      StyleRef().StyleType() != kPseudoIdScrollButtonBlockStart &&
-      StyleRef().StyleType() != kPseudoIdScrollButtonInlineStart &&
-      StyleRef().StyleType() != kPseudoIdScrollButtonInlineEnd &&
-      StyleRef().StyleType() != kPseudoIdScrollButtonBlockEnd) {
-    return false;
-  }
-  // Text nodes don't have their own styles, so ignore the style on a text node.
-  if (IsText() && !IsBR()) {
-    return false;
-  }
-  return true;
-}
-
-inline bool LayoutObject::IsScrollMarkerContent() const {
-  NOT_DESTROYED();
-  return IsPseudoElementContent(kPseudoIdScrollMarker);
-}
-
-inline bool LayoutObject::IsScrollButtonOrMarkerContent() const {
-  NOT_DESTROYED();
-  return IsScrollButtonContent() || IsScrollMarkerContent();
-}
-
-inline bool LayoutObject::IsInterestHintContent() const {
-  NOT_DESTROYED();
-  return IsPseudoElementContent(kPseudoIdInterestHint);
-}
-
-inline bool LayoutObject::IsBeforeOrAfterContent() const {
-  NOT_DESTROYED();
-  return IsBeforeContent() || IsAfterContent();
-}
 
 inline void LayoutObject::ClearNeedsLayoutWithoutPaintInvalidation() {
   NOT_DESTROYED();

@@ -69,7 +69,6 @@
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
 #include "third_party/blink/renderer/core/scroll/mac_scrollbar_animator.h"
 #include "third_party/blink/renderer/core/scroll/programmatic_scroll_animator.h"
-#include "third_party/blink/renderer/core/scroll/scoped_scroll_promise_resolver.h"
 #include "third_party/blink/renderer/core/scroll/scroll_alignment.h"
 #include "third_party/blink/renderer/core/scroll/scroll_animator_base.h"
 #include "third_party/blink/renderer/core/scroll/scroll_into_view_util.h"
@@ -288,7 +287,7 @@ bool ScrollableArea::SetScrollOffset(const ScrollOffset& offset,
                                      mojom::blink::ScrollBehavior behavior,
                                      bool targeted_scroll) {
   return SetScrollOffsetInternal(offset, scroll_type, source_type, behavior,
-                                 targeted_scroll, /*promise_resolver=*/nullptr);
+                                 targeted_scroll, /*scroll_tracker=*/nullptr);
 }
 
 bool ScrollableArea::SetScrollOffsetInternal(
@@ -297,7 +296,8 @@ bool ScrollableArea::SetScrollOffsetInternal(
     cc::ScrollSourceType source_type,
     mojom::blink::ScrollBehavior behavior,
     bool targeted_scroll,
-    std::unique_ptr<ScopedScrollPromiseResolver> promise_resolver) {
+    std::unique_ptr<ScrollPromiseResolver::ActiveScrollTracker>
+        scroll_tracker) {
   bool filter_scroll = false;
   if (active_smooth_scroll_type_.has_value()) {
     filter_scroll = ShouldFilterIncomingScroll(scroll_type);
@@ -307,7 +307,7 @@ bool ScrollableArea::SetScrollOffsetInternal(
     return false;
   }
 
-  // TODO(https://crbug.com/40712058): We should interrupt `promise_resolver`
+  // TODO(https://crbug.com/40712058): We should interrupt `scroll_tracker`
   // here for user scroll. We know that we will need to skip this call for
   // ScrollType::kNone (because in this case we don't have a latched scroller,
   // implying this is not the direct result of a user scroll). The main
@@ -334,15 +334,13 @@ bool ScrollableArea::SetScrollOffsetInternal(
 
   TRACE_EVENT("blink", "ScrollableArea::SetScrollOffset", "offset",
               offset.ToString());
-  TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("blink.debug"),
-                       "SetScrollOffset", TRACE_EVENT_SCOPE_THREAD,
-                       "current_offset", GetScrollOffset().ToString());
-  TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("blink.debug"),
-                       "SetScrollOffset", TRACE_EVENT_SCOPE_THREAD, "type",
-                       scroll_type);
-  TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("blink.debug"),
-                       "SetScrollOffset", TRACE_EVENT_SCOPE_THREAD, "behavior",
-                       behavior);
+  TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("blink.debug"),
+                      "SetScrollOffset", "current_offset",
+                      GetScrollOffset().ToString());
+  TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("blink.debug"),
+                      "SetScrollOffset", "type", scroll_type);
+  TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("blink.debug"),
+                      "SetScrollOffset", "behavior", behavior);
 
   if (behavior == mojom::blink::ScrollBehavior::kAuto) {
     behavior = ScrollBehaviorStyle();
@@ -359,7 +357,7 @@ bool ScrollableArea::SetScrollOffsetInternal(
 
   // A non-null `promise_reolver` can be passed to this method only from JS
   // scroll requests (using Window and Element scroll methods).
-  CHECK(!promise_resolver ||
+  CHECK(!scroll_tracker ||
         scroll_type == mojom::blink::ScrollType::kProgrammatic);
 
   switch (scroll_type) {
@@ -390,7 +388,7 @@ bool ScrollableArea::SetScrollOffsetInternal(
     case mojom::blink::ScrollType::kProgrammatic:
       return InitiateScrollAnimation(clamped_offset, scroll_type, behavior,
                                      animation_adjustment, source_type,
-                                     std::move(promise_resolver));
+                                     std::move(scroll_tracker));
 
     case mojom::blink::ScrollType::kUser:
       if (behavior == mojom::blink::ScrollBehavior::kSmooth) {
@@ -414,14 +412,15 @@ bool ScrollableArea::SetProgrammaticScrollOffset(
     const ScrollOffset& offset,
     cc::ScrollSourceType source_type,
     mojom::blink::ScrollBehavior behavior,
-    std::unique_ptr<ScopedScrollPromiseResolver> promise_resolver) {
-  // The last `promise_resolver` for this `ScrollableArea` could still be in a
+    std::unique_ptr<ScrollPromiseResolver::ActiveScrollTracker>
+        scroll_tracker) {
+  // The last `scroll_tracker` for this `ScrollableArea` could still be in a
   // pending state while being owner by `ProgrammaticScrollAnimator`. The
   // `SetScrollOffsetInternal` call below "interrupts" the animator which
   // resolves the pending state.
   return SetScrollOffsetInternal(
       offset, mojom::blink::ScrollType::kProgrammatic, source_type, behavior,
-      false, std::move(promise_resolver));
+      false, std::move(scroll_tracker));
 }
 
 const LayoutObject* ScrollableArea::GetScrollInitialTarget() const {
@@ -481,7 +480,7 @@ void ScrollableArea::ScrollToScrollInitialTarget(
   params->behavior = mojom::blink::ScrollBehavior::kInstant;
   params->type = mojom::blink::ScrollType::kScrollStart;
   ScrollIntoView(target_box->AbsoluteBoundingBoxRectForScrollIntoView(),
-                 PhysicalBoxStrut(), params);
+                 PhysicalBoxStrut(), params, nullptr);
 }
 
 void ScrollableArea::ApplyScrollStart() {
@@ -512,7 +511,8 @@ bool ScrollableArea::InitiateScrollAnimation(
     mojom::blink::ScrollBehavior scroll_behavior,
     gfx::Vector2d animation_adjustment,
     cc::ScrollSourceType source_type,
-    std::unique_ptr<ScopedScrollPromiseResolver> promise_resolver) {
+    std::unique_ptr<ScrollPromiseResolver::ActiveScrollTracker>
+        scroll_tracker) {
   bool should_use_animation =
       scroll_behavior == mojom::blink::ScrollBehavior::kSmooth &&
       ScrollAnimatorEnabled();
@@ -524,22 +524,30 @@ bool ScrollableArea::InitiateScrollAnimation(
   }
 
   if (ScrollOffsetIsNoop(offset)) {
+    // TODO(https://crbug.com/40712058): Why is this cancellation only for no-op
+    // scrolls, instead of all scrolls with `scroll_type` programmatic?
     CancelProgrammaticScrollAnimation();
     return false;
   }
 
   ScrollCallback callback = ScrollCallback(blink::BindOnce(
       [](WeakPersistent<ScrollableArea> area,
-         std::unique_ptr<ScopedScrollPromiseResolver> resolver,
+         std::unique_ptr<ScrollPromiseResolver::ActiveScrollTracker>
+             scroll_tracker_in_callback,
          ScrollCompletionMode mode) {
         if (area) {
           area->OnScrollFinished(/*enqueue_scrollend=*/mode ==
                                  ScrollCompletionMode::kFinished);
         }
-        // The promise in `resolver` is implicitly resolved when this callback
-        // is destroyed.
+        // When this callback is done or destroyed, `scroll_tracker_in_callback`
+        // gets released, signaling `ScrollPromiseResolver` to resolve the
+        // promise if needed.
+        if (scroll_tracker_in_callback &&
+            mode == ScrollCompletionMode::kInterruptedByScroll) {
+          scroll_tracker_in_callback->MarkInterrupted();
+        }
       },
-      WrapWeakPersistent(this), std::move(promise_resolver)));
+      WrapWeakPersistent(this), std::move(scroll_tracker)));
 
   // Enqueue scrollsnapchanging if necessary.
   if (auto* snap_container = GetSnapContainerData()) {
@@ -598,7 +606,9 @@ void ScrollableArea::UserScrollHelper(
 PhysicalRect ScrollableArea::ScrollIntoView(
     const PhysicalRect& rect_in_absolute,
     const PhysicalBoxStrut& scroll_margin,
-    const mojom::blink::ScrollIntoViewParamsPtr& params) {
+    const mojom::blink::ScrollIntoViewParamsPtr& params,
+    std::unique_ptr<ScrollPromiseResolver::ActiveScrollTracker>
+        scroll_tracker) {
   // TODO(bokan): This should really be implemented here but ScrollAlignment is
   // in Core which is a dependency violation.
   NOTREACHED();
@@ -609,8 +619,7 @@ void ScrollableArea::ScrollOffsetChanged(const ScrollOffset& offset,
                                          cc::ScrollSourceType source_type) {
   TRACE_EVENT2("input", "ScrollableArea::scrollOffsetChanged", "x", offset.x(),
                "y", offset.y());
-  TRACE_EVENT_INSTANT1("input", "Type", TRACE_EVENT_SCOPE_THREAD, "type",
-                       scroll_type);
+  TRACE_EVENT_INSTANT("input", "Type", "type", scroll_type);
 
   ScrollOffset old_offset = GetScrollOffset();
   ScrollOffset truncated_offset =

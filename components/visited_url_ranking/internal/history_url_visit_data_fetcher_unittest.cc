@@ -224,7 +224,10 @@ const syncer::DeviceInfo kSampleForeignDeviceInfo{
     "",
     {},
     std::nullopt,
-    false};
+    false,
+    {},
+    /*glic_experimental_triggering_state=*/
+    syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable};
 
 class HistoryURLVisitDataFetcherTest : public testing::Test {
  public:

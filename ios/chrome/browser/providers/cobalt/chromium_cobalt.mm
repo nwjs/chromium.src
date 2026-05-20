@@ -35,4 +35,29 @@ web::JavaScriptFeature* GetCobaltJavascriptFeatureForProfile(
   return nullptr;
 }
 
+web::CobaltController* GetCobaltController(ProfileIOS* profile) {
+  return nullptr;
+}
+
+ChromeCoordinator* CreateCobaltAlertCoordinator(
+    UIViewController* base_view_controller,
+    Browser* browser,
+    NSString* title,
+    NSString* message,
+    CobaltAlertCompletion completion) {
+  return nil;
+}
+
+ChromeCoordinator* CreateCobaltPopupCoordinator(
+    UIViewController* base_view_controller,
+    Browser* browser,
+    UIViewController* popup_view_controller,
+    CobaltPopupCompletion completion) {
+  return nil;
+}
+
+ObservingSceneAgent* CreateCobaltSceneAgent() {
+  return nil;
+}
+
 }  // namespace ios::provider

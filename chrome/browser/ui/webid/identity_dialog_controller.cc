@@ -117,7 +117,7 @@ void IdentityDialogController::OnActorTaskStateChanged(actor::ActorTask& task) {
 void IdentityDialogController::UpdateTaskId(actor::TaskId task_id) {
   acting_task_id_ = task_id;
   if (account_view_) {
-    account_view_->SetCanShowWidget(acting_task_id_.is_null());
+    account_view_->SetCanShowUi(acting_task_id_.is_null());
     if (acting_task_id_.is_null() && did_invoke_show_ui_) {
       did_show_ui_ = true;
     }
@@ -423,20 +423,6 @@ void IdentityDialogController::OnAccountsDisplayed() {
   std::move(on_accounts_displayed_).Run();
 }
 
-void IdentityDialogController::OnFlowCompleted(
-    content::webid::FederatedLoginResult result) {
-  // OnFlowCompleted() may be invoked while the WebContents is being destroyed,
-  // so be careful when trying to access the Page.
-  if (rp_web_contents_->IsBeingDestroyed()) {
-    return;
-  }
-  content::webid::FederatedEmbedderLoginRequest* embedder_login_request =
-      content::webid::FederatedEmbedderLoginRequest::Get(rp_web_contents_);
-  if (embedder_login_request) {
-    embedder_login_request->OnFederatedResultReceived(result);
-  }
-}
-
 void IdentityDialogController::OnAccountSelected(
     const GURL& idp_config_url,
     const std::string& account_id,
@@ -599,8 +585,8 @@ bool IdentityDialogController::TrySetAccountView() {
     return false;
   }
   account_view_ = std::make_unique<webid::FedCmAccountSelectionView>(this, tab);
-  account_view_->SetCanShowWidget(ShouldShowFedCmUi());
 #endif
+  account_view_->SetCanShowUi(ShouldShowFedCmUi());
   return true;
 }
 

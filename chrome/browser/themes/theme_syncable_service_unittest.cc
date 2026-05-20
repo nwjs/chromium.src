@@ -64,7 +64,7 @@
 #include "extensions/browser/pending_extension_manager.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest_constants.h"
-#include "extensions/common/manifest_url_handlers.h"
+#include "extensions/common/manifest_handlers/manifest_url_handlers.h"
 #include "extensions/common/permissions/api_permission_set.h"
 #include "extensions/common/permissions/permission_set.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -928,7 +928,7 @@ class RealThemeSyncableServiceTest
   scoped_refptr<extensions::Extension> theme_extension_;
 };
 
-// Regression test for crbug.com/1409996.
+// Regression test for crbug.com/40062785.
 TEST_F(RealThemeSyncableServiceTest, ProcessSyncThemeChange_DisabledExtension) {
   // Set up theme service to use custom theme.
   {

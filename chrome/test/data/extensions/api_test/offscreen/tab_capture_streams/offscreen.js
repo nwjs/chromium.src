@@ -5,19 +5,17 @@
 let stream;
 // Starts capture with the given `streamId`.
 async function startCapture(streamId) {
-  stream =
-      await navigator.mediaDevices.getUserMedia(
-          {
-            audio: false,
-            video: {
-              mandatory: {
-                chromeMediaSource: 'tab',
-                chromeMediaSourceId: streamId
-              }
-            }
-          });
+  stream = await navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: {
+      mandatory: {
+        chromeMediaSource: 'tab',
+        chromeMediaSourceId: streamId,
+      },
+    },
+  });
 
-  if (!stream || stream.getVideoTracks().length == 0) {
+  if (!stream || stream.getVideoTracks().length === 0) {
     throw new Error('Failed to get stream');
   }
 }
@@ -35,16 +33,15 @@ function stopCapture() {
 async function handleMessage(msg, reply) {
   let response = 'success';
   try {
-    if (msg.command == 'capture') {
+    if (msg.command === 'capture') {
       if (!msg.streamId) {
         throw new Error('No stream ID received');
       }
       await startCapture(msg.streamId);
-    } else if (msg.command == 'stop') {
+    } else if (msg.command === 'stop') {
       stopCapture();
     } else {
-      throw new Error(
-          `Unexpected message: ${JSON.stringify(message)}`);
+      throw new Error(`Unexpected message: ${JSON.stringify(message)}`);
     }
   } catch (e) {
     response = e.toString();
@@ -58,6 +55,8 @@ async function handleMessage(msg, reply) {
 // (otherwise, the listener returns a promise, which closes the
 // channel).
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
-  setTimeout(() => { handleMessage(msg, reply); }, 0);
+  setTimeout(() => {
+    handleMessage(msg, reply);
+  }, 0);
   return true;
 });

@@ -33,11 +33,15 @@ class DedicatedWorkerDevToolsAgentHost final
       const std::string& name,
       const base::UnguessableToken& devtools_worker_token,
       const std::string& parent_id,
+      const std::string& parent_frame_id,
       base::OnceCallback<void(DevToolsAgentHostImpl*)> destroyed_callback);
 
   std::optional<blink::StorageKey> GetStorageKey();
 
   void DisconnectIfNotCreated();
+
+  void MarkAsTerminated() { state_terminating_ = true; }
+  bool state_terminating() const { return state_terminating_; }
 
   // A DedicatedWorkerDevToolsAgentHost is created before it is known if a
   // worker thread will be created in the renderer. This method is used to
@@ -55,6 +59,7 @@ class DedicatedWorkerDevToolsAgentHost final
 
   // DevToolsAgentHost overrides
   std::string GetType() override;
+  std::string GetParentFrameId() override;
 
   // DevToolsAgentHostImpl overrides
   bool AttachSession(DevToolsSession* session) override;
@@ -66,6 +71,8 @@ class DedicatedWorkerDevToolsAgentHost final
 
   std::unique_ptr<protocol::TargetAutoAttacher> const auto_attacher_;
   bool child_worker_created_ = false;
+  bool state_terminating_ = false;
+  const std::string parent_frame_id_;
 };
 
 }  // namespace content

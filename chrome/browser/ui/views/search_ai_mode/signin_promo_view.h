@@ -5,21 +5,20 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_SEARCH_AI_MODE_SIGNIN_PROMO_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_SEARCH_AI_MODE_SIGNIN_PROMO_VIEW_H_
 
+#include "base/timer/timer.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_bubble_delegate_view.h"
 #include "ui/base/interaction/element_identifier.h"
 
-namespace views {
-class View;
-}
 class SearchAIModeSignInPromoController;
 
 DECLARE_ELEMENT_IDENTIFIER_VALUE(kSearchAIModeSignInPromoFrameViewId);
+DECLARE_ELEMENT_IDENTIFIER_VALUE(kSearchAIModeSignInPromoViewId);
 
 class SearchAIModeSignInPromoView : public LocationBarBubbleDelegateView {
   METADATA_HEADER(SearchAIModeSignInPromoView, LocationBarBubbleDelegateView)
  public:
   SearchAIModeSignInPromoView(
-      views::View* anchor_view,
+      views::BubbleAnchor anchor,
       content::WebContents* web_contents,
       base::WeakPtr<SearchAIModeSignInPromoController> controller);
   SearchAIModeSignInPromoView(const SearchAIModeSignInPromoView&) = delete;
@@ -28,11 +27,19 @@ class SearchAIModeSignInPromoView : public LocationBarBubbleDelegateView {
 
   ~SearchAIModeSignInPromoView() override;
 
+  void FireTimerForTesting();
+
+ private:
+  // views::WidgetDelegate:
+  void WindowClosing() override;
+
   // LocationBarBubbleDelegateView:
   void AddedToWidget() override;
 
- private:
+  void Close();
+
   base::WeakPtr<SearchAIModeSignInPromoController> controller_;
+  base::OneShotTimer self_dismissal_timer_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_SEARCH_AI_MODE_SIGNIN_PROMO_VIEW_H_

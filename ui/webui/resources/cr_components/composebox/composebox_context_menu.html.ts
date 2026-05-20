@@ -12,24 +12,28 @@ export function getHtml(this: ComposeboxElement) {
   return html`
 <div class="context-menu-container" id="contextMenuContainer"
     part="context-menu-and-tools"
-    @mousedown="${this.onContextMenuContainerMousedown_}"
-    @click="${this.onContextMenuContainerClick_}">
+    @mousedown="${this.onContextMenuContainerMousedown}"
+    @click="${this.onContextMenuContainerClick}">
   ${this.showMenuOnClick ? html`
     <cr-composebox-contextual-entrypoint-and-menu
         id="contextEntrypoint"
         part="composebox-entrypoint"
-        exportparts="context-menu-entrypoint-icon"
+        exportparts="context-menu-entrypoint-icon, entrypoint-button"
         class="upload-button no-overlap"
-        @add-tab-context="${this.onAddTabContext_}"
-        @delete-tab-context="${this.onDeleteTabContext_}"
+        @add-tab-context="${this.onAddTabContext}"
+        @delete-tab-context="${this.onDeleteTabContext}"
         @tool-click="${this.onToolClick}"
         @model-click="${this.onModelClick}"
         @get-tab-preview="${this.onGetTabPreview}"
-        @context-menu-closed="${this.onContextMenuClosed_ }"
-        @context-menu-opened="${this.onContextMenuOpened_}"
+        @context-menu-closed="${this.onContextMenuClosed}"
+        @context-menu-opened="${this.onContextMenuOpened}"
         @open-image-upload="${this.onOpenImageUpload}"
         @open-file-upload="${this.onOpenFileUpload}"
+        @open-drive-upload="${this.onOpenDriveUpload}"
+        @smart-tab-sharing-active-changed="${
+            this.onSmartTabSharingActiveChanged}"
         .inputState="${this.inputState}"
+        .smartTabSharingActive="${this.smartTabSharingActive}"
         .searchboxLayoutMode="${this.searchboxLayoutMode}"
         .tabSuggestions="${this.tabSuggestions}"
         .hasImageFiles="${this.hasImageFiles()}"
@@ -42,7 +46,7 @@ export function getHtml(this: ComposeboxElement) {
     <cr-composebox-contextual-entrypoint-button
         id="contextEntrypoint"
         part="composebox-entrypoint"
-        exportparts="context-menu-entrypoint-icon"
+        exportparts="context-menu-entrypoint-icon, entrypoint-button"
         class="upload-button no-overlap"
         .inputState="${this.inputState}"
         ?upload-button-disabled="${this.uploadButtonDisabled}"
@@ -52,7 +56,7 @@ export function getHtml(this: ComposeboxElement) {
   ${this.searchboxLayoutMode === 'Compact' && this.shouldShowVoiceSearch() ? html`
     <cr-icon-button id="voiceSearchButton" class="voice-icon"
         part="voice-icon" iron-icon="cr:mic"
-        @click="${this.onVoiceSearchButtonClick_}"
+        @click="${this.onVoiceSearchButtonClick}"
         title="${this.i18n('voiceSearchButtonLabel')}">
     </cr-icon-button>
   ` : ''}

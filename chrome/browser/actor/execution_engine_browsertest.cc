@@ -20,7 +20,6 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_file_util.h"
 #include "base/test/test_future.h"
-#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_test_util.h"
@@ -37,8 +36,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/file_system_access/file_system_access_test_utils.h"
@@ -52,20 +51,25 @@
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/actor/core/actor_features.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/javascript_dialogs/app_modal_dialog_controller.h"
 #include "components/javascript_dialogs/app_modal_dialog_queue.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/core/filters/optimization_hints_component_update_listener.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
+#include "content/public/test/back_forward_cache_util.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/download_test_observer.h"
+#include "content/public/test/navigation_handle_observer.h"
 #include "content/public/test/prerender_test_util.h"
 #include "content/public/test/test_frame_navigation_observer.h"
 #include "content/public/test/test_navigation_observer.h"
@@ -419,6 +423,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, PrerenderBlockedSite) {
   base::RunLoop loop;
   actor_task().AddTab(
       active_tab()->GetHandle(),
+      /*stop_task_on_detach=*/true,
       base::BindLambdaForTesting([&](mojom::ActionResultPtr result) {
         EXPECT_TRUE(IsOk(*result));
         loop.Quit();
@@ -465,6 +470,47 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest,
   ClickTarget("#link", mojom::ActionResultCode::kOk);
 
   EXPECT_FALSE(browser_client().external_protocol_result().value());
+}
+
+// Regression test for https://crbug.com/502819675.
+IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, HistoryBackIsChecked) {
+  // Disable SafeBrowsing so that MayActOnUrl rejects every non-localhost URL
+  // with kSafeBrowsing.
+  safe_browsing::SetSafeBrowsingState(
+      browser()->profile()->GetPrefs(),
+      safe_browsing::SafeBrowsingState::NO_SAFE_BROWSING);
+
+  // Disable BFCache so that `history.back()` is a real navigation.
+  content::DisableBackForwardCacheForTesting(
+      web_contents(), content::BackForwardCache::TEST_REQUIRES_NO_CACHING);
+
+  const GURL first_url =
+      embedded_https_test_server().GetURL("a.com", "/empty.html");
+  const GURL second_url =
+      embedded_https_test_server().GetURL("b.com", "/empty.html");
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), first_url));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), second_url));
+
+  actor_task().AddTab(active_tab()->GetHandle(),
+                      /*stop_task_on_detach=*/true, base::DoNothing());
+  ASSERT_TRUE(actor_task().IsActingOnTab(active_tab()->GetHandle()));
+
+  // A `history.back()` navigation should be classified as renderer-initiated
+  // (even though the initiator is std::nullopt), and should be blocked by
+  // MayActOnUrl.
+  content::NavigationHandleObserver navigation_handle_observer(web_contents(),
+                                                               first_url);
+  content::TestNavigationManager test_navigation_manager(web_contents(),
+                                                         first_url);
+  EXPECT_TRUE(content::ExecJs(web_contents(), "history.back();",
+                              content::EXECUTE_SCRIPT_NO_USER_GESTURE));
+  ASSERT_TRUE(test_navigation_manager.WaitForNavigationFinished());
+  ASSERT_TRUE(navigation_handle_observer.is_renderer_initiated());
+  ASSERT_EQ(navigation_handle_observer.last_initiator_origin(), std::nullopt);
+
+  EXPECT_FALSE(navigation_handle_observer.has_committed());
+  EXPECT_EQ(second_url, web_contents()->GetLastCommittedURL());
 }
 
 // TODO(crbug.com/456759397): Add coverage for multi-tab cases in
@@ -533,6 +579,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEnginePixelBrowserTest,
   base::RunLoop loop;
   actor_task().AddTab(
       active_tab()->GetHandle(),
+      /*stop_task_on_detach=*/true,
       base::BindLambdaForTesting([&](mojom::ActionResultPtr result) {
         EXPECT_TRUE(IsOk(*result));
         loop.Quit();
@@ -661,6 +708,7 @@ class ExecutionEngineDropdownCaptureOopifBrowserTest
     base::RunLoop loop;
     actor_task().AddTab(
         active_tab()->GetHandle(),
+        /*stop_task_on_detach=*/true,
         base::BindLambdaForTesting([&](mojom::ActionResultPtr result) {
           EXPECT_TRUE(IsOk(*result));
           loop.Quit();
@@ -913,7 +961,8 @@ IN_PROC_BROWSER_TEST_P(ExecutionEngineSkipBeforeUnloadBrowserTest,
                        SkipBeforeUnloadDialogAndNavigate) {
   if (IsActorActive()) {
     base::test::TestFuture<mojom::ActionResultPtr> future;
-    actor_task().AddTab(active_tab()->GetHandle(), future.GetCallback());
+    actor_task().AddTab(active_tab()->GetHandle(), /*stop_task_on_detach=*/true,
+                        future.GetCallback());
     mojom::ActionResultPtr result = future.Take();
     ASSERT_TRUE(IsOk(*result));
   } else {

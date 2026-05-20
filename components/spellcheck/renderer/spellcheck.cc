@@ -70,7 +70,7 @@ bool UpdateSpellcheckEnabled::Visit(content::RenderFrame* render_frame) {
 
 std::vector<WebString> ConvertToWebStringFromUtf8(
     const std::set<std::string>& words) {
-  return base::ToVector(words, &WebString::FromUTF8);
+  return base::ToVector(words, &WebString::FromUtf8);
 }
 
 bool IsApostrophe(char16_t c) {
@@ -220,8 +220,10 @@ void SpellCheck::SpellCheckCustomDictionaryChanged(
     const std::set<std::string> added(words_added.begin(), words_added.end());
     NotifyDictionaryObservers(ConvertToWebStringFromUtf8(added));
     // Add or remove the word in the spell checker custom dictionary
-    (*languages_.begin())
-        ->SpellCheckCustomDictionaryChanged(words_added, words_removed);
+    if (!languages_.empty()) {
+      (*languages_.begin())
+          ->SpellCheckCustomDictionaryChanged(words_added, words_removed);
+    }
   }
 }
 

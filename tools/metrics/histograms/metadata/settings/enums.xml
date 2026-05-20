@@ -64,6 +64,7 @@ chromium-metrics-reviews@google.com.
   <int value="-275160283" label="ExtendedPreloadingSettingsFragment"/>
   <int value="-273029950" label="PasswordCheckFragmentView"/>
   <int value="-268785515" label="ClearWebsiteStorageDialog"/>
+  <int value="-198735876" label="AutofillTravelFragment"/>
   <int value="-191422304" label="AccountManagementFragment"/>
   <int value="-175458226" label="ClearBrowsingDataFragment"/>
   <int value="-132150623" label="TracingCategoriesSettings"/>
@@ -121,16 +122,12 @@ chromium-metrics-reviews@google.com.
   <int value="1849593145" label="AndroidPaymentAppsFragment"/>
   <int value="1891640238" label="AutofillPaymentMethodsFragment"/>
   <int value="1952237285" label="TracingSettings"/>
+  <int value="1966306427" label="AutofillIdentityDocsFragment"/>
   <int value="1968319616" label="(Obsolete) ClearBrowsingDataFragmentBasic"/>
   <int value="1969661266" label="AddressBarSettingsFragment"/>
   <int value="2070921964" label="(Obsolete) ClearBrowsingDataTabsFragment"/>
   <int value="2084696263"
       label="(Obsolete) IncognitoTrackingProtectionsFragment"/>
-</enum>
-
-<enum name="BooleanRedirected">
-  <int value="0" label="Not redirected"/>
-  <int value="1" label="Redirected"/>
 </enum>
 
 <enum name="ClearBrowsingDataMyActivityNavigation">
@@ -340,6 +337,17 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Restore the last session and open URLs"/>
 </enum>
 
+<!-- LINT.IfChange(SettingsAiPageAiSuggestionsInteractions)-->
+
+<enum name="SettingsAiPageAiSuggestionsInteractions">
+  <int value="0" label="Suggestions enabled"/>
+  <int value="1" label="Suggestions disabled"/>
+  <int value="2" label="Learn more link clicked"/>
+  <int value="3" label="Sync settings link clicked"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/resources/settings/metrics_browser_proxy.ts:AiPageAiSuggestionsInteractions) -->
+
 <!-- LINT.IfChange(SettingsAiPageComposeInteractions) -->
 
 <enum name="SettingsAiPageComposeInteractions">
@@ -371,6 +379,7 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Themes row click (Deprecated 02/2025)"/>
   <int value="5" label="Autofill AI row click"/>
   <int value="6" label="Automated Password Change"/>
+  <int value="7" label="Suggestions row click"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/resources/settings/metrics_browser_proxy.ts:AiPageInteractions) -->
@@ -497,39 +506,6 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/privacy_sandbox/profile_bucket_metrics.h:SettingsPrivacySandboxProfileEnabledState) -->
 
-<!-- LINT.IfChange(SettingsPrivacySandboxPromptStartupState) -->
-
-<enum name="SettingsPrivacySandboxPromptStartupState">
-  <int value="0" label="EEA consent prompt waiting to show"/>
-  <int value="1" label="EEA notice prompt waiting to show"/>
-  <int value="2" label="ROW notice prompt waiting to show"/>
-  <int value="3" label="EEA flow completed with topics accepted"/>
-  <int value="4" label="EEA flow completed with topics declined"/>
-  <int value="5" label="ROW notice flow completed"/>
-  <int value="6"
-      label="Prompt not shown because privacy sandbox is restricted"/>
-  <int value="7"
-      label="Prompt not shown because third-party cookies are blocked"/>
-  <int value="8"
-      label="Prompt not shown because the trial consent was declined"/>
-  <int value="9"
-      label="Prompt not shown because the trials were disabled after seeing
-             the notice"/>
-  <int value="10" label="Prompt not shown because it is managed"/>
-  <int value="11"
-      label="Prompt not shown because of a notice shown to guardian"/>
-  <int value="12" label="Restricted notice prompt waiting to show"/>
-  <int value="13" label="Restricted notice flow completed"/>
-  <int value="14"
-      label="Restricted notice not shown due to full notice acknowledged"/>
-  <int value="15"
-      label="User is waiting for graduation and notice flow is not completed"/>
-  <int value="16"
-      label="User is waiting for graduation and notice flow is completed"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/privacy_sandbox/privacy_sandbox_service.h:SettingsPrivacySandboxPromptStartupState) -->
-
 <enum name="SettingsSafetyCheckInteractions">
   <int value="0" label="Safety check started"/>
   <int value="1" label="Updates, relaunch after updates"/>
@@ -551,6 +527,16 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Keyboard shortcut switched to Tab only"/>
   <int value="3" label="Keyboard shortcut switched to Space or Tab"/>
 </enum>
+
+<!-- LINT.IfChange(SettingsSearchExitReason) -->
+
+<enum name="SettingsSearchExitReason">
+  <int value="0" label="Clicked Results"/>
+  <int value="1" label="Abandoned Results"/>
+  <int value="2" label="Abandoned No Results"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/settings/search/SettingsSearchCoordinator.java:ExitReason) -->
 
 <enum name="TrackedPreference">
   <int value="0" label="kShowHomeButton"/>

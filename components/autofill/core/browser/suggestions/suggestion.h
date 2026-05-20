@@ -17,8 +17,10 @@
 #include "base/memory/raw_ptr.h"
 #include "base/types/strong_alias.h"
 #include "build/build_config.h"
+#include "components/accessibility_annotator/core/annotation_reducer/entry_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
+#include "components/autofill/core/browser/data_model/payments/iban.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/webdata/autocomplete/autocomplete_entry.h"
@@ -82,25 +84,6 @@ struct Suggestion {
                            const PasswordSuggestionDetails&) = default;
   };
 
-  struct PlusAddressPayload final {
-    PlusAddressPayload();
-    explicit PlusAddressPayload(std::optional<std::u16string> address);
-    PlusAddressPayload(const PlusAddressPayload&);
-    PlusAddressPayload(PlusAddressPayload&&);
-    PlusAddressPayload& operator=(const PlusAddressPayload&);
-    PlusAddressPayload& operator=(PlusAddressPayload&&);
-    ~PlusAddressPayload();
-
-    friend bool operator==(const PlusAddressPayload&,
-                           const PlusAddressPayload&) = default;
-
-    // The proposed plus address string. If it is `nullopt`, then it is
-    // currently loading and nothing is previewed.
-    std::optional<std::u16string> address;
-    // Whether the suggestion should display a refresh button.
-    bool offer_refresh = true;
-  };
-
   struct AutofillAiPayload final {
     AutofillAiPayload();
     explicit AutofillAiPayload(EntityInstance::EntityId guid,
@@ -160,7 +143,6 @@ struct Suggestion {
   struct AutofillProfilePayload final {
     AutofillProfilePayload();
     explicit AutofillProfilePayload(Guid guid);
-    AutofillProfilePayload(Guid guid, std::u16string email_override);
     AutofillProfilePayload(const AutofillProfilePayload&);
     AutofillProfilePayload(AutofillProfilePayload&&);
     AutofillProfilePayload& operator=(const AutofillProfilePayload&);
@@ -176,9 +158,6 @@ struct Suggestion {
 
     // Address profile identifier.
     Guid guid;
-    // If non-empty, the email override is applied on the AutofillProfile
-    // identified by `guid` every time it's loaded.
-    std::u16string email_override;
   };
 
   struct IdentityCredentialPayload final {
@@ -207,8 +186,16 @@ struct Suggestion {
   };
 
   struct AtMemoryPayload final {
+    // `std::string` is used to store the `CreditCard::guid_`.
+    // TODO(crbug.com/505251083): Replace `std::string` with `CreditCard::Guid`
+    // once its added.
+    using Identifier = std::
+        variant<std::monostate, Iban::Guid, Iban::InstrumentId, std::string>;
+
     AtMemoryPayload();
-    explicit AtMemoryPayload(std::u16string value);
+    // `value` is the value to be shown in the suggestion UI and the preview.
+    AtMemoryPayload(std::u16string value,
+                    accessibility_annotator::EntryType entry_type);
     AtMemoryPayload(const AtMemoryPayload&);
     AtMemoryPayload(AtMemoryPayload&&);
     AtMemoryPayload& operator=(const AtMemoryPayload&);
@@ -220,6 +207,13 @@ struct Suggestion {
 
     // Text to fill in the trigger field upon accepting the suggestion.
     std::u16string value;
+
+    // The identifier for the entry (e.g. IBAN Guid or InstrumentId).
+    Identifier identifier;
+
+    // The type of the entry from accessibility annotator.
+    accessibility_annotator::EntryType entry_type =
+        accessibility_annotator::EntryType::kUnknown;
   };
 
   using IsLoading = base::StrongAlias<class IsLoadingTag, bool>;
@@ -231,7 +225,6 @@ struct Suggestion {
                                AutofillProfilePayload,
                                GURL,
                                PasswordSuggestionDetails,
-                               PlusAddressPayload,
                                AutofillAiPayload,
                                PaymentsPayload,
                                IdentityCredentialPayload,
@@ -356,7 +349,6 @@ struct Suggestion {
     kPassport,
     kPenSpark,
     kPersonCheck,
-    kPlusAddress,
     kQuestionMark,
     kRecoveryPassword,
     kScanCreditCard,
@@ -364,6 +356,9 @@ struct Suggestion {
     kUndo,
     kVehicle,
     kWork,
+    kGmail,
+    kGooglePhotos,
+    kGoogleCalendar,
     // Payment method icons
     kCardGeneric,
     kCardAmericanExpress,
@@ -385,6 +380,7 @@ struct Suggestion {
     kBnplZip,
     kSaveAndFill,
     kAndroidMessages,
+    kSpark,
   };
 
   // This enum is used to control filtration of suggestions (see it's used in

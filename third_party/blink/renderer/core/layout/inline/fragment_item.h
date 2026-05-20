@@ -26,6 +26,7 @@ namespace blink {
 class FragmentItems;
 class InlinePaintContext;
 class PhysicalBoxFragment;
+class UsedFont;
 struct FitTextScale;
 struct LogicalLineItem;
 struct TextFragmentPaintInfo;
@@ -35,7 +36,7 @@ struct TextFragmentPaintInfo;
 //
 // * Each text items for SVG <text> has this instance.
 // * An item with ruby annotation has this instance.
-// * An item with text-grow or text-shrunk has this instance.
+// * An item with `text-fit` has this instance.
 struct TextFragmentRareData : public GarbageCollected<TextFragmentRareData> {
  public:
   void Trace(Visitor* visitor) const { visitor->Trace(scaled_font); }
@@ -51,8 +52,6 @@ struct TextFragmentRareData : public GarbageCollected<TextFragmentRareData> {
   FontHeight annotation_metrics;
   // A flag whether SVG or not
   bool is_svg;
-  // A flag whether FitTextInline or not
-  bool is_fit_text_inline;
 };
 
 // This class represents a text run or a box in an inline formatting context.
@@ -99,6 +98,7 @@ class CORE_EXPORT FragmentItem final {
     void Trace(Visitor* visitor) const { visitor->Trace(line_box_fragment); }
     Member<const PhysicalLineBoxFragment> line_box_fragment;
     wtf_size_t descendants_count;
+    float text_fit_scale = 1.0f;
   };
   // Represents a box fragment appeared in a line. This includes inline boxes
   // (e.g., <span>text</span>) and atomic inlines.
@@ -121,7 +121,15 @@ class CORE_EXPORT FragmentItem final {
 
   // Type of the item. The invalid type is needed to support
   // kCanClearUnusedSlotsWithMemset.
-  enum ItemType { kInvalid = 0, kText, kGeneratedText, kLine, kBox };
+  enum ItemType {
+    kInvalid = 0,
+    kText,
+    kGeneratedText,
+    kLine,
+    kBox,
+
+    kMaxValue = kBox
+  };
 
   // Create appropriate type for |line_item|.
   FragmentItem(LogicalLineItem&& line_item, WritingMode writing_mode);
@@ -328,6 +336,9 @@ class CORE_EXPORT FragmentItem final {
     if (Type() == kLine)
       return static_cast<LineBoxType>(sub_type_);
     NOTREACHED() << this;
+  }
+  bool IsRubyAnnotationLine() const {
+    return Type() == kLine && GetLineBoxType() == LineBoxType::kRubyLineBox;
   }
 
   static PhysicalRect LocalVisualRectFor(const LayoutObject& layout_object);
@@ -555,10 +566,12 @@ class CORE_EXPORT FragmentItem final {
   // This returns Style().GetFont() for an FragmentItem not for
   // LayoutSVGInlineText.
   const Font& ScaledFont() const;
+  // Returns a used font for painting this item.
+  const UsedFont GetUsedFont() const;
 
-  // Returns a pair of text scaling factor and is_scaled_inline_only flag for
-  // text-grow and text-shrink properties.
-  std::pair<float, bool> GetFitTextScale() const;
+  // Returns a paint-time text scaling factor for text-fit property.
+  float GetFitTextScale() const;
+  void SetLineTextFitScale(float scale);
 
   // Get a description of |this| for the debug purposes.
   String ToString() const;
@@ -643,10 +656,13 @@ class CORE_EXPORT FragmentItem final {
   // Item index delta to the next item for the same |LayoutObject|.
   mutable wtf_size_t delta_to_next_for_same_layout_object_ = 0;
 
+  static constexpr size_t kConstTypeBits = 3;
+  static constexpr size_t kSubTypeBits = 3;
+
   // Note: We should not add |bidi_level_| because it is used only for layout.
-  const unsigned const_type_ : 3;         // ItemType
-  unsigned sub_type_ : 3;                 // TextItemType or LineBoxType
-  unsigned style_variant_ : 2;            // StyleVariant
+  const unsigned const_type_ : kConstTypeBits;  // ItemType
+  unsigned sub_type_ : kSubTypeBits;            // TextItemType or LineBoxType
+  unsigned style_variant_ : 2;                  // StyleVariant
   unsigned is_hidden_for_paint_ : 1;
   // Note: For |TextItem| and |GeneratedTextItem|, |text_direction_| equals to
   // |ShapeResult::Direction()|.

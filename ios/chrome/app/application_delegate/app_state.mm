@@ -17,6 +17,7 @@
 #import "ios/chrome/app/deferred_initialization_task_names.h"
 #import "ios/chrome/browser/crash_report/model/crash_keys_helper.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_delegate.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/scene_ui_blocker_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider_interface.h"
@@ -148,7 +149,7 @@ BOOL ApplicationIsInBackground() {
     // overlay.
     BOOL shouldPresentOverlay =
         (uiBlockerTarget != nil) && (scene != uiBlockerTarget);
-    scene.presentingModalOverlay = shouldPresentOverlay;
+    scene.uiBlockerState.presentingModalOverlay = shouldPresentOverlay;
   }
 }
 
@@ -345,10 +346,7 @@ BOOL ApplicationIsInBackground() {
 
 - (void)incrementForcePortraitOrientationCounter {
   if (!_forcePortraitOrientationCounter) {
-    for (SceneState* sceneState in self.connectedScenes) {
-      [sceneState.browserProviderInterface.currentBrowserProvider
-              .viewController setNeedsUpdateOfSupportedInterfaceOrientations];
-    }
+    [self updateSupportedInterfaceOrientationForAllScenes];
   }
   ++_forcePortraitOrientationCounter;
 }
@@ -357,10 +355,14 @@ BOOL ApplicationIsInBackground() {
   CHECK_GT(_forcePortraitOrientationCounter, 0ul);
   --_forcePortraitOrientationCounter;
   if (!_forcePortraitOrientationCounter) {
-    for (SceneState* sceneState in self.connectedScenes) {
-      [sceneState.browserProviderInterface.currentBrowserProvider
-              .viewController setNeedsUpdateOfSupportedInterfaceOrientations];
-    }
+    [self updateSupportedInterfaceOrientationForAllScenes];
+  }
+}
+
+- (void)updateSupportedInterfaceOrientationForAllScenes {
+  for (SceneState* sceneState in self.connectedScenes) {
+    UIViewController* viewController = sceneState.window.rootViewController;
+    [viewController setNeedsUpdateOfSupportedInterfaceOrientations];
   }
 }
 

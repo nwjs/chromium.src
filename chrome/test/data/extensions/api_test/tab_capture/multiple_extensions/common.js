@@ -10,8 +10,8 @@ function startTabCapture() {
       console.error(JSON.stringify(chrome.runtime.lastError));
     }
     if (captureStream) {
-      console.log('Sending success response...');
-      chrome.test.sendMessage("success");
+      console.info('Sending success response...');
+      chrome.test.sendMessage('success');
     }
   });
 }
@@ -19,7 +19,7 @@ function startTabCapture() {
 // Loop that runs one iteration every time we get a response to the "ready"
 // message.
 function loop() {
-  chrome.test.sendMessage("ready", () => {
+  chrome.test.sendMessage('ready', () => {
     startTabCapture();
     loop();
   });
@@ -27,4 +27,4 @@ function loop() {
 
 loop();
 
-console.log('Extension loaded.');
+console.info('Extension loaded.');

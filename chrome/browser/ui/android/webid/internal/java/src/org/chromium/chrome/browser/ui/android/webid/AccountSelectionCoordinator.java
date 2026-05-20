@@ -83,6 +83,7 @@ public class AccountSelectionCoordinator
             WindowAndroid windowAndroid,
             BottomSheetController sheetController,
             @RpMode.EnumType int rpMode,
+            boolean canShowUi,
             AccountSelectionComponent.Delegate delegate) {
         mTab = tab;
         mBottomSheetController = sheetController;
@@ -124,7 +125,8 @@ public class AccountSelectionCoordinator
                         avatarSize,
                         rpMode,
                         context,
-                        windowAndroid.getModalDialogManager());
+                        windowAndroid.getModalDialogManager(),
+                        canShowUi);
 
         // If this object is corresponding to the custom tab opened by showModalDialog, this
         // is the first chance to associate it with the opener, so do so now.
@@ -166,21 +168,21 @@ public class AccountSelectionCoordinator
         SimpleRecyclerViewAdapter adapter = new SimpleRecyclerViewAdapter(sheetItems);
         adapter.registerType(
                 AccountSelectionProperties.ITEM_TYPE_ACCOUNT,
-                new LayoutViewBuilder(
+                new LayoutViewBuilder<>(
                         rpMode == RpMode.ACTIVE
                                 ? R.layout.account_selection_active_mode_account_item
                                 : R.layout.account_selection_account_item),
                 AccountSelectionViewBinder::bindAccountView);
         adapter.registerType(
                 AccountSelectionProperties.ITEM_TYPE_LOGIN,
-                new LayoutViewBuilder(
+                new LayoutViewBuilder<>(
                         rpMode == RpMode.ACTIVE
                                 ? R.layout.account_selection_active_mode_add_account_row_item
                                 : R.layout.account_selection_add_account_row_item),
                 AccountSelectionViewBinder::bindLoginButtonView);
         adapter.registerType(
                 AccountSelectionProperties.ITEM_TYPE_SEPARATOR,
-                new LayoutViewBuilder(R.layout.account_selection_login_buttons_start_separator),
+                new LayoutViewBuilder<>(R.layout.account_selection_login_buttons_start_separator),
                 (unusedModel, unusedView, unusedKey) -> {});
         sheetItemListView.setAdapter(adapter);
 
@@ -244,6 +246,11 @@ public class AccountSelectionCoordinator
         if (activity != null) {
             activity.finish();
         }
+    }
+
+    @Override
+    public void setCanShowUi(boolean canShowUi) {
+        mMediator.setCanShowUi(canShowUi);
     }
 
     @Override

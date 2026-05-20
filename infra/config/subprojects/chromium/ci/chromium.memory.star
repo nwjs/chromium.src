@@ -354,6 +354,7 @@ linux_memory_builder(
         },
     ),
     cores = 32,
+    ssd = True,
     console_view_entry = consoles.console_view_entry(
         category = "cfi",
         short_name = "lnx",
@@ -725,7 +726,7 @@ linux_memory_builder(
             ),
             "interactive_ui_tests": targets.mixin(
                 swarming = targets.swarming(
-                    shards = 15,
+                    shards = 20,
                 ),
             ),
             "services_unittests": targets.remove(
@@ -1107,7 +1108,7 @@ ci.builder(
     ),
     targets = targets.bundle(
         targets = [
-            "chromium_webkit_isolated_scripts",
+            "chromium_blink_isolated_scripts",
         ],
         mixins = [
             "linux-jammy",
@@ -1187,7 +1188,7 @@ ci.builder(
     ),
     targets = targets.bundle(
         targets = [
-            "chromium_webkit_isolated_scripts",
+            "chromium_blink_isolated_scripts",
         ],
         additional_compile_targets = [
             "blink_tests",
@@ -1268,7 +1269,7 @@ ci.builder(
     ),
     targets = targets.bundle(
         targets = [
-            "chromium_webkit_isolated_scripts",
+            "chromium_blink_isolated_scripts",
         ],
         mixins = [
             "linux-jammy",

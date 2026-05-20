@@ -59,6 +59,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/unique_identifier.h"
 #include "third_party/blink/renderer/platform/network/http_parsers.h"
 #include "third_party/blink/renderer/platform/network/network_utils.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/reporting_disposition.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
@@ -207,11 +208,11 @@ class ImageResource::ImageResourceInfoImpl final
   bool IsCacheValidator() const override {
     return resource_->IsCacheValidator();
   }
-  bool IsAccessAllowed(
+  bool IsCorsSameOrigin(
       DoesCurrentFrameHaveSingleSecurityOrigin
-          does_current_frame_has_single_security_origin) const override {
-    return resource_->IsAccessAllowed(
-        does_current_frame_has_single_security_origin);
+          does_current_frame_have_single_security_origin) const override {
+    return resource_->IsCorsSameOrigin(
+        does_current_frame_have_single_security_origin);
   }
   std::optional<ResourceError> GetResourceError() const override {
     if (resource_->LoadFailedOrCanceled())
@@ -526,6 +527,22 @@ void ImageResource::DecodeError(bool all_data_received) {
   MemoryCache::Get()->Remove(this);
 }
 
+void ImageResource::IntegrityFailure() {
+  if (!ErrorOccurred()) {
+    SetStatus(ResourceStatus::kLoadError);
+  }
+  ClearData();
+  SetEncodedSize(0);
+  external_memory_accounter_.Clear(v8::Isolate::GetCurrent());
+  if (multipart_parser_) {
+    multipart_parser_->Cancel();
+  }
+  auto result = GetContent()->UpdateImage(
+      nullptr, GetStatus(), ImageResourceContent::kClearImageAndNotifyObservers,
+      /*all_data_received=*/true, /*is_multipart=*/!!multipart_parser_);
+  DCHECK_EQ(result, ImageResourceContent::UpdateImageResult::kNoDecodeError);
+}
+
 void ImageResource::UpdateImageAndClearBuffer() {
   UpdateImage(Data(), ImageResourceContent::kClearAndUpdateImage, true);
   ClearData();
@@ -539,9 +556,24 @@ void ImageResource::NotifyStartLoad() {
 
 void ImageResource::Finish(base::TimeTicks load_finish_time,
                            base::SingleThreadTaskRunner* task_runner) {
-  if (multipart_parser_) {
-    if (!ErrorOccurred())
-      multipart_parser_->Finish();
+  const bool enforce_integrity =
+      RuntimeEnabledFeatures::CSSResourceIntegrityEnforcementEnabled();
+
+  if (multipart_parser_ && !ErrorOccurred()) {
+    multipart_parser_->Finish();
+  }
+
+  if (enforce_integrity) {
+    // Resource::Finish() runs CheckResourceIntegrity() before notifying
+    // observers, so we can act on the result afterwards.
+    Resource::Finish(load_finish_time, task_runner);
+  }
+
+  if (enforce_integrity && !PassedIntegrityChecks()) {
+    // TODO(crbug.com/435625756): Surface the integrity failure to the
+    // devtools console.
+    IntegrityFailure();
+  } else if (multipart_parser_) {
     if (Data())
       UpdateImageAndClearBuffer();
   } else {
@@ -553,7 +585,10 @@ void ImageResource::Finish(base::TimeTicks load_finish_time,
     // https://docs.google.com/document/d/1v0yTAZ6wkqX2U_M6BNIGUJpM1s0TIw1VsqpxoL7aciY/edit?usp=sharing
     ClearData();
   }
-  Resource::Finish(load_finish_time, task_runner);
+
+  if (!enforce_integrity) {
+    Resource::Finish(load_finish_time, task_runner);
+  }
 }
 
 void ImageResource::FinishAsError(const ResourceError& error,
@@ -651,13 +686,13 @@ void ImageResource::MultipartDataReceived(base::span<const uint8_t> bytes) {
   Resource::AppendData(base::as_chars(bytes));
 }
 
-bool ImageResource::IsAccessAllowed(
+bool ImageResource::IsCorsSameOrigin(
     ImageResourceInfo::DoesCurrentFrameHaveSingleSecurityOrigin
-        does_current_frame_has_single_security_origin) const {
-  if (does_current_frame_has_single_security_origin !=
-      ImageResourceInfo::kHasSingleSecurityOrigin)
+        does_current_frame_have_single_security_origin) const {
+  if (does_current_frame_have_single_security_origin !=
+      ImageResourceInfo::kHasSingleSecurityOrigin) {
     return false;
-
+  }
   return GetResponse().IsCorsSameOrigin();
 }
 

@@ -173,21 +173,27 @@ static bool MatchesUniversalTagName(const Element& element,
          namespace_uri == element.namespaceURI();
 }
 
-// Validates a language range against RFC 4647 extended language range grammar:
+// Wildcards are valid subtags in extended language ranges (RFC 4647),
+// but not in language tags (RFC 5646).
+enum class WildcardSubtags { kAllow, kDisallow };
+
+// Validates a BCP-47 extended language range (RFC 4647) or tag (RFC 5646):
 // extended-language-range = (1*8ALPHA / "*") *("-" (1*8alphanum / "*"))
-static bool IsValidExtendedLanguageRange(const String& range) {
-  if (range.empty()) {
+// language-tag = 1*8ALPHA *("-" 1*8alphanum)
+static bool IsValidBCP47Value(const String& value,
+                              WildcardSubtags wildcard_policy) {
+  if (value.empty()) {
     return false;
   }
 
-  const wtf_size_t len = range.length();
+  const wtf_size_t len = value.length();
   wtf_size_t pos = 0;
   bool is_first_subtag = true;
 
   while (pos < len) {
     // Find the end of the current subtag (next hyphen or end of string).
     const wtf_size_t subtag_start = pos;
-    while (pos < len && range[pos] != '-') {
+    while (pos < len && value[pos] != '-') {
       ++pos;
     }
     const wtf_size_t subtag_len = pos - subtag_start;
@@ -197,10 +203,12 @@ static bool IsValidExtendedLanguageRange(const String& range) {
       return false;
     }
 
-    // Check if the subtag is a wildcard.
-    const bool is_wildcard = (subtag_len == 1 && range[subtag_start] == '*');
-
-    if (!is_wildcard) {
+    if (subtag_len == 1 && value[subtag_start] == '*') {
+      if (wildcard_policy == WildcardSubtags::kDisallow) {
+        // Wildcard subtags are not allowed inside language tags.
+        return false;
+      }
+    } else {
       // Each subtag is limited to 8 characters.
       if (subtag_len > 8) {
         return false;
@@ -208,8 +216,8 @@ static bool IsValidExtendedLanguageRange(const String& range) {
 
       // First subtag must be alphabetic, subsequent ones can be alphanumeric.
       for (wtf_size_t j = subtag_start; j < pos; ++j) {
-        const bool valid = is_first_subtag ? IsAsciiAlpha(range[j])
-                                           : IsAsciiAlphanumeric(range[j]);
+        const bool valid = is_first_subtag ? IsAsciiAlpha(value[j])
+                                           : IsAsciiAlphanumeric(value[j]);
         if (!valid) {
           return false;
         }
@@ -295,8 +303,8 @@ static bool MatchesLangPseudoClass(
       continue;
     }
 
-    // Malformed language ranges never match.
-    if (!IsValidExtendedLanguageRange(range.GetString())) {
+    // Malformed language ranges (RFC 4647) never match.
+    if (!IsValidBCP47Value(range.GetString(), WildcardSubtags::kAllow)) {
       continue;
     }
 
@@ -731,7 +739,7 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoHover:
     case CSSSelector::kPseudoIncrement:
     case CSSSelector::kPseudoIndeterminate:
-    case CSSSelector::kPseudoInterestHint:
+    case CSSSelector::kPseudoInterestButton:
     case CSSSelector::kPseudoInterestSource:
     case CSSSelector::kPseudoInterestTarget:
     case CSSSelector::kPseudoInvalid:
@@ -773,7 +781,6 @@ SelectorChecker::FeaturelessMatch SelectorChecker::MatchShadowHost(
     case CSSSelector::kPseudoPickerIcon:
     case CSSSelector::kPseudoPicker:
     case CSSSelector::kPseudoSelection:
-    case CSSSelector::kPseudoSelectorFragmentAnchor:
     case CSSSelector::kPseudoSingleButton:
     case CSSSelector::kPseudoStart:
     case CSSSelector::kPseudoState:
@@ -2455,8 +2462,6 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
         return select->SlottedButton();
       }
       return false;
-    case CSSSelector::kPseudoSelectorFragmentAnchor:
-      return MatchesSelectorFragmentAnchorPseudoClass(element);
     case CSSSelector::kPseudoTarget:
       probe::ForcePseudoState(&element, CSSSelector::kPseudoTarget,
                               &force_pseudo_state);
@@ -2576,10 +2581,8 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       }
       return false;
     case CSSSelector::kPseudoInterestSource:
-      DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
       return element.GetInterestState() != Element::InterestState::kNoInterest;
     case CSSSelector::kPseudoInterestTarget: {
-      DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
       Element* invoker = element.SourceInterestInvoker();
       DCHECK(!invoker || invoker->GetInterestState() !=
                              Element::InterestState::kNoInterest);
@@ -2588,7 +2591,7 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     case CSSSelector::kPseudoHasSlotted:
       DCHECK(RuntimeEnabledFeatures::CSSPseudoHasSlottedEnabled());
       if (auto* slot = DynamicTo<HTMLSlotElement>(element)) {
-        return slot->HasAssignedNodesNoRecalc();
+        return slot->HasFlattenedAssignedNodesNoRecalc();
       }
       return false;
     case CSSSelector::kPseudoHover:
@@ -2642,9 +2645,6 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       if (force_pseudo_state) {
         return false;
       }
-      if (auto* scroll_button = DynamicTo<ScrollButtonPseudoElement>(element)) {
-        return scroll_button->IsEnabled();
-      }
       return element.MatchesEnabledPseudoClass();
     }
     case CSSSelector::kPseudoFullPageMedia:
@@ -2662,17 +2662,7 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       if (force_pseudo_state) {
         return false;
       }
-      if (auto* scroll_button = DynamicTo<ScrollButtonPseudoElement>(element)) {
-        return !scroll_button->IsEnabled();
-      }
-      if (auto* fieldset = DynamicTo<HTMLFieldSetElement>(element)) {
-        // <fieldset> should never be considered disabled, but should still
-        // match the :enabled or :disabled pseudo-classes according to whether
-        // the attribute is set or not. See here for context:
-        // https://github.com/whatwg/html/issues/5886#issuecomment-1582410112
-        return fieldset->IsActuallyDisabled();
-      }
-      return element.IsDisabledFormControl();
+      return element.MatchesDisabledPseudoClass();
     case CSSSelector::kPseudoReadOnly: {
       probe::ForcePseudoState(&element, CSSSelector::kPseudoReadOnly,
                               &force_pseudo_state);
@@ -2884,6 +2874,11 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       auto* vtt_element = DynamicTo<VTTElement>(element);
       AtomicString value = vtt_element ? vtt_element->Language()
                                        : element.ComputeInheritedLanguage();
+      // Malformed language tag values (RFC 5646) never match.
+      if (!value.empty() &&
+          !IsValidBCP47Value(value.GetString(), WildcardSubtags::kDisallow)) {
+        break;
+      }
       if (!RuntimeEnabledFeatures::CSSLangExtendedRangesEnabled()) {
         DCHECK_EQ(selector.ArgumentList()->size(), 1u);
         const AtomicString& argument = (*selector.ArgumentList())[0];
@@ -3683,16 +3678,6 @@ bool SelectorChecker::CheckVirtualPseudo(const SelectorCheckingContext& context,
     default:
       return false;
   }
-}
-
-bool SelectorChecker::MatchesSelectorFragmentAnchorPseudoClass(
-    const Element& element) {
-  return element == element.GetDocument().CssTarget() &&
-         element.GetDocument().View()->GetFragmentAnchor() &&
-         element.GetDocument()
-             .View()
-             ->GetFragmentAnchor()
-             ->IsSelectorFragmentAnchor();
 }
 
 bool SelectorChecker::MatchesActiveViewTransitionPseudoClass(

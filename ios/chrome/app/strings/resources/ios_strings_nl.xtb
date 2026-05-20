@@ -54,6 +54,7 @@
 <translation id="1179890706672152411">Je opslag is vol</translation>
 <translation id="1181037720776840403">Verwijderen</translation>
 <translation id="1190609913194133056">Meldingscentrum</translation>
+<translation id="1199631150313925648">Handmatig invoeren</translation>
 <translation id="1199963004393929848">Groen thema</translation>
 <translation id="1201402288615127009">Volgende</translation>
 <translation id="1204075260022434100">{count,plural, =1{Bookmark opgeslagen in {title} in je account {email}}other{{count} bookmarks opgeslagen in {title} in je account {email}}}</translation>
@@ -99,6 +100,7 @@
 <translation id="1347468774581902829">Activiteit beheren</translation>
 <translation id="1348596747084433075">https://www.amazon.com/Wife-Gifts/s?k=for+Wife+Gifts</translation>
 <translation id="1355337783640312381">Tik op je accounticoon om tussen accounts te wisselen</translation>
+<translation id="135806768612505061">Alle tabbladen</translation>
 <translation id="1358106883354237005">Beheerd account</translation>
 <translation id="1358214951266274152">Ga naar de gekopieerde link</translation>
 <translation id="1360432990279830238">Uitloggen en synchroniseren uitzetten?</translation>
@@ -258,6 +260,7 @@
 <translation id="1861262398884155592">Deze map is leeg</translation>
 <translation id="1864266050569350424">Tik op een site waar je een wachtwoord hebt opgeslagen op het veld voor het inlogwachtwoord.</translation>
 <translation id="1866700949421703765">Aanzetten van Leesmodus verbergen</translation>
+<translation id="1869050523388525800">Zoeken op scherm is alleen beschikbaar als Google is ingesteld als je standaard zoekmachine. Je kunt je standaard zoekmachine wijzigen in de <ph name="BEGIN_LINK" />Instellingen<ph name="END_LINK" />.</translation>
 <translation id="1872096359983322073">Zaklamp</translation>
 <translation id="1875733418125333939"><ph name="FILENAME" />.</translation>
 <translation id="1881621406744213161">Gezinsleden uitnodigen</translation>
@@ -718,6 +721,7 @@
 <translation id="3565012355885596568">Kan afbeeldingen niet laden</translation>
 <translation id="3565930036634619844">Tabblad. <ph name="TAB_INDEX" /> van <ph name="NUMBER_OF_TABS" />.</translation>
 <translation id="3567168891086460374">Op een andere manier opslaan</translation>
+<translation id="3571703298474554279">Een snellere manier om de app te gebruiken</translation>
 <translation id="3572503683475187385">Het huidige tabblad wordt gedeeld met Gemini als je een nieuwe chat start. Als je een tabblad deelt met Gemini, worden de bijbehorende content en URL naar Google gestuurd. <ph name="BEGIN_LINK" />Meer informatie<ph name="END_LINK" /></translation>
 <translation id="3572607909481582402">In je Google-account</translation>
 <translation id="3575234738189584619">Zoeken met Lens</translation>
@@ -784,7 +788,6 @@
 <translation id="3838691874161539578">Check je opgeslagen wachtwoorden om je beveiliging te verbeteren en veiliger te internetten</translation>
 <translation id="3838985624086228724">Prijsdaling voor je gevolgde product, van <ph name="PREVIOUS_PRICE" /> naar <ph name="PRICE" />, <ph name="PRODUCT_NAME" />, <ph name="DOMAIN" /></translation>
 <translation id="385051799172605136">Terug</translation>
-<translation id="3850952228519377137">Prijzen volgen op je tabbladen verbergen</translation>
 <translation id="3851938967634752633">Wachtwoorden voor <ph name="WEBSITE" />, <ph name="SECOND_WEBSITE" /> en <ph name="NUMBER_OF_ACCOUNTS" /> andere accounts worden verwijderd. Je accounts zelf worden niet verwijderd.</translation>
 <translation id="3853162385423733133">Blijf de wachtwoorden in je Google-account <ph name="EMAIL" /> gebruiken en opslaan</translation>
 <translation id="3853873210696342070">Importeren</translation>
@@ -802,6 +805,7 @@
 <translation id="3893858854379998374">Verwijder je ongebruikte bookmarks om bookmarks op te slaan in je account</translation>
 <translation id="3897092660631435901">Menu</translation>
 <translation id="3904270275864974753">Carrousel bewerken</translation>
+<translation id="3905384981098338147">Geschiedenis van AI-modus</translation>
 <translation id="3909222758573607742">Wachtwoorden en andere items opslaan in account</translation>
 <translation id="3913463964270756493">Zoeken op je scherm met Google Lens verbergen</translation>
 <translation id="3914640181019354363">Adressen waarnemen</translation>
@@ -931,7 +935,6 @@
 <translation id="4323122584592971322">OID.</translation>
 <translation id="4324735664183300693">Meldingen aanzetten</translation>
 <translation id="4326912346867677256">Tik op Wachtwoord gebruiken om beveiligd in te loggen.</translation>
-<translation id="4327017157997423717">Prijs volgen voor <ph name="PRODUCT_NAME" />, <ph name="PRICE" />, <ph name="DOMAIN" /></translation>
 <translation id="4328843285884395590">Mijn Drive</translation>
 <translation id="4331177082088332784">Je kunt dit beheren via de BEGIN_LINK contentinstellingen END_LINK</translation>
 <translation id="4334428914252001502">1 ongelezen artikel.</translation>
@@ -955,6 +958,7 @@
 <translation id="441868831736628555">Privacybeleid</translation>
 <translation id="4420409367264901497">Bookmark bewerken</translation>
 <translation id="4425365312778464779">Dit account wordt beheerd</translation>
+<translation id="443008484043213881">Extra</translation>
 <translation id="4430277756566635951"><ph name="EMAIL" /> is op dit moment geselecteerd. Kies een account.</translation>
 <translation id="4430505936695785931">Gebruik opgeslagen wachtwoorden in andere apps</translation>
 <translation id="4431224949908513835">Selecteer een betaalmethode om in te vullen.</translation>
@@ -1073,6 +1077,7 @@
 <translation id="4824497107140370669">{count,plural, =0{{domain}}=1{{domain} en 1 andere}other{{domain} en {count} andere}}</translation>
 <translation id="4826588772550366629">camera en microfoon</translation>
 <translation id="4828431027673677473">Producten op basis van je interesses</translation>
+<translation id="4829420936835028285">Tabbladgroep bewerken</translation>
 <translation id="4833786495304741580">Hiermee worden automatisch gebruiksstatistieken en crashrapporten naar Google verzonden.</translation>
 <translation id="483689884442613745">Opslaan…</translation>
 <translation id="4840495572919996524">Je bookmarks, geschiedenis, wachtwoorden en meer worden niet meer gesynchroniseerd met je Google-account.</translation>
@@ -1080,7 +1085,6 @@
 <translation id="484462545196658690">Auto</translation>
 <translation id="4850886885716139402">Weergave</translation>
 <translation id="4854068532375923088">Gemini toegang geven tot je camera</translation>
-<translation id="4860114370595561279">Je opgeslagen informatie wordt op je apparaat opgeslagen</translation>
 <translation id="4860895144060829044">Bellen</translation>
 <translation id="4861953997778766866">Iedereen kan wijzigingen aanbrengen in je gedeelde tabbladgroepen</translation>
 <translation id="4865063548323785458">Sla je wachtwoorden op en laat ze automatisch invullen om makkelijk in te loggen bij sites en apps</translation>
@@ -1171,6 +1175,7 @@
 <translation id="5145331760738811130">Tabbladschakelaar verlaten</translation>
 <translation id="5148717509369231739">Safari-import</translation>
 <translation id="5152483358138813104">Log sneller in op al je apparaten</translation>
+<translation id="515315847398512535">Het zoekscherm staat uit voor je account. Neem contact op met je beheerder voor meer informatie.</translation>
 <translation id="5155502059906700593">Wijzig de positie van je adresbalk naar bovenaan of onderaan.</translation>
 <translation id="5157638238828697074">Er is iets misgegaan. De app kan niet worden geopend.</translation>
 <translation id="5163417375525818870">Pdf's</translation>
@@ -1290,6 +1295,7 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="5581786858144165447">Vragen aan AI-modus</translation>
 <translation id="5585019845078534178">Kaarten</translation>
 <translation id="5591526871732898147">Bijgevoegde afbeelding {index}</translation>
+<translation id="5594597292424622277">De video onderbreken</translation>
 <translation id="5595485650161345191">Adres bewerken</translation>
 <translation id="559567008082979829">Stel in dat je downloads na één maand worden verwijderd.</translation>
 <translation id="5596627076506792578">Meer opties</translation>
@@ -1315,7 +1321,6 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="5647702255748985085">Groep verlaten?</translation>
 <translation id="5648166631817621825">Afgelopen 7 dagen</translation>
 <translation id="5652623411397330904">De producten die je volgt, worden hier getoond.</translation>
-<translation id="5653100054596780862">Alle tabbladen</translation>
 <translation id="5656431592348714536">Verbeterde agenda</translation>
 <translation id="5659593005791499971">E-mail</translation>
 <translation id="5665739277590037307">De <ph name="GOOGLE_TERMS" /> en de <ph name="GEMINI_APPS_PRIVACY" /> zijn van toepassing. Gemini kan fouten maken, dus dubbelcheck de reacties.</translation>
@@ -1501,7 +1506,6 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="6259928806013786178">Leesmodus mislukt</translation>
 <translation id="6268773951964630964">Zoeken naar gekopieerde afbeelding</translation>
 <translation id="6271462272606946663">Mobiele site opvragen verbergen</translation>
-<translation id="6271556257184622612">Vraag Google naar tabbladen en meer</translation>
 <translation id="6271824294945464304">Wachtwoord delen</translation>
 <translation id="628251768213143684">Je kunt altijd bepalen wat wordt opgeslagen in je Google-account</translation>
 <translation id="6284652193729350524">Aanbieden om <ph name="LANGUAGE" /> te vertalen</translation>
@@ -1514,8 +1518,8 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="6307241780749477694">Laat verifiëren dat jij het bent om al je wachtwoorden op dit apparaat te krijgen</translation>
 <translation id="6316141353357700666">Kies het wachtwoord dat je wilt gebruiken in de lijst die verschijnt.</translation>
 <translation id="6321526113093607004">Toevoegen aan bookmarks</translation>
+<translation id="6327249202318869726">Gemini staat uit voor je account. Neem contact op met je beheerder voor meer informatie.</translation>
 <translation id="6331836477476466332">Een veiligere en krachtigere browser voor jou</translation>
-<translation id="6335744088476213315">Deze kaart toont producten die je recent hebt bekeken en die je misschien wilt volgen om meldingen over prijsdalingen te krijgen</translation>
 <translation id="6337234675334993532">Versleuteling</translation>
 <translation id="6337313937331295309">Privacyverklaring van Gemini Apps</translation>
 <translation id="633809752005859102">Er is iets goed misgegaan. We gaan op zoek naar een oplossing.</translation>
@@ -1570,6 +1574,7 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="6476800141292307438">De pagina vertalen naar het <ph name="LANGUAGE" />. Opties beschikbaar onderaan het scherm.</translation>
 <translation id="647867789226964031">Je wachtwoorden wijzigen</translation>
 <translation id="6480363549849064919">Clientverificatie</translation>
+<translation id="6489174933860678546">Open incognitotabbladen om privé op internet te browsen.</translation>
 <translation id="6494931198667773526">Eindigt</translation>
 <translation id="6503077044568424649">Meest bezocht</translation>
 <translation id="6503763061813913607">Meldingen van Veiligheidscheck</translation>
@@ -1606,6 +1611,7 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="6596481460663245319">Afbeelding zoeken met Google</translation>
 <translation id="6598432073497341323">{COUNT,plural, =1{1 wachtwoord}other{# wachtwoorden}}</translation>
 <translation id="6601302169302852717">Afbeelding in Google Foto's opgeslagen voor <ph name="USER_EMAIL" /></translation>
+<translation id="6602173570135186741">Automatisch invullen en wachtwoorden</translation>
 <translation id="6603393121510733479">Je organisatie heeft privé browsen uitgezet.
 <ph name="BEGIN_LINK" />Meer informatie<ph name="END_LINK" /></translation>
 <translation id="6606914854592108404">Veiligheidscheck wordt uitgevoerd…</translation>
@@ -1626,6 +1632,7 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="6640268266988685324">Geopend tabblad</translation>
 <translation id="6641465290890659327">Een kopie van je wachtwoord delen</translation>
 <translation id="6642362222295953972">Overschakelen naar bestaand tabblad</translation>
+<translation id="6643016212128521049">Wissen</translation>
 <translation id="6645899968535965230">QR-code: <ph name="PAGE_TITLE" /></translation>
 <translation id="6657585470893396449">Wachtwoord</translation>
 <translation id="6659660757330712663">Je kunt over de werkbalk swipen om van tabblad te wisselen.</translation>
@@ -1692,6 +1699,7 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="6871397658902960384">Browsen</translation>
 <translation id="6874328931822449112">{COUNT,plural, =1{Wachtwoord opslaan in account}other{Wachtwoorden opslaan in account}}</translation>
 <translation id="6875166646976836138">Je kunt deze items ook bekijken en beheren in je bookmarks, leeslijst of wachtwoordmanager.</translation>
+<translation id="6878052248816456143">Open bestanden in je Google Drive wanneer je maar wilt.</translation>
 <translation id="6882836635272038266">Standaardbeveiliging tegen websites, downloads en extensies die als gevaarlijk zijn bestempeld.</translation>
 <translation id="6884135917113737984">{COUNT,plural, =1{{COUNT} wachtwoord opslaan in je Google-account}other{{COUNT} wachtwoorden opslaan in je Google-account}}</translation>
 <translation id="6888009575607455378">Weet je zeker dat je de wijzigingen niet wilt opslaan?</translation>
@@ -1805,6 +1813,7 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="7345061034321640811">Importeren niet toegestaan</translation>
 <translation id="7347998088283246662">Importeer onder andere wachtwoorden, geschiedenis en bookmarks</translation>
 <translation id="7352651011704765696">Er is iets misgegaan</translation>
+<translation id="7363497636543208734">Je kunt nu makkelijker navigeren in de app.</translation>
 <translation id="7364796246159120393">Bestand kiezen</translation>
 <translation id="736564850024123010">Wijzig de positie van de adresbalk voor een aangepaste functionaliteit.</translation>
 <translation id="7366909168761621528">Browsegegevens</translation>
@@ -1858,6 +1867,7 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">Als je de incognitotabbladen wilt vergrendelen, stel je Touch ID, Face ID of een toegangscode in.</translation>
 <translation id="750886945254958667">Behoud deze groep om later tabbladen toe te voegen of verlaat de groep als je er geen toegang meer toe wilt</translation>
+<translation id="7511099437872594216">Tabbladen</translation>
 <translation id="7511727374778217603">{COUNT,plural, =1{Voeg maximaal 1 tabblad toe}other{Voeg maximaal {COUNT} tabbladen toe}}</translation>
 <translation id="7512909159512473473">Voer je wachtwoordzin in…</translation>
 <translation id="7514365320538308">Downloaden</translation>
@@ -2103,7 +2113,6 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="8319282042900445670">Herinnering ingesteld voor <ph name="TIME" />, <ph name="DATE" /></translation>
 <translation id="8320212361750431956">Recente activiteit</translation>
 <translation id="8325455175867928593">Reviews op basis van je interesses verbergen</translation>
-<translation id="8328777765163860529">Alles sluiten</translation>
 <translation id="833647236762414178">Maak, bewaar en beheer je wachtwoorden en toegangssleutels om makkelijk in te loggen bij sites en apps. <ph name="BEGIN_LINK" />Meer informatie<ph name="END_LINK" /></translation>
 <translation id="8343993175958086504">Maak een back-up van je gegevens en gebruik deze op elk apparaat.</translation>
 <translation id="8348530355586151720">Tik op het menu met 3 stippen</translation>
@@ -2158,6 +2167,7 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="8528009254289981965">Links vanuit andere apps openen in de incognitomodus</translation>
 <translation id="8529767659511976195">Nieuw</translation>
 <translation id="8531572740963685410">Pdf's</translation>
+<translation id="8532059953132740592">De video afspelen</translation>
 <translation id="8533411848724153701">Gemini</translation>
 <translation id="8533670235862049797">Safe Browsing staat aan</translation>
 <translation id="8534481786647257214">Google+ bericht voltooid.</translation>
@@ -2286,6 +2296,7 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="8915916167043355778">Alles sluiten</translation>
 <translation id="892185197271200809">Iedereen raakt meteen de toegang tot de tabbladgroep <ph name="GROUP_NAME" /> kwijt en de groep wordt verwijderd van alle apparaten</translation>
 <translation id="8923178205567790913">Wachtwoorden</translation>
+<translation id="8926498511977337209">Incognito browsen</translation>
 <translation id="892776311701544612">Meer informatie…</translation>
 <translation id="8928133177108699615">Desktop</translation>
 <translation id="8928426232677696166"><ph name="EMAIL" />, beheerd door je organisatie, is op dit moment geselecteerd. Kies een account.</translation>

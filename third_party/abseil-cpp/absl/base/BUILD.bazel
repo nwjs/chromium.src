@@ -653,6 +653,7 @@ cc_test(
     linkopts = ABSL_DEFAULT_LINKOPTS,
     deps = [
         ":config",
+        ":core_headers",
         ":hardening",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
@@ -1008,6 +1009,7 @@ cc_library(
     linkopts = ABSL_DEFAULT_LINKOPTS,
     visibility = [
         "//absl:__subpackages__",
+        "//absl:friends",
     ],
     deps = [
         ":config",
@@ -1037,6 +1039,7 @@ cc_library(
     linkopts = ABSL_DEFAULT_LINKOPTS,
     visibility = [
         "//absl:__subpackages__",
+        "//absl:friends",
     ],
     deps = [
         "//absl/base:config",

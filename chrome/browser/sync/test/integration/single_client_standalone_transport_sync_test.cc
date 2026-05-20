@@ -10,7 +10,6 @@
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/test/integration/encryption_helper.h"
-#include "chrome/browser/sync/test/integration/secondary_account_helper.h"
 #include "chrome/browser/sync/test/integration/single_client_status_change_checker.h"
 #include "chrome/browser/sync/test/integration/sync_service_impl_harness.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
@@ -103,12 +102,10 @@ IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
   CHECK(!AllowedTypesInStandaloneTransportMode().Has(
       kDataTypeExcludedInTransportMode));
 
-  ASSERT_TRUE(SetupClients());
 
   // Setup a primary account, but don't actually enable Sync-the-feature (so
   // that Sync will start in transport mode).
-  ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
-  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
+  ASSERT_TRUE(SignIn());
   ASSERT_FALSE(GetSyncService(0)->IsSyncFeatureEnabled());
   ASSERT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
@@ -195,10 +192,8 @@ IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
 
 IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
                        DataTypesEnabledInTransportModeWithoutAdditionalOptIns) {
-  ASSERT_TRUE(SetupClients());
   // Sign in, without turning on Sync-the-feature.
-  ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
-  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
+  ASSERT_TRUE(SignIn());
   ASSERT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
   ASSERT_FALSE(GetSyncService(0)->IsSyncFeatureEnabled());
@@ -220,10 +215,8 @@ IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
   // Opting into history is only meaningful if
   // `kReplaceSyncPromosWithSignInPromos` is enabled.
 
-  ASSERT_TRUE(SetupClients());
   // Sign in, without turning on Sync-the-feature.
-  ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
-  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
+  ASSERT_TRUE(SignIn());
   ASSERT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
   ASSERT_FALSE(GetSyncService(0)->IsSyncFeatureEnabled());
@@ -262,9 +255,8 @@ IN_PROC_BROWSER_TEST_F(
   SetNigoriInFakeServer(BuildCustomPassphraseNigoriSpecifics(kKeyParams),
                         GetFakeServer());
 
-  ASSERT_TRUE(SetupClients());
   // Sign in, without turning on Sync-the-feature.
-  ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
+  ASSERT_TRUE(SignIn());
   ASSERT_TRUE(PassphraseRequiredChecker(GetSyncService(0)).Wait());
   ASSERT_TRUE(GetSyncService(0)->GetUserSettings()->SetDecryptionPassphrase(
       kKeyParams.password));
@@ -398,9 +390,8 @@ class ReplaceSyncWithSigninMigrationSyncTest : public SyncTest {
 
 IN_PROC_BROWSER_TEST_F(ReplaceSyncWithSigninMigrationSyncTest,
                        PRE_MigratesSignedInUser) {
-  ASSERT_TRUE(SetupClients());
   // Sign in, without turning on Sync-the-feature.
-  ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
+  ASSERT_TRUE(SignIn());
   ASSERT_FALSE(GetSyncService(0)->IsSyncFeatureEnabled());
 
   // E.g. Autofill and Payments are enabled by default (based on the
@@ -459,12 +450,10 @@ IN_PROC_BROWSER_TEST_F(ReplaceSyncWithSigninMigrationSyncTest,
 
 IN_PROC_BROWSER_TEST_F(ReplaceSyncWithSigninMigrationSyncTest,
                        PRE_MigratesSignedInCustomPassphraseUser) {
-  ASSERT_TRUE(SetupClients());
   // Sign in, without turning on Sync-the-feature.
-  ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
+  ASSERT_TRUE(SignIn());
   ASSERT_FALSE(GetSyncService(0)->IsSyncFeatureEnabled());
 
-  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   ASSERT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
 

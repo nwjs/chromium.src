@@ -28,8 +28,8 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
@@ -899,7 +899,9 @@ void ComposeSession::OpenBugReportingLink() {
 void ComposeSession::OpenComposeLearnMorePage() {
   if (base::FeatureList::IsEnabled(
           compose::features::kEnableComposeProactiveNudge)) {
-    BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents_);
+    BrowserWindowInterface* browser =
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+            web_contents_);
     CHECK(browser);
 
     chrome::ShowSettingsSubPage(browser, chrome::kAiHelpMeWriteSubpage);
@@ -1151,9 +1153,9 @@ void ComposeSession::UpdateInnerTextAndContinueComposeIfNecessary(
   }
 
   if (node_offset.has_value()) {
-    page_metadata_->set_page_inner_text_offset(node_offset.value());
+    page_metadata_->set_page_inner_text_offset(*node_offset);
   }
-  page_metadata_->set_trimmed_page_inner_text(trimmed_inner_text);
+  page_metadata_->set_trimmed_page_inner_text(std::move(trimmed_inner_text));
 
   page_metadata_->set_page_inner_text(std::move(inner_text));
 

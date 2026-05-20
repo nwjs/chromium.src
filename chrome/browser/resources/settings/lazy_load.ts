@@ -4,6 +4,7 @@
 
 // Subpages
 import './ai_page/ai_mode_search_page.js';
+import './ai_page/ai_suggestions_page.js';
 import './ai_page/history_search_page.js';
 import './ai_page/offer_writing_help_page.js';
 import './appearance_page/appearance_fonts_page.js';
@@ -118,6 +119,7 @@ import './reset_page/reset_page.js';
 import './system_page/system_page.js';
 // </if>
 import './your_saved_info_page/identity_docs_page.js';
+import './your_saved_info_page/shopping_page.js';
 import './your_saved_info_page/travel_page.js';
 
 // <if expr="not is_chromeos">
@@ -161,6 +163,7 @@ export {SettingsLiveTranslateElement} from './a11y_page/live_translate.js';
 // </if>
 
 export {isFeatureDisabledByPolicy, SettingsAiPolicyIndicator} from './ai_page/ai_policy_indicator.js';
+export {SettingsAiSuggestionsPageElement} from './ai_page/ai_suggestions_page.js';
 export {AiEnterpriseFeaturePrefName, AiPageActions, FeatureOptInState, SettingsAiPageFeaturePrefName} from './ai_page/constants.js';
 export {SettingsAiModeSearchPageElement} from './ai_page/ai_mode_search_page.js';
 export {SettingsHistorySearchPageElement} from './ai_page/history_search_page.js';
@@ -279,7 +282,7 @@ export {SettingsResetProfileDialogElement} from './reset_page/reset_profile_dial
 export {SettingsSafetyHubExtensionsModuleElement} from './safety_hub/extensions_module.js';
 export {SettingsSafetyHubNotificationPermissionsModuleElement} from './safety_hub/notification_permissions_module.js';
 export {CardState, PermissionsRevocationType, SafetyHubBrowserProxyImpl, SafetyHubEvent} from './safety_hub/safety_hub_browser_proxy.js';
-export type {CardInfo, EntryPointInfo, NotificationPermission, SafetyHubBrowserProxy, UnusedSitePermissions} from './safety_hub/safety_hub_browser_proxy.js';
+export type {CardInfo, EntryPointInfo, NotificationPermission, SafetyHubBrowserProxy, UnusedSitePermission, UnusedSitePermissions} from './safety_hub/safety_hub_browser_proxy.js';
 export {SettingsSafetyHubCardElement} from './safety_hub/safety_hub_card.js';
 export {SettingsSafetyHubEntryPointElement} from './safety_hub/safety_hub_entry_point.js';
 export {SettingsSafetyHubModuleElement} from './safety_hub/safety_hub_module.js';
@@ -347,4 +350,5 @@ export {SystemPageBrowserProxyImpl} from './system_page/system_page_browser_prox
 export type {SystemPageBrowserProxy} from './system_page/system_page_browser_proxy.js';
 // </if>
 export {SettingsIdentityDocsPageElement} from './your_saved_info_page/identity_docs_page.js';
+export {SettingsShoppingPageElement} from './your_saved_info_page/shopping_page.js';
 export {SettingsTravelPageElement} from './your_saved_info_page/travel_page.js';

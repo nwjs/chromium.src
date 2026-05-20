@@ -39,6 +39,7 @@
 #include "components/permissions/permission_prompt_decision.h"
 #include "components/permissions/permission_request_data.h"
 #include "components/permissions/permission_request_id.h"
+#include "components/permissions/resolvers/permission_resolver.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/btm_service.h"
@@ -187,19 +188,6 @@ content_settings::ContentSettingConstraints ComputeConstraints(
     case RequestOutcome::kAllowedByFedCM:
       NOTREACHED();
   }
-}
-
-bool ShouldPersistSetting(bool permission_allowed, RequestOutcome outcome) {
-  // User responses to a prompt should be persisted to avoid user annoyance or
-  // prompt spam.
-  if (IsUserDecidedPersistableOutcome(outcome)) {
-    return true;
-  }
-  // UA-generated denials are not persisted, since they can be re-derived easily
-  // and don't have any user-facing concerns, so persistence just adds
-  // complexity. UA-generated grants, however, should be persisted to ensure the
-  // associated behavioral changes stick.
-  return permission_allowed;
 }
 
 FederatedIdentityPermissionContext* IsAutograntViaFedCmAllowed(
@@ -594,6 +582,7 @@ void StorageAccessGrantPermissionContext::NotifyPermissionSet(
     const permissions::PermissionPromptDecision& decision) {
   CHECK(decision.overall_decision != PermissionDecision::kAllowThisTime);
   CHECK(decision.is_final);
+  CHECK(!persist || (decision.overall_decision != PermissionDecision::kNone));
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   RequestOutcome outcome =
       RequestOutcomeFromPrompt(decision.overall_decision, persist);
@@ -619,12 +608,8 @@ void StorageAccessGrantPermissionContext::NotifyPermissionSet(
       }
     }
   }
-  NotifyPermissionSetInternal(
-      request_data, std::move(callback),
-      persist &&
-          ShouldPersistSetting(
-              decision.overall_decision == PermissionDecision::kAllow, outcome),
-      decision.overall_decision, outcome);
+  NotifyPermissionSetInternal(request_data, std::move(callback), persist,
+                              decision.overall_decision, outcome);
 }
 
 void StorageAccessGrantPermissionContext::ReportRelatedWebsiteSetsDeprecation(
@@ -711,9 +696,11 @@ void StorageAccessGrantPermissionContext::NotifyPermissionSetInternal(
     }
   }
 
+  std::unique_ptr<permissions::PermissionResolver> resolver =
+      CreatePermissionResolver(request_data.permission_descriptor);
   if (!persist) {
     std::move(callback).Run(content::PermissionResult(
-        request_data.resolver->DeterminePermissionStatus(content_setting),
+        resolver->DeterminePermissionStatus(content_setting),
         content::PermissionStatusSource::UNSPECIFIED));
     return;
   }
@@ -758,18 +745,17 @@ void StorageAccessGrantPermissionContext::NotifyPermissionSetInternal(
       ->GetCookieManagerForBrowserProcess()
       ->SetContentSettings(
           ContentSettingsType::STORAGE_ACCESS, grants,
-          base::BindOnce(std::move(callback),
-                         content::PermissionResult(
-                             request_data.resolver->DeterminePermissionStatus(
-                                 content_setting),
-                             content::PermissionStatusSource::UNSPECIFIED)));
+          base::BindOnce(
+              std::move(callback),
+              content::PermissionResult(
+                  resolver->DeterminePermissionStatus(content_setting),
+                  content::PermissionStatusSource::UNSPECIFIED)));
 }
 
-void StorageAccessGrantPermissionContext::UpdateContentSetting(
+void StorageAccessGrantPermissionContext::UpdateSetting(
     const permissions::PermissionRequestData& request_data,
-    ContentSetting content_setting,
+    const PermissionSetting& setting,
     bool is_one_time) {
-  CHECK(!is_one_time);
   // We need to notify the network service of content setting updates before we
   // run our callback. As a result we do our updates when we're notified of a
   // permission being set and should not be called here.

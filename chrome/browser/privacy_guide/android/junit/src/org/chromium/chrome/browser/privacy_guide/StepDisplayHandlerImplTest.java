@@ -19,6 +19,9 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxBridgeJni;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.safe_browsing.SafeBrowsingBridge;
@@ -33,7 +36,6 @@ import org.chromium.components.content_settings.ContentSettingsType;
 import org.chromium.components.content_settings.CookieControlsMode;
 import org.chromium.components.content_settings.PrefNames;
 import org.chromium.components.prefs.PrefService;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.user_prefs.UserPrefs;
@@ -112,20 +114,20 @@ public class StepDisplayHandlerImplTest {
 
     @Test
     public void hidesHistorySyncWhenNotSignedIn() {
-        when(mIdentityManager.hasPrimaryAccount(ConsentLevel.SIGNIN)).thenReturn(false);
+        when(mIdentityManager.hasPrimaryAccount()).thenReturn(false);
         assertFalse(mStepDisplayHandler.shouldDisplayHistorySync());
     }
 
     @Test
     public void hidesHistorySyncDisabledByPolicy() {
-        when(mIdentityManager.hasPrimaryAccount(ConsentLevel.SIGNIN)).thenReturn(true);
+        when(mIdentityManager.hasPrimaryAccount()).thenReturn(true);
         when(mHistorySyncHelper.isHistorySyncDisabledByPolicy()).thenReturn(true);
         assertFalse(mStepDisplayHandler.shouldDisplayHistorySync());
     }
 
     @Test
     public void showsHistorySyncIsNotManagedByPolicyNorCustodian() {
-        when(mIdentityManager.hasPrimaryAccount(ConsentLevel.SIGNIN)).thenReturn(true);
+        when(mIdentityManager.hasPrimaryAccount()).thenReturn(true);
         when(mHistorySyncHelper.isHistorySyncDisabledByPolicy()).thenReturn(false);
         when(mHistorySyncHelper.isHistorySyncDisabledByCustodian()).thenReturn(false);
         assertTrue(mStepDisplayHandler.shouldDisplayHistorySync());
@@ -133,7 +135,7 @@ public class StepDisplayHandlerImplTest {
 
     @Test
     public void hidesHistorySyncWhenIsDisabledByCustodian() {
-        when(mIdentityManager.hasPrimaryAccount(ConsentLevel.SIGNIN)).thenReturn(true);
+        when(mIdentityManager.hasPrimaryAccount()).thenReturn(true);
         when(mHistorySyncHelper.isHistorySyncDisabledByCustodian()).thenReturn(true);
         assertFalse(mStepDisplayHandler.shouldDisplayHistorySync());
     }
@@ -163,6 +165,7 @@ public class StepDisplayHandlerImplTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
     public void showsAdTopicsWhenShouldShowAdTopicsIsOn() {
         when(mPrivacySandboxBridgeJni.privacySandboxPrivacyGuideShouldShowAdTopicsCard(any()))
                 .thenReturn(true);
@@ -170,9 +173,18 @@ public class StepDisplayHandlerImplTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
     public void hidesAdTopicsWhenShouldShowAdTopicsIsOff() {
         when(mPrivacySandboxBridgeJni.privacySandboxPrivacyGuideShouldShowAdTopicsCard(any()))
                 .thenReturn(false);
+        assertFalse(mStepDisplayHandler.shouldDisplayAdTopics());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
+    public void hidesAdTopicsWhenDeprecationFeatureEnabled() {
+        when(mPrivacySandboxBridgeJni.privacySandboxPrivacyGuideShouldShowAdTopicsCard(any()))
+                .thenReturn(true);
         assertFalse(mStepDisplayHandler.shouldDisplayAdTopics());
     }
 }

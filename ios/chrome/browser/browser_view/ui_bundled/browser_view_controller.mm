@@ -18,6 +18,8 @@
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/ukm/ios/ukm_url_recorder.h"
+#import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
+#import "ios/chrome/browser/app_bar/ui/app_bar_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/re_signin_infobar_delegate.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_coordinator.h"
 #import "ios/chrome/browser/browser_content/ui_bundled/browser_content_view_controller.h"
@@ -33,8 +35,8 @@
 #import "ios/chrome/browser/first_run/public/first_run_util.h"
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent_observer_bridge.h"
+#import "ios/chrome/browser/fullscreen/public/fullscreen_metrics.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_animator.h"
-#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_metrics.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_element.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_updater.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_constants.h"
@@ -54,6 +56,7 @@
 #import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
 #import "ios/chrome/browser/popup_menu/coordinator/popup_menu_coordinator.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
+#import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
@@ -69,9 +72,11 @@
 #import "ios/chrome/browser/shared/public/commands/text_zoom_commands.h"
 #import "ios/chrome/browser/shared/public/commands/toolbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/named_guide.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/url_with_title.h"
+#import "ios/chrome/browser/shared/ui/util/util_swift.h"
 #import "ios/chrome/browser/side_swipe/ui_bundled/card_swipe_view_delegate.h"
 #import "ios/chrome/browser/side_swipe/ui_bundled/side_swipe_coordinator.h"
 #import "ios/chrome/browser/side_swipe/ui_bundled/side_swipe_mediator.h"
@@ -84,7 +89,7 @@
 #import "ios/chrome/browser/tabs/ui_bundled/background_tab_animation_view.h"
 #import "ios/chrome/browser/tabs/ui_bundled/foreground_tab_animation_view.h"
 #import "ios/chrome/browser/tabs/ui_bundled/switch_to_tab_animation_view.h"
-#import "ios/chrome/browser/toolbar/coordinator/toolbar_coordinator.h"
+#import "ios/chrome/browser/toolbar/coordinator/main_toolbar_coordinator.h"
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/accessory/toolbar_accessory_presenter.h"
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/buttons/toolbar_configuration.h"
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/fullscreen/toolbars_size.h"
@@ -125,6 +130,11 @@ enum HeaderBehaviour {
 // Inset to remove from the toolbar height when in full-screen mode with the
 // dynamic island visible.
 const CGFloat kTopDynamicIslandInset = 24;
+
+// Returns true if Chrome Next IA layout and full-screen refactoring are active.
+bool IsFullscreenNextIAEnabled() {
+  return IsFullscreenRefactoringEnabled() && IsChromeNextIaEnabled();
+}
 
 }  // namespace
 
@@ -233,6 +243,9 @@ const CGFloat kTopDynamicIslandInset = 24;
   std::unique_ptr<FullscreenBrowserAgentObserverBridge>
       _fullscreenBrowserAgentObserverBridge;
 
+  // The fullscreen browser agent.
+  raw_ptr<FullscreenBrowserAgent> _fullscreenBrowserAgent;
+
   // The service used to load url parameters in current or new tab.
   raw_ptr<UrlLoadingBrowserAgent> _urlLoadingBrowserAgent;
 
@@ -248,6 +261,11 @@ const CGFloat kTopDynamicIslandInset = 24;
 
   // Used to get the layout guide center.
   LayoutGuideCenter* _layoutGuideCenter;
+
+  // Leading constraint for the toolbars.
+  NSLayoutConstraint* _toolbarLeadingConstraint;
+  // Trailing constraint for the toolbars.
+  NSLayoutConstraint* _toolbarTrailingConstraint;
 
   // Whether the Lens Overlay is currently active and visible for the browser
   // view.
@@ -319,7 +337,7 @@ const CGFloat kTopDynamicIslandInset = 24;
 @property(nonatomic, assign) FullscreenController* fullscreenController;
 
 // Coordinator of primary and secondary toolbars.
-@property(nonatomic, strong) ToolbarCoordinator* toolbarCoordinator;
+@property(nonatomic, strong) MainToolbarCoordinator* toolbarCoordinator;
 
 // Vertical offset for the primary toolbar, used for fullscreen.
 @property(nonatomic, strong) NSLayoutConstraint* primaryToolbarOffsetConstraint;
@@ -328,6 +346,12 @@ const CGFloat kTopDynamicIslandInset = 24;
 // Height constraint for the secondary toolbar.
 @property(nonatomic, strong)
     NSLayoutConstraint* secondaryToolbarHeightConstraint;
+// Constraint anchoring the secondary toolbar to the bottom of the view.
+@property(nonatomic, strong)
+    NSLayoutConstraint* secondaryToolbarRegularBottomConstraint;
+// Constraint anchoring the secondary toolbar to the top of the App Bar.
+@property(nonatomic, strong)
+    NSLayoutConstraint* secondaryToolbarAppBarBottomConstraint;
 // Current Fullscreen progress for the footers.
 @property(nonatomic, assign) CGFloat footerFullscreenProgress;
 // Height of the header view.
@@ -401,6 +425,7 @@ const CGFloat kTopDynamicIslandInset = 24;
     _footerFullscreenProgress = 1.0;
 
     if (IsFullscreenRefactoringEnabled()) {
+      _fullscreenBrowserAgent = dependencies.fullscreenBrowserAgent;
       _fullscreenBrowserAgentObserverBridge =
           std::make_unique<FullscreenBrowserAgentObserverBridge>(
               self, dependencies.fullscreenBrowserAgent);
@@ -462,6 +487,11 @@ const CGFloat kTopDynamicIslandInset = 24;
 }
 
 - (void)setBroadcasting:(BOOL)broadcasting {
+  if (IsFullscreenRefactoringEnabled()) {
+    // Broadcasting is not needed for FullscreenRefactoring.
+    return;
+  }
+
   if (_broadcasting == broadcasting) {
     return;
   }
@@ -802,6 +832,7 @@ const CGFloat kTopDynamicIslandInset = 24;
   _tabUsageRecorderBrowserAgent = nullptr;
   _snapshotBrowserAgent = nullptr;
   _fullscreenBrowserAgentObserverBridge = nullptr;
+  _fullscreenBrowserAgent = nullptr;
 }
 
 #pragma mark - UIAccessibilityAction
@@ -935,6 +966,19 @@ const CGFloat kTopDynamicIslandInset = 24;
       secondaryToolbarHeightWithInset;
 }
 
+- (void)viewWillLayoutSubviews {
+  [super viewWillLayoutSubviews];
+  // Update the secondary toolbar bottom constraint once after the view is added
+  // to a window. The window is required to accurately determine the App
+  // Bar's position. This is done in `viewWillLayoutSubviews` rather than
+  // `viewDidLayoutSubviews` so that Auto Layout can resolve the new constraints
+  // in the upcoming pass, avoiding a redundant extra layout pass.
+  if (IsFullscreenNextIAEnabled() && self.view.window) {
+    [self addConstraintsToAppBar];
+    [self updateSecondaryToolbarBottomConstraint];
+  }
+}
+
 - (void)viewDidLayoutSubviews {
   [super viewDidLayoutSubviews];
   // Update the toolbar height to account for `topLayoutGuide` changes.
@@ -1047,6 +1091,7 @@ const CGFloat kTopDynamicIslandInset = 24;
       animateAlongsideTransition:^(
           id<UIViewControllerTransitionCoordinatorContext>) {
         [weakSelf animateTransition];
+        [weakSelf invalidateFullscreenInsets];
       }
                       completion:nil];
 
@@ -1054,15 +1099,25 @@ const CGFloat kTopDynamicIslandInset = 24;
                                     [[UIDevice currentDevice] orientation]);
 }
 
+- (void)invalidateFullscreenInsets {
+  if (!IsFullscreenRefactoringEnabled()) {
+    return;
+  }
+  CHECK(_fullscreenBrowserAgent);
+  _fullscreenBrowserAgent->InvalidateInsetRange();
+}
+
 - (void)animateTransition {
   // Force updates of the toolbars' size as the toolbar height might
   // change on rotation.
   [self updateToolbarState];
   // Resize horizontal viewport if Smooth Scrolling is on.
-  if (ios::provider::IsFullscreenSmoothScrollingSupported()) {
+  if (!IsFullscreenRefactoringEnabled() &&
+      ios::provider::IsFullscreenSmoothScrollingSupported()) {
     self.fullscreenController->ResizeHorizontalViewport();
   }
 
+  [self updateToolbarConstraints];
   [self.popupMenuCommandsHandler adjustPopupSize];
 }
 
@@ -1250,10 +1305,15 @@ const CGFloat kTopDynamicIslandInset = 24;
       self.toolbarCoordinator.primaryToolbarViewController.view;
 
   UIView* view = self.view;
+  _toolbarLeadingConstraint =
+      [primaryView.leadingAnchor constraintEqualToAnchor:view.leadingAnchor];
+  _toolbarTrailingConstraint =
+      [primaryView.trailingAnchor constraintEqualToAnchor:view.trailingAnchor];
   [NSLayoutConstraint activateConstraints:@[
-    [primaryView.leadingAnchor constraintEqualToAnchor:view.leadingAnchor],
-    [primaryView.trailingAnchor constraintEqualToAnchor:view.trailingAnchor],
+    _toolbarLeadingConstraint,
+    _toolbarTrailingConstraint,
   ]];
+  [self updateToolbarConstraints];
 
   // Create a constraint for the vertical positioning of the toolbar.
   self.primaryToolbarOffsetConstraint =
@@ -1269,6 +1329,29 @@ const CGFloat kTopDynamicIslandInset = 24;
   self.primaryToolbarHeightConstraint.active = YES;
 }
 
+// Updates the toolbar leading and trailing constraints depending on the
+// position of the AppBar.
+- (void)updateToolbarConstraints {
+  if (!IsFullscreenNextIAEnabled()) {
+    return;
+  }
+  AppBarPosition position = AppBarPositionForView(self.view);
+  switch (position) {
+    case AppBarPosition::kLeft:
+      _toolbarLeadingConstraint.constant = kAppBarHeight;
+      _toolbarTrailingConstraint.constant = 0;
+      break;
+    case AppBarPosition::kRight:
+      _toolbarLeadingConstraint.constant = 0;
+      _toolbarTrailingConstraint.constant = -kAppBarHeight;
+      break;
+    default:
+      _toolbarLeadingConstraint.constant = 0;
+      _toolbarTrailingConstraint.constant = 0;
+      break;
+  }
+}
+
 - (void)addConstraintsToSecondaryToolbar {
   UIView* toolbarView =
       self.toolbarCoordinator.secondaryToolbarViewController.view;
@@ -1281,9 +1364,36 @@ const CGFloat kTopDynamicIslandInset = 24;
   // The bottom toolbar can be constraint to the keyboard in some cases.
   self.secondaryToolbarHeightConstraint.priority = UILayoutPriorityRequired - 1;
   self.secondaryToolbarHeightConstraint.active = YES;
-  AddSameConstraintsToSides(
-      self.view, toolbarView,
-      LayoutSides::kBottom | LayoutSides::kLeading | LayoutSides::kTrailing);
+  UIView* primaryToolbar =
+      self.toolbarCoordinator.primaryToolbarViewController.view;
+  AddSameConstraintsToSides(toolbarView, primaryToolbar,
+                            LayoutSides::kLeading | LayoutSides::kTrailing);
+
+  if (IsFullscreenNextIAEnabled()) {
+    // Create constraint for when the App Bar is not active or on the side
+    // (Landscape).
+    self.secondaryToolbarRegularBottomConstraint = [toolbarView.bottomAnchor
+        constraintEqualToAnchor:self.view.bottomAnchor];
+    self.secondaryToolbarRegularBottomConstraint.active = YES;
+
+  } else {
+    [toolbarView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor]
+        .active = YES;
+  }
+}
+
+// Create constraint for when the App Bar is at the bottom (Portrait).
+- (void)addConstraintsToAppBar {
+  if (self.secondaryToolbarAppBarBottomConstraint) {
+    return;
+  }
+  LayoutGuideCenter* globalCenter = LayoutGuideCenterForBrowser(nil);
+  UIView* appBar = [globalCenter referencedViewUnderName:kAppBarGuide];
+  CHECK(appBar);
+  UIView* toolbarView =
+      self.toolbarCoordinator.secondaryToolbarViewController.view;
+  self.secondaryToolbarAppBarBottomConstraint =
+      [toolbarView.bottomAnchor constraintEqualToAnchor:appBar.topAnchor];
 }
 
 // Adds constraints to the primary and secondary toolbars, anchoring them to the
@@ -1380,7 +1490,8 @@ const CGFloat kTopDynamicIslandInset = 24;
     // Make new content visible, resizing it first as the orientation may
     // have changed from the last time it was displayed.
     CGRect viewFrame = self.contentArea.bounds;
-    if (!ios::provider::IsFullscreenSmoothScrollingSupported()) {
+    if (!IsFullscreenRefactoringEnabled() &&
+        !ios::provider::IsFullscreenSmoothScrollingSupported()) {
       // If the Smooth Scrolling is on, the WebState view is not
       // resized, and should always match the bounds of the content area.  When
       // the provider is not initialized, viewport insets resize the webview, so
@@ -1396,8 +1507,10 @@ const CGFloat kTopDynamicIslandInset = 24;
     NewTabPageCoordinator* NTPCoordinator = self.ntpCoordinator;
     if (NTPCoordinator.isNTPActiveForCurrentWebState) {
       UIViewController* viewController = NTPCoordinator.viewController;
-      viewController.view.frame = [self ntpFrameForCurrentWebState];
-      [viewController.view layoutIfNeeded];
+      if (!IsFullscreenRefactoringEnabled()) {
+        viewController.view.frame = [self ntpFrameForCurrentWebState];
+        [viewController.view layoutIfNeeded];
+      }
       // TODO(crbug.com/41407753): For a newly created WebState, the session
       // will not be restored until LoadIfNecessary call. Remove when fixed.
       self.currentWebState->GetNavigationManager()->LoadIfNecessary();
@@ -1411,18 +1524,13 @@ const CGFloat kTopDynamicIslandInset = 24;
     } else {
       self.browserContentViewController.contentView = view;
       if (IsFullscreenRefactoringEnabled()) {
-        if (ios::provider::IsFullscreenSmoothScrollingSupported()) {
-          view.translatesAutoresizingMaskIntoConstraints = NO;
-          AddSameConstraints(self.browserContentViewController.view, view);
-        } else {
-          // TODO(crbug.com/483998779): Handle the rotation of the web content
-          // in a better way.
-          view.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-        }
+        view.translatesAutoresizingMaskIntoConstraints = NO;
+        AddSameConstraints(self.browserContentViewController.view, view);
       }
     }
     // Resize horizontal viewport if Smooth Scrolling is on.
-    if (ios::provider::IsFullscreenSmoothScrollingSupported()) {
+    if (!IsFullscreenRefactoringEnabled() &&
+        ios::provider::IsFullscreenSmoothScrollingSupported()) {
       self.fullscreenController->ResizeHorizontalViewport();
     }
   }
@@ -1479,6 +1587,24 @@ const CGFloat kTopDynamicIslandInset = 24;
       }];
 }
 
+// Calls `callback` for each edge that has a safe area inset.
+- (void)getSafeAreaInsets:(void (^)(UIRectEdge edge, CGFloat amount))callback {
+  callback(UIRectEdgeTop, [self topInset]);
+  AppBarPosition position = AppBarPositionForView(self.view);
+  UIEdgeInsets insets = self.rootSafeAreaInsets;
+  if (position == AppBarPosition::kRight && insets.left > 0) {
+    callback(UIRectEdgeLeft, insets.left);
+  } else if (position == AppBarPosition::kLeft && insets.right > 0) {
+    callback(UIRectEdgeRight, insets.right);
+  } else if (IsSplitToolbarMode(self) && !IsChromeNextIaEnabled() &&
+             insets.bottom > 0) {
+    // Avoid adding the bottom safe area inset when Chrome Next is enabled
+    // because the bottom UI elements report heights that already include the
+    // safe area.
+    callback(UIRectEdgeBottom, insets.bottom);
+  }
+}
+
 #pragma mark - Private Methods: UI Configuration, update and Layout
 
 // Starts or stops broadcasting the toolbar UI and main content UI depending on
@@ -1507,17 +1633,44 @@ const CGFloat kTopDynamicIslandInset = 24;
   [NSLayoutConstraint deactivateConstraints:_NTPConstraints];
   DCHECK(self.ntpCoordinator.isNTPActiveForCurrentWebState);
   UIViewController* NTPViewController = self.ntpCoordinator.viewController;
+
+  BOOL canShowTabStrip = CanShowTabStrip(self);
+  BOOL isSplitToolbarMode = IsSplitToolbarMode(self);
+
+  // Logic for pinning the top anchor to the UI view edge instead of the primary
+  // toolbar.
+  BOOL useTopViewEdge = NO;
+  if (IsChromeNextIaEnabled()) {
+    /// TODO(crbug.com/508170459): Implement toolbar visibility logic in split
+    /// toolbar mode and update this to allow using view edges when in split
+    /// toolbar mode.
+    useTopViewEdge =
+        !canShowTabStrip && !isSplitToolbarMode && !_isOffTheRecord;
+  } else {
+    useTopViewEdge = !canShowTabStrip && isSplitToolbarMode && !_isOffTheRecord;
+  }
+
+  // Logic for pinning the bottom anchor.
+  // If ChromeNextIa is disabled, it always pins to the view edge.
+  BOOL useBottomViewEdge = NO;
+  if (IsChromeNextIaEnabled()) {
+    useBottomViewEdge =
+        !canShowTabStrip && !isSplitToolbarMode && !_isOffTheRecord;
+  }
+
   NSLayoutYAxisAnchor* topAnchor =
-      (CanShowTabStrip(self) || !IsSplitToolbarMode(self) || _isOffTheRecord)
-          ? self.self.toolbarCoordinator.primaryToolbarViewController.view
-                .bottomAnchor
-          : self.view.topAnchor;
+      useTopViewEdge ? self.view.topAnchor
+                     : self.toolbarCoordinator.primaryToolbarViewController.view
+                           .bottomAnchor;
+
+  NSLayoutYAxisAnchor* bottomAnchor =
+      useBottomViewEdge ? self.view.bottomAnchor
+                        : self.toolbarCoordinator.secondaryToolbarViewController
+                              .view.topAnchor;
+
   _NTPConstraints = @[
     [NTPViewController.view.topAnchor constraintEqualToAnchor:topAnchor],
-    [NTPViewController.view.bottomAnchor
-        constraintEqualToAnchor:self.toolbarCoordinator
-                                    .secondaryToolbarViewController.view
-                                    .topAnchor],
+    [NTPViewController.view.bottomAnchor constraintEqualToAnchor:bottomAnchor],
     [NTPViewController.view.leadingAnchor
         constraintEqualToAnchor:self.view.leadingAnchor],
     [NTPViewController.view.trailingAnchor
@@ -1531,14 +1684,30 @@ const CGFloat kTopDynamicIslandInset = 24;
   DCHECK(self.ntpCoordinator.isNTPActiveForCurrentWebState);
   // NTP is laid out only in the visible part of the screen.
   UIEdgeInsets viewportInsets = UIEdgeInsetsZero;
-  viewportInsets.bottom = [self secondaryToolbarHeightWithInset];
 
-  // Add toolbar margin to the frame for every scenario except compact-width
-  // non-otr, as that is the only case where there isn't a primary toolbar.
-  // (see crbug.com/1063173)
-  if (CanShowTabStrip(self) || !IsSplitToolbarMode(self) || _isOffTheRecord) {
+  BOOL canShowTabStrip = CanShowTabStrip(self);
+
+  if (!IsChromeNextIaEnabled() || canShowTabStrip || _isOffTheRecord) {
+    viewportInsets.bottom = [self secondaryToolbarHeightWithInset];
+  }
+
+  BOOL useTopToolbarEdgeAsInset = NO;
+  if (IsChromeNextIaEnabled()) {
+    // Toolbar is always visible when the tab strip can be shown or in
+    // incognito.
+    useTopToolbarEdgeAsInset = canShowTabStrip || _isOffTheRecord;
+  } else {
+    // Add toolbar margin to the frame for every scenario except compact-width
+    // non-otr, as that is the only case where there isn't a primary toolbar.
+    // (see crbug.com/1063173)
+    useTopToolbarEdgeAsInset =
+        canShowTabStrip || !IsSplitToolbarMode(self) || _isOffTheRecord;
+  }
+
+  if (useTopToolbarEdgeAsInset) {
     viewportInsets.top = [self expandedTopToolbarHeight];
   }
+
   return UIEdgeInsetsInsetRect(self.contentArea.bounds, viewportInsets);
 }
 
@@ -1837,7 +2006,8 @@ const CGFloat kTopDynamicIslandInset = 24;
 - (void)updateForFullscreenProgress:(CGFloat)progress {
   [self updateHeadersForFullscreenProgress:progress];
   [self updateFootersForFullscreenProgress:progress];
-  if (!ios::provider::IsFullscreenSmoothScrollingSupported()) {
+  if (!IsFullscreenRefactoringEnabled() &&
+      !ios::provider::IsFullscreenSmoothScrollingSupported()) {
     [self updateBrowserViewportForFullscreenProgress:progress];
   }
 }
@@ -1889,37 +2059,37 @@ const CGFloat kTopDynamicIslandInset = 24;
 - (void)fullscreenWillUpdateObscuredInsetRange:(FullscreenBrowserAgent*)agent {
   CHECK(IsFullscreenRefactoringEnabled());
 
-  // Add the safe area top (with dynamic island adaptation).
-  CGFloat topInset = [self topInset];
-  agent->AddObscuredInsetRange(UIRectEdgeTop, /*min=*/topInset,
-                               /*max=*/topInset);
-
-  if (IsSplitToolbarMode(self)) {
-    CGFloat bottomInset = self.rootSafeAreaInsets.bottom;
-    if ([self collapsedBottomToolbarHeight] == 0.0) {
+  [self getSafeAreaInsets:^(UIRectEdge edge, CGFloat amount) {
+    CGFloat min = amount, max = amount;
+    if (edge == UIRectEdgeBottom &&
+        [self collapsedBottomToolbarHeight] == 0.0) {
       // If bottom toolbar collapses completely, then the safe area inset should
       // collapse also.
-      agent->AddObscuredInsetRange(UIRectEdgeBottom, /*min=*/0,
-                                   /*max=*/bottomInset);
-    } else {
-      agent->AddObscuredInsetRange(UIRectEdgeBottom, /*min=*/bottomInset,
-                                   /*max=*/bottomInset);
+      min = 0;
     }
-  }
+    agent->AddObscuredInsetRange(edge, min, max);
+  }];
 }
 
 - (void)fullscreenWillUpdateState:(FullscreenBrowserAgent*)agent {
   CHECK(IsFullscreenRefactoringEnabled());
   [self updateHeadersForFullscreenProgress:agent->top_progress()];
   [self updateFootersForFullscreenProgress:agent->bottom_progress()];
-  CGFloat topInset = [self topInset];
-  agent->AddObscuredInset(UIRectEdgeTop, topInset);
-  if (IsSplitToolbarMode(self)) {
-    CGFloat bottomInset = self.rootSafeAreaInsets.bottom;
-    if ([self collapsedBottomToolbarHeight] == 0.0) {
-      bottomInset *= agent->bottom_progress();
+
+  [self getSafeAreaInsets:^(UIRectEdge edge, CGFloat amount) {
+    if (edge == UIRectEdgeBottom) {
+      if ([self collapsedBottomToolbarHeight] == 0.0) {
+        amount *= agent->bottom_progress();
+      }
     }
-    agent->AddObscuredInset(UIRectEdgeBottom, bottomInset);
+    agent->AddObscuredInset(edge, amount);
+  }];
+}
+
+- (void)fullscreenDidUpdateState:(FullscreenBrowserAgent*)agent {
+  // If this is inside an animation, layout immediately.
+  if (!agent->animation_duration().is_zero()) {
+    [self.view layoutIfNeeded];
   }
 }
 
@@ -1969,11 +2139,34 @@ const CGFloat kTopDynamicIslandInset = 24;
     _toolbarsSize.expandedBottomToolbarHeight =
         [self secondaryToolbarHeightWithInset];
   }
+
+  if (IsFullscreenNextIAEnabled()) {
+    [self updateSecondaryToolbarBottomConstraint];
+  }
+}
+
+// Updates the bottom constraint of the secondary toolbar depending on the
+// AppBar's position.
+- (void)updateSecondaryToolbarBottomConstraint {
+  BOOL shouldUseAppBar =
+      (AppBarPositionForView(self.view) == AppBarPosition::kBottom);
+
+  // Return early if the constraint is already in the correct state.
+  if (self.secondaryToolbarAppBarBottomConstraint.active == shouldUseAppBar) {
+    return;
+  }
+
+  self.secondaryToolbarAppBarBottomConstraint.active = shouldUseAppBar;
+  self.secondaryToolbarRegularBottomConstraint.active = !shouldUseAppBar;
 }
 
 // Returns the height difference between the fully expanded and fully collapsed
 // primary toolbar.
 - (CGFloat)primaryToolbarHeightDelta {
+  if (IsFullscreenRefactoringEnabled()) {
+    return std::max(0.0, _fullscreenBrowserAgent->max_insets().top -
+                             _fullscreenBrowserAgent->min_insets().top);
+  }
   CGFloat fullyExpandedHeight =
       self.fullscreenController->GetMaxViewportInsets().top;
   CGFloat fullyCollapsedHeight =
@@ -1984,6 +2177,10 @@ const CGFloat kTopDynamicIslandInset = 24;
 // Returns the height difference between the fully expanded and fully collapsed
 // secondary toolbar.
 - (CGFloat)secondaryToolbarHeightDelta {
+  if (IsFullscreenRefactoringEnabled()) {
+    return std::max(0.0, _fullscreenBrowserAgent->max_insets().bottom -
+                             _fullscreenBrowserAgent->min_insets().bottom);
+  }
   CGFloat fullyExpandedHeight =
       self.fullscreenController->GetMaxViewportInsets().bottom;
   CGFloat fullyCollapsedHeight =
@@ -2000,18 +2197,44 @@ const CGFloat kTopDynamicIslandInset = 24;
   [self setFramesForHeaders:[self headerViews] atOffset:offset];
 }
 
+// Resizes the secondary toolbar according to `progress`, where a progress of
+// 1.0 fully expands the toolbar and a progress of 0.0 collapses it.
+- (void)updateNextIASecondaryToolbarForFullscreenProgress:(CGFloat)progress {
+  const CGFloat expandedHeight = [self secondaryToolbarHeightWithInset];
+  if (expandedHeight <= 0.0) {
+    return;
+  }
+
+  const CGFloat isolatedDelta =
+      std::max(0.0, expandedHeight - [self collapsedBottomToolbarHeight]);
+  const CGFloat offset = AlignValueToPixel((1.0 - progress) * isolatedDelta);
+  const CGFloat height = expandedHeight - offset;
+
+  self.secondaryToolbarHeightConstraint.constant = height;
+}
+
 // Translates the footer view up and down according to `progress`, where a
 // progress of 1.0 fully shows the footer and a progress of 0.0 fully hides it.
 - (void)updateFootersForFullscreenProgress:(CGFloat)progress {
   self.footerFullscreenProgress = progress;
+
+  if (IsChromeNextIaEnabled()) {
+    [self updateNextIASecondaryToolbarForFullscreenProgress:progress];
+    return;
+  }
 
   // Don't update the height of the secondary toolbar if it is hidden.
   if (!IsSplitToolbarMode(self)) {
     return;
   }
 
-  const CGFloat expandedToolbarHeight =
-      self.fullscreenController->GetMaxViewportInsets().bottom;
+  CGFloat expandedToolbarHeight;
+  if (IsFullscreenRefactoringEnabled()) {
+    expandedToolbarHeight = _fullscreenBrowserAgent->max_insets().bottom;
+  } else {
+    expandedToolbarHeight =
+        self.fullscreenController->GetMaxViewportInsets().bottom;
+  }
   if (!expandedToolbarHeight) {
     // If `expandedToolbarHeight` is 0, secondary toolbar is hidden. In that
     // case don't update it's height on fullscreen progress.
@@ -2302,6 +2525,9 @@ const CGFloat kTopDynamicIslandInset = 24;
   // it is the NTP.
   UIView* newPage = [self viewForWebState:webState];
   DCHECK(newPage);
+  if (IsFullscreenRefactoringEnabled()) {
+    newPage.translatesAutoresizingMaskIntoConstraints = YES;
+  }
   GURL tabURL = webState->GetVisibleURL();
   // Toolbar snapshot is only used for the UIRefresh animation.
   UIView* toolbarSnapshot;
@@ -2342,6 +2568,9 @@ const CGFloat kTopDynamicIslandInset = 24;
   auto commonCompletion = ^{
     __strong __typeof(self) strongSelf = weakSelf;
     newPage.userInteractionEnabled = YES;
+    if (IsFullscreenRefactoringEnabled()) {
+      newPage.translatesAutoresizingMaskIntoConstraints = NO;
+    }
 
     // Check for nil because we need to access an ivar below.
     if (!strongSelf) {
@@ -2655,6 +2884,16 @@ const CGFloat kTopDynamicIslandInset = 24;
   CGFloat keyboardAttachedOffset =
       keyboardHeight +
       self.toolbarCoordinator.keyboardAttachedBottomOmniboxHeight;
+  if (IsChromeNextIaEnabled()) {
+    // When the App Bar is at the bottom, the secondary toolbar is already
+    // taller by the height of the App Bar. If the App Bar is not at the bottom
+    // (e.g., in landscape), we subtract the safe area instead.
+    if (AppBarPositionForView(self.view) == AppBarPosition::kBottom) {
+      keyboardAttachedOffset -= kAppBarHeightFullscreen;
+    } else {
+      keyboardAttachedOffset -= self.view.safeAreaInsets.bottom;
+    }
+  }
   CGFloat baseHeight = [self secondaryToolbarHeightWithInset];
   CGFloat offsetRequired = isCollapsed
                                ? keyboardAttachedOffset

@@ -5,12 +5,16 @@
 #ifndef PDF_PDF_INK_MODULE_CLIENT_H_
 #define PDF_PDF_INK_MODULE_CLIENT_H_
 
+#include <stdint.h>
+
 #include <map>
 #include <vector>
 
+#include "base/containers/span.h"
 #include "pdf/buildflags.h"
 #include "pdf/page_orientation.h"
 #include "pdf/pdf_ink_ids.h"
+#include "pdf/pdf_ink_text.h"
 #include "pdf/pdf_rect.h"
 #include "pdf/ui/thumbnail.h"
 #include "third_party/ink/src/ink/geometry/partitioned_mesh.h"
@@ -54,8 +58,20 @@ class PdfInkModuleClient {
 
   virtual ~PdfInkModuleClient() = default;
 
+  // Tells the client about a new font. The data is a serialized SkTypeface.
+  virtual void AddFont(FontId font_id,
+                       base::span<const uint8_t> serialized_typeface) {}
+
   // Notifies the client to clear the current text selection.
   virtual void ClearSelection() {}
+
+  // Notifies the client to draw `text_info` with `attributes` into the page
+  // at `page_index`, identified as `id`.
+  virtual void DrawText(int page_index,
+                        InkTextId id,
+                        base::span<const InkTextInfo> text_info,
+                        double pdf_zoom,
+                        const InkTextBoxAttributes& attributes) {}
 
   // Asks the client to discard the stroke identified by `id` on the page at
   // `page_index`.

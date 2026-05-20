@@ -8,11 +8,18 @@
 
 #import "base/apple/foundation_util.h"
 #import "base/check.h"
+#import "base/time/time.h"
 #import "components/webauthn/core/browser/passkey_model_utils.h"
 #import "ios/chrome/common/credential_provider/credential.h"
 #import "ios/chrome/credential_provider_extension/passkey_util.h"
 #import "ios/chrome/credential_provider_extension/passkey_util_swift.h"
 #import "ios/chrome/credential_provider_extension/ui/feature_flags.h"
+
+namespace {
+// The maximum time elapsed since a password was used to consider it for a
+// passkey upgrade prompt.
+constexpr base::TimeDelta kPasskeyUpgradeRecencyThreshold = base::Minutes(5);
+}  // namespace
 
 @interface PasskeyRequestDetails ()
 
@@ -225,10 +232,20 @@
   return passkeyAssertionOutput.credential;
 }
 
+// NOTE: If you change the domain matching logic in this method, please also
+// update the corresponding logic in
+// components/webauthn/ios/passkey_tab_helper.mm
+// (CanPerformAutomaticPasskeyUpgrade).
+// That code can't be reused here due to language constraints (these values come
+// from a credential store that only holds Obj-C objects) and dependencies
+// (//net is a large library not currently included in the extension), but the
+// rules enforced by the two should be kept in sync.
 - (BOOL)hasMatchingPassword:(NSArray<id<Credential>>*)credentials {
   if (!credentials.count) {
     return NO;
   }
+
+  base::Time now = base::Time::Now();
 
   NSString* rpID = self.relyingPartyIdentifier;
   NSUInteger credentialIndex =
@@ -239,7 +256,15 @@
         BOOL matchingDomain =
             [rpID isEqualToString:credential.registryControlledDomain] ||
             [rpID hasSuffix:domainSuffix];
-        return !credential.isPasskey && matchingDomain &&
+
+        base::TimeDelta timeSinceLastUse =
+            now - base::Time::FromDeltaSinceWindowsEpoch(
+                      base::Microseconds(credential.lastUsedTime));
+        BOOL isRecentlyUsed =
+            timeSinceLastUse >= base::TimeDelta() &&
+            timeSinceLastUse <= kPasskeyUpgradeRecencyThreshold;
+
+        return !credential.isPasskey && matchingDomain && isRecentlyUsed &&
                [credential.username isEqualToString:self.userName];
       }];
   return credentialIndex != NSNotFound;

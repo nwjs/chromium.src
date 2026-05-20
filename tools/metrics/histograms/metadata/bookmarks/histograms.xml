@@ -44,12 +44,12 @@ chromium-metrics-reviews@google.com.
 
 <variants name="ImportantFileWriter">
   <variant name="BookmarkStorage" summary="bookmarks storage for user actions"/>
-  <variant name="BookmarkStorage.Immediate"
-      summary="bookmarks storage for profile load"/>
   <variant name="BookmarkStorageEncrypted"
       summary="encrypted bookmarks storage for user actions"/>
-  <variant name="BookmarkStorageEncrypted.Immediate"
+  <variant name="BookmarkStorageEncryptedImmediate"
       summary="encrypted bookmarks storage for profile load"/>
+  <variant name="BookmarkStorageImmediate"
+      summary="bookmarks storage for profile load"/>
 </variants>
 
 <!-- LINT.ThenChange(//components/bookmarks/common/bookmark_metrics.cc:ImportantFileWriter) -->
@@ -166,28 +166,6 @@ chromium-metrics-reviews@google.com.
     Approximated by dividing the total size on disk by the number of non-folder
     nodes. This value won't be recorded if there is no bookmarks or the total
     size on disk is zero.
-  </summary>
-</histogram>
-
-<histogram name="Bookmarks.BookmarkAllTabsWithTabsCount.Incognito" units="tabs"
-    expires_after="2023-01-01">
-  <owner>roagarwal@chromium.org</owner>
-  <owner>sideyilmaz@chromium.org</owner>
-  <owner>chrome-incognito@google.com</owner>
-  <summary>
-    This histogram records the count of tabs when a user bookmarks all open
-    tabs, in incognito mode.
-  </summary>
-</histogram>
-
-<histogram name="Bookmarks.BookmarkAllTabsWithTabsCount.Regular" units="tabs"
-    expires_after="2023-03-19">
-  <owner>roagarwal@chromium.org</owner>
-  <owner>sideyilmaz@chromium.org</owner>
-  <owner>chrome-incognito@google.com</owner>
-  <summary>
-    This histogram records the count of tabs when a user bookmarks all open
-    tabs, in regular mode.
   </summary>
 </histogram>
 
@@ -345,18 +323,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Bookmarks.BookmarksBarStatus.OnReadingListOpened"
-    enum="BookmarkBarPrefAndState" expires_after="2022-08-28">
-  <owner>corising@chromium.org</owner>
-  <owner>top-chrome-desktop-ui@google.com</owner>
-  <summary>
-    This records the Boomarks bar pref state and status when the reading list is
-    opened. This will help determine how often the reading list is accessed from
-    the NTP where the bookmarks bar is always visible and the bookmark bar pref
-    state for those from the NTP. (Desktop only).
-  </summary>
-</histogram>
-
 <histogram name="Bookmarks.BookmarksExistInStorageType.{SubtreeSelection}"
     enum="BookmarksExistInStorageType" expires_after="2026-09-06">
   <owner>rsult@google.com</owner>
@@ -391,6 +357,9 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the result of the serialization that occurred when
     {ImportantFileWriter} saves bookmarks to disk.
+
+    JSON error can't occur for immediate file writer as they receive a json
+    string to save instead of the bookmark model.
   </summary>
 </histogram>
 
@@ -487,7 +456,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Bookmarks.IdsReassigned2.OnProfileLoad.{BookmarksFileType}"
-    enum="BooleanReassigned" expires_after="2026-05-20">
+    enum="BooleanReassigned" expires_after="2026-10-06">
   <owner>mastiz@chromium.org</owner>
   <owner>arthurmilchior@chromium.org</owner>
   <summary>
@@ -553,7 +522,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Bookmarks.MobileBookmarkManager.SortOptionUsed"
-    enum="MobileBookmarkManagerBookmarkRowSortOrder" expires_after="2026-08-09">
+    enum="MobileBookmarkManagerBookmarkRowSortOrder" expires_after="2026-10-11">
   <owner>wylieb@google.com</owner>
   <owner>chrome-collections@google.com</owner>
   <summary>
@@ -665,7 +634,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Bookmarks.ParentFolderType" enum="BookmarkFolderType"
-    expires_after="2026-06-07">
+    expires_after="2026-12-01">
   <owner>emshack@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -756,15 +725,6 @@ chromium-metrics-reviews@google.com.
         summary="Recorded only for bookmarks that are children of the Other
                  Bookmarks node."/>
   </token>
-</histogram>
-
-<histogram name="Bookmarks.StarEntryPoint.ClickedAction"
-    enum="StarEntryPointAction" expires_after="2022-08-28">
-  <owner>corising@chromium.org</owner>
-  <owner>top-chrome-desktop-ui@google.com</owner>
-  <summary>
-    Recorded when an action in the Bookmark icon menu is clicked.
-  </summary>
 </histogram>
 
 <histogram name="Bookmarks.Storage.EncryptedFileSizeAtStartup" units="KB"
@@ -969,7 +929,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Bookmarks.UserFolder.OnProfileLoad.Count" units="folders"
-    expires_after="2026-08-09">
+    expires_after="2026-10-11">
   <owner>yzshen@chromium.org</owner>
   <owner>chrome-collections@google.com</owner>
   <summary>
@@ -982,7 +942,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Bookmarks.UserFolder.OnProfileLoad.TopLevelCount"
-    units="folders" expires_after="2026-08-09">
+    units="folders" expires_after="2026-10-11">
   <owner>yzshen@chromium.org</owner>
   <owner>chrome-collections@google.com</owner>
   <summary>
@@ -995,7 +955,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Bookmarks.UserFolderDepth.UrlAdded" units="folders"
-    expires_after="2026-08-09">
+    expires_after="2026-10-11">
   <owner>yzshen@chromium.org</owner>
   <owner>chrome-collections@google.com</owner>
   <summary>
@@ -1008,7 +968,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Bookmarks.UserFolderDepth.UrlOpened" units="folders"
-    expires_after="2026-08-23">
+    expires_after="2026-10-25">
   <owner>yzshen@chromium.org</owner>
   <owner>chrome-collections@google.com</owner>
   <summary>
@@ -1054,7 +1014,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Bookmarks.UtilizationPerBookmark.OnProfileLoad.DaysSinceUsed"
-    units="Days" expires_after="2026-06-07">
+    units="Days" expires_after="2026-12-01">
   <owner>emshack@chromium.org</owner>
   <owner>chrome-collections@google.com</owner>
   <summary>
@@ -1084,7 +1044,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PowerBookmarks.SidePanel.BookmarksShown" units="Bookmarks"
-    expires_after="2026-08-09">
+    expires_after="2026-10-11">
   <owner>emshack@chromium.org</owner>
   <owner>chrome-desktop-sea@google.com</owner>
   <component>1457140</component>
@@ -1096,7 +1056,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PowerBookmarks.SidePanel.Search.CTR"
-    enum="BookmarksSidePanelSearchCTREvent" expires_after="2026-08-09">
+    enum="BookmarksSidePanelSearchCTREvent" expires_after="2026-10-11">
   <owner>emshack@chromium.org</owner>
   <owner>chrome-desktop-sea@google.com</owner>
   <component>1457140</component>
@@ -1141,28 +1101,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PowerBookmarks.Storage.DatabaseDirSizeAtStartup" units="KB"
-    expires_after="2025-03-02">
-  <owner>wylieb@google.com</owner>
-  <owner>chrome-collections@google.com</owner>
-  <summary>
-    Size of the power bookmarks database directory, recorded when the database
-    is loaded.
-  </summary>
-</histogram>
-
-<histogram name="PowerBookmarks.Storage.DatabaseError" enum="SqliteErrorCode"
-    expires_after="2025-03-02">
-  <owner>wylieb@google.com</owner>
-  <owner>chrome-collections@google.com</owner>
-  <summary>
-    Errors that occur in Power Bookmarks database. Recorded by
-    SharedStorageDatabase::DatabaseErrorCallback() just before the SQLite
-    database determines whether the error is catastrophic and handles it
-    accordingly.
-  </summary>
-</histogram>
-
 <histogram name="PowerBookmarks.SuggestedSaveLocation.{FeatureName}"
     enum="SuggestedSaveLocationState" expires_after="2026-12-08">
   <owner>ayman@chromium.org</owner>
@@ -1176,33 +1114,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="FeatureName">
     <variant name="ShoppingCollection"/>
-  </token>
-</histogram>
-
-<histogram name="PowerBookmarks.{Function}.PowerType" enum="PowerBookmarkType"
-    expires_after="2025-03-02">
-  <owner>wylieb@google.com</owner>
-  <owner>chrome-collections@google.com</owner>
-  <summary>
-    Tracks the PowerType of a successful power bookmark api call.
-  </summary>
-  <token key="Function">
-    <variant name="PowerCreated"/>
-    <variant name="PowersDeletedForURL"/>
-    <variant name="PowerUpdated"/>
-  </token>
-</histogram>
-
-<histogram name="PowerBookmarks.{Function}.Success" enum="BooleanSuccess"
-    expires_after="2025-03-02">
-  <owner>wylieb@google.com</owner>
-  <owner>chrome-collections@google.com</owner>
-  <summary>Tracks the success of a power bookmark api call.</summary>
-  <token key="Function">
-    <variant name="PowerCreated"/>
-    <variant name="PowerDeleted"/>
-    <variant name="PowersDeletedForURL"/>
-    <variant name="PowerUpdated"/>
   </token>
 </histogram>
 

@@ -8,7 +8,6 @@ import android.os.ConditionVariable;
 import android.os.SystemClock;
 import android.util.Pair;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
@@ -38,6 +37,7 @@ import org.chromium.net.impl.proto.RequestContextConfigOptions;
 import org.chromium.net.urlconnection.CronetHttpURLConnection;
 import org.chromium.net.urlconnection.CronetURLStreamHandlerFactory;
 
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLStreamHandlerFactory;
@@ -358,7 +358,7 @@ public class CronetUrlRequestContext extends CronetEngineBase {
                 cronetInitializedInfoLogger.onUserThreadDone();
             }
         }
-        mAdaptiveRequestContext = new CronetAdaptiveRequestContext(builder.getContext());
+        mAdaptiveRequestContext = new CronetAdaptiveRequestContext(builder.getContext(), mLogger);
     }
 
     @VisibleForTesting
@@ -482,7 +482,7 @@ public class CronetUrlRequestContext extends CronetEngineBase {
             Executor uploadDataProviderExecutor,
             byte[] sharedDictionaryHash,
             ByteBuffer sharedDictionary,
-            @NonNull String sharedDictionaryId) {
+            String sharedDictionaryId) {
         // if this request is not bound to network, use the network bound to the engine.
         if (networkHandle == DEFAULT_NETWORK_HANDLE) {
             networkHandle = mNetworkHandle;
@@ -536,21 +536,22 @@ public class CronetUrlRequestContext extends CronetEngineBase {
         }
         synchronized (mLock) {
             checkHaveAdapter();
-            boolean isAdaptiveNetworkUrl = mAdaptiveRequestContext.isAdaptiveNetworkUrl(url);
-            // TODO(crbug.com/474048542): Look at the memorized fallback network and use that.
-            Long fallbackNetworkHandle =
-                    isAdaptiveNetworkUrl
-                            ? mAdaptiveRequestContext.computeAlternativeNetworkHandle()
-                            : null;
 
-            // Only use adaptive stream if we have a fallback network handle.
+            final URI adaptiveUri = mAdaptiveRequestContext.getUriIfAdaptive(url);
+            CronetAdaptiveRequestContext.AdaptiveStreamNetworkHandles adaptiveHandles =
+                    adaptiveUri != null
+                            ? mAdaptiveRequestContext.computeStreamNetworkHandles(
+                                    adaptiveUri, networkHandle)
+                            : null;
             CronetAdaptiveNetworkBidirectionalStream adaptiveStream =
-                    isAdaptiveNetworkUrl && fallbackNetworkHandle != null
+                    adaptiveHandles != null
                             ? new CronetAdaptiveNetworkBidirectionalStream(
                                     callback,
                                     mAdaptiveRequestContext.getOrCreateScheduledExecutor(),
                                     mAdaptiveRequestContext,
-                                    url)
+                                    adaptiveUri,
+                                    mLogger,
+                                    mAdaptiveRequestContext.isFastIdempotentRequest(adaptiveUri))
                             : null;
 
             CronetBidirectionalStream stream =
@@ -568,29 +569,35 @@ public class CronetUrlRequestContext extends CronetEngineBase {
                             trafficStatsTag,
                             trafficStatsUidSet,
                             trafficStatsUid,
-                            networkHandle);
-            if (adaptiveStream != null) {
-                CronetBidirectionalStream fallbackStream =
-                        new CronetBidirectionalStream(
-                                this,
-                                url,
-                                priority,
-                                adaptiveStream.getCallback(),
-                                executor,
-                                httpMethod,
-                                requestHeaders,
-                                delayRequestHeadersUntilFirstFlush,
-                                requestAnnotations,
-                                trafficStatsTagSet,
-                                trafficStatsTag,
-                                trafficStatsUidSet,
-                                trafficStatsUid,
-                                fallbackNetworkHandle);
-                adaptiveStream.setFallbackStream(fallbackStream);
-                adaptiveStream.setPrimaryStream(stream);
-                return adaptiveStream;
+                            adaptiveHandles != null
+                                    ? adaptiveHandles.mPrimaryNetworkHandle
+                                    : networkHandle,
+                            adaptiveUri != null);
+            // Just return the single stream.
+            if (adaptiveStream == null) {
+                return stream;
             }
-            return stream;
+            // Continue to configure and return the adaptive stream instead.
+            CronetBidirectionalStream fallbackStream =
+                    new CronetBidirectionalStream(
+                            this,
+                            url,
+                            priority,
+                            adaptiveStream.getCallback(),
+                            executor,
+                            httpMethod,
+                            requestHeaders,
+                            delayRequestHeadersUntilFirstFlush,
+                            requestAnnotations,
+                            trafficStatsTagSet,
+                            trafficStatsTag,
+                            trafficStatsUidSet,
+                            trafficStatsUid,
+                            adaptiveHandles.mFallbackNetworkHandle,
+                            adaptiveUri != null);
+            adaptiveStream.setFallbackStream(fallbackStream);
+            adaptiveStream.setPrimaryStream(stream);
+            return adaptiveStream;
         }
     }
 
@@ -659,7 +666,6 @@ public class CronetUrlRequestContext extends CronetEngineBase {
             }
             if (!CronetUrlRequestContextJni.get()
                     .startNetLogToFile(mUrlRequestContextAdapter, fileName, logAll)) {
-
                 throw new RuntimeException("Unable to start NetLog");
             }
             mIsLogging = true;
@@ -729,7 +735,7 @@ public class CronetUrlRequestContext extends CronetEngineBase {
             int chainId,
             @JniType("std::vector<std::string>") String[] headers,
             int statusCode,
-            @NonNull CompletionOnceCallback callback) {
+            CompletionOnceCallback callback) {
         try (var traceEvent =
                 ScopedSysTraceEvent.scoped("CronetUrlRequestContext#onTunnelHeadersReceived")) {
             ArrayList<Pair<String, String>> headersList = new ArrayList<>();
@@ -825,7 +831,6 @@ public class CronetUrlRequestContext extends CronetEngineBase {
         mNetworkHandle = networkHandle;
     }
 
-    @VisibleForTesting
     @Override
     public void configureNetworkQualityEstimatorForTesting(
             boolean useLocalHostRequests,
@@ -1145,8 +1150,9 @@ public class CronetUrlRequestContext extends CronetEngineBase {
                                 } catch (Exception e) {
                                     Log.e(LOG_TAG, "Exception thrown from observation task", e);
                                 } finally {
-                                    if (inflightCallbackCount != null)
+                                    if (inflightCallbackCount != null) {
                                         inflightCallbackCount.decrement();
+                                    }
                                 }
                             }
                         });

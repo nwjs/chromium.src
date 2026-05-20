@@ -34,6 +34,7 @@
 #include "extensions/shell/browser/shell_extension_web_contents_observer.h"
 #include "extensions/shell/browser/shell_extensions_api_client.h"
 #include "extensions/shell/browser/shell_navigation_ui_data.h"
+#include "net/http/http_response_headers.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -97,6 +98,12 @@ BrowserContext* ShellExtensionsBrowserClient::GetOriginalContext(
 
 content::BrowserContext*
 ShellExtensionsBrowserClient::GetContextRedirectedToOriginal(
+    content::BrowserContext* context) {
+  return context;
+}
+
+content::BrowserContext*
+ShellExtensionsBrowserClient::GetContextRedirectedToOriginalWithoutAshInternals(
     content::BrowserContext* context) {
   return context;
 }
@@ -185,12 +192,6 @@ bool ShellExtensionsBrowserClient::AllowCrossRendererResourceLoad(
 
   // Couldn't determine if resource is allowed. Block the load.
   return false;
-}
-
-PrefService* ShellExtensionsBrowserClient::GetPrefServiceForContext(
-    BrowserContext* context) {
-  DCHECK(pref_service_);
-  return pref_service_;
 }
 
 void ShellExtensionsBrowserClient::GetEarlyExtensionPrefsObservers(
@@ -332,12 +333,9 @@ std::string ShellExtensionsBrowserClient::GetApplicationLocale() {
 }
 
 void ShellExtensionsBrowserClient::InitWithBrowserContext(
-    content::BrowserContext* context,
-    PrefService* pref_service) {
+    content::BrowserContext* context) {
   DCHECK(!browser_context_);
-  DCHECK(!pref_service_);
   browser_context_ = context;
-  pref_service_ = pref_service;
 }
 
 custom_handlers::ProtocolHandlerRegistry*

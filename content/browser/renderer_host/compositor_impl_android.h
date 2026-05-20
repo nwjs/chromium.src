@@ -19,7 +19,6 @@
 #include "cc/paint/element_id.h"
 #include "cc/slim/layer_tree.h"
 #include "cc/slim/layer_tree_client.h"
-#include "cc/trees/layer_tree_host_client.h"
 #include "cc/trees/layer_tree_host_single_thread_client.h"
 #include "cc/trees/paint_holding_commit_trigger.h"
 #include "cc/trees/paint_holding_reason.h"
@@ -74,7 +73,9 @@ class CONTENT_EXPORT CompositorImpl : public Compositor,
                                       public viz::HostFrameSinkClient,
                                       public display::DisplayObserver {
  public:
-  CompositorImpl(CompositorClient* client, gfx::NativeWindow root_window);
+  CompositorImpl(CompositorClient* client,
+                 gfx::NativeWindow root_window,
+                 bool is_offscreen_rendering);
 
   CompositorImpl(const CompositorImpl&) = delete;
   CompositorImpl& operator=(const CompositorImpl&) = delete;
@@ -220,6 +221,7 @@ class CONTENT_EXPORT CompositorImpl : public Compositor,
       const PendingSurfaceCopyId& scoped_keep_surface_alive_id);
 
   viz::FrameSinkId frame_sink_id_;
+  const bool is_offscreen_rendering_;
 
   // root_layer_ is the persistent internal root layer, while subroot_layer_
   // is the one attached by the compositor client.

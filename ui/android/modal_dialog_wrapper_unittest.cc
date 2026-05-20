@@ -292,6 +292,38 @@ TEST_F(ModalDialogWrapperTest, CloseDialogFromNative) {
   EXPECT_TRUE(dialog_destroyed_);
 }
 
+// Regression test for crbug.com/502262217.
+TEST_F(ModalDialogWrapperTest, NoCrashOnJavaDismissAfterNativeDestroy) {
+  bool ok_called = false, cancel_called = false, closed = false;
+
+  auto dialog_model =
+      DialogModelBuilder(&dialog_destroyed_)
+          .WithOkButton(base::BindLambdaForTesting([&]() { ok_called = true; }))
+          .WithCancelButton(
+              base::BindLambdaForTesting([&]() { cancel_called = true; }))
+          .WithCloseAction(base::BindLambdaForTesting([&]() { closed = true; }))
+          .Build();
+
+  ModalDialogWrapper::ShowTabModal(std::move(dialog_model), window_->get());
+
+  ModalDialogWrapper* wrapper = ModalDialogWrapper::GetDialogForTesting();
+  base::android::ScopedJavaGlobalRef<jobject> java_obj = wrapper->java_obj_;
+
+  // Destroy the native wrapper. This should clear the native pointer on the
+  // Java side.
+  delete wrapper;
+
+  // Simulate the Java side dismissing the dialog.
+  // 1 corresponds to DialogDismissalCause.POSITIVE_BUTTON_CLICKED.
+  fake_dialog_manager_->DismissAllDialogs(1);
+
+  // We expect no crash to occur here.
+  EXPECT_FALSE(ok_called);
+  EXPECT_FALSE(cancel_called);
+  EXPECT_FALSE(closed);
+  EXPECT_TRUE(dialog_destroyed_);
+}
+
 TEST_F(ModalDialogWrapperTest, ModalButtonsDefaultPrimaryProminent) {
   auto dialog_model = DialogModelBuilder(&dialog_destroyed_).Build();
 
@@ -715,6 +747,72 @@ TEST_F(ModalDialogWrapperTest, MenuItem_CallbackDismissesDialog) {
   fake_dialog_manager_->ClickMenuItem(0);
 
   EXPECT_TRUE(dialog_destroyed_);
+}
+
+TEST_F(ModalDialogWrapperTest, DismissalCause_ExternalDismissal) {
+  std::optional<ui::ModalDialogWrapper::DismissalCause> observed_cause;
+
+  auto dialog_model =
+      DialogModelBuilder(&dialog_destroyed_)
+          .WithCloseAction(base::BindLambdaForTesting([&]() {
+            // Check the cause right before the dialog is destroyed.
+            observed_cause =
+                ModalDialogWrapper::GetDialogForTesting()->GetDismissalCause();
+          }))
+          .Build();
+
+  ModalDialogWrapper::ShowTabModal(std::move(dialog_model), window_->get());
+
+  // Simulate Java dismissing the dialog because the tab was destroyed.
+  fake_dialog_manager_->DismissAllDialogs(
+      static_cast<int>(ui::ModalDialogWrapper::DismissalCause::TAB_DESTROYED));
+
+  EXPECT_TRUE(dialog_destroyed_);
+  EXPECT_EQ(observed_cause,
+            ui::ModalDialogWrapper::DismissalCause::TAB_DESTROYED);
+}
+
+TEST_F(ModalDialogWrapperTest, DismissalCause_NativeClose) {
+  std::optional<ui::ModalDialogWrapper::DismissalCause> observed_cause;
+
+  auto dialog_model =
+      DialogModelBuilder(&dialog_destroyed_)
+          .WithCloseAction(base::BindLambdaForTesting([&]() {
+            observed_cause =
+                ModalDialogWrapper::GetDialogForTesting()->GetDismissalCause();
+          }))
+          .Build();
+
+  ModalDialogWrapper::ShowTabModal(std::move(dialog_model), window_->get());
+
+  // Close the dialog explicitly from native code.
+  ModalDialogWrapper::GetDialogForTesting()->Close();
+
+  EXPECT_TRUE(dialog_destroyed_);
+  EXPECT_EQ(observed_cause,
+            ui::ModalDialogWrapper::DismissalCause::DISMISSED_BY_NATIVE);
+}
+
+TEST_F(ModalDialogWrapperTest, DismissalCause_NotSetOnPositiveButtonClick) {
+  std::optional<ui::ModalDialogWrapper::DismissalCause> observed_cause;
+
+  auto dialog_model =
+      DialogModelBuilder(&dialog_destroyed_)
+          .WithOkButton(base::BindLambdaForTesting([&]() {
+            // The Java side routes POSITIVE_BUTTON_CLICKED to
+            // PositiveButtonClicked(), which doesn't populate the
+            // dismissal_cause_.
+            observed_cause =
+                ModalDialogWrapper::GetDialogForTesting()->GetDismissalCause();
+          }))
+          .Build();
+
+  ModalDialogWrapper::ShowTabModal(std::move(dialog_model), window_->get());
+
+  fake_dialog_manager_->ClickPositiveButton();
+
+  EXPECT_TRUE(dialog_destroyed_);
+  EXPECT_EQ(observed_cause, std::nullopt);
 }
 
 }  // namespace ui

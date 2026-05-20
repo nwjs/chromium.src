@@ -179,7 +179,7 @@ void ExecuteScript(blink::WebLocalFrame* frame,
                    std::string_view suffix) {
   std::string json = base::WriteJson(parameters).value_or("");
   frame->ExecuteScript(blink::WebScriptSource(
-      blink::WebString::FromUTF8(base::StrCat({prefix, json, suffix}))));
+      blink::WebString::FromUtf8(base::StrCat({prefix, json, suffix}))));
 }
 
 int GetDPI(const mojom::PrintParams& print_params) {
@@ -2626,8 +2626,7 @@ void PrintRenderFrameHelper::SetupOnStopLoadingTimeout() {
 void PrintRenderFrameHelper::ShowScriptedPrintPreview() {
   if (is_scripted_preview_delayed_) {
     is_scripted_preview_delayed_ = false;
-    GetPrintManagerHost()->ShowScriptedPrintPreview(
-        print_preview_context_.IsModifiable());
+    GetPrintManagerHost()->ShowScriptedPrintPreview();
   }
 }
 

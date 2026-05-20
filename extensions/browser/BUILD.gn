@@ -83,6 +83,10 @@ source_set("core_keyed_service_factories") {
     "//extensions/browser/updater",
     "//extensions/buildflags",
   ]
+
+  if (enable_extensions && !is_android) {
+    deps += [ "//extensions/browser/mime_handler:mime_handler_registry" ]
+  }
 }
 
 # The set of all sources that are related to the core extensions system.
@@ -296,6 +300,8 @@ source_set("browser_sources") {
     "extension_action_icon_factory.h",
     "extension_action_manager.cc",
     "extension_action_manager.h",
+    "extension_allowlist.cc",
+    "extension_allowlist.h",
     "extension_api_frame_id_map.cc",
     "extension_api_frame_id_map.h",
     "extension_assets_manager.cc",
@@ -444,9 +450,12 @@ source_set("browser_sources") {
     "load_and_localize_file.h",
     "load_error_reporter.cc",
     "load_error_reporter.h",
+    "managed_installation_mode.h",
     "management_policy.cc",
     "management_policy.h",
     "manifest_check_level.h",
+    "manifest_v2_experiment_manager.cc",
+    "manifest_v2_experiment_manager.h",
     "media_capture_util.cc",
     "media_capture_util.h",
     "message_service_api.cc",
@@ -455,6 +464,9 @@ source_set("browser_sources") {
     "message_tracker.h",
     "mojo/keep_alive_impl.cc",
     "mojo/keep_alive_impl.h",
+    "mv2_deprecation_impact_checker.cc",
+    "mv2_deprecation_impact_checker.h",
+    "mv2_experiment_stage.h",
     "network_permissions_updater.cc",
     "network_permissions_updater.h",
     "null_app_sorting.cc",
@@ -610,6 +622,7 @@ source_set("browser_sources") {
     "//components/pref_registry",
     "//components/prefs",
     "//components/safe_browsing:buildflags",
+    "//components/safe_browsing/core/browser:safe_browsing_metrics_collector",
     "//components/safe_browsing/core/browser/db:database_manager",
     "//components/safe_browsing/core/browser/db:util",
     "//components/safe_browsing/core/browser/db:v4_protocol_manager_util",
@@ -639,8 +652,6 @@ source_set("browser_sources") {
     "//extensions/browser/api/storage:settings_namespace",
     "//extensions/browser/api/storage:settings_observer",
     "//extensions/browser/api/system_display:display_info_provider",
-    "//extensions/browser/api/virtual_keyboard_private:virtual_keyboard_delegate",
-    "//extensions/browser/mime_handler:stream_container",
     "//extensions/buildflags",
     "//extensions/common",
     "//extensions/common/api",
@@ -675,6 +686,7 @@ source_set("browser_sources") {
     deps += [
       "//chromeos/constants",
       "//extensions/browser/api/clipboard:clipboard_types",
+      "//extensions/browser/api/virtual_keyboard_private:virtual_keyboard_delegate",
     ]
   }
 
@@ -687,6 +699,7 @@ source_set("browser_sources") {
     "//components/safe_browsing/core/browser/db:v4_protocol_config",
     "//components/url_matcher",
     "//components/url_pattern_index",
+    "//components/user_prefs",
     "//components/value_store",
     "//content/public/common",
     "//extensions/browser/api/declarative_net_request/flat:extension_ruleset",
@@ -702,7 +715,7 @@ source_set("browser_sources") {
   # TODO(crbug.com/41323543): Ideally web_view should be a separate target on
   # which the extension system depends.
   if (enable_guest_view) {
-    if (enable_platform_apps) {
+    if (is_chromeos) {
       sources += [
         "guest_view/app_view/app_view_constants.cc",
         "guest_view/app_view/app_view_constants.h",
@@ -727,6 +740,13 @@ source_set("browser_sources") {
         "guest_view/mime_handler_view/mime_handler_view_guest_delegate.cc",
         "guest_view/mime_handler_view/mime_handler_view_guest_delegate.h",
       ]
+
+      if (!is_android) {
+        deps += [
+          "//extensions/browser/mime_handler:mime_handler_page",
+          "//extensions/browser/mime_handler:stream_container",
+        ]
+      }
     }
     sources += [
       "guest_view/extension_options/extension_options_constants.cc",
@@ -809,8 +829,6 @@ source_set("browser_sources") {
       "api/hid/hid_connection_resource.h",
       "api/hid/hid_device_manager.cc",
       "api/hid/hid_device_manager.h",
-      "api/usb/usb_api.cc",
-      "api/usb/usb_api.h",
       "api/usb/usb_device_manager.cc",
       "api/usb/usb_device_manager.h",
       "api/usb/usb_device_resource.cc",
@@ -822,6 +840,11 @@ source_set("browser_sources") {
     deps += [ "//services/device/public/cpp/hid" ]
 
     if (is_chromeos) {
+      sources += [
+        "api/usb/usb_api.cc",
+        "api/usb/usb_api.h",
+      ]
+
       deps += [ "//chromeos/dbus/permission_broker" ]
     }
   }
@@ -881,6 +904,8 @@ source_set("webstore_installer") {
     "webstore_data_fetcher.h",
     "webstore_data_fetcher_delegate.cc",
     "webstore_data_fetcher_delegate.h",
+    "webstore_install_helper.cc",
+    "webstore_install_helper.h",
     "webstore_installer.cc",
     "webstore_installer.h",
   ]
@@ -890,6 +915,7 @@ source_set("webstore_installer") {
     ":cws_item_service_proto",
     "//base",
     "//components/download/public/common:public",
+    "//components/image_fetcher/core",
     "//components/update_client",
     "//content/public/browser",
     "//extensions/buildflags",
@@ -897,6 +923,7 @@ source_set("webstore_installer") {
     "//extensions/strings",
     "//google_apis/common:request_util",
     "//net/traffic_annotation",
+    "//services/data_decoder/public/cpp",
     "//ui/base",
     "//url",
   ]
@@ -1097,6 +1124,7 @@ source_set("unit_tests") {
     "renderer_startup_helper_unittest.cc",
     "requirements_checker_unittest.cc",
     "sandboxed_unpacker_unittest.cc",
+    "service_worker/service_worker_host_unittest.cc",
     "service_worker/worker_id_set_unittest.cc",
     "updater/extension_downloader_unittest.cc",
     "updater/extension_installer_unittest.cc",
@@ -1115,6 +1143,7 @@ source_set("unit_tests") {
     "//build:android_buildflags",
     "//build:chromeos_buildflags",
     "//components/content_settings/core/test:test_support",
+    "//components/crash/core/common:crash_key",
     "//components/crx_file",
     "//components/feedback",
     "//components/file_access:test_support",
@@ -1129,6 +1158,7 @@ source_set("unit_tests") {
     "//components/safe_browsing/core/common/proto:crx_info_proto_gen",
     "//components/services/unzip:in_process",
     "//components/services/unzip/content",
+    "//components/signin/public/identity_manager:test_support",
     "//components/sync_preferences:test_support",
     "//components/update_client",
     "//components/url_matcher",
@@ -1143,8 +1173,6 @@ source_set("unit_tests") {
     "//extensions/browser/api/content_settings",
     "//extensions/browser/api/storage:settings_namespace",
     "//extensions/browser/api/system_display:display_info_provider",
-    "//extensions/browser/api/virtual_keyboard_private:virtual_keyboard_delegate",
-    "//extensions/browser/mime_handler:stream_container",
     "//extensions/browser/updater",
     "//extensions/buildflags",
     "//extensions/common",
@@ -1164,12 +1192,14 @@ source_set("unit_tests") {
     "//ui/display:test_support",
   ]
 
+  if (is_chromeos) {
+    deps += [ "//extensions/browser/api/virtual_keyboard_private:virtual_keyboard_delegate" ]
+  }
+
   # TODO(https://crbug.com/356905053): Gradually include more of these sources
   # in the desktop-android build when the related APIs are enabled.
   if (enable_extensions) {
     sources += [
-      "api/bluetooth/bluetooth_event_router_unittest.cc",
-      "api/bluetooth_socket/bluetooth_socket_api_unittest.cc",
       "api/feedback_private/feedback_service_unittest.cc",
       "api/mime_handler_private/mime_handler_private_unittest.cc",
       "api/socket/mojo_data_pump_unittest.cc",
@@ -1183,6 +1213,17 @@ source_set("unit_tests") {
       "//extensions/browser/api/declarative_net_request/filter_list_converter:unit_tests",
       "//extensions/shell:app_shell_lib",
     ]
+
+    if (!is_android) {
+      sources += [ "api/mime_handler/mime_handler_api_unittest.cc" ]
+      deps += [
+        "//extensions/browser/api/mime_handler",
+        "//extensions/browser/mime_handler",
+        "//extensions/browser/mime_handler:stream_container",
+        "//extensions/browser/mime_handler:test_helpers",
+        "//extensions/browser/mime_handler:unit_tests",
+      ]
+    }
   }
 
   if (enable_platform_apps) {
@@ -1192,6 +1233,8 @@ source_set("unit_tests") {
   if (is_chromeos) {
     sources += [
       "api/audio/audio_device_id_calculator_unittest.cc",
+      "api/bluetooth/bluetooth_event_router_unittest.cc",
+      "api/bluetooth_socket/bluetooth_socket_api_unittest.cc",
       "api/feedback_private/access_rate_limiter_chromeos_unittest.cc",
       "api/feedback_private/feedback_private_api_chromeos_unittest.cc",
       "api/feedback_private/feedback_private_api_unittest_base_chromeos.cc",
@@ -1265,84 +1308,22 @@ if (enable_extensions) {
   # system and relevant APIs.
   source_set("browser_tests") {
     testonly = true
-    sources = [
-      # TODO(michaelpg): bluetooth_appshell_test.cc is a crutch until we have a
-      # better system for testing APIs in both app_shell and chrome. See
-      # crbug.com/650835.
-      "api/bluetooth/bluetooth_appshell_test.cc",
-      "api/bluetooth_socket/bluetooth_socket_apitest.cc",
-      "api/feedback_private/feedback_private_apitest.cc",
-      "api/hid/hid_apitest.cc",
-      "api/socket/socket_apitest.cc",
-      "api/sockets_tcp/sockets_tcp_apitest.cc",
-      "api/sockets_tcp_server/sockets_tcp_server_apitest.cc",
-      "api/sockets_udp/sockets_udp_apitest.cc",
-      "api/system_display/system_display_apitest.cc",
-      "api/system_storage/storage_api_test_util.cc",
-      "api/system_storage/storage_api_test_util.h",
-      "api/system_storage/system_storage_apitest.cc",
-      "api/system_storage/system_storage_eject_apitest.cc",
-      "api/usb/usb_apitest.cc",
-      "browsertest_util_browsertest.cc",
-      "extension_frame_host_browsertest.cc",
-      "guest_view/app_view/app_view_apitest.cc",
-      "guest_view/web_view/web_view_apitest.cc",
-      "guest_view/web_view/web_view_apitest.h",
-      "guest_view/web_view/web_view_media_access_apitest.cc",
-    ]
+    sources = [ "placeholder_browsertest.cc" ]
 
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
     deps = [
       ":browser",
       "//base",
-      "//build:chromeos_buildflags",
-      "//components/guest_view/browser:test_support",
-      "//components/storage_monitor:test_support",
-      "//device/bluetooth:mocks",
       "//extensions:test_support",
       "//extensions/browser:test_support",
-      "//extensions/browser/api/system_display:display_info_provider",
-      "//extensions/browser/api/virtual_keyboard_private:virtual_keyboard_delegate",
       "//extensions/common",
       "//extensions/common/api",
       "//extensions/shell:app_shell_lib",
       "//extensions/shell:browser_tests",
-      "//net:test_support",
-      "//services/device/public/cpp:test_support",
-      "//services/device/public/mojom",
-      "//services/network:test_support",
-      "//services/service_manager/public/cpp",
-      "//ui/display:test_support",
     ]
 
     public_deps = [ "//content/test:test_support" ]
-
-    if (is_chromeos) {
-      sources += [
-        "api/audio/audio_apitest_chromeos.cc",
-        "api/cec_private/cec_private_ash_apitest.cc",
-        "api/media_perception_private/media_perception_private_apitest.cc",
-        "api/virtual_keyboard/virtual_keyboard_apitest.cc",
-      ]
-
-      deps += [
-        "//chromeos/ash/components/audio",
-        "//chromeos/ash/components/dbus:test_support",
-        "//chromeos/ash/components/dbus/audio",
-        "//chromeos/ash/components/dbus/cec_service",
-        "//chromeos/ash/components/dbus/media_analytics",
-        "//chromeos/ash/components/dbus/media_analytics:media_perception_proto",
-        "//chromeos/ash/components/dbus/upstart",
-        "//chromeos/ash/components/login/login_state",
-        "//chromeos/ash/components/network",
-        "//chromeos/dbus/permission_broker",
-        "//chromeos/dbus/power",
-        "//chromeos/dbus/power:power_manager_proto",
-        "//components/crash/content/browser/error_reporting:mock_crash_endpoint",
-        "//extensions/common:mojom",
-      ]
-    }
   }
 
   fuzzer_test("extension_file_highlighter_fuzzer") {

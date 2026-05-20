@@ -35,7 +35,7 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/signin/chrome_signin_helper.h"
+#include "chrome/browser/signin/chrome_signin_helper.h"  // nogncheck crbug.com/40147906
 #include "components/signin/core/browser/chrome_connected_header_helper.h"
 #include "components/signin/core/browser/signin_header_helper.h"
 #endif
@@ -263,7 +263,7 @@ void OneGoogleBarLoaderImpl::AuthenticatedURLLoader::Start() {
       network::mojom::CredentialsMode::kInclude;
   SetRequestHeaders(resource_request.get());
   resource_request->request_initiator =
-      url::Origin::Create(GURL(chrome::kChromeUINewTabURL));
+      url::Origin::Create(chrome::ChromeUINewTabURLAsGURL());
   // Adds cookies even if 3P cookies are blocked. See b/297160590.
   resource_request->site_for_cookies = net::SiteForCookies::FromUrl(api_url_);
 

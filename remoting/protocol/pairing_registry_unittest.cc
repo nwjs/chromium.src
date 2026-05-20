@@ -35,9 +35,9 @@ class MockPairingRegistryCallbacks {
 
   virtual ~MockPairingRegistryCallbacks() = default;
 
-  MOCK_METHOD1(DoneCallback, void(bool));
-  MOCK_METHOD1(GetAllPairingsCallback, void(base::ListValue));
-  MOCK_METHOD1(GetPairingCallback, void(PairingRegistry::Pairing));
+  MOCK_METHOD(void, DoneCallback, (bool));
+  MOCK_METHOD(void, GetAllPairingsCallback, (base::ListValue));
+  MOCK_METHOD(void, GetPairingCallback, (PairingRegistry::Pairing));
 };
 
 // Verify that a pairing Dictionary has correct entries, but doesn't include
@@ -74,6 +74,16 @@ class PairingRegistryTest : public testing::Test {
 
   void ExpectSaveSuccess(bool success) {
     EXPECT_TRUE(success);
+    ++callback_count_;
+  }
+
+  void ExpectSaveResult(bool expected, bool success) {
+    EXPECT_EQ(success, expected);
+    ++callback_count_;
+  }
+
+  void ExpectInvalidPairing(PairingRegistry::Pairing actual) {
+    EXPECT_FALSE(actual.is_valid());
     ++callback_count_;
   }
 
@@ -159,6 +169,22 @@ TEST_F(PairingRegistryTest, DeletePairing) {
           PairingRegistry::kClientIdKey);
   ASSERT_TRUE(actual_client_id);
   EXPECT_EQ(*actual_client_id, pairing_2.client_id());
+}
+
+TEST_F(PairingRegistryTest, InvalidClientId) {
+  scoped_refptr<PairingRegistry> registry = new SynchronousPairingRegistry(
+      std::make_unique<MockPairingRegistryDelegate>());
+
+  registry->DeletePairing("../tmp/target",
+                          base::BindOnce(&PairingRegistryTest::ExpectSaveResult,
+                                         base::Unretained(this), false));
+  EXPECT_EQ(callback_count_, 1);
+
+  registry->GetPairing(
+      "../tmp/target",
+      base::BindOnce(&PairingRegistryTest::ExpectInvalidPairing,
+                     base::Unretained(this)));
+  EXPECT_EQ(callback_count_, 2);
 }
 
 TEST_F(PairingRegistryTest, ClearAllPairings) {

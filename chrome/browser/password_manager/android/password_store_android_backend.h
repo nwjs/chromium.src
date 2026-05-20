@@ -23,6 +23,7 @@
 #include "chrome/browser/password_manager/android/password_store_android_backend_api_error_codes.h"
 #include "chrome/browser/password_manager/android/password_store_android_backend_bridge_helper.h"
 #include "chrome/browser/password_manager/android/password_store_android_backend_dispatcher_bridge.h"
+#include "components/password_manager/core/browser/password_store/password_store_backend.h"
 #include "components/password_manager/core/browser/password_store/password_store_backend_metrics_recorder.h"
 
 namespace password_manager {
@@ -108,13 +109,13 @@ class PasswordStoreAndroidBackend
                          bool include_psl,
                          LoginsOrErrorReply callback);
   void AddLoginInternal(std::string account,
-                        const PasswordForm& form,
+                        StoredCredential credential,
                         PasswordChangesOrErrorReply callback);
   void UpdateLoginInternal(std::string account,
-                           const PasswordForm& form,
+                           StoredCredential credential,
                            PasswordChangesOrErrorReply callback);
   void RemoveLoginInternal(std::string account,
-                           const PasswordForm& form,
+                           StoredCredential credential,
                            PasswordChangesOrErrorReply callback);
   void FillMatchingLoginsInternal(std::string account,
                                   LoginsOrErrorReply callback,
@@ -264,7 +265,7 @@ class PasswordStoreAndroidBackend
   // Implements PasswordStoreAndroidBackendDispatcherBridge::Consumer interface.
   void OnCompleteWithLogins(
       PasswordStoreAndroidBackendDispatcherBridge::JobId job_id,
-      std::vector<PasswordForm> passwords) override;
+      std::vector<StoredCredential> passwords) override;
   void OnLoginsChanged(
       PasswordStoreAndroidBackendDispatcherBridge::JobId task_id,
       PasswordChanges changes) override;

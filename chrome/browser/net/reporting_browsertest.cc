@@ -16,8 +16,8 @@
 #include "build/build_config.h"
 #include "chrome/browser/ssl/cert_verifier_browser_test.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_frame_host.h"
@@ -443,7 +443,7 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest, TestReportingHeadersProcessed) {
 // Tests that CSP reports are delivered properly whether configured with the
 // v0 Report-To header or the v1 Reporting-Endpoints header. This is a Non-
 // isolated test, so will run with NIK-based report isolation disabled. This is
-// a regression test for https://crbug.com/1258112.
+// a regression test for https://crbug.com/40200931.
 IN_PROC_BROWSER_TEST_P(NonIsolatedReportingBrowserTest,
                        TestReportingHeadersProcessed) {
   // Navigate to reporting-enabled page.

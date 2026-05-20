@@ -990,6 +990,9 @@ message PolicyData {
   // Populated from `ChromeOsDeviceInfo.unified_device_id` and should only be
   // set for device policy.
   optional string unified_device_id = 41;
+
+  // List of group ids of active experiments for this device or user.
+  repeated string available_group_ids = 42;
 }
 
 message ClientActionRequired {
@@ -2300,6 +2303,36 @@ message AffiliationState {
   optional UnaffiliationReason unaffiliation_reason = 2;
 }
 
+// Certificate details
+message CertificateDetails {
+  // The set of supported signature algorithms.
+  enum SignatureAlgorithm {
+    SIGNATURE_ALGORITHM_UNKNOWN = 0;
+    RSA_PKCS1_SHA1 = 1;
+    RSA_PKCS1_SHA256 = 2;
+    ECDSA_SHA256 = 3;
+    RSA_PSS_SHA256 = 4;
+  }
+
+  // The DER encoded enterprise certificate.
+  optional bytes certificate = 1;
+  // A 256-bit random value.
+  optional bytes nonce = 2;
+  // A timestamp to limit the timeframe during which the challenge may be
+  // replayed.
+  optional int64 timestamp = 3;
+  // The algorithm used when signing the challenge
+  optional SignatureAlgorithm algorithm = 4;
+}
+
+// The signed certificate details for an MDM certificate.
+message SignedCertificateDetails {
+  // The serialized certificate details.
+  optional bytes data = 1;
+  // The signature of the certificate details data.
+  optional bytes signature = 2;
+}
+
 // Chrome user profile level status, used by activated Profiles. Profile name is
 // not listed here as they are in the ChromeUserProfileBasicInfo.
 message ChromeUserProfileInfo {
@@ -2346,6 +2379,12 @@ message ChromeUserProfileInfo {
 
   // Profile level security signals.
   optional ProfileSignalsReport profile_signals_report = 13;
+
+  // A list of MDM certificates and their details.
+  repeated SignedCertificateDetails certificates = 14;
+
+  // Whether certificates were truncated.
+  optional bool certificates_were_truncated = 15;
 }
 
 // Report browser level status.
@@ -2614,6 +2653,8 @@ message AttestationPayload {
   optional string attestation_blob = 3;
   // Error from blob generation if there is one.
   optional string attestation_error = 4;
+  // Version of the content binding method used.
+  optional int32 content_binding_version = 5;
 }
 
 // Report user level status on all platforms. It includes the information of the
@@ -3301,6 +3342,9 @@ message RemoteCommand {
 
     // Query the geolocation of the device.
     QUERY_GEOLOCATION = 17;
+
+    // Immediately force an extension update check for a given profile.
+    EXTENSION_UPDATE_CHECK = 18;
 
     // Please update metrics after adding a new item - see the comment above.
   }

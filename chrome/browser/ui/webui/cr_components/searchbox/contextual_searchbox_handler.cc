@@ -25,16 +25,14 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/entry_point_eligibility_manager.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/tab_list/tab_list_interface_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/contextual_search/desktop_query_contextualizer_delegate.h"
 #include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
-#include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
-#include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_utils.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_web_contents_helper.h"
@@ -67,6 +65,11 @@
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/lens/lens_search_controller.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 namespace {
 
@@ -174,8 +177,7 @@ void ContextualSearchboxHandler::GetRecentTabs(GetRecentTabsCallback callback) {
 
     auto tab_data = searchbox::mojom::TabInfo::New();
     tab_data->tab_id = tab_time.tab->GetHandle().raw_value();
-    tab_data->title =
-        base::UTF16ToUTF8(TabUIHelper::From(tab_time.tab)->GetTitle());
+    tab_data->title = base::UTF16ToUTF8(web_contents->GetTitle());
     tab_data->url = last_committed_url;
     const bool show_in_current_tab_chip =
         active_web_contents &&
@@ -189,7 +191,7 @@ void ContextualSearchboxHandler::GetRecentTabs(GetRecentTabsCallback callback) {
         tab_context_controller->GetInitialPageContextEligibility() &&
         active_web_contents &&
         active_web_contents->GetLastCommittedURL() ==
-            chrome::kChromeUINewTabURL &&
+            chrome::ChromeUINewTabURLAsGURL() &&
         !show_in_current_tab_chip;
     tab_data->last_active = tab_time.time;
     tabs.push_back(std::move(tab_data));
@@ -297,6 +299,8 @@ ContextualSearchboxHandler::ContextualSearchboxHandler(
   contextual_tasks_service_ =
       contextual_tasks::ContextualTasksServiceFactory::GetForProfile(profile);
   if (contextual_tasks_service_) {
+// TODO(b/502297163): Implement for Android.
+#if !BUILDFLAG(IS_ANDROID)
     // It is safe to use base::Unretained(this) here because `desktop_delegate_`
     // is owned by `this` and will be destroyed when `this` is destroyed,
     // cancelling any pending callbacks.
@@ -312,6 +316,7 @@ ContextualSearchboxHandler::ContextualSearchboxHandler(
     query_contextualizer_ =
         std::make_unique<contextual_tasks::QueryContextualizer>(
             contextual_tasks_service_, desktop_delegate_.get());
+#endif  // !BUILDFLAG(IS_ANDROID)
   }
 }
 
@@ -389,7 +394,10 @@ ContextualSearchboxHandler::GetContextualSessionHandle() {
 }
 
 ContextualSearchboxHandler::~ContextualSearchboxHandler() {
+// TODO(b/502297163): Implement for Android.
+#if !BUILDFLAG(IS_ANDROID)
   query_contextualizer_.reset();
+#endif
   if (context_controller_) {
     context_controller_->RemoveObserver(this);
   }
@@ -589,6 +597,10 @@ void ContextualSearchboxHandler::AddDriveContext(
       context_token, drive_id, resource_key, mime_type_string);
 }
 
+void ContextualSearchboxHandler::OnDriveUploadClicked() {
+  // TODO(crbug.com/504744908): Open the drive picker here once implemented.
+}
+
 std::vector<base::UnguessableToken>
 ContextualSearchboxHandler::GetUploadedContextTokens() {
   auto* contextual_session_handle = GetContextualSessionHandle();
@@ -663,29 +675,44 @@ void ContextualSearchboxHandler::OnInputStateChanged(
 
 void ContextualSearchboxHandler::InitializeInputStateModel() {
   // This implicitly also initializes the file upload status observer.
-  if (auto* session_handle = GetContextualSessionHandle()) {
-    auto* service = AimEligibilityServiceFactory::GetForProfile(profile_);
-    const omnibox::SearchboxConfig* config_ptr =
-        service ? service->GetSearchboxConfig() : nullptr;
-    input_state_model_ = std::make_unique<contextual_search::InputStateModel>(
-        *session_handle, config_ptr ? *config_ptr : omnibox::SearchboxConfig(),
-        web_contents_ ? web_contents_->GetLastCommittedURL() : GURL(),
-        profile_ ? profile_->IsOffTheRecord() : false);
-    if (profile_) {
-      input_state_model_->SetPrefService(profile_->GetPrefs());
-    }
-    input_state_subscription_ = input_state_model_->subscribe(
-        base::BindRepeating(&ContextualSearchboxHandler::OnInputStateChanged,
-                            weak_ptr_factory_.GetWeakPtr()));
-    input_state_model_->Initialize();
+  auto* session_handle = GetContextualSessionHandle();
+  if (!session_handle) {
+    return;
   }
+
+  auto* service = AimEligibilityServiceFactory::GetForProfile(profile_);
+  const omnibox::SearchboxConfig* config =
+      service ? service->GetSearchboxConfig() : nullptr;
+
+  const signin::IdentityManager* identity_manager =
+      profile_ ? IdentityManagerFactory::GetForProfile(profile_) : nullptr;
+  bool has_primary_account =
+      identity_manager &&
+      identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin);
+
+  GURL url = web_contents_ ? web_contents_->GetLastCommittedURL() : GURL();
+  bool is_off_the_record = profile_ && profile_->IsOffTheRecord();
+
+  // Create the model with clean arguments
+  input_state_model_ = std::make_unique<contextual_search::InputStateModel>(
+      *session_handle, config ? *config : omnibox::SearchboxConfig(), url,
+      is_off_the_record, has_primary_account);
+
+  if (profile_) {
+    input_state_model_->SetPrefService(profile_->GetPrefs());
+  }
+
+  input_state_subscription_ = input_state_model_->subscribe(
+      base::BindRepeating(&ContextualSearchboxHandler::OnInputStateChanged,
+                          weak_ptr_factory_.GetWeakPtr()));
+  input_state_model_->Initialize();
 }
-
-
 
 void ContextualSearchboxHandler::RecordTabAddedMetric(
     tabs::TabInterface* const tab,
     bool is_tab_suggestion_chip) {
+// TODO(b/502297163): Implement for Android.
+#if !BUILDFLAG(IS_ANDROID)
   auto* metrics_recorder = GetMetricsRecorder();
   if (!metrics_recorder) {
     return;
@@ -707,7 +734,7 @@ void ContextualSearchboxHandler::RecordTabAddedMetric(
     return;
   }
 
-  const std::u16string& current_title = TabUIHelper::From(tab)->GetTitle();
+  const std::u16string& current_title = tab->GetContents()->GetTitle();
 
   int title_count = 0;
   std::vector<std::pair<size_t, base::TimeTicks>> last_active_times;
@@ -715,8 +742,7 @@ void ContextualSearchboxHandler::RecordTabAddedMetric(
   for (size_t i = 0; i < all_tabs.size(); i++) {
     tabs::TabInterface* tab_interface = all_tabs[i];
 
-    const std::u16string& tab_title =
-        TabUIHelper::From(tab_interface)->GetTitle();
+    const std::u16string& tab_title = tab_interface->GetContents()->GetTitle();
     if (tab_title == current_title) {
       title_count++;
     }
@@ -749,6 +775,7 @@ void ContextualSearchboxHandler::RecordTabAddedMetric(
 
   metrics_recorder->RecordTabAddedMetrics(has_duplicate_title, recency_ranking,
                                           is_tab_suggestion_chip);
+#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 void ContextualSearchboxHandler::DeleteContext(
@@ -935,6 +962,8 @@ void ContextualSearchboxHandler::ContextualizeQueryAndOpenUrl(
     }
   }
 
+// TODO(b/502297163): Implement for Android.
+#if !BUILDFLAG(IS_ANDROID)
   if (query_contextualizer_) {
     query_contextualizer_->Contextualize(
         GetTaskId(), query_text, /*tabs_to_recontextualize=*/{},
@@ -956,6 +985,7 @@ void ContextualSearchboxHandler::ContextualizeQueryAndOpenUrl(
         /*enable_smart_tab_selection=*/IsSmartTabSharingActive());
     return;
   }
+#endif
 
   ComputeAndOpenQueryUrl(query_text, disposition, aim_entry_point,
                          std::move(additional_params));
@@ -1115,7 +1145,11 @@ void ContextualSearchboxHandler::OpenUrl(
       std::move(new_input_state_model));
   // TODO(crbug.com/469137247): Consider moving this logic to the specific
   // subclasses that have aim navigation.
+  // TODO(b/502297163): Implement for Android.
+  bool should_open_url = true;
+#if !BUILDFLAG(IS_ANDROID)
   if (OmniboxPopupWebContentsHelper::FromWebContents(web_contents_.get())) {
+    should_open_url = false;
     // For the omnibox navigation case, the active tab's web contents differs
     // from the omnibox one. We transfer the session by creating a new handle
     // (copied from the omnibox handle) and assigning it to the active tab.
@@ -1166,7 +1200,10 @@ void ContextualSearchboxHandler::OpenUrl(
         disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB) {
       target_web_contents->Focus();
     }
-  } else {
+  }
+#endif  // !BUILDFLAG(IS_ANDROID)
+
+  if (should_open_url) {
     content::OpenURLParams params(url, content::Referrer(), disposition,
                                   ui::PAGE_TRANSITION_LINK, false);
     web_contents_->OpenURL(params, std::move(navigation_handle_callback));

@@ -33,12 +33,12 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DoNotBatch;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.settings.SettingsActivity;
 import org.chromium.chrome.browser.signin.SigninCheckerProvider;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
@@ -48,7 +48,6 @@ import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridgeJni;
 import org.chromium.components.content_settings.ContentSettingSource;
 import org.chromium.components.content_settings.ContentSettingsType;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 
 /** Tests family link controls are reflected in UI */
 @DoNotBatch(
@@ -86,7 +85,7 @@ public class FamilyLinkControlsTest {
                         IdentityServicesProvider.get()
                                 .getSigninManager(ProfileManager.getLastUsedRegularProfile())
                                 .getIdentityManager()
-                                .hasPrimaryAccount(ConsentLevel.SIGNIN));
+                                .hasPrimaryAccount());
     }
 
     @Test
@@ -111,8 +110,7 @@ public class FamilyLinkControlsTest {
                                 withText(
                                         containsString(
                                                 settingsActivity.getString(
-                                                        org.chromium.chrome.test.R.string
-                                                                .managed_by_your_parent)))));
+                                                        R.string.managed_by_your_parent)))));
         settingsActivity.finish();
     }
 

@@ -41,6 +41,7 @@ suite('AiPageIndex', function() {
       showGlicSettings: true,
       enableAiModeSearchSetting: true,
       actorLoginFederatedLoginSupportEnabled: true,
+      showAiSuggestionsControl: true,
     });
     resetRouterForTesting();
     return createAiPageIndex();
@@ -49,6 +50,7 @@ suite('AiPageIndex', function() {
   test('Routing', async function() {
     const defaultViews = [
       'aiInfoCard',
+      'aiModeSearch',
       'glic',
       'parent',
     ];
@@ -64,10 +66,6 @@ suite('AiPageIndex', function() {
     await microtasksFinished();
     assertActiveViews(['historySearch']);
 
-    Router.getInstance().navigateTo(routes.AI_MODE_SEARCH);
-    await microtasksFinished();
-    assertActiveViews(['aiModeSearch']);
-
     Router.getInstance().navigateTo(routes.OFFER_WRITING_HELP);
     await microtasksFinished();
     assertActiveViews(['compose']);
@@ -79,6 +77,10 @@ suite('AiPageIndex', function() {
     Router.getInstance().navigateTo(routes.GEMINI_LOGIN);
     await microtasksFinished();
     assertActiveViews(['geminiLoginPermissions']);
+
+    Router.getInstance().navigateTo(routes.AI_SUGGESTIONS);
+    await microtasksFinished();
+    assertActiveViews(['aiSuggestions']);
   });
 
   test('aiFeaturesSectionVisibility', async function() {
@@ -91,6 +93,19 @@ suite('AiPageIndex', function() {
     resetRouterForTesting();
     await createAiPageIndex();
     assertFalse(!!index.$.viewManager.querySelector('#parent[slot=view]'));
+  });
+
+  test('aiModeSearchSectionVisibility', async function() {
+    assertTrue(!!index.$.viewManager.querySelector('#aiModeSearch[slot=view]'));
+
+    loadTimeData.overrideValues({
+      showAiPage: true,
+      enableAiModeSearchSetting: false,
+    });
+    resetRouterForTesting();
+    await createAiPageIndex();
+    assertFalse(
+        !!index.$.viewManager.querySelector('#aiModeSearch[slot=view]'));
   });
 
   test('glicSectionVisibility', async function() {
@@ -110,7 +125,7 @@ suite('AiPageIndex', function() {
     const childViewsId = [
       'historySearch',
       'compose',
-      'aiModeSearch',
+      'aiSuggestions',
     ];
     for (const id of childViewsId) {
       assertTrue(!!index.$.viewManager.querySelector(

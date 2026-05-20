@@ -152,8 +152,6 @@ String NavigationPolicyToProtocol(NavigationPolicy policy) {
       return DispositionEnum::NewWindow;
     case kNavigationPolicySplitView:
       return DispositionEnum::NewTab;
-    case kNavigationPolicyLinkPreview:
-      NOTREACHED();
     case kNavigationPolicyIgnore:
       return DispositionEnum::Nwignore;
   }
@@ -1196,11 +1194,6 @@ void InspectorPageAgent::FrameRequestedNavigation(Frame* target_frame,
                                                   const KURL& url,
                                                   ClientNavigationReason reason,
                                                   NavigationPolicy policy) {
-  // TODO(b:303396822): Support Link Preview
-  if (policy == kNavigationPolicyLinkPreview) {
-    return;
-  }
-
   GetFrontend()->frameRequestedNavigation(
       IdentifiersFactory::FrameId(target_frame),
       ClientNavigationReasonToProtocol(reason), url.GetString(),
@@ -1407,7 +1400,7 @@ std::unique_ptr<protocol::Page::OriginTrialToken> CreateOriginTrialToken(
       .setIsThirdParty(blink_trial_token.is_third_party())
       .setMatchSubDomains(blink_trial_token.match_subdomains())
       .setExpiryTime(blink_trial_token.expiry_time().InSecondsFSinceUnixEpoch())
-      .setTrialName(blink_trial_token.feature_name().c_str())
+      .setTrialName(String(blink_trial_token.feature_name()))
       .setUsageRestriction(CreateOriginTrialUsageRestriction(
           blink_trial_token.usage_restriction()))
       .build();
@@ -1660,7 +1653,8 @@ protocol::Response InspectorPageAgent::getLayoutMetrics(
       DocumentUpdateReason::kInspector);
 
   gfx::Rect visible_contents =
-      main_frame->View()->LayoutViewport()->VisibleContentRect();
+      main_frame->View()->LayoutViewport()->VisibleContentRect(
+          kExcludeScrollbars);
   *out_layout_viewport = protocol::Page::LayoutViewport::create()
                              .setPageX(visible_contents.x())
                              .setPageY(visible_contents.y())

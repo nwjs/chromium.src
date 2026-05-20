@@ -158,7 +158,7 @@ TEST_F(RulesetConverterTest, MultipleOutputs) {
   TestRulesetContents expected_url_output;
   expected_url_output.url_rules = test_content_.url_rules;
   TestRulesetContents expected_css_output;
-  expected_url_output.css_rules = test_content_.css_rules;
+  expected_url_output.style_rules = test_content_.style_rules;
 
   EXPECT_EQ(expected_url_output, output_url.ReadContents());
   EXPECT_EQ(expected_css_output, output_css.ReadContents());
@@ -206,7 +206,7 @@ TEST_F(RulesetConverterTest, CssOutput) {
   TestRulesetContents expected_url_output;
 
   TestRulesetContents expected_css_output;
-  expected_css_output.css_rules = test_content_.css_rules;
+  expected_css_output.style_rules = test_content_.style_rules;
 
   EXPECT_EQ(expected_url_output, output_url.ReadContents());
   EXPECT_EQ(expected_css_output, output_css.ReadContents());
@@ -294,16 +294,7 @@ TEST_F(RulesetConverterTest, FormatConversions) {
 
       TestRulesetContents input_contents = input_file.ReadContents();
       TestRulesetContents output_contents = output_file.ReadContents();
-      TestRulesetContents expected_output;
-
-      // Unindexed format strips CSS rules.
-      if (output_format == "unindexed-ruleset" &&
-          input_format != output_format) {
-        expected_output.url_rules = input_contents.url_rules;
-      } else {
-        expected_output = input_contents;
-      }
-      EXPECT_EQ(expected_output, output_contents);
+      EXPECT_EQ(input_contents, output_contents);
     }
   }
 }

@@ -34,7 +34,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
 import static org.chromium.chrome.browser.customtabs.CustomTabsTestUtils.createTestBitmap;
 import static org.chromium.chrome.test.util.ChromeTabUtils.getTabCountOnUiThread;
 import static org.chromium.components.content_settings.PrefNames.COOKIE_CONTROLS_MODE;
@@ -130,6 +129,7 @@ import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UserActionTester;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.LaunchIntentDispatcher;
@@ -179,7 +179,6 @@ import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.OverrideContextWrapperTestRule;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.CctTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
@@ -228,7 +227,7 @@ import java.util.function.Consumer;
 @DoNotBatch(
         reason =
                 "Some tests are Testing CCT start up behavior. "
-                        + "Unit test conversion tracked in crbug.com/1217031")
+                        + "Unit test conversion tracked in crbug.com/40185034")
 @Features.DisableFeatures({ChromeFeatureList.EDGE_TO_EDGE_EVERYWHERE})
 public class CustomTabActivityTest {
     private static final int TIMEOUT_PAGE_LOAD_SECONDS = 10;
@@ -998,7 +997,7 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @DisabledTest(message = "https://crbug.com/1308065")
+    @DisabledTest(message = "https://crbug.com/40828831")
     public void testLoadNewUrlWithSession() throws Exception {
         final Context context = ApplicationProvider.getApplicationContext();
         final Intent intent =
@@ -1546,11 +1545,11 @@ public class CustomTabActivityTest {
      * <p>About the restrictions and switches: No FRE and no document mode to get a
      * ChromeTabbedActivity, and no tablets to have the tab switcher button.
      *
-     * <p>Non-regression test for crbug.com/547121. @SmallTest Disabled for flake:
-     * https://crbug.com/692025.
+     * <p>Non-regression test for crbug.com/40441671. @SmallTest Disabled for flake:
+     * https://crbug.com/41301759.
      */
     @Test
-    @DisabledTest(message = "crbug.com/692025")
+    @DisabledTest(message = "crbug.com/41301759")
     @Restriction(DeviceFormFactor.PHONE)
     @CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
     public void testWarmupAndLaunchRegularChrome() throws Exception {
@@ -1577,7 +1576,7 @@ public class CustomTabActivityTest {
     /**
      * Tests that launching a Custom Tab after warmup() gives the right layout.
      *
-     * <p>Non-regression test for crbug.com/547121.
+     * <p>Non-regression test for crbug.com/40441671.
      */
     @Test
     @SmallTest
@@ -1601,7 +1600,6 @@ public class CustomTabActivityTest {
      */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testHiddenTabAndChangingFragmentIgnoreFragments() throws Exception {
         startHiddenTabAndChangeFragment(true, true);
     }
@@ -1609,7 +1607,6 @@ public class CustomTabActivityTest {
     /** Same as above, but the hidden tab matching should not ignore the fragment. */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testHiddenTabAndChangingFragmentDontIgnoreFragments() throws Exception {
         startHiddenTabAndChangeFragment(false, true);
     }
@@ -1617,8 +1614,7 @@ public class CustomTabActivityTest {
     /** Same as above, hidden tab matching ignores the fragment, don't wait. */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
-    @DisabledTest(message = "https://crbug.com/1148544")
+    @DisabledTest(message = "https://crbug.com/40731347")
     public void testHiddenTabAndChangingFragmentDontWait() throws Exception {
         startHiddenTabAndChangeFragment(true, false);
     }
@@ -1626,7 +1622,6 @@ public class CustomTabActivityTest {
     /** Same as above, hidden tab matching doesn't ignore the fragment, don't wait. */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testHiddenTabAndChangingFragmentDontWaitDrop() throws Exception {
         startHiddenTabAndChangeFragment(false, false);
     }
@@ -1739,7 +1734,6 @@ public class CustomTabActivityTest {
      */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testHiddenTabCorrectUrl() throws Exception {
         Context context = getInstrumentation().getTargetContext().getApplicationContext();
         final CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();
@@ -1760,7 +1754,6 @@ public class CustomTabActivityTest {
     /** Test that hidden tab speculation is not performed if 3rd party cookies are blocked. */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
     public void testHiddenTabThirdPartyCookiesBlocked() throws Exception {
         final CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();
@@ -1787,7 +1780,6 @@ public class CustomTabActivityTest {
     /** Test whether invalid urls are avoided for hidden tab. */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testHiddenTabInvalidUrl() throws Exception {
         final CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();
         CustomTabsSessionToken token = CustomTabsSessionToken.createMockSessionTokenForTesting();
@@ -1803,7 +1795,6 @@ public class CustomTabActivityTest {
      */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testAllocateChildConnectionWithWarmup() throws Exception {
         Context context = getInstrumentation().getTargetContext().getApplicationContext();
         final CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();
@@ -1821,7 +1812,6 @@ public class CustomTabActivityTest {
     /** Tests that the activity knows there is no child process. */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testAllocateChildConnectionNoWarmup() {
         Context context = getInstrumentation().getTargetContext().getApplicationContext();
         final CustomTabsConnection connection = CustomTabsConnection.getInstance();
@@ -1840,7 +1830,6 @@ public class CustomTabActivityTest {
     /** Tests that the activity knows there is already a child process with a hidden tab. */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testAllocateChildConnectionWithHiddenTab() throws Exception {
         Context context = getInstrumentation().getTargetContext().getApplicationContext();
         final CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();
@@ -1860,7 +1849,6 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testRecreateSpareRendererOnTabClose() throws Exception {
         Context context = getInstrumentation().getTargetContext().getApplicationContext();
         CustomTabsTestUtils.warmUpAndWait();
@@ -1889,7 +1877,6 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testInteractionRecordedOnClose() throws Exception {
         Context context = getInstrumentation().getTargetContext().getApplicationContext();
         mCustomTabActivityTestRule.startCustomTabActivityWithIntent(
@@ -1922,7 +1909,6 @@ public class CustomTabActivityTest {
      */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testHiddenTabWithReferrer() throws Exception {
         String referrer = "android-app://com.foo.me/";
         maybeSpeculateAndLaunchWithReferrers(
@@ -1942,7 +1928,6 @@ public class CustomTabActivityTest {
      */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testHiddenTabWithMismatchedReferrers() throws Exception {
         String prerenderReferrer = "android-app://com.foo.me/";
         String launchReferrer = "android-app://com.foo.me.i.changed.my.mind/";
@@ -1960,7 +1945,6 @@ public class CustomTabActivityTest {
     /** Tests that a client can set a referrer, without speculating. */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testClientCanSetReferrer() throws Exception {
         String referrerUrl = "android-app://com.foo.me/";
         maybeSpeculateAndLaunchWithReferrers(mTestPage, false, null, referrerUrl);
@@ -1972,7 +1956,7 @@ public class CustomTabActivityTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "see crbug.com/1361534")
+    @DisabledTest(message = "see crbug.com/40863747")
     public void testLaunchIncognitoURL() throws Exception {
         Intent intent = createMinimalCustomTabIntent();
         mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
@@ -2090,21 +2074,19 @@ public class CustomTabActivityTest {
      */
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testHistoryAfterHiddenTabHit() throws Exception {
         verifyHistoryAfterHiddenTab(true);
     }
 
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testHistoryAfterHiddenTabMiss() throws Exception {
         verifyHistoryAfterHiddenTab(false);
     }
 
     @Test
     @SmallTest
-    @DisabledTest(message = "https://crbug.com/1148544")
+    @DisabledTest(message = "https://crbug.com/40731347")
     public void closeButton_navigatesToLandingPage() throws TimeoutException {
         Context context = getInstrumentation().getTargetContext().getApplicationContext();
         Intent intent =
@@ -2663,7 +2645,7 @@ public class CustomTabActivityTest {
 
                         // Check if the callback name is either the Bottom Bar Scroll, or Page Load
                         // Metrics.
-                        // See https://crbug.com/963538 for why it might be either.
+                        // See https://crbug.com/41459067 for why it might be either.
                         if (!CustomTabsConnection.BOTTOM_BAR_SCROLL_STATE_CALLBACK.equals(
                                 callbackName)) {
                             assertEquals(
@@ -3063,6 +3045,7 @@ public class CustomTabActivityTest {
         var connection = Mockito.spy(CustomTabsConnection.getInstance());
         // Permit Omnibox for any upcoming intent(s).
         doReturn(true).when(connection).shouldEnableOmniboxForIntent(any());
+        @SuppressWarnings("unchecked") // mock() of generic Consumer type.
         Consumer<Tab> mockConsumer = Mockito.mock(Consumer.class);
         // Provide an alternate tap handler on any upcoming intent(s).
         doReturn(mockConsumer).when(connection).getAlternateOmniboxTapHandler(any());

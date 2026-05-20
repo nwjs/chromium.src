@@ -324,23 +324,6 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.isolated_script_test(
-    name = "blink_web_tests_dt_tab_target",
-    mixins = [
-        "has_native_resultdb_integration",
-        "blink_tests_write_run_histories",
-    ],
-    args = [
-        "--flag-specific=devtools-tab-target",
-        # layout test failures are retried 3 times when '--test-list' is not
-        # passed, but 0 times when '--test-list' is passed. We want to always
-        # retry 3 times, so we explicitly specify it.
-        "--num-retries=3",
-        "http/tests/devtools",
-    ],
-    binary = "blink_web_tests",
-)
-
-targets.tests.isolated_script_test(
     name = "blink_wpt_tests",
     mixins = [
         "has_native_resultdb_integration",
@@ -594,6 +577,10 @@ targets.tests.isolated_script_test(
 targets.tests.gtest_test(
     name = "chrome_public_apk_profile_tests",
     binary = "chrome_public_apk_baseline_profile_generator",
+)
+
+targets.tests.gtest_test(
+    name = "chrome_public_bundle_smoke_test",
 )
 
 targets.tests.gtest_test(
@@ -1172,18 +1159,6 @@ targets.tests.gpu_telemetry_test(
         "gpu_integration_test_common_args",
     ],
     module_scheme = "flat",
-)
-
-targets.tests.gtest_test(
-    name = "extensions_browsertests",
-)
-
-targets.tests.gtest_test(
-    name = "extensions_browsertests_network_sandbox",
-    args = [
-        "--enable-features=NetworkServiceSandbox",
-    ],
-    binary = "extensions_browsertests",
 )
 
 targets.tests.gtest_test(
@@ -2093,6 +2068,10 @@ targets.tests.gtest_test(
     name = "pdf_unittests",
 )
 
+targets.tests.isolated_script_test(
+    name = "perfetto_diff_tests",
+)
+
 targets.tests.gtest_test(
     name = "perfetto_unittests",
 )
@@ -2651,10 +2630,6 @@ targets.tests.gpu_telemetry_test(
         "has_native_resultdb_integration",
     ],
     module_scheme = "flat",
-)
-
-targets.tests.gtest_test(
-    name = "trichrome_chrome_bundle_smoke_test",
 )
 
 targets.tests.gtest_test(
@@ -3435,7 +3410,7 @@ targets.tests.gpu_telemetry_test(
 )
 
 targets.tests.script_test(
-    name = "webkit_lint",
+    name = "blink_lint",
     script = "blink_lint_expectations.py",
     module_scheme = "single",
 )

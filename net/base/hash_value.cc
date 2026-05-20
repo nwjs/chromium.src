@@ -16,7 +16,7 @@
 #include "base/notreached.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
-#include "crypto/sha2.h"
+#include "crypto/hash.h"
 
 namespace net {
 
@@ -26,31 +26,30 @@ constexpr std::string_view kSha256Slash = "sha256/";
 
 }  // namespace
 
-
-HashValue::HashValue(const SHA256HashValue& hash)
-    : HashValue(HASH_VALUE_SHA256) {
+HashValue::HashValue(const SHA256HashValue& hash) : tag_(HASH_VALUE_SHA256) {
   fingerprint.sha256 = hash;
 }
 
-HashValue::HashValue(base::span<const uint8_t> hash)
-    : HashValue(HASH_VALUE_SHA256) {
+HashValue::HashValue(HashValueTag tag, base::span<const uint8_t> hash)
+    : tag_(tag) {
+  CHECK_EQ(tag_, HASH_VALUE_SHA256);
   base::span(fingerprint.sha256).copy_from(hash);
 }
 
-bool HashValue::FromString(std::string_view value) {
+// static
+std::optional<HashValue> HashValue::FromString(std::string_view value) {
   if (!value.starts_with(kSha256Slash)) {
-    return false;
+    return std::nullopt;
   }
 
   std::string_view base64_str = value.substr(kSha256Slash.size());
 
   auto decoded = base::Base64Decode(base64_str);
-  if (!decoded || decoded->size() != span().size()) {
-    return false;
+  if (!decoded || decoded->size() != crypto::hash::kSha256Size) {
+    return std::nullopt;
   }
-  tag_ = HASH_VALUE_SHA256;
-  span().copy_from(*decoded);
-  return true;
+
+  return HashValue(HASH_VALUE_SHA256, *decoded);
 }
 
 std::string HashValue::ToString() const {
@@ -63,14 +62,7 @@ std::string HashValue::ToString() const {
   NOTREACHED();
 }
 
-base::span<uint8_t> HashValue::span() {
-  switch (tag_) {
-    case HASH_VALUE_SHA256:
-      return fingerprint.sha256;
-  }
 
-  NOTREACHED();
-}
 
 base::span<const uint8_t> HashValue::span() const {
   switch (tag_) {

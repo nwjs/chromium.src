@@ -49,15 +49,13 @@ class TrustTokenRequestIssuanceHelper : public TrustTokenRequestHelper {
    public:
     virtual ~Cryptographer() = default;
 
-    // Initializes the delegate. |issuer_configured_version| and
-    // |issuer_configured_batch_size| must be the "protocol_version" and
-    // "batchsize" values from an issuer-provided key commitment result.
+    // Initializes the delegate.
+    // |issuer_configured_batch_size| must be
+    // "batchsize" value from an issuer-provided key commitment result.
     //
     // Returns true on success and false if the batch size is unacceptable or an
     // internal error occurred in the underlying cryptographic library.
-    virtual bool Initialize(
-        mojom::TrustTokenProtocolVersion issuer_configured_version,
-        int issuer_configured_batch_size) = 0;
+    virtual bool Initialize(int issuer_configured_batch_size) = 0;
 
     // Stores a Trust Tokens issuance verification key for subsequent use
     // verifying signed tokens in |ConfirmIssuance|. May be called multiple
@@ -127,8 +125,6 @@ class TrustTokenRequestIssuanceHelper : public TrustTokenRequestHelper {
       SuitableTrustTokenOrigin top_level_origin,
       TrustTokenStore* token_store,
       const TrustTokenKeyCommitmentGetter* key_commitment_getter,
-      std::optional<std::string> custom_key_commitment,
-      std::optional<url::Origin> custom_issuer,
       std::unique_ptr<Cryptographer> cryptographer,
       net::NetLogWithSource net_log = net::NetLogWithSource());
   ~TrustTokenRequestIssuanceHelper() override;
@@ -234,8 +230,6 @@ class TrustTokenRequestIssuanceHelper : public TrustTokenRequestHelper {
   const SuitableTrustTokenOrigin top_level_origin_;
   const raw_ptr<TrustTokenStore> token_store_;
   const raw_ptr<const TrustTokenKeyCommitmentGetter> key_commitment_getter_;
-  const std::optional<std::string> custom_key_commitment_;
-  const std::optional<url::Origin> custom_issuer_;
 
   mojom::TrustTokenProtocolVersion protocol_version_;
 

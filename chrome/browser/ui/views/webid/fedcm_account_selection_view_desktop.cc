@@ -16,7 +16,9 @@
 #include "chrome/browser/actor/actor_util.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/page_actions/page_action_controller.h"
 #include "chrome/browser/ui/tabs/inactive_window_mouse_event_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_dialog_manager.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
@@ -24,7 +26,6 @@
 #include "chrome/browser/ui/views/extensions/security_dialog_tracker.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
-#include "chrome/browser/ui/views/page_action/page_action_controller.h"
 #include "chrome/browser/ui/views/webid/account_selection_bubble_view.h"
 #include "chrome/browser/ui/views/webid/account_selection_modal_view.h"
 #include "chrome/browser/ui/views/webid/account_selection_view_base.h"
@@ -533,11 +534,11 @@ bool FedCmAccountSelectionView::ShowLoadingDialog(
   return true;
 }
 
-void FedCmAccountSelectionView::SetCanShowWidget(bool can_show_widget) {
-  if (can_show_widget == can_show_widget_) {
+void FedCmAccountSelectionView::SetCanShowUi(bool can_show_ui) {
+  if (can_show_ui == can_show_ui_) {
     return;
   }
-  can_show_widget_ = can_show_widget;
+  can_show_ui_ = can_show_ui;
   UpdateDialogVisibilityAndPosition();
 }
 
@@ -598,8 +599,10 @@ bool FedCmAccountSelectionView::ShowVerifyingDialog(
 }
 
 void FedCmAccountSelectionView::ShowUrl(LinkType link_type, const GURL& url) {
-  Browser* browser = chrome::FindBrowserWithTab(delegate_->GetWebContents());
-  TabStripModel* tab_strip_model = browser->tab_strip_model();
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          delegate_->GetWebContents());
+  TabStripModel* tab_strip_model = browser->GetTabStripModel();
 
   DCHECK(tab_strip_model);
   // Add a tab for the URL at the end of the tab strip, in the foreground.
@@ -1032,7 +1035,7 @@ bool FedCmAccountSelectionView::NotifyDelegateOfAccountSelection(
                                    account.browser_trusted_login_state));
 
   // AccountSelectionView::Delegate::OnAccountSelected() might delete this.
-  // See https://crbug.com/1393650 for details.
+  // See https://crbug.com/40248291 for details.
   return static_cast<bool>(weak_ptr);
 }
 
@@ -1433,7 +1436,7 @@ gfx::Rect FedCmAccountSelectionView::GetDialogBounds() {
 }
 
 void FedCmAccountSelectionView::ShouldShowDialog(bool& should_show) {
-  if (!can_show_widget_) {
+  if (!can_show_ui_) {
     should_show = false;
     return;
   }

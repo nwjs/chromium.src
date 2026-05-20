@@ -65,7 +65,6 @@ static_library("browser") {
     "//components/pref_registry",
     "//components/prefs",
     "//components/privacy_sandbox:features",
-    "//components/tpcd/metadata/browser",
     "//components/url_formatter",
     "//extensions/buildflags",
     "//net",
@@ -116,7 +115,6 @@ source_set("cookie_settings") {
     "//components/pref_registry",
     "//components/prefs",
     "//components/privacy_sandbox:features",
-    "//components/tpcd/metadata/browser",
     "//extensions/buildflags",
     "//net",
     "//url",
@@ -126,6 +124,7 @@ source_set("cookie_settings") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "content_settings_pref_provider_unittest.cc",
     "content_settings_pref_unittest.cc",
     "content_settings_registry_unittest.cc",
     "content_settings_rule_unittest.cc",
@@ -151,7 +150,6 @@ source_set("unit_tests") {
     "//components/privacy_sandbox:features",
     "//components/privacy_sandbox:privacy_sandbox_prefs",
     "//components/sync_preferences:test_support",
-    "//components/tpcd/metadata/browser",
     "//extensions/buildflags",
     "//net",
     "//testing/gmock",

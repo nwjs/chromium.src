@@ -55,13 +55,15 @@ std::unique_ptr<syncer::EntityData> CreateSyncEntityData(
   return CreateSyncEntityDataFromSpecifics(app.sync_data());
 }
 
-webapps::AppId ManifestIdStrToAppId(const std::string& manifest_id) {
-  GURL manifest_id_gurl(manifest_id);
-  if (!manifest_id_gurl.is_valid()) {
-    LOG(ERROR) << "Invalid manifest_id: " << manifest_id;
+webapps::AppId ManifestIdStrToAppId(const std::string& manifest_id_str) {
+  GURL manifest_id_gurl(manifest_id_str);
+  std::optional<webapps::ManifestId> manifest_id =
+      webapps::ManifestId::Create(manifest_id_gurl);
+  if (!manifest_id.has_value()) {
+    LOG(ERROR) << "Invalid manifest_id: " << manifest_id_str;
     return "";
   }
-  return GenerateAppIdFromManifestId(manifest_id_gurl.GetWithoutRef());
+  return GenerateAppIdFromManifestId(*manifest_id);
 }
 
 namespace {
@@ -215,11 +217,6 @@ void WebApkSyncBridge::OnDatabaseOpened(
   for (auto& task : init_done_callback_) {
     std::move(task).Run(/* initialized= */ true);
   }
-}
-
-std::unique_ptr<syncer::MetadataChangeList>
-WebApkSyncBridge::CreateMetadataChangeList() {
-  return syncer::DataTypeStore::WriteBatch::CreateMetadataChangeList();
 }
 
 bool WebApkSyncBridge::AppWasUsedRecently(
@@ -525,7 +522,8 @@ bool WebApkSyncBridge::IsEntityDataValid(
 
 void WebApkSyncBridge::ApplyDisableSyncChanges(
     std::unique_ptr<syncer::MetadataChangeList> delete_metadata_change_list) {
-  database_.DeleteAllDataAndMetadata(base::DoNothing());
+  database_.DeleteAllDataAndMetadata(std::move(delete_metadata_change_list),
+                                     base::DoNothing());
 
   registry_.clear();
 }

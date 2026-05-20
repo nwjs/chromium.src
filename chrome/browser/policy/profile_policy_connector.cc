@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <utility>
 
 #include "base/check.h"
@@ -74,7 +75,6 @@
 #else
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck crbug.com/40147906
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -183,10 +183,19 @@ class LocalTestInfoBarVisibilityManager :
   }
 
 #if BUILDFLAG(IS_ANDROID)
+  // TabModelObserver
   void DidAddTab(TabAndroid* tab, TabModel::TabLaunchType type) override {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-    if (tab) {
-      AddInfobarForActiveLocalTestPolicies(tab->web_contents());
+    if (tab && tab->web_contents()) {
+      EnsureInfobarForActiveLocalTestPolicies(tab->web_contents());
+    }
+  }
+
+  // TabModelObserver
+  void DidSelectTab(TabAndroid* tab, TabModel::TabSelectionType type) override {
+    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    if (tab && tab->web_contents()) {
+      EnsureInfobarForActiveLocalTestPolicies(tab->web_contents());
     }
   }
 #else
@@ -214,7 +223,7 @@ class LocalTestInfoBarVisibilityManager :
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
     if (change.type() == TabStripModelChange::kInserted) {
       for (const auto& contents : change.GetInsert()->contents) {
-        AddInfobarForActiveLocalTestPolicies(contents.contents);
+        EnsureInfobarForActiveLocalTestPolicies(contents.contents);
       }
     } else if (change.type() == TabStripModelChange::kRemoved &&
                tab_strip_model->empty()) {
@@ -229,8 +238,8 @@ class LocalTestInfoBarVisibilityManager :
     for (TabModel* model : TabModelList::models()) {
       for (int index = 0; index < model->GetTabCount(); ++index) {
         TabAndroid* tab = model->GetTabAt(index);
-        if (tab) {
-          AddInfobarForActiveLocalTestPolicies(tab->web_contents());
+        if (tab && tab->web_contents()) {
+          EnsureInfobarForActiveLocalTestPolicies(tab->web_contents());
         }
       }
       model->AddObserver(this);
@@ -244,7 +253,7 @@ class LocalTestInfoBarVisibilityManager :
 
           TabStripModel* const tab_strip_model = browser->GetTabStripModel();
           for (int i = 0; i < tab_strip_model->count(); i++) {
-            AddInfobarForActiveLocalTestPolicies(
+            EnsureInfobarForActiveLocalTestPolicies(
                 tab_strip_model->GetWebContentsAt(i));
           }
           return true;
@@ -255,11 +264,19 @@ class LocalTestInfoBarVisibilityManager :
     infobar_active_ = true;
   }
 
-  void AddInfobarForActiveLocalTestPolicies(
+  void EnsureInfobarForActiveLocalTestPolicies(
       content::WebContents* web_contents) {
     infobars::ContentInfoBarManager::CreateForWebContents(web_contents);
+    auto* infobar_manager =
+        infobars::ContentInfoBarManager::FromWebContents(web_contents);
+    if (std::ranges::contains(
+        infobar_manager->infobars(),
+        infobars::InfoBarDelegate::LOCAL_TEST_POLICIES_APPLIED_INFOBAR,
+        &infobars::InfoBar::GetIdentifier)) {
+      return;
+    }
     CreateSimpleAlertInfoBar(
-        infobars::ContentInfoBarManager::FromWebContents(web_contents),
+        infobar_manager,
         infobars::InfoBarDelegate::LOCAL_TEST_POLICIES_APPLIED_INFOBAR, nullptr,
         l10n_util::GetStringUTF16(IDS_LOCAL_TEST_POLICIES_ENABLED),
         /*auto_expire=*/false, /*should_animate=*/false, /*closeable=*/false,

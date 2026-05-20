@@ -45,20 +45,20 @@ void GlicFocusedBrowserManagerImpl::SetTestingModeForTesting(
 }
 
 GlicFocusedBrowserManagerImpl::GlicFocusedBrowserManagerImpl(
-    GlicInstance::UiDelegate* window_controller,
+    GlicInstance* glic_instance,
     Profile* profile)
-    : window_controller_(*window_controller), profile_(profile) {}
+    : glic_instance_(*glic_instance), profile_(profile) {}
 
 GlicFocusedBrowserManagerImpl::~GlicFocusedBrowserManagerImpl() {
   browser_subscriptions_.clear();
   widget_observation_.Reset();
-  window_controller_->RemoveStateObserver(this);
+  glic_instance_->RemoveStateObserver(this);
 }
 
 void GlicFocusedBrowserManagerImpl::Initialize() {
   browser_collection_observation_.Observe(
       GlobalBrowserCollection::GetInstance());
-  window_controller_->AddStateObserver(this);
+  glic_instance_->AddStateObserver(this);
   GlobalBrowserCollection::GetInstance()->ForEach(
       [this](BrowserWindowInterface* browser) {
         OnBrowserCreated(browser);
@@ -175,8 +175,7 @@ void GlicFocusedBrowserManagerImpl::OnWidgetDestroyed(views::Widget* widget) {
 }
 
 void GlicFocusedBrowserManagerImpl::PanelStateChanged(
-    const mojom::PanelState&,
-    const GlicInstanceCoordinator::PanelStateContext& context) {
+    const mojom::PanelState& panel_state) {
   MaybeUpdateFocusedBrowser();
 }
 
@@ -257,9 +256,8 @@ BrowserWindowInterface* GlicFocusedBrowserManagerImpl::ComputeActiveBrowser() {
     VLOG(1) << "ActiveBrowserCalc: No active browser";
     return nullptr;
   }
-  if (!(window_controller_->IsActive() &&
-        window_controller_->GetPanelState().kind ==
-            mojom::PanelStateKind::kDetached) &&
+  if (!(glic_instance_->IsActive() && glic_instance_->GetPanelState().kind ==
+                                          mojom::PanelStateKind::kDetached) &&
       !bwi->IsActive()) {
     VLOG(1) << "ActiveBrowserCalc: !IsActive()";
     return nullptr;

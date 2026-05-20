@@ -76,12 +76,6 @@ CSSDefaultStyleSheets& CSSDefaultStyleSheets::Instance() {
   return *css_default_style_sheets;
 }
 
-static const MediaQueryEvaluator& PrintEval() {
-  DEFINE_STATIC_LOCAL(const Persistent<MediaQueryEvaluator>, static_print_eval,
-                      (MakeGarbageCollected<MediaQueryEvaluator>("print")));
-  return *static_print_eval;
-}
-
 static const MediaQueryEvaluator& ForcedColorsEval() {
   // We use "ua-forced-colors" here instead of "forced-colors" to indicate that
   // this is a UA hack for the "forced-colors" media query.
@@ -134,6 +128,37 @@ CSSDefaultStyleSheets::CSSDefaultStyleSheets()
 
 void CSSDefaultStyleSheets::PrepareForLeakDetection() {
   Reset();
+}
+
+void CSSDefaultStyleSheets::ResetTextTrackStyleSheet() {
+  if (!text_track_style_sheet_) {
+    return;
+  }
+
+  text_track_style_sheet_.Clear();
+
+  // Recreate the default_media_controls_style_, and
+  // default_forced_colors_media_controls_style_ RuleSets to remove the old
+  // text track cue rule.
+  default_media_controls_style_ = MakeGarbageCollected<RuleSet>();
+  if (media_controls_style_sheet_) {
+    default_media_controls_style_->AddRulesFromSheet(
+        media_controls_style_sheet_, ScreenEval(), /*mixins=*/{});
+  }
+  default_media_controls_style_->CompactRulesIfNeeded();
+
+  if (default_forced_colors_media_controls_style_) {
+    default_forced_colors_media_controls_style_ =
+        MakeGarbageCollected<RuleSet>();
+    if (media_controls_style_sheet_) {
+      default_forced_colors_media_controls_style_->AddRulesFromSheet(
+          media_controls_style_sheet_, ForcedColorsEval(), /*mixins=*/{});
+    }
+    default_forced_colors_media_controls_style_->CompactRulesIfNeeded();
+  }
+
+  VerifyUniversalRuleCount();
+  rule_set_group_cache_.clear();
 }
 
 void CSSDefaultStyleSheets::Reset() {
@@ -231,7 +256,6 @@ void CSSDefaultStyleSheets::InitializeDefaultStyles() {
   default_mathml_style_ = MakeGarbageCollected<RuleSet>();
   default_svg_style_ = MakeGarbageCollected<RuleSet>();
   default_html_quirks_style_ = MakeGarbageCollected<RuleSet>();
-  default_print_style_ = MakeGarbageCollected<RuleSet>();
   default_media_controls_style_ = MakeGarbageCollected<RuleSet>();
   default_fullscreen_style_ = MakeGarbageCollected<RuleSet>();
   default_forced_color_style_.Clear();
@@ -242,12 +266,9 @@ void CSSDefaultStyleSheets::InitializeDefaultStyles() {
                                          /*mixins=*/{});
   default_html_quirks_style_->AddRulesFromSheet(QuirksStyleSheet(),
                                                 ScreenEval(), /*mixins=*/{});
-  default_print_style_->AddRulesFromSheet(DefaultStyleSheet(), PrintEval(),
-                                          /*mixins=*/{});
 
   default_html_style_->CompactRulesIfNeeded();
   default_html_quirks_style_->CompactRulesIfNeeded();
-  default_print_style_->CompactRulesIfNeeded();
 
   CHECK(default_html_style_->ViewTransitionRules().empty())
       << "@view-transition is not implemented for the UA stylesheet.";
@@ -312,9 +333,7 @@ void CSSDefaultStyleSheets::AddRulesToDefaultStyleSheets(
       default_media_controls_style_->CompactRulesIfNeeded();
       break;
   }
-  // Add to print and forced color for all namespaces.
-  default_print_style_->AddRulesFromSheet(rules, PrintEval(), /*mixins=*/{});
-  default_print_style_->CompactRulesIfNeeded();
+  // Add to forced color for all namespaces.
   if (default_forced_color_style_) {
     switch (type) {
       case NamespaceType::kMediaControls:
@@ -671,7 +690,6 @@ void CSSDefaultStyleSheets::Trace(Visitor* visitor) const {
   visitor->Trace(default_mathml_style_);
   visitor->Trace(default_svg_style_);
   visitor->Trace(default_html_quirks_style_);
-  visitor->Trace(default_print_style_);
   visitor->Trace(default_view_source_style_);
   visitor->Trace(default_forced_color_style_);
   visitor->Trace(default_pseudo_element_style_);

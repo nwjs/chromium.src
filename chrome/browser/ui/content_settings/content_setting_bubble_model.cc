@@ -801,21 +801,20 @@ void ContentSettingSingleRadioGroup::SetNarrowestContentSetting(
 ContentSettingStorageAccessBubbleModel::ContentSettingStorageAccessBubbleModel(
     Delegate* delegate,
     WebContents* web_contents)
-    : ContentSettingBubbleModel(delegate, web_contents) {
+    : ContentSettingBubbleModel(delegate, web_contents),
+      page_url_(web_contents->GetURL()) {
   RecordActionHistogram(ContentSettingsType::STORAGE_ACCESS,
                         ContentSettingBubbleAction::kOpened);
   set_title(l10n_util::GetStringUTF16(IDS_SITE_SETTINGS_TYPE_STORAGE_ACCESS));
 
   // TODO(crbug.com/40064079): Consider to add subtitles to all permissions.
   set_subtitle(url_formatter::FormatUrlForSecurityDisplay(
-      web_contents->GetURL(),
-      url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC));
+      page_url_, url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC));
 
   set_message(l10n_util::GetStringFUTF16(
       IDS_STORAGE_ACCESS_PERMISSION_BUBBLE_MESSAGE,
       url_formatter::FormatUrlForSecurityDisplay(
-          web_contents->GetURL(),
-          url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC)));
+          page_url_, url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC)));
 
   auto* page_content_settings =
       PageSpecificContentSettings::GetForFrame(&GetPage().GetMainDocument());
@@ -838,7 +837,7 @@ void ContentSettingStorageAccessBubbleModel::CommitChanges() {
 
   for (const auto& entry : changed_permissions_) {
     GURL primary = entry.first.GetURL();
-    const GURL& secondary = web_contents()->GetURL();
+    const GURL& secondary = page_url_;
     ContentSetting setting =
         entry.second ? CONTENT_SETTING_ALLOW : CONTENT_SETTING_BLOCK;
     permissions::PermissionUmaUtil::ScopedRevocationReporter
@@ -1277,8 +1276,7 @@ void ContentSettingMediaStreamBubbleModel::SetRadioGroup() {
 
 void ContentSettingMediaStreamBubbleModel::UpdateSettings(
     ContentSetting setting) {
-  PageSpecificContentSettings* page_content_settings =
-      PageSpecificContentSettings::GetForFrame(&GetPage().GetMainDocument());
+  const GURL& url = bubble_content().radio_group.url;
   // The same urls must be used as in other places (e.g. the infobar) in
   // order to override the existing rule. Otherwise a new rule is created.
   // TODO(markusheintz): Extract to a helper so that there is only a single
@@ -1288,24 +1286,20 @@ void ContentSettingMediaStreamBubbleModel::UpdateSettings(
   if (MicrophoneAccessed()) {
     permissions::PermissionUmaUtil::ScopedRevocationReporter
         scoped_revocation_reporter(
-            GetProfile(), page_content_settings->media_stream_access_origin(),
-            GURL(), ContentSettingsType::MEDIASTREAM_MIC,
+            GetProfile(), url, GURL(), ContentSettingsType::MEDIASTREAM_MIC,
             permissions::PermissionSourceUI::PAGE_ACTION);
     map->SetContentSettingDefaultScope(
-        page_content_settings->media_stream_access_origin(), GURL(),
-        ContentSettingsType::MEDIASTREAM_MIC, setting,
+        url, GURL(), ContentSettingsType::MEDIASTREAM_MIC, setting,
         CreateConstraintsForAutoRevocation(ContentSettingsType::MEDIASTREAM_MIC,
                                            setting));
   }
   if (CameraAccessed()) {
     permissions::PermissionUmaUtil::ScopedRevocationReporter
         scoped_revocation_reporter(
-            GetProfile(), page_content_settings->media_stream_access_origin(),
-            GURL(), ContentSettingsType::MEDIASTREAM_CAMERA,
+            GetProfile(), url, GURL(), ContentSettingsType::MEDIASTREAM_CAMERA,
             permissions::PermissionSourceUI::PAGE_ACTION);
     map->SetContentSettingDefaultScope(
-        page_content_settings->media_stream_access_origin(), GURL(),
-        ContentSettingsType::MEDIASTREAM_CAMERA, setting,
+        url, GURL(), ContentSettingsType::MEDIASTREAM_CAMERA, setting,
         CreateConstraintsForAutoRevocation(
             ContentSettingsType::MEDIASTREAM_CAMERA, setting));
   }

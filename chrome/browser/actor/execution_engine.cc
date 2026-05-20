@@ -29,15 +29,11 @@
 #include "base/types/optional_ref.h"
 #include "base/types/pass_key.h"
 #include "chrome/browser/actor/action_tracker_for_metrics.h"
-#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_metrics.h"
 #include "chrome/browser/actor/actor_proto_conversion.h"
 #include "chrome/browser/actor/actor_task.h"
-#include "chrome/browser/actor/actor_util.h"
-#include "chrome/browser/actor/enterprise_policy_url_checker.h"
-#include "chrome/browser/actor/origin_checker.h"
-#include "chrome/browser/actor/safety_list_manager.h"
+#include "chrome/browser/actor/enterprise_policy_checker.h"
 #include "chrome/browser/actor/site_policy.h"
 #include "chrome/browser/actor/tools/attempt_login_tool.h"
 #include "chrome/browser/actor/tools/navigate_tool_request.h"
@@ -55,6 +51,11 @@
 #include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/actor/task_id.h"
 #include "chrome/common/chrome_features.h"
+#include "components/actor/core/actor_features.h"
+#include "components/actor/core/actor_util.h"
+#include "components/actor/core/origin_checker.h"
+#include "components/actor/core/safety_list_manager.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/affiliations/core/browser/affiliation_service.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
@@ -171,7 +172,8 @@ ExecutionEngine::ExecutionEngine(
       actor_login_service_(
           std::make_unique<actor_login::ActorLoginServiceImpl>()),
       actor_form_filling_service_(
-          std::make_unique<autofill::ActorFormFillingServiceImpl>()),
+          std::make_unique<autofill::ActorFormFillingServiceImpl>(journal_,
+                                                                  task_->id())),
       ui_event_dispatcher_(std::move(ui_event_dispatcher)) {
   TRACE_EVENT0("actor", "ExecutionEngine::ExecutionEngine");
 }
@@ -345,11 +347,11 @@ ExecutionEngine::GatingDecision ExecutionEngine::DetermineGatingDecision(
     const GURL& source_url,
     const GURL& destination_url) const {
   switch (task_->policy_checker().Evaluate(destination_url)) {
-    case EnterprisePolicyBlockReason::kNotBlocked:
+    case EnterprisePolicyChecker::UrlBlockReason::kNotBlocked:
       break;
-    case EnterprisePolicyBlockReason::kExplicitlyAllowed:
+    case EnterprisePolicyChecker::UrlBlockReason::kExplicitlyAllowed:
       return GatingDecision::kAllowByStaticList;
-    case EnterprisePolicyBlockReason::kExplicitlyBlocked:
+    case EnterprisePolicyChecker::UrlBlockReason::kExplicitlyBlocked:
       return GatingDecision::kBlockByStaticList;
   }
 
@@ -408,7 +410,7 @@ void ExecutionEngine::OnNavigationSensitiveUrlListChecked(
   // If not sensitive, check if it's an origin the actor has previously
   // interacted with or received instructions from the server to interact with.
   if (not_sensitive &&
-      origin_checker_.IsNavigationAllowed(initiator, destination)) {
+      origin_checker_.IsNavigationAllowed(source, destination)) {
     LogNavigationGating(source, initiator, destination,
                         /*applied_gate=*/false);
     ukm::builders::Actor_OriginGating builder(ukm_source_id);
@@ -649,6 +651,13 @@ void ExecutionEngine::CancelOngoingActions(mojom::ActionResultCode reason) {
   }
 }
 
+void ExecutionEngine::PauseOngoingActions() {
+  TRACE_EVENT0("actor", "ExecutionEngine::PauseOngoingActions");
+  if (tool_controller_) {
+    tool_controller_->Pause();
+  }
+}
+
 void ExecutionEngine::FailCurrentTool(mojom::ActionResultCode reason) {
   TRACE_EVENT0("actor", "ExecutionEngine::FailCurrentTool");
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -741,7 +750,8 @@ void ExecutionEngine::KickOffNextAction() {
           contents->GetLastCommittedURL(), task_->id(),
           "ExecutionEngine::KickOffNextAction",
           JournalDetailsBuilder().AddError("Renderer crashed").Build());
-      task_->AddTab(GetNextAction().GetTabHandle(), base::DoNothing());
+      task_->AddTab(GetNextAction().GetTabHandle(),
+                    /*stop_task_on_detach=*/true, base::DoNothing());
       CompleteActions(MakeResult(mojom::ActionResultCode::kRendererCrashed,
                                  /*requires_page_stabilization=*/false,
                                  "Renderer crashed."),
@@ -888,7 +898,7 @@ void ExecutionEngine::FailedOnTabBeforeToolCreation() {
                     .Add("tabId", tab.raw_value())
                     .AddError("Associating tab for failed action")
                     .Build());
-  task_->AddTab(tab, base::DoNothing());
+  task_->AddTab(tab, /*stop_task_on_detach=*/true, base::DoNothing());
 }
 
 void ExecutionEngine::ExecuteNextAction() {
@@ -1077,6 +1087,11 @@ favicon::FaviconService* ExecutionEngine::GetFaviconService() {
       task_->GetProfile(), ServiceAccessType::EXPLICIT_ACCESS);
 }
 
+const EnterprisePolicyChecker& ExecutionEngine::GetEnterprisePolicyChecker()
+    const {
+  return task_->policy_checker();
+}
+
 void ExecutionEngine::IsAcceptableNavigationDestination(
     const GURL& url,
     DecisionCallbackWithReason callback) {
@@ -1137,10 +1152,7 @@ void ExecutionEngine::SetUserSelectedCredential(
   // Fetch strongly affiliated domains, in order to be able to reuse the
   // permission for sites that do not have the exact same origin but are
   // strongly affiliated.
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::
-              kActorLoginPermissionsUseStrongAffiliations) &&
-      affiliation_service) {
+  if (affiliation_service) {
     affiliation_service->GetAffiliationsAndBranding(
         affiliations::FacetURI::FromPotentiallyInvalidSpec(
             origin.GetURL().GetWithEmptyPath().spec()),
@@ -1184,17 +1196,13 @@ ExecutionEngine::GetUserSelectedCredential(
     return it->second;
   }
 
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::
-              kActorLoginPermissionsUseStrongAffiliations)) {
-    // Check if the current origin is affiliated with a previously encountered
-    // one within the current task.
-    auto aff_it = affiliated_origin_map_.find(request_origin);
-    if (aff_it != affiliated_origin_map_.end()) {
-      auto original_cred_it = user_selected_credentials_.find(aff_it->second);
-      if (original_cred_it != user_selected_credentials_.end()) {
-        return original_cred_it->second;
-      }
+  // Check if the current origin is affiliated with a previously encountered
+  // one within the current task.
+  auto aff_it = affiliated_origin_map_.find(request_origin);
+  if (aff_it != affiliated_origin_map_.end()) {
+    auto original_cred_it = user_selected_credentials_.find(aff_it->second);
+    if (original_cred_it != user_selected_credentials_.end()) {
+      return original_cred_it->second;
     }
   }
 
@@ -1236,6 +1244,21 @@ void ExecutionEngine::EnqueueFollowupAction(
   action->SetAsFollowup(base::PassKey<ExecutionEngine>());
   action_sequence_.insert(action_sequence_.begin() + next_action_index_,
                           std::move(action));
+}
+
+void ExecutionEngine::AddTab(
+    tabs::TabHandle tab_handle,
+    bool stop_task_on_detach,
+    base::OnceCallback<void(mojom::ActionResultPtr)> callback) {
+  task_->AddTab(tab_handle, stop_task_on_detach, std::move(callback));
+}
+
+bool ExecutionEngine::HasTab(tabs::TabHandle tab_handle) {
+  return task_->HasTab(tab_handle);
+}
+
+void ExecutionEngine::RemoveTab(tabs::TabHandle tab_handle) {
+  task_->RemoveTab(tab_handle);
 }
 
 base::WeakPtr<actor_login::ActionSequenceDelegate>

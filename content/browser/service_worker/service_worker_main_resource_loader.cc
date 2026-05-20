@@ -477,22 +477,20 @@ bool ServiceWorkerMainResourceLoader::MaybeStartAutoPreload(
     return false;
   }
 
+  // We should not start AutoPreload for requests initiated by <webview>.
+  // <webview> initiated requests have a dedicated storage partition.
+  if (base::FeatureList::IsEnabled(
+          features::kOptimizeWebRequestProxyForServiceWorkerAutoPreload) &&
+      context->storage_partition()->is_guest()) {
+    return false;
+  }
+
   // If WebRequest API is used in this browser context, do not start AutoPreload
   // because the auto preload request may not be actually consumed and canceled.
   // WebRequest API itercepts it as a failed request, and calls
   // `OnErrorOccurred()`, while that is not actually an error.
-  //
-  // TODO(crbug.com/362539771): `HasWebRequestAPIProxy()` returns true not only
-  // when there is an extension having WebRequest API permission but also when
-  // having other permissions i.e. DeclarativeNetRequest. We should figure out
-  // which permissions could call error handlers if SWAutoPreload is dispatched
-  // but not consumed, and find a way to make this limitation more relaxed to
-  // improve the coverage.
-  if (base::GetFieldTrialParamByFeatureAsBool(
-          features::kServiceWorkerAutoPreload, "has_web_request_api_proxy",
-          /*default_value=*/true) &&
-      (GetContentClient()->browser()->HasWebRequestAPIProxy(
-          context->browser_context()))) {
+  if (GetContentClient()->browser()->HasWebRequestAPIProxy(
+          context->browser_context())) {
     return false;
   }
 
@@ -914,25 +912,21 @@ void ServiceWorkerMainResourceLoader::DidDispatchFetchEvent(
         cache_matcher_->cache_lookup_duration();
 
     // Block invalid responses from the static router.
-    if (response_head_->service_worker_router_info->matched_source_type ==
-        network::mojom::ServiceWorkerRouterSourceType::kCache) {
-      if (service_worker_client_ && service_worker_client_->container_host()) {
-        ServiceWorkerContainerHostForClient* container_host =
-            service_worker_client_->container_host();
-        if (!IsValidStaticRouterResponse(
-                resource_request_, response,
-                container_host->policy_container_policies()
-                    .cross_origin_embedder_policy,
-                container_host->cross_origin_embedder_policy_reporter().get(),
-                container_host->policy_container_policies()
-                    .document_isolation_policy,
-                container_host->document_isolation_policy_reporter().get()) &&
-            base::FeatureList::IsEnabled(
-                features::kServiceWorkerStaticRouterOpaqueCheck)) {
-          CommitCompleted(net::ERR_FAILED,
-                          "Invalid response from static router");
-          return;
-        }
+    if (service_worker_client_ && service_worker_client_->container_host()) {
+      ServiceWorkerContainerHostForClient* container_host =
+          service_worker_client_->container_host();
+      if (!IsValidStaticRouterResponse(
+              resource_request_, response,
+              container_host->policy_container_policies()
+                  .cross_origin_embedder_policy,
+              container_host->cross_origin_embedder_policy_reporter().get(),
+              container_host->policy_container_policies()
+                  .document_isolation_policy,
+              container_host->document_isolation_policy_reporter().get()) &&
+          base::FeatureList::IsEnabled(
+              features::kServiceWorkerStaticRouterOpaqueCheck)) {
+        CommitCompleted(net::ERR_FAILED, "Invalid response from static router");
+        return;
       }
     }
   }
@@ -1270,7 +1264,7 @@ void ServiceWorkerMainResourceLoader::StartResponse(
         fetch_event_timing_->respond_with_settled_time;
   }
 
-  if (resource_request_.request_initiator &&
+  if (resource_request_.request_initiator && response_head_->parsed_headers &&
       (resource_request_.request_initiator->IsSameOriginWith(
            resource_request_.url) ||
        network::TimingAllowOriginCheck(

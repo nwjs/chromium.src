@@ -6,7 +6,7 @@
 
 #include "base/functional/callback.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/record_replay/recording_data_manager.h"
+#include "components/record_replay/core/browser/recording_data_manager.h"
 
 namespace record_replay {
 
@@ -30,7 +30,8 @@ SaveRecordingBubbleControllerImpl::~SaveRecordingBubbleControllerImpl() {
 
 void SaveRecordingBubbleControllerImpl::OnSave(std::u16string_view name) {
   recording_.set_name(base::UTF16ToUTF8(name));
-  recording_data_manager_->AddRecording(std::move(recording_));
+  recording_data_manager_->AddRecording(std::move(recording_),
+                                        base::BindOnce([](int64_t id) {}));
   if (show_toast_callback_) {
     std::move(show_toast_callback_).Run("Recording saved");
   }

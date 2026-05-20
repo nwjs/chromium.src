@@ -15,8 +15,8 @@
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_platform_helper.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
+#include "chrome/browser/ui/page_actions/page_action_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/views/page_action/page_action_controller.h"
 #include "components/find_in_page/find_tab_helper.h"
 #include "components/find_in_page/find_types.h"
 #include "components/tabs/public/tab_interface.h"
@@ -294,7 +294,7 @@ void FindBarController::OnFindResultAvailable(
 
   // Only "final" results may audibly alert the user. Also don't alert when
   // we're only highlighting results (when first opening the find bar).
-  // See https://crbug.com/1131780
+  // See https://crbug.com/40721569
   if (!find_tab_helper->find_result().final_update() ||
       !find_tab_helper->should_find_match()) {
     return;

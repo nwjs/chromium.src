@@ -179,8 +179,10 @@ class KeyboardControllerImplTest : public AshTestBase {
 
   void CreateFocusedTestWindowInRootWindow(aura::Window* root_window) {
     // Owned by |root_window|.
-    aura::Window* focusable_window = CreateTestWindowInShell(
-        {.bounds = root_window->GetBoundsInScreen(), .window_id = 0});
+    aura::Window* focusable_window =
+        CreateTestWindowInShell(
+            {.bounds = root_window->GetBoundsInScreen(), .window_id = 0})
+            .release();
     focusable_window->Focus();
   }
 
@@ -758,7 +760,7 @@ TEST_F(KeyboardControllerImplTest, SwipeUpToShowHotSeat) {
   TabletModeControllerTestApi().EnterTabletMode();
 
   std::unique_ptr<aura::Window> window =
-      CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   keyboard_controller()->SetEnableFlag(KeyboardEnableFlag::kExtensionEnabled);
@@ -784,7 +786,7 @@ TEST_F(KeyboardControllerImplTest, FlingUpToShowOverviewMode) {
   TabletModeControllerTestApi().EnterTabletMode();
 
   std::unique_ptr<aura::Window> window =
-      CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   keyboard_controller()->SetEnableFlag(KeyboardEnableFlag::kExtensionEnabled);
@@ -813,7 +815,7 @@ TEST_F(KeyboardControllerImplTest, FlingUpToShowOverviewMode) {
 
 TEST_F(KeyboardControllerImplTest, SwipeUpDoesntHideKeyboardInClamshellMode) {
   std::unique_ptr<aura::Window> window =
-      CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   keyboard_controller()->SetEnableFlag(KeyboardEnableFlag::kExtensionEnabled);

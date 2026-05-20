@@ -16,6 +16,7 @@ namespace content {
 
 constexpr const char kAccName[]{"accname"};
 constexpr const char kAria[]{"aria"};
+constexpr const char kApgPattern[]{"aria/apg-patterns"};
 constexpr const char kCSS[]{"css"};
 constexpr const char kCrash[]{"crash"};
 constexpr const char kFormControls[]{"form-controls"};
@@ -64,6 +65,7 @@ class DumpAccessibilityTreeTest : public DumpAccessibilityTestBase {
   }
   TEST_TYPE(AccName)
   TEST_TYPE(Aria)
+  TEST_TYPE(ApgPattern)
   TEST_TYPE(CSS)
   TEST_TYPE(Crash)
   TEST_TYPE(Html)
@@ -91,14 +93,6 @@ class DumpAccessibilityTreeTest : public DumpAccessibilityTestBase {
 
   void RunOnScreenTest(const base::FilePath::CharType* file_path) {
     RunTypedTest<kHtml>(file_path, ui::kAXModeOnScreen);
-  }
-
-  // TODO(accessibility): Replace all tests using RunPopoverHintTest to just
-  // RunHtmlTest when `interestfor` is enabled by default.
-  void RunPopoverHintTest(const base::FilePath::CharType* file_path) {
-    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-        switches::kEnableBlinkFeatures, "HTMLInterestForAttribute");
-    RunTypedTest<kHtml>(file_path);
   }
 
  protected:

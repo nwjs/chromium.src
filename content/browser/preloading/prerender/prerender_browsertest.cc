@@ -43,6 +43,7 @@
 #include "components/services/storage/public/mojom/storage_service.mojom.h"
 #include "components/services/storage/public/mojom/test_api.test-mojom.h"
 #include "components/ukm/test_ukm_recorder.h"
+#include "content/browser/back_forward_cache/back_forward_cache_impl.h"
 #include "content/browser/back_forward_cache_test_util.h"
 #include "content/browser/preloading/prefetch/prefetch_features.h"
 #include "content/browser/preloading/prefetch/prefetch_service.h"
@@ -59,7 +60,6 @@
 #include "content/browser/preloading/prerender/prerender_metrics.h"
 #include "content/browser/preloading/prerender/prerender_no_vary_search_hint_commit_deferring_condition.h"
 #include "content/browser/preloading/speculation_rules/speculation_rules_util.h"
-#include "content/browser/renderer_host/back_forward_cache_impl.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/navigation_throttle_runner.h"
@@ -140,6 +140,10 @@
 #include "ui/shell_dialogs/select_file_dialog_factory.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
+
+#if BUILDFLAG(IS_MAC)
+#include "base/mac/mac_util.h"
+#endif
 
 using ::testing::Exactly;
 
@@ -2880,6 +2884,13 @@ IN_PROC_BROWSER_TEST_P(AutoSpeculationRulesPrerenderBrowserTest, Metrics) {
 
 IN_PROC_BROWSER_TEST_P(AutoSpeculationRulesPrerenderBrowserTestWithHoldback,
                        Metrics) {
+#if BUILDFLAG(IS_MAC)
+  // See https://crbug.com/496991016
+  if (base::mac::MacOSMajorVersion() >= 26) {
+    GTEST_SKIP() << "Disabled on macOS Tahoe and later.";
+  }
+#endif
+
   const GURL kInitialUrl = GetInitialUrl();
   const GURL kPrerenderingUrl = GetPrerenderedUrl();
 
@@ -9081,8 +9092,9 @@ IN_PROC_BROWSER_TEST_F(
 // Tests that if PrerenderHostRegistry is attempting to activate a pending
 // prerender host, it will be successfully canceled with the final status of
 // `kActivatedBeforeStarted`.
+// TODO(crbug.com/496452657): This test is flaky.
 IN_PROC_BROWSER_TEST_P(PrerenderBrowserTestFallbackEnabledDisabled,
-                       ActivateBeforePrerenderStarts) {
+                       DISABLED_ActivateBeforePrerenderStarts) {
   net::test_server::ControllableHttpResponse response(embedded_test_server(),
                                                       "/empty.html?prerender1");
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -14002,41 +14014,6 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
   theme_change_waiter.Wait();
 }
 
-// Tests that text autosizer works per page.
-IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
-                       TextAutosizerInfoChangeInNonPrimaryPage) {
-  const GURL kInitialUrl = GetUrl("/empty.html");
-  const GURL kPrerenderingUrl = GetUrl("/title1.html");
-
-  // Navigate to an initial page.
-  ASSERT_TRUE(NavigateToURL(shell(), kInitialUrl));
-  RenderFrameHostImpl* primary_frame_host = current_frame_host();
-
-  PrerenderHostId host_id = AddPrerender(kPrerenderingUrl);
-  RenderFrameHostImpl* prerender_frame_host =
-      GetPrerenderedMainFrameHost(host_id);
-
-  // Update the autosizer page info in the prerendering page.
-  blink::mojom::TextAutosizerPageInfo prerender_page_info(
-      /*main_frame_width=*/320,
-      /*main_frame_layout_width=*/480,
-      /*device_scale_adjustment=*/1.f);
-  prerender_frame_host->TextAutosizerPageInfoChanged(
-      prerender_page_info.Clone());
-
-  // Only the prerendering page's autosizer info should be updated.
-  EXPECT_TRUE(prerender_page_info.Equals(
-      prerender_frame_host->GetPage().text_autosizer_page_info()));
-  EXPECT_FALSE(prerender_page_info.Equals(
-      primary_frame_host->GetPage().text_autosizer_page_info()));
-
-  // After being activated, the prerendered page becomes the primary page, so
-  // the page info of the primary page should equal `prerender_page_info`.
-  NavigatePrimaryPage(kPrerenderingUrl);
-  EXPECT_TRUE(prerender_page_info.Equals(
-      current_frame_host()->GetPage().text_autosizer_page_info()));
-}
-
 // Check that the prerendered page window.name is maintained after activation.
 IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
                        VerifyFrameNameMaintainedAfterActivation) {
@@ -17213,6 +17190,85 @@ IN_PROC_BROWSER_TEST_F(PrerenderProcessReuseBrowserTest,
   EXPECT_NE(new_window_process, prerender_process);
 }
 
+class PrerenderProcessReuseWithoutStrictSiteIsolationBrowserTest
+    : public PrerenderProcessReuseBrowserTest,
+      public ::testing::WithParamInterface<bool> {
+ public:
+  PrerenderProcessReuseWithoutStrictSiteIsolationBrowserTest() {
+    if (PreferWarmProcess()) {
+      feature_list_.InitAndEnableFeature(features::kPreferWarmRendererProcess);
+    } else {
+      feature_list_.InitAndDisableFeature(features::kPreferWarmRendererProcess);
+    }
+  }
+
+  bool PreferWarmProcess() const { return GetParam(); }
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    PrerenderProcessReuseBrowserTest::SetUpCommandLine(command_line);
+    command_line->RemoveSwitch(switches::kSitePerProcess);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    PrerenderProcessReuseWithoutStrictSiteIsolationBrowserTest,
+    ::testing::Bool(),
+    [](const testing::TestParamInfo<bool>& info) {
+      return info.param ? "PreferWarmProcess" : "DefaultReuse";
+    });
+
+IN_PROC_BROWSER_TEST_P(
+    PrerenderProcessReuseWithoutStrictSiteIsolationBrowserTest,
+    PreferWarmProcessOverUnlockedProcess) {
+  base::HistogramTester histogram_tester;
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  // 1. Navigate to an initial empty page.
+  const GURL initial_url("about:blank");
+  ASSERT_TRUE(NavigateToURL(shell(), initial_url));
+  RenderProcessHost* initial_process = current_frame_host()->GetProcess();
+
+  // 2. Prerender a cross-site page on a.test (which is isolated, hence locked
+  // process).
+  const GURL prerender_url =
+      embedded_test_server()->GetURL("a.test", "/title1.html");
+  // The cross-site prerender page must be triggered by the browser.
+  std::unique_ptr<PrerenderHandle> prerender_handle1 =
+      AddEmbedderTriggeredPrerenderAsync(prerender_url);
+  prerender_helper()->WaitForPrerenderLoadCompletion(prerender_url);
+  PrerenderHostId prerender_host_id =
+      prerender_helper()->GetHostForUrl(prerender_url);
+  ASSERT_TRUE(prerender_host_id);
+  RenderProcessHostImpl* prerender_process =
+      static_cast<RenderProcessHostImpl*>(
+          GetProcessForPrerenderHost(prerender_host_id));
+  ASSERT_TRUE(prerender_process);
+  ASSERT_TRUE(prerender_process->IsOnlyHostingPrerenderedFramesOrEmpty());
+
+  // 3. Navigate to a page same site as the prerender page.
+  const GURL navigation_url =
+      embedded_test_server()->GetURL("a.test", "/title2.html");
+  EXPECT_TRUE(NavigateToURL(shell(), navigation_url));
+  RenderProcessHost* navigation_process = current_frame_host()->GetProcess();
+
+  if (PreferWarmProcess()) {
+    EXPECT_NE(navigation_process, initial_process);
+    EXPECT_EQ(navigation_process, prerender_process);
+    histogram_tester.ExpectUniqueSample(
+        "BrowserRenderProcessHost.ReuseExistingProcess.ReusePolicy",
+        ProcessReusePolicy::kReusePrerenderingProcessForMainFrame, 1);
+  } else {
+    // Under partial site isolation, since b.test's process is unlocked,
+    // navigating to a.test normally would just reuse the unlocked process.
+    EXPECT_EQ(navigation_process, initial_process);
+    EXPECT_NE(navigation_process, prerender_process);
+  }
+}
+
 class PrerenderUntilScriptBaseBrowserTest
     : public PrerenderTargetHintBrowserTest {
  public:
@@ -17266,7 +17322,9 @@ class PrerenderUntilScriptBrowserTest
     : public PrerenderUntilScriptBaseBrowserTest {
  public:
   PrerenderUntilScriptBrowserTest() {
-    feature_list_.InitAndEnableFeature(blink::features::kPrerenderUntilScript);
+    feature_list_.InitWithFeatures({blink::features::kPrerenderUntilScript,
+                                    features::kPrerenderUntilScriptUpgrade},
+                                   {});
   }
 
  private:
@@ -17540,9 +17598,26 @@ IN_PROC_BROWSER_TEST_F(PrerenderUntilScriptOriginTrialBrowserTest, Basic) {
 }
 
 class PrerenderFormSubmissionOriginTrialBrowserTest
-    : public PrerenderBrowserTest {
+    : public PrerenderBrowserTest,
+      public testing::WithParamInterface<bool> {
  public:
-  PrerenderFormSubmissionOriginTrialBrowserTest() = default;
+  PrerenderFormSubmissionOriginTrialBrowserTest() {
+    if (IsPrerenderUntilScriptEnabled()) {
+      feature_list_.InitAndEnableFeature(
+          blink::features::kPrerenderUntilScript);
+    }
+  }
+
+  bool IsPrerenderUntilScriptEnabled() const {
+    if (auto* test_info =
+            testing::UnitTest::GetInstance()->current_test_info()) {
+      if (test_info->value_param() != nullptr &&
+          std::string_view(test_info->value_param()).length() > 0) {
+        return GetParam();
+      }
+    }
+    return false;
+  }
 
   // `first_attempt_form_field` and `second_attempt_form_field` specify the
   // corresponding prerendering attempts are form navigations or not. The latter
@@ -17593,25 +17668,73 @@ class PrerenderFormSubmissionOriginTrialBrowserTest
     // Navigate to an initial page which has a link to `prerender_url`.
     ASSERT_TRUE(NavigateToURL(shell(), initiator_url));
 
-    // Start prerendering `prerender_url` with `form_submission` =
-    // `first_attempt_form_field`.
-    PrerenderHostId host_id = prerender_helper()->AddPrerender(
-        prerender_url, /*eagerness=*/std::nullopt,
-        /*no_vary_search_hint=*/std::nullopt,
-        /*target_hint=*/target_hint,
-        /*ruleset_tag=*/std::nullopt,
-        /*world_id=*/ISOLATED_WORLD_ID_GLOBAL, first_attempt_form_field);
+    PrerenderHostId host_id;
+    if (IsPrerenderUntilScriptEnabled()) {
+      base::RunLoop run_loop;
+      base::CallbackListSubscription creation_subscription;
+      WebContents* observed_web_contents = nullptr;
+
+      if (target_hint == "_blank") {
+        creation_subscription = RegisterWebContentsCreationCallback(
+            base::BindLambdaForTesting([&](content::WebContents* web_contents) {
+              observed_web_contents = web_contents;
+              run_loop.QuitClosure().Run();
+            }));
+      } else {
+        observed_web_contents = web_contents_impl();
+      }
+
+      prerender_helper()->AddPrerenderUntilScriptAsync(
+          prerender_url, /*eagerness=*/std::nullopt,
+          /*no_vary_search_hint=*/std::nullopt,
+          /*target_hint=*/target_hint,
+          /*ruleset_tag=*/std::nullopt,
+          /*world_id=*/ISOLATED_WORLD_ID_GLOBAL, first_attempt_form_field);
+
+      if (target_hint == "_blank") {
+        run_loop.Run();
+      } else {
+        // The wait is handled by
+        // test::PrerenderTestHelper::WaitForPrerenderLoadCompletion.
+      }
+
+      test::PrerenderTestHelper::WaitForPrerenderLoadCompletion(
+          *observed_web_contents, prerender_url);
+      host_id = test::PrerenderTestHelper::GetHostForUrl(*observed_web_contents,
+                                                         prerender_url);
+      EXPECT_TRUE(host_id);
+    } else {
+      // Start prerendering `prerender_url` with `form_submission` =
+      // `first_attempt_form_field`.
+      host_id = prerender_helper()->AddPrerender(
+          prerender_url, /*eagerness=*/std::nullopt,
+          /*no_vary_search_hint=*/std::nullopt,
+          /*target_hint=*/target_hint,
+          /*ruleset_tag=*/std::nullopt,
+          /*world_id=*/ISOLATED_WORLD_ID_GLOBAL, first_attempt_form_field);
+    }
 
     if (second_attempt_form_field.has_value()) {
       // Start prerendering `prerender_url` with `form_submission` =
       // `second_attempt_form_field`.
-      prerender_helper()->AddPrerender(prerender_url,
-                                       /*eagerness=*/std::nullopt,
-                                       /*no_vary_search_hint=*/std::nullopt,
-                                       /*target_hint=*/target_hint,
-                                       /*ruleset_tag=*/std::nullopt,
-                                       /*world_id=*/ISOLATED_WORLD_ID_GLOBAL,
-                                       second_attempt_form_field.value());
+      if (IsPrerenderUntilScriptEnabled()) {
+        prerender_helper()->AddPrerenderUntilScriptAsync(
+            prerender_url,
+            /*eagerness=*/std::nullopt,
+            /*no_vary_search_hint=*/std::nullopt,
+            /*target_hint=*/target_hint,
+            /*ruleset_tag=*/std::nullopt,
+            /*world_id=*/ISOLATED_WORLD_ID_GLOBAL,
+            second_attempt_form_field.value());
+      } else {
+        prerender_helper()->AddPrerender(prerender_url,
+                                         /*eagerness=*/std::nullopt,
+                                         /*no_vary_search_hint=*/std::nullopt,
+                                         /*target_hint=*/target_hint,
+                                         /*ruleset_tag=*/std::nullopt,
+                                         /*world_id=*/ISOLATED_WORLD_ID_GLOBAL,
+                                         second_attempt_form_field.value());
+      }
     }
 
     auto* prerender_web_contents =
@@ -17715,9 +17838,12 @@ class PrerenderFormSubmissionOriginTrialBrowserTest
     ExpectFinalStatusForSpeculationRule(
         PrerenderFinalStatus::kFormSubmitWhenPrerendering);
   }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(PrerenderFormSubmissionOriginTrialBrowserTest,
+IN_PROC_BROWSER_TEST_P(PrerenderFormSubmissionOriginTrialBrowserTest,
                        FormSubmissionHint_ActivationSuccessful) {
   RunFormSubmissionHintTest(/*first_attempt_form_field=*/true,
                             /*second_attempt_form_field=*/std::nullopt,
@@ -17726,7 +17852,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderFormSubmissionOriginTrialBrowserTest,
                             /*should_activate=*/true);
 }
 
-IN_PROC_BROWSER_TEST_F(
+IN_PROC_BROWSER_TEST_P(
     PrerenderFormSubmissionOriginTrialBrowserTest,
     FormSubmissionHint_FirstWin_TrueThenFalse_ActivationSuccesful) {
   RunFormSubmissionHintTest(/*first_attempt_form_field=*/true,
@@ -17736,7 +17862,7 @@ IN_PROC_BROWSER_TEST_F(
                             /*should_activate=*/true);
 }
 
-IN_PROC_BROWSER_TEST_F(
+IN_PROC_BROWSER_TEST_P(
     PrerenderFormSubmissionOriginTrialBrowserTest,
     FormSubmissionHint_FirstWin_FalseThenTrue_ActivationSuccesful) {
   RunFormSubmissionHintTest(/*first_attempt_form_field=*/false,
@@ -17748,7 +17874,7 @@ IN_PROC_BROWSER_TEST_F(
 
 // Verifies that the second prerender will be treated as duplicated and
 // the non-form submission navigation cannot activate form submission prerender.
-IN_PROC_BROWSER_TEST_F(
+IN_PROC_BROWSER_TEST_P(
     PrerenderFormSubmissionOriginTrialBrowserTest,
     FormSubmissionHint_FirstWin_TrueThenFalse_FailWithMismatch) {
   RunFormSubmissionHintTest(/*first_attempt_form_field=*/true,
@@ -17760,7 +17886,7 @@ IN_PROC_BROWSER_TEST_F(
 
 // Verifies that the second prerender will be treated as duplicated and
 // the form submission navigation cannot activate non-form submission prerender.
-IN_PROC_BROWSER_TEST_F(
+IN_PROC_BROWSER_TEST_P(
     PrerenderFormSubmissionOriginTrialBrowserTest,
     FormSubmissionHint_FirstWin_FalseThenTrue_FailWithMismatch) {
   RunFormSubmissionHintTest(/*first_attempt_form_field=*/false,
@@ -17770,7 +17896,7 @@ IN_PROC_BROWSER_TEST_F(
                             /*should_activate=*/false);
 }
 
-IN_PROC_BROWSER_TEST_F(PrerenderFormSubmissionOriginTrialBrowserTest,
+IN_PROC_BROWSER_TEST_P(PrerenderFormSubmissionOriginTrialBrowserTest,
                        FormSubmissionHintBlankTargetHint_ActivationSuccessful) {
   RunFormSubmissionHintTest(/*first_attempt_form_field=*/true,
                             /*second_attempt_form_field=*/std::nullopt,
@@ -17779,7 +17905,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderFormSubmissionOriginTrialBrowserTest,
                             /*should_activate=*/true);
 }
 
-IN_PROC_BROWSER_TEST_F(PrerenderFormSubmissionOriginTrialBrowserTest,
+IN_PROC_BROWSER_TEST_P(PrerenderFormSubmissionOriginTrialBrowserTest,
                        FormSubmissionHintBlankTargetHint_FailWithMismatch) {
   RunFormSubmissionHintTest(/*first_attempt_form_field=*/true,
                             /*second_attempt_form_field=*/std::nullopt,
@@ -17788,14 +17914,421 @@ IN_PROC_BROWSER_TEST_F(PrerenderFormSubmissionOriginTrialBrowserTest,
                             /*should_activate=*/false);
 }
 
+// The test will generate a form submission within the prerender by javascript.
+// PUS will not run the javascript when prerendering, so this has prerender
+// variation only.
 IN_PROC_BROWSER_TEST_F(PrerenderFormSubmissionOriginTrialBrowserTest,
                        PrerenderFormInPrerender_WithFormSubmission) {
   RunPrerenderFormInPrerenderTest(/*form_submission=*/true);
 }
 
+// The test will generate a form submission within the prerender by javascript.
+// PUS will not run the javascript when prerendering, so this has prerender
+// variation only.
 IN_PROC_BROWSER_TEST_F(PrerenderFormSubmissionOriginTrialBrowserTest,
                        PrerenderFormInPrerender_WithoutFormSubmission) {
   RunPrerenderFormInPrerenderTest(/*form_submission=*/false);
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         PrerenderFormSubmissionOriginTrialBrowserTest,
+                         testing::Bool());
+
+// Tests that a PUS (prerender-until-script) session is upgraded to a full
+// prerender when a prerender speculation rule is added for the same URL.
+IN_PROC_BROWSER_TEST_F(PrerenderUntilScriptBrowserTest, BasicUpgrade) {
+  // Navigate to an initial page.
+  GURL url = GetUrl("/empty.html");
+  ASSERT_TRUE(NavigateToURL(web_contents(), url));
+
+  // Start prerender-until-script for the target URL.
+  GURL prerender_url = GetUrl("/prerender/inline_script.html");
+  StartPrerenderUntilScript(prerender_url);
+
+  // Verify the PUS host exists and has JS paused.
+  PrerenderHostId host_id =
+      test::PrerenderTestHelper::GetHostForUrl(*web_contents(), prerender_url);
+  ASSERT_TRUE(host_id);
+  PrerenderHost* pus_host =
+      web_contents_impl()->GetPrerenderHostRegistry()->FindNonReservedHostById(
+          host_id);
+  ASSERT_TRUE(pus_host);
+  EXPECT_TRUE(pus_host->should_pause_javascript_execution());
+  EXPECT_EQ(pus_host->speculation_action(),
+            blink::mojom::SpeculationAction::kPrerenderUntilScript);
+
+  // Add a regular prerender speculation rule for the SAME URL.
+  // This should trigger an upgrade of the existing PUS host.
+  prerender_helper()->AddPrerenderAsync(prerender_url);
+
+  // Wait for the upgrade IPC to propagate from renderer to browser.
+  // The speculation rules change is async across the Mojo pipe.
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return !pus_host->should_pause_javascript_execution();
+  })) << "Timeout waiting for PUS host to be upgraded to full prerender";
+
+  // Verify the PUS host was upgraded to full prerender.
+  PrerenderHost* same_host =
+      web_contents_impl()->GetPrerenderHostRegistry()->FindNonReservedHostById(
+          host_id);
+  ASSERT_TRUE(same_host);
+  EXPECT_EQ(same_host, pus_host);
+  EXPECT_FALSE(same_host->should_pause_javascript_execution());
+  EXPECT_EQ(same_host->speculation_action(),
+            blink::mojom::SpeculationAction::kPrerender);
+
+  // The inline script sends a beacon after execution. Since the upgrade
+  // resumed JS, the beacon should fire before navigation/activation.
+  GURL beacon_url = GetUrl("/activation-beacon");
+  prerender_helper()->WaitForRequest(beacon_url, 1);
+
+  // Activate by navigating.
+  NavigatePrimaryPage(prerender_url);
+
+  // Verify scripts ran during prerendering (after upgrade, before activation).
+  ASSERT_EQ(false, EvalJs(web_contents_impl(), "document.prerendering"));
+  EXPECT_EQ(true, EvalJs(web_contents_impl(), "executed_during_prerendering"));
+
+  // Verify the prerender host was consumed by activation.
+  EXPECT_FALSE(HasHostForUrl(prerender_url));
+}
+
+// Tests that upgrade works correctly when async scripts are pending.
+IN_PROC_BROWSER_TEST_F(PrerenderUntilScriptBrowserTest,
+                       UpgradeWithAsyncScript) {
+  GURL url = GetUrl("/empty.html");
+  ASSERT_TRUE(NavigateToURL(web_contents(), url));
+
+  // Start PUS for a page with an async script.
+  GURL prerender_url = GetUrl("/prerender/async_script.html");
+  StartPrerenderUntilScript(prerender_url);
+
+  // Verify PUS host is active with JS paused.
+  PrerenderHostId host_id =
+      test::PrerenderTestHelper::GetHostForUrl(*web_contents(), prerender_url);
+  ASSERT_TRUE(host_id);
+  PrerenderHost* host =
+      web_contents_impl()->GetPrerenderHostRegistry()->FindNonReservedHostById(
+          host_id);
+  ASSERT_TRUE(host);
+  EXPECT_TRUE(host->should_pause_javascript_execution());
+
+  // The async script should be downloaded but not executed.
+  GURL script_url = GetUrl("/prerender/status_script.js");
+  prerender_helper()->WaitForRequest(script_url, 1);
+
+  // Trigger upgrade.
+  prerender_helper()->AddPrerenderAsync(prerender_url);
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return !host->should_pause_javascript_execution();
+  })) << "Timeout waiting for PUS upgrade (async script test)";
+
+  // The beacon should fire after upgrade resumes async script execution.
+  GURL beacon_url = GetUrl("/activation-beacon");
+  prerender_helper()->WaitForRequest(beacon_url, 1);
+
+  // Activate and verify.
+  NavigatePrimaryPage(prerender_url);
+  ASSERT_EQ(false, EvalJs(web_contents_impl(), "document.prerendering"));
+  EXPECT_EQ(true, EvalJs(web_contents_impl(), "executed_during_prerendering"));
+}
+
+// Tests that no upgrade happens when prerender targets a different URL.
+IN_PROC_BROWSER_TEST_F(PrerenderUntilScriptBrowserTest,
+                       NoUpgradeForDifferentUrl) {
+  GURL url = GetUrl("/empty.html");
+  ASSERT_TRUE(NavigateToURL(web_contents(), url));
+
+  // Start PUS for URL A.
+  GURL pus_url = GetUrl("/prerender/inline_script.html");
+  StartPrerenderUntilScript(pus_url);
+
+  PrerenderHostId pus_host_id =
+      test::PrerenderTestHelper::GetHostForUrl(*web_contents(), pus_url);
+  ASSERT_TRUE(pus_host_id);
+  PrerenderHost* pus_host =
+      web_contents_impl()->GetPrerenderHostRegistry()->FindNonReservedHostById(
+          pus_host_id);
+  ASSERT_TRUE(pus_host);
+  EXPECT_TRUE(pus_host->should_pause_javascript_execution());
+
+  // Add prerender for URL B (different URL).
+  GURL prerender_url = GetUrl("/prerender/async_script.html");
+  prerender_helper()->AddPrerender(prerender_url);
+
+  // The PUS host for URL A should remain unchanged (not upgraded).
+  PrerenderHost* same_pus_host =
+      web_contents_impl()->GetPrerenderHostRegistry()->FindNonReservedHostById(
+          pus_host_id);
+  ASSERT_TRUE(same_pus_host);
+  EXPECT_TRUE(same_pus_host->should_pause_javascript_execution());
+  EXPECT_EQ(same_pus_host->speculation_action(),
+            blink::mojom::SpeculationAction::kPrerenderUntilScript);
+
+  // A separate host should exist for URL B.
+  PrerenderHostId prerender_host_id =
+      test::PrerenderTestHelper::GetHostForUrl(*web_contents(), prerender_url);
+  EXPECT_TRUE(prerender_host_id);
+  EXPECT_NE(pus_host_id, prerender_host_id);
+}
+
+// Tests that a moderate-eagerness prerender rule triggers an upgrade of an
+// existing PUS host when the user hovers over the navigation link. This
+// exercises the MaybePrerender() code path.
+// TODO(crbug.com/40269669): Pointer hover simulation is not supported on
+// Android.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_UpgradeOnModerateHover DISABLED_UpgradeOnModerateHover
+#else
+#define MAYBE_UpgradeOnModerateHover UpgradeOnModerateHover
+#endif
+IN_PROC_BROWSER_TEST_F(PrerenderUntilScriptBrowserTest,
+                       MAYBE_UpgradeOnModerateHover) {
+  GURL url = GetUrl("/empty.html");
+  ASSERT_TRUE(NavigateToURL(web_contents(), url));
+
+  // Start PUS for the target URL (immediate eagerness — creates host now).
+  GURL prerender_url = GetUrl("/prerender/inline_script.html");
+  StartPrerenderUntilScript(prerender_url);
+
+  PrerenderHostId host_id =
+      test::PrerenderTestHelper::GetHostForUrl(*web_contents(), prerender_url);
+  ASSERT_TRUE(host_id);
+  PrerenderHost* pus_host =
+      web_contents_impl()->GetPrerenderHostRegistry()->FindNonReservedHostById(
+          host_id);
+  ASSERT_TRUE(pus_host);
+  EXPECT_TRUE(pus_host->should_pause_javascript_execution());
+
+  // Insert an anchor for hover simulation and set up the observer.
+  InsertAnchor(prerender_url);
+  RenderFrameHostImpl* rfh = current_frame_host();
+  ASSERT_TRUE(rfh);
+  PreloadingDeciderObserverForPrerenderTesting preloading_decider_observer(
+      *rfh);
+  auto* preloading_decider =
+      PreloadingDecider::GetOrCreateForCurrentDocument(rfh);
+
+  // Inject a moderate-eagerness prerender rule for the same URL.
+  // This should go to standby, waiting for hover.
+  AddPrerenderWithEagernessAsync(prerender_url,
+                                 blink::mojom::SpeculationEagerness::kModerate);
+  preloading_decider_observer.WaitUpdateSpeculationCandidates();
+  EXPECT_TRUE(preloading_decider->IsOnStandByForTesting(
+      prerender_url, blink::mojom::SpeculationAction::kPrerender));
+
+  // Hover the anchor — this triggers MaybePrerender() which should find the
+  // existing PUS host and upgrade it.
+  PointerHoverToAnchor(prerender_url);
+  preloading_decider_observer.WaitOnPointerHover();
+
+  // Wait for the upgrade IPC to propagate.
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return !pus_host->should_pause_javascript_execution();
+  })) << "Timeout waiting for PUS host to be upgraded via moderate hover";
+
+  // Verify the same host was upgraded (not a new one).
+  PrerenderHost* same_host =
+      web_contents_impl()->GetPrerenderHostRegistry()->FindNonReservedHostById(
+          host_id);
+  ASSERT_TRUE(same_host);
+  EXPECT_EQ(same_host, pus_host);
+  EXPECT_FALSE(same_host->should_pause_javascript_execution());
+  EXPECT_EQ(same_host->speculation_action(),
+            blink::mojom::SpeculationAction::kPrerender);
+
+  // The inline script beacon should fire after upgrade resumes JS.
+  GURL beacon_url = GetUrl("/activation-beacon");
+  prerender_helper()->WaitForRequest(beacon_url, 1);
+
+  // Activate and verify scripts ran during prerendering.
+  NavigatePrimaryPage(prerender_url);
+  ASSERT_EQ(false, EvalJs(web_contents_impl(), "document.prerendering"));
+  EXPECT_EQ(true, EvalJs(web_contents_impl(), "executed_during_prerendering"));
+}
+
+// Tests that a conservative-eagerness prerender rule triggers an upgrade of an
+// existing PUS host when the user clicks the navigation link (pointerdown).
+// TODO(crbug.com/40269669): Pointer hover simulation is not supported on
+// Android.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_UpgradeOnConservativeClick DISABLED_UpgradeOnConservativeClick
+#else
+#define MAYBE_UpgradeOnConservativeClick UpgradeOnConservativeClick
+#endif
+IN_PROC_BROWSER_TEST_F(PrerenderUntilScriptBrowserTest,
+                       MAYBE_UpgradeOnConservativeClick) {
+  GURL url = GetUrl("/empty.html");
+  ASSERT_TRUE(NavigateToURL(web_contents(), url));
+
+  // Start PUS for the target URL (immediate eagerness — creates host now).
+  GURL prerender_url = GetUrl("/prerender/inline_script.html");
+  StartPrerenderUntilScript(prerender_url);
+
+  PrerenderHostId host_id =
+      test::PrerenderTestHelper::GetHostForUrl(*web_contents(), prerender_url);
+  ASSERT_TRUE(host_id);
+  PrerenderHost* pus_host =
+      web_contents_impl()->GetPrerenderHostRegistry()->FindNonReservedHostById(
+          host_id);
+  ASSERT_TRUE(pus_host);
+  EXPECT_TRUE(pus_host->should_pause_javascript_execution());
+
+  // Insert an anchor and set up observer.
+  InsertAnchor(prerender_url);
+  RenderFrameHostImpl* rfh = current_frame_host();
+  ASSERT_TRUE(rfh);
+  PreloadingDeciderObserverForPrerenderTesting preloading_decider_observer(
+      *rfh);
+  auto* preloading_decider =
+      PreloadingDecider::GetOrCreateForCurrentDocument(rfh);
+
+  // Inject a conservative-eagerness prerender rule for the same URL.
+  AddPrerenderWithEagernessAsync(
+      prerender_url, blink::mojom::SpeculationEagerness::kConservative);
+  preloading_decider_observer.WaitUpdateSpeculationCandidates();
+  EXPECT_TRUE(preloading_decider->IsOnStandByForTesting(
+      prerender_url, blink::mojom::SpeculationAction::kPrerender));
+
+  // Pointerdown triggers conservative candidates via MaybePrerender().
+  PointerDownToAnchor(prerender_url);
+  preloading_decider_observer.WaitOnPointerDown();
+
+  // Wait for the upgrade IPC to propagate.
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return !pus_host->should_pause_javascript_execution();
+  })) << "Timeout waiting for PUS host to be upgraded via conservative click";
+
+  // Verify the same host was upgraded.
+  PrerenderHost* same_host =
+      web_contents_impl()->GetPrerenderHostRegistry()->FindNonReservedHostById(
+          host_id);
+  ASSERT_TRUE(same_host);
+  EXPECT_EQ(same_host, pus_host);
+  EXPECT_FALSE(same_host->should_pause_javascript_execution());
+  EXPECT_EQ(same_host->speculation_action(),
+            blink::mojom::SpeculationAction::kPrerender);
+
+  // The beacon should fire after upgrade resumes JS.
+  GURL beacon_url = GetUrl("/activation-beacon");
+  prerender_helper()->WaitForRequest(beacon_url, 1);
+}
+
+// Tests that no upgrade happens when the kPrerenderUntilScriptUpgrade feature
+// is disabled. The first test covers the MaybePrerender path, and the
+// second covers the batch ProcessCandidatesForPrerender path.
+class PrerenderUntilScriptUpgradeDisabledBrowserTest
+    : public PrerenderUntilScriptBaseBrowserTest {
+ public:
+  PrerenderUntilScriptUpgradeDisabledBrowserTest() {
+    feature_list_.InitWithFeatures({blink::features::kPrerenderUntilScript},
+                                   {features::kPrerenderUntilScriptUpgrade});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// TODO(crbug.com/40269669): Pointer hover simulation is not supported on
+// Android.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_NoUpgradeWhenFlagDisabled DISABLED_NoUpgradeWhenFlagDisabled
+#else
+#define MAYBE_NoUpgradeWhenFlagDisabled NoUpgradeWhenFlagDisabled
+#endif
+IN_PROC_BROWSER_TEST_F(PrerenderUntilScriptUpgradeDisabledBrowserTest,
+                       MAYBE_NoUpgradeWhenFlagDisabled) {
+  GURL url = GetUrl("/empty.html");
+  ASSERT_TRUE(NavigateToURL(web_contents(), url));
+
+  // Start PUS for the target URL.
+  GURL prerender_url = GetUrl("/prerender/inline_script.html");
+  StartPrerenderUntilScript(prerender_url);
+
+  PrerenderHostId host_id =
+      test::PrerenderTestHelper::GetHostForUrl(*web_contents(), prerender_url);
+  ASSERT_TRUE(host_id);
+  PrerenderHost* pus_host =
+      web_contents_impl()->GetPrerenderHostRegistry()->FindNonReservedHostById(
+          host_id);
+  ASSERT_TRUE(pus_host);
+  EXPECT_TRUE(pus_host->should_pause_javascript_execution());
+
+  // Insert an anchor and set up observer.
+  InsertAnchor(prerender_url);
+  RenderFrameHostImpl* rfh = current_frame_host();
+  ASSERT_TRUE(rfh);
+  PreloadingDeciderObserverForPrerenderTesting preloading_decider_observer(
+      *rfh);
+  auto* preloading_decider =
+      PreloadingDecider::GetOrCreateForCurrentDocument(rfh);
+
+  // Inject a moderate-eagerness prerender rule for the same URL.
+  AddPrerenderWithEagernessAsync(prerender_url,
+                                 blink::mojom::SpeculationEagerness::kModerate);
+  preloading_decider_observer.WaitUpdateSpeculationCandidates();
+  EXPECT_TRUE(preloading_decider->IsOnStandByForTesting(
+      prerender_url, blink::mojom::SpeculationAction::kPrerender));
+
+  // Hover the anchor — this triggers MaybePrerender() but with the upgrade
+  // flag disabled, no upgrade should happen.
+  PointerHoverToAnchor(prerender_url);
+  preloading_decider_observer.WaitOnPointerHover();
+
+  // Give time for any potential upgrade IPC to propagate (it shouldn't).
+  base::RunLoop run_loop;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE, run_loop.QuitClosure(), base::Milliseconds(500));
+  run_loop.Run();
+
+  // The PUS host should remain unchanged — JS still paused, still PUS action.
+  PrerenderHost* same_host =
+      web_contents_impl()->GetPrerenderHostRegistry()->FindNonReservedHostById(
+          host_id);
+  ASSERT_TRUE(same_host);
+  EXPECT_TRUE(same_host->should_pause_javascript_execution());
+  EXPECT_EQ(same_host->speculation_action(),
+            blink::mojom::SpeculationAction::kPrerenderUntilScript);
+}
+
+// Tests that no upgrade happens via the batch ProcessCandidatesForPrerender
+// path when the kPrerenderUntilScriptUpgrade feature is disabled.
+IN_PROC_BROWSER_TEST_F(PrerenderUntilScriptUpgradeDisabledBrowserTest,
+                       NoUpgradeWhenFlagDisabledBatchPath) {
+  GURL url = GetUrl("/empty.html");
+  ASSERT_TRUE(NavigateToURL(web_contents(), url));
+
+  // Start PUS for the target URL.
+  GURL prerender_url = GetUrl("/prerender/inline_script.html");
+  StartPrerenderUntilScript(prerender_url);
+
+  PrerenderHostId host_id =
+      test::PrerenderTestHelper::GetHostForUrl(*web_contents(), prerender_url);
+  ASSERT_TRUE(host_id);
+  PrerenderHost* pus_host =
+      web_contents_impl()->GetPrerenderHostRegistry()->FindNonReservedHostById(
+          host_id);
+  ASSERT_TRUE(pus_host);
+  EXPECT_TRUE(pus_host->should_pause_javascript_execution());
+
+  // Add an eager prerender rule for the same URL. This goes through the batch
+  // ProcessCandidatesForPrerender() path.
+  prerender_helper()->AddPrerenderAsync(prerender_url);
+
+  // Give time for any potential upgrade IPC to propagate (it shouldn't).
+  base::RunLoop run_loop;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE, run_loop.QuitClosure(), base::Milliseconds(500));
+  run_loop.Run();
+
+  // The PUS host should remain unchanged — JS still paused, still PUS action.
+  PrerenderHost* same_host =
+      web_contents_impl()->GetPrerenderHostRegistry()->FindNonReservedHostById(
+          host_id);
+  ASSERT_TRUE(same_host);
+  EXPECT_TRUE(same_host->should_pause_javascript_execution());
+  EXPECT_EQ(same_host->speculation_action(),
+            blink::mojom::SpeculationAction::kPrerenderUntilScript);
 }
 
 }  // namespace content

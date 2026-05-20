@@ -469,9 +469,10 @@ def _CheckStyleESLint(input_api, output_api):
     return results
 
 def _CheckUIGraphicsBeginImageContextWithOptions(input_api, output_api):
-    """ Checks that UIGraphicsBeginImageContextWithOptions is not used"""
+    """ Checks that UIGraphicsBeginImageContext and
+    UIGraphicsBeginImageContextWithOptions are not used"""
     deprecated_regex = input_api.re.compile(
-        r'UIGraphicsBeginImageContextWithOptions\(')
+        r'UIGraphicsBeginImageContext(WithOptions)?\(')
 
     errors = []
     for f in input_api.AffectedFiles():
@@ -484,7 +485,8 @@ def _CheckUIGraphicsBeginImageContextWithOptions(input_api, output_api):
     if not errors:
         return []
     error_message = '\n'.join([
-        'UIGraphicsBeginImageContextWithOptions is deprecated, use '
+        'UIGraphicsBeginImageContext and '
+        'UIGraphicsBeginImageContextWithOptions are deprecated, use '
         'UIGraphicsImageRenderer instead.'
     ] + errors) + '\n'
 
@@ -582,12 +584,9 @@ def _CheckUsageOfSystemColors(input_api, output_api):
     if not errors:
         return []
 
-    plural_suffix = '' if len(errors) == 1 else 's'
-    warning_message = ('Found forbidden usage%(plural)s of system colors. '
-                       'Only white, black and clear colors are accepted. '
-                     'Prefer semantic colors in ios code instead of the system ones:' % {
-                         'plural': plural_suffix
-                     })
+    warning_message = 'Found forbidden usage of system colors. '
+    'Only white, black and clear colors are accepted.'
+    'Prefer semantic colors in ios code instead of the system ones:'
 
     return [output_api.PresubmitPromptWarning(warning_message, items=errors)]
 

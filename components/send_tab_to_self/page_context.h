@@ -5,8 +5,13 @@
 #ifndef COMPONENTS_SEND_TAB_TO_SELF_PAGE_CONTEXT_H_
 #define COMPONENTS_SEND_TAB_TO_SELF_PAGE_CONTEXT_H_
 
+#include <cstdint>
 #include <string>
 #include <vector>
+
+#include "base/containers/flat_set.h"
+#include "components/autofill/core/common/signatures.h"
+#include "components/sync/protocol/send_tab_to_self_specifics.pb.h"
 
 namespace shared_highlighting {
 class TextFragment;
@@ -68,6 +73,14 @@ struct ScrollPosition {
 };
 
 struct PageContext {
+  // Represents a combination of form and field signatures for identification.
+  struct FormFieldAutofillSignature {
+    autofill::FormSignature form_signature;
+    autofill::FieldSignature field_signature;
+
+    auto operator<=>(const FormFieldAutofillSignature& other) const = default;
+  };
+
   // Represents a single form field and its value.
   struct FormField {
     FormField();
@@ -81,6 +94,8 @@ struct PageContext {
     std::u16string name_attribute;
     std::string form_control_type;
     std::u16string value;
+    FormFieldAutofillSignature autofill_signature;
+    base::flat_set<sync_pb::FormField_AutofillFieldType> autofill_types;
 
     bool operator==(const FormField& other) const;
   };

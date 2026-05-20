@@ -38,10 +38,10 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.omnibox.OmniboxFacility;
@@ -244,22 +244,14 @@ public class LocationBarLayoutTest {
                             /* isUrlFocusChangeInProgress= */ true);
 
                     assertEquals(
-                            locationBar.getFocusedStatusViewSpacingDelta(),
-                            ((MarginLayoutParams) urlBar.getLayoutParams()).getMarginStart());
-                    assertEquals(
-                            locationBar.getFocusedStatusViewSpacingDelta()
-                                    * (-1 + MathUtils.EPSILON),
-                            urlBar.getTranslationX(),
-                            MathUtils.EPSILON);
+                            0, ((MarginLayoutParams) urlBar.getLayoutParams()).getMarginStart());
+                    assertEquals(0f, urlBar.getTranslationX(), MathUtils.EPSILON);
 
                     locationBar.setUrlFocusChangePercent(
                             /* ntpSearchBoxScrollFraction= */ 0.5f,
                             /* urlFocusChangeFraction= */ 0.5f,
                             /* isUrlFocusChangeInProgress= */ false);
-                    assertEquals(
-                            locationBar.getFocusedStatusViewSpacingDelta() * -0.5,
-                            urlBar.getTranslationX(),
-                            MathUtils.EPSILON);
+                    assertEquals(0f, urlBar.getTranslationX(), MathUtils.EPSILON);
 
                     locationBar.setUrlFocusChangePercent(
                             /* ntpSearchBoxScrollFraction= */ 1.0f,
@@ -289,39 +281,27 @@ public class LocationBarLayoutTest {
                             /* urlFocusChangeFraction= */ MathUtils.EPSILON,
                             /* isUrlFocusChangeInProgress= */ true);
 
-                    assertEquals(
-                            statusIconAndUrlBarOffset * (1 - MathUtils.EPSILON),
-                            urlBar.getTranslationX(),
-                            MathUtils.EPSILON);
-                    assertEquals(
-                            OmniboxResourceProvider.getFocusedStatusViewLeftSpacing(activity)
-                                    + statusIconAndUrlBarOffset * (1 - MathUtils.EPSILON),
-                            statusView.getTranslationX(),
-                            MathUtils.EPSILON);
+                    assertEquals(0f, urlBar.getTranslationX(), MathUtils.EPSILON);
+                    assertEquals(0f, statusView.getTranslationX(), MathUtils.EPSILON);
 
                     locationBar.setUrlFocusChangePercent(
                             /* ntpSearchBoxScrollFraction= */ 1,
                             /* urlFocusChangeFraction= */ 0.5f,
                             /* isUrlFocusChangeInProgress= */ true);
-                    assertEquals(
-                            statusIconAndUrlBarOffset * 0.5,
-                            urlBar.getTranslationX(),
-                            MathUtils.EPSILON);
-                    assertEquals(
-                            OmniboxResourceProvider.getFocusedStatusViewLeftSpacing(activity)
-                                    + statusIconAndUrlBarOffset * 0.5,
-                            statusView.getTranslationX(),
-                            MathUtils.EPSILON);
+                    assertEquals(0f, urlBar.getTranslationX(), MathUtils.EPSILON);
+                    assertEquals(0f, statusView.getTranslationX(), MathUtils.EPSILON);
 
                     locationBar.setUrlFocusChangePercent(
                             /* ntpSearchBoxScrollFraction= */ 1.0f,
                             /* urlFocusChangeFraction= */ 1.0f,
                             /* isUrlFocusChangeInProgress= */ true);
                     assertEquals(0f, urlBar.getTranslationX(), MathUtils.EPSILON);
-                    assertEquals(
-                            OmniboxResourceProvider.getFocusedStatusViewLeftSpacing(activity),
-                            statusView.getTranslationX(),
-                            MathUtils.EPSILON);
+                    assertEquals(0f, statusView.getTranslationX(), MathUtils.EPSILON);
+
+                    int focusedWidth =
+                            activity.getResources()
+                                    .getDimensionPixelSize(R.dimen.fusebox_button_size);
+                    assertEquals(focusedWidth, statusView.getMinimumWidth());
                 });
     }
 }

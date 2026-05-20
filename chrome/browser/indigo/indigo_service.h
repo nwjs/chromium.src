@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "base/callback_list.h"
+#include "base/check.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
@@ -20,6 +21,8 @@ class PrefService;
 class Profile;
 
 namespace indigo {
+
+class ApiClient;
 
 struct RemoteEligibility {
   bool is_service_supported_for_account = false;
@@ -85,6 +88,11 @@ class IndigoService : public KeyedService,
   base::CallbackListSubscription RegisterLocalEligibilityChangedCallback(
       LocalEligibilityChangedCallback callback);
 
+  ApiClient& GetApiClient() const {
+    CHECK(api_client_);
+    return *api_client_;
+  }
+
   // Anchored messages are rate-limited to reduce user fatigue. Clients should
   // use `CanShowAnchoredMessage` to check eligibility before displaying an
   // anchored message, and call `AnchoredMessageShown` when they do.
@@ -129,6 +137,7 @@ class IndigoService : public KeyedService,
                           signin::IdentityManager::Observer>
       identity_manager_observation_{this};
   std::unique_ptr<PrefChangeRegistrar> pref_change_registrar_;
+  std::unique_ptr<ApiClient> api_client_;
 
   // The earliest time the anchored message can be shown again.
   base::TimeTicks anchored_message_not_before_;

@@ -420,7 +420,8 @@ public class ChromeAndroidTaskIntegrationTest {
                         initialBoundsInDp.top,
                         initialBoundsInDp.right,
                         initialBoundsInDp.bottom,
-                        WindowShowState.DEFAULT);
+                        WindowShowState.DEFAULT,
+                        null);
         var chromeAndroidTaskTracker =
                 ThreadUtils.runOnUiThreadBlocking(
                         () -> assumeNonNull(ChromeAndroidTaskTrackerFactory.getInstance()));
@@ -1031,7 +1032,14 @@ public class ChromeAndroidTaskIntegrationTest {
         Profile profile = mFreshCtaTransitTestRule.getProfile(/* incognito= */ false);
         AndroidBrowserWindowCreateParams createParams =
                 AndroidBrowserWindowCreateParamsImpl.create(
-                        BrowserWindowType.NORMAL, profile, 0, 0, 0, 0, WindowShowState.DEFAULT);
+                        BrowserWindowType.NORMAL,
+                        profile,
+                        0,
+                        0,
+                        0,
+                        0,
+                        WindowShowState.DEFAULT,
+                        null);
         Set<Integer> currentTaskIds = getTabbedActivityTaskIds();
 
         // Act.
@@ -1053,7 +1061,14 @@ public class ChromeAndroidTaskIntegrationTest {
         Profile profile = mFreshCtaTransitTestRule.getProfile(/* incognito= */ false);
         AndroidBrowserWindowCreateParams createParams =
                 AndroidBrowserWindowCreateParamsImpl.create(
-                        BrowserWindowType.NORMAL, profile, 0, 0, 0, 0, WindowShowState.MAXIMIZED);
+                        BrowserWindowType.NORMAL,
+                        profile,
+                        0,
+                        0,
+                        0,
+                        0,
+                        WindowShowState.MAXIMIZED,
+                        null);
         Set<Integer> currentTaskIds = getTabbedActivityTaskIds();
 
         // Act.
@@ -1084,7 +1099,14 @@ public class ChromeAndroidTaskIntegrationTest {
         Profile profile = mFreshCtaTransitTestRule.getProfile(/* incognito= */ false);
         AndroidBrowserWindowCreateParams createParams =
                 AndroidBrowserWindowCreateParamsImpl.create(
-                        BrowserWindowType.NORMAL, profile, 0, 0, 0, 0, WindowShowState.MINIMIZED);
+                        BrowserWindowType.NORMAL,
+                        profile,
+                        0,
+                        0,
+                        0,
+                        0,
+                        WindowShowState.MINIMIZED,
+                        null);
         Set<Integer> currentTaskIds = getTabbedActivityTaskIds();
 
         // Act.
@@ -1108,14 +1130,22 @@ public class ChromeAndroidTaskIntegrationTest {
         Profile profile = mFreshCtaTransitTestRule.getProfile(/* incognito= */ false);
         AndroidBrowserWindowCreateParams createParams =
                 AndroidBrowserWindowCreateParamsImpl.create(
-                        BrowserWindowType.NORMAL, profile, 0, 0, 0, 0, WindowShowState.DEFAULT);
+                        BrowserWindowType.NORMAL,
+                        profile,
+                        0,
+                        0,
+                        0,
+                        0,
+                        WindowShowState.DEFAULT,
+                        null);
         var chromeAndroidTaskTracker =
                 ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             var taskTracker =
-                                    assumeNonNull(ChromeAndroidTaskTrackerFactory.getInstance());
-                            ChromeAndroidTaskTrackerImpl
-                                    .pausePendingTaskActivityCreationForTesting();
+                                    assumeNonNull(
+                                            (ChromeAndroidTaskTrackerImpl)
+                                                    ChromeAndroidTaskTrackerFactory.getInstance());
+                            taskTracker.pausePendingTaskActivityCreationForTesting();
                             return taskTracker;
                         });
 
@@ -1136,9 +1166,8 @@ public class ChromeAndroidTaskIntegrationTest {
                             task.maximize();
                             task.deactivate();
 
-                            ChromeAndroidTaskTrackerImpl
-                                    .resumePendingTaskActivityCreationForTesting(
-                                            pendingTaskInfo.mPendingTaskId);
+                            chromeAndroidTaskTracker.resumePendingTaskActivityCreationForTesting(
+                                    pendingTaskInfo.mPendingTaskId);
 
                             return task;
                         });
@@ -1176,14 +1205,22 @@ public class ChromeAndroidTaskIntegrationTest {
         Profile profile = mFreshCtaTransitTestRule.getProfile(/* incognito= */ false);
         AndroidBrowserWindowCreateParams createParams =
                 AndroidBrowserWindowCreateParamsImpl.create(
-                        BrowserWindowType.NORMAL, profile, 0, 0, 0, 0, WindowShowState.DEFAULT);
+                        BrowserWindowType.NORMAL,
+                        profile,
+                        0,
+                        0,
+                        0,
+                        0,
+                        WindowShowState.DEFAULT,
+                        null);
         var chromeAndroidTaskTracker =
                 ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             var taskTracker =
-                                    assumeNonNull(ChromeAndroidTaskTrackerFactory.getInstance());
-                            ChromeAndroidTaskTrackerImpl
-                                    .pausePendingTaskActivityCreationForTesting();
+                                    assumeNonNull(
+                                            (ChromeAndroidTaskTrackerImpl)
+                                                    ChromeAndroidTaskTrackerFactory.getInstance());
+                            taskTracker.pausePendingTaskActivityCreationForTesting();
                             return taskTracker;
                         });
 
@@ -1203,9 +1240,8 @@ public class ChromeAndroidTaskIntegrationTest {
 
                             task.showInactive();
 
-                            ChromeAndroidTaskTrackerImpl
-                                    .resumePendingTaskActivityCreationForTesting(
-                                            pendingTaskInfo.mPendingTaskId);
+                            chromeAndroidTaskTracker.resumePendingTaskActivityCreationForTesting(
+                                    pendingTaskInfo.mPendingTaskId);
 
                             return task;
                         });
@@ -1238,14 +1274,22 @@ public class ChromeAndroidTaskIntegrationTest {
         Profile profile = mFreshCtaTransitTestRule.getProfile(/* incognito= */ false);
         AndroidBrowserWindowCreateParams createParams =
                 AndroidBrowserWindowCreateParamsImpl.create(
-                        BrowserWindowType.NORMAL, profile, 0, 0, 0, 0, WindowShowState.DEFAULT);
+                        BrowserWindowType.NORMAL,
+                        profile,
+                        0,
+                        0,
+                        0,
+                        0,
+                        WindowShowState.DEFAULT,
+                        null);
         var chromeAndroidTaskTracker =
                 ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             var taskTracker =
-                                    assumeNonNull(ChromeAndroidTaskTrackerFactory.getInstance());
-                            ChromeAndroidTaskTrackerImpl
-                                    .pausePendingTaskActivityCreationForTesting();
+                                    assumeNonNull(
+                                            (ChromeAndroidTaskTrackerImpl)
+                                                    ChromeAndroidTaskTrackerFactory.getInstance());
+                            taskTracker.pausePendingTaskActivityCreationForTesting();
                             return taskTracker;
                         });
         Set<Integer> currentTaskIds = getTabbedActivityTaskIds();
@@ -1266,7 +1310,7 @@ public class ChromeAndroidTaskIntegrationTest {
                     task.minimize();
 
                     ChromeTabbedActivity.interceptMoveTaskToBackForTesting();
-                    ChromeAndroidTaskTrackerImpl.resumePendingTaskActivityCreationForTesting(
+                    chromeAndroidTaskTracker.resumePendingTaskActivityCreationForTesting(
                             pendingTaskInfo.mPendingTaskId);
                 });
 
@@ -1289,14 +1333,22 @@ public class ChromeAndroidTaskIntegrationTest {
         Profile profile = mFreshCtaTransitTestRule.getProfile(/* incognito= */ false);
         AndroidBrowserWindowCreateParams createParams =
                 AndroidBrowserWindowCreateParamsImpl.create(
-                        BrowserWindowType.NORMAL, profile, 0, 0, 0, 0, WindowShowState.DEFAULT);
+                        BrowserWindowType.NORMAL,
+                        profile,
+                        0,
+                        0,
+                        0,
+                        0,
+                        WindowShowState.DEFAULT,
+                        null);
         var chromeAndroidTaskTracker =
                 ThreadUtils.runOnUiThreadBlocking(
                         () -> {
                             var taskTracker =
-                                    assumeNonNull(ChromeAndroidTaskTrackerFactory.getInstance());
-                            ChromeAndroidTaskTrackerImpl
-                                    .pausePendingTaskActivityCreationForTesting();
+                                    assumeNonNull(
+                                            (ChromeAndroidTaskTrackerImpl)
+                                                    ChromeAndroidTaskTrackerFactory.getInstance());
+                            taskTracker.pausePendingTaskActivityCreationForTesting();
                             return taskTracker;
                         });
         Set<Integer> currentTaskIds = getTabbedActivityTaskIds();
@@ -1315,7 +1367,7 @@ public class ChromeAndroidTaskIntegrationTest {
                     task.close();
                     task.show();
 
-                    ChromeAndroidTaskTrackerImpl.resumePendingTaskActivityCreationForTesting(
+                    chromeAndroidTaskTracker.resumePendingTaskActivityCreationForTesting(
                             pendingTaskInfo.mPendingTaskId);
                 });
 

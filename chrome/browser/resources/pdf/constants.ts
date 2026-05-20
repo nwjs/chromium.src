@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 // <if expr="enable_pdf_ink2">
+type Typeface = chrome.pdfViewerPrivate.Typeface;
+
 export enum AnnotationMode {
   OFF = 'off',
   DRAW = 'draw',
@@ -32,7 +34,13 @@ export interface AnnotationBrush {
 
 export interface TextAnnotation {
   id: number;
+  isEdited: boolean;
+  mojoTextInfo: ArrayBuffer;
+  // Serialized SkTypeface font data that the backend needs. Only contains
+  // fonts that the backend has never seen before.
+  newTypefaces: Typeface[];
   pageIndex: number;
+  pdfZoom: number;
   text: string;
   textAttributes: TextAttributes;
   // Location of the text box relative to the top left corner of the page

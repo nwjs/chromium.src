@@ -11,16 +11,15 @@
 
 @protocol AppBarConsumer;
 class AuthenticationService;
-class BwgService;
-class ChromeAccountManagerService;
+class GeminiService;
 @class BrowserActionFactory;
+@protocol FullscreenBrowserAgentObserving;
 class FullscreenController;
 @protocol FullscreenUIElement;
 @class IncognitoState;
-namespace signin {
-class IdentityManager;
-}  // namespace signin
+class FullscreenBrowserAgent;
 class PrefService;
+@protocol LensCommands;
 @protocol SceneCommands;
 @protocol TabGridCommands;
 @protocol SettingsCommands;
@@ -47,6 +46,9 @@ class WebStateList;
 // Handler for the scene commands.
 @property(nonatomic, weak) id<SceneCommands> sceneHandler;
 
+// Handler for the lens commands.
+@property(nonatomic, weak) id<LensCommands> lensHandler;
+
 // Handler for the tab grid commands.
 @property(nonatomic, weak) id<TabGridCommands> tabGridHandler;
 
@@ -63,28 +65,33 @@ class WebStateList;
 @property(nonatomic, weak) id<BWGCommands> geminiHandler;
 
 // The consumer of this mediator.
-@property(nonatomic, weak) id<AppBarConsumer, FullscreenUIElement> consumer;
+@property(nonatomic, weak)
+    id<AppBarConsumer, FullscreenUIElement, FullscreenBrowserAgentObserving>
+        consumer;
 
 // Initializes the mediator with the two web state lists.
 - (instancetype)
-      initWithRegularWebStateList:(WebStateList*)regularWebStateList
-            incognitoWebStateList:(WebStateList*)incognitoWebStateList
-      regularFullscreenController:
-          (FullscreenController*)regularFullscreenController
-    incognitoFullscreenController:
-        (FullscreenController*)incognitoFullscreenController
-             regularActionFactory:(BrowserActionFactory*)regularActionFactory
-           incognitoActionFactory:(BrowserActionFactory*)incognitoActionFactory
-                      prefService:(PrefService*)prefService
-               templateURLService:(TemplateURLService*)templateURLService
-            authenticationService:(AuthenticationService*)authenticationService
-                    geminiService:(BwgService*)geminiService
-            accountManagerService:
-                (ChromeAccountManagerService*)accountManagerService
-                  identityManager:(signin::IdentityManager*)identityManager
-                        URLLoader:(UrlLoadingBrowserAgent*)URLLoader
-                     tabGridState:(TabGridState*)tabGridState
-                   incognitoState:(IncognitoState*)incognitoState;
+        initWithRegularWebStateList:(WebStateList*)regularWebStateList
+              incognitoWebStateList:(WebStateList*)incognitoWebStateList
+        regularFullscreenController:
+            (FullscreenController*)regularFullscreenController
+      incognitoFullscreenController:
+          (FullscreenController*)incognitoFullscreenController
+      regularFullscreenBrowserAgent:
+          (FullscreenBrowserAgent*)regularFullscreenBrowserAgent
+    incognitoFullscreenBrowserAgent:
+        (FullscreenBrowserAgent*)incognitoFullscreenBrowserAgent
+               regularActionFactory:(BrowserActionFactory*)regularActionFactory
+             incognitoActionFactory:
+                 (BrowserActionFactory*)incognitoActionFactory
+                        prefService:(PrefService*)prefService
+                 templateURLService:(TemplateURLService*)templateURLService
+              authenticationService:
+                  (AuthenticationService*)authenticationService
+                      geminiService:(GeminiService*)geminiService
+                          URLLoader:(UrlLoadingBrowserAgent*)URLLoader
+                       tabGridState:(TabGridState*)tabGridState
+                     incognitoState:(IncognitoState*)incognitoState;
 
 - (instancetype)init NS_UNAVAILABLE;
 
@@ -94,6 +101,10 @@ class WebStateList;
 // Resets the incognito fullscreen controller.
 - (void)setIncognitoFullscreenController:
     (FullscreenController*)fullscreenController;
+
+// Resets the incognito fullscreen browser agent.
+- (void)setIncognitoFullscreenBrowserAgent:
+    (FullscreenBrowserAgent*)fullscreenBrowserAgent;
 
 // Resets the incognito action factory.
 - (void)setIncognitoActionFactory:(BrowserActionFactory*)incognitoActionFactory;

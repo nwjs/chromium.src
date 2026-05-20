@@ -57,12 +57,14 @@
 #include "chrome/browser/extensions/install_tracker_factory.h"
 #include "chrome/browser/extensions/install_verifier_factory.h"
 #include "chrome/browser/extensions/pref_mapping.h"
+#include "chrome/browser/extensions/profile_util.h"
 #include "chrome/browser/extensions/shared_module_service_factory.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/extensions/updater/chrome_update_client_config.h"
 #include "chrome/browser/extensions/updater/extension_updater.h"
 #include "chrome/browser/extensions/user_script_listener.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
+#include "chrome/browser/image_fetcher/image_decoder_impl.h"
 #include "chrome/browser/media/webrtc/media_device_salt_service_factory.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/prefetch/pref_names.h"
@@ -72,6 +74,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_selections.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
+#include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/ui/simple_message_box.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_controller_factory.h"
@@ -87,6 +90,7 @@
 #include "components/embedder_support/user_agent_utils.h"
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/update_client/configurator.h"
 #include "components/update_client/update_client.h"
@@ -148,9 +152,6 @@
 namespace extensions {
 
 namespace {
-
-constexpr std::string_view kCrxUrlPath = "/service/update2/crx";
-constexpr std::string_view kJsonUrlPath = "/service/update2/json";
 
 // If true, the extensions client will behave as though there is always a
 // new chrome update.
@@ -326,6 +327,16 @@ ChromeExtensionsBrowserClient::GetContextRedirectedToOriginal(
       .ApplyProfileSelection(Profile::FromBrowserContext(context));
 }
 
+content::BrowserContext* ChromeExtensionsBrowserClient::
+    GetContextRedirectedToOriginalWithoutAshInternals(
+        content::BrowserContext* context) {
+  return ProfileSelections::Builder()
+      .WithRegular(ProfileSelection::kRedirectedToOriginal)
+      .WithGuest(ProfileSelection::kRedirectedToOriginal)
+      .Build()
+      .ApplyProfileSelection(Profile::FromBrowserContext(context));
+}
+
 content::BrowserContext* ChromeExtensionsBrowserClient::GetContextOwnInstance(
     content::BrowserContext* context) {
   return ProfileSelections::Builder()
@@ -430,11 +441,6 @@ bool ChromeExtensionsBrowserClient::AllowCrossRendererResourceLoad(
 
   // Couldn't determine if resource is allowed. Block the load.
   return false;
-}
-
-PrefService* ChromeExtensionsBrowserClient::GetPrefServiceForContext(
-    content::BrowserContext* context) {
-  return static_cast<Profile*>(context)->GetPrefs();
 }
 
 void ChromeExtensionsBrowserClient::GetEarlyExtensionPrefsObservers(
@@ -652,16 +658,7 @@ ChromeExtensionsBrowserClient::CreateUpdateClient(
 scoped_refptr<update_client::Configurator>
 ChromeExtensionsBrowserClient::CreateUpdateClientConfigurator(
     content::BrowserContext* context) {
-  std::optional<GURL> override_url;
-  GURL update_url = extension_urls::GetWebstoreUpdateUrl();
-  if (update_url != extension_urls::GetDefaultWebstoreUpdateUrl()) {
-    if (update_url.GetPath() == kCrxUrlPath) {
-      override_url = update_url.GetWithEmptyPath().Resolve(kJsonUrlPath);
-    } else {
-      override_url = update_url;
-    }
-  }
-  return ChromeUpdateClientConfig::Create(context, override_url);
+  return ChromeUpdateClientConfig::Create(context);
 }
 
 std::unique_ptr<ScopedBrowserContextKeepAlive>
@@ -754,6 +751,22 @@ bool ChromeExtensionsBrowserClient::ShouldSchemeBypassNavigationChecks(
   }
 
   return ExtensionsBrowserClient::ShouldSchemeBypassNavigationChecks(scheme);
+}
+
+bool ChromeExtensionsBrowserClient::IsDefaultSearchEngineRedirect(
+    content::BrowserContext* context,
+    const GURL& request_url,
+    const GURL& redirect_url) const {
+  Profile* profile = Profile::FromBrowserContext(context);
+  CHECK(profile);
+
+  TemplateURLService* service =
+      TemplateURLServiceFactory::GetForProfile(profile);
+  if (!service) {
+    return false;
+  }
+  return service->IsSearchResultsPageFromDefaultSearchProvider(request_url) &&
+         !service->IsSearchResultsPageFromDefaultSearchProvider(redirect_url);
 }
 
 base::FilePath ChromeExtensionsBrowserClient::GetSaveFilePath(
@@ -1101,30 +1114,6 @@ void ChromeExtensionsBrowserClient::
     base::UmaHistogramEnumeration(
         "Extensions.CommandLineManifestSettingsOverride", kNoOverride);
   }
-
-  // Developer mode metrics.
-  bool dev_mode_enabled =
-      GetCurrentDeveloperMode(util::GetBrowserContextId(context));
-
-  if (extension_registry->enabled_extensions().Contains(extension->id())) {
-    if (dev_mode_enabled) {
-      base::UmaHistogramCounts100(
-          "Extensions.CommandLineWithDeveloperModeOn.Enabled", 1);
-    } else {
-      base::UmaHistogramCounts100(
-          "Extensions.CommandLineWithDeveloperModeOff.Enabled", 1);
-    }
-  }
-
-  if (extension_registry->disabled_extensions().Contains(extension->id())) {
-    if (dev_mode_enabled) {
-      base::UmaHistogramCounts100(
-          "Extensions.CommandLineWithDeveloperModeOn.Disabled", 1);
-    } else {
-      base::UmaHistogramCounts100(
-          "Extensions.CommandLineWithDeveloperModeOff.Disabled", 1);
-    }
-  }
 }
 
 // static
@@ -1190,6 +1179,22 @@ ChromeExtensionsBrowserClient::CreateCrxInstallerFromDownloadItem(
     const download::DownloadItem& download) {
   return download_crx_util::CreateCrxInstaller(
       Profile::FromBrowserContext(context), download);
+}
+
+std::unique_ptr<image_fetcher::ImageDecoder>
+ChromeExtensionsBrowserClient::CreateImageDecoder() {
+  return std::make_unique<ImageDecoderImpl>();
+}
+
+bool ChromeExtensionsBrowserClient::CanUseNonComponentExtensions(
+    content::BrowserContext* context) {
+  return profile_util::ProfileCanUseNonComponentExtensions(
+      Profile::FromBrowserContext(context));
+}
+
+void ChromeExtensionsBrowserClient::SetAPIClientForTest(
+    std::unique_ptr<ExtensionsAPIClient> client) {
+  api_client_ = std::move(client);
 }
 
 }  // namespace extensions

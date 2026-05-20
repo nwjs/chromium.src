@@ -114,8 +114,8 @@ ExtensionSidePanelCoordinator::~ExtensionSidePanelCoordinator() {
   }
 }
 
-SidePanelEntry::PanelType ExtensionSidePanelCoordinator::GetPanelType() {
-  return SidePanelEntry::PanelType::kContent;
+SidePanelType ExtensionSidePanelCoordinator::GetPanelType() {
+  return SidePanelType::kContent;
 }
 
 content::WebContents*
@@ -184,7 +184,7 @@ void ExtensionSidePanelCoordinator::OnPanelOptionsChanged(
     CreateAndRegisterEntry();
   } else if (entry && previous_url != side_panel_url_) {
     // Handle changes to the side panel's url if an entry exists.
-    if (registry_->GetActiveEntryFor(GetPanelType()) == entry) {
+    if (registry_->GetActiveEntry() == entry) {
       // If this extension's entry is active, navigate the entry's view to the
       // updated URL.
       NavigateIfNecessary();
@@ -212,7 +212,7 @@ void ExtensionSidePanelCoordinator::OnViewDestroying() {
   // When the extension's view inside the side panel is destroyed, reset
   // the ExtensionViewHost so it cannot try to notify a view that no longer
   // exists when its event listeners are triggered. Otherwise, a use after free
-  // could occur as documented in crbug.com/1403168.
+  // could occur as documented in crbug.com/40062350.
   host_.reset();
   scoped_view_observation_.Reset();
 }
@@ -366,7 +366,7 @@ void ExtensionSidePanelCoordinator::HandleCloseExtensionSidePanel(
   DCHECK(entry);
 
   if (side_panel_ui->IsSidePanelEntryShowing(entry->key(), for_tab_)) {
-    side_panel_ui->Close(entry->type());
+    side_panel_ui->Close();
   } else {
     entry->ClearCachedView();
   }

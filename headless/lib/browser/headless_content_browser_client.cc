@@ -50,6 +50,7 @@
 #include "printing/buildflags/buildflags.h"
 #include "sandbox/policy/switches.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
+#include "third_party/blink/public/mojom/picture_in_picture/picture_in_picture.mojom.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/gfx/switches.h"
 
@@ -60,7 +61,6 @@
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
 #if (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)) && defined(HEADLESS_USE_PREFS)
-#include "components/os_crypt/sync/os_crypt.h"  // nogncheck
 #include "content/public/browser/network_service_util.h"
 #endif
 
@@ -126,6 +126,8 @@ class HeadlessVideoOverlayWindow : public content::VideoOverlayWindow {
 
   void SetSurfaceId(const viz::SurfaceId& surface_id) override {}
   void SetPlaybackControlsVisibility(bool is_visible) override {}
+  void SetImmersiveVideoOptions(
+      blink::mojom::ImmersiveOptionsPtr options) override {}
 
  private:
   gfx::Size size_;
@@ -502,7 +504,6 @@ void HeadlessContentBrowserClient::CreateThrottlesForNavigation(
 void HeadlessContentBrowserClient::OnNetworkServiceCreated(
     ::network::mojom::NetworkService* network_service) {
   HandleExplicitlyAllowedPorts(network_service);
-  SetEncryptionKey(network_service);
 }
 
 void HeadlessContentBrowserClient::GetHyphenationDictionary(
@@ -547,21 +548,6 @@ void HeadlessContentBrowserClient::HandleExplicitlyAllowedPorts(
   }
 
   network_service->SetExplicitlyAllowedPorts(explicitly_allowed_ports);
-}
-
-void HeadlessContentBrowserClient::SetEncryptionKey(
-    ::network::mojom::NetworkService* network_service) {
-#if (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)) && defined(HEADLESS_USE_PREFS)
-  // The OSCrypt keys are process bound, so if network service is out of
-  // process, send it the required key if it is available.
-  if (content::IsOutOfProcessNetworkService()
-#if BUILDFLAG(IS_WIN)
-      && OSCrypt::IsEncryptionAvailable()
-#endif
-  ) {
-    network_service->SetEncryptionKey(OSCrypt::GetRawEncryptionKey());
-  }
-#endif
 }
 
 content::BluetoothDelegate*

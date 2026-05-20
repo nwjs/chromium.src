@@ -5,12 +5,15 @@
 #ifndef CHROME_BROWSER_GLIC_PUBLIC_GLIC_INSTANCE_H_
 #define CHROME_BROWSER_GLIC_PUBLIC_GLIC_INSTANCE_H_
 
+#include <vector>
+
 #include "base/callback_list.h"
 #include "base/functional/callback.h"
 #include "base/observer_list_types.h"
 #include "base/scoped_observation_traits.h"
 #include "base/types/strong_alias.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 
 class BrowserWindowInterface;
 namespace views {
@@ -24,7 +27,6 @@ class TabInterface;
 namespace glic {
 
 class Host;
-class GlicInstanceMetrics;
 
 // Instance IDs are created in the form `<index>-<64-bit-random-int>`.
 // The index is an indicator of how many instances have been created by the
@@ -53,33 +55,19 @@ struct ConversationInfo {
   std::string title;
 };
 
-struct PanelStateContext {
-  // Provided only when kGlicMultiInstance is off.
-  raw_ptr<BrowserWindowInterface> attached_browser = nullptr;
-  // Provided only when kGlicMultiInstance is off.
-  raw_ptr<views::Widget> glic_widget = nullptr;
-};
-
 // Observes the state of the glic panel.
 class PanelStateObserver : public base::CheckedObserver {
  public:
-  virtual void PanelStateChanged(const mojom::PanelState& panel_state,
-                                 const PanelStateContext& context) = 0;
+  virtual void PanelStateChanged(const mojom::PanelState& panel_state) = 0;
 };
 
-namespace glic_instance_internal {
-
-// Interface for UI methods that can be called on the instance.
-class UiDelegate {
+// Public interface for one instance of the glic web client.
+class GlicInstance {
  public:
-  virtual ~UiDelegate() = default;
+  virtual ~GlicInstance();
 
   virtual bool IsShowing() const = 0;
-
   virtual bool IsActive() = 0;
-
-  // Whether the instance's active embedder is attached to a chrome window.
-  virtual bool IsAttached() = 0;
 
   virtual void AddStateObserver(PanelStateObserver* observer) = 0;
   virtual void RemoveStateObserver(PanelStateObserver* observer) = 0;
@@ -91,18 +79,22 @@ class UiDelegate {
   using StateChangeCallback = base::RepeatingCallback<void(bool)>;
   virtual base::CallbackListSubscription RegisterStateChange(
       StateChangeCallback callback) = 0;
-};
 
-}  // namespace glic_instance_internal
-
-// Public interface for one instance of the glic web client.
-class GlicInstance : public glic_instance_internal::UiDelegate {
- public:
-  // Exposes the UiDelegate interface on GlicInstance::UiDelegate.
-  using UiDelegate = glic_instance_internal::UiDelegate;
+  // TODO(b/501233062): Remove from the public interface once the existing
+  // user has migrated away from the API.
+  using DestructionCallback = base::OnceCallback<void(GlicInstance*)>;
+  virtual base::CallbackListSubscription RegisterWillBeDestroyed(
+      DestructionCallback callback) = 0;
 
   // Get this instance's Host which manages the chrome://glic WebContents.
+  // DEPRECATED - Use specific GlicInstance methods instead.
   virtual Host& host() = 0;
+
+  // Register a handler to observe experimental triggering related updates.
+  // The callback informs if the registration operations was successful or not.
+  virtual void GetExperimentalTriggeringUpdates(
+      mojo::PendingRemote<mojom::ExperimentalTriggeringUpdatesHandler> handler,
+      base::OnceCallback<void(bool)> success_status_callback) = 0;
 
   // Gets the window size of the active embedder.
   virtual gfx::Size GetPanelSize() = 0;
@@ -113,6 +105,9 @@ class GlicInstance : public glic_instance_internal::UiDelegate {
   // Get the current conversation ID for this instance.
   virtual std::optional<std::string> conversation_id() const = 0;
 
+  // Get the current conversation title for this instance.
+  virtual std::string conversation_title() const = 0;
+
   // Returns the timestamp when the instance last became active.
   virtual base::Time GetLastActivationTimestamp() const = 0;
 
@@ -120,13 +115,15 @@ class GlicInstance : public glic_instance_internal::UiDelegate {
   // Returns base::TimeDelta() if the instance is currently active.
   virtual base::TimeDelta GetTimeSinceLastActive() const = 0;
 
-  virtual GlicInstanceMetrics* instance_metrics() = 0;
-
   // Metrics springboard for selection area changed.
   // TODO(b/500385503): Figure out what to do here. This is exposed for now
   // given that GlicInstanceMetrics can't be used outside of glic
   // implementation.
   virtual void OnSelectionAreasChanged(int count) = 0;
+  virtual void OnPolylinePointsChanged(const std::vector<int>& counts) = 0;
+
+  // Cancels ongoing actuation task if one exists.
+  virtual void CancelTask() = 0;
 
   virtual void BindTabForTesting(tabs::TabInterface* tab) = 0;
 };

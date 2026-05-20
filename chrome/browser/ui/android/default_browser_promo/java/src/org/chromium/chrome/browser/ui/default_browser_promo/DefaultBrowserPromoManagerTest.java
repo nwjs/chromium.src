@@ -30,8 +30,10 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ui.default_browser_promo.DefaultBrowserPromoUtils.DefaultBrowserPromoEntryPoint;
+import org.chromium.chrome.browser.util.DefaultBrowserInfo;
 import org.chromium.chrome.browser.util.DefaultBrowserInfo.DefaultBrowserState;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.base.WindowAndroid.IntentCallback;
@@ -58,7 +60,9 @@ public class DefaultBrowserPromoManagerTest {
         // When fetchDefaultBrowserInfo is called, immediately invoke the callback.
         doAnswer(
                         invocation -> {
-                            invocation.getArgument(0, Callback.class).onResult(null);
+                            Callback<DefaultBrowserInfo.@Nullable DefaultInfo> cb =
+                                    invocation.getArgument(0);
+                            cb.onResult(null);
                             return null;
                         })
                 .when(mMockDefaultBrowserPromoUtils)
@@ -144,15 +148,25 @@ public class DefaultBrowserPromoManagerTest {
     @EnableFeatures({
         ChromeFeatureList.DEFAULT_BROWSER_PROMO_ENTRY_POINT + ":show_app_menu_item/true"
     })
-    public void testRecordOutcomeWithSource() {
-        // Create a Manager with a specific source ("AppMenu").
+    public void testRecordOutcomeWithAppMenuSource() {
+        runOutcomeTest(
+                DefaultBrowserPromoEntryPoint.APP_MENU,
+                "Android.DefaultBrowserPromo.Outcome.AppMenu");
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.DEFAULT_BROWSER_PROMO_FRE})
+    public void testRecordOutcomeWithFRESource() {
+        runOutcomeTest(
+                DefaultBrowserPromoEntryPoint.FRE, "Android.DefaultBrowserPromo.Outcome.FRE");
+    }
+
+    /** Helper to run outcome tests for different entry points. */
+    private void runOutcomeTest(
+            @DefaultBrowserPromoEntryPoint int source, String expectedHistogram) {
         var manager =
                 new DefaultBrowserPromoManager(
-                        mActivity,
-                        mWindowAndroid,
-                        mImpressionCounter,
-                        mStateProvider,
-                        DefaultBrowserPromoEntryPoint.APP_MENU);
+                        mActivity, mWindowAndroid, mImpressionCounter, mStateProvider, source);
 
         int currentState = DefaultBrowserState.OTHER_DEFAULT;
         int outcomeState = DefaultBrowserState.CHROME_DEFAULT;
@@ -164,23 +178,23 @@ public class DefaultBrowserPromoManagerTest {
 
         var histogram =
                 HistogramWatcher.newBuilder()
-                        .expectIntRecord(
-                                "Android.DefaultBrowserPromo.Outcome.AppMenu", outcomeState)
+                        .expectIntRecord(expectedHistogram, outcomeState)
                         .build();
 
         // Trigger the promo.
         manager.promoByRoleManager();
 
-        // 6. Capture the callback.
+        // Capture the callback passed to WindowAndroid.
         ArgumentCaptor<IntentCallback> onShowCallbackCaptor =
                 ArgumentCaptor.forClass(IntentCallback.class);
         verify(mWindowAndroid)
                 .showCancelableIntent(eq(mIntent), onShowCallbackCaptor.capture(), any());
 
-        // Trigger the callback. We close the dialog and the histogram records the outcome.
+        // Trigger the callback since mWindowAndroid is a mock. We close the dialog and the
+        // histogram records the outcome.
         onShowCallbackCaptor.getValue().onIntentCompleted(1, null);
 
-        histogram.assertExpected("AppMenu specific outcome should be recorded");
+        histogram.assertExpected(expectedHistogram + " should be recorded.");
     }
 
     private void testRecord(

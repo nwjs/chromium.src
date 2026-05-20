@@ -12,7 +12,6 @@
 #include "base/logging.h"
 #include "remoting/base/constants.h"
 #include "remoting/protocol/authenticator.h"
-#include "remoting/protocol/channel_authenticator.h"
 #include "remoting/protocol/credentials_type.h"
 
 namespace remoting::protocol {
@@ -96,7 +95,11 @@ void PairingAuthenticatorBase::ProcessMessage(
 
 JingleAuthentication PairingAuthenticatorBase::GetNextMessage() {
   DCHECK_EQ(state(), MESSAGE_READY);
+  auto self = weak_factory_.GetWeakPtr();
   JingleAuthentication result = spake2_authenticator_->GetNextMessage();
+  if (!self) {
+    return result;
+  }
   MaybeAddErrorMessage(result);
   return result;
 }
@@ -107,11 +110,6 @@ const std::string& PairingAuthenticatorBase::GetAuthKey() const {
 
 const SessionPolicies* PairingAuthenticatorBase::GetSessionPolicies() const {
   return nullptr;
-}
-
-std::unique_ptr<ChannelAuthenticator>
-PairingAuthenticatorBase::CreateChannelAuthenticator() const {
-  return spake2_authenticator_->CreateChannelAuthenticator();
 }
 
 void PairingAuthenticatorBase::MaybeAddErrorMessage(

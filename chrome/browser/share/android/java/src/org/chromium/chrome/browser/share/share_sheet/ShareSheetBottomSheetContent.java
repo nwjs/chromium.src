@@ -216,7 +216,7 @@ class ShareSheetBottomSheetContent implements BottomSheetContent, OnItemClickLis
                         ? ShareSheetBottomSheetContent::bindShareItem
                         : ShareSheetBottomSheetContent::bind3PShareItem;
         adapter.registerType(
-                SHARE_SHEET_ITEM, new LayoutViewBuilder(R.layout.share_sheet_item), viewBinder);
+                SHARE_SHEET_ITEM, new LayoutViewBuilder<>(R.layout.share_sheet_item), viewBinder);
         view.setAdapter(adapter);
         LinearLayoutManager layoutManager =
                 new LinearLayoutManager(mActivity, LinearLayoutManager.HORIZONTAL, false);
@@ -470,7 +470,7 @@ class ShareSheetBottomSheetContent implements BottomSheetContent, OnItemClickLis
         linkToggleView.setVisibility(View.VISIBLE);
         linkToggleView.setImageDrawable(AppCompatResources.getDrawable(mActivity, drawable));
         // This is necessary in order to prevent voice over announcing the content description
-        // change. See https://crbug.com/1192666.
+        // change. See https://crbug.com/40757373.
         linkToggleView.setContentDescription(null);
         linkToggleView.setContentDescription(
                 mActivity.getResources().getString(contentDescription));

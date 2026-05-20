@@ -117,6 +117,7 @@ inline constexpr char kPolicyIndicator[] = "indicator";
 inline constexpr char kReaderName[] = "readerName";
 inline constexpr char kRecentPermissions[] = "recentPermissions";
 inline constexpr char kSetting[] = "setting";
+inline constexpr char kSettingValue[] = "settingValue";
 inline constexpr char kSites[] = "sites";
 inline constexpr char kSource[] = "source";
 inline constexpr char kType[] = "type";
@@ -215,7 +216,8 @@ void GetContentCategorySetting(const HostContentSettingsMap* map,
 // Retrieves the current setting for a given origin, category pair, the source
 // of that setting, and its display name, which will be different if it's an
 // extension. Note this is similar to GetContentCategorySetting() above but this
-// goes through the PermissionManager (preferred, see https://crbug.com/739241).
+// goes through the PermissionManager (preferred, see
+// https://crbug.com/40528601).
 ContentSetting GetContentSettingForOrigin(Profile* profile,
                                           const HostContentSettingsMap* map,
                                           const GURL& origin,

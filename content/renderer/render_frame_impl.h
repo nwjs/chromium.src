@@ -116,7 +116,6 @@
 #include "third_party/blink/public/web/web_frame_serializer.h"
 #include "third_party/blink/public/web/web_frame_serializer_client.h"
 #include "third_party/blink/public/web/web_history_commit_type.h"
-#include "third_party/blink/public/web/web_link_preview_triggerer.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/public/web/web_meaningful_layout.h"
@@ -569,8 +568,7 @@ class CONTENT_EXPORT RenderFrameImpl
   void DidChangeSelection(bool is_empty_selection,
                           blink::SyncCondition force_sync) override;
   void FocusedElementChanged(const blink::WebElement& element) override;
-  void OnMainFrameIntersectionChanged(
-      const gfx::Rect& main_frame_intersection_rect) override;
+  void OnMainFrameRectangleChanged(const gfx::Rect& main_frame_rect) override;
   void OnMainFrameViewportRectangleChanged(
       const gfx::Rect& main_frame_viewport_rect) override;
   void OnMainFrameAdRectangleChanged(int element_id,
@@ -645,8 +643,6 @@ class CONTENT_EXPORT RenderFrameImpl
       const std::optional<blink::WebPictureInPictureWindowOptions>& pip_options,
       const blink::WebURL& base_url,
       blink::WebString* manifest) override;
-  std::unique_ptr<blink::WebLinkPreviewTriggerer> CreateLinkPreviewTriggerer()
-      override;
 
   base::ScopedClosureRunner CreateScopedClientNavigationThrottler() override;
 
@@ -1505,9 +1501,9 @@ class CONTENT_EXPORT RenderFrameImpl
   // kError severity.
   bool want_error_message_stack_trace_ = false;
 
-  // Used for tracking a frame's main frame document intersection and
-  // replicating it to the browser when it changes.
-  std::optional<gfx::Rect> main_frame_intersection_rect_;
+  // Used for tracking a frame's main frame document rectangle and replicating
+  // it to the browser when it changes.
+  std::optional<gfx::Rect> main_frame_rect_;
 
   // Used for tracking the main frame viewport rectangle (i.e. dimensions and
   // scroll offset) within the main frame document.

@@ -17,6 +17,7 @@ import static org.mockito.Mockito.when;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil.FOLIO_FOOT_LENGTH_DP;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Color;
 import android.view.ContextThemeWrapper;
 
@@ -47,6 +48,7 @@ import org.chromium.chrome.browser.compositor.layouts.components.TintedComposito
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutGroupTitle;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutTab;
+import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutTrailingButtonsCoordinator;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView.StripLayoutViewOnClickHandler;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutView.StripLayoutViewOnKeyboardFocusHandler;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabLoadTracker.TabLoadTrackerCallback;
@@ -70,8 +72,10 @@ public class TabStripSceneLayerTest {
     @Mock private StripLayoutViewOnKeyboardFocusHandler mKeyboardFocusHandler;
     @Mock private TabLoadTrackerCallback mTabLoadTrackerCallback;
     @Mock private LayoutUpdateHost mLayoutUpdateHost;
+    private TintedCompositorButton mGlicDismissButton;
     @Mock private TintedCompositorButton mCloseButton;
     @Mock private StripLayoutGroupTitle mStripGroupTitle;
+    @Mock private StripLayoutTrailingButtonsCoordinator mTrailingButtonsCoordinator;
 
     private static final float DP_TO_PX = 1.f;
 
@@ -105,9 +109,24 @@ public class TabStripSceneLayerTest {
     private void initializeTest() {
         mTabStripSceneLayer = new TabStripSceneLayer(DP_TO_PX);
         when(mTabStripSceneMock.init(mTabStripSceneLayer)).thenReturn(1L);
+        mGlicDismissButton =
+                new TintedCompositorButton(
+                        mContext,
+                        false,
+                        ButtonType.GLIC_DISMISS_NUDGE,
+                        null,
+                        24.f,
+                        24.f,
+                        mTooltipHandler,
+                        mOnClickHandler,
+                        mKeyboardFocusHandler,
+                        R.drawable.btn_close,
+                        Resources.ID_NULL,
+                        8.f);
         mGlicButton =
                 new TintedCompositorTextButton(
                         mContext,
+                        false,
                         ButtonType.GLIC,
                         null,
                         32.f,
@@ -115,13 +134,14 @@ public class TabStripSceneLayerTest {
                         mTooltipHandler,
                         mOnClickHandler,
                         mKeyboardFocusHandler,
-                        R.drawable.ic_spark_16dp,
+                        R.drawable.ic_spark_4c_16dp,
                         8.f,
                         /* hasLongClickAction= */ false,
-                        /* dismissButton= */ null);
+                        mGlicDismissButton);
         mModelSelectorButton =
                 new TintedCompositorButton(
                         mContext,
+                        false,
                         ButtonType.INCOGNITO_SWITCHER,
                         null,
                         32.f,
@@ -130,10 +150,12 @@ public class TabStripSceneLayerTest {
                         mOnClickHandler,
                         mKeyboardFocusHandler,
                         R.drawable.ic_incognito,
+                        R.drawable.bg_circle_tab_strip_button,
                         8.f);
         mNewTabButton =
                 new TintedCompositorButton(
                         mContext,
+                        false,
                         ButtonType.NEW_TAB,
                         null,
                         32.f,
@@ -142,6 +164,7 @@ public class TabStripSceneLayerTest {
                         mOnClickHandler,
                         mKeyboardFocusHandler,
                         R.drawable.ic_new_tab_button,
+                        R.drawable.bg_circle_tab_strip_button,
                         8.f);
         mStripLayoutTab =
                 spy(
@@ -159,7 +182,7 @@ public class TabStripSceneLayerTest {
         mStripLayoutTabs = new StripLayoutTab[] {mStripLayoutTab};
         mStripGroupTitles = new StripLayoutGroupTitle[] {mStripGroupTitle};
         when(mStripLayoutHelperManager.getNewTabButton()).thenReturn(mNewTabButton);
-        when(mStripLayoutHelperManager.getGlicButton()).thenReturn(mGlicButton);
+        when(mTrailingButtonsCoordinator.getGlicButton()).thenReturn(mGlicButton);
         when(mStripLayoutHelperManager.getModelSelectorButton()).thenReturn(mModelSelectorButton);
         when(mStripLayoutHelperManager.getContext()).thenReturn(mContext);
         when(mStripLayoutTab.getCloseButton()).thenReturn(mCloseButton);
@@ -191,6 +214,7 @@ public class TabStripSceneLayerTest {
         // Call the method being tested.
         mTabStripSceneLayer.pushAndUpdateStrip(
                 mStripLayoutHelperManager,
+                mTrailingButtonsCoordinator,
                 mLayerTitleCache,
                 mResourceManager,
                 mStripLayoutTabs,
@@ -242,8 +266,24 @@ public class TabStripSceneLayerTest {
                         /* keyboardFocusRingColor= */ eq(
                                 MaterialColors.getColor(
                                         mContext, R.attr.colorPrimary, /* defaultValue= */ 0)));
-        verify(mTabStripSceneMock).updateTabStripLeftFade(1L, 0, 0.f, 0, leftPadding);
-        verify(mTabStripSceneMock).updateTabStripRightFade(1L, 0, 0.f, 0, rightPadding);
+        verify(mTabStripSceneMock)
+                .updateTabStripFade(
+                        /* nativeTabStripSceneLayer= */ 1L,
+                        /* isLeft= */ true,
+                        /* fadeColor= */ 0,
+                        /* opacity= */ 0.f,
+                        /* gradientWidthPx= */ 0.f,
+                        /* opaqueWidthPx= */ 0.f,
+                        leftPadding);
+        verify(mTabStripSceneMock)
+                .updateTabStripFade(
+                        /* nativeTabStripSceneLayer= */ 1L,
+                        /* isLeft= */ false,
+                        /* fadeColor= */ 0,
+                        /* opacity= */ 0.f,
+                        /* gradientWidthPx= */ 0.f,
+                        /* opaqueWidthPx= */ 0.f,
+                        rightPadding);
         verify(mTabStripSceneMock)
                 .updateTabStripLayer(
                         eq(1L),
@@ -294,6 +334,9 @@ public class TabStripSceneLayerTest {
                         anyFloat(),
                         anyFloat(),
                         anyFloat(),
+                        anyInt(),
+                        anyFloat(),
+                        anyFloat(),
                         anyFloat(),
                         anyFloat(),
                         anyFloat(),
@@ -328,6 +371,8 @@ public class TabStripSceneLayerTest {
                         anyBoolean(),
                         anyFloat(),
                         anyBoolean(),
+                        anyInt(),
+                        anyInt(),
                         anyInt());
     }
 
@@ -367,6 +412,9 @@ public class TabStripSceneLayerTest {
                         anyFloat(),
                         anyFloat(),
                         anyFloat(),
+                        anyInt(),
+                        anyFloat(),
+                        anyFloat(),
                         anyFloat(),
                         anyFloat(),
                         anyFloat(),
@@ -399,6 +447,8 @@ public class TabStripSceneLayerTest {
                         anyBoolean(),
                         anyFloat(),
                         anyBoolean(),
+                        anyInt(),
+                        anyInt(),
                         anyInt());
     }
 
@@ -438,6 +488,9 @@ public class TabStripSceneLayerTest {
                         anyFloat(),
                         anyFloat(),
                         anyFloat(),
+                        anyInt(),
+                        anyFloat(),
+                        anyFloat(),
                         anyFloat(),
                         anyFloat(),
                         anyFloat(),
@@ -472,6 +525,8 @@ public class TabStripSceneLayerTest {
                         anyBoolean(),
                         anyFloat(),
                         anyBoolean(),
+                        anyInt(),
+                        anyInt(),
                         anyInt());
     }
 
@@ -510,6 +565,9 @@ public class TabStripSceneLayerTest {
                         anyFloat(),
                         anyFloat(),
                         anyFloat(),
+                        anyInt(),
+                        anyFloat(),
+                        anyFloat(),
                         anyFloat(),
                         anyFloat(),
                         anyFloat(),
@@ -544,6 +602,8 @@ public class TabStripSceneLayerTest {
                         anyBoolean(),
                         anyFloat(),
                         anyBoolean(),
+                        anyInt(),
+                        anyInt(),
                         anyInt());
     }
 
@@ -590,7 +650,14 @@ public class TabStripSceneLayerTest {
     public void testUpdateNewTabButton() {
         mNewTabButton.setKeyboardFocused(true);
         mTabStripSceneLayer.pushButtonsAndBackground(
-                mStripLayoutHelperManager, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f);
+                mStripLayoutHelperManager,
+                mTrailingButtonsCoordinator,
+                0,
+                0,
+                0.0f,
+                0.0f,
+                0.0f,
+                0.0f);
         verify(mTabStripSceneMock, times(1))
                 .updateNewTabButton(
                         eq(1L),
@@ -615,7 +682,14 @@ public class TabStripSceneLayerTest {
     public void testUpdateGlicButton() {
         mGlicButton.setKeyboardFocused(true);
         mTabStripSceneLayer.pushButtonsAndBackground(
-                mStripLayoutHelperManager, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f);
+                mStripLayoutHelperManager,
+                mTrailingButtonsCoordinator,
+                0,
+                0,
+                0.0f,
+                0.0f,
+                0.0f,
+                0.0f);
         verify(mTabStripSceneMock, times(1))
                 .updateGlicButton(
                         eq(1L),
@@ -627,6 +701,7 @@ public class TabStripSceneLayerTest {
                         anyBoolean(),
                         anyBoolean(),
                         anyInt(),
+                        anyBoolean(),
                         anyInt(),
                         anyFloat(),
                         eq(true),
@@ -637,6 +712,54 @@ public class TabStripSceneLayerTest {
                         anyInt(),
                         anyFloat(),
                         anyFloat(),
+                        anyFloat(),
+                        anyFloat(),
+                        anyInt(),
+                        anyFloat(),
+                        anyFloat(),
+                        anyBoolean(),
+                        anyInt(),
+                        anyBoolean(),
+                        anyInt(),
+                        anyInt());
+    }
+
+    @Test
+    public void testUpdateGlicActorButton() {
+        when(mTrailingButtonsCoordinator.getGlicActorButton()).thenReturn(mGlicButton);
+        mGlicButton.setKeyboardFocused(true);
+        mTabStripSceneLayer.pushButtonsAndBackground(
+                mStripLayoutHelperManager,
+                mTrailingButtonsCoordinator,
+                0,
+                0,
+                0.0f,
+                0.0f,
+                0.0f,
+                0.0f);
+        verify(mTabStripSceneMock, times(1))
+                .updateGlicActorButton(
+                        eq(1L),
+                        anyInt(),
+                        anyFloat(),
+                        anyFloat(),
+                        anyFloat(),
+                        anyFloat(),
+                        anyBoolean(),
+                        anyBoolean(),
+                        anyInt(),
+                        anyBoolean(),
+                        anyInt(),
+                        anyFloat(),
+                        eq(true),
+                        eq(R.drawable.circular_button_keyfocus),
+                        eq(
+                                MaterialColors.getColor(
+                                        mContext, R.attr.colorPrimary, /* defaultValue= */ 0)),
+                        anyInt(),
+                        anyFloat(),
+                        anyFloat(),
+                        anyFloat(),
                         anyFloat());
     }
 
@@ -644,7 +767,14 @@ public class TabStripSceneLayerTest {
     public void testUpdateModelSelectorButton() {
         mModelSelectorButton.setKeyboardFocused(true);
         mTabStripSceneLayer.pushButtonsAndBackground(
-                mStripLayoutHelperManager, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f);
+                mStripLayoutHelperManager,
+                mTrailingButtonsCoordinator,
+                0,
+                0,
+                0.0f,
+                0.0f,
+                0.0f,
+                0.0f);
         verify(mTabStripSceneMock, times(1))
                 .updateModelSelectorButton(
                         eq(1L),

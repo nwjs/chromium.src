@@ -29,10 +29,9 @@
 #include "chrome/browser/apps/link_capturing/link_capturing_tab_data.h"
 #include "chrome/browser/apps/link_capturing/metrics/intent_handling_metrics.h"
 #include "chrome/browser/preloading/prefetch/no_state_prefetch/chrome_no_state_prefetch_contents_delegate.h"
-#include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"  // nogncheck https://crbug.com/1474116
-#include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"  // nogncheck https://crbug.com/1474116
+#include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"  // nogncheck https://crbug.com/40279225
+#include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"  // nogncheck https://crbug.com/40279225
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_finder.h"  // nogncheck https://crbug.com/1474984
 #include "chrome/browser/ui/web_applications/navigation_capturing_process.h"  // nogncheck https://crbug.com/377760841
 #include "chrome/browser/web_applications/chromeos_web_app_experiments.h"
 #include "chrome/browser/web_applications/link_capturing_features.h"
@@ -42,6 +41,7 @@
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
 #include "components/page_load_metrics/google/browser/google_url_util.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/frame_type.h"
 #include "content/public/browser/navigation_handle.h"
@@ -376,10 +376,11 @@ bool ChromeOsReimplNavigationCapturingThrottle::MaybeCreateAndAdd(
     return false;
   }
 
-  // If there is no browser attached to this web-contents yet, this was a
+  // If this web-contents is not yet inserted into a tab strip, this was a
   // middle-mouse-click action, which should not be captured.
   // TODO(crbug.com/40279479): Find a better way to detect middle-clicks.
-  if (chrome::FindBrowserWithTab(contents) == nullptr) {
+  tabs::TabInterface* tab = tabs::TabInterface::MaybeGetFromContents(contents);
+  if (!tab || !tab->GetParentCollection()) {
     return false;
   }
 
@@ -569,7 +570,9 @@ ThrottleCheckResult ChromeOsReimplNavigationCapturingThrottle::HandleRequest() {
   // Close existing web contents if it is around.
   std::unique_ptr<ScopedKeepAlive> browser_keep_alive;
   std::unique_ptr<ScopedProfileKeepAlive> profile_keep_alive;
-  bool closed_web_contents = false;
+  bool closed_web_contents = IsEmptyDanglingWebContentsAfterLinkCapture();
+  debug_data->Set("closed_web_contents", closed_web_contents);
+  debug_data->Set("!result", "launched");
   if (IsEmptyDanglingWebContentsAfterLinkCapture()) {
     browser_keep_alive = std::make_unique<ScopedKeepAlive>(
         KeepAliveOrigin::APP_LAUNCH, KeepAliveRestartOption::ENABLED);
@@ -577,10 +580,12 @@ ThrottleCheckResult ChromeOsReimplNavigationCapturingThrottle::HandleRequest() {
       profile_keep_alive = std::make_unique<ScopedProfileKeepAlive>(
           &profile_.get(), ProfileKeepAliveOrigin::kAppWindow);
     }
+    auto weak_this = weak_ptr_factory_.GetWeakPtr();
     handle->GetWebContents()->ClosePage();
-    closed_web_contents = true;
+    if (!weak_this) {
+      return content::NavigationThrottle::CANCEL_AND_IGNORE;
+    }
   }
-  debug_data->Set("closed_web_contents", closed_web_contents);
   base::OnceClosure launch_callback = base::BindOnce(
       [](std::unique_ptr<ScopedKeepAlive> browser_keep_alive,
          std::unique_ptr<ScopedProfileKeepAlive> profile_keep_alive,
@@ -597,7 +602,6 @@ ThrottleCheckResult ChromeOsReimplNavigationCapturingThrottle::HandleRequest() {
       std::move(browser_keep_alive), std::move(profile_keep_alive),
       closed_web_contents);
 
-  debug_data->Set("!result", "launched");
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(&LaunchApp, proxy->GetWeakPtr(), launch_app_id,

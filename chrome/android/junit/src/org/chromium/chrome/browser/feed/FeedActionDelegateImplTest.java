@@ -9,14 +9,12 @@ import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
 import android.content.Intent;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -32,13 +30,9 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.app.feed.FeedActionDelegateImpl;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
-import org.chromium.chrome.browser.feed.webfeed.WebFeedBridge;
-import org.chromium.chrome.browser.feed.webfeed.WebFeedBridgeJni;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.native_page.NativePageNavigationDelegate;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherImpl;
-import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncConfig;
 import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncConfig.NoAccountSigninMode;
@@ -59,7 +53,6 @@ import org.chromium.ui.modaldialog.ModalDialogManager;
 public final class FeedActionDelegateImplTest {
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Mock private WebFeedBridge.Natives mWebFeedBridgeJniMock;
 
     @Mock private SigninAndHistorySyncActivityLauncher mMockSigninAndHistorySyncActivityLauncher;
 
@@ -79,8 +72,6 @@ public final class FeedActionDelegateImplTest {
 
     @Mock private ModalDialogManager mModalDialogManager;
 
-    @Mock private TabModelSelector mTabModelSelector;
-
     @Mock private Profile mProfile;
 
     @Mock private BottomSheetController mBottomSheetController;
@@ -99,7 +90,6 @@ public final class FeedActionDelegateImplTest {
         SigninAndHistorySyncActivityLauncherImpl.setLauncherForTest(
                 mMockSigninAndHistorySyncActivityLauncher);
         mFeedActionDelegateImpl = buildFeedActionDelegateImpl();
-        WebFeedBridgeJni.setInstanceForTesting(mWebFeedBridgeJniMock);
     }
 
     @Test
@@ -203,36 +193,6 @@ public final class FeedActionDelegateImplTest {
         verify(mSigninCoordinator).startSigninFlow(any());
     }
 
-    @Test
-    @EnableFeatures({
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
-        SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
-    })
-    public void testOpenWebFeed_enabledWhenCormorantFlagEnabled() {
-        String webFeedName = "SomeFeedName";
-        when(mWebFeedBridgeJniMock.isCormorantEnabledForLocale()).thenReturn(true);
-
-        mFeedActionDelegateImpl.openWebFeed(webFeedName, SingleWebFeedEntryPoint.OTHER);
-
-        verify(mActivity).startActivity(mIntentCaptor.capture());
-        Assert.assertArrayEquals(
-                "Feed ID not passed correctly.",
-                webFeedName.getBytes(),
-                mIntentCaptor.getValue().getByteArrayExtra("CREATOR_WEB_FEED_ID"));
-    }
-
-    @Test
-    @DisableFeatures({
-        ChromeFeatureList.CORMORANT,
-        SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
-        SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
-    })
-    public void testOpenWebFeed_disabledWhenCormorantFlagDisabled() {
-        when(mWebFeedBridgeJniMock.isCormorantEnabledForLocale()).thenReturn(false);
-        mFeedActionDelegateImpl.openWebFeed("SomeFeedName", SingleWebFeedEntryPoint.OTHER);
-        verify(mActivity, never()).startActivity(any());
-    }
-
     private FeedActionDelegateImpl buildFeedActionDelegateImpl() {
         return new FeedActionDelegateImpl(
                 mActivity,
@@ -244,7 +204,6 @@ public final class FeedActionDelegateImplTest {
                 mModalDialogManager,
                 mMockNavigationDelegate,
                 mMockBookmarkModel,
-                mTabModelSelector,
                 mProfile,
                 mBottomSheetController);
     }

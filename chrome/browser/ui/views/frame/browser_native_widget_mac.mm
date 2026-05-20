@@ -54,6 +54,7 @@
 #import "ui/base/cocoa/window_size_constants.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
+#include "ui/base/ui_base_features.h"
 #import "ui/views/cocoa/native_widget_mac_ns_window_host.h"
 #include "ui/views/interaction/element_tracker_views.h"
 
@@ -74,12 +75,12 @@ bool UsesRemoteCocoaApplicationHost(Browser* browser) {
 
 bool ShouldHandleKeyboardEvent(const input::NativeWebKeyboardEvent& event) {
   // |event.skip_if_unhandled| is true when it shouldn't be handled by the
-  // browser if it was ignored by the renderer. See http://crbug.com/25000.
+  // browser if it was ignored by the renderer. See http://crbug.com/41018016.
   if (event.skip_if_unhandled) {
     return false;
   }
 
-  // Ignore synthesized keyboard events. See http://crbug.com/23221.
+  // Ignore synthesized keyboard events. See http://crbug.com/41007517.
   if (event.GetType() == input::NativeWebKeyboardEvent::Type::kChar) {
     return false;
   }
@@ -339,10 +340,9 @@ void BrowserNativeWidgetMac::ValidateUserInterfaceItem(
       result->new_toggle_state =
           prefs->GetBoolean(omnibox::kShowGoogleLensShortcut);
       // Disable this menu option if the LensOverlay feature is not enabled.
-      result->enable = lens::features::IsOmniboxEntryPointEnabled() &&
-                       browser->GetFeatures()
-                           .lens_overlay_entry_point_controller()
-                           ->IsEnabled();
+      result->enable =
+          lens::features::IsOmniboxEntryPointEnabled() &&
+          lens::LensOverlayEntryPointController::From(browser)->IsEnabled();
       break;
     }
     case IDC_SHOW_AI_MODE_OMNIBOX_BUTTON: {
@@ -431,7 +431,7 @@ bool BrowserNativeWidgetMac::WillExecuteCommand(
     // If a command is reserved, then we also have it bypass the main menu.
     // This is based on the rough approximation that reserved commands are
     // also the ones that we want to be quickly repeatable.
-    // https://crbug.com/836947.
+    // https://crbug.com/41385540.
     // The function IsReservedCommandOrKey does not examine its event argument
     // on macOS.
     input::NativeWebKeyboardEvent dummy_event(
@@ -520,6 +520,10 @@ NativeWidgetMacNSWindow* BrowserNativeWidgetMac::CreateNSWindow(
     const remote_cocoa::mojom::CreateWindowParams* params) {
   CHECK(browser_view_);
   NativeWidgetMacNSWindow* ns_window = NativeWidgetMac::CreateNSWindow(params);
+  if (features::IsGlassFrameEnabled()) {
+    [ns_window setBackgroundColor:[NSColor clearColor]];
+    [ns_window setOpaque:NO];
+  }
   touch_bar_delegate_ = [[BrowserWindowTouchBarViewsDelegate alloc]
       initWithBrowser:browser_view_->browser()
                window:ns_window];
@@ -544,6 +548,27 @@ void BrowserNativeWidgetMac::OnWindowInitialized() {
     if (auto* host = GetHostForBrowser(browser_view_)) {
       host->GetAppShim()->CreateCommandDispatcherForWidget(
           GetNSWindowHost()->bridged_native_widget_id());
+    }
+  }
+}
+
+void BrowserNativeWidgetMac::OnWidgetInitDone() {
+  NativeWidgetMac::OnWidgetInitDone();
+
+  if (features::IsGlassFrameEnabled()) {
+    NSWindow* ns_window = GetNSWindowHost()->GetInProcessNSWindow();
+    if (ns_window) {
+      NSView* content_view = [ns_window contentView];
+      CHECK(content_view);
+      NSVisualEffectView* effect_view =
+          [[NSVisualEffectView alloc] initWithFrame:content_view.bounds];
+      effect_view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+      effect_view.material = NSVisualEffectMaterialUnderWindowBackground;
+      effect_view.blendingMode = NSVisualEffectBlendingModeBehindWindow;
+      effect_view.state = NSVisualEffectStateActive;
+      [content_view addSubview:effect_view
+                    positioned:NSWindowBelow
+                    relativeTo:nil];
     }
   }
 }

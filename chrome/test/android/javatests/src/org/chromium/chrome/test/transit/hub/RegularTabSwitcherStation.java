@@ -18,9 +18,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.hamcrest.Matcher;
 
 import org.chromium.base.test.transit.ViewElementMatchesCondition;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.hub.PaneId;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ntp.RegularNewTabPageStation;
 
 /** Regular tab switcher pane station. */
@@ -59,6 +59,12 @@ public class RegularTabSwitcherStation extends TabSwitcherStation {
     @Override
     public @PaneId int getPaneId() {
         return PaneId.TAB_SWITCHER;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked") // Covariant return: raw parent → parameterized subclass.
+    public TabSwitcherAppMenuFacility<RegularTabSwitcherStation> openAppMenu() {
+        return super.openAppMenu();
     }
 
     /** Open a new tab using the New Tab action button. */

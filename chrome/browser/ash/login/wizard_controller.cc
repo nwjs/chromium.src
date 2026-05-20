@@ -17,8 +17,10 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/login_types.h"
+#include "ash/webui/help_app_ui/help_app_prefs.h"
 #include "base/check.h"
 #include "base/check_deref.h"
+#include "base/check_is_test.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -46,6 +48,7 @@
 #include "chrome/browser/ash/login/enrollment/auto_enrollment_check_screen.h"
 #include "chrome/browser/ash/login/enrollment/enrollment_screen.h"
 #include "chrome/browser/ash/login/existing_user_controller.h"
+#include "chrome/browser/ash/login/fjord_oobe/fjord_image_downloader.h"
 #include "chrome/browser/ash/login/fjord_oobe/fjord_oobe_state_manager.h"
 #include "chrome/browser/ash/login/fjord_oobe/fjord_oobe_util.h"
 #include "chrome/browser/ash/login/fjord_oobe/proto/fjord_oobe_state.pb.h"
@@ -427,19 +430,26 @@ PrefService* WizardController::local_state_for_testing_ = nullptr;
 
 WizardController::WizardController(
     PrefService* local_state,
+    ::metrics::MetricsService* metrics_service,
     ApplicationLocaleStorage* application_locale_storage,
     scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory,
+    policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash,
     scoped_refptr<component_updater::ComponentManagerAsh> component_manager_ash,
     WizardContext* wizard_context)
     : local_state_(CHECK_DEREF(local_state)),
+      metrics_service_(metrics_service),
       application_locale_storage_(CHECK_DEREF(application_locale_storage)),
       shared_url_loader_factory_(std::move(shared_url_loader_factory)),
+      browser_policy_connector_ash_(CHECK_DEREF(browser_policy_connector_ash)),
       component_manager_ash_(std::move(component_manager_ash)),
       quickstart_controller_(
           std::make_unique<quick_start::QuickStartController>(
               &local_state_.get())),
       screen_manager_(std::make_unique<ScreenManager>()),
       wizard_context_(wizard_context) {
+  if (!metrics_service_) {
+    CHECK_IS_TEST();
+  }
   CHECK(component_manager_ash_);
   const auto has_been_skipped =
       wizard_context_->skip_post_login_screens_for_tests;
@@ -509,6 +519,10 @@ void WizardController::Init(OobeScreenId first_screen) {
 
   MaybeNotifyFjordOobeStateManager(
       fjord_oobe_state::proto::FjordOobeStateInfo::FJORD_OOBE_STATE_START);
+  if (fjord_util::ShouldShowFjordOobe() &&
+      fjord_util::ShouldShowFjordOobeImageSwitch()) {
+    fjord_image_downloader_ = std::make_unique<FjordImageDownloader>();
+  }
 
   // This is a hacky way to check for local state corruption, because
   // it depends on the fact that the local state is loaded
@@ -663,12 +677,6 @@ void WizardController::SetSharedURLLoaderFactoryForTesting(
 
 std::vector<std::pair<OobeScreenId, std::unique_ptr<BaseScreen>>>
 WizardController::CreateScreens() {
-  // TODO(crbug.com/404133029): Avoid using g_browser_process.
-  ::metrics::MetricsService* metrics_service =
-      g_browser_process->metrics_service();
-  const policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash =
-      g_browser_process->platform_part()->browser_policy_connector_ash();
-
   OobeUI* oobe_ui = GetOobeUI();
 
   std::vector<std::pair<OobeScreenId, std::unique_ptr<BaseScreen>>> result;
@@ -708,7 +716,7 @@ WizardController::CreateScreens() {
                           weak_factory_.GetWeakPtr())));
   append(std::make_unique<EnrollmentScreen>(
       &local_state_.get(), shared_url_loader_factory_,
-      browser_policy_connector_ash,
+      &browser_policy_connector_ash_.get(),
       oobe_ui->GetView<EnrollmentScreenHandler>()->AsWeakPtr(),
       oobe_ui->GetErrorScreen(),
       base::BindRepeating(&WizardController::OnEnrollmentScreenExit,
@@ -746,7 +754,7 @@ WizardController::CreateScreens() {
           &WizardController::OnCryptohomeRecoverySetupScreenExit,
           weak_factory_.GetWeakPtr())));
   append(std::make_unique<TermsOfServiceScreen>(
-      shared_url_loader_factory_, browser_policy_connector_ash,
+      shared_url_loader_factory_, &browser_policy_connector_ash_.get(),
       oobe_ui->GetView<TermsOfServiceScreenHandler>()->AsWeakPtr(),
       base::BindRepeating(&WizardController::OnTermsOfServiceScreenExit,
                           weak_factory_.GetWeakPtr())));
@@ -810,7 +818,7 @@ WizardController::CreateScreens() {
       base::BindRepeating(&WizardController::OnManagementTransitionScreenExit,
                           weak_factory_.GetWeakPtr())));
   append(std::make_unique<UpdateRequiredScreen>(
-      browser_policy_connector_ash,
+      &browser_policy_connector_ash_.get(),
       oobe_ui->GetView<UpdateRequiredScreenHandler>()->AsWeakPtr(),
       oobe_ui->GetErrorScreen(),
       base::BindRepeating(&WizardController::OnUpdateRequiredScreenExit,
@@ -869,7 +877,7 @@ WizardController::CreateScreens() {
       base::BindRepeating(&WizardController::OnSamlConfirmPasswordScreenExit,
                           weak_factory_.GetWeakPtr())));
   append(std::make_unique<OfflineLoginScreen>(
-      &local_state_.get(), browser_policy_connector_ash,
+      &local_state_.get(), &browser_policy_connector_ash_.get(),
       oobe_ui->GetView<OfflineLoginScreenHandler>()->AsWeakPtr(),
       base::BindRepeating(&WizardController::OnOfflineLoginScreenExit,
                           weak_factory_.GetWeakPtr())));
@@ -913,7 +921,8 @@ WizardController::CreateScreens() {
                           weak_factory_.GetWeakPtr())));
 
   append(std::make_unique<ConsolidatedConsentScreen>(
-      &local_state_.get(), &application_locale_storage_.get(), metrics_service,
+      &local_state_.get(), &application_locale_storage_.get(),
+      metrics_service_.get(),
       oobe_ui->GetView<ConsolidatedConsentScreenHandler>()->AsWeakPtr(),
       base::BindRepeating(&WizardController::OnConsolidatedConsentScreenExit,
                           weak_factory_.GetWeakPtr())));
@@ -1919,6 +1928,7 @@ void WizardController::OnCryptohomeRecoveryScreenExit(
           NOTREACHED() << "Recovery can not be used during initial setup.";
         case WizardContext::AuthChangeFlow::kRecovery:
           if (ash::features::IsRecoveryFlowReorderEnabled()) {
+            wizard_context_->allow_factor_change_during_recovery = true;
             ObtainContextAndLoginAuthenticated();
           } else {
             ShowPasswordSelectionScreen();
@@ -2859,6 +2869,15 @@ void WizardController::ObtainContextAndFinalizeAuth() {
 
 void WizardController::FinalizeAuthWithContext(
     std::unique_ptr<UserContext> context) {
+  auto mount_state = context->GetMountState();
+  if (!mount_state.has_value()) {
+    // In certain edge cases, such as a Reauthentication that transitions into
+    // recovery with an automatic online password update, we can reach this
+    // point before the cryptohome is mounted. In these cases, we need to
+    // perform a login instead of just finalizing the auth.
+    LoginAuthenticatedWithContext(std::move(context));
+    return;
+  }
   ash::LoginDisplayHost::default_host()
       ->GetExistingUserController()
       ->FinalizeAuthAndStartSession(*context);
@@ -3125,6 +3144,23 @@ void WizardController::OnFjordImageSelectionScreenExit(
     ShowAutoEnrollmentCheckScreen();
   } else {
     ShowFjordImageDownloadScreen();
+    // Map the selection result to the dissidia image type and start download.
+    FjordImageDownloader::ImageType image_type =
+        FjordImageDownloader::ImageType::kUnknown;
+    switch (result) {
+      case FjordImageSelectionScreen::Result::kCuttlefish:
+        image_type = FjordImageDownloader::ImageType::kNoctis;
+        break;
+      case FjordImageSelectionScreen::Result::kSquid:
+        image_type = FjordImageDownloader::ImageType::kSelphie;
+        break;
+      default:
+        NOTREACHED();
+    }
+    fjord_image_downloader_->RunDissidia(
+        image_type,
+        base::BindOnce(&WizardController::OnFjordImageDownloadCompleted,
+                       weak_factory_.GetWeakPtr()));
   }
 }
 
@@ -3132,6 +3168,19 @@ void WizardController::OnFjordImageDownloadScreenExit() {
   // Image download screen is a terminal state because the image install will
   // reboot the device.
   OnScreenExit(FjordImageDownloadScreenView::kScreenId, kDefaultExitReason);
+}
+
+void WizardController::OnFjordImageDownloadCompleted(
+    bool success,
+    const std::string& error_message) {
+  // TODO(b:501556529): Add a histogram for image download success/failure.
+  if (success) {
+    VLOG(1) << "Fjord image download (dissidia) completed successfully.";
+  } else {
+    LOG(ERROR) << "Fjord image download (dissidia) failed: " << error_message;
+    GetScreen<FjordImageSelectionScreen>()->SetErrorMessage(error_message);
+    ShowFjordImageSelectionScreen();
+  }
 }
 
 bool WizardController::ExitFjordTouchControllerScreen() {
@@ -3776,8 +3825,9 @@ void WizardController::PrepareFirstRunPrefs() {
   bool shouldShowParentalControl =
       wizard_context_->sign_in_as_child && !profile->IsChild() &&
       !profile->GetProfilePolicyConnector()->IsManaged();
-  profile->GetPrefs()->SetBoolean(::prefs::kHelpAppShouldShowParentalControl,
-                                  shouldShowParentalControl);
+  profile->GetPrefs()->SetBoolean(
+      ash::help_app::prefs::kHelpAppShouldShowParentalControl,
+      shouldShowParentalControl);
 }
 
 PrefService* WizardController::GetLocalState() {

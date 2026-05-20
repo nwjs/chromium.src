@@ -76,6 +76,7 @@ class TabGridViewControllerTest : public PlatformTest,
         [[PinnedTabsViewController alloc] init];
 
     view_controller_.mutator = mock_mutator_;
+    [view_controller_ didSetupChildViewsForTesting];
   }
 
   // Checks that `view_controller_` can perform the `action`. The sender is set
@@ -139,6 +140,17 @@ TEST_F(TabGridViewControllerTest, CanPerform_OpenTabsActions) {
   for (NSString* action in actions) {
     EXPECT_TRUE(CanPerform(action));
   }
+}
+
+// Checks that actions can't be performed when a modal is presented.
+TEST_F(TabGridViewControllerTest, CantPerform_Actions_WhenModalPresented) {
+  id mock_view_controller = OCMPartialMock(view_controller_);
+  UIViewController* dummy_vc = [[UIViewController alloc] init];
+  OCMStub([mock_view_controller presentedViewController]).andReturn(dummy_vc);
+
+  EXPECT_FALSE(CanPerform(@"keyCommand_openNewTab"));
+  EXPECT_FALSE(CanPerform(@"keyCommand_openNewRegularTab"));
+  EXPECT_FALSE(CanPerform(@"keyCommand_openNewIncognitoTab"));
 }
 
 // Checks that opening regular tabs can't be performed when disabled.

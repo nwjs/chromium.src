@@ -206,8 +206,13 @@ void ClientSideDetectionIntelligentScanDelegateAndroid::Inquiry::
   base::UmaHistogramMediumTimes(
       "SBClientPhishing.ServerSideModelExecutionDuration",
       base::TimeTicks::Now() - remote_execution_start_time);
-  // Server model does not return model version.
-  int model_version = IntelligentScanResult::kModelVersionUnavailable;
+  // Server model does not return model version. Check the rollout feature flag
+  // to set the model version.
+  int model_version =
+      base::FeatureList::IsEnabled(
+          kClientSideDetectionServerModelRolloutAndroid)
+          ? kClientSideDetectionServerModelRolloutVersionAndroid.Get()
+          : IntelligentScanResult::kDefaultServerModelVersion;
   if (!execution_success) {
     base::UmaHistogramEnumeration(
         "SBClientPhishing.ServerSideModelExecutionError",
@@ -247,12 +252,7 @@ ClientSideDetectionIntelligentScanDelegateAndroid::
       model_broker_client_(std::move(model_broker_client)),
       remote_model_executor_(remote_model_executor),
       is_feature_enabled_(
-          !base::FeatureList::IsEnabled(kClientSideDetectionKillswitch) &&
-          (base::FeatureList::IsEnabled(
-               kClientSideDetectionSendIntelligentScanInfoAndroid) ||
-           kCsdImageEmbeddingMatchWithIntelligentScan.Get() ||
-           base::FeatureList::IsEnabled(
-               kClientSideDetectionServerModelForScamDetectionAndroid))),
+          !base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)),
       is_server_model_enabled_(base::FeatureList::IsEnabled(
           kClientSideDetectionServerModelForScamDetectionAndroid)) {
   if (!is_feature_enabled_) {
@@ -393,13 +393,6 @@ bool ClientSideDetectionIntelligentScanDelegateAndroid::ShouldShowScamWarning(
       *verdict ==
           IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_UNSPECIFIED ||
       *verdict == IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_SAFE) {
-    return false;
-  }
-
-  if (!base::FeatureList::IsEnabled(
-          kClientSideDetectionShowScamVerdictWarningAndroid) &&
-      !base::FeatureList::IsEnabled(
-          kClientSideDetectionServerModelForScamDetectionAndroid)) {
     return false;
   }
 

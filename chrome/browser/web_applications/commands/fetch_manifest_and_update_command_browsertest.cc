@@ -43,8 +43,7 @@ IN_PROC_BROWSER_TEST_F(FetchManifestAndUpdateCommandTest, BasicUpdate) {
   webapps::ManifestId manifest_id = GenerateManifestIdFromStartUrlOnly(
       embedded_https_test_server().GetURL("/web_apps/basic.html"));
   GURL app_url = embedded_https_test_server().GetURL("/web_apps/basic.html");
-  webapps::AppId app_id =
-      InstallWebAppFromPageAndCloseAppBrowser(browser(), app_url);
+  webapps::AppId app_id = InstallWebAppInNewTabAndClose(browser(), app_url);
 
   EXPECT_EQ("Basic web app",
             provider().registrar_unsafe().GetAppShortName(app_id));
@@ -89,9 +88,10 @@ IN_PROC_BROWSER_TEST_F(FetchManifestAndUpdateCommandMigrationTest,
   provider().command_manager().AwaitAllCommandsCompleteForTesting();
 
   // We expect success (no update detected, as App A hasn't changed).
-  histogram_tester.ExpectBucketCount(
-      "WebApp.FetchManifestAndUpdate.Result",
-      FetchManifestAndUpdateResult::kSuccessNoUpdateDetected, 1);
+  EXPECT_GE(histogram_tester.GetBucketCount(
+                "WebApp.FetchManifestAndUpdate.Result",
+                FetchManifestAndUpdateResult::kSuccessNoUpdateDetected),
+            1);
 
   const WebApp* app_a = provider().registrar_unsafe().GetAppById(app_a_id);
   EXPECT_FALSE(app_a->pending_update_info().has_value());
@@ -116,8 +116,10 @@ IN_PROC_BROWSER_TEST_F(FetchManifestAndUpdateCommandMigrationTest,
   // We expect success. Since force_trusted_silent_update is false, the identity
   // change (name change) should be recorded as a pending update instead of
   // being applied immediately.
-  histogram_tester.ExpectBucketCount("WebApp.FetchManifestAndUpdate.Result",
-                                     FetchManifestAndUpdateResult::kSuccess, 1);
+  EXPECT_GE(
+      histogram_tester.GetBucketCount("WebApp.FetchManifestAndUpdate.Result",
+                                      FetchManifestAndUpdateResult::kSuccess),
+      1);
 
   EXPECT_EQ("Migrate From",
             provider().registrar_unsafe().GetAppShortName(app_a_id));

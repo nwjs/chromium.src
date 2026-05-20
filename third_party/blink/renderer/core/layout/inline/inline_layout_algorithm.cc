@@ -338,7 +338,7 @@ InlineLayoutAlgorithm::GetLineClampState(const LineInfo* line_info) const {
   if (!(line_info && line_info->IsBlockInInline()) &&
       line_clamp_data.IsAtClampPoint()) {
     if (!RuntimeEnabledFeatures::CSSLineClampEnabled() ||
-        Style().BlockEllipsis() == EBlockEllipsis::kAuto) [[likely]] {
+        Style().BlockEllipsis() == EBlockEllipsis::kEllipsis) [[likely]] {
       return LineClampState::kLineClampEllipsis;
     }
   }
@@ -601,6 +601,7 @@ void InlineLayoutAlgorithm::CreateLine(const LineLayoutOpportunity& opportunity,
     line_container->MoveInBlockDirection(line_box_metrics.ascent);
   }
 
+  line_container->SetTextFitScale(line_info->TextFitScale());
   container_builder_.SetInlineSize(inline_size);
 }
 
@@ -638,7 +639,7 @@ void InlineLayoutAlgorithm::ApplyTextBoxTrim(LineInfo& line_info,
   InlineBoxState::AdjustEdges(line_style, *line_style.GetFont(), baseline_type_,
                               should_apply_over, should_apply_under,
                               intrinsic_metrics);
-  if (RuntimeEnabledFeatures::CssFitWidthTextEnabled() && apply_fit_text_) {
+  if (RuntimeEnabledFeatures::CssTextFitEnabled() && apply_fit_text_) {
     float scale = line_info.TextFitScale();
     if (scale < 1.0f) {
       std::optional<float> min_size = Node().MinimumFontPhysicalSize();

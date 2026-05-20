@@ -5,7 +5,7 @@
 'use strict';
 
 const backgroundJS =
-  `chrome.runtime.onMessage.addListener(function(msg, _, sendResponse) {
+    `chrome.runtime.onMessage.addListener(function(msg, _, sendResponse) {
      if (msg.sourceCheck) {
        sendResponse({label: 'onMessage/SW BG.'});
      }
@@ -13,8 +13,7 @@ const backgroundJS =
 
 self.onfetch = function(e) {
   const requestUrl = new URL(e.request.url);
-  if (requestUrl.pathname == '/background.js') {
+  if (requestUrl.pathname === '/background.js') {
     e.respondWith(new Response(backgroundJS));
   }
 };
-

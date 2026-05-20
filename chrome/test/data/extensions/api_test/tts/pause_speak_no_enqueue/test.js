@@ -11,10 +11,10 @@ chrome.test.runTests([function testPauseCancel() {
   chrome.tts.speak('text 1', {
     'enqueue': true,
     'onEvent': event => {
-      if (event.type == 'cancelled' && gotSecondSpeak) {
+      if (event.type === 'cancelled' && gotSecondSpeak) {
         chrome.test.succeed();
       }
-    }
+    },
   });
   chrome.tts.speak('text 2', {'enqueue': false}, function() {
     chrome.test.assertNoLastError();

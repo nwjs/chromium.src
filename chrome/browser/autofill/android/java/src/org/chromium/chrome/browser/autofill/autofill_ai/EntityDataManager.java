@@ -94,11 +94,19 @@ public class EntityDataManager implements Destroyable {
     }
 
     /** Saves or update an entity. */
-    public void addOrUpdateEntityInstance(EntityInstance entity, Runnable onLocalSaveFallback) {
+    public void addOrUpdateEntityInstance(
+            EntityInstance entity,
+            int descriptionStringId,
+            int acceptButtonStringId,
+            Runnable onLocalSaveFallback) {
         ThreadUtils.assertOnUiThread();
         EntityDataManagerJni.get()
                 .addOrUpdateEntityInstance(
-                        mNativeEntityDataManagerAndroid, entity, onLocalSaveFallback);
+                        mNativeEntityDataManagerAndroid,
+                        entity,
+                        descriptionStringId,
+                        acceptButtonStringId,
+                        onLocalSaveFallback);
     }
 
     /**
@@ -224,18 +232,27 @@ public class EntityDataManager implements Destroyable {
                 .getIsAutofillAiDisabledByEnterprisePolicy(mNativeEntityDataManagerAndroid);
     }
 
-    /** Returns whether Autofill AI is enabled by enterprise policy but without logging. */
-    public boolean getIsAutofillAiEnabledByEnterprisePolicyWithoutLogging() {
+    /** Returns whether Autofill AI is enabled by enterprise policy including logging. */
+    public boolean getIsAutofillAiAllowedByEnterprisePolicy() {
         ThreadUtils.assertOnUiThread();
         return EntityDataManagerJni.get()
-                .getIsAutofillAiEnabledByEnterprisePolicyWithoutLogging(
-                        mNativeEntityDataManagerAndroid);
+                .getIsAutofillAiAllowedByEnterprisePolicy(mNativeEntityDataManagerAndroid);
     }
 
     public boolean isWalletPublicPassStorageEnabled() {
         ThreadUtils.assertOnUiThread();
         return EntityDataManagerJni.get()
                 .isWalletPublicPassStorageEnabled(mNativeEntityDataManagerAndroid);
+    }
+
+    public static boolean isAccessibilityAnnotatorSettingVisible(Profile profile) {
+        ThreadUtils.assertOnUiThread();
+        return EntityDataManagerJni.get().isAccessibilityAnnotatorSettingVisible(profile);
+    }
+
+    public static String getAccessibilityAnnotatorSettingsUrl() {
+        ThreadUtils.assertOnUiThread();
+        return EntityDataManagerJni.get().getAccessibilityAnnotatorSettingsUrl();
     }
 
     @NativeMethods
@@ -259,10 +276,14 @@ public class EntityDataManager implements Destroyable {
 
         boolean getIsAutofillAiDisabledByEnterprisePolicy(long nativeEntityDataManagerAndroid);
 
-        boolean getIsAutofillAiEnabledByEnterprisePolicyWithoutLogging(
-                long nativeEntityDataManagerAndroid);
+        boolean getIsAutofillAiAllowedByEnterprisePolicy(long nativeEntityDataManagerAndroid);
 
         boolean isWalletPublicPassStorageEnabled(long nativeEntityDataManagerAndroid);
+
+        boolean isAccessibilityAnnotatorSettingVisible(@JniType("Profile*") Profile profile);
+
+        @JniType("std::string")
+        String getAccessibilityAnnotatorSettingsUrl();
 
         void removeEntityInstance(
                 long nativeEntityDataManagerAndroid, @JniType("std::string") String guid);
@@ -275,6 +296,8 @@ public class EntityDataManager implements Destroyable {
         void addOrUpdateEntityInstance(
                 long nativeEntityDataManagerAndroid,
                 EntityInstance entity,
+                int descriptionStringId,
+                int acceptButtonStringId,
                 @JniType("base::OnceClosure") Runnable onLocalSaveFallback);
 
         @JniType("std::vector<EntityInstanceWithLabels>")

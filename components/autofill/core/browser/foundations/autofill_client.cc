@@ -13,12 +13,12 @@
 #include "base/no_destructor.h"
 #include "base/notimplemented.h"
 #include "build/build_config.h"
+#include "components/accessibility_annotator/core/accessibility_annotator_types.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_manager.h"
 #include "components/autofill/core/browser/integrators/compose/autofill_compose_delegate.h"
 #include "components/autofill/core/browser/integrators/identity_credential/identity_credential_delegate.h"
 #include "components/autofill/core/browser/integrators/password_manager/password_manager_delegate.h"
-#include "components/autofill/core/browser/integrators/plus_addresses/autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/studies/autofill_ablation_study.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
@@ -111,13 +111,15 @@ AutofillComposeDelegate* AutofillClient::GetComposeDelegate() {
   return nullptr;
 }
 
-AutofillPlusAddressDelegate* AutofillClient::GetPlusAddressDelegate() {
-  return nullptr;
-}
-
 accessibility_annotator::AccessibilityQueryService*
 AutofillClient::GetAccessibilityQueryService() {
   return nullptr;
+}
+
+accessibility_annotator::RemoteAnnotatorEnablementState
+AutofillClient::GetAccessibilityAnnotatorEnablementState() const {
+  return accessibility_annotator::RemoteAnnotatorEnablementState::
+      kDisabledNotEligible;
 }
 
 PasswordManagerDelegate* AutofillClient::GetPasswordManagerDelegate(
@@ -197,6 +199,8 @@ const AutofillAblationStudy& AutofillClient::GetAblationStudy() const {
 }
 
 #if BUILDFLAG(IS_ANDROID)
+void AutofillClient::ShowAtMemoryBottomSheet() {}
+
 AutofillSnackbarControllerImpl*
 AutofillClient::GetAutofillSnackbarController() {
   return nullptr;
@@ -252,10 +256,6 @@ bool AutofillClient::SupportsDeviceReauth() const {
   return authenticator &&
          authenticator->CanAuthenticateWithBiometricOrScreenLock();
 }
-
-void AutofillClient::ShowPlusAddressEmailOverrideNotification(
-    const std::string& original_email,
-    EmailOverrideUndoCallback email_override_undo_callback) {}
 
 bool AutofillClient::ShowAutofillFieldIphForFeature(
     const FormFieldData&,
@@ -314,9 +314,6 @@ PasswordFormClassification AutofillClient::ClassifyAsPasswordForm(
     FieldGlobalId field_id) const {
   return {};
 }
-
-void AutofillClient::TriggerPlusAddressUserPerceptionSurvey(
-    plus_addresses::hats::SurveyType survey_type) {}
 
 const syncer::SyncService* AutofillClient::GetSyncService() const {
   return const_cast<const syncer::SyncService*>(

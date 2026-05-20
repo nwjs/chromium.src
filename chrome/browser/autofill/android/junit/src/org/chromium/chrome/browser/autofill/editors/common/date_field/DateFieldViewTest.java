@@ -10,6 +10,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import static org.chromium.chrome.browser.autofill.editors.common.date_field.DateFieldProperties.DATE_ALL_KEYS;
 import static org.chromium.chrome.browser.autofill.editors.common.date_field.DateFieldProperties.DATE_VALID;
@@ -17,6 +19,7 @@ import static org.chromium.chrome.browser.autofill.editors.common.field.FieldPro
 import static org.chromium.chrome.browser.autofill.editors.common.field.FieldProperties.IS_REQUIRED;
 import static org.chromium.chrome.browser.autofill.editors.common.field.FieldProperties.LABEL;
 import static org.chromium.chrome.browser.autofill.editors.common.field.FieldProperties.VALUE;
+import static org.chromium.chrome.browser.autofill.editors.common.field.FieldProperties.VALUE_CHANGED_CALLBACK;
 import static org.chromium.chrome.browser.autofill.editors.utils.TestUtils.setDropdownDate;
 import static org.chromium.chrome.browser.autofill.editors.utils.TestUtils.setDropdownValue;
 
@@ -26,10 +29,15 @@ import android.view.View;
 import android.widget.TextView;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 
+import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.autofill.R;
@@ -44,6 +52,10 @@ public class DateFieldViewTest {
     private Activity mActivity;
     private DateFieldView mDateFieldView;
 
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
+
+    @Mock private Callback<String> mValueChangedCallback;
+
     @Before
     public void setUp() {
         mActivity = Robolectric.setupActivity(Activity.class);
@@ -54,7 +66,20 @@ public class DateFieldViewTest {
                 .with(IS_REQUIRED, false)
                 .with(LABEL, "Date field label")
                 .with(VALUE, date == null ? "" : date.toString())
+                .with(VALUE_CHANGED_CALLBACK, mValueChangedCallback)
                 .build();
+    }
+
+    private String getMonthLabel() {
+        return mActivity.getString(R.string.autofill_ai_entity_editor_date_field_month_label);
+    }
+
+    private String getDayLabel() {
+        return mActivity.getString(R.string.autofill_ai_entity_editor_date_field_day_label);
+    }
+
+    private String getYearLabel() {
+        return mActivity.getString(R.string.autofill_ai_entity_editor_date_field_year_label);
     }
 
     @Test
@@ -114,14 +139,23 @@ public class DateFieldViewTest {
         mDateFieldView = new DateFieldView(mActivity, getDateFieldModel(null));
         assertTrue(mDateFieldView.getFieldModel().get(DATE_VALID));
         assertEquals(
-                mActivity.getString(R.string.autofill_ai_entity_editor_date_field_month_label),
+                getMonthLabel(),
                 mDateFieldView.getMonthPickerForTest().getDropdown().getSelectedItem());
         assertEquals(
-                mActivity.getString(R.string.autofill_ai_entity_editor_date_field_day_label),
+                getMonthLabel(),
+                mDateFieldView.getMonthPickerForTest().getDropdown().getContentDescription());
+        assertEquals(
+                getDayLabel(),
                 mDateFieldView.getDayPickerForTest().getDropdown().getSelectedItem());
         assertEquals(
-                mActivity.getString(R.string.autofill_ai_entity_editor_date_field_year_label),
+                getDayLabel(),
+                mDateFieldView.getDayPickerForTest().getDropdown().getContentDescription());
+        assertEquals(
+                getYearLabel(),
                 mDateFieldView.getYearPickerForTest().getDropdown().getSelectedItem());
+        assertEquals(
+                getYearLabel(),
+                mDateFieldView.getYearPickerForTest().getDropdown().getContentDescription());
     }
 
     @Test
@@ -131,8 +165,17 @@ public class DateFieldViewTest {
         assertEquals(
                 DateFieldView.getMonthName(mActivity, /* month= */ 2),
                 mDateFieldView.getMonthPickerForTest().getDropdown().getSelectedItem());
+        assertEquals(
+                getMonthLabel() + "/Feb",
+                mDateFieldView.getMonthPickerForTest().getDropdown().getContentDescription());
         assertEquals("15", mDateFieldView.getDayPickerForTest().getDropdown().getSelectedItem());
+        assertEquals(
+                getDayLabel() + "/15",
+                mDateFieldView.getDayPickerForTest().getDropdown().getContentDescription());
         assertEquals("2026", mDateFieldView.getYearPickerForTest().getDropdown().getSelectedItem());
+        assertEquals(
+                getYearLabel() + "/2026",
+                mDateFieldView.getYearPickerForTest().getDropdown().getContentDescription());
     }
 
     @Test
@@ -159,8 +202,17 @@ public class DateFieldViewTest {
         assertEquals(
                 DateFieldView.getMonthName(mActivity, /* month= */ 3),
                 mDateFieldView.getMonthPickerForTest().getDropdown().getSelectedItem());
+        assertEquals(
+                getMonthLabel() + "/" + DateFieldView.getMonthName(mActivity, /* month= */ 3),
+                mDateFieldView.getMonthPickerForTest().getDropdown().getContentDescription());
         assertEquals("16", mDateFieldView.getDayPickerForTest().getDropdown().getSelectedItem());
+        assertEquals(
+                getDayLabel() + "/16",
+                mDateFieldView.getDayPickerForTest().getDropdown().getContentDescription());
         assertEquals("2026", mDateFieldView.getYearPickerForTest().getDropdown().getSelectedItem());
+        assertEquals(
+                getYearLabel() + "/2026",
+                mDateFieldView.getYearPickerForTest().getDropdown().getContentDescription());
     }
 
     @Test
@@ -176,7 +228,7 @@ public class DateFieldViewTest {
                 mDateFieldView.getMonthPickerForTest().getDropdown().getSelectedItem());
         assertEquals("12", mDateFieldView.getDayPickerForTest().getDropdown().getSelectedItem());
         assertEquals(
-                mActivity.getString(R.string.autofill_ai_entity_editor_date_field_year_label),
+                getYearLabel(),
                 mDateFieldView.getYearPickerForTest().getDropdown().getSelectedItem());
         // Make sure the hint is selected by checking the the selected item position is 0.
         assertEquals(
@@ -233,15 +285,20 @@ public class DateFieldViewTest {
                 DateFieldView.getMonthName(mActivity, currentDate.getMonthValue()));
         // Only the month value is selected, the overall date is not complete yet.
         assertThat(mDateFieldView.getFieldModel().get(VALUE), isEmptyString());
+        // The callback must still be called.
+        verify(mValueChangedCallback, times(1)).onResult("");
 
         setDropdownValue(
                 mDateFieldView.getDayPickerForTest(), String.valueOf(currentDate.getDayOfMonth()));
         // Only the moth and day values are selected, the overall date is not complete yet.
         assertThat(mDateFieldView.getFieldModel().get(VALUE), isEmptyString());
+        // The callback must still be called a second time.
+        verify(mValueChangedCallback, times(2)).onResult("");
 
         setDropdownValue(
                 mDateFieldView.getYearPickerForTest(), String.valueOf(currentDate.getYear()));
         assertEquals(currentDate.toString(), mDateFieldView.getFieldModel().get(VALUE));
+        verify(mValueChangedCallback, times(1)).onResult(currentDate.toString());
     }
 
     @Test

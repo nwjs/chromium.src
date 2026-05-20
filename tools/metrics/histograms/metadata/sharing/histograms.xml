@@ -85,18 +85,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="SharedHighlights.LinkGenerated.Error.Iterations"
-    units="iterations" expires_after="2024-03-01">
-  <owner>jeffreycohen@chromium.org</owner>
-  <owner>chrome-shared-highlighting@google.com</owner>
-  <summary>
-    Indicates number of iterations it took for the unsuccessful text fragment
-    selector generation run.
-  </summary>
-</histogram>
-
 <histogram name="SharedHighlights.LinkGenerated.Error.Requested"
-    enum="LinkGenerationError" expires_after="2026-08-23">
+    enum="LinkGenerationError" expires_after="2026-10-25">
   <owner>jeffreycohen@chromium.org</owner>
   <owner>chrome-shared-highlighting@google.com</owner>
   <summary>
@@ -287,15 +277,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Sharing.ScreenshotFallback.Action"
-    enum="SharingScreenshotFallbackAction" expires_after="2022-12-25">
-  <owner>jeffreycohen@chromium.org</owner>
-  <owner>src/chrome/browser/share/OWNERS</owner>
-  <summary>
-    Logged when actions are taken in the sharing screenshot fallback feature.
-  </summary>
-</histogram>
-
 <histogram name="Sharing.ScrollCapture.BitmapGeneratorStatus"
     enum="SharingScrollCaptureBitmapGenerationStatus"
     expires_after="2026-10-01">
@@ -374,6 +355,17 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records whether a SharingMessage is being sent over sync. Recorded for all
     messages before sending them. Recorded for all platforms.
+  </summary>
+</histogram>
+
+<histogram name="Sharing.SendTabToSelf.AutoOpenOutcome"
+    enum="SendTabToSelfAutoOpenOutcome" expires_after="2027-03-30">
+  <owner>ankushkush@google.com</owner>
+  <owner>src/chrome/browser/share/OWNERS</owner>
+  <summary>
+    Outcome of an attempt to automatically open a received Send Tab To Self
+    entry in the foreground. Recorded whenever a new entry is received and
+    evaluated for auto-opening.
   </summary>
 </histogram>
 
@@ -489,7 +481,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sharing.SharingHubAndroid.CustomAction"
-    enum="ShareCustomAction" expires_after="2026-07-19">
+    enum="ShareCustomAction" expires_after="2026-10-25">
   <owner>wenyufu@chromium.org</owner>
   <owner>src/chrome/browser/share/OWNERS</owner>
   <summary>
@@ -580,7 +572,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sharing.SmsFetcherScreenOnAndUnlocked" enum="Boolean"
-    expires_after="2026-08-16">
+    expires_after="2026-10-18">
   <owner>yigu@chromium.org</owner>
   <owner>src/content/browser/sms/OWNERS</owner>
   <summary>

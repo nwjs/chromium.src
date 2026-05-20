@@ -113,6 +113,19 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Windows.DragDrop.FileContents.HGlobalConversionUsed"
+    enum="Boolean" expires_after="2027-04-17">
+  <owner>koretadaniel@chromium.org</owner>
+  <owner>joonehur@microsoft.com</owner>
+  <summary>
+    Recorded on Windows when a drag-and-drop operation requests
+    CFSTR_FILECONTENTS with TYMED_HGLOBAL only, triggering an on-the-fly
+    conversion from TYMED_ISTREAM to TYMED_HGLOBAL in Chromium's data object.
+    True when the conversion is performed. Used to detect legacy applications
+    that do not support TYMED_ISTREAM for CFSTR_FILECONTENTS.
+  </summary>
+</histogram>
+
 <histogram name="Windows.Enclave.{Type}.Available" enum="BooleanAvailable"
     expires_after="2026-08-30">
   <owner>ajgo@chromium.org</owner>
@@ -134,6 +147,59 @@ chromium-metrics-reviews@google.com.
         summary="a virtualization-based security (VBS) enclave"/>
     <variant name="VBSBasic"
         summary="a virtualization-based security (VBS) basic enclave"/>
+  </token>
+</histogram>
+
+<histogram
+    name="Windows.Experimental.Pdh.ProcessV2.{Counter}.{ProcessType}{StartupState}"
+    units="counter value" expires_after="2026-10-25">
+  <owner>spvm@chromium.org</owner>
+  <owner>catan-team@chromium.org</owner>
+  <summary>
+    Records the {StartupState} of the &quot;\\Process
+    V2(chrome:PID)\\{Counter}&quot; PDH counter in the {ProcessType} process.
+    For more information on this PDH counter, see PerfMon.exe's documentation.
+
+    Recorded once every five seconds for the browser, GPU, and network
+    processes, and once every five seconds for every 1/20th process on
+    Canary/Dev/Beta, and once every five seconds for every 1/100th process on
+    Stable.
+
+    Only supported on Windows 11. Not recorded on Windows Server 2022 or other
+    earlier platforms.
+  </summary>
+  <token key="Counter">
+    <variant name="HandleCount" summary="Handle Count"/>
+    <variant name="IODataBytesPerSec" summary="IO Data Bytes/sec"/>
+    <variant name="IODataOperationsPerSec" summary="IO Data Operations/sec"/>
+    <variant name="IOOtherBytesPerSec" summary="IO Other Bytes/sec"/>
+    <variant name="IOReadBytesPerSec" summary="IO Read Bytes/sec"/>
+    <variant name="IOReadOperationsPerSec" summary="IO Read Operations/sec"/>
+    <variant name="IOWriteBytesPerSec" summary="IO Write Bytes/sec"/>
+    <variant name="IOWriteOperationsPerSec" summary="IO Write Operations/sec"/>
+    <variant name="PageFaultsPerSec" summary="Page Faults/sec"/>
+    <variant name="PageFileBytes" summary="Page File Bytes"/>
+    <variant name="PageFileBytesPeak" summary="Page File Bytes Peak"/>
+    <variant name="PrivateBytes" summary="Private Bytes"/>
+    <variant name="PrivilegedTime" summary="% Privileged Time"/>
+    <variant name="ThreadCount" summary="Thread Count"/>
+    <variant name="UserTime" summary="% User Time"/>
+    <variant name="WorkingSet" summary="Working Set"/>
+    <variant name="WorkingSetPeak" summary="Working Set Peak"/>
+    <variant name="WorkingSetPrivate" summary="Working Set - Private"/>
+  </token>
+  <token key="ProcessType">
+    <variant name="Browser" summary="Browser"/>
+    <variant name="Extension" summary="Extension Renderer"/>
+    <variant name="Gpu" summary="GPU"/>
+    <variant name="NetworkService" summary="Network Service"/>
+    <variant name="Other" summary="Other"/>
+    <variant name="Renderer" summary="Renderer"/>
+    <variant name="Utility" summary="Non-network utility"/>
+  </token>
+  <token key="StartupState">
+    <variant name="" summary="value"/>
+    <variant name=".FirstSample" summary="first recorded value by process"/>
   </token>
 </histogram>
 
@@ -289,7 +355,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.OpenWithLauncherResult" enum="OpenWithLauncherResult"
-    expires_after="2026-08-02">
+    expires_after="2026-10-04">
   <owner>jessemckenna@google.com</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>
@@ -377,7 +443,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.PlatformExperienceHelper.InstallerLaunchStatus.System"
-    enum="SystemInstallerLaunchStatus" expires_after="2026-08-09">
+    enum="SystemInstallerLaunchStatus" expires_after="2026-10-11">
   <owner>alsan@chromium.org</owner>
   <owner>chrome-desktop-ui-waterloo@google.com</owner>
   <summary>
@@ -387,7 +453,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.PlatformExperienceHelper.InstallerLaunchStatus.User"
-    enum="UserInstallerLaunchStatus" expires_after="2026-08-23">
+    enum="UserInstallerLaunchStatus" expires_after="2026-10-25">
   <owner>alsan@chromium.org</owner>
   <owner>chrome-desktop-ui-waterloo@google.com</owner>
   <summary>
@@ -431,7 +497,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.ShouldPinToTaskbarResult{PinAppToTaskbarChannel}"
-    enum="TaskbarPinResult" expires_after="2026-08-09">
+    enum="TaskbarPinResult" expires_after="2026-10-11">
   <owner>davidbienvenu@chromium.org</owner>
   <owner>jessemckenna@google.com</owner>
   <summary>
@@ -442,7 +508,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.TaskbarPinFromFRESucceeded" enum="Boolean"
-    expires_after="2026-08-09">
+    expires_after="2026-10-11">
   <owner>davidbienvenu@chromium.org</owner>
   <owner>jessemckenna@google.com</owner>
   <summary>
@@ -465,7 +531,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.TaskbarPinResult{PinAppToTaskbarChannel}"
-    enum="TaskbarPinResult" expires_after="2026-08-09">
+    enum="TaskbarPinResult" expires_after="2026-10-11">
   <owner>davidbienvenu@chromium.org</owner>
   <owner>jessemckenna@google.com</owner>
   <summary>
@@ -489,7 +555,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.Win11HardwareRequirements.{Type}Check"
-    enum="BooleanEnabled" expires_after="2026-08-23">
+    enum="BooleanEnabled" expires_after="2026-10-25">
   <owner>estalin@chromium.org</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>
@@ -506,7 +572,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.Win11UpgradeEligible" enum="BooleanEnabled"
-    expires_after="2026-08-23">
+    expires_after="2026-10-25">
   <owner>estalin@chromium.org</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>

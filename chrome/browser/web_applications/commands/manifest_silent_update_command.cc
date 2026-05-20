@@ -31,7 +31,6 @@
 #include "chrome/browser/web_applications/jobs/manifest_update_job.h"
 #include "chrome/browser/web_applications/locks/app_lock.h"
 #include "chrome/browser/web_applications/locks/noop_lock.h"
-#include "chrome/browser/web_applications/manifest_update_utils.h"
 #include "chrome/browser/web_applications/model/web_app_comparison.h"
 #include "chrome/browser/web_applications/proto/web_app.equal.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
@@ -200,8 +199,15 @@ void ManifestSilentUpdateCommand::OnManifestFetchedAcquireAppLock(
     return;
   }
 
-  CHECK(opt_manifest->id.is_valid());
-  app_id_ = GenerateAppIdFromManifestId(opt_manifest->id);
+  std::optional<webapps::ManifestId> manifest_id =
+        webapps::ManifestId::Create(opt_manifest->id);
+  if (!manifest_id.has_value()) {
+    CompleteCommandAndSelfDestruct(
+        FROM_HERE, ManifestSilentUpdateCheckResult::kInvalidManifest);
+    return;
+  }
+
+  app_id_ = GenerateAppIdFromManifestId(*manifest_id);
 
   SetStage(ManifestSilentUpdateCommandStage::kAcquiringAppLock);
   app_lock_ = std::make_unique<AppLock>();

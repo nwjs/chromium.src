@@ -267,7 +267,7 @@ CanDiscardResult DiscardEligibilityPolicy::CanDiscard(
 
   // Do not discard PDFs as they might contain entry that is not saved and they
   // don't remember their scrolling positions. See crbug.com/40441737 and
-  // crbug.com/65244.
+  // crbug.com/40487491.
   if (page_node->GetContentsMimeType() == "application/pdf") {
     add_reason_and_update_result(CannotDiscardReason::kPdf,
                                  CanDiscardResult::kProtected);
@@ -303,7 +303,7 @@ CanDiscardResult DiscardEligibilityPolicy::CanDiscard(
       if (tab_interface) {
         auto* glic_service = glic::GlicKeyedServiceFactory::GetGlicKeyedService(
             web_contents->GetBrowserContext());
-        if (glic_service && glic_service->sharing_manager().IsTabPinned(
+        if (glic_service && glic_service->IsTabPinnedToAnyInstance(
                                 tab_interface->GetHandle())) {
           add_reason_and_update_result(CannotDiscardReason::kGlicShared,
                                        CanDiscardResult::kProtected);

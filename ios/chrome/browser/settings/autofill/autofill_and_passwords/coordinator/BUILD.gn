@@ -8,12 +8,47 @@ source_set("coordinator") {
     "autofill_and_passwords_coordinator.mm",
     "autofill_and_passwords_mediator.h",
     "autofill_and_passwords_mediator.mm",
+    "identity_docs_coordinator.h",
+    "identity_docs_coordinator.mm",
+    "identity_docs_mediator.h",
+    "identity_docs_mediator.mm",
+    "travel_info_coordinator.h",
+    "travel_info_coordinator.mm",
+    "travel_info_mediator.h",
+    "travel_info_mediator.mm",
   ]
   deps = [
     "//base",
+    "//components/autofill/core/common",
+    "//components/password_manager/core/browser",
+    "//components/password_manager/core/common",
+    "//components/prefs",
+    "//components/prefs/ios",
     "//ios/chrome/browser/settings/autofill/autofill_and_passwords/ui:autofill_and_passwords",
+    "//ios/chrome/browser/settings/ui_bundled/autofill",
+    "//ios/chrome/browser/settings/ui_bundled/password",
+    "//ios/chrome/browser/settings/ui_bundled/password/reauthentication:reauthentication_delegate",
     "//ios/chrome/browser/shared/coordinator/chrome_coordinator",
     "//ios/chrome/browser/shared/model/browser",
+    "//ios/chrome/browser/shared/model/profile",
+    "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/ui/table_view:utils",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "autofill_and_passwords_mediator_unittest.mm" ]
+  deps = [
+    ":coordinator",
+    "//base/test:test_support",
+    "//components/autofill/core/common",
+    "//components/password_manager/core/common",
+    "//components/prefs:test_support",
+    "//ios/chrome/browser/settings/autofill/autofill_and_passwords/ui:autofill_and_passwords",
+    "//ios/chrome/browser/shared/model/profile/test",
+    "//ios/web/public/test",
+    "//testing/gtest",
+    "//third_party/ocmock",
   ]
 }

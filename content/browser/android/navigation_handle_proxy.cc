@@ -104,6 +104,10 @@ void NavigationHandleProxy::DidFinish() {
           ? cpp_navigation_handle_->GetSearchableFormURL().is_valid()
           : false;
 
+  bool is_same_origin = cpp_navigation_handle_->HasCommitted()
+                            ? cpp_navigation_handle_->IsSameOrigin()
+                            : false;
+
   Java_NavigationHandle_didFinish(
       env, java_navigation_handle_, url::GURLAndroid::FromNativeGURL(env, gurl),
       cpp_navigation_handle_->IsErrorPage(),
@@ -114,15 +118,14 @@ void NavigationHandleProxy::DidFinish() {
       cpp_navigation_handle_->GetNetErrorCode(),
       base::android::ConvertUTF8ToJavaString(
           env, net::ErrorToString(cpp_navigation_handle_->GetNetErrorCode())),
-      // TODO(shaktisahu): Change default status to -1 after fixing
-      // crbug/690041.
       cpp_navigation_handle_->GetResponseHeaders()
           ? cpp_navigation_handle_->GetResponseHeaders()->response_code()
-          : 200,
+          : 0,
       cpp_navigation_handle_->IsExternalProtocol(),
       cpp_navigation_handle_->IsPdf(),
       base::android::ConvertUTF8ToJavaString(env, GetMimeType()),
-      cpp_navigation_handle_->GetWebContents()->GetPrimaryPage().GetJavaPage());
+      cpp_navigation_handle_->GetWebContents()->GetPrimaryPage().GetJavaPage(),
+      is_same_origin);
 }
 
 NavigationHandleProxy::~NavigationHandleProxy() {

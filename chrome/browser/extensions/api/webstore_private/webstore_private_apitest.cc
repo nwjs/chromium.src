@@ -20,7 +20,7 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/extensions/api/webstore_private/webstore_private_api.h"
-#include "chrome/browser/extensions/extension_allowlist.h"
+#include "chrome/browser/extensions/extension_allowlist_factory.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
 #include "chrome/browser/extensions/mixin_based_extension_apitest.h"
 #include "chrome/browser/profiles/profile.h"
@@ -43,6 +43,7 @@
 #include "extensions/browser/allowlist_state.h"
 #include "extensions/browser/api/management/management_api.h"
 #include "extensions/browser/api_test_utils.h"
+#include "extensions/browser/extension_allowlist.h"
 #include "extensions/browser/extension_dialog_auto_confirm.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/install_approval.h"
@@ -925,6 +926,16 @@ IN_PROC_BROWSER_TEST_F(
       SupervisedUserExtensionsMetricsRecorder::kAskParentDialogHistogramName,
       SupervisedUserExtensionsMetricsRecorder::AskParentDialogState::kApproved,
       1);
+
+  // Verify the Enablement metrics.
+  EXPECT_EQ(
+      1,
+      user_action_tester.GetActionCount(
+          SupervisedUserExtensionsMetricsRecorder::kFailedToEnableActionName));
+  histogram_tester.ExpectBucketCount(
+      SupervisedUserExtensionsMetricsRecorder::kEnablementHistogramName,
+      SupervisedUserExtensionsMetricsRecorder::EnablementState::kFailedToEnable,
+      1);
 }
 
 // Tests that the parent approval install dialog is shown when the parent
@@ -993,6 +1004,16 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserExtensionWebstorePrivateApiTestAndroid,
           kExtensionInstallDialogHistogramName,
       SupervisedUserExtensionsMetricsRecorder::ExtensionInstallDialogState::
           kChildCanceled,
+      1);
+
+  // Verify the Enablement metrics.
+  EXPECT_EQ(
+      1,
+      user_action_tester.GetActionCount(
+          SupervisedUserExtensionsMetricsRecorder::kFailedToEnableActionName));
+  histogram_tester.ExpectBucketCount(
+      SupervisedUserExtensionsMetricsRecorder::kEnablementHistogramName,
+      SupervisedUserExtensionsMetricsRecorder::EnablementState::kFailedToEnable,
       1);
 }
 
@@ -1089,7 +1110,7 @@ class ExtensionWebstoreGetWebGLStatusTest : public PlatformBrowserTest {
 };
 
 // Tests getWebGLStatus function when WebGL is allowed.
-// Flaky on Mac. https://crbug.com/1346413.
+// Flaky on Mac. https://crbug.com/40854135.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_Allowed DISABLED_Allowed
 #else
@@ -1172,7 +1193,7 @@ class ExtensionWebstorePrivateApiAllowlistEnforcementTest
   }
 
   ExtensionAllowlist* GetAllowlist() {
-    return ExtensionAllowlist::Get(profile());
+    return ExtensionAllowlistFactory::GetForBrowserContext(profile());
   }
 
  private:

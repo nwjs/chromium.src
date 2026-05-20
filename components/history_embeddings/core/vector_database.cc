@@ -22,12 +22,6 @@ uint32_t HashString(std::string_view str) {
   return util::Fingerprint32(str);
 }
 
-// Standard normalized magnitude for all embeddings.
-constexpr float kUnitLength = 1.0f;
-
-// Close enough to be considered near zero.
-constexpr float kEpsilon = 0.01f;
-
 // These delimiters separate queries and passages into tokens.
 constexpr char kTokenDelimiters[] = " .,;";
 
@@ -132,18 +126,6 @@ UrlData& UrlData::operator=(const UrlData&) = default;
 UrlData& UrlData::operator=(UrlData&&) = default;
 UrlData::~UrlData() = default;
 
-bool UrlData::operator==(const UrlData& other) const {
-  if (other.url_id == url_id && other.visit_id == visit_id &&
-      other.visit_time == visit_time && embeddings == other.embeddings) {
-    std::string a, b;
-    if (other.passages.SerializeToString(&a) &&
-        passages.SerializeToString(&b)) {
-      return a == b;
-    }
-  }
-  return false;
-}
-
 UrlScore UrlData::BestScoreWith(
     SearchInfo& search_info,
     const SearchParams& search_params,
@@ -167,8 +149,9 @@ UrlScore UrlData::BestScoreWith(
   float best = 0.0f;
   std::string modified_passage;
   const std::string* passage = nullptr;
-  for (size_t i = 0; i < embeddings.size(); i++) {
-    const passage_embeddings::Embedding& embedding = embeddings[i];
+  for (size_t i = 0; i < passage_embeddings.size(); i++) {
+    const std::optional<PassageEmbedding>& passage_embedding =
+        passage_embeddings[i];
     passage = &passages.passages(i);
 
     // Skip non-ASCII strings to avoid scoring problems with the model.
@@ -200,10 +183,10 @@ UrlScore UrlData::BestScoreWith(
       }
     }
 
-    float score = skip_similarity_scoring || embedding.GetPassageWordCount() <
-                                                 min_passage_word_count
+    float score = skip_similarity_scoring || !passage_embedding.has_value() ||
+                          passage_embedding->word_count < min_passage_word_count
                       ? 0.0f
-                      : query_embedding.ScoreWith(embedding);
+                      : query_embedding.ScoreWith(passage_embedding->embedding);
 
     if (score >= word_match_required_score || skip_similarity_scoring) {
       // Since the ASCII check above processed the whole passage string, it is
@@ -268,10 +251,7 @@ SearchInfo VectorDatabase::FindNearest(
   }
 
   // Dimensions are always equal.
-  CHECK_EQ(query_embedding.Dimensions(), GetEmbeddingDimensions());
-
-  // Magnitudes are also assumed equal; they are provided normalized by design.
-  CHECK_LT(std::abs(query_embedding.Magnitude() - kUnitLength), kEpsilon);
+  DCHECK_EQ(query_embedding.GetData().size(), GetEmbeddingDimensions());
 
   // Embeddings must have source passages with at least this many words in order
   // to be considered during the search. Insufficient word count embeddings
@@ -303,7 +283,7 @@ SearchInfo VectorDatabase::FindNearest(
       break;
     }
     search_info.searched_url_count++;
-    search_info.searched_embedding_count += url_data->embeddings.size();
+    search_info.searched_embedding_count += url_data->passage_embeddings.size();
 
     base::ElapsedTimer scoring_timer;
     UrlScore url_score = url_data->BestScoreWith(
@@ -371,18 +351,24 @@ void VectorDatabaseInMemory::SaveTo(VectorDatabase* database) {
 }
 
 size_t VectorDatabaseInMemory::GetEmbeddingDimensions() const {
-  return data_.empty() ? 0 : data_[0].embeddings[0].Dimensions();
+  return data_.empty() || data_[0].passage_embeddings.empty() ||
+                 !data_[0].passage_embeddings[0].has_value()
+             ? 0
+             : data_[0].passage_embeddings[0]->embedding.GetData().size();
 }
 
 bool VectorDatabaseInMemory::AddUrlData(UrlData url_data) {
   CHECK_EQ(static_cast<size_t>(url_data.passages.passages_size()),
-           url_data.embeddings.size());
+           url_data.passage_embeddings.size());
   if (!data_.empty()) {
-    for (const passage_embeddings::Embedding& embedding : url_data.embeddings) {
+    for (const std::optional<PassageEmbedding>& passage_embedding :
+         url_data.passage_embeddings) {
+      if (!passage_embedding.has_value()) {
+        continue;
+      }
       // All embeddings in the database must have equal dimensions.
-      CHECK_EQ(embedding.Dimensions(), data_[0].embeddings[0].Dimensions());
-      // All embeddings in the database are expected to be normalized.
-      CHECK_LT(std::abs(embedding.Magnitude() - kUnitLength), kEpsilon);
+      CHECK_EQ(passage_embedding->embedding.GetData().size(),
+               GetEmbeddingDimensions());
     }
   }
 

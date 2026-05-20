@@ -7,11 +7,11 @@
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chromeos/ash/components/network/network_handler.h"
 #include "chromeos/ash/components/network/network_state_handler.h"
 #include "components/device_event_log/device_event_log.h"
@@ -92,7 +92,8 @@ void NetworkPortalSigninWindow::Show(const GURL& url) {
   Profile* profile = GetOTROrActiveProfile();
 
   BrowserWindowInterface* browser =
-      chrome::FindBrowserWithID(window_session_id_);
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithID(
+          window_session_id_);
   if (browser) {
     NET_LOG(EVENT) << "Show existing portal signin window";
     NavigateParams params(browser, url, ui::PAGE_TRANSITION_AUTO_BOOKMARK);
@@ -126,7 +127,8 @@ void NetworkPortalSigninWindow::Show(const GURL& url) {
 }
 
 BrowserWindowInterface* NetworkPortalSigninWindow::GetBrowserForTesting() {
-  return chrome::FindBrowserWithID(window_session_id_);
+  return GlobalBrowserCollection::GetInstance()->FindBrowserWithID(
+      window_session_id_);
 }
 
 content::WebContents* NetworkPortalSigninWindow::GetWebContentsForTesting() {

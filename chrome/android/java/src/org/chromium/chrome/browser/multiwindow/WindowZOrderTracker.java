@@ -10,11 +10,13 @@ import android.util.SparseArray;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.ui.base.ActivityWindowAndroid;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -40,6 +42,8 @@ import java.util.Set;
 class WindowZOrderTracker implements ApplicationStatus.WindowFocusChangedListener {
     private static final String TAG = "WindowZOrderTracker";
     private static final boolean DEBUG_LOGGING = false;
+    private static final String METRIC_NAMESPACE = "Android.MultiWindow.WindowZOrder.";
+    private static final long METRIC_INTERVAL_MS = 5 * 60 * 1000;
 
     // Map of display ID to a list of windows in z-order (bottom to top).
     // Note: a window cannot be split between multiple displays and will exist in only one list.
@@ -49,6 +53,20 @@ class WindowZOrderTracker implements ApplicationStatus.WindowFocusChangedListene
 
     private final Runnable mZOrderChangedCallback;
 
+    private int mFocusChangedCount;
+
+    private final Runnable mEmitMetricsRunnable =
+            new Runnable() {
+                @Override
+                public void run() {
+                    recordTrackedWindowStats();
+                    recordDisplayStats();
+                    recordFocusChangedCount();
+
+                    PostTask.postDelayedTask(TaskTraits.UI_DEFAULT, this, METRIC_INTERVAL_MS);
+                }
+            };
+
     /**
      * @param zOrderChangedCallback A callback to be invoked when the z-order changes.
      */
@@ -56,6 +74,8 @@ class WindowZOrderTracker implements ApplicationStatus.WindowFocusChangedListene
         mZOrder = new SparseArray<>();
         mTrackedWindows = new HashSet<>();
         mZOrderChangedCallback = zOrderChangedCallback;
+
+        PostTask.postDelayedTask(TaskTraits.UI_DEFAULT, mEmitMetricsRunnable, METRIC_INTERVAL_MS);
     }
 
     /**
@@ -129,19 +149,10 @@ class WindowZOrderTracker implements ApplicationStatus.WindowFocusChangedListene
         return mZOrder;
     }
 
-    /**
-     * Returns an iterable of the tracked windows.
-     *
-     * @return An iterable of tracked windows.
-     */
-    public Iterable<ActivityWindowAndroid> getAllWindowAndroids() {
-        ThreadUtils.assertOnUiThread();
-        return Collections.unmodifiableSet(mTrackedWindows);
-    }
-
     @Override
     public void onWindowFocusChanged(Activity activity, boolean hasFocus) {
         ThreadUtils.assertOnUiThread();
+        mFocusChangedCount++;
         if (!hasFocus) {
             return;
         }
@@ -193,5 +204,24 @@ class WindowZOrderTracker implements ApplicationStatus.WindowFocusChangedListene
                 Log.i(TAG, "%s", displayZOrder.get(j));
             }
         }
+    }
+
+    private void recordTrackedWindowStats() {
+        RecordHistogram.recordCount100Histogram(
+                getMetricName("TrackedWindowsCount"), mTrackedWindows.size());
+    }
+
+    private void recordDisplayStats() {
+        RecordHistogram.recordCount100Histogram(getMetricName("DisplaysCount"), mZOrder.size());
+    }
+
+    private void recordFocusChangedCount() {
+        RecordHistogram.recordCount100Histogram(
+                getMetricName("FocusChangedCount"), mFocusChangedCount);
+        mFocusChangedCount = 0;
+    }
+
+    private static String getMetricName(String metricName) {
+        return METRIC_NAMESPACE + metricName;
     }
 }

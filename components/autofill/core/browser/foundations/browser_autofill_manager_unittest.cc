@@ -89,8 +89,6 @@
 #include "components/autofill/core/browser/integrators/password_form_classification.h"
 #include "components/autofill/core/browser/integrators/password_manager/mock_password_manager_delegate.h"
 #include "components/autofill/core/browser/integrators/password_manager/password_manager_delegate.h"
-#include "components/autofill/core/browser/integrators/plus_addresses/autofill_plus_address_delegate.h"
-#include "components/autofill/core/browser/integrators/plus_addresses/mock_autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/metrics/form_events/form_events.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
 #include "components/autofill/core/browser/metrics/loyalty_cards_metrics.h"
@@ -112,7 +110,6 @@
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
 #include "components/autofill/core/browser/suggestions/addresses/address_suggestion_generator.h"
 #include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator_util.h"
-#include "components/autofill/core/browser/suggestions/plus_addresses/plus_address_suggestion_generator.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_test_helpers.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
@@ -212,7 +209,6 @@ using upload_contents_matchers::ObservedSubmissionIs;
 using UkmAutofillKeyMetricsType = ukm::builders::Autofill_KeyMetrics;
 
 constexpr Suggestion::Icon kAddressEntryIcon = Suggestion::Icon::kAccount;
-constexpr char kPlusAddress[] = "plus+remote@plus.plus";
 
 // Action `SaveArgElementsTo<k>(pointer)` saves the value pointed to by the
 // `k`th (0-based) argument of the mock function by moving it to `*pointer`.
@@ -840,10 +836,6 @@ class MockAutofillClient : public TestAutofillClient {
               (const FormFieldData& field, AutofillClient::IphFeature feature),
               (override));
   MOCK_METHOD(void, HideAutofillFieldIph, (), (override));
-  MOCK_METHOD(void,
-              ShowPlusAddressEmailOverrideNotification,
-              (const std::string&, AutofillClient::EmailOverrideUndoCallback),
-              (override));
   MOCK_METHOD(bool, IsTabInActorMode, (), (const override));
   MOCK_METHOD(AutofillAiManager*, GetAutofillAiManager, (), (override));
 };
@@ -1229,7 +1221,8 @@ class BrowserAutofillManagerTest
                           size_t field_index = 0,
                           SuggestionType type = SuggestionType::kAddressEntry) {
     autofill_manager().DidShowSuggestions(
-        {Suggestion(type)}, form, form.fields()[field_index].global_id(), {});
+        {Suggestion(type)}, form.global_id(),
+        form.fields()[field_index].global_id(), {});
   }
 
   void TryToShowTouchToFill(const FormData& form,
@@ -1559,6 +1552,40 @@ TEST_F(BrowserAutofillManagerTest, AtMemoryTriggersEmptySuggestions) {
   OnAskForValuesToFill(form, form.fields()[0],
                        AutofillSuggestionTriggerSource::kAtMemory);
   external_delegate()->CheckNoSuggestions(form.fields()[0].global_id());
+}
+
+// Tests that when `RemoteAnnotatorEnablementState` is `kDisabledNotEligible`
+// for a given profile, the AtMemory popup doesn't trigger.
+TEST_F(BrowserAutofillManagerTest, AtMemoryTriggerDroppedWhenNotEligible) {
+  FormData form = CreateTestAddressFormData();
+  FormsSeen({form});
+
+  autofill_client().set_accessibility_annotator_enablement_state(
+      accessibility_annotator::RemoteAnnotatorEnablementState::
+          kDisabledNotEligible);
+
+  OnAskForValuesToFill(form, form.fields()[0],
+                       AutofillSuggestionTriggerSource::kAtMemory);
+
+  // No suggestions should be returned, not even empty ones.
+  EXPECT_FALSE(external_delegate()->on_suggestions_returned_seen());
+}
+
+TEST_F(BrowserAutofillManagerTest, IgnoreInactivityQueryIfPopupVisible) {
+  FormData form = CreateTestAddressFormData();
+  FormsSeen({form});
+
+  OnAskForValuesToFill(form, form.fields()[0],
+                       AutofillSuggestionTriggerSource::kTextFieldValueChanged);
+  external_delegate()->CheckSuggestionCount(form.fields()[0].global_id(), 4);
+
+  // Trigger inactivity query. It should be ignored if the popup is visible.
+  OnAskForValuesToFill(
+      form, form.fields()[0],
+      AutofillSuggestionTriggerSource::kAtMemoryInactivityNudge);
+
+  // Verify suggestions are unchanged (not replaced or cleared).
+  external_delegate()->CheckSuggestionCount(form.fields()[0].global_id(), 4);
 }
 
 // Test that the correct logger is returned for an address field.
@@ -3962,47 +3989,6 @@ TEST_F(BrowserAutofillManagerTest, GetProfileSuggestions_FieldSwapping) {
        CreateUndoOrClearFormSuggestion(), CreateManageAddressesSuggestion()});
 }
 
-// Tests that fields with unrecognized autocomplete attribute don't contribute
-// to key metrics.
-TEST_F(BrowserAutofillManagerTest, AutocompleteUnrecognizedFields_KeyMetrics) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      features::kAutofillConsiderAutocompleteUnrecognizedFieldsInMetrics);
-  // Create an address form where field 1 has an unrecognized autocomplete
-  // attribute.
-  FormData form = CreateTestAddressFormData();
-  ASSERT_GE(form.fields().size(), 2u);
-  test_api(form).field(1).set_parsed_autocomplete(
-      AutocompleteParsingResult{.field_type = HtmlFieldType::kUnrecognized});
-
-  // Interact with an ac != unrecognized field: Expect key metrics to be
-  // emitted. Note that "interacting" means querying suggestions, usually
-  // caused by clicking into a field.
-  {
-    FormsSeen({form});
-    OnAskForValuesToFill(form, form.fields()[0]);
-    FormSubmitted(form);
-
-    base::HistogramTester histogram_tester;
-    autofill_client().GetAutofillDriverFactory().Reset(autofill_driver());
-    histogram_tester.ExpectTotalCount(
-        "Autofill.KeyMetrics.FillingAssistance.Address", 1);
-  }
-
-  // Interact with an ac = unrecognized field: Expect no key metric to be
-  // emitted.
-  {
-    FormsSeen({form});
-    OnAskForValuesToFill(form, form.fields()[1]);
-    FormSubmitted(form);
-
-    base::HistogramTester histogram_tester;
-    autofill_client().GetAutofillDriverFactory().Reset(autofill_driver());
-    histogram_tester.ExpectTotalCount(
-        "Autofill.KeyMetrics.FillingAssistance.Address", 0);
-  }
-}
-
 TEST_F(BrowserAutofillManagerTest,
        OnCreditCardFetchedSuccessfully_LocalCreditCard) {
   const CreditCard local_card = test::GetCreditCard();
@@ -5156,7 +5142,7 @@ TEST_F(BrowserAutofillManagerWithLogEventsTest, LogIBANField) {
   autofill_manager().FillOrPreviewField(
       mojom::ActionPersistence::kFill, mojom::FieldActionType::kReplaceAll,
       form, form.fields().front(), u"CH93 0076 2011 6238 5295 7",
-      SuggestionType::kIbanEntry, IBAN_VALUE);
+      FillingProduct::kIban, IBAN_VALUE);
   FormSubmitted(form);
 
   const std::vector<AutofillField::FieldLogEventType>& fill_field_log_events =
@@ -5695,6 +5681,9 @@ void DoTestFormSubmittedControlWithDefaultValue(
   ASSERT_TRUE(state_field != nullptr);
   state_field->set_form_control_type(form_control_type);
   state_field->set_value(base::UTF8ToUTF16(GetElvisAddressFillData().state));
+  if (state_field->IsSelectElement()) {
+    state_field->set_max_length(0);
+  }
 
   test->FormsSeen({form});
 
@@ -6143,8 +6132,8 @@ TEST_F(BrowserAutofillManagerTest, NullAutofillFieldDoesNotCrash) {
 
   autofill_manager().FillOrPreviewField(
       mojom::ActionPersistence::kFill, mojom::FieldActionType::kReplaceAll,
-      form, form.fields().front(), u"12345678",
-      SuggestionType::kLoyaltyCardEntry, LOYALTY_MEMBERSHIP_ID);
+      form, form.fields().front(), u"12345678", FillingProduct::kLoyaltyCard,
+      LOYALTY_MEMBERSHIP_ID);
 }
 
 TEST_F(BrowserAutofillManagerTest, DontOfferToSavePaymentsCard) {
@@ -6549,7 +6538,7 @@ TEST_F(BrowserAutofillManagerTest,
 
   base::HistogramTester histogram_tester;
   autofill_manager().DidShowSuggestions(
-      {Suggestion(SuggestionType::kAutocompleteEntry)}, form,
+      {Suggestion(SuggestionType::kAutocompleteEntry)}, form.global_id(),
       form.fields().back().global_id(), {});
   // No Autofill logs.
   const std::string histograms = histogram_tester.GetAllHistogramsRecorded();
@@ -6611,7 +6600,7 @@ TEST_F(BrowserAutofillManagerTest,
   autofill_manager().FillOrPreviewField(
       mojom::ActionPersistence::kFill, mojom::FieldActionType::kReplaceAll,
       form, form.fields().front(), u"CH93 0076 2011 6238 5295 7",
-      SuggestionType::kIbanEntry, IBAN_VALUE);
+      FillingProduct::kIban, IBAN_VALUE);
 
   FormSubmitted(form);
 
@@ -6630,10 +6619,10 @@ TEST_F(BrowserAutofillManagerTest,
 
   base::HistogramTester histogram_tester;
   autofill_manager().DidShowSuggestions(
-      {Suggestion(SuggestionType::kIbanEntry)}, form,
+      {Suggestion(SuggestionType::kIbanEntry)}, form.global_id(),
       form.fields().back().global_id(), {});
   autofill_manager().DidShowSuggestions(
-      {Suggestion(SuggestionType::kIbanEntry)}, form,
+      {Suggestion(SuggestionType::kIbanEntry)}, form.global_id(),
       form.fields().back().global_id(), {});
 
   EXPECT_THAT(
@@ -7233,7 +7222,7 @@ TEST_F(BrowserAutofillManagerTest,
   EXPECT_CALL(cc_access_manager(), PrepareToFetchCreditCard)
       .Times(IsCreditCardFidoAuthenticationEnabled() ? 1 : 0);
   autofill_manager().DidShowSuggestions(
-      {Suggestion(SuggestionType::kCreditCardEntry)}, form,
+      {Suggestion(SuggestionType::kCreditCardEntry)}, form.global_id(),
       form.fields()[0].global_id(), {});
 }
 
@@ -7244,7 +7233,7 @@ TEST_F(BrowserAutofillManagerTest,
 
   EXPECT_CALL(cc_access_manager(), PrepareToFetchCreditCard).Times(0);
   autofill_manager().DidShowSuggestions(
-      {Suggestion(SuggestionType::kAddressEntry)}, form,
+      {Suggestion(SuggestionType::kAddressEntry)}, form.global_id(),
       form.fields()[0].global_id(), {});
 }
 
@@ -8974,122 +8963,6 @@ TEST_F(BrowserAutofillManagerTest,
               Optional(credit_card_form->form_signature()));
 }
 
-class BrowserAutofillManagerPlusAddressTest
-    : public BrowserAutofillManagerTest {
- protected:
-  void SetUp() override {
-    BrowserAutofillManagerTest::SetUp();
-    auto plus_address_delegate =
-        std::make_unique<NiceMock<MockAutofillPlusAddressDelegate>>();
-    ON_CALL(*plus_address_delegate, GetManagePlusAddressSuggestion)
-        .WillByDefault(Return(Suggestion(SuggestionType::kManagePlusAddress)));
-    ON_CALL(*plus_address_delegate, IsPlusAddressFillingEnabled)
-        .WillByDefault(Return(true));
-    ON_CALL(*plus_address_delegate, GetSuggestionsFromPlusAddresses)
-        .WillByDefault([](const std::vector<std::string>& plus_addresses) {
-          return base::ToVector(
-              plus_addresses, [](const std::string& plus_address) {
-                return Suggestion(base::UTF8ToUTF16(plus_address), u"",
-                                  Suggestion::Icon::kPlusAddress,
-                                  SuggestionType::kFillExistingPlusAddress);
-              });
-        });
-    autofill_client().set_plus_address_delegate(
-        std::move(plus_address_delegate));
-  }
-
-  MockAutofillPlusAddressDelegate& plus_address_delegate() {
-    return static_cast<MockAutofillPlusAddressDelegate&>(
-        *autofill_client().GetPlusAddressDelegate());
-  }
-};
-
-// Ensure that plus address options aren't queried for non-email fields.
-TEST_F(BrowserAutofillManagerPlusAddressTest, NoPlusAddressesWithNameFields) {
-  const std::vector<std::string> plus_addresses = {kPlusAddress};
-  EXPECT_CALL(plus_address_delegate(), IsFieldEligibleForPlusAddress)
-      .WillRepeatedly([&](const AutofillField& f) {
-        return DenseSet<FillingProduct>(f.Type().GetGroups(),
-                                        &GetFillingProductFromFieldTypeGroup)
-            .contains(FillingProduct::kAddress);
-      });
-  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
-      .WillOnce(RunOnceCallback<1>(plus_addresses));
-  EXPECT_CALL(plus_address_delegate(), GetSuggestionsFromPlusAddresses)
-      .Times(0);
-  // Set up our form data.
-  FormData form = test::GetFormData(
-      {.fields = {{.role = NAME_FIRST, .autocomplete_attribute = "given-name"},
-                  {.role = NAME_LAST}}});
-  form.set_name(u"MyForm");
-  form.set_url(GURL("https://myform.com/form.html"));
-  form.set_action(GURL("https://myform.com/submit.html"));
-  FormsSeen({form});
-
-  // Check that suggestions are made for the field that has the autocomplete
-  // attribute. Ensure that there is no plus address option shown.
-  OnAskForValuesToFill(form, form.fields()[0]);
-  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
-
-  // Also check that there are no suggestions for the field without the
-  // autocomplete attribute, ensuring that unrecognized fields don't get plus
-  // address options.
-  OnAskForValuesToFill(form, form.fields()[1]);
-  EXPECT_FALSE(external_delegate()->on_suggestions_returned_seen());
-}
-
-// Tests that plus address suggestions are queried and shown for email fields
-// when address suggestions are available. In this case, the option to manage
-// plus addresses is not offered.
-TEST_F(BrowserAutofillManagerPlusAddressTest,
-       CreatePlusAddressSuggestionShownWithAddressSuggestions) {
-  using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum PasswordFormClassification::Type;
-
-  // Plus address suggestions request.
-  const std::vector<std::string> plus_addresses = {kPlusAddress};
-  EXPECT_CALL(plus_address_delegate(), IsFieldEligibleForPlusAddress)
-      .WillRepeatedly(Return(true));
-  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
-      .WillOnce(RunOnceCallback<1>(plus_addresses));
-  // No single field form fill suggestions requests.
-  EXPECT_CALL(merchant_promo_code_manager(), OnGetSingleFieldSuggestions)
-      .Times(0);
-  EXPECT_CALL(iban_manager(), OnGetSingleFieldSuggestions).Times(0);
-  EXPECT_CALL(autocomplete_history_manager(), OnGetSingleFieldSuggestions)
-      .Times(0);
-  // TTF bottom sheet should not be shown when plus address suggestions are
-  // available.
-  EXPECT_CALL(touch_to_fill_delegate(), TryToShowTouchToFill).Times(0);
-
-  EXPECT_CALL(plus_address_delegate(),
-              OnPlusAddressSuggestionShown(
-                  Ref(autofill_manager()), _, _, kAutofillProfileOnEmailField,
-                  kNoPasswordForm, SuggestionType::kFillExistingPlusAddress));
-
-  // Set up our form data. Notably, the first field is an email address.
-  FormData form =
-      test::GetFormData({.fields = {{.role = EMAIL_OR_LOYALTY_MEMBERSHIP_ID,
-                                     .autocomplete_attribute = "email"}}});
-  form.set_name(u"MyForm");
-  form.set_url(GURL("https://myform.com/form.html"));
-  form.set_action(GURL("https://myform.com/submit.html"));
-
-  FormsSeen({form});
-
-  // Check that the plus address suggestion is offered together with address
-  // suggestions.
-  OnAskForValuesToFill(form, form.fields()[0]);
-  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
-  EXPECT_THAT(
-      external_delegate()->suggestions(),
-      ElementsAre(EqualsSuggestion(SuggestionType::kFillExistingPlusAddress),
-                  EqualsSuggestion(SuggestionType::kAddressEntry),
-                  EqualsSuggestion(SuggestionType::kAddressEntry),
-                  EqualsSuggestion(SuggestionType::kSeparator),
-                  EqualsSuggestion(SuggestionType::kManageAddress)));
-}
-
 class BrowserAutofillManagerIdentityCredentialTest
     : public BrowserAutofillManagerTest {
  protected:
@@ -9126,8 +8999,7 @@ TEST_F(BrowserAutofillManagerIdentityCredentialTest,
       {.fields = {{.role = EMAIL_ADDRESS,
                    .autocomplete_attribute = "email webidentity"}}});
   FormsSeen({form});
-  // Check that the plus address suggestion is offered together with address
-  // suggestions.
+
   OnAskForValuesToFill(form, form.fields()[0]);
   EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
   EXPECT_THAT(external_delegate()->suggestions(),
@@ -9156,511 +9028,6 @@ TEST_F(BrowserAutofillManagerIdentityCredentialTest,
       Not(Contains(EqualsSuggestion(SuggestionType::kIdentityCredential))));
 }
 
-// Tests that single field form suggestions (IBANs in this case) are shown
-// normally if plus address suggestions are not available for the field.
-TEST_F(BrowserAutofillManagerPlusAddressTest,
-       NoPlusAddressOnlyIBANsSuggestions) {
-  using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum PasswordFormClassification::Type;
-  personal_data().test_address_data_manager().ClearProfiles();
-
-  // No plus address suggestions request.
-  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses).Times(0);
-  EXPECT_CALL(plus_address_delegate(), GetSuggestionsFromPlusAddresses)
-      .Times(0);
-  // Single field form fill suggestions request.
-  EXPECT_CALL(merchant_promo_code_manager(), OnGetSingleFieldSuggestions)
-      .WillRepeatedly(Return(false));
-  EXPECT_CALL(iban_manager(), OnGetSingleFieldSuggestions)
-      .WillRepeatedly([&](const FormStructure&, const FormFieldData& field,
-                          const AutofillField&, const AutofillClient&,
-                          SingleFieldFillRouter::OnSuggestionsReturnedCallback&
-                              on_suggestions_returned) {
-        std::move(on_suggestions_returned)
-            .Run(field.global_id(),
-                 std::vector<Suggestion>{
-                     Suggestion(SuggestionType::kIbanEntry),
-                     Suggestion(SuggestionType::kIbanEntry),
-                     Suggestion(SuggestionType::kSeparator),
-                     Suggestion(SuggestionType::kManageIban)});
-        return true;
-      });
-
-  EXPECT_CALL(plus_address_delegate(), OnPlusAddressSuggestionShown).Times(0);
-
-  // Set up our form data. Notably, the first field is an IBAN field.
-  FormData form = CreateTestIbanFormData();
-  FormsSeen({form});
-
-  // Check that only IBAN related suggestions are offered.
-  OnAskForValuesToFill(form, form.fields()[0]);
-  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
-  EXPECT_THAT(external_delegate()->suggestions(),
-              ElementsAre(EqualsSuggestion(SuggestionType::kIbanEntry),
-                          EqualsSuggestion(SuggestionType::kIbanEntry),
-                          EqualsSuggestion(SuggestionType::kSeparator),
-                          EqualsSuggestion(SuggestionType::kManageIban)));
-}
-
-// Tests that single field form suggestions (Merchant promo code in this case)
-// are shown normally if plus address suggestions are not available for the
-// field.
-TEST_F(BrowserAutofillManagerPlusAddressTest,
-       NoPlusAddressOnlyPromoCodesSuggestions) {
-  using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum PasswordFormClassification::Type;
-  personal_data().test_address_data_manager().ClearProfiles();
-
-  // No plus address suggestions request.
-  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses).Times(0);
-  EXPECT_CALL(plus_address_delegate(), GetSuggestionsFromPlusAddresses)
-      .Times(0);
-  // Single field form fill suggestions request.
-  EXPECT_CALL(merchant_promo_code_manager(), OnGetSingleFieldSuggestions)
-      .WillRepeatedly([&](const FormStructure&, const FormFieldData& field,
-                          const AutofillField&, const AutofillClient&,
-                          SingleFieldFillRouter::OnSuggestionsReturnedCallback&
-                              on_suggestions_returned) {
-        std::move(on_suggestions_returned)
-            .Run(field.global_id(),
-                 std::vector<Suggestion>{
-                     Suggestion(SuggestionType::kMerchantPromoCodeEntry),
-                     Suggestion(SuggestionType::kMerchantPromoCodeEntry),
-                     Suggestion(SuggestionType::kSeparator),
-                     Suggestion(SuggestionType::kSeePromoCodeDetails)});
-        return true;
-      });
-
-  EXPECT_CALL(plus_address_delegate(), OnPlusAddressSuggestionShown).Times(0);
-
-  // Set up our form data. Notably, the first field is a promo code field.
-  FormData form = test::CreateTestMerchantPromoCodeFormData();
-  FormsSeen({form});
-
-  // Check that only promo code related suggestions are offered.
-  OnAskForValuesToFill(form, form.fields()[0]);
-  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
-  EXPECT_THAT(
-      external_delegate()->suggestions(),
-      ElementsAre(EqualsSuggestion(SuggestionType::kMerchantPromoCodeEntry),
-                  EqualsSuggestion(SuggestionType::kMerchantPromoCodeEntry),
-                  EqualsSuggestion(SuggestionType::kSeparator),
-                  EqualsSuggestion(SuggestionType::kSeePromoCodeDetails)));
-}
-
-// Tests that plus address suggestions are queried and shown for email fields
-// when single field form suggestions are available. Tests also that plus
-// address suggestions are prioritized over single field form fill suggestions.
-TEST_F(BrowserAutofillManagerPlusAddressTest,
-       CreatePlusAddressSuggestionShownWithSingleFieldFillSuggestions) {
-  using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum PasswordFormClassification::Type;
-  personal_data().test_address_data_manager().ClearProfiles();
-
-  // Plus address suggestions request.
-  const std::vector<std::string> plus_addresses = {kPlusAddress};
-  EXPECT_CALL(plus_address_delegate(), IsFieldEligibleForPlusAddress)
-      .WillRepeatedly(Return(true));
-  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
-      .WillOnce(RunOnceCallback<1>(plus_addresses));
-  // Single field form fill suggestions request.
-  EXPECT_CALL(merchant_promo_code_manager(), OnGetSingleFieldSuggestions)
-      .WillRepeatedly(Return(false));
-  EXPECT_CALL(iban_manager(), OnGetSingleFieldSuggestions)
-      .WillRepeatedly(Return(false));
-  EXPECT_CALL(autocomplete_history_manager(), OnGetSingleFieldSuggestions)
-      .WillRepeatedly(
-          [&](const FormData& form, const FormStructure* form_structure,
-              const FormFieldData& field, const AutofillField* autofill_field,
-              const AutofillClient&,
-              SingleFieldFillRouter::OnSuggestionsReturnedCallback
-                  on_suggestions_returned) {
-            std::move(on_suggestions_returned)
-                .Run(field.global_id(),
-                     std::vector<Suggestion>{
-                         Suggestion(SuggestionType::kAutocompleteEntry),
-                         Suggestion(SuggestionType::kAutocompleteEntry)});
-          });
-
-  EXPECT_CALL(plus_address_delegate(),
-              OnPlusAddressSuggestionShown(
-                  Ref(autofill_manager()), _, _, kAutocomplete, kNoPasswordForm,
-                  SuggestionType::kFillExistingPlusAddress));
-
-  // Set up our form data. Notably, the first field is an email address.
-  FormData form = test::GetFormData(
-      {.fields = {{.role = EMAIL_ADDRESS, .autocomplete_attribute = "email"}}});
-  form.set_name(u"MyForm");
-  form.set_url(GURL("https://myform.com/form.html"));
-  form.set_action(GURL("https://myform.com/submit.html"));
-
-  FormsSeen({form});
-
-  // Check that the plus address suggestion is offered.
-  OnAskForValuesToFill(form, form.fields()[0]);
-  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
-  EXPECT_THAT(
-      external_delegate()->suggestions(),
-      ElementsAre(EqualsSuggestion(SuggestionType::kFillExistingPlusAddress),
-                  EqualsSuggestion(SuggestionType::kAutocompleteEntry),
-                  EqualsSuggestion(SuggestionType::kAutocompleteEntry),
-                  EqualsSuggestion(SuggestionType::kSeparator),
-                  EqualsSuggestion(SuggestionType::kManagePlusAddress)));
-}
-
-// Tests that a manage plus address suggestion is not added if there are no plus
-// address suggestions.
-TEST_F(BrowserAutofillManagerPlusAddressTest,
-       NoStandaloneManagePlusAddressSuggestion) {
-  using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum PasswordFormClassification::Type;
-  personal_data().test_address_data_manager().ClearProfiles();
-  EXPECT_CALL(plus_address_delegate(), IsFieldEligibleForPlusAddress)
-      .WillRepeatedly(Return(true));
-  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
-      .WillOnce(RunOnceCallback<1>(std::vector<std::string>{}));
-  EXPECT_CALL(plus_address_delegate(), GetSuggestionsFromPlusAddresses)
-      .Times(0);
-  EXPECT_CALL(plus_address_delegate(), GetManagePlusAddressSuggestion).Times(0);
-  EXPECT_CALL(plus_address_delegate(), OnPlusAddressSuggestionShown).Times(0);
-  // Single field form fill suggestions request - No results.
-  EXPECT_CALL(merchant_promo_code_manager(), OnGetSingleFieldSuggestions)
-      .WillRepeatedly(Return(false));
-  EXPECT_CALL(iban_manager(), OnGetSingleFieldSuggestions)
-      .WillRepeatedly(Return(false));
-  EXPECT_CALL(autocomplete_history_manager(), OnGetSingleFieldSuggestions)
-      .WillRepeatedly(
-          [](const FormData& form, const FormStructure* form_structure,
-             const FormFieldData& field, const AutofillField* autofill_field,
-             const AutofillClient& client,
-             SingleFieldFillRouter::OnSuggestionsReturnedCallback
-                 on_suggestions_returned) {
-            std::move(on_suggestions_returned).Run(field.global_id(), {});
-          });
-
-  // Set up our form data. Notably, the first field is an email address.
-  FormData form = test::GetFormData(
-      {.fields = {{.role = EMAIL_ADDRESS, .autocomplete_attribute = "email"}}});
-  form.set_name(u"MyForm");
-  form.set_url(GURL("https://myform.com/form.html"));
-  form.set_action(GURL("https://myform.com/submit.html"));
-
-  FormsSeen({form});
-
-  // Check that no suggestions are offered.
-  OnAskForValuesToFill(form, form.fields()[0]);
-  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
-  EXPECT_THAT(external_delegate()->suggestions(), IsEmpty());
-}
-
-// Tests that only Plus Address suggestions are shown when the trigger source is
-// a manual fallback for plus addresses.
-TEST_F(BrowserAutofillManagerPlusAddressTest, ManualFallbackPlusAddress) {
-  using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum PasswordFormClassification::Type;
-  const std::vector<std::string> plus_addresses = {"plus+remote@plus.plus"};
-  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
-      .WillOnce(RunOnceCallback<1>(plus_addresses));
-  EXPECT_CALL(plus_address_delegate(),
-              OnPlusAddressSuggestionShown(
-                  Ref(autofill_manager()), _, _, kManualFallback,
-                  kNoPasswordForm, SuggestionType::kFillExistingPlusAddress));
-  EXPECT_CALL(merchant_promo_code_manager(), OnGetSingleFieldSuggestions)
-      .Times(0);
-  EXPECT_CALL(iban_manager(), OnGetSingleFieldSuggestions).Times(0);
-  EXPECT_CALL(autocomplete_history_manager(), OnGetSingleFieldSuggestions)
-      .Times(0);
-
-  FormData form = CreateTestAddressFormData();
-  FormsSeen({form});
-
-  // Check that only the plus address suggestion is offered.
-  OnAskForValuesToFill(
-      form, form.fields()[0],
-      AutofillSuggestionTriggerSource::kManualFallbackPlusAddresses);
-  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
-  EXPECT_THAT(
-      external_delegate()->suggestions(),
-      ElementsAre(EqualsSuggestion(SuggestionType::kFillExistingPlusAddress),
-                  EqualsSuggestion(SuggestionType::kSeparator),
-                  EqualsSuggestion(SuggestionType::kManagePlusAddress)));
-}
-
-// Test that plus address inputs are forced to !should_autocomplete
-// for `SingleFieldFillRouter::OnWillSubmitForm()`.
-TEST_F(BrowserAutofillManagerPlusAddressTest,
-       DontSaveActivePlusAddressInAutocompleteHistory) {
-  const std::string kDummyPlusAddress = "plus+plus@plus.plus";
-  ON_CALL(plus_address_delegate(), IsPlusAddress)
-      .WillByDefault([&](const std::string& address) {
-        return address == kDummyPlusAddress;
-      });
-  FormData form_seen_by_autocomplete;
-  EXPECT_CALL(single_field_fill_router(),
-              OnWillSubmitForm(_, _, /*is_autocomplete_enabled=*/true))
-      .WillOnce(SaveArg<0>(&form_seen_by_autocomplete));
-
-  FormData form = test::GetFormData(
-      {.fields = {{.role = EMAIL_ADDRESS, .name = u"email"},
-                  {.role = EMAIL_ADDRESS, .name = u"unfilled-email"}}});
-
-  // First, note the field with the empty value.
-  FormsSeen({form});
-  // Then fill in the dummy plus address.
-  test_api(form).field(0).set_value(base::UTF8ToUTF16(kDummyPlusAddress));
-
-  // Submit the form, capturing it as it is passed to the autocomplete history
-  // manager. The first field should not be autocomplete eligible.
-  FormSubmitted(form);
-
-  EXPECT_EQ(form.fields().size(), form_seen_by_autocomplete.fields().size());
-  EXPECT_FALSE(form_seen_by_autocomplete.fields()[0].should_autocomplete());
-  EXPECT_TRUE(form_seen_by_autocomplete.fields()[1].should_autocomplete());
-}
-
-// Test that inputs matching the plus address format are forced to
-// !should_autocomplete for `SingleFieldFillRouter::OnWillSubmitForm()`.
-TEST_F(BrowserAutofillManagerPlusAddressTest,
-       DontSaveMatchedPlusAddressInAutocompleteHistory) {
-  const std::u16string kInvalidPlusAddressFormat = u"plus+plus@plus.plus";
-  const std::u16string kValidPlusAddressFormat = u"plus+plus@grelay.com";
-  ON_CALL(plus_address_delegate(), IsPlusAddress).WillByDefault(Return(false));
-  ON_CALL(plus_address_delegate(), MatchesPlusAddressFormat)
-      .WillByDefault([&](const std::u16string& address) {
-        return address.ends_with(u"@grelay.com");
-      });
-  FormData form_seen_by_autocomplete;
-  EXPECT_CALL(single_field_fill_router(),
-              OnWillSubmitForm(_, _, /*is_autocomplete_enabled=*/true))
-      .WillOnce(SaveArg<0>(&form_seen_by_autocomplete));
-
-  FormData form = test::GetFormData(
-      {.fields = {{.role = EMAIL_ADDRESS, .name = u"email"},
-                  {.role = EMAIL_ADDRESS, .name = u"unfilled-email"}}});
-
-  // First, note the field with the empty value.
-  FormsSeen({form});
-
-  test_api(form).field(0).set_value(kInvalidPlusAddressFormat);
-  test_api(form).field(1).set_value(kValidPlusAddressFormat);
-
-  // Submit the form, capturing it as it is passed to the autocomplete history
-  // manager. The first field should not be autocomplete eligible.
-  FormSubmitted(form);
-
-  EXPECT_EQ(form.fields().size(), form_seen_by_autocomplete.fields().size());
-  EXPECT_TRUE(form_seen_by_autocomplete.fields()[0].should_autocomplete());
-  EXPECT_FALSE(form_seen_by_autocomplete.fields()[1].should_autocomplete());
-}
-
-// Test that plus address inputs are forced to !should_autocomplete
-// for `SingleFieldFillRouter::OnWillSubmitForm()`.
-TEST_F(BrowserAutofillManagerPlusAddressTest,
-       TestPlusAddressEmailOverridesAppliedOnAddresses) {
-  using enum AutofillPlusAddressDelegate::SuggestionContext;
-  using enum PasswordFormClassification::Type;
-
-  const std::string gaia_email = "foo@mail.com";
-  autofill_client().identity_test_environment().MakePrimaryAccountAvailable(
-      gaia_email, signin::ConsentLevel::kSignin);
-
-  personal_data().test_address_data_manager().ClearProfiles();
-  AutofillProfile profile1(i18n_model_definition::kLegacyHierarchyCountryCode);
-  profile1.set_guid(MakeGuid(1));
-  profile1.SetRawInfo(EMAIL_ADDRESS, u"test@example.com");
-  personal_data().test_address_data_manager().AddProfile(profile1);
-
-  AutofillProfile profile2(i18n_model_definition::kLegacyHierarchyCountryCode);
-  profile2.set_guid(MakeGuid(2));
-  profile2.SetRawInfo(EMAIL_ADDRESS, base::UTF8ToUTF16(gaia_email));
-  personal_data().test_address_data_manager().AddProfile(profile2);
-
-  // Plus address suggestions request.
-  const std::vector<std::string> plus_addresses = {"plus+remote@plus.plus"};
-  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
-      .WillOnce(RunOnceCallback<1>(plus_addresses));
-  // No plus address suggestions are built as the plus address replaced the
-  // address profile email.
-  EXPECT_CALL(plus_address_delegate(), GetSuggestionsFromPlusAddresses)
-      .Times(0);
-  // No single field form fill suggestions requests.
-  EXPECT_CALL(plus_address_delegate(), IsFieldEligibleForPlusAddress)
-      .WillRepeatedly(Return(true));
-  EXPECT_CALL(merchant_promo_code_manager(), OnGetSingleFieldSuggestions)
-      .Times(0);
-  EXPECT_CALL(iban_manager(), OnGetSingleFieldSuggestions).Times(0);
-  EXPECT_CALL(autocomplete_history_manager(), OnGetSingleFieldSuggestions)
-      .Times(0);
-  EXPECT_CALL(plus_address_delegate(), OnPlusAddressSuggestionShown).Times(0);
-
-  // Set up our form data. Notably, the first field is an email address.
-  FormData form = test::GetFormData(
-      {.fields = {{.role = EMAIL_ADDRESS, .autocomplete_attribute = "email"}}});
-  form.set_name(u"MyForm");
-  form.set_url(GURL("https://myform.com/form.html"));
-  form.set_action(GURL("https://myform.com/submit.html"));
-
-  FormsSeen({form});
-
-  // Check that the plus address suggestion are embedded in the address
-  // suggestions and not offered separately.
-  OnAskForValuesToFill(form, form.fields()[0]);
-  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
-  EXPECT_THAT(
-      external_delegate()->suggestions(),
-      ElementsAre(EqualsSuggestion(SuggestionType::kAddressEntry,
-                                   Suggestion::AutofillProfilePayload(
-                                       Suggestion::Guid(profile1.guid()))),
-                  // The second address suggestion with a plus address email.
-                  EqualsSuggestion(SuggestionType::kAddressEntry,
-                                   Suggestion::AutofillProfilePayload(
-                                       Suggestion::Guid(profile2.guid()),
-                                       u"plus+remote@plus.plus")),
-                  EqualsSuggestion(SuggestionType::kSeparator),
-                  EqualsSuggestion(SuggestionType::kManageAddress)));
-}
-
-// Tests that an address suggestion with an email override is filled when
-// selected. In addition, if the undo operation is called, the original profile
-// without the email override is filled.
-TEST_F(BrowserAutofillManagerPlusAddressTest,
-       FillsEmailOverrideAndShowsUserNotification) {
-  base::UserActionTester user_action_tester;
-  // Set up gaia email.
-  const std::string gaia_email = "theking@gmail.com";
-  autofill_client().identity_test_environment().MakePrimaryAccountAvailable(
-      gaia_email, signin::ConsentLevel::kSignin);
-
-  // Set up profile.
-  personal_data().test_address_data_manager().ClearProfiles();
-  AutofillProfile profile =
-      FillDataToAutofillProfile(GetElvisAddressFillData());
-  profile.set_guid(kElvisProfileGuid);
-  personal_data().address_data_manager().AddProfile(profile);
-
-  // Plus address suggestions request.
-  const std::string kDummyPlusAddress = "plus+plus@plus.plus";
-  const std::vector<std::string> plus_addresses = {kDummyPlusAddress};
-  EXPECT_CALL(plus_address_delegate(), IsFieldEligibleForPlusAddress)
-      .WillRepeatedly(Return(true));
-  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
-      .WillOnce(RunOnceCallback<1>(plus_addresses));
-  ON_CALL(plus_address_delegate(), IsPlusAddress)
-      .WillByDefault([&](const std::string& address) {
-        return address == kDummyPlusAddress;
-      });
-
-  // Set up form.
-  FormData form = test::GetFormData(
-      {.fields = {{.role = NAME_FIRST, .autocomplete_attribute = "given-name"},
-                  {.role = NAME_LAST, .autocomplete_attribute = "family-name"},
-                  {.role = EMAIL_ADDRESS, .autocomplete_attribute = "email"}}});
-
-  autofill_manager().AddSeenForm(form, {NAME_FIRST, NAME_LAST, EMAIL_ADDRESS});
-
-  std::vector<FieldGlobalId> global_ids;
-  for (const auto& field : form.fields()) {
-    global_ids.push_back(field.global_id());
-  }
-
-  AutofillClient::EmailOverrideUndoCallback undo_callback;
-  {
-    InSequence s;
-    EXPECT_CALL(autofill_driver(), ApplyFormAction)
-        .WillOnce(Return(global_ids));
-    EXPECT_CALL(plus_address_delegate(), DidFillPlusAddress);
-    EXPECT_CALL(autofill_client(),
-                ShowPlusAddressEmailOverrideNotification(gaia_email, _))
-        .WillOnce(MoveArg<1>(&undo_callback));
-    EXPECT_CALL(
-        autofill_client(),
-        HideAutofillSuggestions(SuggestionHidingReason::kAcceptSuggestion));
-    EXPECT_CALL(autofill_driver(),
-                ApplyFieldAction(mojom::FieldActionType::kReplaceAll,
-                                 mojom::ActionPersistence::kFill, global_ids[2],
-                                 base::UTF8ToUTF16(gaia_email)));
-  }
-
-  OnAskForValuesToFill(form, form.fields()[2]);
-  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
-  // Select an option to trigger Autofill. This should trigger a call to hide
-  // the popup since we've selected an option.
-  external_delegate()->DidAcceptSuggestion(
-      external_delegate()->suggestions().front(), {});
-  EXPECT_EQ(user_action_tester.GetActionCount(
-                "PlusAddresses.FillAddressSuggestionAccepted"),
-            1);
-  // Call the undo operation.
-  ASSERT_TRUE(undo_callback);
-  std::move(undo_callback).Run();
-  EXPECT_EQ(user_action_tester.GetActionCount(
-                "PlusAddresses.FillAddressSuggestionUndone"),
-            1);
-}
-
-// Tests that when an address suggestion with an email override is filled, a
-// user notification is not shown if an email field was never filled.
-TEST_F(BrowserAutofillManagerPlusAddressTest,
-       FillsEmailOverrideNoNotificationIfNoEmailIsFilled) {
-  // Set up gaia email.
-  const std::string gaia_email = "theking@gmail.com";
-  autofill_client().identity_test_environment().MakePrimaryAccountAvailable(
-      gaia_email, signin::ConsentLevel::kSignin);
-
-  // Set up profile.
-  personal_data().test_address_data_manager().ClearProfiles();
-  AutofillProfile profile =
-      FillDataToAutofillProfile(GetElvisAddressFillData());
-  profile.set_guid(kElvisProfileGuid);
-  personal_data().address_data_manager().AddProfile(profile);
-
-  // Plus address suggestions request.
-  const std::string kDummyPlusAddress = "plus+plus@plus.plus";
-  const std::vector<std::string> plus_addresses = {kDummyPlusAddress};
-  EXPECT_CALL(plus_address_delegate(), IsFieldEligibleForPlusAddress)
-      .WillRepeatedly(Return(true));
-  EXPECT_CALL(plus_address_delegate(), GetAffiliatedPlusAddresses)
-      .WillOnce(RunOnceCallback<1>(plus_addresses));
-  ON_CALL(plus_address_delegate(), IsPlusAddress)
-      .WillByDefault([&](const std::string& address) {
-        return address == kDummyPlusAddress;
-      });
-
-  // Set up form.
-  FormData form = test::GetFormData(
-      {.fields = {{.role = NAME_FIRST, .autocomplete_attribute = "given-name"},
-                  {.role = NAME_LAST, .autocomplete_attribute = "family-name"},
-                  {.role = ADDRESS_HOME_CITY}}});
-
-  autofill_manager().AddSeenForm(form,
-                                 {NAME_FIRST, NAME_LAST, ADDRESS_HOME_CITY});
-
-  std::vector<FieldGlobalId> global_ids;
-  for (const auto& field : form.fields()) {
-    global_ids.push_back(field.global_id());
-  }
-
-  AutofillClient::EmailOverrideUndoCallback undo_callback;
-  {
-    InSequence s;
-    EXPECT_CALL(autofill_driver(), ApplyFormAction)
-        .WillOnce(Return(global_ids));
-    EXPECT_CALL(plus_address_delegate(), DidFillPlusAddress).Times(0);
-    EXPECT_CALL(autofill_client(), ShowPlusAddressEmailOverrideNotification)
-        .Times(0);
-    EXPECT_CALL(
-        autofill_client(),
-        HideAutofillSuggestions(SuggestionHidingReason::kAcceptSuggestion));
-  }
-
-  OnAskForValuesToFill(form, form.fields()[0]);
-  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
-  // Select an option to trigger Autofill. This should trigger a call to hide
-  // the popup since we've selected an option.
-  external_delegate()->DidAcceptSuggestion(
-      external_delegate()->suggestions().front(), {});
-}
-
 // Test that the BAM queries the password delegate as soon as it's present.
 TEST_F(BrowserAutofillManagerTest, QueriesDelegateWhenGeneratingSuggestions) {
   FormData form = CreateTestAddressFormData();
@@ -9675,8 +9042,8 @@ TEST_F(BrowserAutofillManagerTest, QueriesDelegateWhenGeneratingSuggestions) {
   OnAskForValuesToFill(form, form.fields()[0],
                        AutofillSuggestionTriggerSource::kTextFieldValueChanged,
                        PasswordSuggestionRequest({}, form,
-                                                 /*username_field_index=*/0,
-                                                 /*password_field_index=*/0));
+                                                 /*username_field_id=*/{},
+                                                 /*password_field_id=*/{}));
 }
 
 class BrowserAutofillManagerOtpSuggestionsTest
@@ -9837,35 +9204,21 @@ TEST_F(BrowserAutofillManagerTest,
 
 struct SuggestionMergingTestParams {
   std::string test_name;
-  std::vector<std::pair<FillingProduct, std::vector<SuggestionType>>> input;
+  std::vector<std::pair<SuggestionGenerator::SuggestionDataSource,
+                        std::vector<SuggestionType>>>
+      input;
   std::vector<SuggestionType> expected_output;
 };
 
 class BrowserAutofillManagerSuggestionMergingTest
     : public BrowserAutofillManagerTest,
-      public testing::WithParamInterface<SuggestionMergingTestParams> {
- public:
-  void SetUp() override {
-    BrowserAutofillManagerTest::SetUp();
-    autofill_client().set_plus_address_delegate(
-        std::make_unique<NiceMock<MockAutofillPlusAddressDelegate>>());
-    ON_CALL(plus_address_delegate(), GetManagePlusAddressSuggestion)
-        .WillByDefault(Return(Suggestion(SuggestionType::kManagePlusAddress)));
-  }
-
-  MockAutofillPlusAddressDelegate& plus_address_delegate() {
-    return static_cast<MockAutofillPlusAddressDelegate&>(
-        *autofill_client().GetPlusAddressDelegate());
-  }
-};
+      public testing::WithParamInterface<SuggestionMergingTestParams> {};
 
 TEST_P(BrowserAutofillManagerSuggestionMergingTest, MergingLogic) {
   const SuggestionMergingTestParams& params = GetParam();
   FormData form = test::GetFormData(
       {.fields = {{.label = u"Field",
                    .form_control_type = FormControlType::kInputText}}});
-  const FormGlobalId form_id = form.global_id();
-  const FieldGlobalId field_id = form.fields()[0].global_id();
 
   std::vector<SuggestionGenerator::ReturnedSuggestions> returned_suggestions =
       base::ToVector(params.input, [&](const auto& pair) {
@@ -9877,7 +9230,7 @@ TEST_P(BrowserAutofillManagerSuggestionMergingTest, MergingLogic) {
 
   test_api(autofill_manager())
       .OnIndividualSuggestionsGenerated(
-          form_id, field_id,
+          form, form.fields()[0],
           AutofillSuggestionTriggerSource::kFormControlElementClicked, {},
           base::TimeTicks::Now(), std::move(returned_suggestions));
 
@@ -9892,50 +9245,24 @@ INSTANTIATE_TEST_SUITE_P(
     BrowserAutofillManagerSuggestionMergingTest,
     testing::ValuesIn(std::vector<SuggestionMergingTestParams>{
         {.test_name = "AddressOnly",
-         .input = {{FillingProduct::kAddress, {SuggestionType::kAddressEntry}}},
-         .expected_output = {SuggestionType::kAddressEntry}},
-        {.test_name = "AddressAndPlusAddress",
-         .input = {{FillingProduct::kAddress, {SuggestionType::kAddressEntry}},
-                   {FillingProduct::kPlusAddresses,
-                    {SuggestionType::kFillExistingPlusAddress}}},
+         .input = {{SuggestionGenerator::SuggestionDataSource::kAddress,
+                    {SuggestionType::kAddressEntry}}},
          .expected_output = {SuggestionType::kAddressEntry}},
         {.test_name = "AddressAndIdentity",
-         .input = {{FillingProduct::kAddress, {SuggestionType::kAddressEntry}},
-                   {FillingProduct::kIdentityCredential,
-                    {SuggestionType::kWebauthnCredential}}},
+         .input =
+             {{SuggestionGenerator::SuggestionDataSource::kAddress,
+               {SuggestionType::kAddressEntry}},
+              {SuggestionGenerator::SuggestionDataSource::kIdentityCredential,
+               {SuggestionType::kWebauthnCredential}}},
          .expected_output = {SuggestionType::kWebauthnCredential,
                              SuggestionType::kAddressEntry}},
-        {.test_name = "PlusAddressAndAutocomplete",
-         .input = {{FillingProduct::kPlusAddresses,
-                    {SuggestionType::kFillExistingPlusAddress}},
-                   {FillingProduct::kAutocomplete,
-                    {SuggestionType::kAutocompleteEntry}}},
-         .expected_output = {SuggestionType::kFillExistingPlusAddress,
-                             SuggestionType::kAutocompleteEntry,
-                             SuggestionType::kSeparator,
-                             SuggestionType::kManagePlusAddress}},
         {.test_name = "AddressAndPasskey",
-         .input = {{FillingProduct::kAddress, {SuggestionType::kAddressEntry}},
-                   {FillingProduct::kPasskey,
+         .input = {{SuggestionGenerator::SuggestionDataSource::kAddress,
+                    {SuggestionType::kAddressEntry}},
+                   {SuggestionGenerator::SuggestionDataSource::kPasskey,
                     {SuggestionType::kWebauthnCredential}}},
          .expected_output = {SuggestionType::kAddressEntry,
                              SuggestionType::kWebauthnCredential}},
-        {.test_name = "PlusAddressAndIdentity",
-         .input = {{FillingProduct::kPlusAddresses,
-                    {SuggestionType::kFillExistingPlusAddress}},
-                   {FillingProduct::kIdentityCredential,
-                    {SuggestionType::kWebauthnCredential}}},
-         .expected_output = {SuggestionType::kWebauthnCredential,
-                             SuggestionType::kFillExistingPlusAddress}},
-        {.test_name = "PlusAddressIdentityAndAutocomplete",
-         .input = {{FillingProduct::kPlusAddresses,
-                    {SuggestionType::kFillExistingPlusAddress}},
-                   {FillingProduct::kIdentityCredential,
-                    {SuggestionType::kWebauthnCredential}},
-                   {FillingProduct::kAutocomplete,
-                    {SuggestionType::kAutocompleteEntry}}},
-         .expected_output = {SuggestionType::kWebauthnCredential,
-                             SuggestionType::kFillExistingPlusAddress}},
     }));
 
 // Tests that the `Autofill.SuggestionGeneration.GeneratedFillingProduct` metric
@@ -9949,12 +9276,12 @@ TEST_F(BrowserAutofillManagerTest, GeneratedFillingProductMetric) {
   FormData form = CreateTestAddressFormData();
   test_api(autofill_manager())
       .OnIndividualSuggestionsGenerated(
-          form.global_id(), form.fields()[0].global_id(),
+          form, form.fields()[0],
           AutofillSuggestionTriggerSource::kFormControlElementClicked, {},
           base::TimeTicks::Now(),
-          {{FillingProduct::kAddress,
+          {{SuggestionGenerator::SuggestionDataSource::kAddress,
             {Suggestion(SuggestionType::kAddressEntry)}},
-           {FillingProduct::kPasskey,
+           {SuggestionGenerator::SuggestionDataSource::kPasskey,
             {Suggestion(SuggestionType::kWebauthnCredential)}}});
 
   histogram_tester.ExpectBucketCount(

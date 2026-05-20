@@ -39,21 +39,29 @@ export class ReportUnsafeSiteAppElement extends CrLitElement {
       pageUrl_: {type: String},
       includeScreenshot_: {type: Boolean},
       screenshotDataUri_: {type: String},
+      isSendingCsdPing_: {type: Boolean},
     };
   }
 
   protected accessor pageUrl_: string = '';
   protected accessor includeScreenshot_: boolean = false;
   protected accessor screenshotDataUri_: string = '';
+  protected accessor isSendingCsdPing_: boolean = false;
 
   override async connectedCallback() {
     super.connectedCallback();
-    const pageInfo = await ReportUnsafeSiteBrowserProxyImpl.getInstance()
-                         .getPageHandler()
-                         .getTriggeringPageInfo();
+    const pageHandler =
+        ReportUnsafeSiteBrowserProxyImpl.getInstance().getPageHandler();
+    const pageInfo = await pageHandler.getTriggeringPageInfo();
     this.pageUrl_ = pageInfo.pageUrl;
     this.screenshotDataUri_ = pageInfo.screenshotDataUri;
     this.includeScreenshot_ = (this.screenshotDataUri_.length > 0);
+  }
+
+  override firstUpdated() {
+    const pageHandler =
+        ReportUnsafeSiteBrowserProxyImpl.getInstance().getPageHandler();
+    pageHandler.showUi();
   }
 
   protected onIncludeScreenshotCheckedChanged_(
@@ -62,12 +70,12 @@ export class ReportUnsafeSiteAppElement extends CrLitElement {
   }
 
   protected async onActionButtonClick_() {
+    this.isSendingCsdPing_ = true;
     const pageHandler =
         ReportUnsafeSiteBrowserProxyImpl.getInstance().getPageHandler();
     await pageHandler.sendReport(this.includeScreenshot_);
-    // TODO(crbug.com/490928372) Show spinner while waiting for safe-browsing
-    // ping to be sent.
     pageHandler.closeDialog();
+    this.isSendingCsdPing_ = false;
   }
 
   protected onCancelButtonClick_() {

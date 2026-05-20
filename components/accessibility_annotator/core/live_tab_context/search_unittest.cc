@@ -72,34 +72,21 @@ TEST_F(LiveTabContextSearchTest, FindPassagesByKeywordMatching_EmptyPassages) {
 
 // Tests that semantic similarity ranks passages by relevance to query.
 TEST_F(LiveTabContextSearchTest, RankPassagesBySemanticSimilarity) {
-  // Create query embedding [1, 0, 0, ...]
-  std::vector<float> query_data(passage_embeddings::kEmbeddingsModelOutputSize,
-                                0.0f);
-  query_data[0] = 1.0f;
-  passage_embeddings::Embedding query_embedding(std::move(query_data));
+  // Create query embedding [1, 0, 0]
+  passage_embeddings::Embedding query_embedding({1.0f, 0.0f, 0.0f});
 
   // Create page embedding close to query embedding.
   std::vector<page_content_annotations::PassageEmbedding> page_embeddings;
-  page_content_annotations::PassageEmbedding pe1;
-  std::vector<float> page_data(passage_embeddings::kEmbeddingsModelOutputSize,
-                               0.0f);
-  page_data[0] = 0.9f;
-  page_data[1] = 0.1f;
-  pe1.embedding = passage_embeddings::Embedding(std::move(page_data));
-  pe1.passage = {"semantic passage similar",
-                 page_content_annotations::kPageContent};
-  page_embeddings.push_back(pe1);
+  page_embeddings.emplace_back(
+      std::make_pair("semantic passage similar",
+                     page_content_annotations::kPageContent),
+      passage_embeddings::Embedding({0.9f, 0.43588989f, 0.0f}));
 
   // Create page embedding further from query embedding.
-  page_content_annotations::PassageEmbedding pe2;
-  std::vector<float> page_data2(passage_embeddings::kEmbeddingsModelOutputSize,
-                                0.0f);
-  page_data2[0] = 0.8f;
-  page_data2[1] = 0.2f;
-  pe2.embedding = passage_embeddings::Embedding(std::move(page_data2));
-  pe2.passage = {"semantic passage less similar",
-                 page_content_annotations::kPageContent};
-  page_embeddings.push_back(pe2);
+  page_embeddings.emplace_back(
+      std::make_pair("semantic passage less similar",
+                     page_content_annotations::kPageContent),
+      passage_embeddings::Embedding({0.8f, 0.6f, 0.0f}));
 
   // Run semantic similarity as usual.
   std::vector<ScoredPassage> results =
@@ -114,20 +101,17 @@ TEST_F(LiveTabContextSearchTest, RankPassagesBySemanticSimilarity) {
 
 // Tests that semantic similarity truncates results.
 TEST_F(LiveTabContextSearchTest, RankPassagesBySemanticSimilarity_Truncation) {
-  // Create query embedding [1, 1, 1, ...]
-  passage_embeddings::Embedding query_embedding(
-      std::vector<float>(passage_embeddings::kEmbeddingsModelOutputSize, 1.0f));
+  // Create query embedding [1, 0, 0]
+  passage_embeddings::Embedding query_embedding({1.0f, 0.0f, 0.0f});
   std::vector<page_content_annotations::PassageEmbedding> page_embeddings;
 
   // Create enough page embeddings to truncate.
   const size_t num_passages = kMaxSearchResultsForTesting + 10;
   for (size_t i = 0; i < num_passages; ++i) {
-    page_content_annotations::PassageEmbedding pe;
-    pe.embedding = passage_embeddings::Embedding(std::vector<float>(
-        passage_embeddings::kEmbeddingsModelOutputSize, 1.0f));
-    pe.passage = {"passage " + base::NumberToString(i),
-                  page_content_annotations::kPageContent};
-    page_embeddings.push_back(pe);
+    page_embeddings.emplace_back(
+        std::make_pair("passage " + base::NumberToString(i),
+                       page_content_annotations::kPageContent),
+        passage_embeddings::Embedding({1.0f, 0.0f, 0.0f}));
   }
 
   // Don't return more than max search results.
@@ -138,24 +122,16 @@ TEST_F(LiveTabContextSearchTest, RankPassagesBySemanticSimilarity_Truncation) {
 
 // Tests that semantic similarity maintains original ordering for equal scores.
 TEST_F(LiveTabContextSearchTest, RankPassagesBySemanticSimilarity_TieBreaker) {
-  // Create query embedding [1, 0, 0, ...]
-  std::vector<float> query_data(passage_embeddings::kEmbeddingsModelOutputSize,
-                                0.0f);
-  query_data[0] = 1.0f;
-  passage_embeddings::Embedding query_embedding(std::move(query_data));
+  // Create query embedding [1, 0, 0]
+  passage_embeddings::Embedding query_embedding({1.0f, 0.0f, 0.0f});
 
   // Create page embeddings with identical vectors.
   std::vector<page_content_annotations::PassageEmbedding> page_embeddings;
   for (int i = 0; i < 3; ++i) {
-    page_content_annotations::PassageEmbedding passage_embedding;
-    std::vector<float> page_data(passage_embeddings::kEmbeddingsModelOutputSize,
-                                 0.0f);
-    page_data[0] = 0.5f;
-    passage_embedding.embedding =
-        passage_embeddings::Embedding(std::move(page_data));
-    passage_embedding.passage = {"passage " + base::NumberToString(i),
-                                 page_content_annotations::kPageContent};
-    page_embeddings.push_back(passage_embedding);
+    page_embeddings.emplace_back(
+        std::make_pair("passage " + base::NumberToString(i),
+                       page_content_annotations::kPageContent),
+        passage_embeddings::Embedding({1.0f, 0.0f, 0.0f}));
   }
 
   std::vector<ScoredPassage> results =

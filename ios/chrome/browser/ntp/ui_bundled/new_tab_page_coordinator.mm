@@ -27,6 +27,7 @@
 #import "components/safety_check/safety_check_pref_names.h"
 #import "components/search/search.h"
 #import "components/search_engines/template_url_service.h"
+#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
@@ -45,6 +46,7 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/bubble/ui_bundled/bubble_view_controller_presenter.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_availability.h"
+#import "ios/chrome/browser/composebox/menu/coordinator/composebox_menu_coordinator.h"
 #import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_coordinator.h"
 #import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_delegate.h"
 #import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_mediator.h"
@@ -158,6 +160,7 @@
 
 @interface NewTabPageCoordinator () <AccountMenuCoordinatorDelegate,
                                      AuthenticationServiceObserving,
+                                     ComposeboxMenuCoordinatorDelegate,
                                      ContentSuggestionsDelegate,
                                      DiscoverFeedObserverBridgeDelegate,
                                      DiscoverFeedPreviewDelegate,
@@ -301,6 +304,8 @@
   SearchEngineLogoMediator* _searchEngineLogoMediator;
   // The Safari data import used by the content suggestions.
   SafariDataImportExportCoordinator* _safariDataImportExportCoordinator;
+  // The coordinator showing the multimodal composebox menu.
+  ComposeboxMenuCoordinator* _composeboxMenuCoordinator;
 }
 
 // Synthesize NewTabPageConfiguring properties.
@@ -790,12 +795,10 @@
   NTPMediator.NTPContentDelegate = self;
   NTPMediator.headerConsumer = self.headerViewController;
   NTPMediator.consumer = self.NTPViewController;
-  if (base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdate) ||
-      base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdateV2)) {
-    PlaceholderService* placeholderService =
-        ios::PlaceholderServiceFactory::GetForProfile(self.profile);
-    NTPMediator.placeholderService = placeholderService;
-  }
+  PlaceholderService* placeholderService =
+      ios::PlaceholderServiceFactory::GetForProfile(self.profile);
+  NTPMediator.placeholderService = placeholderService;
+
   [NTPMediator setUp];
 }
 
@@ -816,6 +819,8 @@
                          feedViewController:self.feedViewController];
   self.NTPMediator.contentCollectionView =
       self.feedWrapperViewController.contentCollectionView;
+  self.NTPMediator.screenSize =
+      self.browser->GetSceneState().scene.screen.bounds.size;
 
   if ([self isFeedVisible]) {
     self.NTPViewController.feedTopSectionViewController =
@@ -1438,6 +1443,12 @@
   return nullptr;
 }
 
+- (id<FullscreenCommands>)fullscreenHandlerForOverscrollActionsController:
+    (OverscrollActionsController*)controller {
+  // Fullscreen isn't supported here.
+  return nil;
+}
+
 #pragma mark - ProfileStateObserver
 
 - (void)profileState:(ProfileState*)profileState
@@ -1531,7 +1542,28 @@
   [self stopAccountMenuCoordinator];
 }
 
+#pragma mark - ComposeboxMenuCoordinatorDelegate
+
+- (void)composeboxMenuCoordinatorDidDismissMenu:
+    (ComposeboxMenuCoordinator*)composeboxMenuCoordinator {
+  [_composeboxMenuCoordinator stop];
+  _composeboxMenuCoordinator = nil;
+}
+
 #pragma mark - Private
+
+// Opens the AIM web page.
+- (void)openAIMWeb {
+  GURL URL = GetUrlForAim(self.templateURLService,
+                          /*query_start_time=*/base::Time::Now());
+  OpenNewTabCommand* command = [OpenNewTabCommand commandWithURLFromChrome:URL];
+  command.extraHeaders =
+      web_navigation_util::VariationHeadersForURL(URL, /*is_incognito=*/false);
+
+  id<SceneCommands> sceneHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
+  [sceneHandler openURLInNewTab:command];
+}
 
 - (void)stopSharingCoordinator {
   [_sharingCoordinator stop];
@@ -1904,23 +1936,15 @@
   [lensHandler openLensInputSelection:command];
 }
 
-- (void)openMIA {
-  [self.NTPMetricsRecorder recordMIATapped];
+- (void)openAIM {
+  [self.NTPMetricsRecorder recordAIMButtonTapped];
   if (!IsDisableComposeboxFromAIMNTPEnabled() && !IsComposeboxAIMDisabled() &&
       _aimEligibilityService->IsFuseboxEligible() &&
       MaybeShowComposebox(self.browser, ComposeboxEntrypoint::kNTPAIMButton)) {
     return;
   }
 
-  GURL URL = GetUrlForAim(self.templateURLService,
-                          /*query_start_time=*/base::Time::Now());
-  OpenNewTabCommand* command = [OpenNewTabCommand commandWithURLFromChrome:URL];
-  command.extraHeaders =
-      web_navigation_util::VariationHeadersForURL(URL, /*is_incognito=*/false);
-
-  id<SceneCommands> sceneHandler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
-  [sceneHandler openURLInNewTab:command];
+  [self openAIMWeb];
 }
 
 - (void)preloadVoiceSearch {
@@ -1952,6 +1976,33 @@
   id<SceneCommands> sceneHandler =
       HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
   [sceneHandler openURLInNewTab:command];
+}
+
+- (void)openMultimodalActionsMenu {
+  [self.NTPMetricsRecorder recordPlusButtonTapped];
+  [self dismissCustomizationMenu];
+
+  // Fallback to opening AIM if eligibility changed in the meantime and the NTP
+  // was not reloaded since.
+  if (IsComposeboxAIMDisabled() ||
+      !_aimEligibilityService->IsFuseboxEligible()) {
+    [self openAIMWeb];
+  }
+
+  if (IsComposeboxPlusButtonBottomSheet()) {
+    [_composeboxMenuCoordinator stop];
+    _composeboxMenuCoordinator = [[ComposeboxMenuCoordinator alloc]
+        initWithBaseViewController:self.viewController
+                           browser:self.browser
+                        entrypoint:ComposeboxEntrypoint::kNTPPlusButton];
+    _composeboxMenuCoordinator.delegate = self;
+    [_composeboxMenuCoordinator start];
+  } else if (MaybeShowComposebox(self.browser,
+                                 ComposeboxEntrypoint::kNTPPlusButton)) {
+    return;
+  } else {
+    [self openAIMWeb];
+  }
 }
 
 #pragma mark - TabGridStateObserver

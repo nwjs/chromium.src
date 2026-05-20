@@ -7,36 +7,34 @@
 
 chrome.test.runTests([
   function testSpeakError() {
-    var callbacks = 0;
+    let callbacks = 0;
     chrome.tts.speak(
-        'first try',
-        {
-         'enqueue': true,
-         'onEvent': function(event) {
+        'first try', {
+          'enqueue': true,
+          'onEvent': function(event) {
             chrome.test.assertEq('error', event.type);
             chrome.test.assertEq('epic fail', event.errorMessage);
             callbacks++;
-         }
+          },
         },
         function() {
           chrome.test.assertNoLastError();
         });
     chrome.tts.speak(
-        'second try',
-        {
-         'enqueue': true,
-         'onEvent': function(event) {
+        'second try', {
+          'enqueue': true,
+          'onEvent': function(event) {
             chrome.test.assertEq('end', event.type);
             callbacks++;
-            if (callbacks == 2) {
+            if (callbacks === 2) {
               chrome.test.succeed();
             } else {
               chrome.test.fail();
             }
-         }
+          },
         },
         function() {
           chrome.test.assertNoLastError();
         });
-  }
+  },
 ]);

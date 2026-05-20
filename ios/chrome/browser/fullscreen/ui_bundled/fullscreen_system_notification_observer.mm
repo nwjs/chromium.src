@@ -10,6 +10,7 @@
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/legacy_fullscreen_mediator.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/scoped_fullscreen_disabler.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/public/provider/chrome/browser/fullscreen/fullscreen_api.h"
 #import "ios/web/common/features.h"
 
@@ -21,7 +22,7 @@
 @property(nonatomic, readonly, nonnull) FullscreenController* controller;
 // The LegacyFullscreenMediator through which foreground events are propagated
 // to FullscreenControllerObservers.
-@property(nonatomic, readonly, nonnull) LegacyFullscreenMediator* mediator;
+@property(nonatomic, readonly) LegacyFullscreenMediator* mediator;
 // Creates or destroys `_voiceOverDisabler` depending on whether VoiceOver is
 // enabled.
 - (void)voiceOverStatusChanged;
@@ -36,6 +37,12 @@
 - (instancetype)initWithController:(FullscreenController*)controller
                           mediator:(LegacyFullscreenMediator*)mediator {
   if ((self = [super init])) {
+    // TODO(crbug.com/500417603): This can be removed once all calls to
+    // FullscreenController are flag guarded.
+    if (IsFullscreenRefactoringEnabled()) {
+      return self;
+    }
+
     _controller = controller;
     DCHECK(_controller);
     _mediator = mediator;
@@ -79,7 +86,9 @@
 
 - (void)disconnect {
   [[NSNotificationCenter defaultCenter] removeObserver:self];
+  _voiceOverDisabler.reset();
   _controller = nullptr;
+  _mediator = nullptr;
 }
 
 #pragma mark Private
@@ -92,10 +101,16 @@
 }
 
 - (void)applicationDidEnterBackground {
+  if (!self.mediator) {
+    return;
+  }
   self.mediator->ExitFullscreenWithoutAnimation();
 }
 
 - (void)applicationWillEnterForeground {
+  if (!self.mediator) {
+    return;
+  }
   self.mediator->ExitFullscreenWithoutAnimation();
 }
 

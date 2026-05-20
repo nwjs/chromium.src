@@ -197,7 +197,7 @@ public class FirstRunActivity extends FirstRunActivityBase implements FirstRunPa
 
     private static boolean sIsAnimationDisabled;
 
-    /** Prevents Tapjacking on T-. See crbug.com/1430867 */
+    /** Prevents Tapjacking on T-. See crbug.com/40063907 */
     private static final boolean sPreventTouches =
             Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU;
 
@@ -649,9 +649,18 @@ public class FirstRunActivity extends FirstRunActivityBase implements FirstRunPa
             return BackPressResult.SUCCESS;
         }
 
+        int position = mPager.getCurrentItem() - 1;
+
+        if (FeatureList.isNativeInitialized()
+                && ChromeFeatureList.isEnabled(ChromeFeatureList.DEFAULT_BROWSER_PROMO_FRE)
+                && position >= 0
+                && mPages.get(position).getFragmentClass() == HistorySyncFirstRunFragment.class) {
+            // The user can now go back to history sync.
+            setHistorySyncStepCompleted(false);
+        }
+
         mFirstRunFlowSequencer.updateFirstRunProperties(assumeNonNull(mFreProperties));
 
-        int position = mPager.getCurrentItem() - 1;
         while (position > 0 && !mPages.get(position).shouldShow()) {
             --position;
         }
@@ -812,7 +821,7 @@ public class FirstRunActivity extends FirstRunActivityBase implements FirstRunPa
 
         int oldPosition = mPager.getCurrentItem();
 
-        // Set A11y focus if possible. See https://crbug.com/1094064 for more context.
+        // Set A11y focus if possible. See https://crbug.com/40699257 for more context.
         // The screen reader can lose focus when switching between pages with ViewPager2.
         FirstRunFragment currentFragment = mPagerAdapter.getFirstRunFragment(position);
         if (currentFragment != null) {
@@ -975,6 +984,6 @@ public class FirstRunActivity extends FirstRunActivityBase implements FirstRunPa
                 /* listenToActivityState= */ true,
                 getIntentRequestTracker(),
                 getInsetObserver(),
-                /* trackOcclusion= */ true);
+                /* occlusionTrackingAllowed= */ true);
     }
 }

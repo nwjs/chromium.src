@@ -61,7 +61,7 @@ class GetInstalledRelatedAppsBrowserTest : public WebAppBrowserTestBase {
 IN_PROC_BROWSER_TEST_F(GetInstalledRelatedAppsBrowserTest, SameOriginSuccess) {
   GURL app_url = embedded_https_test_server().GetURL("example.com",
                                                      "/web_apps/basic.html");
-  webapps::ManifestId app_manifest_id = webapps::ManifestId(app_url.spec());
+  webapps::ManifestId app_manifest_id = webapps::ManifestId(app_url);
 
   // Install an app that lists itself as related.
   // We use $REQUEST_HOST/... to dynamically match the manifest id.
@@ -83,7 +83,7 @@ IN_PROC_BROWSER_TEST_F(GetInstalledRelatedAppsBrowserTest, SameOriginSuccess) {
   // We override basic.json to include our dynamic ID.
   url_overrides_["/web_apps/basic.json"] = manifest;
 
-  InstallWebAppFromPageAndCloseAppBrowser(browser(), app_url);
+  InstallWebAppInNewTabAndClose(browser(), app_url);
 
   // Navigate to the app page.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), app_url));
@@ -101,7 +101,7 @@ IN_PROC_BROWSER_TEST_F(GetInstalledRelatedAppsBrowserTest,
                        CrossOriginWithScopeExtensions_CurrentlyFails) {
   GURL app_url = embedded_https_test_server().GetURL("example.com",
                                                      "/web_apps/basic.html");
-  webapps::ManifestId app_manifest_id = webapps::ManifestId(app_url.spec());
+  webapps::ManifestId app_manifest_id = webapps::ManifestId(app_url);
 
   GURL other_url =
       embedded_https_test_server().GetURL("foo.com", "/web_apps/basic.html");
@@ -134,8 +134,7 @@ IN_PROC_BROWSER_TEST_F(GetInstalledRelatedAppsBrowserTest,
           {app_manifest_id.spec()}, nullptr);
 
   url_overrides_["/web_apps/basic.json"] = manifest;
-  webapps::AppId app_id =
-      InstallWebAppFromPageAndCloseAppBrowser(browser(), app_url);
+  webapps::AppId app_id = InstallWebAppInNewTabAndClose(browser(), app_url);
 
   EXPECT_TRUE(
       provider().registrar_unsafe().IsUrlInAppExtendedScope(other_url, app_id));

@@ -7,9 +7,11 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/views/location_bar/content_setting_image_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
+#include "chrome/browser/ui/views/location_bar/webui_content_setting_image_control.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_delegate.h"
 #include "chrome/browser/ui/views/omnibox/webui_readonly_omnibox.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom.h"
@@ -17,7 +19,7 @@
 
 class Browser;
 class OmniboxController;
-class OmniboxPopupView;
+class OmniboxPopupViewWebUI;
 class PermissionDashboardController;
 class PermissionDashboardView;
 class Profile;
@@ -37,6 +39,9 @@ class WebUILocationBar : public LocationBar,
   // WebUIReadOnlyOmnibox::UpdatePropagator:
   void PropagateOmniboxUpdate(
       toolbar_ui_api::mojom::OmniboxViewStatePtr update) override;
+
+  // Called from WebUIToolbarWebView:
+  void OnOmniboxAction(toolbar_ui_api::mojom::OmniboxActionPtr action);
 
   // LocationBar:
   void FocusLocation(bool is_user_initiated,
@@ -74,6 +79,20 @@ class WebUILocationBar : public LocationBar,
   bool HasSecurityStateChanged() override;
   LocationBarTesting* GetLocationBarForTesting() override;
 
+  // Left hand side (LHS) chip events (called from WebUIToolbarWebView)
+  void OnLhsChipMousePressed(
+      toolbar_ui_api::mojom::LhsChipIdentifier identifier);
+  void OnLhsChipClicked(toolbar_ui_api::mojom::LhsChipIdentifier identifier,
+                        bool is_mouse_interaction);
+  void OnLhsChipExpandAnimationEnded(
+      toolbar_ui_api::mojom::LhsChipIdentifier identifier);
+  void OnLhsChipCollapseAnimationEnded(
+      toolbar_ui_api::mojom::LhsChipIdentifier identifier);
+
+  WebUIContentSettingImageControl& content_setting_image_control() {
+    return content_setting_image_control_;
+  }
+
   // ContentSettingImageViewDelegate:
   bool ShouldHideContentSettingImage() override;
   content::WebContents* GetContentSettingWebContents() override;
@@ -85,14 +104,35 @@ class WebUILocationBar : public LocationBar,
   OmniboxPopupFileSelector* GetOmniboxPopupFileSelector() const override;
   OmniboxPopupAimPresenter* GetOmniboxPopupAimPresenter() const override;
 
+  OmniboxPopupViewWebUI* GetOmniboxPopupViewForTesting() {
+    return omnibox_popup_view_.get();
+  }
+
  private:
-  void OnMoved(ui::TrackedElement* element);
+  friend class WebUILocationBarTest;
+
+  void OnMovedOrShown(ui::TrackedElement* element);
+  void OnOmniboxFocusChange(
+      const toolbar_ui_api::mojom::OmniboxActionFocusChange& focus_change);
+  void OnOmniboxTextInput(
+      const toolbar_ui_api::mojom::OmniboxActionTextInput& text_input);
+  void OnOmniboxKey(const toolbar_ui_api::mojom::OmniboxActionKey& key);
+
+  void UpdateLocationBarFlagsState();
+
+  // Updates the state of the LHS location bar chips (e.g. security chip) and
+  // pushes it to the WebUI.
+  void UpdateLhsChipsState();
+
+  void OnPageInfoBubbleClosed(views::Widget::ClosedReason closed_reason,
+                              bool reload_prompt);
 
   raw_ptr<Browser> browser_ = nullptr;
   raw_ptr<LocationBarView::Delegate> delegate_ = nullptr;
   raw_ptr<WebUIToolbarWebView> toolbar_view_ = nullptr;
 
   ui::ElementTracker::Subscription moved_subscription_;
+  ui::ElementTracker::Subscription shown_subscription_;
 
   std::unique_ptr<PermissionDashboardController>
       permission_dashboard_controller_;
@@ -100,8 +140,18 @@ class WebUILocationBar : public LocationBar,
 
   std::unique_ptr<OmniboxController> omnibox_controller_;
   std::unique_ptr<WebUIReadOnlyOmnibox> omnibox_view_;
-  std::unique_ptr<OmniboxPopupView> omnibox_popup_view_;
+  std::unique_ptr<OmniboxPopupViewWebUI> omnibox_popup_view_;
+
+  WebUIContentSettingImageControl content_setting_image_control_;
+
   bool is_initialized_ = false;
+
+  security_state::SecurityLevel last_update_security_level_ =
+      security_state::NONE;
+
+  base::TimeTicks last_page_info_bubble_close_time_;
+  bool suppress_lhs_chip_clicked_ = false;
+
   base::WeakPtrFactory<WebUILocationBar> weak_ptr_factory_{this};
 };
 

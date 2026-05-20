@@ -308,10 +308,10 @@ void PageInfoBubbleView::OnWidgetDestroying(views::Widget* widget) {
   PageInfoBubbleViewBase::OnWidgetDestroying(widget);
 
   // This method mostly shouldn't be re-entrant but there are a few cases where
-  // it can be (see crbug/966308). In that case, we have already run the closing
-  // callback so should not attempt to do it again. As there will always be a
-  // |closing_callback_|, this is also used to ensure that the |presenter_| is
-  // informed exactly once.
+  // it can be (see crbug.com/41460626). In that case, we have already run the
+  // closing callback so should not attempt to do it again. As there will always
+  // be a |closing_callback_|, this is also used to ensure that the |presenter_|
+  // is informed exactly once.
   if (closing_callback_) {
     bool reload_prompt;
     presenter_->OnUIClosing(&reload_prompt);
@@ -367,10 +367,9 @@ void ShowPageInfoDialogImpl(Browser* browser,
                             std::optional<ContentSettingsType> type) {
   AnchorConfiguration configuration =
       GetPageInfoAnchorConfiguration(browser, anchor);
-  gfx::Rect anchor_rect =
-      std::holds_alternative<std::nullptr_t>(configuration.anchor)
-          ? GetPageInfoAnchorRect(browser)
-          : gfx::Rect();
+  gfx::Rect anchor_rect = configuration.anchor.IsNull()
+                              ? GetPageInfoAnchorRect(browser)
+                              : gfx::Rect();
   gfx::NativeWindow parent_window = browser->window()->GetNativeWindow();
 
   PageInfoBubbleSpecification::Builder page_info_bubble_builder(

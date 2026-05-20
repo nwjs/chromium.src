@@ -54,7 +54,7 @@ static base::LazyInstance<AppLaunchInfo>::DestructorAtExit
     g_empty_app_launch_info = LAZY_INSTANCE_INITIALIZER;
 
 const AppLaunchInfo& GetAppLaunchInfo(const Extension* extension) {
-  AppLaunchInfo* info = static_cast<AppLaunchInfo*>(
+  const AppLaunchInfo* info = static_cast<const AppLaunchInfo*>(
       extension->GetManifestData(keys::kLaunch));
   return info ? *info : g_empty_app_launch_info.Get();
 }
@@ -164,7 +164,7 @@ bool AppLaunchInfo::LoadLaunchURL(Extension* extension, std::u16string* error) {
 
   // For the Chrome component app, override launch url to new tab.
   if (extension->id() == app_constants::kChromeAppId) {
-    launch_web_url_ = GURL(chrome::kChromeUINewTabURL);
+    launch_web_url_ = chrome::ChromeUINewTabURLAsGURL();
     return true;
   }
 

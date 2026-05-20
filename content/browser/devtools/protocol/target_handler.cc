@@ -37,6 +37,7 @@
 #include "content/public/browser/devtools_manager_delegate.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/common/content_client.h"
+#include "content/public/common/url_constants.h"
 #include "url/url_constants.h"
 
 namespace content::protocol {
@@ -104,6 +105,9 @@ std::unique_ptr<Target::TargetInfo> BuildTargetInfo(
           .SetAttached(host->IsAttached())
           .SetCanAccessOpener(host->CanAccessOpener())
           .Build();
+  if (!host->GetParentId().empty()) {
+    target_info->SetParentId(host->GetParentId());
+  }
   if (!host->GetOpenerId().empty()) {
     target_info->SetOpenerId(host->GetOpenerId());
   }
@@ -1317,6 +1321,20 @@ Response TargetHandler::CreateTarget(
   GURL gurl(url);
   if (gurl.is_empty()) {
     gurl = GURL(url::kAboutBlankURL);
+  }
+
+  GURL inner_url = gurl;
+  if (gurl.SchemeIs(content::kViewSourceScheme)) {
+    inner_url = GURL(gurl.GetContent());
+  }
+
+  // chrome-untrusted:// WebUIs might perform high-privileged actions on
+  // navigation, disallow navigation to them unless the client is trusted.
+  if ((inner_url.SchemeIs(content::kChromeUIUntrustedScheme) ||
+       inner_url.SchemeIs(content::kChromeDevToolsScheme)) &&
+      !root_session_->GetClient()->IsTrusted()) {
+    return Response::ServerError(
+        "Navigating to a URL with a privileged scheme is not allowed");
   }
 
   if (hidden.value_or(false)) {

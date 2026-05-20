@@ -4,7 +4,7 @@
 
 import 'chrome://print/print_preview.js';
 
-import type {ColorOption, DocumentSettings, DpiOption, DuplexOption, PrintPreviewModelElement, PrintTicket, RecentDestination, Settings} from 'chrome://print/print_preview.js';
+import type {CloudJobTicket, ColorOption, DocumentSettings, DpiOption, DuplexOption, PrintPreviewModelElement, PrintTicket, Settings} from 'chrome://print/print_preview.js';
 import {Destination, DestinationOrigin, DuplexMode, makeRecentDestination, MarginsType, PrinterType, ScalingType, Size} from 'chrome://print/print_preview.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertNotReached, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
@@ -88,9 +88,10 @@ suite('ModelTest', function() {
      *     the saved string has been validated, and the setting has been
      *     reset to its default value.
      */
-    const testStickySetting =
-        async function(setting: keyof Settings, field: string): Promise<void> {
-      const promise = eventToPromise('sticky-setting-changed', model);
+    const testStickySetting = async function(
+        setting: keyof Settings, field: string): Promise<CustomEvent<string>> {
+      const promise =
+          eventToPromise<CustomEvent<string>>('sticky-setting-changed', model);
       model.setSetting(setting, stickySettingsChange[field]);
       settingsSet.push(field);
 
@@ -105,7 +106,8 @@ suite('ModelTest', function() {
           assertDeepEquals(toCompare[settingName], settings[settingName]);
         }
       });
-      const restorePromise = eventToPromise('sticky-setting-changed', model);
+      const restorePromise =
+          eventToPromise<CustomEvent<string>>('sticky-setting-changed', model);
       model.setSetting(setting, stickySettingsDefault[field]);
       return restorePromise;
     };
@@ -133,7 +135,7 @@ suite('ModelTest', function() {
    */
   test('SetPolicySettings', function() {
     model.setSetting('headerFooter', false);
-    assertFalse(model.getSetting('headerFooter').value as boolean);
+    assertFalse(model.getSetting('headerFooter').value);
 
     // Sets to true, but doesn't mark as controlled by a policy.
     model.setPolicySettings({headerFooter: {defaultMode: true}});
@@ -142,18 +144,18 @@ suite('ModelTest', function() {
       headerFooter: false,
     }));
     model.applyStickySettings();
-    assertTrue(model.getSetting('headerFooter').value as boolean);
+    assertTrue(model.getSetting('headerFooter').value);
     model.setSetting('headerFooter', false);
-    assertFalse(model.getSetting('headerFooter').value as boolean);
+    assertFalse(model.getSetting('headerFooter').value);
 
     model.setPolicySettings({headerFooter: {allowedMode: true}});
     model.applyStickySettings();
-    assertTrue(model.getSetting('headerFooter').value as boolean);
+    assertTrue(model.getSetting('headerFooter').value);
 
     model.setSetting('headerFooter', false);
     // The value didn't change after setSetting(), because the policy takes
     // priority.
-    assertTrue(model.getSetting('headerFooter').value as boolean);
+    assertTrue(model.getSetting('headerFooter').value);
   });
 
   function toggleSettings(
@@ -173,8 +175,8 @@ suite('ModelTest', function() {
       duplexShortEdge: true,
       headerFooter: false,
       vendorItems: {
-        printArea: 6,
-        paperType: 1,
+        printArea: '6',
+        paperType: '1',
       },
       ranges: [{from: 2, to: 2}],
     };
@@ -219,7 +221,7 @@ suite('ModelTest', function() {
     // Initialize some settings that don't have defaults to the destination
     // defaults.
     model.setSetting('dpi', {horizontal_dpi: 200, vertical_dpi: 200});
-    model.setSetting('vendorItems', {paperType: 0, printArea: 4});
+    model.setSetting('vendorItems', {paperType: '0', printArea: '4'});
   }
 
   function initializeScalingTypePdf(initialScalingType: ScalingType) {
@@ -420,7 +422,7 @@ suite('ModelTest', function() {
     await microtasksFinished();
 
     const defaultTicket = model.createCloudJobTicket(testDestination);
-    const expectedDefaultTicket = JSON.stringify({
+    const expectedDefaultTicket: CloudJobTicket = {
       version: '1.0',
       print: {
         collate: {collate: true},
@@ -439,17 +441,17 @@ suite('ModelTest', function() {
           vertical_dpi: 200,
         },
         vendor_ticket_item: [
-          {id: 'printArea', value: 4},
-          {id: 'paperType', value: 0},
+          {id: 'printArea', value: '4'},
+          {id: 'paperType', value: '0'},
         ],
       },
-    });
-    assertEquals(expectedDefaultTicket, defaultTicket);
+    };
+    assertEquals(defaultTicket, JSON.stringify(expectedDefaultTicket));
 
     // Toggle all the values and create a new cloud job ticket.
     toggleSettings(testDestination, true);
     const newTicket = model.createCloudJobTicket(testDestination);
-    const expectedNewTicket = JSON.stringify({
+    const expectedNewTicket: CloudJobTicket = {
       version: '1.0',
       print: {
         collate: {collate: false},
@@ -468,12 +470,12 @@ suite('ModelTest', function() {
           vertical_dpi: 100,
         },
         vendor_ticket_item: [
-          {id: 'printArea', value: 6},
-          {id: 'paperType', value: 1},
+          {id: 'printArea', value: '6'},
+          {id: 'paperType', value: '1'},
         ],
       },
-    });
-    assertEquals(expectedNewTicket, newTicket);
+    };
+    assertEquals(newTicket, JSON.stringify(expectedNewTicket));
   });
 
   test('RemoveUnsupportedDestinations', function() {
@@ -501,8 +503,7 @@ suite('ModelTest', function() {
     model.setStickySettings(JSON.stringify(stickySettings));
 
     // Make sure recent destinations are filtered correctly.
-    let recentDestinations =
-        model.getSettingValue('recentDestinations') as RecentDestination[];
+    let recentDestinations = model.getSettingValue('recentDestinations');
     assertEquals(1, recentDestinations.length);
     assertEquals('FooDevice', recentDestinations[0]!.id);
 
@@ -513,8 +514,7 @@ suite('ModelTest', function() {
     model.applyPoliciesOnDestinationUpdate();
 
     // Make sure nothing changed.
-    recentDestinations =
-        model.getSettingValue('recentDestinations') as RecentDestination[];
+    recentDestinations = model.getSettingValue('recentDestinations');
     assertEquals(1, recentDestinations.length);
     assertEquals('FooDevice', recentDestinations[0]!.id);
   });

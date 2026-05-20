@@ -402,7 +402,11 @@ class TabGroupsPageHandlerTest : public ChromeRenderViewHostTestHarness {
         "fcm_registration_token", /*interested_data_types=*/
         Difference(syncer::ProtocolTypes(), syncer::CommitOnlyTypes()),
         /*auto_sign_out_last_signin_timestamp=*/std::nullopt,
-        /*desktop_to_ios_promo_receiving_enabled=*/false);
+        /*desktop_to_ios_promo_receiving_enabled=*/false,
+        /*desktop_to_ios_promo_receiving_types=*/
+        MobilePromoOnDesktopPromoTypeSet{},
+        /*glic_experimental_triggering_state=*/
+        syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable);
   }
 
   tab_groups::MockTabGroupSyncService* service() { return mock_service_; }

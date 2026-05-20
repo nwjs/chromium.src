@@ -20,10 +20,10 @@
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/branded_strings.h"
@@ -36,6 +36,7 @@
 #include "components/contextual_tasks/public/features.h"
 #include "components/contextual_tasks/public/prefs.h"
 #include "components/lens/lens_url_utils.h"
+#include "components/omnibox/common/logger.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
@@ -131,6 +132,30 @@ contextual_tasks::mojom::IconType IconTypeToMojom(lens::AimIconType icon_id) {
   }
 }
 
+// Returns the active (uploaded but not submitted) context token that matches
+// the provided injected input ID. This specifically iterates over the active
+// token set rather than using FindTokenForInjectedInput to ensure that
+// operations only target un-submitted inputs currently present in the
+// composebox, filtering out artifacts from previous queries stored in the
+// controller map.
+std::optional<base::UnguessableToken> FindActiveInjectedInputToken(
+    contextual_search::ContextualSearchSessionHandle* handle,
+    std::string_view id) {
+  if (!handle || !handle->GetController() || id.empty()) {
+    return std::nullopt;
+  }
+  for (const auto& token : handle->GetUploadedContextTokens()) {
+    const auto* file_info = handle->GetController()->GetFileInfo(token);
+    if (file_info) {
+      auto injected_id = file_info->GetInjectedInputId();
+      if (injected_id.has_value() && injected_id.value() == id) {
+        return token;
+      }
+    }
+  }
+  return std::nullopt;
+}
+
 }  // namespace
 
 namespace contextual_tasks {
@@ -175,11 +200,13 @@ ContextualTasksPageHandler::ContextualTasksPageHandler(
     mojo::PendingReceiver<contextual_tasks::mojom::PageHandler> receiver,
     contextual_tasks::ContextualTasksUIInterface* web_ui_controller,
     contextual_tasks::ContextualTasksUiService* ui_service,
-    contextual_tasks::ContextualTasksService* contextual_tasks_service)
+    contextual_tasks::ContextualTasksService* contextual_tasks_service,
+    contextual_tasks::ContextualTasksPanelController* panel_controller)
     : receiver_(this, std::move(receiver)),
       web_ui_controller_(web_ui_controller),
       ui_service_(ui_service),
-      contextual_tasks_service_(contextual_tasks_service) {
+      contextual_tasks_service_(contextual_tasks_service),
+      panel_controller_(panel_controller) {
   CHECK(contextual_tasks_service_);
   contextual_tasks_service_observation_.Observe(contextual_tasks_service_);
 
@@ -211,7 +238,9 @@ void ContextualTasksPageHandler::GetUrlForTask(const base::Uuid& uuid,
   // First check if there's an initial URL.
   std::optional<GURL> initial_url = ui_service_->GetInitialUrlForTask(uuid);
   if (initial_url) {
-    std::move(callback).Run(initial_url.value());
+    std::move(callback).Run(
+        contextual_tasks::ContextualTasksUiService::CopyParamsFromWebUIUrl(
+            initial_url.value(), web_ui_controller_->GetWebUiUrl()));
     return;
   }
 
@@ -274,7 +303,11 @@ void ContextualTasksPageHandler::IsEmbeddedPageErrorDocument(
 }
 
 void ContextualTasksPageHandler::CloseSidePanel() {
-  web_ui_controller_->CloseSidePanel();
+  if (panel_controller_) {
+    panel_controller_->Close();
+  } else {
+    web_ui_controller_->CloseSidePanel();
+  }
 }
 
 void ContextualTasksPageHandler::ShowThreadHistory() {
@@ -292,9 +325,12 @@ void ContextualTasksPageHandler::IsShownInTab(IsShownInTabCallback callback) {
 }
 
 void ContextualTasksPageHandler::OpenMyActivityUi() {
+  BrowserWindowInterface* browser = web_ui_controller_->GetBrowser();
+  if (!browser) {
+    return;
+  }
   OpenUrlWithDisposition(web_ui_controller_->GetProfile(), GURL(kMyActivityUrl),
-                         WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                         web_ui_controller_->GetBrowser());
+                         WindowOpenDisposition::NEW_FOREGROUND_TAB, browser);
 }
 
 void ContextualTasksPageHandler::OpenFeedbackUi() {
@@ -317,11 +353,14 @@ void ContextualTasksPageHandler::OpenFeedbackUi() {
 }
 
 void ContextualTasksPageHandler::OpenOnboardingHelpUi() {
+  BrowserWindowInterface* browser = web_ui_controller_->GetBrowser();
+  if (!browser) {
+    return;
+  }
   OpenUrlWithDisposition(
       web_ui_controller_->GetProfile(),
       GURL(contextual_tasks::GetContextualTasksOnboardingTooltipHelpUrl()),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      web_ui_controller_->GetBrowser());
+      WindowOpenDisposition::NEW_FOREGROUND_TAB, browser);
 }
 
 void ContextualTasksPageHandler::OpenUrl(const GURL& url,
@@ -364,6 +403,9 @@ void ContextualTasksPageHandler::OnWebviewMessage(
     return;
   }
 
+  OMNIBOX_LOG_WITH_PROTO("OnWebviewMessage", aim_to_client_message,
+                         std::string("lens.chrome.AimToClientMessage"));
+
   if (aim_to_client_message.has_handshake_response()) {
     web_ui_controller_->GetPageRemote()->OnHandshakeComplete();
     web_ui_controller_->OnSidePanelStateChanged();
@@ -394,8 +436,7 @@ void ContextualTasksPageHandler::OnWebviewMessage(
         aim_to_client_message.notify_zero_state_rendered()
             .is_zero_state_rendered());
   } else if (aim_to_client_message.has_inject_input()) {
-    OnReceivedInjectInput(std::make_unique<lens::ModalityChipProps>(
-        aim_to_client_message.inject_input().modality()));
+    OnReceivedInjectInput(aim_to_client_message.inject_input());
   } else if (aim_to_client_message.has_remove_injected_input()) {
     OnReceivedRemoveInjectedInput(
         std::string(aim_to_client_message.remove_injected_input().id()));
@@ -463,6 +504,9 @@ void ContextualTasksPageHandler::PostMessageToWebview(
     LOG(ERROR) << "Failed to serialize ClientToAimMessage.";
     return;
   }
+
+  OMNIBOX_LOG_WITH_PROTO("PostMessageToWebview", message,
+                         std::string("lens.chrome.ClientToAimMessage"));
 
   web_ui_controller_->GetPageRemote()->PostMessageToWebview(serialized_message);
 }
@@ -546,30 +590,72 @@ void ContextualTasksPageHandler::OnReceivedUpdatedThreadContextLibrary(
 }
 
 void ContextualTasksPageHandler::OnReceivedInjectInput(
-    std::unique_ptr<lens::ModalityChipProps> modality) {
-  contextual_search::ContextualSearchSessionHandle* handle =
-      web_ui_controller_->GetOrCreateContextualSessionHandle();
-  auto token = handle->CreateContextToken();
-  if (modality->has_icon_id()) {
-    web_ui_controller_->GetPageRemote()->InjectInputWithIcon(
-        std::string(modality->title()), IconTypeToMojom(modality->icon_id()),
-        token, modality->is_unimodal());
-  } else {
-    web_ui_controller_->GetPageRemote()->InjectInput(
-        std::string(modality->title()), std::string(modality->thumbnail_src()),
-        token, modality->is_unimodal());
+    const lens::InjectInput& inject_input) {
+  contextual_tasks::mojom::InjectedInputPtr mojo_input =
+      contextual_tasks::mojom::InjectedInput::New();
+  mojo_input->submit_after_injection = inject_input.submit_after_injection();
+  mojo_input->query_text = inject_input.query_text();
+
+  if (inject_input.has_modality()) {
+    // If the message contains a modality chip, process the chip metadata and
+    // register it with the ContextualSearchSessionHandle.
+    auto modality =
+        std::make_unique<lens::ModalityChipProps>(inject_input.modality());
+    contextual_search::ContextualSearchSessionHandle* handle =
+        web_ui_controller_->GetOrCreateContextualSessionHandle();
+    if (!handle) {
+      return;
+    }
+
+    // If a chip with the same ID is already injected, clean it up to perform
+    // a full override.
+    if (modality->has_id()) {
+      auto existing_token =
+          FindActiveInjectedInputToken(handle, modality->id());
+      if (existing_token.has_value()) {
+        // Synchronously delete the file from the backend before notifying the
+        // UI. This prevents redundant removal notifications back to the server
+        // when the UI later asynchronously invokes the `DeleteContext`
+        // callback, as that lookup will return nullptr.
+        handle->DeleteFile(existing_token.value());
+        web_ui_controller_->GetPageRemote()->RemoveInjectedInput(
+            existing_token.value());
+      }
+    }
+
+    auto token = handle->CreateContextToken();
+
+    mojo_input->title = std::string(modality->title());
+    mojo_input->file_token = token;
+    mojo_input->supports_unimodal = modality->is_unimodal();
+
+    // Notify the front-end UI via Mojo to render the modality chip in the UI
+    // carousel, using an icon if provided or otherwise a thumbnail image.
+    if (modality->has_icon_id()) {
+      mojo_input->icon_id = IconTypeToMojom(modality->icon_id());
+    } else {
+      mojo_input->thumbnail = std::string(modality->thumbnail_src());
+    }
+
+    // Start the chip upload flow. This registers the metadata without executing
+    // an actual network upload since the chip data is supplied by the server.
+    handle->StartModalityChipUploadFlow(token, std::move(modality));
   }
-  // This does not actually upload anything, but allows the injected input to be
-  // shown in the chip carousel in the UI.
-  handle->StartModalityChipUploadFlow(token, std::move(modality));
+
+  web_ui_controller_->GetPageRemote()->InjectInput(std::move(mojo_input));
 }
 
 void ContextualTasksPageHandler::OnReceivedRemoveInjectedInput(
     const std::string& id) {
   contextual_search::ContextualSearchSessionHandle* handle =
       web_ui_controller_->GetOrCreateContextualSessionHandle();
-  auto token = handle->GetController()->FindTokenForInjectedInput(id);
+  auto token = FindActiveInjectedInputToken(handle, id);
   if (token.has_value()) {
+    // Synchronously delete the file from the backend before notifying the UI.
+    // This prevents redundant removal notifications back to the server when the
+    // UI later asynchronously invokes the `DeleteContext` callback, as that
+    // lookup will return nullptr.
+    handle->DeleteFile(token.value());
     web_ui_controller_->GetPageRemote()->RemoveInjectedInput(token.value());
   }
 }

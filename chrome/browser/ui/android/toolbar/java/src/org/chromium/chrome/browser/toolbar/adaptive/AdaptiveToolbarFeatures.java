@@ -12,10 +12,15 @@ import org.chromium.base.FeatureList;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.actor.ActorKeyedService;
+import org.chromium.chrome.browser.actor.ActorKeyedServiceFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.readaloud.ReadAloudFeatures;
+import org.chromium.chrome.browser.ui.bottombar.BottomBarConfigUtils;
+import org.chromium.chrome.browser.ui.side_panel.AndroidSidePanelEnabledFn;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.ui.base.DeviceFormFactor;
 
@@ -38,15 +43,6 @@ public class AdaptiveToolbarFeatures {
 
     /** Maximum toolbar width to show text bubble instead of animation. Used in CCT. */
     public static final int MAX_WIDTH_FOR_BUBBLE_DP = 360;
-
-    /** Default delay between action chip expansion and collapse. */
-    public static final int DEFAULT_CONTEXTUAL_PAGE_ACTION_CHIP_DELAY_MS = 3000;
-
-    /** Default action chip delay for price tracking. */
-    public static final int DEFAULT_PRICE_TRACKING_ACTION_CHIP_DELAY_MS = 6000;
-
-    /** Default action chip delay for reader mode. */
-    public static final int DEFAULT_READER_MODE_ACTION_CHIP_DELAY_MS = 3000;
 
     @VisibleForTesting
     public static final String CONTEXTUAL_PAGE_ACTION_TEST_FEATURE_NAME =
@@ -129,29 +125,6 @@ public class AdaptiveToolbarFeatures {
     }
 
     /**
-     * @return The amount of time the action chip should remain expanded in milliseconds. Default is
-     *     3 seconds.
-     */
-    public static int getContextualPageActionDelayMs(
-            @AdaptiveToolbarButtonVariant int buttonVariant) {
-        switch (buttonVariant) {
-            case AdaptiveToolbarButtonVariant.PRICE_TRACKING:
-            case AdaptiveToolbarButtonVariant.PRICE_INSIGHTS:
-            case AdaptiveToolbarButtonVariant.DISCOUNTS:
-            case AdaptiveToolbarButtonVariant.TAB_GROUPING:
-            case AdaptiveToolbarButtonVariant.TEST_BUTTON:
-                return DEFAULT_PRICE_TRACKING_ACTION_CHIP_DELAY_MS;
-            case AdaptiveToolbarButtonVariant.READER_MODE:
-                return DEFAULT_READER_MODE_ACTION_CHIP_DELAY_MS;
-            case AdaptiveToolbarButtonVariant.GLIC:
-                return DEFAULT_CONTEXTUAL_PAGE_ACTION_CHIP_DELAY_MS;
-            default:
-                assert false : "Unknown button variant " + buttonVariant;
-                return DEFAULT_CONTEXTUAL_PAGE_ACTION_CHIP_DELAY_MS;
-        }
-    }
-
-    /**
      * @return Whether the CPA action chip should use a different background color when expanded.
      */
     public static boolean shouldUseAlternativeActionChipColor(
@@ -185,11 +158,6 @@ public class AdaptiveToolbarFeatures {
         return ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXTUAL_PAGE_ACTIONS);
     }
 
-    public static boolean isAdaptiveToolbarPageSummaryEnabled() {
-        return ChromeFeatureList.isEnabled(
-                ChromeFeatureList.ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_PAGE_SUMMARY);
-    }
-
     public static boolean isAdaptiveToolbarReadAloudEnabled(Profile profile) {
         return ReadAloudFeatures.isAllowed(profile);
     }
@@ -205,8 +173,26 @@ public class AdaptiveToolbarFeatures {
         return ChromeFeatureList.sCpaTabGroupingButton.isEnabled();
     }
 
+    /** Returns whether Glic is enabled by flags in the context of the adaptive toolbar. */
     public static boolean isGlicActionEnabled() {
-        return ChromeFeatureList.sGlic.isEnabled();
+        // TODO(crbug.com/500410559): Remove side panel check and instead check if tab strip is
+        // hidden after launch.
+        return ChromeFeatureList.sGlic.isEnabled() && !AndroidSidePanelEnabledFn.isEnabled();
+    }
+
+    /**
+     * Returns whether Glic is enabled for the given profile in the context of the adaptive toolbar.
+     */
+    public static boolean isGlicEnabledForProfile(Profile profile) {
+        return GlicEnabling.isEnabledForProfile(profile) && !AndroidSidePanelEnabledFn.isEnabled();
+    }
+
+    public static boolean shouldForciblyShowGlicButton(Context context, Profile profile) {
+        if (!isGlicEnabledForProfile(profile) || BottomBarConfigUtils.isBottomBarEnabled(context)) {
+            return false;
+        }
+        ActorKeyedService service = ActorKeyedServiceFactory.getForProfile(profile);
+        return service != null && service.getCurrentActiveTask() != null;
     }
 
     static void setDefaultSegmentForTesting(String defaultSegment) {
@@ -220,8 +206,10 @@ public class AdaptiveToolbarFeatures {
      *
      * @param context {@link Context} object.
      */
-    public static @AdaptiveToolbarButtonVariant int getDefaultButtonVariant(Context context) {
-        if (isGlicActionEnabled()) {
+    public static @AdaptiveToolbarButtonVariant int getDefaultButtonVariant(
+            Context context, Profile profile) {
+        boolean isBottomBarEnabled = BottomBarConfigUtils.isBottomBarEnabled(context);
+        if (isGlicEnabledForProfile(profile) && !isBottomBarEnabled) {
             return AdaptiveToolbarButtonVariant.GLIC;
         }
         if (sDefaultSegmentForTesting != null) {
@@ -232,7 +220,7 @@ public class AdaptiveToolbarFeatures {
                 default -> AdaptiveToolbarButtonVariant.UNKNOWN;
             };
         }
-        return DeviceFormFactor.isNonMultiDisplayContextOnTablet(context)
+        return DeviceFormFactor.isNonMultiDisplayContextOnTablet(context) || isBottomBarEnabled
                 ? AdaptiveToolbarButtonVariant.SHARE
                 : AdaptiveToolbarButtonVariant.NEW_TAB;
     }

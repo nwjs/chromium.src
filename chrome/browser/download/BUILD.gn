@@ -163,7 +163,9 @@ source_set("impl") {
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/content_settings:content_settings_util",
     "//chrome/browser/devtools",
+    "//chrome/browser/enterprise",
     "//chrome/browser/history",
+    "//chrome/browser/net",
     "//chrome/browser/notifications",
     "//chrome/browser/offline_items_collection",
     "//chrome/browser/optimization_guide",
@@ -172,6 +174,7 @@ source_set("impl") {
     "//chrome/browser/safe_browsing",
     "//chrome/browser/safe_browsing:metrics_collector",
     "//chrome/browser/signin",
+    "//chrome/browser/tab_group_sync",
     "//chrome/browser/thumbnail/generator",
     "//chrome/browser/transition_manager",
     "//chrome/browser/ui/browser_window",
@@ -195,6 +198,7 @@ source_set("impl") {
     "//components/security_state/content",
     "//components/services/quarantine",
     "//components/strings",
+    "//ui/base/unowned_user_data",
     "//url",
   ]
 
@@ -281,6 +285,8 @@ source_set("impl") {
       "download_status_updater_mac.mm",
       "drag_download_item_mac.mm",
     ]
+
+    deps += [ "//chrome/browser/ui/cocoa" ]
   }
 
   if (is_linux) {

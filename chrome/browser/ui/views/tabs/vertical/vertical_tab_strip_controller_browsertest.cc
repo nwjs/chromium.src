@@ -4,9 +4,11 @@
 
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_controller.h"
 
+#include "base/feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/tabs/tab_group_data.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -25,7 +27,7 @@
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_view.h"
 #include "chrome/browser/ui/views/test/vertical_tabs_browser_test_mixin.h"
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
-#include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
+#include "chrome/browser/ui/views/toolbar/app_menu_control.h"
 #include "chrome/browser/ui/views/toolbar/reload_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -35,6 +37,7 @@
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/display/screen.h"
@@ -164,6 +167,11 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerBrowserTest,
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerBrowserTest,
                        ClickTabInImmersiveMode) {
+  if (base::FeatureList::IsEnabled(features::kInitialWebUI)) {
+    GTEST_SKIP() << "Skipping test because it fails with InitialWebUI enabled. "
+                    "See crbug.com/477426026.";
+  }
+
   // Add another tab to switch to.
   AppendTab();
 
@@ -200,7 +208,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerBrowserTest,
   EXPECT_TRUE(toolbar->forward_button()->IsDrawn());
   EXPECT_TRUE(toolbar->reload_button()->IsDrawn());
   EXPECT_TRUE(toolbar->location_bar()->IsDrawn());
-  EXPECT_TRUE(toolbar->app_menu_button()->IsDrawn());
+  EXPECT_TRUE(button_provider->GetAppMenuControl()->IsDrawn());
 }
 
 #endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
@@ -305,7 +313,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabGroupHoverCardTest,
 IN_PROC_BROWSER_TEST_F(VerticalTabGroupHoverCardTest,
                        TabGroupHeaderHoverCardWithExcessTabs) {
   // Create a group with more than kMaxTabs tabs.
-  const size_t n_tabs = GroupCardData::kMaxTabs + 1;
+  const size_t n_tabs = tabs::TabGroupData::kMaxTabs + 1;
   for (size_t i = 0; i < n_tabs; ++i) {
     AppendTab();
   }
@@ -337,6 +345,145 @@ IN_PROC_BROWSER_TEST_F(VerticalTabGroupHoverCardTest,
   EXPECT_TRUE(bubble->GetGroupFooterViewForTesting()->GetVisible());
 }
 
-// TODO(crbug.com/490428062): Expand Test Coverage for Keyboard Commands.
+IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerBrowserTest,
+                       MoveTabFirstAndLastUnpinned) {
+  AppendTab();
+  AppendTab();
+
+  auto* tab_model = browser()->tab_strip_model();
+  ASSERT_EQ(3, tab_model->count());
+
+  auto* tab0 = tab_model->GetTabAtIndex(0);
+  auto* tab1 = tab_model->GetTabAtIndex(1);
+  auto* tab2 = tab_model->GetTabAtIndex(2);
+
+  vertical_tab_strip_controller()->MoveTabLast(tab0);
+
+  // Verify the order of the tabs after tab0 is moved to the end.
+  EXPECT_EQ(tab_model->GetTabAtIndex(2), tab0);
+  EXPECT_EQ(tab_model->GetTabAtIndex(0), tab1);
+  EXPECT_EQ(tab_model->GetTabAtIndex(1), tab2);
+
+  vertical_tab_strip_controller()->MoveTabFirst(tab0);
+
+  // Verify the order of the tabs after tab0 is moved to the front.
+  EXPECT_EQ(tab_model->GetTabAtIndex(0), tab0);
+  EXPECT_EQ(tab_model->GetTabAtIndex(1), tab1);
+  EXPECT_EQ(tab_model->GetTabAtIndex(2), tab2);
+}
+
+IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerBrowserTest,
+                       MoveTabFirstAndLastPinned) {
+  AppendTab();
+  AppendTab();
+
+  auto* tab_model = browser()->tab_strip_model();
+  ASSERT_EQ(3, tab_model->count());
+
+  tab_model->SetTabPinned(0, true);
+  tab_model->SetTabPinned(1, true);
+
+  EXPECT_TRUE(tab_model->IsTabPinned(0));
+  EXPECT_TRUE(tab_model->IsTabPinned(1));
+  EXPECT_FALSE(tab_model->IsTabPinned(2));
+
+  auto* tab0 = tab_model->GetTabAtIndex(0);
+  auto* tab1 = tab_model->GetTabAtIndex(1);
+  auto* tab2 = tab_model->GetTabAtIndex(2);
+
+  vertical_tab_strip_controller()->MoveTabLast(tab0);
+
+  // Verify the order of the tabs after tab0 is moved to the end of the
+  // pinned tabs.
+  EXPECT_EQ(tab_model->GetTabAtIndex(1), tab0);
+  EXPECT_EQ(tab_model->GetTabAtIndex(0), tab1);
+  EXPECT_EQ(tab_model->GetTabAtIndex(2), tab2);
+
+  vertical_tab_strip_controller()->MoveTabFirst(tab0);
+
+  // Verify the order of the tabs after tab0 is moved to the front of the
+  // pinned tabs.
+  EXPECT_EQ(tab_model->GetTabAtIndex(0), tab0);
+  EXPECT_EQ(tab_model->GetTabAtIndex(1), tab1);
+  EXPECT_EQ(tab_model->GetTabAtIndex(2), tab2);
+}
+
+IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerBrowserTest,
+                       ShiftTabIntoGroup) {
+  AppendTab();
+  AppendTab();
+
+  auto* tab_model = browser()->tab_strip_model();
+  ASSERT_EQ(3, tab_model->count());
+
+  // Create a group containing the last tab.
+  tab_groups::TabGroupId group_id = tab_model->AddToNewGroup({2});
+
+  // Tab 1 is ungrouped and adjacent to Tab 2 (which is in the group).
+  auto* tab1 = tab_model->GetTabAtIndex(1);
+  EXPECT_FALSE(tab1->GetGroup().has_value());
+
+  // Shift tab 1 next.
+  vertical_tab_strip_controller()->ShiftTabNext(tab1);
+
+  // Verify that tab 1 is now in the group.
+  EXPECT_EQ(group_id, tab1->GetGroup());
+}
+
+IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerBrowserTest,
+                       ShiftTabOutOfGroup) {
+  AppendTab();
+
+  auto* tab_model = browser()->tab_strip_model();
+  ASSERT_EQ(2, tab_model->count());
+
+  // Create a group containing the first tab.
+  tab_groups::TabGroupId group_id = tab_model->AddToNewGroup({0});
+
+  // Tab 0 is in the group. Tab 1 is ungrouped.
+  auto* tab0 = tab_model->GetTabAtIndex(0);
+  EXPECT_EQ(group_id, tab0->GetGroup());
+
+  // Shift tab 0 next.
+  vertical_tab_strip_controller()->ShiftTabNext(tab0);
+
+  // Verify that tab 0 is no longer in the group.
+  EXPECT_FALSE(tab0->GetGroup().has_value());
+}
+
+IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerBrowserTest,
+                       ShiftTabPastCollapsedGroup) {
+  AppendTab();
+  AppendTab();
+  AppendTab();
+
+  auto* tab_model = browser()->tab_strip_model();
+  ASSERT_EQ(4, tab_model->count());
+
+  // Ungrouped (Tab 0), Grouped (Tab 1, Tab 2), Ungrouped (Tab 3)
+  tab_groups::TabGroupId group_id = tab_model->AddToNewGroup({1, 2});
+  TabGroup* group = tab_model->group_model()->GetTabGroup(group_id);
+
+  // Collapse the group.
+  vertical_tab_strip_controller()->ToggleTabGroupCollapsedState(
+      group, ToggleTabGroupCollapsedStateOrigin::kMouse);
+
+  auto* tab0 = tab_model->GetTabAtIndex(0);
+  auto* tab1 = tab_model->GetTabAtIndex(1);
+  auto* tab2 = tab_model->GetTabAtIndex(2);
+  auto* tab3 = tab_model->GetTabAtIndex(3);
+
+  // Shift Tab 0 next.
+  vertical_tab_strip_controller()->ShiftTabNext(tab0);
+
+  // Verify the order.
+  EXPECT_EQ(tab_model->GetTabAtIndex(0), tab1);
+  EXPECT_EQ(tab_model->GetTabAtIndex(1), tab2);
+  EXPECT_EQ(tab_model->GetTabAtIndex(2), tab0);
+  EXPECT_EQ(tab_model->GetTabAtIndex(3), tab3);
+
+  // Verify that tab 0 is not in any group.
+  EXPECT_FALSE(tab0->GetGroup().has_value());
+}
 
 }  // namespace

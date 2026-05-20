@@ -1,21 +1,19 @@
 // Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-var onReply = function(id) {
-  chrome.test.runTests([
-    function testGetUserMedia() {
-      navigator.webkitGetUserMedia(
+const onReply = function(id) {
+  chrome.test.runTests([function testGetUserMedia() {
+    navigator.webkitGetUserMedia(
         {
-          video:
-          {
-            'mandatory':
-            {
+          video: {
+            mandatory: {
               chromeMediaSource: 'tab',
-              chromeMediaSourceId: id
-            }
+              chromeMediaSourceId: id,
+            },
           },
-          audio: false
-        }, chrome.test.fail, chrome.test.succeed);
+          audio: false,
+        },
+        chrome.test.fail, chrome.test.succeed);
   }]);
 };
 

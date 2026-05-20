@@ -266,7 +266,7 @@ class AppMenu implements OnKeyListener {
     private boolean mSelectedItemBeforeDismiss;
     private InitialSizingHelper mInitialSizingHelper;
     private @Nullable MenuSpec mMenuSpec;
-    private final HierarchicalMenuController mHierarchicalMenuController;
+    private final HierarchicalMenuController<AppMenuPopup> mHierarchicalMenuController;
     private @Nullable ValueAnimator mHeightAnimator;
 
     /**
@@ -278,7 +278,7 @@ class AppMenu implements OnKeyListener {
     AppMenu(
             AppMenuVisibilityDelegate visibilityDelegate,
             Resources res,
-            HierarchicalMenuController hierarchicalMenuController,
+            HierarchicalMenuController<AppMenuPopup> hierarchicalMenuController,
             boolean disableVerticalScrollbar) {
         mVisibilityDelegate = visibilityDelegate;
         mDisableVerticalScrollbar = disableVerticalScrollbar;
@@ -326,7 +326,7 @@ class AppMenu implements OnKeyListener {
             boolean isMenuIconAtStart,
             @ControlsPosition int controlsPosition,
             boolean addTopPaddingBeforeFirstRow,
-            FlyoutHandler flyoutHandler) {
+            FlyoutHandler<AppMenuPopup> flyoutHandler) {
         mContext = context;
         PopupWindow popup = new PopupWindow(context);
         popup.setFocusable(true);
@@ -451,7 +451,7 @@ class AppMenu implements OnKeyListener {
         }
 
         // Set the adapter after the header is added to avoid crashes on JellyBean.
-        // See crbug.com/761726.
+        // See crbug.com/41342640.
         assert mAdapter != null;
         mListView.setAdapter(mAdapter);
 
@@ -960,7 +960,7 @@ class AppMenu implements OnKeyListener {
         } catch (WindowManager.BadTokenException e) {
             // Intentionally ignore BadTokenException. This can happen in a real
             // edge case where parent.getWindowToken is not valid. See
-            // http://crbug.com/826052 & https://crbug.com/1105831.
+            // http://crbug.com/41379062 & https://crbug.com/40706027.
             return;
         }
     }

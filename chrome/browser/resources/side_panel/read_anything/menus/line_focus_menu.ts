@@ -43,6 +43,7 @@ export class LineFocusMenuElement extends LineFocusMenuElementBase implements
       nonModal: {type: Boolean},
       lineFocusStyle: {type: Object},
       lineFocusMovement: {type: Number},
+      options_: {type: Array},
     };
   }
 
@@ -58,26 +59,31 @@ export class LineFocusMenuElement extends LineFocusMenuElementBase implements
         separator: false,
       },
       title: loadTimeData.getString('lineFocusOffTitle'),
+      ariaLabel: loadTimeData.getString('lineFocusOffAriaLabel'),
       data: LineFocusStyle.OFF,
       eventName: ToolbarEvent.LINE_FOCUS_STYLE,
     },
     {
       title: loadTimeData.getString('lineFocusUnderlineTitle'),
+      ariaLabel: loadTimeData.getString('lineFocusUnderlineAriaLabel'),
       data: LineFocusStyle.UNDERLINE,
       eventName: ToolbarEvent.LINE_FOCUS_STYLE,
     },
     {
       title: loadTimeData.getString('lineFocusOneLineTitle'),
+      ariaLabel: loadTimeData.getString('lineFocusOneLineAriaLabel'),
       data: LineFocusStyle.SMALL_WINDOW,
       eventName: ToolbarEvent.LINE_FOCUS_STYLE,
     },
     {
       title: loadTimeData.getString('lineFocusThreeLineTitle'),
+      ariaLabel: loadTimeData.getString('lineFocusThreeLineAriaLabel'),
       data: LineFocusStyle.MEDIUM_WINDOW,
       eventName: ToolbarEvent.LINE_FOCUS_STYLE,
     },
     {
       title: loadTimeData.getString('lineFocusFiveLineTitle'),
+      ariaLabel: loadTimeData.getString('lineFocusFiveLineAriaLabel'),
       data: LineFocusStyle.LARGE_WINDOW,
       eventName: ToolbarEvent.LINE_FOCUS_STYLE,
     },
@@ -90,19 +96,22 @@ export class LineFocusMenuElement extends LineFocusMenuElementBase implements
         separator: true,
       },
       title: loadTimeData.getString('lineFocusStaticTitle'),
+      ariaLabel: loadTimeData.getString('lineFocusStaticAriaLabel'),
       data: LineFocusMovement.STATIC,
       eventName: ToolbarEvent.LINE_FOCUS_MOVEMENT,
     },
     {
       title: loadTimeData.getString('lineFocusCursorLineTitle'),
+      ariaLabel: loadTimeData.getString('lineFocusCursorLineAriaLabel'),
       data: LineFocusMovement.CURSOR,
       eventName: ToolbarEvent.LINE_FOCUS_MOVEMENT,
     },
   ];
-  protected options_: Array<MenuStateItem<LineFocusStyle|LineFocusMovement>> = [
-    ...this.styleOptions_,
-    ...this.movementOptions_,
-  ];
+  protected accessor options_:
+      Array<MenuStateItem<LineFocusStyle|LineFocusMovement>> = [
+        ...this.styleOptions_,
+        ...this.movementOptions_,
+      ];
   private logger_: ReadAnythingLogger = ReadAnythingLogger.getInstance();
 
   override willUpdate(changedProperties: PropertyValues<this>) {

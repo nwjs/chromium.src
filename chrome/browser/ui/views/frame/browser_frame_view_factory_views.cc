@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "ui/linux/linux_ui.h"
 #include "ui/linux/nav_button_provider.h"
+#include "ui/linux/window_frame_provider.h"
 #endif
 
 namespace chrome {
@@ -44,7 +45,7 @@ std::unique_ptr<OpaqueBrowserFrameView> CreateOpaqueBrowserFrameViewLinux(
   // Ignore the toolkit theme for web apps with window-controls-overlay as the
   // display_override so the web contents can blend with the overlay by using
   // the developer-provided theme color for a better experience. Context:
-  // https://crbug.com/1219073. Also ignore the toolkit theme for web apps with
+  // https://crbug.com/40771982. Also ignore the toolkit theme for web apps with
   // borderless as there's no surface left to apply the theme for.
   bool app_uses_wco_or_borderless =
       app_controller && (app_controller->AppUsesWindowControlsOverlay() ||
@@ -52,7 +53,8 @@ std::unique_ptr<OpaqueBrowserFrameView> CreateOpaqueBrowserFrameViewLinux(
 
   if (linux_ui_theme && theme_service_factory->UsingSystemTheme() &&
       !app_uses_wco_or_borderless) {
-    auto nav_button_provider = linux_ui_theme->CreateNavButtonProvider();
+    auto nav_button_provider =
+        linux_ui_theme->CreateNavButtonProvider(ui::FrameType::kBrowser);
     if (nav_button_provider) {
       auto* native_widget = static_cast<BrowserNativeWidgetAuraLinux*>(
           widget->browser_native_widget());
@@ -63,8 +65,8 @@ std::unique_ptr<OpaqueBrowserFrameView> CreateOpaqueBrowserFrameViewLinux(
                  ui::LinuxUiTheme* linux_ui_theme, bool tiled, bool maximized) {
                 const bool solid_frame =
                     !native_widget->ShouldDrawRestoredFrameShadow();
-                return linux_ui_theme->GetWindowFrameProvider(solid_frame,
-                                                              tiled, maximized);
+                return linux_ui_theme->GetWindowFrameProvider(
+                    ui::FrameType::kBrowser, solid_frame, tiled, maximized);
               },
               native_widget, linux_ui_theme));
       return std::make_unique<BrowserFrameViewLinuxNative>(

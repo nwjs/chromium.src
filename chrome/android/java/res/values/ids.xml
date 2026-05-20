@@ -116,6 +116,8 @@ found in the LICENSE file.
     <!-- Tags -->
     <item type="id" name="highlight_color" />
     <item type="id" name="context_menu_delegate" />
+    <item type="id" name="ntp_view_layout_change_listener_tag" />
+    <item type="id" name="ntp_search_box_text_watcher_tag" />
 
     <!-- NTP-->
     <item type="id" name="ntp_feed_header_menu_item_manage" />
@@ -174,6 +176,7 @@ found in the LICENSE file.
     <item type="id" name="ai_web_menu_id" />
     <item type="id" name="ai_pdf_menu_id" />
     <item type="id" name="find_in_page_id" />
+    <item type="id" name="lens_overlay_menu_id" />
     <item type="id" name="translate_id" />
     <item type="id" name="readaloud_menu_id" />
     <item type="id" name="more_tools_menu_id" />
@@ -204,6 +207,8 @@ found in the LICENSE file.
     <item type="id" name="duplicate_tab_menu_id" />
     <item type="id" name="glic_menu_id" />
     <item type="id" name="open_in_app_menu_id" />
+    <item type="id" name="close_tabs_to_the_right_menu_id" />
+    <item type="id" name="close_other_tabs_menu_id" />
 
     <!-- Custom Tabs -->
     <item type="id" name="view_id_tag_key" />

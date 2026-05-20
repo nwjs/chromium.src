@@ -205,6 +205,7 @@ used when committed.
 *   [Code Coverage](testing/code_coverage.md) - Code coverage for Chromium.
 *   [Code Coverage in Gerrit](testing/code_coverage_in_gerrit.md) - Per-CL code
     coverage in Gerrit to assist code reviews.
+*   [Chrome for Testing configuration](chrome_for_testing/chrome_for_testing_configuration.md) - Customizing Chrome for Testing required components installation and UI behavior.
 
 ### Configuration Docs
 
@@ -213,6 +214,7 @@ used when committed.
 *   [Runtime Enabled Features](https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/platform/RuntimeEnabledFeatures.md)
 *   [Initialization of Blink runtime features in content layer](initialize_blink_features.md)
 *   [Integrating a feature with the origin trials framework](origin_trials_integration.md)
+*   [Custom Type Helpers for Origin-Trial-Controlled HTML Elements](custom_type_helpers_for_origin_trial_elements.md)
 
 ### GPU-related docs
 *   [GPU Pixel Wrangling](gpu/pixel_wrangling.md) - Instructions for GPU

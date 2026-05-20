@@ -32,6 +32,7 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "crypto/hash.h"
 #include "crypto/sha2.h"
 #include "net/base/features.h"
 #include "net/base/hash_value.h"
@@ -126,9 +127,10 @@ std::vector<SHA256HashValue> DeserializeHashes(
     base::span<const char* const> serialized_hashes) {
   std::vector<SHA256HashValue> result;
   for (const auto* serialized_hash : serialized_hashes) {
-    net::HashValue h(HASH_VALUE_SHA256);
-    CHECK(h.FromString(std::string_view(serialized_hash)));
-    result.push_back(h.sha256hashvalue());
+    std::optional<net::HashValue> h =
+        net::HashValue::FromString(std::string_view(serialized_hash));
+    CHECK(h);
+    result.push_back(h->sha256hashvalue());
   }
   return result;
 }
@@ -625,12 +627,15 @@ TEST_F(TransportSecurityStateTest, NewPinsOverride) {
   TransportSecurityState::PKPState pkp_state;
   const base::Time current_time(base::Time::Now());
   const base::Time expiry = current_time + base::Seconds(1000);
-  HashValue hash1(HASH_VALUE_SHA256);
-  std::ranges::fill(hash1.span(), 0x01);
-  HashValue hash2(HASH_VALUE_SHA256);
-  std::ranges::fill(hash2.span(), 0x02);
-  HashValue hash3(HASH_VALUE_SHA256);
-  std::ranges::fill(hash3.span(), 0x03);
+  std::array<uint8_t, crypto::hash::kSha256Size> hash1_bytes;
+  std::ranges::fill(hash1_bytes, 0x01);
+  HashValue hash1(HASH_VALUE_SHA256, hash1_bytes);
+  std::array<uint8_t, crypto::hash::kSha256Size> hash2_bytes;
+  std::ranges::fill(hash2_bytes, 0x02);
+  HashValue hash2(HASH_VALUE_SHA256, hash2_bytes);
+  std::array<uint8_t, crypto::hash::kSha256Size> hash3_bytes;
+  std::ranges::fill(hash3_bytes, 0x03);
+  HashValue hash3(HASH_VALUE_SHA256, hash3_bytes);
 
   state.AddHPKP("example.com", expiry, true, HashValueVector(1, hash1));
 

@@ -19,10 +19,6 @@ export const playFromSelectionTimeout = spinnerDebounceTimeout + 25;
 export const LOG_EMPTY_DELAY_MS = 500;
 
 const ACTIVE_CSS_CLASS = 'active';
-// The percent of a view that must be visible to be considered "mostly visible"
-// for the purpose of determining what's likely being actually read in the
-// reading mode panel.
-export const MOSTLY_VISIBLE_PERCENT = 0.8;
 
 export function openMenu(
     menuToOpen: CrActionMenuElement, target: HTMLElement,
@@ -84,38 +80,103 @@ export function getWordCount(text: string): number {
   return TextSegmenter.getInstance().getWordCount(text);
 }
 
-// TODO(crbug.com/447427066): Move these visibility functions to dom_queries.ts.
-// Returns true if the given rect is mostly within the visible window.
-export function isRectMostlyVisible(rect: DOMRect): boolean {
-  if (rect.height <= 0) {
-    return false;
-  }
-  const isTopMostlyVisible = isPointVisible(rect.top) &&
-      isPointVisible(rect.top + (rect.height * MOSTLY_VISIBLE_PERCENT));
-  const isBottomMostlyVisible = isPointVisible(rect.bottom) &&
-      isPointVisible(rect.bottom - (rect.height * MOSTLY_VISIBLE_PERCENT));
-  const isMiddleMostlyVisible = rect.top < 0 &&
-      rect.bottom > window.innerHeight &&
-      (rect.height * MOSTLY_VISIBLE_PERCENT) < window.innerHeight;
-  return isTopMostlyVisible || isBottomMostlyVisible || isMiddleMostlyVisible;
-}
-
-// Returns true if any part of the given rect is within the visible window.
-export function isRectVisible(rect: DOMRect): boolean {
-  return (rect.height > 0) &&
-      ((rect.top <= 0 && rect.bottom >= window.innerHeight) ||
-       isPointVisible(rect.top) || isPointVisible(rect.bottom));
-}
-
-function isPointVisible(point: number) {
-  return (
-      (point >= 0) &&
-      ((point <= window.innerHeight) ||
-       (point <= document.documentElement.clientHeight)));
-}
-
 // Returns true if the active distillation method is readability.
 export function isDistilledByReadability(): boolean {
   return chrome.readingMode.activeDistillationMethod ===
       chrome.readingMode.distillationTypeReadability;
+}
+
+// Returns all visible text nodes in the subtree, including injected list
+// markers (e.g. "1. ").
+// TODO (crbug.com/507916429): Store text nodes and return them if already
+// processed.
+export function getReadingModeTextNodes(root: Node): Node[] {
+  const textNodes: Node[] = [];
+  const walker = createVisibleTreeWalker(root);
+  let currentNode;
+
+  while (currentNode = walker.nextNode()) {
+    if (currentNode.nodeType === Node.ELEMENT_NODE) {
+      const marker = addNodeForListElement(currentNode as HTMLElement);
+      if (marker) {
+        textNodes.push(marker);
+      }
+    } else if (currentNode.nodeType === Node.TEXT_NODE) {
+      if (currentNode.textContent) {
+        textNodes.push(currentNode);
+      }
+    }
+  }
+  return textNodes;
+}
+
+// Creates a TreeWalker configured to skip hidden elements, consistent with
+// Reading Mode's visibility rules.
+function createVisibleTreeWalker(root: Node): TreeWalker {
+  return document.createTreeWalker(root, NodeFilter.SHOW_ALL, {
+    acceptNode: (node) => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as HTMLElement;
+        // Skip display:none and other invisible elements.
+        if (element.style.display === 'none' || !element.checkVisibility()) {
+          return NodeFilter.FILTER_REJECT;
+        }
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+}
+
+function addNodeForListElement(element: HTMLElement): Node|null {
+  // If there is an ordered list, add the numbers as read aloud nodes, since
+  // these aren't considered "text" nodes and won't be spoken by read aloud
+  // otherwise.
+  if (element.tagName === 'LI' && element.parentElement &&
+      element.parentElement.tagName === 'OL') {
+    const number = getLiNumber(element as HTMLLIElement);
+
+    if (number > -1) {
+      // Create the text node (e.g., "1. "). A newline is added to the
+      // beginning of the node to ensure that it is not accidentally
+      // grouped with the previous text node for sentence segmentation.
+      return document.createTextNode(`\n${number}. `);
+    }
+  }
+  return null;
+}
+
+function getLiNumber(liElement: HTMLLIElement) {
+  const ol = liElement.closest('ol');
+  if (!ol) {
+    // Not in an ordered list.
+    return -1;
+  }
+
+  // Get the list's starting number. Default is 1 unless the start attribute
+  // is set by the developer.
+  let counter = ol.start || 1;
+
+  // Iterate through all <li> elements in the <ol>
+  for (const item of ol.children) {
+    if (item.tagName !== 'LI') {
+      // Skip non-<li> elements
+      continue;
+    }
+
+    // If the developer set an explicit 'value' on *this* <li>, honor that.
+    // If it's 0, it means the attribute isn't set.
+    if ((item as HTMLLIElement).value > 0) {
+      counter = (item as HTMLLIElement).value;
+    }
+
+    if (item === liElement) {
+      return counter;
+    }
+
+    // It's not the selected <li>, so increment the counter for the next loop
+    counter++;
+  }
+
+  // Should not happen
+  return -1;
 }

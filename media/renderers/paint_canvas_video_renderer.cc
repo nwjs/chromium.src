@@ -95,53 +95,6 @@ namespace media {
 
 namespace {
 
-bool IsPixelFormatSupportedForYuvSharedImageConversion(
-    VideoPixelFormat video_format) {
-  // To expand support for additional VideoFormats expand this switch.
-  switch (video_format) {
-    case PIXEL_FORMAT_NV12:
-    case PIXEL_FORMAT_P010LE:
-    case PIXEL_FORMAT_NV16:
-    case PIXEL_FORMAT_P210LE:
-    case PIXEL_FORMAT_NV24:
-    case PIXEL_FORMAT_P410LE:
-    case PIXEL_FORMAT_NV12A:
-    case PIXEL_FORMAT_I420:
-    case PIXEL_FORMAT_I420A:
-      return true;
-    case PIXEL_FORMAT_YV12:
-    case PIXEL_FORMAT_I422:
-    case PIXEL_FORMAT_I444:
-    case PIXEL_FORMAT_YUV420P10:
-    case PIXEL_FORMAT_YUV422P10:
-    case PIXEL_FORMAT_YUV444P10:
-    case PIXEL_FORMAT_YUV420P12:
-    case PIXEL_FORMAT_YUV422P12:
-    case PIXEL_FORMAT_YUV444P12:
-    case PIXEL_FORMAT_ARGB:
-    case PIXEL_FORMAT_XRGB:
-    case PIXEL_FORMAT_ABGR:
-    case PIXEL_FORMAT_XBGR:
-    case PIXEL_FORMAT_NV21:
-    case PIXEL_FORMAT_UYVY:
-    case PIXEL_FORMAT_YUY2:
-    case PIXEL_FORMAT_RGB24:
-    case PIXEL_FORMAT_MJPEG:
-    case PIXEL_FORMAT_Y16:
-    case PIXEL_FORMAT_XR30:
-    case PIXEL_FORMAT_XB30:
-    case PIXEL_FORMAT_BGRA:
-    case PIXEL_FORMAT_RGBAF16:
-    case PIXEL_FORMAT_I422A:
-    case PIXEL_FORMAT_I444A:
-    case PIXEL_FORMAT_YUV420AP10:
-    case PIXEL_FORMAT_YUV422AP10:
-    case PIXEL_FORMAT_YUV444AP10:
-    case PIXEL_FORMAT_UNKNOWN:
-      return false;
-  }
-}
-
 // Converts YUV video frames to RGB format and stores the results in the
 // provided destination shared image. The caller of this function maintains
 // ownership of the destination shared image. Automatically handles upload of
@@ -1396,94 +1349,61 @@ bool PaintCanvasVideoRenderer::MultiPlaneChannelFormatSupported(
   }
 }
 
+// static
 bool PaintCanvasVideoRenderer::
-    CopyVideoFrameTexturesToGLTextureViaIntermediateSI(
-        viz::RasterContextProvider* raster_context_provider,
-        gpu::gles2::GLES2Interface* destination_gl,
-        scoped_refptr<VideoFrame> video_frame,
-        VideoFrameSharedImageCache* rgb_si_cache,
-        unsigned int target,
-        unsigned int texture,
-        unsigned int internal_format,
-        unsigned int format,
-        unsigned int type,
-        int level,
-        SkAlphaType dst_alpha_type,
-        GrSurfaceOrigin dst_origin) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(video_frame);
-  CHECK(video_frame->HasSharedImage());
-  CHECK(destination_gl);
-  CHECK(rgb_si_cache);
-
-  if (!raster_context_provider) {
-    return false;
+    IsPixelFormatSupportedForYuvSharedImageConversion(
+        VideoPixelFormat video_format) {
+  // To expand support for additional VideoFormats expand this switch.
+  switch (video_format) {
+    case PIXEL_FORMAT_NV12:
+    case PIXEL_FORMAT_P010LE:
+    case PIXEL_FORMAT_NV16:
+    case PIXEL_FORMAT_P210LE:
+    case PIXEL_FORMAT_NV24:
+    case PIXEL_FORMAT_P410LE:
+    case PIXEL_FORMAT_NV12A:
+    case PIXEL_FORMAT_I420:
+    case PIXEL_FORMAT_I420A:
+      return true;
+    case PIXEL_FORMAT_YV12:
+    case PIXEL_FORMAT_I422:
+    case PIXEL_FORMAT_I444:
+    case PIXEL_FORMAT_YUV420P10:
+    case PIXEL_FORMAT_YUV422P10:
+    case PIXEL_FORMAT_YUV444P10:
+    case PIXEL_FORMAT_YUV420P12:
+    case PIXEL_FORMAT_YUV422P12:
+    case PIXEL_FORMAT_YUV444P12:
+    case PIXEL_FORMAT_ARGB:
+    case PIXEL_FORMAT_XRGB:
+    case PIXEL_FORMAT_ABGR:
+    case PIXEL_FORMAT_XBGR:
+    case PIXEL_FORMAT_NV21:
+    case PIXEL_FORMAT_UYVY:
+    case PIXEL_FORMAT_YUY2:
+    case PIXEL_FORMAT_RGB24:
+    case PIXEL_FORMAT_MJPEG:
+    case PIXEL_FORMAT_Y16:
+    case PIXEL_FORMAT_XR30:
+    case PIXEL_FORMAT_XB30:
+    case PIXEL_FORMAT_BGRA:
+    case PIXEL_FORMAT_RGBAF16:
+    case PIXEL_FORMAT_I422A:
+    case PIXEL_FORMAT_I444A:
+    case PIXEL_FORMAT_YUV420AP10:
+    case PIXEL_FORMAT_YUV422AP10:
+    case PIXEL_FORMAT_YUV444AP10:
+    case PIXEL_FORMAT_UNKNOWN:
+      return false;
   }
-
-  const auto shared_image = video_frame->shared_image();
-
-  // Take the two-copy path:
-  // * Copy the source SharedImage to a single-planar SI that's usable by GL
-  // * Perform a direct texture-to-texture copy from the intermediate SI
-  //   to the destination GL texture
-  DCHECK_EQ(shared_image->surface_origin(), kTopLeft_GrSurfaceOrigin);
-  gpu::raster::RasterInterface* canvas_ri =
-      raster_context_provider->RasterInterface();
-  DCHECK(canvas_ri);
-
-  // This SI is used to cache the VideoFrame. We copy the contents of the
-  // source VideoFrame into the cached SI over the raster interface and will
-  // eventually read out its contents into a destination GL texture via the
-  // GLES2 interface.
-  gpu::SharedImageUsageSet src_usage =
-      gpu::SHARED_IMAGE_USAGE_GLES2_READ | gpu::SHARED_IMAGE_USAGE_RASTER_WRITE;
-  auto [rgb_shared_image, rgb_sync_token, status] =
-      rgb_si_cache->GetOrCreateSharedImage(
-          video_frame.get(), raster_context_provider, src_usage,
-          SHARED_IMAGE_FORMAT, kPremul_SkAlphaType,
-          video_frame->CompatRGBColorSpace());
-  CHECK(rgb_shared_image);
-
-  // Copy the source video frame into the intermediate (cached) SI if
-  // necessary and generate the sync token that the following GL access of
-  // that cached SI will wait on.
-  gpu::SyncToken sync_token = rgb_sync_token;
-  if (status != VideoFrameSharedImageCache::Status::kMatchedVideoFrameId) {
-    // Cache miss: Copy the VideoFrame into the cached SI and ensure that the
-    // GL access below waits on the copy operation to complete.
-    sync_token = CopyVideoFrameToSharedImage(
-        raster_context_provider, video_frame, rgb_shared_image, rgb_sync_token,
-        /*use_visible_rect=*/false);
-  }
-
-  // Wait for mailbox creation on canvas context before consuming it and
-  // copying from it on the consumer context.
-  gpu::SyncToken dest_sync_token =
-      destination_gl->CopySharedImageToGLTextureViaTextureCopy(
-          video_frame->visible_rect(), rgb_shared_image.get(), sync_token,
-          target, texture, internal_format, format, type, level, dst_alpha_type,
-          dst_origin);
-
-  // Update the `rgb_sync_token` to be waited upon based on gles tasks
-  // performed earlier.
-  rgb_si_cache->UpdateSyncToken(dest_sync_token);
-
-  // We do not need to synchronize video frame read here since it's already
-  // taken care of earlier.
-  return true;
-}
-
-VideoFrameSharedImageCache* PaintCanvasVideoRenderer::GetRGBSharedImageCache() {
-  if (!rgb_shared_image_cache_) {
-    rgb_shared_image_cache_ = std::make_unique<VideoFrameSharedImageCache>();
-  }
-  return rgb_shared_image_cache_.get();
 }
 
 bool PaintCanvasVideoRenderer::CopyVideoFrameYUVDataToGLTexture(
     viz::RasterContextProvider* raster_context_provider,
     gpu::gles2::GLES2Interface* destination_gl,
     scoped_refptr<VideoFrame> video_frame,
+    VideoFrameSharedImageCache* rgb_si_cache,
+    VideoFrameSharedImageCache* yuv_si_cache,
     unsigned int target,
     unsigned int texture,
     unsigned int internal_format,
@@ -1536,18 +1456,13 @@ bool PaintCanvasVideoRenderer::CopyVideoFrameYUVDataToGLTexture(
   gpu::SharedImageUsageSet src_usage =
       gpu::SHARED_IMAGE_USAGE_RASTER_WRITE | gpu::SHARED_IMAGE_USAGE_GLES2_READ;
 
-  // Recreate both the caches if not set.
-  if (!rgb_shared_image_cache_) {
-    rgb_shared_image_cache_ = std::make_unique<VideoFrameSharedImageCache>();
-  }
-  if (!yuv_shared_image_cache_) {
-    yuv_shared_image_cache_ = std::make_unique<VideoFrameSharedImageCache>();
-  }
+  CHECK(rgb_si_cache);
+  CHECK(yuv_si_cache);
 
   // We need a shared image to receive the intermediate RGB result. Try to reuse
   // one if compatible, otherwise create a new one.
   auto [rgb_shared_image, rgb_sync_token, status] =
-      rgb_shared_image_cache_->GetOrCreateSharedImage(
+      rgb_si_cache->GetOrCreateSharedImage(
           video_frame.get(), raster_context_provider, src_usage,
           SHARED_IMAGE_FORMAT, kPremul_SkAlphaType,
           video_frame->CompatRGBColorSpace());
@@ -1558,7 +1473,7 @@ bool PaintCanvasVideoRenderer::CopyVideoFrameYUVDataToGLTexture(
   // tasks.
   gpu::SyncToken post_conversion_sync_token = CopyVideoFrameToSharedImage(
       raster_context_provider, video_frame, rgb_shared_image, rgb_sync_token,
-      /*use_visible_rect=*/false, yuv_shared_image_cache_.get());
+      /*use_visible_rect=*/false, yuv_si_cache);
 
   // On the destination GL context, do a copy (with cropping) into the
   // destination texture.
@@ -1569,7 +1484,7 @@ bool PaintCanvasVideoRenderer::CopyVideoFrameYUVDataToGLTexture(
 
   // Update the rgb sync token to be waited upon based on gles tasks performed
   // earlier.
-  rgb_shared_image_cache_->UpdateSyncToken(rgb_sync_token);
+  rgb_si_cache->UpdateSyncToken(rgb_sync_token);
 
   // video_frame->UpdateReleaseSyncToken is not necessary since the video frame
   // data we used was CPU-side to begin with. If there were any textures, we
@@ -1659,8 +1574,6 @@ bool PaintCanvasVideoRenderer::TexSubImage2D(unsigned target,
 void PaintCanvasVideoRenderer::ResetCache() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   cache_.reset();
-  rgb_shared_image_cache_.reset();
-  yuv_shared_image_cache_.reset();
   // ClientSharedImage destructor calls DestroySharedImage which in turn ensures
   // that the deferred destroy request is flushed. Thus, clients don't need to
   // call SharedImageInterface::Flush explicitly.

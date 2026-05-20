@@ -732,7 +732,7 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
-  if (kIPHExtensionsManageFeature.name == feature->name) {
+  if (kIPHExtensionsManageToolbarFeature.name == feature->name) {
     // Allows an IPH to be shown after a user installs an extension to inform
     // them where it can be managed.
     // Constraints:
@@ -745,10 +745,32 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config->valid = true;
     config->availability = Comparator(ANY, 0);
     config->session_rate = Comparator(EQUAL, 0);
-    config->trigger = EventConfig("manage_extensions_iph_triggered",
+    config->trigger = EventConfig("manage_extensions_toolbar_iph_triggered",
                                   Comparator(LESS_THAN, 1), 360, 360);
     // Only show if the user hasn't already clicked the extension menu button.
     config->used = EventConfig("extensions_menu_button_clicked",
+                               Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
+
+  if (kIPHExtensionsManageAppMenuFeature.name == feature->name) {
+    // Allows an IPH to be shown after a user unpins the extensions menu to
+    // inform them where it can be managed.
+    // Constraints:
+    // - Show at most once per year (360 days).
+    // - Only show if the user hasn't already clicked open the Chrome app menu
+    //   button on their own.
+    // - session_rate is set to EQUAL, 0 to ensure we don't show this if another
+    //   IPH was already shown in the same session.
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    config->trigger = EventConfig("manage_extensions_app_menu_iph_triggered",
+                                  Comparator(LESS_THAN, 1), 360, 360);
+    // Only show if the user hasn't already clicked the "Extensions" section in
+    // the Chrome app menu.
+    config->used = EventConfig("extensions_row_in_app_menu_clicked",
                                Comparator(EQUAL, 0), 360, 360);
     return config;
   }
@@ -1262,28 +1284,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
-  if (kIPHWebFeedAwarenessFeature.name == feature->name) {
-    // A config that allows the web feed IPH to be shown up to three times
-    // total, no more than once per session.
-    FeatureConfig config;
-    config.valid = true;
-    config.availability = Comparator(ANY, 0);
-
-    config.session_rate = Comparator(LESS_THAN, 1);
-    SessionRateImpact session_rate_impact;
-    session_rate_impact.type = SessionRateImpact::Type::ALL;
-    config.session_rate_impact = session_rate_impact;
-
-    // Keep the IPH trigger event for 10 years, which is a relatively long time
-    // period that we could consider as being "forever".
-    config.trigger =
-        EventConfig("iph_web_feed_awareness_triggered",
-                    Comparator(LESS_THAN, 3), k10YearsInDays, k10YearsInDays);
-    config.used = EventConfig("web_feed_awareness_used", Comparator(ANY, 0),
-                              k10YearsInDays, k10YearsInDays);
-    return config;
-  }
-
   if (kIPHFeedSwipeRefresh.name == feature->name) {
     // A config that allows the feed swipe refresh message IPH to be shown:
     // * Once per 15 days
@@ -1429,49 +1429,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                               Comparator(EQUAL, 0), 14, 90);
     config.snooze_params.snooze_interval = 7;
     config.snooze_params.max_limit = 3;
-    return config;
-  }
-  if (kIPHWebFeedFollowFeature.name == feature->name) {
-    // A config that allows the WebFeed follow intro to be shown up to 5x per
-    // week.
-    FeatureConfig config;
-    config.valid = true;
-    config.availability = Comparator(ANY, 0);
-    config.session_rate = Comparator(ANY, 0);
-    config.trigger = EventConfig("web_feed_follow_intro_trigger",
-                                 Comparator(LESS_THAN, 5), 7, 360);
-    config.used = EventConfig("web_feed_follow_intro_clicked",
-                              Comparator(ANY, 0), 360, 360);
-    return config;
-  }
-
-  if (kIPHWebFeedPostFollowDialogFeature.name == feature->name) {
-    // A config that allows one of the WebFeed post follow dialogs to be
-    // presented 3 times.
-    FeatureConfig config;
-    config.valid = true;
-    config.availability = Comparator(ANY, 0);
-    config.session_rate = Comparator(ANY, 0);
-    config.trigger = EventConfig("web_feed_post_follow_dialog_trigger",
-                                 Comparator(LESS_THAN, 3), 360, 360);
-    config.used = EventConfig("web_feed_post_follow_dialog_shown",
-                              Comparator(ANY, 0), 360, 360);
-    return config;
-  }
-
-  if (kIPHWebFeedPostFollowDialogFeatureWithUIUpdate.name == feature->name) {
-    // A config that allows one of the WebFeed post follow dialogs to be
-    // presented 3 times after the UI update.
-    FeatureConfig config;
-    config.valid = true;
-    config.availability = Comparator(ANY, 0);
-    config.session_rate = Comparator(ANY, 0);
-    config.trigger =
-        EventConfig("web_feed_post_follow_dialog_trigger_with_ui_update",
-                    Comparator(LESS_THAN, 3), 360, 360);
-    config.used =
-        EventConfig("web_feed_post_follow_dialog_shown_with_ui_update",
-                    Comparator(ANY, 0), 360, 360);
     return config;
   }
 
@@ -2019,6 +1976,35 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 
     return config;
   }
+
+  if (kIPHAutofillAtMemoryFeature.name == feature->name) {
+    // A config that allows the Autofill At Memory IPH to be shown when:
+    // * it has been shown less than 3 times in the last 90 days;
+    // * the feature has not been used yet.
+    // The IPH will not be shown if any other IPH has been shown in the same
+    // session.
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(EQUAL, 0);
+    config.trigger = EventConfig("autofill_at_memory_iph_trigger",
+                                 Comparator(LESS_THAN, 3), 90, 360);
+    config.used = EventConfig("autofill_at_memory_iph_used",
+                              Comparator(EQUAL, 0), 90, 360);
+
+    // This promo blocks specific promos in the same session.
+    config.session_rate_impact.type = SessionRateImpact::Type::EXPLICIT;
+    config.session_rate_impact.affected_features.emplace();
+    config.session_rate_impact.affected_features->push_back(
+        "IPH_AutofillVirtualCardSuggestion");
+    config.session_rate_impact.affected_features->push_back(
+        "IPH_AutofillVirtualCardCVCSuggestion");
+    config.session_rate_impact.affected_features->push_back(
+        "IPH_AutofillCardInfoRetrievalSuggestion");
+
+    return config;
+  }
+
   if (kIPHAutofillCardInfoRetrievalSuggestionFeature.name == feature->name) {
     // A config that allows the card info retrieval suggestion IPH to be shown
     // when it has been shown less than three times in last 90 days and only
@@ -3208,22 +3194,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-  if (kIPHPlusAddressCreateSuggestionFeature.name == feature->name) {
-    // A config that allows a user education bubble to be shown for the plus
-    // address feature. Will be shown up to 9 times in the 90 day window with
-    // the exception of 2 times if the user accepted the suggestion.
-
-    FeatureConfig config;
-    config.valid = true;
-    config.availability = Comparator(ANY, 0);
-    config.session_rate = Comparator(EQUAL, 0);
-    config.trigger =
-        EventConfig("plus_address_create_suggestion_feature_trigger",
-                    Comparator(LESS_THAN, 9), 90, 360);
-    config.used = EventConfig("plus_address_create_suggestion_feature_used",
-                              Comparator(LESS_THAN, 2), 90, 360);
-    return config;
-  }
 
   if (kIPHAutofillHomeWorkProfileSuggestionFeature.name == feature->name) {
     // Allows an IPH for showing the home and work address suggestion. This will

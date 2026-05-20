@@ -18,6 +18,7 @@
 #include "build/branding_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
+#include "chrome/browser/contextual_cueing/features.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
@@ -29,6 +30,10 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/sharing_hub/sharing_hub_features.h"
+#include "chrome/browser/ui/accelerator_table.h"
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/global_keyboard_shortcuts_mac.h"
+#endif
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/actions/chrome_actions.h"
 #include "chrome/browser/ui/ai_overlay_dialog/ai_overlay_dialog_controller.h"
@@ -54,6 +59,7 @@
 #include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
 #include "chrome/browser/ui/lens/lens_string_utils.h"
 #include "chrome/browser/ui/omnibox/ai_mode_page_action_controller.h"
+#include "chrome/browser/ui/page_actions/page_action_triggers.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/passwords/passwords_model_delegate.h"
 #include "chrome/browser/ui/performance_controls/memory_saver_bubble_controller.h"
@@ -87,7 +93,6 @@
 #include "chrome/browser/ui/views/location_bar/lens_overlay_homework_page_action_controller.h"
 #include "chrome/browser/ui/views/location_bar/record_replay_page_action_controller.h"
 #include "chrome/browser/ui/views/media_router/cast_browser_controller.h"
-#include "chrome/browser/ui/views/page_action/page_action_triggers.h"
 #include "chrome/browser/ui/views/page_info/page_info_view_factory.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_toolbar_bubble_controller.h"
 #include "chrome/browser/ui/views/side_panel/comments/comments_side_panel_coordinator.h"
@@ -95,16 +100,18 @@
 #include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_utils.h"
 #include "chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/tabs/groups/recent_activity_bubble_dialog_view.h"
+#include "chrome/browser/ui/views/toolbar/ai_overlay_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_coordinator.h"
+#include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button_menu_model.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/zoom/zoom_view_controller.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
+#include "chrome/browser/ui/webauthn/ambient/ambient_signin_controller.h"
 #include "chrome/browser/ui/webid/account_selection_view.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_section.h"
 #include "chrome/common/chrome_features.h"
-#include "chrome/common/record_replay/record_replay_features.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/collaboration/public/messaging/activity_log.h"
@@ -118,6 +125,7 @@
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/vector_icons.h"
 #include "components/policy/core/common/policy_pref_names.h"
+#include "components/record_replay/core/common/record_replay_features.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
@@ -262,7 +270,7 @@ void BrowserActions::InitializeSidePanelActions() {
                       IDS_READ_LATER_TITLE, kReadingListIcon,
                       kActionSidePanelShowReadingList, bwi, true)
           .Build());
-  if (TabsFromOtherDevicesSidePanelCoordinator::IsSupported()) {
+  if (TabsFromOtherDevicesSidePanelCoordinator::IsSupported(profile)) {
     root_action_item_->AddChild(
         SidePanelAction(SidePanelEntryId::kTabsFromOtherDevices,
                         IDS_SIDE_PANEL_TABS_FROM_OTHER_DEVICES_TITLE,
@@ -319,6 +327,13 @@ void BrowserActions::InitializeSidePanelActions() {
             .Build());
   }
 
+  ui::Accelerator reading_mode_accelerator;
+  std::u16string reading_mode_shortcut;
+  if (GetAcceleratorForCommandId(IDC_SHOW_READING_MODE_KEYBOARD,
+                                 &reading_mode_accelerator)) {
+    reading_mode_shortcut = reading_mode_accelerator.GetShortcutText();
+  }
+
   if (features::IsReadAnythingOmniboxChipEnabled() ||
       features::IsImmersiveReadAnythingEnabled()) {
     root_action_item_->AddChild(
@@ -332,7 +347,8 @@ void BrowserActions::InitializeSidePanelActions() {
                 bwi))
             .SetActionId(kActionSidePanelShowReadAnything)
             .SetText(l10n_util::GetStringUTF16(IDS_READING_MODE_TITLE))
-            .SetTooltipText(l10n_util::GetStringUTF16(IDS_READING_MODE_TITLE))
+            .SetTooltipText(l10n_util::GetStringFUTF16(IDS_READING_MODE_TOOLTIP,
+                                                       reading_mode_shortcut))
             .SetImage(ui::ImageModel::FromVectorIcon(kMenuBookChromeRefreshIcon,
                                                      ui::kColorIcon))
             .SetProperty(
@@ -343,9 +359,20 @@ void BrowserActions::InitializeSidePanelActions() {
             .Build());
   } else {
     root_action_item_->AddChild(
-        SidePanelAction(SidePanelEntryId::kReadAnything, IDS_READING_MODE_TITLE,
-                        IDS_READING_MODE_TITLE, kMenuBookChromeRefreshIcon,
-                        kActionSidePanelShowReadAnything, bwi, true)
+        actions::ActionItem::Builder(
+            CreateToggleSidePanelActionCallback(
+                SidePanelEntryKey(SidePanelEntryId::kReadAnything), bwi))
+            .SetActionId(kActionSidePanelShowReadAnything)
+            .SetText(l10n_util::GetStringUTF16(IDS_READING_MODE_TITLE))
+            .SetTooltipText(l10n_util::GetStringFUTF16(IDS_READING_MODE_TOOLTIP,
+                                                       reading_mode_shortcut))
+            .SetImage(ui::ImageModel::FromVectorIcon(kMenuBookChromeRefreshIcon,
+                                                     ui::kColorIcon))
+            .SetProperty(
+                actions::kActionItemPinnableKey,
+                static_cast<
+                    std::underlying_type_t<actions::ActionPinnableState>>(
+                    actions::ActionPinnableState::kPinnable))
             .Build());
   }
 
@@ -427,39 +454,6 @@ void BrowserActions::InitializeSidePanelActions() {
                     actions::ActionPinnableState::kNotPinnable))
             .Build());
   }
-
-  // TODO(crbug.com/454112198): Delete this after Multi Instance launches. This
-  // is currently only used in the experimental single instance side panel.
-  auto* glic_service = glic::GlicKeyedService::Get(bwi->GetProfile());
-  if (glic_service && !glic::GlicEnabling::IsMultiInstanceEnabled()) {
-    root_action_item_->AddChild(
-        actions::ActionItem::Builder(
-            base::BindRepeating(
-                [](base::WeakPtr<BrowserWindowInterface> bwi,
-                   actions::ActionItem* item,
-                   actions::ActionInvocationContext context) {
-                  if (!bwi) {
-                    return;
-                  }
-                  if (auto* glic_service =
-                          glic::GlicKeyedService::Get(bwi->GetProfile())) {
-                    glic_service->ToggleUI(
-                        bwi.get(), /*prevent_close=*/false,
-                        glic::mojom::InvocationSource::kTopChromeButton);
-                  }
-                },
-                bwi->GetWeakPtr()))
-            .SetActionId(kActionSidePanelShowGlic)
-            .SetText(l10n_util::GetStringUTF16(IDS_SETTINGS_GLIC_PAGE_TITLE))
-            .SetTooltipText(
-                l10n_util::GetStringUTF16(IDS_SETTINGS_GLIC_PAGE_TITLE))
-            .SetImage(ui::ImageModel::FromVectorIcon(
-                glic::GlicVectorIconManager::GetVectorIcon(
-                    IDR_GLIC_BUTTON_VECTOR_ICON),
-                ui::kColorIcon))
-            .SetProperty(actions::kActionItemPinnableKey, true)
-            .Build());
-  }
 }
 
 void BrowserActions::InitializePageActionIconActions() {
@@ -521,6 +515,25 @@ void BrowserActions::InitializePageActionIconActions() {
               },
               bwi))
           .SetActionId(kActionFederation)
+          .SetEnabled(true)
+          .Build());
+
+  root_action_item_->AddChild(
+      actions::ActionItem::Builder(
+          base::BindRepeating(
+              [](BrowserWindowInterface* bwi, actions::ActionItem* item,
+                 actions::ActionInvocationContext context) {
+                auto* web_contents =
+                    bwi->GetActiveTabInterface()->GetContents();
+                auto* controller = ambient_signin::AmbientSigninController::
+                    GetForCurrentDocument(web_contents->GetPrimaryMainFrame());
+                if (!controller) {
+                  return;
+                }
+                controller->TriggerPageActionSignIn();
+              },
+              bwi))
+          .SetActionId(kActionWebAuthnAmbientSignin)
           .SetEnabled(true)
           .Build());
 
@@ -848,7 +861,7 @@ void BrowserActions::InitializeChromeMenuActions() {
           base::BindRepeating(
               [](BrowserWindowInterface* bwi, actions::ActionItem* item,
                  actions::ActionInvocationContext context) {
-                chrome::NewTab(bwi->GetBrowserForMigrationOnly());
+                chrome::NewTab(bwi);
               },
               bwi))
           .SetActionId(kActionNewTab)
@@ -949,9 +962,8 @@ void BrowserActions::InitializeChromeMenuActions() {
                 [](BrowserWindowInterface* bwi, TabStripModel* tab_strip_model,
                    actions::ActionItem* item,
                    actions::ActionInvocationContext context) {
-                  auto* const bubble_controller =
-                      bwi->GetFeatures()
-                          .send_tab_to_self_toolbar_bubble_controller();
+                  auto* const bubble_controller = send_tab_to_self::
+                      SendTabToSelfToolbarBubbleController::From(bwi);
                   if (bubble_controller->IsBubbleShowing()) {
                     bubble_controller->HideBubble();
                   } else {
@@ -1110,7 +1122,7 @@ void BrowserActions::InitializeChromeMenuActions() {
             base::BindRepeating(
                 [](BrowserWindowInterface* bwi, actions::ActionItem* item,
                    actions::ActionInvocationContext context) {
-                  bwi->GetFeatures().chrome_labs_coordinator()->ShowOrHide();
+                  ChromeLabsCoordinator::From(bwi)->ShowOrHide();
                 },
                 bwi),
             kActionShowChromeLabs, IDS_CHROMELABS, IDS_CHROMELABS, kScienceIcon)
@@ -1246,7 +1258,9 @@ void BrowserActions::InitializeToolbarAndMiscActions() {
           base::BindRepeating(
               [](BrowserWindowInterface* bwi, actions::ActionItem* item,
                  actions::ActionInvocationContext context) {
-                bwi->GetFeatures().download_toolbar_ui_controller()->InvokeUI();
+                if (auto* controller = DownloadToolbarUIController::From(bwi)) {
+                  controller->InvokeUI();
+                }
               },
               bwi),
           kActionShowDownloads, IDS_SHOW_DOWNLOADS, IDS_TOOLTIP_DOWNLOAD_ICON,
@@ -1546,7 +1560,7 @@ void BrowserActions::InitializeToolbarAndMiscActions() {
 
   if (glic::GlicEnabling::IsProfileEligible(profile) &&
       base::FeatureList::IsEnabled(features::kAiOverlayDialog)) {
-    root_action_item_->AddChild(
+    std::unique_ptr<actions::ActionItem> item =
         actions::ActionItem::Builder(
             base::BindRepeating(
                 [](BrowserWindowInterface* bwi, actions::ActionItem* item,
@@ -1559,6 +1573,7 @@ void BrowserActions::InitializeToolbarAndMiscActions() {
                 bwi))
             .SetActionId(kActionShowAiOverlayDialog)
             .SetText(l10n_util::GetStringUTF16(IDS_APPMENU_TOOLTIP))
+            .SetTooltipText(l10n_util::GetStringUTF16(IDS_APPMENU_TOOLTIP))
             .SetImage(ui::ImageModel::FromVectorIcon(
                 vector_icons::kMicIcon, ui::kColorIcon,
                 ui::SimpleMenuModel::kDefaultIconSize))
@@ -1567,7 +1582,19 @@ void BrowserActions::InitializeToolbarAndMiscActions() {
                 static_cast<
                     std::underlying_type_t<actions::ActionPinnableState>>(
                     actions::ActionPinnableState::kPinnable))
-            .Build());
+            .Build();
+
+    item->SetProperty(
+        kCustomPinnedActionToolbarButtonFactoryKey,
+        std::make_unique<CreateCustomPinnedActionToolbarButtonCallback>(
+            base::BindRepeating(
+                [](Browser* browser, actions::ActionId action_id,
+                   base::WeakPtr<PinnedToolbarActionsContainer> container)
+                    -> std::unique_ptr<PinnedActionToolbarButton> {
+                  return std::make_unique<AiOverlayToolbarButton>(
+                      browser, action_id, container);
+                })));
+    root_action_item_->AddChild(std::move(item));
   }
 
   // Registration of Gemini in Chrome Anchored Cues, but requires call-time
@@ -1622,6 +1649,14 @@ void BrowserActions::InitializeToolbarAndMiscActions() {
               ui::SimpleMenuModel::kDefaultIconSize))
           .SetText(l10n_util::GetStringUTF16(IDS_INDIGO_ENTRYPOINT_CHIP_TEXT))
           .Build());
+
+  if (base::FeatureList::IsEnabled(contextual_cueing::kContextualCueingV2)) {
+    root_action_item_->AddChild(
+        actions::ActionItem::Builder()
+            // Anchored message icon, strings and callback are set at cue time.
+            .SetActionId(kActionAnchoredContextualCue)
+            .Build());
+  }
 }
 
 void BrowserActions::AddListeners() {

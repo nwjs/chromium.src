@@ -832,9 +832,16 @@ void SimulateActiveStateForWidget(RenderFrameHost* frame, bool active) {
 
 std::optional<uint64_t> GetVisitedLinkSaltForNavigation(
     NavigationHandle* navigation_handle) {
-  return static_cast<NavigationRequest*>(navigation_handle)
+  return NavigationRequest::From(navigation_handle)
       ->commit_params()
       .visited_link_salt;
+}
+
+std::optional<std::string> GetInternalScrollToTextFragmentForNavigation(
+    NavigationHandle* navigation_handle) {
+  return NavigationRequest::From(navigation_handle)
+      ->commit_params()
+      .internal_scroll_to_text_fragment;
 }
 
 void WaitForLoadStopWithoutSuccessCheck(WebContents* web_contents) {
@@ -1882,7 +1889,7 @@ class ExecuteJavaScriptForTestsWaiter : public WebContentsObserver {
     DCHECK(!has_value_);
     has_value_ = true;
     type_ = type;
-    value_ = value.Clone();
+    value_ = std::move(value);
     run_loop_.Quit();
   }
 
@@ -2221,8 +2228,18 @@ bool SetCookie(
     std::string_view value,
     net::CookieOptions::SameSiteCookieContext context,
     base::optional_ref<const net::CookiePartitionKey> cookie_partition_key) {
-  if (cookie_partition_key) {
-    DCHECK(base::ToLowerASCII(value).contains(";partitioned"));
+  const bool has_partition_key = cookie_partition_key.has_value();
+  const bool is_nonced =
+      net::CookiePartitionKey::HasNonce(cookie_partition_key);
+  const bool has_attribute = base::ToLowerASCII(value).contains(";partitioned");
+  if (!has_partition_key) {
+    DCHECK(!has_attribute);
+  }
+  if (has_partition_key && !is_nonced) {
+    DCHECK(has_attribute);
+  }
+  if (has_attribute) {
+    DCHECK(has_partition_key);
   }
   mojo::Remote<network::mojom::CookieManager> cookie_manager;
   browser_context->GetDefaultStoragePartition()
@@ -2260,10 +2277,17 @@ uint32_t DeleteCookies(BrowserContext* browser_context,
 void FetchHistogramsFromChildProcesses() {
   // Wait for all initialized processes to be ready before fetching histograms
   // for the first time.
+  // Use a vector of IDs to avoid race condition caused by process shutdown
+  // when waiting for the `RenderProcessHostWatcher`.
+  std::vector<ChildProcessId> process_ids;
   for (RenderProcessHost::iterator it(RenderProcessHost::AllHostsIterator());
        !it.IsAtEnd(); it.Advance()) {
-    RenderProcessHost* process = it.GetCurrentValue();
-    if (process->IsInitializedAndNotDead() && !process->IsReady()) {
+    process_ids.push_back(it.GetCurrentValue()->GetID());
+  }
+
+  for (ChildProcessId id : process_ids) {
+    RenderProcessHost* process = RenderProcessHost::FromID(id);
+    if (process && process->IsInitializedAndNotDead() && !process->IsReady()) {
       RenderProcessHostWatcher ready_watcher(
           process, RenderProcessHostWatcher::WATCH_FOR_PROCESS_READY);
       ready_watcher.Wait();
@@ -3109,6 +3133,36 @@ void MainThreadFrameObserver::Quit(bool) {
   if (quit_closure_) {
     std::move(quit_closure_).Run();
   }
+}
+
+ReadyForInputObserver::ReadyForInputObserver(WebContents* web_contents) {
+  rwhi_ = RenderWidgetHostImpl::From(
+      web_contents->GetPrimaryMainFrame()->GetRenderWidgetHost());
+  rwhi_->AddObserver(this);
+  rwhi_->SetReadyForInputCallbackForTesting(base::BindOnce(
+      &ReadyForInputObserver::OnReadyForInput, base::Unretained(this)));
+}
+
+ReadyForInputObserver::~ReadyForInputObserver() {
+  if (rwhi_) {
+    rwhi_->RemoveObserver(this);
+    rwhi_->SetReadyForInputCallbackForTesting(base::DoNothing());
+  }
+}
+
+void ReadyForInputObserver::Wait() {
+  run_loop_.Run();
+}
+
+void ReadyForInputObserver::RenderWidgetHostDestroyed(
+    RenderWidgetHost* widget_host) {
+  if (widget_host == rwhi_) {
+    rwhi_ = nullptr;
+  }
+}
+
+void ReadyForInputObserver::OnReadyForInput() {
+  run_loop_.Quit();
 }
 
 InputMsgWatcher::InputMsgWatcher(RenderWidgetHost* render_widget_host,

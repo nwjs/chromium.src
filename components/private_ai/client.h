@@ -11,9 +11,9 @@
 #include "base/functional/callback.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
-#include "components/private_ai/error_code.h"
 #include "components/private_ai/phosphor/token_manager.h"
 #include "components/private_ai/proto/private_ai.pb.h"
+#include "components/private_ai/status_code.h"
 #include "url/gurl.h"
 
 namespace network::mojom {
@@ -29,21 +29,21 @@ class Client {
  public:
   // Callback for when a `SendTextRequest` operation completes.
   using OnTextRequestCompletedCallback =
-      base::OnceCallback<void(base::expected<std::string, ErrorCode> result)>;
+      base::OnceCallback<void(base::expected<std::string, StatusCode> result)>;
 
   // Callback for when a `SendGenerateContentRequest` operation completes.
   using OnGenerateContentRequestCompletedCallback = base::OnceCallback<void(
-      base::expected<proto::GenerateContentResponse, ErrorCode> result)>;
+      base::expected<proto::GenerateContentResponse, StatusCode> result)>;
 
   // Callback for when a `SendPaicRequest` operation completes.
   using OnPaicMessageRequestCompletedCallback = base::OnceCallback<void(
-      base::expected<proto::PaicMessage, ErrorCode> result)>;
+      base::expected<proto::PaicMessage, StatusCode> result)>;
 
   struct RequestOptions {
     base::TimeDelta timeout = kDefaultTimeout;
   };
 
-  static constexpr base::TimeDelta kDefaultTimeout = base::Seconds(120);
+  static constexpr base::TimeDelta kDefaultTimeout = base::Seconds(30);
 
   // Creates a client based on the provided configuration.
   // `url`: The URL for the PrivateAI service.

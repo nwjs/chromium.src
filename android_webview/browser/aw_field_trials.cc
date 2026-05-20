@@ -32,7 +32,6 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "ui/android/ui_android_features.h"
-#include "ui/base/ui_base_features.h"
 #include "ui/gl/gl_features.h"
 #include "ui/gl/gl_switches.h"
 
@@ -70,6 +69,13 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
   // concluded.
   aw_feature_overrides.DisableFeature(
       input::features::kUpdateScrollPredictorInputMapping);
+
+  // InputVizard is disabled on WebView as it is a Chrome-only feature that
+  // moves input handling to the VizCompositor thread, which is out of scope
+  // for WebView's Synchronous Compositor architecture.
+  aw_feature_overrides.DisableFeature(input::features::kInputOnViz);
+  aw_feature_overrides.DisableFeature(
+      input::features::kInputVizardSpeculativeTransfer);
 
   // Disable enforcing `noopener` on Blob URL navigations on WebView.
   aw_feature_overrides.DisableFeature(
@@ -111,11 +117,6 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
 
   // Disable scrollbar-width on WebView.
   aw_feature_overrides.DisableFeature(blink::features::kScrollbarWidth);
-
-  // TODO(crbug.com/402144902): Remove this once webview experiment has
-  // concluded.
-  aw_feature_overrides.DisableFeature(
-      ::features::kSendEmptyGestureScrollUpdate);
 
   // Disable Populating the VisitedLinkDatabase on WebView.
   aw_feature_overrides.DisableFeature(history::kPopulateVisitedLinkDatabase);
@@ -328,4 +329,14 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
   // its Viz thread is updated to handle IO.
   aw_feature_overrides.DisableFeature(
       ::features::kVizDirectCompositorThreadIpcFrameSinkManager);
+
+  // TODO(crbug.com/441800312): Enable this once WebView experiment has
+  // concluded.
+  aw_feature_overrides.DisableFeature(
+      blink::features::kUnthrottleAsyncTouchMoves);
+
+  // Disable `PrefetchRequestStatusListenerAsync` on WebView to run an
+  // experiment on WebView.
+  aw_feature_overrides.DisableFeature(
+      ::features::kPrefetchRequestStatusListenerAsync);
 }

@@ -648,8 +648,13 @@ ci.thin_tester(
                 ],
                 remove_mixins = "mac_15_vm_optional",
             ),
-            "sync_integration_tests": targets.mixin(
-                ci_only = True,
+            # TODO(crbug.com/500901289): tests are flaky on VM when host OS is 26+ while VM OS is 15.6.1
+            "sync_integration_tests": targets.per_test_modification(
+                mixins = [
+                    "mac_15_arm64",
+                    "ci_only",
+                ],
+                remove_mixins = "mac_15_vm_optional",
             ),
             "telemetry_perf_unittests": targets.mixin(
                 ci_only = True,
@@ -802,8 +807,8 @@ ci.thin_tester(
             "browser_tests": targets.mixin(
                 ci_only = True,
                 swarming = targets.swarming(
-                    # crbug.com/1361887
-                    shards = 20,
+                    # crbug.com/1361887, crbug.com/509389281
+                    shards = 30,
                 ),
             ),
             "content_browsertests": targets.mixin(
@@ -1119,6 +1124,62 @@ ci.thin_tester(
         short_name = "15",
     ),
     contact_team_email = "bling-engprod@google.com",
+)
+
+ci.thin_tester(
+    name = "mac-no-initial-webui-rel",
+    description_html = "Runs tests with Initial WebUI disabled to check legacy UI path.",
+    parent = "ci/mac-arm64-rel",
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.MAC,
+        ),
+    ),
+    targets = targets.bundle(
+        targets = [
+            # TODO(crbug.com/40252679): Add browser_tests after the bug is resolved.
+            "interactive_ui_tests",
+            "unit_tests",
+        ],
+        mixins = [
+            "mac_15_arm64",
+            "isolate_profile_data",
+            "retry_only_failed_tests",
+        ],
+        per_test_modifications = {
+            "interactive_ui_tests": targets.mixin(
+                args = [
+                    "--disable-features=InitialWebUI,WebUIReloadButton,SkipIPCChannelPausingForNonGuests,WebUIInProcessResourceLoadingV2,InitialWebUISyncNavStartToCommit",
+                ],
+                swarming = targets.swarming(
+                    shards = 4,
+                ),
+            ),
+            "unit_tests": targets.mixin(
+                args = [
+                    "--disable-features=InitialWebUI,WebUIReloadButton,SkipIPCChannelPausingForNonGuests,WebUIInProcessResourceLoadingV2,InitialWebUISyncNavStartToCommit",
+                ],
+            ),
+        },
+    ),
+    # TODO(crbug.com/505579819): Enable gardening once the bot is stable.
+    gardener_rotations = args.ignore_default(None),
+    console_view_entry = consoles.console_view_entry(
+        category = "mac",
+        short_name = "no-webui",
+    ),
+    cq_mirrors_console_view = "mirrors",
+    contact_team_email = "chrome-webium-product-eng@google.com",
 )
 
 ios_builder(

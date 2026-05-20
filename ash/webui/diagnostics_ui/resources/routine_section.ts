@@ -187,13 +187,12 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
         computed: 'getInitialButtonText(runTestsButtonText)',
       },
 
-      hideRoutineStatus: {
+      hideReportButton: {
         type: Boolean,
         value: false,
-        reflectToAttribute: true,
       },
 
-      hideReportButton: {
+      hideLearnMore: {
         type: Boolean,
         value: false,
       },
@@ -230,13 +229,13 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
   testSuiteStatus: TestSuiteStatus;
   isPowerRoutine: boolean;
   isActive: boolean;
-  hideRoutineStatus: boolean;
   hideReportButton: boolean;
+  hideLearnMore: boolean;
   showRoutineDetails: boolean;
   opened: boolean;
   hideVerticalLines: boolean;
   usingRoutineGroups: boolean;
-  ignoreRoutineStatusUpdates: boolean;
+  ignoreRoutineStatusUpdates: boolean = false;
   announcedText: string;
   currentTestName: string;
   private routineStartTimeMs: number;
@@ -326,6 +325,7 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
     this.detailsOpened = false;
     this.$.detailsCollapse.hide();
     this.lastRoutineDetails = null;
+    this.ignoreRoutineStatusUpdates = false;
 
     this.systemRoutineController = getSystemRoutineController();
     const resultListElem = this.getResultListElem();
@@ -370,6 +370,12 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
           routineGroup.routines,
           (routineStatus) =>
               this.handleRunningRoutineStatus(routineStatus, resultListElem));
+      if (this.ignoreRoutineStatusUpdates) {
+        executor.cancel();
+        this.handleRoutinesCompletedStatus(status);
+        clearInterval(remainingTimeUpdaterId);
+        break;
+      }
       const isLastRoutineGroup = i === routines.length - 1;
       if (isLastRoutineGroup) {
         this.handleRoutinesCompletedStatus(status);
@@ -437,7 +443,11 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
 
     this.executionStatus = status.progress;
 
-    resultListElem.onStatusUpdate.call(resultListElem, status);
+    const blockingFailure =
+        resultListElem.onStatusUpdate.call(resultListElem, status);
+    if (blockingFailure) {
+      this.ignoreRoutineStatusUpdates = true;
+    }
   }
 
   private cleanUp(): void {
@@ -672,7 +682,7 @@ export class RoutineSectionElement extends RoutineSectionElementBase {
   }
 
   protected isLearnMoreButtonHidden(): boolean {
-    return !this.isLoggedIn || this.hideRoutineStatus;
+    return this.hideLearnMore || !this.isLoggedIn;
   }
 
   override disconnectedCallback(): void {

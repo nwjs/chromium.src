@@ -57,9 +57,9 @@ class BasicDesktopEnvironment : public DesktopEnvironment {
       override;
   std::string GetCapabilities() const override;
   void SetCapabilities(const std::string& capabilities) override;
-  std::uint32_t GetDesktopSessionId() const override;
   std::unique_ptr<RemoteWebAuthnStateChangeNotifier>
   CreateRemoteWebAuthnStateChangeNotifier() override;
+  std::unique_ptr<AudioInjector> CreateAudioInjector() override;
 
  protected:
   friend class BasicDesktopEnvironmentFactory;

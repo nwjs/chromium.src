@@ -11,12 +11,14 @@
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/groups/tab_group_editor_bubble_tracker.h"
 #include "chrome/browser/ui/views/tabs/hovercard/hover_card_anchor_target.h"
-#include "chrome/browser/ui/views/tabs/tab_strip_types.h"
+#include "chrome/browser/ui/views/tabs/shared/tab_strip_types.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/layout/flex_layout_view.h"
+
+class TabGroup;
 
 namespace tabs {
 class VerticalTabStripStateController;
@@ -102,6 +104,7 @@ class VerticalTabGroupHeaderView : public views::FlexLayoutView,
   // HoverCardAnchorTarget:
   bool NeedsToShowThumbnail() const override;
   bool IsValidHoverCardTarget() const override;
+  views::BubbleAnchor GetAnchor() override;
   views::BubbleBorder::Arrow GetAnchorPosition() const override;
 
   void OnDataChanged(

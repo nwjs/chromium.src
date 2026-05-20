@@ -16,6 +16,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "extensions/browser/permissions_manager.h"
 #include "extensions/buildflags/buildflags.h"
+#include "ui/gfx/vector_icon_types.h"
 
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
@@ -53,6 +54,9 @@ class ExtensionsToolbarViewModel
     // TODO(crbug.com/473701535): Determine whether this method belongs in the
     // delegate or the observer.
     virtual void ToggleExtensionsMenu() = 0;
+
+    // Triggers the manage extensions IPH.
+    virtual void ShowManageExtensionsIPH() {}
 
    protected:
     virtual ~Delegate() = default;
@@ -148,6 +152,18 @@ class ExtensionsToolbarViewModel
   // Returns whether the actions are initialized.
   bool AreActionsInitialized();
 
+  // Returns the icon for the toolbar button for the given state.
+  static const gfx::VectorIcon& GetToolbarButtonIcon(
+      ExtensionsToolbarButtonState state);
+
+  // Returns the accessible text for the toolbar button for the given state.
+  static std::u16string GetToolbarButtonAccessibleText(
+      ExtensionsToolbarButtonState state);
+
+  // Returns the tooltip text for the toolbar button for the given state.
+  static std::u16string GetToolbarButtonTooltipText(
+      ExtensionsToolbarButtonState state);
+
   // Returns the state of the extensions toolbar button based on 'web_contents'.
   ExtensionsToolbarButtonState GetButtonState(
       content::WebContents& web_contents) const;
@@ -156,6 +172,11 @@ class ExtensionsToolbarViewModel
   // be called as a result of a user action.
   void ExecuteUserAction(const ToolbarActionsModel::ActionId& action_id,
                          ToolbarActionViewModel::InvocationSource source);
+
+  // Grants site access to the given `extension_ids` for the `web_contents`.
+  void GrantSiteAccess(
+      content::WebContents* web_contents,
+      const std::vector<extensions::ExtensionId>& extension_ids);
 
   // Returns RequestAccessButtonParams which contain information to be used in
   // the button's tooltip.
@@ -169,6 +190,7 @@ class ExtensionsToolbarViewModel
   bool ShowToolbarActionPopupForAPICall(const std::string& action_id,
                                         ShowPopupCallback callback) override;
   void ToggleExtensionsMenu() override;
+  void ShowManageExtensionsIPH() override;
   bool HasAnyExtensions() const override;
 
   // ToolbarActionsModel::Observer:

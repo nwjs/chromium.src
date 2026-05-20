@@ -5,12 +5,16 @@
 #include "third_party/blink/renderer/platform/text/character.h"
 
 #include <ubidi_props.h>
+#include <unicode/uniset.h>
+#include <unicode/unistr.h>
 #include <unicode/uscript.h>
+#include <unicode/utfiterator.h>
 #include <unicode/utypes.h>
 
 #include <algorithm>
 
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/renderer/platform/text/character_property_data.h"
 #include "third_party/blink/renderer/platform/text/emoji_segmentation_category.h"
 #include "third_party/blink/renderer/platform/text/emoji_segmentation_category_inline_header.h"
 #include "third_party/blink/renderer/platform/text/justification_opportunity.h"
@@ -37,6 +41,24 @@ testing::AssertionResult IsCJKIdeographOrSymbolWithMessage(UChar32 codepoint) {
 // These functions may need to be adjusted if Unicode changes.
 TEST(CharacterTest, Derived) {
   StringBuilder builder;
+  // Extended_Pictographic codepoints in RGI emoji sequences must be
+  // IsCJKIdeographOrSymbol so that the word segmenter enters the emoji code
+  // path and keeps multi-codepoint sequences together.
+  UErrorCode error = U_ZERO_ERROR;
+  icu::UnicodeSet set(
+      icu::UnicodeString(
+          "[[:RGI_Emoji_ZWJ_Sequence:][:RGI_Emoji_Modifier_Sequence:]]"),
+      error);
+  ASSERT_EQ(error, U_ZERO_ERROR);
+  for (auto s : set.strings()) {
+    for (auto unit : icu::header::unsafeUTFStringCodePoints<UChar32>(s)) {
+      UChar32 cp = unit.codePoint();
+      if (Character::IsExtendedPictographic(cp)) {
+        EXPECT_TRUE(IsCJKIdeographOrSymbolWithMessage(cp));
+      }
+    }
+  }
+
   for (UChar32 ch = 0; ch < uchar::kMaxCodepoint; ++ch) {
     if (Character::IsEmojiEmojiDefault(ch)) {
       EXPECT_TRUE(IsCJKIdeographOrSymbolWithMessage(ch));
@@ -71,6 +93,64 @@ TEST(CharacterTest, Derived) {
       builder.Append(ch);
       const String utf16 = builder.ToString();
       DCHECK(Character::MaybeBidiRtl(utf16));
+    }
+  }
+}
+
+TEST(CharacterTest, CJKIdeographOrSymbolCollisions) {
+  icu::UnicodeSet emoji_set;
+  UErrorCode error = U_ZERO_ERROR;
+  emoji_set.addAll(
+      icu::UnicodeSet(icu::UnicodeString("[:Emoji_Presentation:]"), error));
+  ASSERT_EQ(error, U_ZERO_ERROR);
+
+  const char* const kRgiEmojiSequences =
+      "[[:RGI_Emoji_ZWJ_Sequence:][:RGI_Emoji_Modifier_Sequence:]]";
+  icu::UnicodeSet set(icu::UnicodeString(kRgiEmojiSequences), error);
+  ASSERT_EQ(error, U_ZERO_ERROR);
+  for (auto s : set.strings()) {
+    icu::UnicodeString us(s.data(), static_cast<int32_t>(s.length()));
+    for (auto cp : icu::header::unsafeUTFStringCodePoints<UChar32>(us)) {
+      if (Character::IsExtendedPictographic(cp.codePoint())) {
+        emoji_set.add(cp.codePoint());
+      }
+    }
+  }
+
+  for (UChar32 cp : kIsCJKIdeographOrSymbolArray) {
+    if (emoji_set.contains(cp)) {
+      ADD_FAILURE() << "Codepoint 0x" << std::hex << cp
+                    << " in kIsCJKIdeographOrSymbolArray is already covered by "
+                       "SetIsCJKIdeographOrSymbolForEmoji.";
+    }
+  }
+
+  for (size_t i = 0; i < kIsCJKIdeographOrSymbolRanges.size(); i += 2) {
+    UChar32 start = kIsCJKIdeographOrSymbolRanges[i];
+    UChar32 end = kIsCJKIdeographOrSymbolRanges[i + 1];
+    for (UChar32 cp = start; cp <= end; ++cp) {
+      if (emoji_set.contains(cp)) {
+        ADD_FAILURE()
+            << "Codepoint 0x" << std::hex << cp
+            << " in kIsCJKIdeographOrSymbolRanges (range 0x" << start << " - 0x"
+            << end
+            << ") is already covered by SetIsCJKIdeographOrSymbolForEmoji.";
+      }
+    }
+  }
+}
+
+TEST(CharacterTest, CJKIdeographOrSymbolArrayOrRangeCollisions) {
+  for (UChar32 cp : kIsCJKIdeographOrSymbolArray) {
+    for (size_t i = 0; i < kIsCJKIdeographOrSymbolRanges.size(); i += 2) {
+      UChar32 start = kIsCJKIdeographOrSymbolRanges[i];
+      UChar32 end = kIsCJKIdeographOrSymbolRanges[i + 1];
+      if (cp >= start && cp <= end) {
+        ADD_FAILURE() << "Codepoint 0x" << std::hex << cp
+                      << " in kIsCJKIdeographOrSymbolArray is already covered "
+                         "by kIsCJKIdeographOrSymbolRanges (range 0x"
+                      << start << " - 0x" << end << ").";
+      }
     }
   }
 }

@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser.omnibox.suggestions;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
-import static org.chromium.ui.base.KeyNavigationUtil.isTabNavigation;
 
 import android.content.Context;
 import android.content.res.Resources;
@@ -22,9 +21,11 @@ import android.widget.FrameLayout;
 
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.chromium.base.Callback;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.TimingMetric;
@@ -98,6 +99,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
         private boolean mCurrentGestureAffectedKeyboardState;
         private @Nullable Runnable mSuggestionDropdownScrollListener;
         private @Nullable Runnable mSuggestionDropdownOverscrolledToTopListener;
+        private @Nullable Callback<Integer> mScrollOffsetListener;
         private boolean mToolbarOnTop = true;
 
         public SuggestionLayoutScrollListener(Context context) {
@@ -109,6 +111,20 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
             mToolbarOnTop = isToolbarOnTop;
             setStackFromEnd(!isToolbarOnTop);
             setReverseLayout(!isToolbarOnTop);
+        }
+
+        @Override
+        public void onInitializeAccessibilityNodeInfoForItem(
+                RecyclerView.Recycler recycler,
+                RecyclerView.State state,
+                View host,
+                AccessibilityNodeInfoCompat info) {
+            super.onInitializeAccessibilityNodeInfoForItem(recycler, state, host, info);
+            // Suppress the default "X of Y" announcement for the entire list for TalkBack to
+            // avoid verbosity. Announcement of position within its group is already provided.
+            if (OmniboxFeatures.sOmniboxItemDecoration.isEnabled()) {
+                info.setCollectionItemInfo(null);
+            }
         }
 
         @Override
@@ -124,6 +140,9 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
         public int scrollVerticallyBy(
                 int requestedDeltaY, RecyclerView.Recycler recycler, RecyclerView.State state) {
             int resultingDeltaY = super.scrollVerticallyBy(requestedDeltaY, recycler, state);
+            if (mScrollOffsetListener != null) {
+                mScrollOffsetListener.onResult(computeVerticalScrollOffset(state));
+            }
             return updateKeyboardVisibilityAndScroll(resultingDeltaY, requestedDeltaY);
         }
 
@@ -181,7 +200,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
             // 2. the list is too short, and almost entirely fits on the screen, leaving at most
             //    just a few pixels of content hiding under the keyboard.
             // Note that the list may extend below the keyboard and still be non-scrollable:
-            // http://crbug/1479437
+            // http://crbug.com/40071508
 
             // Otherwise decide whether keyboard should be shown or not.
             // We want to call keyboard up only when we know we reached the top of the list.
@@ -257,6 +276,10 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
         public void setSuggestionDropdownOverscrolledToTopListener(Runnable listener) {
             mSuggestionDropdownOverscrolledToTopListener = listener;
         }
+
+        public void setScrollOffsetListener(Callback<Integer> listener) {
+            mScrollOffsetListener = listener;
+        }
     }
 
     /**
@@ -292,9 +315,13 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
 
         mLayoutScrollListener = suggestionLayoutScrollListener;
         setLayoutManager(mLayoutScrollListener);
-        mSelectionController =
-                new RecyclerViewSelectionController(
-                        mLayoutScrollListener, SelectionController.Mode.WRAPPING_WITH_SENTINEL);
+
+        @SelectionController.Mode
+        int mode =
+                OmniboxFeatures.hasDesktopExperience(context)
+                        ? SelectionController.Mode.WRAPPING
+                        : SelectionController.Mode.WRAPPING_WITH_SENTINEL;
+        mSelectionController = new RecyclerViewSelectionController(mLayoutScrollListener, mode);
         addOnChildAttachStateChangeListener(mSelectionController);
 
         final Resources resources = context.getResources();
@@ -426,11 +453,18 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
         if (!isShown()) return false;
 
         View selectedView = mSelectionController.getSelectedView();
-        if (selectedView != null && selectedView.onKeyDown(keyCode, event)) {
-            return true;
+        boolean hasAdditionalModifiers = event.isAltPressed() || event.isShiftPressed();
+        if (selectedView != null) {
+            boolean isModifiedEnter = KeyNavigationUtil.isEnter(event) && hasAdditionalModifiers;
+            if (isModifiedEnter) {
+                // Fall through for modified Enter keys so that AutocompleteCoordinator can handle
+                // them!
+            } else if (selectedView.onKeyDown(keyCode, event)) {
+                return true;
+            }
         }
 
-        if (isTabNavigation(event)) {
+        if (KeyNavigationUtil.isTabNavigation(event)) {
             boolean maybeProcessed = super.onKeyDown(keyCode, event);
             if (maybeProcessed) return true;
             if (event.isShiftPressed()) {
@@ -449,7 +483,9 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
             mSelectionController.selectPreviousItem();
             return true;
         } else if (KeyNavigationUtil.isEnter(event)) {
-            if (selectedView != null) return selectedView.performClick();
+            if (selectedView != null && !hasAdditionalModifiers) {
+                return selectedView.performClick();
+            }
         }
         return super.onKeyDown(keyCode, event);
     }
@@ -458,7 +494,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
     public boolean onGenericMotionEvent(MotionEvent event) {
         // For some reason, RecyclerView.onGenericMotionEvent() always returns false even after
         // handling events. Consume mouse/trackpad events to ensure clicks and scroll do not
-        // bleed through to sibling views that are obscured by the list.  crbug.com/968414
+        // bleed through to sibling views that are obscured by the list.  crbug.com/40629803
         int action = event.getActionMasked();
         boolean shouldConsumeGenericMotionEvent =
                 (MotionEventUtils.isPointerEvent(event)

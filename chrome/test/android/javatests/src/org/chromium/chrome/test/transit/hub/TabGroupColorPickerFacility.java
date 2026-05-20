@@ -14,8 +14,8 @@ import android.view.View;
 
 import org.chromium.base.test.transit.Facility;
 import org.chromium.base.test.transit.ViewElement;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeActivityTabModelBoundStation;
 import org.chromium.chrome.test.transit.page.CtaPageStation;
 import org.chromium.components.tab_groups.TabGroupColorId;
@@ -58,6 +58,7 @@ public class TabGroupColorPickerFacility<
     }
 
     /** Initializes and declares all the {@link ViewElement}s for the color chips in the palette. */
+    @SuppressWarnings("unchecked") // Generic array creation for parameterized ViewElement[].
     private void declareChipElements() {
         mChipElements = new ViewElement[TabGroupColorId.NUM_ENTRIES];
         for (int i = 0; i < TabGroupColorId.NUM_ENTRIES; i++) {

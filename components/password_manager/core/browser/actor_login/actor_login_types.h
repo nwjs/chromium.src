@@ -82,10 +82,15 @@ struct Credential {
   std::u16string username;
 
   // The original website or application for which this credential was saved in
-  // GPM. This filed may be presented to the user.
+  // GPM. This field may be presented to the user.
   // For federated credentials, this is the site of the identity provider
   // formatted for display.
   std::u16string source_site_or_app;
+
+  // The signon realm for which this credential was saved. This value is not
+  // formatted for display, and is only intended for internal use. Only relevant
+  // for password credentials.
+  std::string signon_realm;
 
   // The origin for which this credential was requested.
   url::Origin request_origin;
@@ -154,6 +159,8 @@ enum class LoginStatusResult {
   kErrorDeviceReauthRequired,
   // Returned if the device re-authentication fails.
   kErrorDeviceReauthFailed,
+  // Returned if the page navigated away while filling was pending.
+  kErrorPageChangedDuringFilling,
 
   // Attempt login statuses using federated credentials.
   //
@@ -233,6 +240,8 @@ enum class AttemptLoginOutcomeMqls {
   kFederatedFrameNotActive,
   kFederatedExpectedAccountNotPresent,
   kFederatedTimeout,
+  kFillingNotAllowed,
+  kFillingInterruptedByPageChange,
 };
 
 optimization_guide::proto::

@@ -92,11 +92,20 @@ class UserSecuritySignalsServiceTest : public testing::Test {
   }
 
   void CreateAndRunSignalsService(bool expect_reporting_enabled = true,
-                                  bool expect_using_cookie = false) {
+                                  bool expect_using_cookie = false,
+                                  bool expect_remove_observer = true) {
     // Creation of the service with the pref value already enabled will trigger
     // an upload.
     EXPECT_CALL(delegate_, OnReportEventTriggered(_))
         .Times(expect_reporting_enabled ? 1 : 0);
+
+    EXPECT_CALL(policy_service_, AddObserver)
+        .Times(expect_reporting_enabled ? 1 : 0);
+
+    if (expect_remove_observer) {
+      EXPECT_CALL(policy_service_, RemoveObserver)
+          .Times(expect_reporting_enabled ? 1 : 0);
+    }
 
     if (expect_using_cookie) {
       EXPECT_CALL(delegate_, GetCookieManager());
@@ -149,21 +158,16 @@ class UserSecuritySignalsServiceTest : public testing::Test {
           base::ToString(new_cadence.InHours()) + "h"}});
   }
 
-  void InitializePolicyUpdateReportTrigger(bool enabled) {
-    feature_list_.InitWithFeatureState(
-        enterprise_signals::features::kPolicyDataCollectionEnabled, enabled);
-  }
-
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
 
   TestingPrefServiceSimple testing_prefs_;
-  std::unique_ptr<UserSecuritySignalsService> service_ = nullptr;
   testing::StrictMock<MockUserSecuritySignalsServiceDelegate> delegate_;
   network::TestCookieManager test_cookie_manager_;
-  policy::MockPolicyService policy_service_;
+  testing::StrictMock<policy::MockPolicyService> policy_service_;
   base::HistogramTester histogram_tester_;
   base::test::ScopedFeatureList feature_list_;
+  std::unique_ptr<UserSecuritySignalsService> service_ = nullptr;
 };
 
 TEST_F(UserSecuritySignalsServiceTest, NotStarted) {
@@ -204,17 +208,14 @@ TEST_F(UserSecuritySignalsServiceTest, PolicyEnabledWithoutCookies) {
                                        SecurityReportTrigger::kTimer, 1);
 }
 
-TEST_F(UserSecuritySignalsServiceTest,
-       PolicyCollectionEnabled_PolicyChangeTriggersReport) {
+TEST_F(UserSecuritySignalsServiceTest, PolicyChangeTriggersReport) {
   SetEnabledPolicy(true);
-  InitializePolicyUpdateReportTrigger(true);
   policy::PolicyNamespace ns(policy::POLICY_DOMAIN_CHROME, std::string());
   policy::PolicyMap previous;
   policy::PolicyMap current;
   current.Set(kFakePolicyName, policy::POLICY_LEVEL_MANDATORY,
               policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_CLOUD,
               base::Value(true), nullptr);
-  EXPECT_CALL(policy_service_, AddObserver).Times(1);
 
   CreateAndRunSignalsService();
 
@@ -232,11 +233,9 @@ TEST_F(UserSecuritySignalsServiceTest,
                                       SecurityReportTrigger::kPolicyChange, 1);
 }
 
-TEST_F(
-    UserSecuritySignalsServiceTest,
-    PolicyCollectionEnabled_PolicyUpdateWithNoPolicyChange_DoesNotTriggersReport) {
+TEST_F(UserSecuritySignalsServiceTest,
+       PolicyUpdateWithNoPolicyChange_DoesNotTriggerReport) {
   SetEnabledPolicy(true);
-  InitializePolicyUpdateReportTrigger(true);
   policy::PolicyNamespace ns(policy::POLICY_DOMAIN_CHROME, std::string());
   policy::PolicyMap previous;
   previous.Set(kFakePolicyName, policy::POLICY_LEVEL_MANDATORY,
@@ -246,7 +245,6 @@ TEST_F(
   current.Set(kFakePolicyName, policy::POLICY_LEVEL_MANDATORY,
               policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_CLOUD,
               base::Value(true), nullptr);
-  EXPECT_CALL(policy_service_, AddObserver).Times(1);
 
   CreateAndRunSignalsService();
 
@@ -260,13 +258,10 @@ TEST_F(
                                       SecurityReportTrigger::kTimer, 1);
 }
 
-TEST_F(
-    UserSecuritySignalsServiceTest,
-    PolicyCollectionEnabled_TogglingSignalsCollectionPolicy_UpdatesPolicyObservation) {
+TEST_F(UserSecuritySignalsServiceTest,
+       TogglingSignalsCollectionPolicy_UpdatesPolicyObservation) {
   // Initial start with policy disabled.
   SetEnabledPolicy(false);
-  InitializePolicyUpdateReportTrigger(true);
-  EXPECT_CALL(policy_service_, AddObserver).Times(0);
 
   CreateAndRunSignalsService(/*expect_reporting_enabled=*/false,
                              /*expect_using_cookie=*/false);
@@ -280,63 +275,11 @@ TEST_F(
       .Times(1)
       .WillOnce(testing::InvokeWithoutArgs([&run_loop]() { run_loop.Quit(); }));
   EXPECT_CALL(policy_service_, AddObserver).Times(1);
+  EXPECT_CALL(policy_service_, RemoveObserver).Times(1);
   SetEnabledPolicy(true);
 
   service_->Start();
   run_loop.Run();
-}
-
-TEST_F(
-    UserSecuritySignalsServiceTest,
-    PolicyCollectionDisabled_TogglingSignalsCollectionPolicy_DoesNotUpdatePolicyObservation) {
-  // Initial start with policy disabled.
-  SetEnabledPolicy(false);
-  InitializePolicyUpdateReportTrigger(false);
-  EXPECT_CALL(policy_service_, AddObserver).Times(0);
-
-  CreateAndRunSignalsService(/*expect_reporting_enabled=*/false,
-                             /*expect_using_cookie=*/false);
-
-  testing::Mock::VerifyAndClearExpectations(&policy_service_);
-  testing::Mock::VerifyAndClearExpectations(&delegate_);
-
-  // Enabling the policy should not add an observer.
-  base::RunLoop run_loop;
-  EXPECT_CALL(delegate_, OnReportEventTriggered(_))
-      .Times(1)
-      .WillOnce(testing::InvokeWithoutArgs([&run_loop]() { run_loop.Quit(); }));
-  EXPECT_CALL(policy_service_, AddObserver).Times(0);
-  SetEnabledPolicy(true);
-
-  service_->Start();
-  run_loop.Run();
-
-  testing::Mock::VerifyAndClearExpectations(&policy_service_);
-  testing::Mock::VerifyAndClearExpectations(&delegate_);
-}
-
-TEST_F(UserSecuritySignalsServiceTest,
-       PolicyCollectionDisabled_PolicyUpdate_DoesNotTriggersReport) {
-  SetEnabledPolicy(true);
-  InitializePolicyUpdateReportTrigger(false);
-  policy::PolicyNamespace ns(policy::POLICY_DOMAIN_CHROME, std::string());
-  policy::PolicyMap previous;
-  policy::PolicyMap current;
-  current.Set(kFakePolicyName, policy::POLICY_LEVEL_MANDATORY,
-              policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_CLOUD,
-              base::Value(true), nullptr);
-  EXPECT_CALL(policy_service_, AddObserver).Times(0);
-
-  CreateAndRunSignalsService();
-
-  EXPECT_CALL(delegate_,
-              OnReportEventTriggered(SecurityReportTrigger::kPolicyChange))
-      .Times(0);
-
-  service_->OnPolicyUpdated(ns, previous, current);
-
-  histogram_tester_.ExpectBucketCount(kReportTriggerMetricName,
-                                      SecurityReportTrigger::kTimer, 1);
 }
 
 TEST_F(UserSecuritySignalsServiceTest, PolicyEnabledWithCookies_FastForwards) {
@@ -399,6 +342,8 @@ TEST_F(UserSecuritySignalsServiceTest, PolicyBecomesEnabledWithoutCookies) {
   // A report should be triggered when the policy becomes enabled.
   EXPECT_CALL(delegate_, OnReportEventTriggered(SecurityReportTrigger::kTimer))
       .Times(1);
+  EXPECT_CALL(policy_service_, AddObserver).Times(1);
+  EXPECT_CALL(policy_service_, RemoveObserver).Times(1);
   SetEnabledPolicy(true);
   task_environment_.RunUntilIdle();
 
@@ -410,6 +355,8 @@ TEST_F(UserSecuritySignalsServiceTest,
        PolicyEnabledWithCookies_NullCookieManager) {
   SetEnabledPolicy(true);
   SetUseAuthPolicy(true);
+  EXPECT_CALL(policy_service_, AddObserver).Times(1);
+  EXPECT_CALL(policy_service_, RemoveObserver).Times(1);
 
   // A upload should occur first on service creation.
   EXPECT_CALL(delegate_, OnReportEventTriggered(SecurityReportTrigger::kTimer))
@@ -632,6 +579,28 @@ TEST_F(UserSecuritySignalsServiceTest, FlagOverrideCadenceWhileRunning) {
 
   histogram_tester_.ExpectUniqueSample(kReportTriggerMetricName,
                                        SecurityReportTrigger::kTimer, 4);
+}
+
+TEST_F(UserSecuritySignalsServiceTest, ObserverSafety) {
+  SetEnabledPolicy(true);
+  CreateAndRunSignalsService(true, false, /*expect_remove_observer=*/false);
+  Mock::VerifyAndClearExpectations(&policy_service_);
+
+  EXPECT_CALL(policy_service_, AddObserver).Times(0);
+  service_->StartPolicyObservation();
+  service_->StartPolicyObservation();
+  Mock::VerifyAndClearExpectations(&policy_service_);
+
+  // The first call to StopPolicyObservation() should remove the observer.
+  EXPECT_CALL(policy_service_, RemoveObserver).Times(1);
+  service_->StopPolicyObservation();
+  Mock::VerifyAndClearExpectations(&policy_service_);
+
+  // More calls to StopPolicyObservation() should not remove the observer.
+  EXPECT_CALL(policy_service_, RemoveObserver).Times(0);
+  service_->StopPolicyObservation();
+  service_->StopPolicyObservation();
+  Mock::VerifyAndClearExpectations(&policy_service_);
 }
 
 }  // namespace enterprise_reporting

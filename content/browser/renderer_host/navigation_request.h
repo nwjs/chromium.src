@@ -22,6 +22,7 @@
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/memory/safe_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "base/numerics/clamped_math.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -60,6 +61,7 @@
 #include "content/public/browser/render_process_host_observer.h"
 #include "content/public/browser/weak_document_ptr.h"
 #include "content/public/browser/web_ui_controller.h"
+#include "content/public/common/child_process_id.h"
 #include "content/public/common/content_constants.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
@@ -125,6 +127,7 @@ class CONTENT_EXPORT NavigationRequest
       public CommitDeferringConditionRunner::Delegate,
       public FencedFrameURLMapping::MappingResultObserver,
       public mojom::NavigationRendererCancellationListener,
+      public mojom::NavigationRendererIgnoreDuplicateNavigationListener,
       private RenderProcessHostObserver,
       private network::mojom::TrustTokenAccessObserver,
       private network::mojom::SharedDictionaryAccessObserver,
@@ -263,10 +266,8 @@ class CONTENT_EXPORT NavigationRequest
           std::nullopt);
 
   // Creates a request for either a browser-initiated navigation or a
-  // renderer-initiated navigation. Returns nullptr if the navigation could not
-  // be started, such as when network access has been revoked (see
-  // RenderFrameHost::IsUntrustedNetworkDisabled()).  Normally,
-  // renderer-initiated navigations use CreateRendererInitiated(), but some
+  // renderer-initiated navigation. Normally, renderer-initiated navigations
+  // use CreateRendererInitiated(), but some
   // legacy renderer-initiated navigation paths, such as OpenURL, are stuck
   // using this path instead; these cases specify `browser_initiated` as false.
   //
@@ -297,8 +298,6 @@ class CONTENT_EXPORT NavigationRequest
       bool is_embedder_initiated_fenced_frame_navigation = false,
       bool is_container_initiated = false,
       bool has_rel_opener = false,
-      net::StorageAccessApiStatus storage_access_api_status =
-          net::StorageAccessApiStatus::kNone,
       std::optional<std::u16string> embedder_shared_storage_context =
           std::nullopt);
 
@@ -317,6 +316,9 @@ class CONTENT_EXPORT NavigationRequest
           prefetched_signed_exchange_cache,
       mojo::PendingReceiver<mojom::NavigationRendererCancellationListener>
           renderer_cancellation_listener,
+      mojo::PendingReceiver<
+          mojom::NavigationRendererIgnoreDuplicateNavigationListener>
+          renderer_ignore_duplicate_navigation_listener,
       mojo::PendingReceiver<
           blink::mojom::NavigationResumeDeferredCommitListener>
           deferred_commit_resume_listener);
@@ -378,8 +380,11 @@ class CONTENT_EXPORT NavigationRequest
   const GURL& GetURL() override;
   SiteInstanceImpl* GetStartingSiteInstance() override;
   SiteInstanceImpl* GetSourceSiteInstance() override;
+  size_t GetIgnoredDuplicateNavigationCount() const override;
   bool IsInMainFrame() const override;
   bool IsInPrimaryMainFrame() const override;
+  const std::optional<base::UnguessableToken>& GetScriptToolInvocationId()
+      const override;
   bool IsInOutermostMainFrame() const override;
   bool IsInPrerenderedMainFrame() const override;
   bool IsPrerenderedPageActivation() const override;
@@ -488,7 +493,7 @@ class CONTENT_EXPORT NavigationRequest
   void SetAllowCookiesFromBrowser(bool allow_cookies_from_browser) override;
   void GetResponseBody(ResponseBodyCallback callback) override;
   PreloadingTriggerType GetPrerenderTriggerType() override;
-  std::string GetPrerenderEmbedderHistogramSuffix() override;
+  std::string GetPrerenderHistogramSuffix() override;
   bool IsPrerenderHostReused() override;
 #if BUILDFLAG(IS_ANDROID)
   const base::android::JavaRef<jobject>& GetJavaNavigationHandle() override;
@@ -511,9 +516,21 @@ class CONTENT_EXPORT NavigationRequest
   bool IsInitialWebUINavigation() override;
   // End of NavigationHandle implementation.
 
+  // Returns a perfetto Track that represents this navigation, nested under the
+  // frame track.
+  perfetto::NamedTrack GetNavigationTracingTrack() const;
+
   // mojom::NavigationRendererCancellationListener implementation:
   void RendererCancellationWindowEnded() override;
   // End of mojom::NavigationRendererCancellationListener implementation.
+
+  // mojom::NavigationRendererIgnoreDuplicateNavigationListener implementation:
+  // Notifies this NavigationRequest that a subsequent duplicate navigation was
+  // ignored in favor of this one. This can be called either via Mojo from the
+  // renderer or directly by the browser's navigation.
+  void DidIgnoreDuplicateNavigation() override;
+  // End of mojom::NavigationRendererIgnoreDuplicateNavigationListener
+  // implementation.
 
   void RegisterCommitDeferringConditionForTesting(
       std::unique_ptr<CommitDeferringCondition> condition);
@@ -1479,7 +1496,17 @@ class CONTENT_EXPORT NavigationRequest
   // redirect or results in an origin change, in which case the
   // NavigationRequest is no longer tied to the original entry.
   int64_t frame_entry_document_sequence_number() const {
-    return frame_entry_document_sequence_number_;
+    return origin_related_state_
+               ? origin_related_state_->document_sequence_number
+               : -1;
+  }
+
+  // Returns the item sequence number from the cached OriginRelatedState, or -1
+  // if the navigation performs a redirect or results in an origin change, in
+  // which case the NavigationRequest is no longer tied to the original entry.
+  int64_t frame_entry_item_sequence_number() const {
+    return origin_related_state_ ? origin_related_state_->item_sequence_number
+                                 : -1;
   }
 
   bool is_ad_tagged() const { return is_ad_tagged_; }
@@ -1830,6 +1857,9 @@ class CONTENT_EXPORT NavigationRequest
       bool is_embedder_initiated_fenced_frame_navigation = false,
       mojo::PendingReceiver<mojom::NavigationRendererCancellationListener>
           renderer_cancellation_listener = mojo::NullReceiver(),
+      mojo::PendingReceiver<
+          mojom::NavigationRendererIgnoreDuplicateNavigationListener>
+          renderer_ignore_duplicate_navigation_listener = mojo::NullReceiver(),
       mojo::PendingReceiver<
           blink::mojom::NavigationResumeDeferredCommitListener>
           deferred_commit_resume_listener = mojo::NullReceiver(),
@@ -2534,15 +2564,6 @@ class CONTENT_EXPORT NavigationRequest
 
   void ResetViewTransitionState();
 
-  // This check is to prevent a race condition where a parent fenced frame
-  // initiates a nested fenced frame navigation right before the entire frame
-  // tree has network access disabled. If such navigation is allowed to commit,
-  // the navigated fenced frame will have network access. This allows parent
-  // fenced frame to communicate cross-site data into child fenced frame, which
-  // is bad. So we need to disable navigations when both the embedder and nested
-  // frames have already disabled network.
-  bool IsDisabledEmbedderInitiatedFencedFrameNavigation();
-
   // Sets the expected process to the process of the current associated RFH.
   void SetExpectedProcessIfAssociated();
 
@@ -2947,6 +2968,20 @@ class CONTENT_EXPORT NavigationRequest
   // Unique id that identifies the navigation for which this NavigationRequest
   // is created.
   const int64_t navigation_id_ = ++unique_id_counter_;
+
+  // The tracing track for this navigation, parented to the frame track.
+  // Stored to ensure all events for this navigation use the same track ID.
+  perfetto::NamedTrack navigation_trace_track_;
+
+  // The track used for breakdown events of this navigation.
+  perfetto::NamedTrack breakdown_trace_track_;
+
+  // The track used for AsyncBeforeUnload events of this navigation.
+  perfetto::NamedTrack async_before_unload_trace_track_;
+
+  // True if "Navigation StartToCommit" trace event has been ended.
+  bool navigation_start_to_commit_ended_ = false;
+
   // static member for generating the unique id above.
   static int64_t unique_id_counter_;
 
@@ -2980,10 +3015,24 @@ class CONTENT_EXPORT NavigationRequest
   // or not.
   const bool is_back_forward_cache_restore_;
 
-  // These are set to the values from the FrameNavigationEntry this
-  // NavigationRequest is associated with (if any).
-  int64_t frame_entry_item_sequence_number_ = -1;
-  int64_t frame_entry_document_sequence_number_ = -1;
+  // Origin-related state that is specific to the origin when the navigation
+  // began. This can be cleared if the origin of the navigation changes (e.g.,
+  // due to redirects or CSP). Stored as std::optional so that it is nullopt
+  // when there is no associated FrameNavigationEntry or when the origin of the
+  // navigation changes.
+  //
+  // A subset of this state is cached from the FrameNavigationEntry this
+  // NavigationRequest is associated with (if any), so that the
+  // NavigationRequest can clear or modify it without modifying the
+  // FrameNavigationEntry itself (e.g., in case the navigation is canceled and
+  // attempted again later, perhaps without a redirect).
+  // TODO(crbug.com/421948889): Add expected_commit_origin field, along with
+  // clearing logic for when the origin changes during navigation.
+  struct OriginRelatedState {
+    int64_t item_sequence_number;
+    int64_t document_sequence_number;
+  };
+  std::optional<OriginRelatedState> origin_related_state_;
 
   // If non-empty, it represents the IsolationInfo explicitly asked to be used
   // for this NavigationRequest.
@@ -3342,6 +3391,11 @@ class CONTENT_EXPORT NavigationRequest
   bool renderer_cancellation_window_ended_ = false;
   base::OnceClosure renderer_cancellation_window_ended_callback_;
 
+  // Mojo receiver to receive notifications from the renderer when a subsequent
+  // duplicate navigation is ignored in favor of this navigation.
+  mojo::Receiver<mojom::NavigationRendererIgnoreDuplicateNavigationListener>
+      renderer_ignore_duplicate_navigation_listener_{this};
+
   // Whether a Cookie header added to this request should not be overwritten by
   // the network service.
   bool allow_cookies_from_browser_ = false;
@@ -3536,6 +3590,10 @@ class CONTENT_EXPORT NavigationRequest
   // For NavigationRequests not in a prerendered page, the value will be the
   // default-constructed null value.
   const PrerenderHostId prerender_host_id_;
+
+  // The number of subsequent duplicate navigations that were ignored in favor
+  // of this navigation. This will be used for metrics.
+  base::ClampedNumeric<size_t> ignored_duplicate_navigation_count_ = 0;
 
   // This field is only populated between DidCommit and the deletion of the
   // NavigationRequest, with a token that's generated in the renderer at commit

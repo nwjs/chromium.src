@@ -19,7 +19,6 @@
 #include "components/feed/core/v2/public/feed_service.h"
 #include "components/feed/core/v2/public/stream_type.h"
 #include "components/feed/core/v2/public/types.h"
-#include "components/feed/core/v2/public/web_feed_subscriptions.h"
 #include "components/feed/feed_feature_list.h"
 #include "components/prefs/pref_service.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -109,7 +108,8 @@ void FeedV2InternalsPageHandler::RefreshFollowingFeed() {
 }
 
 void FeedV2InternalsPageHandler::RefreshWebFeedSuggestions() {
-  feed_stream_->subscriptions().RefreshRecommendedFeeds(base::DoNothing());
+  // TODO(crbug.com/407797637): Remove this function and the related button in
+  // chrome://snippets-internals.
 }
 
 void FeedV2InternalsPageHandler::GetFeedProcessScopeDump(
@@ -170,32 +170,13 @@ void FeedV2InternalsPageHandler::SetUseFeedQueryRequests(
 
 feed_internals::mojom::FeedOrder
 FeedV2InternalsPageHandler::GetFollowingFeedOrder() {
-  feed::ContentOrder order = feed_stream_->GetContentOrderFromPrefs(
-      feed::StreamType(feed::StreamKind::kFollowing));
-  switch (order) {
-    case feed::ContentOrder::kUnspecified:
-      return feed_internals::mojom::FeedOrder::kUnspecified;
-    case feed::ContentOrder::kGrouped:
-      return feed_internals::mojom::FeedOrder::kGrouped;
-    case feed::ContentOrder::kReverseChron:
-      return feed_internals::mojom::FeedOrder::kReverseChron;
-  }
+  // TODO(crbug.com/407797637): remove this function along with its UI as the
+  // part of web feed deprecation.
+  return feed_internals::mojom::FeedOrder::kUnspecified;
 }
 
 void FeedV2InternalsPageHandler::SetFollowingFeedOrder(
     const feed_internals::mojom::FeedOrder new_order) {
-  feed::ContentOrder order_to_set;
-  switch (new_order) {
-    case feed_internals::mojom::FeedOrder::kUnspecified:
-      order_to_set = feed::ContentOrder::kUnspecified;
-      break;
-    case feed_internals::mojom::FeedOrder::kGrouped:
-      order_to_set = feed::ContentOrder::kGrouped;
-      break;
-    case feed_internals::mojom::FeedOrder::kReverseChron:
-      order_to_set = feed::ContentOrder::kReverseChron;
-      break;
-  }
-  feed_stream_->SetContentOrder(feed::StreamType(feed::StreamKind::kFollowing),
-                                order_to_set);
+  // TODO(crbug.com/407797637): remove this function along with its UI as the
+  // part of web feed deprecation.
 }

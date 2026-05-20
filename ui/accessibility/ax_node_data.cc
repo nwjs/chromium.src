@@ -46,31 +46,31 @@ uint64_t ModifyFlag(uint64_t bitfield, uint32_t flag, bool set) {
 }
 
 std::string ActionsBitfieldToString(uint64_t actions) {
-  std::string str;
+  std::vector<std::string> action_strs;
+  action_strs.reserve(static_cast<size_t>(ax::mojom::Action::kMaxValue) + 1);
   for (uint32_t i = static_cast<uint32_t>(ax::mojom::Action::kNone) + 1;
        i <= static_cast<uint32_t>(ax::mojom::Action::kMaxValue); ++i) {
     if (IsFlagSet(actions, i)) {
-      str += ui::ToString(static_cast<ax::mojom::Action>(i));
+      action_strs.push_back(ui::ToString(static_cast<ax::mojom::Action>(i)));
       actions = ModifyFlag(actions, i, false);
-      str += actions ? "," : "";
     }
   }
-  return str;
+  return base::JoinString(action_strs, ",");
 }
 
 template <typename ItemType, typename ItemToStringFunction>
 std::string VectorToString(const std::vector<ItemType>& items,
                            ItemToStringFunction itemToStringFunction) {
-  std::string str;
-  for (size_t i = 0; i < items.size(); ++i) {
-    std::string item_str = itemToStringFunction(items[i]);
-    if (item_str.empty())
+  std::vector<std::string> item_strs;
+  item_strs.reserve(items.size());
+  for (const auto& item : items) {
+    std::string item_str = itemToStringFunction(item);
+    if (item_str.empty()) {
       continue;
-    if (i > 0)
-      str += ",";
-    str += itemToStringFunction(items[i]);
+    }
+    item_strs.push_back(std::move(item_str));
   }
-  return str;
+  return base::JoinString(item_strs, ",");
 }
 
 std::string IntVectorToString(const std::vector<int32_t>& items) {
@@ -467,6 +467,7 @@ void AXNodeData::AddAction(ax::mojom::Action action_enum) {
     case ax::mojom::Action::kIncrement:
     case ax::mojom::Action::kInternalInvalidateTree:
     case ax::mojom::Action::kLoadInlineTextBoxes:
+    case ax::mojom::Action::kReplaceRanges:
     case ax::mojom::Action::kReplaceSelectedText:
     case ax::mojom::Action::kScrollToMakeVisible:
     case ax::mojom::Action::kScrollToPoint:
@@ -1218,18 +1219,18 @@ std::string AXNodeData::ToString(bool verbose) const {
         }
         break;
       case ax::mojom::IntAttribute::kTextStyle: {
-        std::string text_style_value;
+        std::vector<std::string_view> text_styles;
         if (HasTextStyle(ax::mojom::TextStyle::kBold))
-          text_style_value += "bold,";
+          text_styles.push_back("bold");
         if (HasTextStyle(ax::mojom::TextStyle::kItalic))
-          text_style_value += "italic,";
+          text_styles.push_back("italic");
         if (HasTextStyle(ax::mojom::TextStyle::kUnderline))
-          text_style_value += "underline,";
+          text_styles.push_back("underline");
         if (HasTextStyle(ax::mojom::TextStyle::kLineThrough))
-          text_style_value += "line-through,";
+          text_styles.push_back("line-through,");
         if (HasTextStyle(ax::mojom::TextStyle::kOverline))
-          text_style_value += "overline,";
-        result += text_style_value.substr(0, text_style_value.size() - 1);
+          text_styles.push_back("overline");
+        result += base::JoinString(text_styles, ",");
         break;
       }
       case ax::mojom::IntAttribute::kTextOverlineStyle:
@@ -1393,7 +1394,8 @@ std::string AXNodeData::ToString(bool verbose) const {
         base::StrAppend(&result, {" access_key=", value});
         break;
       case ax::mojom::StringAttribute::kAppId:
-        base::StrAppend(&result, {" app_id=", value.substr(0, 8)});
+        base::StrAppend(&result,
+                        {" app_id=", std::string_view(value).substr(0, 8)});
         break;
       case ax::mojom::StringAttribute::kAriaCellColumnIndexText:
         base::StrAppend(&result, {" aria_cell_column_index_text=", value});
@@ -1425,11 +1427,11 @@ std::string AXNodeData::ToString(bool verbose) const {
       case ax::mojom::StringAttribute::kChildTreeId:
         // This is covered by has_child_tree above. The exact value of the
         // child tree is not added to the string as it varies, and adding it
-        // would cause tesrt failures.
+        // would cause test failures.
         break;
       case ax::mojom::StringAttribute::kChildTreeNodeAppId:
-        base::StrAppend(&result,
-                        {" child_tree_node_app_id=", value.substr(0, 8)});
+        base::StrAppend(&result, {" child_tree_node_app_id=",
+                                  std::string_view(value).substr(0, 8)});
         break;
       case ax::mojom::StringAttribute::kDateTime:
         base::StrAppend(&result, {" datetime=", value});
@@ -1628,10 +1630,8 @@ std::string AXNodeData::ToString(bool verbose) const {
 
   bool_attributes.ForEach(process_bool_attribute);
 
-  for (const std::pair<ax::mojom::IntListAttribute, std::vector<int32_t>>&
-           intlist_attribute : intlist_attributes) {
-    const std::vector<int32_t>& values = intlist_attribute.second;
-    switch (intlist_attribute.first) {
+  for (const auto& [attribute, values] : intlist_attributes) {
+    switch (attribute) {
       case ax::mojom::IntListAttribute::kNone:
         break;
       case ax::mojom::IntListAttribute::kIndirectChildIds:
@@ -1668,36 +1668,35 @@ std::string AXNodeData::ToString(bool verbose) const {
         break;
       case ax::mojom::IntListAttribute::kMarkerTypes: {
         std::string types_str = VectorToString(values, [](const int32_t type) {
-          std::string type_str;
           if (type == static_cast<int32_t>(ax::mojom::MarkerType::kNone)) {
-            return type_str;
+            return std::string();
           }
 
+          std::vector<std::string_view> type_strs;
           if (type & static_cast<int32_t>(ax::mojom::MarkerType::kSpelling)) {
-            type_str += "spelling&";
+            type_strs.push_back("spelling");
           }
           if (type & static_cast<int32_t>(ax::mojom::MarkerType::kGrammar)) {
-            type_str += "grammar&";
+            type_strs.push_back("grammar");
           }
           if (type & static_cast<int32_t>(ax::mojom::MarkerType::kHighlight)) {
-            type_str += "highlight&";
+            type_strs.push_back("highlight");
           }
           if (type & static_cast<int32_t>(ax::mojom::MarkerType::kTextMatch)) {
-            type_str += "text_match&";
+            type_strs.push_back("text_match");
           }
           if (type &
               static_cast<int32_t>(ax::mojom::MarkerType::kActiveSuggestion)) {
-            type_str += "active_suggestion&";
+            type_strs.push_back("active_suggestion");
           }
           if (type & static_cast<int32_t>(ax::mojom::MarkerType::kSuggestion)) {
-            type_str += "suggestion&";
+            type_strs.push_back("suggestion");
           }
 
-          return type_str;
+          return base::JoinString(type_strs, "&");
         });
 
         if (!types_str.empty()) {
-          types_str = types_str.substr(0, types_str.size() - 1);
           base::StrAppend(&result, {" marker_types=", types_str});
         }
 
@@ -1800,11 +1799,8 @@ std::string AXNodeData::ToString(bool verbose) const {
     }
   }
 
-  for (const std::pair<ax::mojom::StringListAttribute,
-                       std::vector<std::string>>& stringlist_attribute :
-       stringlist_attributes) {
-    const std::vector<std::string>& values = stringlist_attribute.second;
-    switch (stringlist_attribute.first) {
+  for (const auto& [attribute, values] : stringlist_attributes) {
+    switch (attribute) {
       case ax::mojom::StringListAttribute::kAriaNotificationAnnouncements:
         base::StrAppend(&result, {" aria_notification_announcements=",
                                   base::JoinString(values, ",")});
@@ -1817,14 +1813,17 @@ std::string AXNodeData::ToString(bool verbose) const {
         base::StrAppend(&result, {" custom_action_descriptions=",
                                   base::JoinString(values, ",")});
         break;
+      case ax::mojom::StringListAttribute::kTextOperationReplacementStrings:
+        base::StrAppend(&result, {" text_operation_replacement_strings=",
+                                  base::JoinString(values, ",")});
+        break;
       case ax::mojom::StringListAttribute::kNone:
         break;
     }
   }
 
-  for (const std::pair<std::string, std::string>& string_pair :
-       html_attributes) {
-    base::StrAppend(&result, {" ", string_pair.first, "=", string_pair.second});
+  for (const auto& [name, value] : html_attributes) {
+    base::StrAppend(&result, {" ", name, "=", value});
   }
 
   if (actions) {
@@ -1856,28 +1855,27 @@ void AXNodeData::AccumulateSize(
   node_data_size.bool_attribute_size += sizeof(bool_attributes);
   node_data_size.child_ids_size = child_ids.size() * sizeof(int32_t);
 
-  for (const auto& pair : string_attributes) {
+  for (const auto& [_, str] : string_attributes) {
     node_data_size.string_attribute_size +=
-        sizeof(ax::mojom::StringAttribute) + pair.second.size() * sizeof(char);
+        sizeof(ax::mojom::StringAttribute) + str.size() * sizeof(char);
   }
 
-  for (const auto& pair : intlist_attributes) {
+  for (const auto& [_, values] : intlist_attributes) {
     node_data_size.int_list_attribhute_size +=
-        sizeof(ax::mojom::IntListAttribute) +
-        pair.second.size() * sizeof(int32_t);
+        sizeof(ax::mojom::IntListAttribute) + values.size() * sizeof(int32_t);
   }
 
-  for (const auto& pair : stringlist_attributes) {
+  for (const auto& [_, values] : stringlist_attributes) {
     node_data_size.string_list_attribute_size +=
         sizeof(ax::mojom::StringListAttribute);
-    for (const auto& value : pair.second) {
+    for (const auto& value : values) {
       node_data_size.string_list_attribute_size += value.size() * sizeof(char);
     }
   }
 
-  for (const auto& pair : html_attributes) {
+  for (const auto& [name, value] : html_attributes) {
     node_data_size.html_attribute_size +=
-        pair.first.size() * sizeof(char) + pair.second.size() * sizeof(char);
+        name.size() * sizeof(char) + value.size() * sizeof(char);
   }
 }
 

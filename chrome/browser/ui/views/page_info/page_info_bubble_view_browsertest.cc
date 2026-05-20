@@ -227,6 +227,13 @@ class SecurityStyleTestObserver : public content::WebContentsObserver {
 // PageInfoBubbleViewBrowserTestCookiesSubpage.
 class PageInfoBubbleViewBrowserTest : public InProcessBrowserTest {
  public:
+  PageInfoBubbleViewBrowserTest() {
+    feature_list_.InitWithFeatures(
+        {/*enabled_features=*/features::kFileSystemAccessPersistentPermissions},
+        {/*disabled_features=*/privacy_sandbox::
+             kPrivacySandboxAdPrivacyUxDeprecation});
+  }
+
   void SetUp() override {
     ASSERT_TRUE(embedded_test_server()->Start());
     InProcessBrowserTest::SetUp();
@@ -238,6 +245,11 @@ class PageInfoBubbleViewBrowserTest : public InProcessBrowserTest {
             ->SetTestingFactoryAndUse(
                 browser()->profile(),
                 base::BindRepeating(&BuildMockTrustSafetySentimentService)));
+  }
+
+  void TearDownOnMainThread() override {
+    mock_sentiment_service_ = nullptr;
+    InProcessBrowserTest::TearDownOnMainThread();
   }
 
   content::WebContents* web_contents() {
@@ -341,14 +353,12 @@ class PageInfoBubbleViewBrowserTest : public InProcessBrowserTest {
     EXPECT_CALL(*mock_sentiment_service_, PageInfoClosed);
   }
 
-  raw_ptr<MockTrustSafetySentimentService, DanglingUntriaged>
-      mock_sentiment_service_;
+  raw_ptr<MockTrustSafetySentimentService> mock_sentiment_service_;
 
  private:
   std::vector<PageInfoViewFactory::PageInfoViewID> expected_identifiers_;
 
-  base::test::ScopedFeatureList feature_list_{
-      features::kFileSystemAccessPersistentPermissions};
+  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest, ShowBubble) {
@@ -839,7 +849,7 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest, BlockedAndInvalidCert) {
 }
 
 // Ensure a page that has an EV certificate *and* is blocked by Safe Browsing
-// shows the correct PageInfo UI. Regression test for crbug.com/1014240.
+// shows the correct PageInfo UI. Regression test for crbug.com/40653067.
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest, MalwareAndEvCert) {
   net::EmbeddedTestServer https_server(net::EmbeddedTestServer::TYPE_HTTPS);
   https_server.AddDefaultHandlers(
@@ -1459,8 +1469,12 @@ class PageInfoBubbleViewBrowserTestCookiesSubpage
         PrivacySandboxServiceFactory::GetInstance()->SetTestingFactoryAndUse(
             browser()->profile(),
             base::BindRepeating(&BuildMockPrivacySandboxService)));
-    prefs_ = browser()->profile()->GetPrefs();
     PageInfoBubbleViewBrowserTest::SetUpOnMainThread();
+  }
+
+  void TearDownOnMainThread() override {
+    mock_privacy_sandbox_service_ = nullptr;
+    PageInfoBubbleViewBrowserTest::TearDownOnMainThread();
   }
 
   MockPrivacySandboxService* mock_service() {
@@ -1472,16 +1486,19 @@ class PageInfoBubbleViewBrowserTestCookiesSubpage
   }
 
   void SetCookieControlsMode(content_settings::CookieControlsMode mode) {
-    prefs_->SetInteger(prefs::kCookieControlsMode, static_cast<int>(mode));
+    browser()->profile()->GetPrefs()->SetInteger(prefs::kCookieControlsMode,
+                                                 static_cast<int>(mode));
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
   void EnableCookieSync() {
-    prefs_->SetBoolean(chromeos::prefs::kFloatingSsoEnabled, true);
+    browser()->profile()->GetPrefs()->SetBoolean(
+        chromeos::prefs::kFloatingSsoEnabled, true);
   }
 
   void SetBlockedDomainsForCookieSync(base::ListValue domains) {
-    prefs_->SetList(::prefs::kFloatingSsoDomainBlocklist, std::move(domains));
+    browser()->profile()->GetPrefs()->SetList(
+        ::prefs::kFloatingSsoDomainBlocklist, std::move(domains));
   }
 #endif
 
@@ -1515,7 +1532,8 @@ class PageInfoBubbleViewBrowserTestCookiesSubpage
 
     // The preference should only be recorded when blocking 3P cookies.
     const bool block_third_party =
-        prefs_->GetInteger(prefs::kCookieControlsMode) ==
+        browser()->profile()->GetPrefs()->GetInteger(
+            prefs::kCookieControlsMode) ==
             static_cast<int>(
                 content_settings::CookieControlsMode::kBlockThirdParty) ||
         browser()->profile()->IsIncognitoProfile();
@@ -1526,9 +1544,7 @@ class PageInfoBubbleViewBrowserTestCookiesSubpage
 
  private:
   base::test::ScopedFeatureList feature_list_;
-  raw_ptr<PrefService, DanglingUntriaged> prefs_;
-  raw_ptr<MockPrivacySandboxService, DanglingUntriaged>
-      mock_privacy_sandbox_service_;
+  raw_ptr<MockPrivacySandboxService> mock_privacy_sandbox_service_;
 };
 
 // Checks if there is correct number of buttons in cookies subpage when rws are

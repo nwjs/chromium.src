@@ -18,6 +18,8 @@
 #include "chrome/browser/browsing_topics/browsing_topics_service_factory.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "chrome/browser/contextual_cueing/contextual_cueing_service_factory.h"
+#include "chrome/browser/contextual_cueing/contextual_cueing_web_contents_observer.h"
 #include "chrome/browser/enterprise/data_protection/data_protection_navigation_controller.h"
 #include "chrome/browser/enterprise/reporting/saas_usage/saas_usage_navigation_observer.h"
 #include "chrome/browser/glic/host/context/glic_page_features_manager.h"
@@ -52,6 +54,9 @@
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
+#include "chrome/browser/ui/page_actions/action_ids.h"
+#include "chrome/browser/ui/page_actions/page_action_controller.h"
+#include "chrome/browser/ui/page_actions/page_action_properties_provider.h"
 #include "chrome/browser/ui/performance_controls/memory_saver_chip_controller.h"
 #include "chrome/browser/ui/performance_controls/memory_saver_chip_tab_helper.h"
 #include "chrome/browser/ui/performance_controls/tab_resource_usage_tab_helper.h"
@@ -84,9 +89,6 @@
 #include "chrome/browser/ui/views/js_optimization/js_optimizations_page_action_controller.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_page_action_controller.h"
 #include "chrome/browser/ui/views/location_bar/lens_overlay_homework_page_action_controller.h"
-#include "chrome/browser/ui/views/page_action/action_ids.h"
-#include "chrome/browser/ui/views/page_action/page_action_controller.h"
-#include "chrome/browser/ui/views/page_action/page_action_properties_provider.h"
 #include "chrome/browser/ui/views/passwords/manage_passwords_page_action_controller.h"
 #include "chrome/browser/ui/views/side_panel/customize_chrome/side_panel_controller_views.h"
 #include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.h"
@@ -104,7 +106,7 @@
 #include "chrome/browser/record_replay/chrome_record_replay_client.h"
 #include "chrome/browser/ui/views/location_bar/record_replay_page_action_controller.h"
 #include "chrome/browser/wallet/chrome_walletable_pass_client.h"
-#include "chrome/common/record_replay/record_replay_features.h"
+#include "components/record_replay/core/common/record_replay_features.h"
 #endif
 #include "chrome/browser/glic/browser_ui/glic_tab_indicator_helper.h"
 #include "chrome/browser/glic/glic_selection_observer.h"
@@ -368,8 +370,7 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
                 tab, &tab);
       }
     }
-    if (glic::GlicEnabling::IsMultiInstanceEnabled() &&
-        glic::GlicKeyedService::Get(profile)) {
+    if (glic::GlicKeyedService::Get(profile)) {
       glic_side_panel_coordinator_ =
           GetUserDataFactory()
               .CreateInstance<glic::GlicSidePanelCoordinatorImpl>(
@@ -500,10 +501,19 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
         std::make_unique<QwacWebContentsObserver>(tab);
   }
 
+  if (auto* contextual_cueing_service =
+          contextual_cueing::ContextualCueingServiceFactory::GetForProfile(
+              profile)) {
+    contextual_cueing_web_contents_observer_ = std::make_unique<
+        contextual_cueing::ContextualCueingWebContentsObserver>(
+        tab.GetContents(), contextual_cueing_service);
+  }
+
   if (base::FeatureList::IsEnabled(
           security_interstitials::features::kHttpsFirstDialogUi)) {
     ask_before_http_dialog_controller_ =
-        std::make_unique<AskBeforeHttpDialogController>(&tab);
+        GetUserDataFactory().CreateInstance<AskBeforeHttpDialogController>(
+            tab, &tab);
   }
 
   bookmarkbar_preload_pipeline_manager_ =
@@ -612,6 +622,8 @@ void TabFeatures::WillDiscardContents(tabs::TabInterface* tab,
   // scoped.
   side_panel_registry_->Deregister(
       SidePanelEntry::Key(SidePanelEntry::Id::kAboutThisSite));
+  side_panel_registry_->Deregister(
+      SidePanelEntry::Key(SidePanelEntry::Id::kMerchantTrust));
 
   if (web_app::AreWebAppsEnabled(
           tab->GetBrowserWindowInterface()->GetProfile())) {

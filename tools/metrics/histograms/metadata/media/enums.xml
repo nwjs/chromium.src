@@ -271,15 +271,6 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="On stack + On page + Propagated"/>
 </enum>
 
-<enum name="AVDAFrameInformation">
-  <int value="0" label="Non Overlay Insecure"/>
-  <int value="1" label="Non Overlay L3"/>
-  <int value="2" label="Overlay L3"/>
-  <int value="3" label="Overlay L1"/>
-  <int value="4" label="Overlay Insecure Player-element Fullscreen"/>
-  <int value="5" label="Overlay Insecure Non-player-element Fullscreen"/>
-</enum>
-
 <enum name="BooleanAfterPowerOrDisplayChange">
   <int value="0" label="Not After Power or Display Change"/>
   <int value="1" label="After Power or Display Change"/>
@@ -303,11 +294,6 @@ chromium-metrics-reviews@google.com.
 <enum name="BooleanFocused">
   <int value="0" label="Unfocused"/>
   <int value="1" label="Focused"/>
-</enum>
-
-<enum name="BooleanFrameAsOverlay">
-  <int value="0" label="Frame was not allow_overlay"/>
-  <int value="1" label="Frame was allow_overlay"/>
 </enum>
 
 <enum name="BooleanHasPlayed">
@@ -491,13 +477,6 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Success"/>
   <int value="1" label="In Use"/>
   <int value="2" label="Failure"/>
-</enum>
-
-<enum name="ConditionalFocusDecision">
-  <int value="0" label="kExplicitFocusCapturedSurface"/>
-  <int value="1" label="kExplicitNoFocusChange"/>
-  <int value="2" label="kMicrotaskClosedWindow"/>
-  <int value="3" label="kBrowserSideTimerClosedWindow"/>
 </enum>
 
 <enum name="CrasInputStreamOpenSuccess">
@@ -1561,6 +1540,8 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Play/Pause"/>
 </enum>
 
+<!-- LINT.IfChange(MediaItemUIUpdatedViewAction) -->
+
 <enum name="MediaItemUIUpdatedViewAction">
   <int value="0" label="Play"/>
   <int value="1" label="Pause"/>
@@ -1576,6 +1557,8 @@ chromium-metrics-reviews@google.com.
   <int value="11" label="Enter picture in picture"/>
   <int value="12" label="Exit picture in picture"/>
 </enum>
+
+<!-- LINT.ThenChange(//components/global_media_controls/public/views/media_item_ui_updated_view.h:MediaItemUIUpdatedViewAction) -->
 
 <!-- LINT.IfChange(MediaLauncherActivityEnabledReason) -->
 
@@ -1605,10 +1588,11 @@ chromium-metrics-reviews@google.com.
 <enum name="MediaNotificationSource">
   <int value="0" label="Unknown"/>
   <int value="1" label="Web"/>
-  <int value="2" label="Assistant"/>
+  <int value="2" label="(Obsolete) Assistant"/>
   <int value="3" label="Arc"/>
   <int value="4" label="Local Cast session"/>
   <int value="5" label="Non-local Cast session"/>
+  <int value="6" label="Cast device picker"/>
 </enum>
 
 <enum name="MediaOutputProtectionStatus">
@@ -1809,6 +1793,7 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Media Notification"/>
   <int value="1" label="MediaSession (Android)"/>
   <int value="2" label="Headset Unplugged"/>
+  <int value="3" label="System Sleep"/>
 </enum>
 
 <enum name="MediaSessionEnterPictureInPictureType">
@@ -1827,12 +1812,6 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Cast for Education"/>
   <int value="6" label="Wired Display"/>
   <int value="7" label="Generic"/>
-</enum>
-
-<enum name="MediaSourceExecutionContext">
-  <int value="0" label="Window"/>
-  <int value="1" label="Dedicated Worker"/>
-  <int value="2" label="Shared Worker"/>
 </enum>
 
 <enum name="MediaStatus">
@@ -2261,6 +2240,17 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Prediction stays at Smooth after update"/>
 </enum>
 
+<enum name="SupportZeroCopyImportType">
+  <summary>
+    Corresponds to whether Zero Copy import to WebGPU is supported for
+    VideoFrames backed by Mappable SI
+  </summary>
+  <int value="0" label="EmptyBuffer"/>
+  <int value="1" label="SharedMemory"/>
+  <int value="2" label="NativePixmapSupported"/>
+  <int value="3" label="NativePixmapUnsupported"/>
+</enum>
+
 <enum name="SymphoniaDecodeStatus">
   <int value="0" label="Ok"/>
   <int value="1" label="UnexpectedEndOfStream"/>
@@ -2375,6 +2365,7 @@ chromium-metrics-reviews@google.com.
   <int value="29" label="vaProtectedSessionHwUpdate() (deprecated)"/>
   <int value="30" label="kVAProtectedSessionExecute()"/>
   <int value="31" label="Other VA functions"/>
+  <int value="32" label="vaDeriveImage()"/>
 </enum>
 
 <enum name="VideoCaptureApi">

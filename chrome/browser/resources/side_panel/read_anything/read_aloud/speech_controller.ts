@@ -7,7 +7,7 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import {NodeStore} from '../content/node_store.js';
 import {SelectionController} from '../content/selection_controller.js';
 import {getWordCount, playFromSelectionTimeout} from '../shared/common.js';
-import {ReadAnythingLogger} from '../shared/read_anything_logger.js';
+import {ReadAnythingLogger, SpeechControls} from '../shared/read_anything_logger.js';
 
 import {ReadAloudHighlighter} from './highlighter.js';
 import {getReadAloudModel} from './read_aloud_model_browser_proxy.js';
@@ -423,7 +423,9 @@ export class SpeechController {
       }
       this.movePlaybackToNode_(readAloudNode, selectionStart.offset);
       // Play the next granularity, which includes the selection.
-      if (!this.highlightAndPlayMessage_()) {
+      if (this.highlightAndPlayMessage_()) {
+        this.logger_.logSpeechControlClick(SpeechControls.PLAY_FROM_SELECTION);
+      } else {
         this.onSpeechFinished_();
       }
     }, playFromSelectionTimeout);
@@ -436,7 +438,7 @@ export class SpeechController {
 
   // Play text of these axNodeIds. When finished, read and highlight to read the
   // following text.
-  // TODO: crbug.com/1474951 - Investigate using AXRange.GetText to get text
+  // TODO: crbug.com/40927698 - Investigate using AXRange.GetText to get text
   // between start node / end nodes and their offsets.
   private highlightAndPlayMessage_(
       isInterrupted: boolean = false,
@@ -518,7 +520,7 @@ export class SpeechController {
 
   private playText_(utteranceText: string) {
     // This check is needed due limits of TTS audio for remote voices. See
-    // crbug.com/1176078 for more details.
+    // crbug.com/40747712 for more details.
     // Since the TTS bug only impacts remote voices, no need to check for
     // maximum text length if we're using a local voice. If we do somehow
     // attempt to speak text that's too long, this will be able to be handled
@@ -1033,6 +1035,9 @@ export class SpeechController {
     this.engineTimeoutId_ = setTimeout(() => {
       if (this.model_.getEngineState() === SpeechEngineState.LOADING) {
         this.logger_.logSpeechError('timeout-engine-stalled');
+        // This triggers a non-fatal C++ DUMP_WILL_BE_CHECK in
+        // ReadAnythingAppController.
+        chrome.readingMode.onSpeechEngineFirstStall();
       }
     }, ENGINE_TIMEOUT_THRESHOLD_MS);
 
@@ -1044,6 +1049,8 @@ export class SpeechController {
     this.engineRecoveryTimeoutId_ = setTimeout(() => {
       if (this.model_.getEngineState() === SpeechEngineState.LOADING) {
         this.logger_.logSpeechError('timeout-stalled-after-recovery');
+        // This triggers a non-fatal C++ DUMP_WILL_BE_CHECK in
+        // ReadAnythingAppController.
         chrome.readingMode.onSpeechEngineStalled();
         this.voiceLanguageController_.onVoicesChanged();
       }

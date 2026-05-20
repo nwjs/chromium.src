@@ -78,7 +78,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
             ObservableSuppliers.createNonNull(Tab.INVALID_TAB_ID);
     private final TabActionListener mTabClosedListener;
     private final String mComponentName;
-    private final TabListMediator.@Nullable TabGridDialogHandler mTabGridDialogHandler;
+    private final @Nullable TabGridDialogHandler mTabGridDialogHandler;
     private final int mLongPressDpThresholdSquared;
     private final TabGroupCreationDialogManager mTabGroupCreationDialogManager;
     private final SettableMonotonicObservableSupplier<RecyclerView> mRecyclerViewSupplier =
@@ -468,7 +468,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper2.SimpleCallb
             // technically been consumed as a longpress by this class. The downstream click
             // handlers running can result in a tab being selected or closed in an unexpected manner
             // and due to a race condition between animations a phantom tab can even remain in the
-            // UI (see crbug.com/1425336).
+            // UI (see crbug.com/40898655).
             //
             // To avoid this it is necessary for TabListMediator to attach an additional
             // OnItemTouchListener that resolves after the OnItemTouchListener attached by the

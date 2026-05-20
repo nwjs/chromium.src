@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.privacy.settings;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.components.content_settings.PrefNames.COOKIE_CONTROLS_MODE;
-import static org.chromium.ui.R.drawable.gshield_colorful;
 
 import android.content.Context;
 import android.content.Intent;
@@ -75,7 +74,6 @@ import org.chromium.components.browser_ui.util.TraceEventVectorDrawableCompat;
 import org.chromium.components.content_settings.ContentSettingsType;
 import org.chromium.components.safe_browsing.OsAdditionalSecurityProvider;
 import org.chromium.components.safe_browsing.OsAdditionalSecurityUtil;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
@@ -374,7 +372,7 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
                     }
                 };
         if (assumeNonNull(IdentityServicesProvider.get().getIdentityManager(getProfile()))
-                        .getPrimaryAccountInfo(ConsentLevel.SIGNIN)
+                        .getPrimaryAccountInfo()
                 == null) {
             // User is signed out, show the string with one link to "Google Services".
             return SpanApplier.applySpans(
@@ -518,7 +516,8 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
         if (additionalSecurityProvider == null) return;
 
         @Nullable Drawable additionalSecurityIcon =
-                ApiCompatibilityUtils.getDrawable(context.getResources(), gshield_colorful);
+                ApiCompatibilityUtils.getDrawable(
+                        context.getResources(), R.drawable.gshield_colorful);
 
         Consumer<Context> androidAdvancedProtectionLinkAction =
                 (linkContext) -> {

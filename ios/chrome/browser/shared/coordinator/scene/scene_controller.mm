@@ -15,12 +15,14 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/time/time.h"
+#import "base/trace_event/trace_event.h"
 #import "components/breadcrumbs/core/breadcrumbs_status.h"
 #import "components/data_sharing/public/data_sharing_utils.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/tracker.h"
 #import "components/password_manager/core/browser/ui/password_check_referrer.h"
 #import "components/prefs/pref_service.h"
+#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/base/signin_pref_names.h"
 #import "components/signin/public/base/signin_switches.h"
@@ -41,6 +43,7 @@
 #import "ios/chrome/app/tests_hook.h"
 #import "ios/chrome/browser/app_store_rating/model/app_store_rating_scene_agent.h"
 #import "ios/chrome/browser/app_store_rating/model/features.h"
+#import "ios/chrome/browser/authentication/age_mismatch_signout/coordinator/signin_account_capabilities_scene_agent.h"
 #import "ios/chrome/browser/authentication/signin/fullscreen_promo/model/fullscreen_signin_promo_scene_agent.h"
 #import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_authentication_continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_signout_continuation.h"
@@ -59,12 +62,15 @@
 #import "ios/chrome/browser/default_browser/model/promo_source.h"
 #import "ios/chrome/browser/default_browser/promo/public/features.h"
 #import "ios/chrome/browser/docking_promo/model/docking_promo_scene_agent.h"
+#import "ios/chrome/browser/enterprise/data_protection/model/data_protection_scene_agent.h"
+#import "ios/chrome/browser/enterprise/data_protection/public/features.h"
 #import "ios/chrome/browser/enterprise/model/idle/idle_service.h"
 #import "ios/chrome/browser/enterprise/model/idle/idle_service_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/first_run/model/first_run.h"
 #import "ios/chrome/browser/geolocation/model/geolocation_manager.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intents/model/user_activity_browser_agent.h"
 #import "ios/chrome/browser/intents/model/user_activity_compatibility_util.h"
@@ -78,6 +84,8 @@
 #import "ios/chrome/browser/metrics/model/tab_usage_recorder_browser_agent.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/picture_in_picture/model/picture_in_picture_scene_agent.h"
+#import "ios/chrome/browser/policy/model/browser_management_service.h"
+#import "ios/chrome/browser/policy/model/browser_management_service_factory.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/policy/model/policy_watcher_browser_agent.h"
 #import "ios/chrome/browser/policy/ui_bundled/idle/idle_timeout_policy_scene_agent.h"
@@ -97,6 +105,7 @@
 #import "ios/chrome/browser/shared/coordinator/scene/scene_controller+OTRProfileDeletion.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_ui_provider.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/scene_ui_blocker_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/tab_activity_utils.h"
 #import "ios/chrome/browser/shared/coordinator/scene/task_updater_scene_agent.h"
 #import "ios/chrome/browser/shared/coordinator/scene/url_context.h"
@@ -117,6 +126,7 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
 #import "ios/chrome/browser/shared/public/commands/bookmarks_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
+#import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_lens_input_selection_command.h"
@@ -131,7 +141,6 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message_action.h"
-#import "ios/chrome/browser/signin/coordinator/signin_account_capabilities_scene_agent.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/authentication_service_observer_bridge.h"
@@ -156,12 +165,15 @@
 #import "ios/chrome/common/app_group/app_group_constants.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ios/public/provider/chrome/browser/cobalt/cobalt_api.h"
+#import "ios/web/common/features.h"
 #import "ios/web/public/js_image_transcoder/java_script_image_transcoder.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 #import "ios/web/public/web_state.h"
 #import "net/base/apple/url_conversions.h"
 #import "net/base/url_util.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
+#import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -243,6 +255,22 @@ void InjectNTP(Browser* browser) {
       WebStateList::InsertionParams::Automatic().Activate());
 }
 
+// Returns true if the profile is unmanaged according to
+// `policy::BrowserManagementService`. If the service is unavailable, the
+// management status is undefined and so the profile is potentially managed,
+// so this returns false.
+bool IsProfileUnmanaged(ProfileIOS* profile) {
+  policy::BrowserManagementService* service =
+      policy::BrowserManagementServiceFactory::GetForProfile(profile);
+  // If the profile does not have a `BrowserManagementService`, the management
+  // status is undefined and so the profile is potentially managed.
+  if (!service) {
+    return false;
+  }
+  // Otherwise, the profile is unmanaged if it is not managed.
+  return !service->IsManaged();
+}
+
 }  // namespace
 
 // TODO(crbug.com/429355979): Order and group methods by interface.
@@ -250,6 +278,7 @@ void InjectNTP(Browser* browser) {
 
 @interface SceneController () <AuthenticationServiceObserving,
                                ProfileStateObserver,
+                               SceneUIBlockerStateObserver,
                                SceneUIHandler,
                                SceneUIProvider,
                                SceneURLLoadingServiceDelegate,
@@ -331,6 +360,7 @@ void InjectNTP(Browser* browser) {
   if (self) {
     _sceneState = sceneState;
     [_sceneState addObserver:self];
+    [_sceneState.uiBlockerState addObserver:self];
 
     _sceneURLLoadingService = std::make_unique<SceneUrlLoadingService>();
     _sceneURLLoadingService->SetDelegate(self);
@@ -662,7 +692,9 @@ void InjectNTP(Browser* browser) {
   }
 }
 
-- (void)sceneStateDidHideModalOverlay:(SceneState*)sceneState {
+#pragma mark - SceneUIBlockerStateObserver
+
+- (void)didHideModalOverlay {
   [self handleExternalIntents];
 }
 
@@ -966,6 +998,7 @@ void InjectNTP(Browser* browser) {
 
 // Starts up a single chrome window and its UI.
 - (void)startUpChromeUI {
+  TRACE_EVENT("ui", "-[SceneController startUpChromeUI]");
   DCHECK(!self.browserLifecycleManager);
   DCHECK(_sceneURLLoadingService.get());
   DCHECK(self.profile);
@@ -1044,6 +1077,7 @@ void InjectNTP(Browser* browser) {
 // Creates and displays the initial UI in `launchMode`, performing other
 // setup and configuration as needed.
 - (void)createInitialUI:(ApplicationMode)launchMode {
+  TRACE_EVENT("ui", "-[SceneController createInitialUI:]");
   // Set the Scene application URL loader on the URL loading browser interface
   // for the regular and incognito interfaces. This will lazily instantiate the
   // incognito interface if it isn't already created.
@@ -1069,6 +1103,27 @@ void InjectNTP(Browser* browser) {
   // around crbug.com/850387, causing a flicker if -makeKeyAndVisible has been
   // called.
   [self.sceneState.window makeKeyAndVisible];
+
+  // On iPad (iOS 26.4+), observe windowScene Light/Dark trait changes so that
+  // the appearance flip is propagated to any visible popover whose detached
+  // presentation window does not participate in normal trait propagation.
+  // TODO(crbug.com/507265316): Remove once UIKit propagates trait changes to
+  // popover presentation windows (tracked with Apple as FB22646087).
+  if (@available(iOS 26.4, *)) {
+    if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+      UIWindowScene* windowScene = self.sceneState.window.windowScene;
+      if (windowScene) {
+        __weak __typeof(self) weakSelf = self;
+        [windowScene
+            registerForTraitChanges:@[ UITraitUserInterfaceStyle.class ]
+                        withHandler:^(id<UITraitEnvironment> env,
+                                      UITraitCollection* previous) {
+                          [weakSelf
+                              propagateUserInterfaceStyleToPresentedViewControllers];
+                        }];
+      }
+    }
+  }
 
   if (!self.sceneState.profileState.startupInformation.isFirstRun) {
     [self reconcileEulaAsAccepted];
@@ -1133,6 +1188,7 @@ void InjectNTP(Browser* browser) {
   self.browserLifecycleManager = nil;
 
   [self.sceneState.profileState removeObserver:self];
+  [_sceneState.uiBlockerState removeObserver:self];
   _sceneURLLoadingService.reset();
 
   _imageTranscoder = nullptr;
@@ -1257,7 +1313,12 @@ void InjectNTP(Browser* browser) {
     return NO;
   }
 
-  if (self.sceneState.presentingModalOverlay) {
+  if (self.sceneState.uiBlockerState.presentingModalOverlay) {
+    return NO;
+  }
+
+  if ([SigninAccountCapabilitiesSceneAgent agentFromScene:self.sceneState]
+          .isSignoutInProgress) {
     return NO;
   }
 
@@ -1353,6 +1414,8 @@ void InjectNTP(Browser* browser) {
 
 // Add scene agents that are not dependent on profileState.
 - (void)addAgents {
+  TRACE_EVENT("ui", "-[SceneController addAgents]");
+
   SceneState* sceneState = self.sceneState;
   ProfileIOS* profile = self.profile;
   Browser* mainBrowser = self.browserLifecycleManager.mainInterface.browser;
@@ -1442,6 +1505,15 @@ void InjectNTP(Browser* browser) {
                           prefService:prefService]];
   }
 
+  // Add Cobalt scene agent if the feature is enabled and the profile management
+  // status is defined and unmanaged.
+  if (web::features::IsCobaltEnabled() && IsProfileUnmanaged(profile)) {
+    ObservingSceneAgent* cobaltSceneAgent =
+        ios::provider::CreateCobaltSceneAgent();
+    if (cobaltSceneAgent) {
+      [sceneState addAgent:cobaltSceneAgent];
+    }
+  }
 }
 
 // Adds agents that may depend on profileState. Called after a profileState has
@@ -1466,6 +1538,9 @@ void InjectNTP(Browser* browser) {
   [_sceneState addAgent:[[SessionSavingSceneAgent alloc] init]];
   [_sceneState addAgent:[[LayoutGuideSceneAgent alloc] init]];
   [_sceneState addAgent:[[ShareExtensionSceneAgent alloc] init]];
+  if (IsEnableScreenshotProtectionIOSEnabled()) {
+    [_sceneState addAgent:[[DataProtectionSceneAgent alloc] init]];
+  }
 
   if (IsEnableNewStartupFlowEnabled()) {
     [_sceneState addAgent:[[TaskUpdaterSceneAgent alloc] init]];
@@ -2061,6 +2136,13 @@ void InjectNTP(Browser* browser) {
       } else {
         NOTREACHED() << "Credential import is available on iOS 26+ only.";
       }
+    case TRIGGER_GEMINI_PROMO:
+      if (IsAppStoreInAppEventsEnabled()) {
+        return ^{
+          [weakSelf triggerGeminiFlowFromAppStoreEvent];
+        };
+      }
+      return nil;
     default:
       return nil;
   }
@@ -2492,6 +2574,19 @@ void InjectNTP(Browser* browser) {
 
 #pragma mark - Private methods
 
+// Triggers the Gemini flow when an App Store related event occurs.
+- (void)triggerGeminiFlowFromAppStoreEvent {
+  if (!self.currentInterface.browser) {
+    return;
+  }
+
+  id<BWGCommands> geminiHandler = HandlerForProtocol(
+      self.currentInterface.browser->GetCommandDispatcher(), BWGCommands);
+  GeminiStartupState* startupState = [[GeminiStartupState alloc]
+      initWithEntryPoint:gemini::EntryPoint::ExternalAppStoreEvent];
+  [geminiHandler startGeminiFlowWithStartupState:startupState];
+}
+
 // Triggers the switcher view when the last WebState is closed on a device
 // that uses the switcher.
 - (void)onLastWebStateClosedForWebStateList:(WebStateList*)webStateList {
@@ -2554,6 +2649,7 @@ void InjectNTP(Browser* browser) {
 }
 
 - (void)activateBVCAndMakeCurrentBVCPrimary {
+  TRACE_EVENT("ui", "-[SceneController activateBVCAndMakeCurrentBVCPrimary]");
   // If there are pending removal operations, the activation will be deferred
   // until the callback is received.
   BrowsingDataRemover* browsingDataRemover =
@@ -2689,6 +2785,40 @@ void InjectNTP(Browser* browser) {
 
 - (void)onServiceStatusChanged {
   [self signoutIfNeeded];
+}
+
+#pragma mark - iPad popover appearance propagation
+
+// Walks the presentation chain rooted at the host window and forwards the
+// current windowScene userInterfaceStyle to popover-presented view
+// controllers. iPad popovers (e.g. the overflow menu) are presented in
+// detached UIPresentationController windows that are not part of
+// `windowScene.windows` and do not receive the windowScene's trait
+// propagation, so we have to push the appearance to them explicitly.
+//
+// Only VCs presented as popovers and which do not already have an explicit
+// overrideUserInterfaceStyle are touched, so that intentional per-VC
+// overrides (e.g. a sheet that wants to stay light) are preserved.
+//
+// TODO(crbug.com/507265316): Remove once UIKit propagates trait changes to
+// popover presentation windows (tracked with Apple as FB22646087).
+- (void)propagateUserInterfaceStyleToPresentedViewControllers {
+  UIWindow* window = self.sceneState.window;
+  UIWindowScene* windowScene = window.windowScene;
+  if (!windowScene) {
+    return;
+  }
+  UIUserInterfaceStyle style = windowScene.traitCollection.userInterfaceStyle;
+  UIViewController* presented =
+      window.rootViewController.presentedViewController;
+  while (presented) {
+    if (presented.modalPresentationStyle == UIModalPresentationPopover &&
+        presented.overrideUserInterfaceStyle ==
+            UIUserInterfaceStyleUnspecified) {
+      presented.overrideUserInterfaceStyle = style;
+    }
+    presented = presented.presentedViewController;
+  }
 }
 
 @end

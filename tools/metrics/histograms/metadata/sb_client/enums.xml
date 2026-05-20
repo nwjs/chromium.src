@@ -131,6 +131,7 @@ chromium-metrics-reviews@google.com.
   <int value="9" label="CREDIT_CARD_FORM"/>
   <int value="10" label="IMAGE_EMBEDDING_MATCH"/>
   <int value="11" label="USER_REPORT"/>
+  <int value="12" label="UNFAMILIAR_LOGIN_PAGE"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/safe_browsing/core/common/proto/csd.proto:ClientSideDetectionType) -->
@@ -512,6 +513,9 @@ chromium-metrics-reviews@google.com.
   <int value="11"
       label="Renderer page layout has finished loading again in middle of
              classification"/>
+  <int value="12"
+      label="Classification is ongoing when another classification request
+             comes in"/>
 </enum>
 
 <enum name="TailoredWarningType">

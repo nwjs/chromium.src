@@ -31,6 +31,7 @@
 
 #include "third_party/blink/renderer/core/html/forms/text_field_input_type.h"
 
+#include "third_party/blink/renderer/core/accessibility/scoped_blink_ax_event_intent.h"
 #include "third_party/blink/renderer/core/css_value_keywords.h"
 #include "third_party/blink/renderer/core/dom/events/event_dispatch_forbidden_scope.h"
 #include "third_party/blink/renderer/core/dom/focus_params.h"
@@ -791,10 +792,16 @@ void TextFieldInputType::DidSetValueByUserEdit() {
 }
 
 void TextFieldInputType::SpinButtonStepDown() {
+  ScopedBlinkAXEventIntent intent(
+      BlinkAXEventIntent(ax::mojom::blink::Command::kSpinButtonDecrement),
+      &GetElement().GetDocument());
   StepUpFromLayoutObject(-1);
 }
 
 void TextFieldInputType::SpinButtonStepUp() {
+  ScopedBlinkAXEventIntent intent(
+      BlinkAXEventIntent(ax::mojom::blink::Command::kSpinButtonIncrement),
+      &GetElement().GetDocument());
   StepUpFromLayoutObject(1);
 }
 
@@ -864,6 +871,26 @@ void UpdateOptionFiltered(HTMLInputElement& input, HTMLOptionElement& option) {
 }  // namespace
 
 void TextFieldInputType::FilterOptions() {
+  if (!GetElement().IsBaseAppearanceCombobox() &&
+      !GetElement().FilterTarget()) {
+    return;
+  }
+
+  Event* beforefilter =
+      Event::CreateCancelableBubble(event_type_names::kBeforefilter);
+  beforefilter->SetTarget(&GetElement());
+  if (GetElement().DispatchEvent(*beforefilter) !=
+      DispatchEventResult::kNotCanceled) {
+    return;
+  }
+
+  // Since script has run, we might not want to perform filtering anymore if it
+  // messed with the state of this input, the datalist target, or the select
+  // target.
+  // TODO(crbug.com/453705243): Add more tests for this behavior and consider
+  // checking more state here, such as whether this TextFieldInputType is still
+  // the one registered to the input element.
+
   if (GetElement().IsBaseAppearanceCombobox()) {
     for (Element* element : *GetElement().DataList()->options()) {
       HTMLOptionElement* option = To<HTMLOptionElement>(element);

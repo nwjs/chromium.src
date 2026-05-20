@@ -19,7 +19,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
@@ -46,6 +47,8 @@
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/navigation_simulator.h"
+#include "net/http/http_response_headers.h"
+#include "net/http/http_version.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
@@ -270,7 +273,7 @@ content::RenderFrameHost* OpenIsolatedWebApp(
   base::test::TestFuture<content::WebContents*> future;
   provider->scheduler().LaunchApp(
       app_id, url,
-      base::BindOnce([](base::WeakPtr<Browser>,
+      base::BindOnce([](base::WeakPtr<BrowserWindowInterface>,
                         base::WeakPtr<content::WebContents> web_contents,
                         apps::LaunchContainer) {
         return web_contents.get();

@@ -1503,6 +1503,16 @@ bool ViewTransitionStyleTracker::RunPostPrePaintSteps() {
     return false;
   }
 
+  // If we haven't captured the snapshot root size yet, we can't compute the
+  // max capture size. This can happen if RunPostPrePaintSteps is called before
+  // Capture (e.g., by forcing layout early).
+  // In this case, we should only proceed if we are still in the idle state
+  // (i.e. before capture has even started). If we are past the idle state but
+  // don't have the size, we should abort the transition.
+  if (!snapshot_root_layout_size_at_capture_.has_value()) {
+    return state_ == State::kIdle;
+  }
+
   const int max_capture_size_in_layout = ComputeMaxCaptureSize(
       *document_,
       document_->GetPage()->GetChromeClient().GetMaxRenderBufferBounds(
@@ -1674,9 +1684,9 @@ bool ViewTransitionStyleTracker::RunPostPrePaintStepsForElement(
       std::move(group_children_css_property_builder).Finish();
 
   const auto& style = layout_object->StyleRef();
-  gfx::Vector2d border_offset(
-      AdjustForAbsoluteZoom::AdjustInt(style.BorderLeftWidth(), style),
-      AdjustForAbsoluteZoom::AdjustInt(style.BorderTopWidth(), style));
+  gfx::Vector2dF border_offset(
+      AdjustForAbsoluteZoom::AdjustFloat(style.BorderLeftWidth(), style),
+      AdjustForAbsoluteZoom::AdjustFloat(style.BorderTopWidth(), style));
 
   if (element_data->container_properties == container_properties &&
       visual_overflow_rect_in_layout_space ==
@@ -1856,21 +1866,8 @@ gfx::Transform ViewTransitionStyleTracker::ComputeTransformForParticipant(
   if (!scope_box->IsLayoutView()) {
     DCHECK(RuntimeEnabledFeatures::ScopedViewTransitionsEnabled());
 
-    // TODO(crbug.com/394052227): Should we force compositing on the scope?
-    // If we do, its paint offset will always be zero.
-
     // Adjust for the scope element's borders and scrollbars.
     transform.Translate(-scope_box->ClientLeft(), -scope_box->ClientTop());
-    transform.Translate(-gfx::Vector2dF(scope_fragment.PaintOffset()));
-  }
-
-  if (!transform.HasPerspective()) {
-    if (base::FeatureList::IsEnabled(
-            ::features::kViewTransitionFloorTransform)) {
-      transform.Floor2dTranslationComponents();
-    } else {
-      transform.Round2dTranslationComponents();
-    }
   }
 
   return transform;
@@ -2342,11 +2339,11 @@ CSSStyleSheet& ViewTransitionStyleTracker::UAStyleSheet() {
         const auto& containing_group_data =
             element_data_map_.at(element_data->containing_group_name);
 
-        auto compute_parent_transform = [](gfx::Transform matrix,
-                                           const gfx::Vector2d& border_offset) {
-          matrix.Translate(border_offset);
-          return matrix;
-        };
+        auto compute_parent_transform =
+            [](gfx::Transform matrix, const gfx::Vector2dF& border_offset) {
+              matrix.Translate(border_offset);
+              return matrix;
+            };
 
         old_parent_transform = compute_parent_transform(
             containing_group_data->cached_container_properties.snapshot_matrix,

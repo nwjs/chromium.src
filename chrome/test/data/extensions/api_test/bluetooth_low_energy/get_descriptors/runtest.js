@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-var error;
+let error;
 
 function testGetDescriptors() {
   if (error !== undefined) {
@@ -15,7 +15,7 @@ function testGetDescriptors() {
   chrome.test.assertEq('00001221-0000-1000-8000-00805f9b34fb', descrs[0].uuid);
   chrome.test.assertEq(charId, descrs[0].characteristic.instanceId);
 
-  var valueBytes = new Uint8Array(descrs[0].value);
+  let valueBytes = new Uint8Array(descrs[0].value);
   chrome.test.assertEq(3, descrs[0].value.byteLength);
   chrome.test.assertEq(0x01, valueBytes[0]);
   chrome.test.assertEq(0x02, valueBytes[1]);
@@ -33,11 +33,11 @@ function testGetDescriptors() {
   chrome.test.succeed();
 }
 
-var getDescriptors = chrome.bluetoothLowEnergy.getDescriptors;
-var charId = 'char_id0';
-var badCharId = 'char_id1';
+const getDescriptors = chrome.bluetoothLowEnergy.getDescriptors;
+const charId = 'char_id0';
+const badCharId = 'char_id1';
 
-var descrs = null;
+let descrs = null;
 
 function earlyError(message) {
   error = message;
@@ -53,37 +53,39 @@ function failOnError() {
 }
 
 // 1. Unknown characteristic ID.
-getDescriptors(badCharId, function (result) {
+getDescriptors(badCharId, function(result) {
   if (result || !chrome.runtime.lastError) {
     earlyError('getDescriptors should have failed for \'badCharId\'');
     return;
   }
 
   // 2. Known ID, unknown characteristic.
-  getDescriptors(charId, function (result) {
+  getDescriptors(charId, function(result) {
     if (result || !chrome.runtime.lastError) {
       earlyError('getDescriptors should have failed');
       return;
     }
 
     // 3. Empty descriptors.
-    getDescriptors(charId, function (result) {
-      if (failOnError())
+    getDescriptors(charId, function(result) {
+      if (failOnError()) {
         return;
+      }
 
-      if (!result || result.length != 0) {
+      if (!result || result.length !== 0) {
         earlyError('Descriptors should be empty');
         return;
       }
 
       // 4. Success.
-      getDescriptors(charId, function (result) {
-        if (failOnError())
+      getDescriptors(charId, function(result) {
+        if (failOnError()) {
           return;
+        }
 
         descrs = result;
 
-        chrome.test.sendMessage('ready', function (message) {
+        chrome.test.sendMessage('ready', function(message) {
           chrome.test.runTests([testGetDescriptors]);
         });
       });

@@ -33,6 +33,7 @@
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/public/mojom/model_broker.mojom-shared.h"
+#include "components/optimization_guide/public/mojom/model_broker_debug.mojom.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
 #include "components/version_info/version_info.h"
@@ -162,6 +163,11 @@ base::DictValue MakeOverrideManifest() {
           .Set("supported_performance_hints", std::move(hints)));
 }
 
+// `BaseModel` is deliberately made to be the same as an enum class of the same
+// name in
+// components/optimization_guide/core/model_execution/manifest_broker/manifest_asset_manager.cc.
+// This is to allow logging of new model installations regardless of which model
+// management scheme is used.
 enum class BaseModel {
   kUnknown = 0,
   kXxs = 1,
@@ -171,7 +177,7 @@ enum class BaseModel {
   kMaxValue = kV3Nano,
 };
 
-BaseModel ConvertModelNameToEnum(std::string& model_name) {
+BaseModel ConvertModelNameToEnum(const std::string& model_name) {
   if (model_name == "v3Nano") {
     return BaseModel::kV3Nano;
   } else if (model_name == "v2Nano") {
@@ -185,12 +191,21 @@ BaseModel ConvertModelNameToEnum(std::string& model_name) {
   }
 }
 
+std::string ConvertModelNameToUmaModelName(const std::string& model_name) {
+  if (model_name == "v3Nano") {
+    return "V3Nano";
+  } else {
+    // Treat obsolete models as unknown.
+    return "Unknown";
+  }
+}
+
 bool WasOnDeviceModelRecentlyUsed(UsageTracker* usage_tracker,
                                   OnDeviceModelType model_type) {
   return std::ranges::any_of(
       OnDeviceFeatureSet::All(), [&](mojom::OnDeviceFeature feature) {
         return GetOnDeviceModelType(feature) == model_type &&
-               usage_tracker->WasOnDeviceEligibleFeatureRecentlyUsed(feature);
+               usage_tracker->WasUseCaseRecentlyUsed(ToUseCaseName(feature));
       });
 }
 
@@ -368,6 +383,68 @@ OnDeviceModelComponentStateManager::GetDebugState() {
   return debug;
 }
 
+std::vector<mojom::BrokerPropertyInfoPtr>
+OnDeviceModelComponentStateManager::GetBrokerProperties() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  std::vector<mojom::BrokerPropertyInfoPtr> props;
+  if (registration_criteria_) {
+    props.push_back(mojom::BrokerPropertyInfo::New(
+        "Feature recently used",
+        base::ToString(
+            registration_criteria_->on_device_feature_recently_used)));
+    props.push_back(mojom::BrokerPropertyInfo::New(
+        "Enabled by feature flag",
+        base::ToString(registration_criteria_->enabled_by_feature)));
+    props.push_back(mojom::BrokerPropertyInfo::New(
+        "Enabled by enterprise policy",
+        base::ToString(registration_criteria_->enabled_by_enterprise_policy)));
+    props.push_back(mojom::BrokerPropertyInfo::New(
+        "Enabled by user setting",
+        base::ToString(registration_criteria_->enabled_by_user_setting)));
+    props.push_back(mojom::BrokerPropertyInfo::New(
+        "On external power",
+        base::ToString(registration_criteria_->is_on_external_power)));
+    props.push_back(mojom::BrokerPropertyInfo::New(
+        "Disk space free",
+        base::ToString(registration_criteria_->disk_space_free.InMiB()) +
+            " MiB"));
+  }
+  return props;
+}
+
+std::vector<mojom::BrokerAssetInfoPtr>
+OnDeviceModelComponentStateManager::GetBrokerAssets() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  std::vector<mojom::BrokerAssetInfoPtr> assets;
+  auto asset = mojom::BrokerAssetInfo::New();
+  asset->name = "Base Model";
+  if (state_) {
+    asset->version = state_->GetComponentVersion().GetString();
+  }
+  switch (component_installer_state_) {
+    case ComponentInstallerState::kNotRegistered:
+      asset->state = mojom::BrokerAssetState::kNotInstalled;
+      break;
+    case ComponentInstallerState::kRegistering:
+      asset->state = mojom::BrokerAssetState::kRegistering;
+      break;
+    case ComponentInstallerState::kRegistered:
+      asset->state = mojom::BrokerAssetState::kBackgroundInstalling;
+      break;
+    case ComponentInstallerState::kOnDemandDownloading:
+      asset->state = mojom::BrokerAssetState::kForegroundInstalling;
+      break;
+    case ComponentInstallerState::kInstalled:
+      asset->state = mojom::BrokerAssetState::kReady;
+      break;
+    case ComponentInstallerState::kUninstalling:
+      asset->state = mojom::BrokerAssetState::kUninstalling;
+      break;
+  }
+  assets.push_back(std::move(asset));
+  return assets;
+}
+
 void OnDeviceModelComponentStateManager::SetReady(
     const base::Version& version,
     const base::FilePath& install_dir,
@@ -379,10 +456,19 @@ void OnDeviceModelComponentStateManager::SetReady(
           manifest, performance_classifier_->GetPossibleHints())) {
     state_ = std::make_unique<OnDeviceModelComponentState>(install_dir, version,
                                                            *model_spec);
+    bool is_new_installation =
+        (component_installer_state_ == ComponentInstallerState::kRegistered ||
+         component_installer_state_ ==
+             ComponentInstallerState::kOnDemandDownloading);
     component_installer_state_ = ComponentInstallerState::kInstalled;
     base::UmaHistogramEnumeration(
         "OptimizationGuide.OnDeviceModel.InstalledModel",
         ConvertModelNameToEnum(model_spec->model_name));
+    if (is_new_installation) {
+      base::UmaHistogramEnumeration(
+          "OptimizationGuide.OnDeviceModel.NewModelInstalled",
+          ConvertModelNameToEnum(model_spec->model_name));
+    }
   }
 
   NotifyStateChanged();
@@ -570,7 +656,21 @@ void OnDeviceModelComponentStateManager::UpdateRegistration() {
     // UninstallComplete() for next action.
     return;
   }
-  if (registration_criteria_->should_uninstall()) {
+  std::optional<RegistrationCriteria::UninstallReason> uninstall_reason =
+      registration_criteria_->should_uninstall();
+  if (uninstall_reason.has_value()) {
+    // If `state_` is null, the uninstallation is happening before the model is
+    // ready, so `Unknown` is logged.
+    std::string uma_model_name = "Unknown";
+    if (state_) {
+      uma_model_name =
+          ConvertModelNameToUmaModelName(state_->GetBaseModelSpec().model_name);
+    }
+    base::UmaHistogramEnumeration(
+        "OptimizationGuide.ModelExecution.OnDeviceModelUninstallReason." +
+            uma_model_name,
+        *uninstall_reason);
+
     component_installer_state_ = ComponentInstallerState::kUninstalling;
     // Uninstall the component which will delete the model files, after a
     // short delay to give time for the consumers to unload the model.

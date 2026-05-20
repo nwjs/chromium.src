@@ -343,8 +343,8 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
       return kPseudoIdExpandIcon;
     case kPseudoPickerIcon:
       return kPseudoIdPickerIcon;
-    case kPseudoInterestHint:
-      return kPseudoIdInterestHint;
+    case kPseudoInterestButton:
+      return kPseudoIdInterestButton;
     case kPseudoMarker:
       return kPseudoIdMarker;
     case kPseudoBackdrop:
@@ -503,7 +503,6 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
     case kPseudoRoot:
     case kPseudoScope:
     case kPseudoSelectHasSlottedButton:
-    case kPseudoSelectorFragmentAnchor:
     case kPseudoSingleButton:
     case kPseudoSlotted:
     case kPseudoSpatialNavigationFocus:
@@ -590,8 +589,6 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"-internal-relative-anchor", CSSSelector::kPseudoRelativeAnchor},
     {"-internal-select-has-slotted-button",
      CSSSelector::kPseudoSelectHasSlottedButton},
-    {"-internal-selector-fragment-anchor",
-     CSSSelector::kPseudoSelectorFragmentAnchor},
     {"-internal-shadow-host-has-non-auto-appearance",
      CSSSelector::kPseudoHostHasNonAutoAppearance},
     {"-internal-spatial-navigation-focus",
@@ -659,7 +656,7 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"in-range", CSSSelector::kPseudoInRange},
     {"increment", CSSSelector::kPseudoIncrement},
     {"indeterminate", CSSSelector::kPseudoIndeterminate},
-    {"interest-hint", CSSSelector::kPseudoInterestHint},
+    {"interest-button", CSSSelector::kPseudoInterestButton},
     {"interest-source", CSSSelector::kPseudoInterestSource},
     {"interest-target", CSSSelector::kPseudoInterestTarget},
     {"invalid", CSSSelector::kPseudoInvalid},
@@ -844,12 +841,6 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
     return CSSSelector::kPseudoUnknown;
   }
 
-  if ((match->type == CSSSelector::kPseudoInterestSource ||
-       match->type == CSSSelector::kPseudoInterestTarget) &&
-      !RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled()) {
-    return CSSSelector::kPseudoUnknown;
-  }
-
   if ((match->type == CSSSelector::kPseudoToolFormActive ||
        match->type == CSSSelector::kPseudoToolSubmitActive) &&
       document &&
@@ -959,7 +950,7 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     // For pseudo-elements
     case kPseudoExpandIcon:
     case kPseudoPickerIcon:
-    case kPseudoInterestHint:
+    case kPseudoInterestButton:
     case kPseudoCheckMark:
     case kPseudoBackdrop:
     case kPseudoCue:
@@ -1107,7 +1098,6 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     case kPseudoRoot:
     case kPseudoScope:
     case kPseudoSelectHasSlottedButton:
-    case kPseudoSelectorFragmentAnchor:
     case kPseudoSingleButton:
     case kPseudoStart:
     case kPseudoState:
@@ -1722,7 +1712,7 @@ bool CSSSelector::IsTreeAbidingPseudoElement() const {
           GetPseudoType() == kPseudoBefore || GetPseudoType() == kPseudoAfter ||
           GetPseudoType() == kPseudoExpandIcon ||
           GetPseudoType() == kPseudoPickerIcon ||
-          GetPseudoType() == kPseudoInterestHint ||
+          GetPseudoType() == kPseudoInterestButton ||
           GetPseudoType() == kPseudoMarker ||
           GetPseudoType() == kPseudoPlaceholder ||
           GetPseudoType() == kPseudoFileSelectorButton ||
@@ -1763,7 +1753,7 @@ bool CSSSelector::IsAllowedAfterPart() const {
     case kPseudoAfter:
     case kPseudoExpandIcon:
     case kPseudoPickerIcon:
-    case kPseudoInterestHint:
+    case kPseudoInterestButton:
     case kPseudoPlaceholder:
     case kPseudoFileSelectorButton:
     case kPseudoFirstLine:
@@ -1857,7 +1847,6 @@ bool CSSSelector::IsAllowedAfterPart() const {
     case kPseudoReadWrite:
     case kPseudoRequired:
     case kPseudoSelectHasSlottedButton:
-    case kPseudoSelectorFragmentAnchor:
     case kPseudoState:
     case kPseudoTarget:
     case kPseudoUserInvalid:
@@ -2237,7 +2226,6 @@ bool CSSSelector::SupportsPseudoStateChange(PseudoType type) {
     case CSSSelector::kPseudoRequired:
     case CSSSelector::kPseudoSelectHasSlottedButton:
     case CSSSelector::kPseudoSelection:
-    case CSSSelector::kPseudoSelectorFragmentAnchor:
     case CSSSelector::kPseudoState:
     case CSSSelector::kPseudoTarget:
     case CSSSelector::kPseudoTargetAfter:

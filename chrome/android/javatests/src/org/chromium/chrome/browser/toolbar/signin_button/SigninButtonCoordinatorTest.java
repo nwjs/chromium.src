@@ -8,6 +8,7 @@ import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.isEnabled;
 import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
@@ -15,11 +16,13 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.not;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 
 import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNativeNtpUrl;
 
 import android.app.Activity;
+import android.content.res.ColorStateList;
 
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -45,6 +48,7 @@ import org.chromium.chrome.browser.settings.SettingsActivity;
 import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivity;
 import org.chromium.chrome.browser.sync.FakeSyncServiceImpl;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
+import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderUtils;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
@@ -61,12 +65,13 @@ import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.GmsCoreVersionRestriction;
 import org.chromium.ui.test.util.ViewUtils;
+import org.chromium.ui.widget.ChromeImageButton;
 
 /** Integration tests for {@link SigninButtonCoordinator}. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @DoNotBatch(reason = "This test relies on native initialization")
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@EnableFeatures(SigninFeatures.SIGNIN_LEVEL_UP_BUTTON)
+@EnableFeatures({SigninFeatures.SIGNIN_LEVEL_UP_BUTTON, SigninFeatures.PROFILE_DISC_ON_ALL_PAGES})
 public class SigninButtonCoordinatorTest {
 
     @Rule(order = 1)
@@ -110,12 +115,8 @@ public class SigninButtonCoordinatorTest {
     @Test
     @MediumTest
     public void testSigninButtonVisibleOnNtp() {
-        // Sign-in button should be visible on NTP with sign-in promo description.
-        ViewUtils.waitForVisibleView(
-                allOf(
-                        withId(R.id.signin_text_button),
-                        isDisplayed(),
-                        withText(R.string.signin_promo_sign_in)));
+        // Button to sign-in should be visible on NTP.
+        verifySignedOutButtonVisible();
     }
 
     @Test
@@ -133,12 +134,8 @@ public class SigninButtonCoordinatorTest {
 
         setSigninAllowed(true);
 
-        // Should show sign-in text button.
-        ViewUtils.waitForVisibleView(
-                allOf(
-                        withId(R.id.signin_text_button),
-                        isDisplayed(),
-                        withText(R.string.signin_promo_sign_in)));
+        // Should show sign-in button.
+        verifySignedOutButtonVisible();
     }
 
     @Test
@@ -148,12 +145,8 @@ public class SigninButtonCoordinatorTest {
     // UserActionableError.NEEDS_UPM_BACKEND_UPGRADE.
     @Restriction(GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_24W15)
     public void testSignIn_ShowsPersonalizedIdentityDisc() {
-        // Initially shows sign-in text button.
-        ViewUtils.waitForVisibleView(
-                allOf(
-                        withId(R.id.signin_text_button),
-                        isDisplayed(),
-                        withText(R.string.signin_promo_sign_in)));
+        // Initially shows sign-in button.
+        verifySignedOutButtonVisible();
 
         mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
 
@@ -172,12 +165,8 @@ public class SigninButtonCoordinatorTest {
     // UserActionableError.NEEDS_UPM_BACKEND_UPGRADE.
     @Restriction(GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_24W15)
     public void testSignIn_ShowsPersonalizedIdentityDiscNonDisplayableEmail() {
-        // Initially shows sign-in text button.
-        ViewUtils.waitForVisibleView(
-                allOf(
-                        withId(R.id.signin_text_button),
-                        isDisplayed(),
-                        withText(R.string.signin_promo_sign_in)));
+        // Initially shows sign-in button.
+        verifySignedOutButtonVisible();
 
         mSigninTestRule.addAccount(TestAccounts.CHILD_ACCOUNT_NON_DISPLAYABLE_EMAIL);
         mSigninTestRule.waitForSignin(TestAccounts.CHILD_ACCOUNT_NON_DISPLAYABLE_EMAIL);
@@ -203,12 +192,8 @@ public class SigninButtonCoordinatorTest {
     // UserActionableError.NEEDS_UPM_BACKEND_UPGRADE.
     @Restriction(GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_24W15)
     public void testSignIn_ShowsPersonalizedIdentityDiscNoName() {
-        // Initially shows sign-in text button.
-        ViewUtils.waitForVisibleView(
-                allOf(
-                        withId(R.id.signin_text_button),
-                        isDisplayed(),
-                        withText(R.string.signin_promo_sign_in)));
+        // Initially shows sign-in button.
+        verifySignedOutButtonVisible();
 
         mSigninTestRule.addAccount(TestAccounts.CHILD_ACCOUNT_NON_DISPLAYABLE_EMAIL_AND_NO_NAME);
         mSigninTestRule.waitForSignin(TestAccounts.CHILD_ACCOUNT_NON_DISPLAYABLE_EMAIL_AND_NO_NAME);
@@ -247,12 +232,8 @@ public class SigninButtonCoordinatorTest {
 
         mSigninTestRule.signOut();
 
-        // Should update to the sign-in text button.
-        ViewUtils.waitForVisibleView(
-                allOf(
-                        withId(R.id.signin_text_button),
-                        isDisplayed(),
-                        withText(R.string.signin_promo_sign_in)));
+        // Should update to the sign-in button.
+        verifySignedOutButtonVisible();
     }
 
     @Test
@@ -308,7 +289,8 @@ public class SigninButtonCoordinatorTest {
 
     @Test
     @MediumTest
-    public void testSigninButtonHiddenOnNavigation() {
+    @Restriction(DeviceFormFactor.PHONE)
+    public void testSigninButtonHiddenOnNavigationOnPhone() {
         // Initially visible on NTP.
         ViewUtils.waitForVisibleView(withId(R.id.signin_button));
 
@@ -326,11 +308,39 @@ public class SigninButtonCoordinatorTest {
 
     @Test
     @MediumTest
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    public void testSigninButtonShownOnNavigationOnTablet() {
+        // Initially visible on NTP.
+        ViewUtils.waitForVisibleView(withId(R.id.signin_button));
+
+        // Should still be visible on navigation away from NTP.
+        mPage.loadWebPageProgrammatically(ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL);
+
+        ViewUtils.waitForVisibleView(withId(R.id.signin_button));
+    }
+
+    @Test
+    @MediumTest
+    @DisableFeatures(SigninFeatures.PROFILE_DISC_ON_ALL_PAGES)
+    public void testSigninButtonHiddenOnNavigation() {
+        // Initially visible on NTP.
+        ViewUtils.waitForVisibleView(withId(R.id.signin_button));
+
+        // Should be hidden on navigation away from NTP.
+        mPage.loadWebPageProgrammatically(ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL);
+
+        onView(withId(R.id.signin_button)).check(matches(not(isDisplayed())));
+    }
+
+    @Test
+    @MediumTest
+    // TODO(crbug.com/496912352): Not including Brya as inconsistent test state causes flakiness.
+    @Restriction(DeviceFormFactor.PHONE_OR_TABLET)
     public void testSigninButtonHiddenOnIncognitoNtp() {
         // Initially visible on NTP.
         ViewUtils.waitForVisibleView(withId(R.id.signin_button));
 
-        mPage.openAppMenu().openNewIncognitoTab();
+        mPage.openNewIncognitoTabOrWindowFast();
 
         // Signin button should not be visible on incognito NTP.
         // It may not be inflated yet in the new incognito tab, so we check for both the
@@ -345,7 +355,7 @@ public class SigninButtonCoordinatorTest {
     public void testClickSigninButton_SignedOut() {
         ViewUtils.waitForVisibleView(withId(R.id.signin_button));
 
-        // Clicking the sign-in text button should lead to the sign-in bottom sheet.
+        // Clicking the sign-in button should lead to the sign-in bottom sheet.
         onView(withId(R.id.signin_button)).perform(click());
         ViewUtils.waitForVisibleView(withText(R.string.signin_account_picker_bottom_sheet_title));
     }
@@ -356,7 +366,7 @@ public class SigninButtonCoordinatorTest {
     public void testClickSigninButton_SignedOut_SeamlessSigninDisabled() {
         ViewUtils.waitForVisibleView(withId(R.id.signin_button));
 
-        // Clicking the signed-out avatar should lead to the sign-in activity.
+        // Clicking the signed-out button should lead to the sign-in activity.
         Activity signinActivity =
                 ActivityTestUtils.waitForActivity(
                         InstrumentationRegistry.getInstrumentation(),
@@ -424,6 +434,68 @@ public class SigninButtonCoordinatorTest {
 
         // Signin button should be visible again.
         ViewUtils.waitForVisibleView(withId(R.id.signin_button));
+    }
+
+    @Test
+    @MediumTest
+    @Restriction(DeviceFormFactor.DESKTOP_FREEFORM)
+    public void testSigninButtonDisabledOnInactiveWindow() {
+        AppHeaderUtils.setAppInDesktopWindowForTesting(true);
+        ViewUtils.waitForVisibleView(withId(R.id.avatar_button));
+        onView(withId(R.id.avatar_button)).check(matches(isEnabled()));
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mActivityTestRule.getActivity().onTopResumedActivityChanged(false);
+                });
+
+        onView(withId(R.id.avatar_button)).check(matches(not(isEnabled())));
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mActivityTestRule.getActivity().onTopResumedActivityChanged(true);
+                });
+
+        onView(withId(R.id.avatar_button)).check(matches(isEnabled()));
+    }
+
+    @Test
+    @MediumTest
+    @Restriction(DeviceFormFactor.DESKTOP_FREEFORM)
+    public void testSigninButtonAvatarTintChangesOnInactiveWindow() {
+        AppHeaderUtils.setAppInDesktopWindowForTesting(true);
+        setSigninAllowed(false);
+        ViewUtils.waitForVisibleView(withId(R.id.avatar_button));
+
+        ChromeImageButton avatarButton =
+                mActivityTestRule.getActivity().findViewById(R.id.avatar_button);
+        ColorStateList focusedTint = avatarButton.getImageTintList();
+        assertNotNull(focusedTint);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    // Trigger window focus change to false.
+                    mActivityTestRule.getActivity().onTopResumedActivityChanged(false);
+                });
+        ColorStateList unfocusedTint = avatarButton.getImageTintList();
+        assertNotNull(unfocusedTint);
+        assertNotEquals("Tint should change when window is inactive", focusedTint, unfocusedTint);
+    }
+
+    private void verifySignedOutButtonVisible() {
+        if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivityTestRule.getActivity())) {
+            ViewUtils.waitForVisibleView(
+                    allOf(
+                            withId(R.id.avatar_button),
+                            isDisplayed(),
+                            withContentDescription(
+                                    R.string.accessibility_toolbar_btn_signed_out_identity_disc)));
+        } else {
+            ViewUtils.waitForVisibleView(
+                    allOf(
+                            withId(R.id.signin_text_button),
+                            isDisplayed(),
+                            withText(R.string.signin_promo_sign_in)));
+        }
     }
 
     private void setSigninAllowed(boolean allowed) {

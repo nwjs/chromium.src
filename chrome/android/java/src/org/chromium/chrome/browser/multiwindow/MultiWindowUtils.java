@@ -114,6 +114,12 @@ public class MultiWindowUtils implements ActivityStateListener {
             "Android.MultiInstance.NumInstances.DesktopWindow.Incognito";
     static final String HISTOGRAM_PERSISTENT_STATE_ID_VERIFICATION =
             "Android.MultiInstance.PersistAcrossReboots.IdVerification";
+    static final String HISTOGRAM_LAUNCH_IN_INSTANCE_EARLY_FAILURE =
+            "Android.Intent.LaunchInInstance.EarlyFailureReason";
+    static final String HISTOGRAM_LAUNCH_IN_INSTANCE_APP_TASK_RESULT =
+            "Android.Intent.LaunchInInstance.AppTaskStartActivity.Result";
+    static final String HISTOGRAM_LAUNCH_IN_INSTANCE_SAFE_START_RESULT =
+            "Android.Intent.LaunchInInstance.SafeStartActivity.Result";
     static final String OPEN_ADJACENTLY_PARAM = "open_adjacently";
 
     static @Nullable Integer sMaxInstancesForTesting;
@@ -478,7 +484,7 @@ public class MultiWindowUtils implements ActivityStateListener {
         // If already running CTA was started via .Main activity alias, starting it again with
         // LAUNCH_ADJACENT will create another CTA instance with just a single tab. There doesn't
         // seem to be a reliable way to check if an activity was started via an alias, so we're
-        // removing the flag if any CTA instance is running. See crbug.com/771516 for details.
+        // removing the flag if any CTA instance is running. See crbug.com/40543122 for details.
         if (!isMultiInstanceApi31Enabled()
                 && targetActivity.equals(ChromeTabbedActivity.class)
                 && isPrimaryTabbedActivityRunning()) {
@@ -534,6 +540,49 @@ public class MultiWindowUtils implements ActivityStateListener {
         return intent;
     }
 
+    @VisibleForTesting
+    /* package */ static @Nullable Intent createNewWindowIntent(
+            Activity sourceActivity, boolean isIncognito, @NewWindowAppSource int source) {
+        boolean isInMultiWindowMode = getInstance().isInMultiWindowMode(sourceActivity);
+        boolean isInMultiDisplayMode = getInstance().isInMultiDisplayMode(sourceActivity);
+
+        if (isMultiInstanceApi31Enabled()) {
+            boolean openAdjacently =
+                    (canEnterMultiWindowMode() || isInMultiWindowMode || isInMultiDisplayMode)
+                            && shouldOpenInAdjacentWindow(sourceActivity);
+
+            Intent intent =
+                    createNewWindowIntent(
+                            sourceActivity,
+                            INVALID_WINDOW_ID,
+                            /* preferNew= */ true,
+                            openAdjacently,
+                            source);
+            intent.putExtra(IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_WINDOW, isIncognito);
+            return intent;
+        }
+
+        assert !isIncognito : "Opening an incognito window isn't supported";
+        assert isInMultiWindowMode || isInMultiDisplayMode
+                : "Current windowing mode doesn't support opening a new window";
+
+        Class<? extends Activity> targetActivity =
+                getInstance().getOpenInOtherWindowActivity(sourceActivity);
+        if (targetActivity == null) return null;
+
+        Intent intent = new Intent(sourceActivity, targetActivity);
+        setOpenInOtherWindowIntentExtras(intent, sourceActivity, targetActivity);
+
+        intent.putExtra(IntentHandler.EXTRA_NEW_WINDOW_APP_SOURCE, source);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        if (shouldOpenInAdjacentWindow(sourceActivity)) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
+        }
+
+        return intent;
+    }
+
     /**
      * @param intent The {@link Intent} to determine whether creation of a new instance is
      *     preferred.
@@ -572,9 +621,24 @@ public class MultiWindowUtils implements ActivityStateListener {
         }
 
         if (!isMultiInstanceApi31Enabled()) return 0;
-        Set<Integer> ids = getPersistedInstanceIds(type);
         Context context = ContextUtils.getApplicationContext();
         Set<Integer> appTaskIds = MultiWindowUtils.getAllAppTaskIds(context);
+        return getInstanceCount(type, appTaskIds);
+    }
+
+    /**
+     * Overload that accepts pre-fetched appTaskIds to avoid redundant Binder IPC calls to
+     * ActivityManager.getAppTasks(). Use this when calling getInstanceCount() multiple times
+     * to share a single IPC result.
+     */
+    /* package */ static int getInstanceCount(
+            @PersistedInstanceType int type, Set<Integer> appTaskIds) {
+        if (sInstanceCountForTesting != null) {
+            return sInstanceCountForTesting;
+        }
+
+        if (!isMultiInstanceApi31Enabled()) return 0;
+        Set<Integer> ids = getPersistedInstanceIds(type, appTaskIds);
         int count = 0;
         for (Integer id : ids) {
             if (ChromeMultiInstancePersistentStore.readMarkedForDeletion(id)) continue;
@@ -1098,9 +1162,23 @@ public class MultiWindowUtils implements ActivityStateListener {
      * @return A set of instance ids of the specified {@code type}.
      */
     /* package */ static Set<Integer> getPersistedInstanceIds(int type) {
+        // For ANY type, no need to call getAllAppTaskIds() — just return all IDs directly.
+        if (type == PersistedInstanceType.ANY) {
+            return ChromeMultiInstancePersistentStore.readAllInstanceIds();
+        }
+
         Context context = ContextUtils.getApplicationContext();
         Set<Integer> activeTaskIds = getAllAppTaskIds(context);
 
+        return getPersistedInstanceIds(type, activeTaskIds);
+    }
+
+    /**
+     * Overload that accepts pre-fetched appTaskIds to avoid redundant Binder IPC calls to
+     * ActivityManager.getAppTasks().
+     */
+    /* package */ static Set<Integer> getPersistedInstanceIds(
+            int type, Set<Integer> activeTaskIds) {
         Set<Integer> allIds = ChromeMultiInstancePersistentStore.readAllInstanceIds();
         if (type == PersistedInstanceType.ANY) return allIds;
 
@@ -1146,7 +1224,7 @@ public class MultiWindowUtils implements ActivityStateListener {
      * @return {@code false} when a new window should be opened in full screen, {@code true}
      *     otherwise.
      */
-    public static boolean shouldOpenInAdjacentWindow(Activity activity) {
+    /* package */ static boolean shouldOpenInAdjacentWindow(Activity activity) {
         // Always open adjacently if the current activity is in multi-windowing mode.
         if (activity.isInMultiWindowMode()) return true;
         return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
@@ -1154,6 +1232,22 @@ public class MultiWindowUtils implements ActivityStateListener {
                 OPEN_ADJACENTLY_PARAM,
                 true);
     }
+
+    // These values are persisted to logs. Entries should not be renumbered and
+    // numeric values should never be reused.
+    // LINT.IfChange(LaunchInInstanceEarlyFailureReason)
+    @IntDef({
+        LaunchInInstanceEarlyFailureReason.ACTIVITY_NOT_FOUND_OR_WRONG_TYPE,
+        LaunchInInstanceEarlyFailureReason.INVALID_TASK_ID,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface LaunchInInstanceEarlyFailureReason {
+        int ACTIVITY_NOT_FOUND_OR_WRONG_TYPE = 0;
+        int INVALID_TASK_ID = 1;
+        int NUM_ENTRIES = 2;
+    }
+
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:LaunchInInstanceEarlyFailureReason)
 
     /**
      * Launch the given intent in an existing ChromeTabbedActivity instance.
@@ -1164,9 +1258,21 @@ public class MultiWindowUtils implements ActivityStateListener {
      */
     public static boolean launchIntentInInstance(Intent intent, int instanceId) {
         Activity activity = getActivityById(instanceId);
-        if (!(activity instanceof ChromeTabbedActivity)) return false;
+        if (!(activity instanceof ChromeTabbedActivity)) {
+            RecordHistogram.recordEnumeratedHistogram(
+                    HISTOGRAM_LAUNCH_IN_INSTANCE_EARLY_FAILURE,
+                    LaunchInInstanceEarlyFailureReason.ACTIVITY_NOT_FOUND_OR_WRONG_TYPE,
+                    LaunchInInstanceEarlyFailureReason.NUM_ENTRIES);
+            return false;
+        }
         int taskId = activity.getTaskId();
-        if (taskId == INVALID_TASK_ID) return false;
+        if (taskId == INVALID_TASK_ID) {
+            RecordHistogram.recordEnumeratedHistogram(
+                    HISTOGRAM_LAUNCH_IN_INSTANCE_EARLY_FAILURE,
+                    LaunchInInstanceEarlyFailureReason.INVALID_TASK_ID,
+                    LaunchInInstanceEarlyFailureReason.NUM_ENTRIES);
+            return false;
+        }
 
         // Launch the intent in the existing activity and bring the task to foreground if it is
         // alive. AppTask.startActivity() is used to robustly bring specific tasks to the front,
@@ -1174,30 +1280,51 @@ public class MultiWindowUtils implements ActivityStateListener {
         // notification is tapped while the target activity is backgrounded (minimized).
         AppTask appTask = AndroidTaskUtils.getAppTaskFromId(activity, taskId);
         if (appTask != null) {
-            intent.setClass(ContextUtils.getApplicationContext(), activity.getClass());
-            if (isMultiInstanceApi31Enabled()) {
-                // Remove NEW_TASK to prevent the OS from spawning a duplicate instance,
-                // and strictly target the existing activity class.
-                intent.removeFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                appTask.startActivity(ContextUtils.getApplicationContext(), intent, null);
-            } else {
-                // On older Android versions or devices where multi-instance is not enabled, the OS
-                // enforces strict singleTask checks on AppTask.startActivity() and throws an
-                // exception if the task is not empty. However, since these versions do not support
-                // multiple tasks for the same ChromeTabbedActivity class, we can safely fallback
-                // to Context.startActivity() with NEW_TASK, which will inherently route to the
-                // correct task and still bypass BAL restrictions.
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                IntentUtils.safeStartActivity(ContextUtils.getApplicationContext(), intent);
-            }
-            return true;
+            Intent launchIntent = new Intent(intent);
+            launchIntent.setClass(ContextUtils.getApplicationContext(), activity.getClass());
+            boolean success =
+                    isMultiInstanceApi31Enabled()
+                            ? launchIntentViaAppTask(launchIntent, appTask)
+                            : launchIntentViaSafeStartActivity(launchIntent);
+            if (success) return true;
         }
 
-        // Fallback: If the OS lost the AppTask record but our Activity is still alive,
+        // Fallback: If the OS lost the AppTask record or startActivity failed,
         // manually inject the intent and attempt a best effort move to front.
         ((ChromeTabbedActivity) activity).onNewIntent(intent);
         ApiCompatibilityUtils.moveTaskToFront(activity, taskId, 0);
         return true;
+    }
+
+    private static boolean launchIntentViaAppTask(Intent launchIntent, AppTask appTask) {
+        // Remove NEW_TASK to prevent the OS from spawning a duplicate instance,
+        // and strictly target the existing activity class.
+        launchIntent.removeFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            appTask.startActivity(ContextUtils.getApplicationContext(), launchIntent, null);
+            RecordHistogram.recordBooleanHistogram(
+                    HISTOGRAM_LAUNCH_IN_INSTANCE_APP_TASK_RESULT, true);
+            return true;
+        } catch (Exception e) {
+            RecordHistogram.recordBooleanHistogram(
+                    HISTOGRAM_LAUNCH_IN_INSTANCE_APP_TASK_RESULT, false);
+            return false;
+        }
+    }
+
+    private static boolean launchIntentViaSafeStartActivity(Intent launchIntent) {
+        // On older Android versions or devices where multi-instance is not enabled, the OS
+        // enforces strict singleTask checks on AppTask.startActivity() and throws an
+        // exception if the task is not empty. However, since these versions do not support
+        // multiple tasks for the same ChromeTabbedActivity class, we can safely fallback
+        // to Context.startActivity() with NEW_TASK, which will inherently route to the
+        // correct task and still bypass BAL restrictions.
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        boolean success =
+                IntentUtils.safeStartActivity(ContextUtils.getApplicationContext(), launchIntent);
+        RecordHistogram.recordBooleanHistogram(
+                HISTOGRAM_LAUNCH_IN_INSTANCE_SAFE_START_RESULT, success);
+        return success;
     }
 
     /**
@@ -1298,14 +1425,15 @@ public class MultiWindowUtils implements ActivityStateListener {
      *
      * @param tabModelSelector The current {@link TabModelSelector}.
      * @param windowId The id of the window.
+     * @param isRecreating Whether the current activity is recreating.
      */
     public static void recordTabCountForRelaunchWhenActivityPaused(
-            TabModelSelector tabModelSelector, int windowId) {
+            TabModelSelector tabModelSelector, int windowId, boolean isRecreating) {
         List<TabModel> models = tabModelSelector.getModels();
         int totalCount = 0;
         for (TabModel model : models) {
             for (Tab tab : model) {
-                if (!TabPersistenceUtils.shouldSkipTab(tab)) {
+                if (!TabPersistenceUtils.shouldSkipTab(tab, isRecreating)) {
                     totalCount++;
                 }
             }

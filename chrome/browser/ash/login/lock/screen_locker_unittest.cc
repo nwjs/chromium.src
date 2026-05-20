@@ -16,10 +16,12 @@
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ash/certificate_provider/certificate_provider_service.h"
 #include "chrome/browser/ash/certificate_provider/certificate_provider_service_factory.h"
+#include "chrome/browser/ash/login/session/user_session_manager.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/settings/scoped_test_device_settings_service.h"
 #include "chrome/browser/ash/settings/scoped_testing_cros_settings.h"
+#include "chrome/browser/global_features.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/assistant/assistant_browser_delegate_impl.h"
 #include "chrome/browser/ui/ash/login/login_screen_client_impl.h"
@@ -92,6 +94,15 @@ class ScreenLockerUnitTest : public testing::Test {
 
     fake_user_manager_.Reset(std::make_unique<ash::FakeChromeUserManager>());
     session_manager_->OnUserManagerCreated(fake_user_manager_.Get());
+    user_session_manager_ = std::make_unique<UserSessionManager>(
+        TestingBrowserProcess::GetGlobal()->local_state(),
+        TestingBrowserProcess::GetGlobal()
+            ->GetFeatures()
+            ->application_locale_storage(),
+        TestingBrowserProcess::GetGlobal()->shared_url_loader_factory(),
+        TestingBrowserProcess::GetGlobal()
+            ->platform_part()
+            ->browser_policy_connector_ash());
 
     testing_profile_manager_ = std::make_unique<TestingProfileManager>(
         TestingBrowserProcess::GetGlobal());
@@ -125,15 +136,18 @@ class ScreenLockerUnitTest : public testing::Test {
   }
 
   void TearDown() override {
-    SystemSaltGetter::Shutdown();
-    input_method::InputMethodManager::Shutdown();
     assistant_delegate_.reset();
+    user_session_manager_->Shutdown();
 
     login_screen_client_.reset();
     session_controller_client_.reset();
 
     user_profile_ = nullptr;
     testing_profile_manager_.reset();
+
+    input_method::InputMethodManager::Shutdown();
+
+    user_session_manager_.reset();
     session_manager_.reset();
     fake_user_manager_.Reset();
     base::RunLoop().RunUntilIdle();
@@ -148,6 +162,7 @@ class ScreenLockerUnitTest : public testing::Test {
     chromeos::TpmManagerClient::Shutdown();
     BiodClient::Shutdown();
     ConciergeClient::Shutdown();
+    SystemSaltGetter::Shutdown();
   }
 
   void CreateSessionForUser(bool is_public_account) {
@@ -191,6 +206,7 @@ class ScreenLockerUnitTest : public testing::Test {
   user_manager::TypedScopedUserManager<ash::FakeChromeUserManager>
       fake_user_manager_;
   std::unique_ptr<session_manager::SessionManager> session_manager_;
+  std::unique_ptr<UserSessionManager> user_session_manager_;
   std::unique_ptr<TestingProfileManager> testing_profile_manager_;
   raw_ptr<TestingProfile> user_profile_ = nullptr;
 

@@ -107,9 +107,7 @@ BOOL PromoteShopCardToFrontOfStack() {
 BOOL PromoteTabResumptionShopCardToFrontOfStack() {
   return (commerce::kShopCardVariation.Get().contains(
               commerce::kShopCardArm3) ||
-          commerce::kShopCardVariation.Get() == commerce::kShopCardArm4 ||
-          commerce::kShopCardVariation.Get() == commerce::kShopCardArm5 ||
-          commerce::kShopCardVariation.Get() == commerce::kShopCardArm6) &&
+          commerce::kShopCardVariation.Get() == commerce::kShopCardArm5) &&
          commerce::kShopCardPosition.Get() == commerce::kShopCardFrontPosition;
 }
 
@@ -167,7 +165,6 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
   AppBundlePromoMediator* _appBundlePromoMediator;
   DefaultBrowserMediator* _defaultBrowserMediator;
   raw_ptr<TipsManagerIOS, DanglingUntriaged> _tipsManager;
-  base::TimeTicks ranking_fetch_start_time_;
   ContentSuggestionsModuleType _ephemeralCardToShow;
   raw_ptr<TemplateURLService, DanglingUntriaged> _templateURLService;
   raw_ptr<bookmarks::BookmarkModel, DanglingUntriaged> _bookmarkModel;
@@ -869,7 +866,6 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
                    inputContext:
                        (scoped_refptr<segmentation_platform::InputContext>)
                            inputContext {
-  ranking_fetch_start_time_ = base::TimeTicks::Now();
   __weak MagicStackRankingModel* weakSelf = self;
   _segmentationService->GetClassificationResult(
       segmentation_platform::kIosModuleRankerKey, options, inputContext,
@@ -886,15 +882,6 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
     return;
   }
 
-  if ([self.homeStartDataSource isStartSurface]) {
-    base::UmaHistogramMediumTimes(
-        kMagicStackStartSegmentationRankingFetchTimeHistogram,
-        base::TimeTicks::Now() - ranking_fetch_start_time_);
-  } else {
-    base::UmaHistogramMediumTimes(
-        kMagicStackNTPSegmentationRankingFetchTimeHistogram,
-        base::TimeTicks::Now() - ranking_fetch_start_time_);
-  }
 
   NSMutableArray* magicStackOrder = [NSMutableArray array];
   for (const std::string& label : result.ordered_labels) {

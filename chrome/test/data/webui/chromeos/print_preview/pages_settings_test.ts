@@ -38,7 +38,7 @@ suite('PagesSettingsTest', function() {
    * @return Promise that resolves when the input has been set and
    *     the input-change event has fired.
    */
-  function setCustomInput(inputString: string): Promise<void> {
+  function setCustomInput(inputString: string): Promise<Event> {
     const pagesInput = pagesSection.$.pageSettingsCustomInput.inputElement;
     return triggerInputEvent(pagesInput, inputString, pagesSection);
   }
@@ -179,7 +179,7 @@ suite('PagesSettingsTest', function() {
     await setCustomInput('-');
     validateState(oneToHundred, [], '', false);
 
-    // https://crbug.com/806165
+    // https://crbug.com/41367185
     await setCustomInput('1\u30012\u30013\u30011\u300156');
     validateState(
         [1, 2, 3, 56], [{from: 1, to: 3}, {from: 56, to: 56}], '', false);
@@ -188,7 +188,7 @@ suite('PagesSettingsTest', function() {
     validateState(
         [1, 2, 3, 56], [{from: 1, to: 3}, {from: 56, to: 56}], '', false);
 
-    // https://crbug.com/1015145
+    // https://crbug.com/40653569
     // Tests that the pages gets sorted for an unsorted input.
     await setCustomInput('89-91, 3, 6, 46, 1, 4, 2-3');
     validateState(

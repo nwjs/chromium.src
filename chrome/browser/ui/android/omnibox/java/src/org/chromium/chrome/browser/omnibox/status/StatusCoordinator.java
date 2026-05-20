@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.omnibox.status;
 
 import static org.chromium.build.NullUtil.assertNonNull;
 
-import android.animation.Animator;
 import android.app.Activity;
 import android.content.res.Resources;
 import android.os.Handler;
@@ -20,6 +19,7 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
@@ -39,8 +39,8 @@ import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
+import org.chromium.url.GURL;
 
-import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -77,6 +77,9 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
      * @param pageInfoAction Displays page info popup.
      * @param browserControlsVisibilityDelegate Delegate interface allowing control of the
      *     visibility of the browser controls (i.e. toolbar).
+     * @param fuseboxStateSupplier Used to decide if an plus button for fusebox should be shown.
+     * @param onPlusButtonClicked Toggle the fusebox attachments menu when plus button used.
+     * @param exactMatchUrlSupplier The URL if there is an exact match.
      */
     public StatusCoordinator(
             boolean isTablet,
@@ -87,7 +90,10 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
             WindowAndroid windowAndroid,
             PageInfoAction pageInfoAction,
             @Nullable BrowserStateBrowserControlsVisibilityDelegate
-                    browserControlsVisibilityDelegate) {
+                    browserControlsVisibilityDelegate,
+            NonNullObservableSupplier<@FuseboxState Integer> fuseboxStateSupplier,
+            Runnable onPlusButtonClicked,
+            NullableObservableSupplier<GURL> exactMatchUrlSupplier) {
         mIsTablet = isTablet;
         mStatusView = statusView;
         mLocationBarDataProvider = locationBarDataProvider;
@@ -110,14 +116,16 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
                 new StatusMediator(
                         mModel,
                         mStatusView.getContext(),
-                        isTablet,
                         locationBarDataProvider,
                         PermissionDialogController.getInstance(),
                         templateUrlServiceSupplier,
                         profileSupplier,
                         pageInfoIphController,
                         windowAndroid,
-                        pageInfoAction);
+                        pageInfoAction,
+                        fuseboxStateSupplier,
+                        onPlusButtonClicked,
+                        exactMatchUrlSupplier);
 
         Resources res = mStatusView.getResources();
         mMediator.setUrlMinWidth(
@@ -152,7 +160,6 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
     /** Signals that native initialization has completed. */
     public void onNativeInitialized() {
         mMediator.updateLocationBarIcon(StatusView.IconTransitionType.CROSSFADE);
-        mMediator.updateStatusVisibility();
     }
 
     /**
@@ -173,15 +180,6 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
     /** Toggle whether the status icon should be hidden for secure origins. */
     public void setShowStatusIconForSecureOrigins(boolean showStatusIconForSecureOrigins) {
         mMediator.setShowStatusIconForSecureOrigins(showStatusIconForSecureOrigins);
-    }
-
-    /**
-     * Set the url focus change percent.
-     *
-     * @param percent The current focus percent.
-     */
-    public void setUrlFocusChangePercent(float percent) {
-        mMediator.setUrlFocusChangePercent(percent);
     }
 
     /** Set the x translation of the status view. */
@@ -212,9 +210,7 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
 
     // LocationBarDataProvider.Observer implementation.
     @Override
-    public void onNtpStartedLoading() {
-        mMediator.updateStatusVisibility();
-    }
+    public void onNtpStartedLoading() {}
 
     @Override
     public void onSecurityStateChanged() {
@@ -278,11 +274,6 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
                 : mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes();
     }
 
-    /** Called when teh fusebox state of the LocationBar changes */
-    public void onFuseboxStateChanged(@FuseboxState int state) {
-        mMediator.onFuseboxStateChanged(state);
-    }
-
     /**
      * Update visibility of the verbose status based on the button type and focus state of the
      * omnibox.
@@ -324,16 +315,6 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
     }
 
     /**
-     * Notifies StatusCoordinator that the default match for the currently entered autocomplete text
-     * has been classified, indicating whether the default match is a search.
-     *
-     * @param defaultMatchIsSearch Whether the default match is a search.
-     */
-    public void onDefaultMatchClassified(boolean defaultMatchIsSearch) {
-        mMediator.updateLocationBarIconForDefaultMatchCategory(defaultMatchIsSearch);
-    }
-
-    /**
      * Set the supplier for SiteSearchData.
      *
      * @param supplier the supplier.
@@ -360,15 +341,7 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
         return mStatusView.isStatusIconAnimating();
     }
 
-    /** Returns the start time (ms) of the current or most recent status icon animation. */
     public long getAnimationStartTimeMs() {
         return mStatusView.getAnimationStartTimeMs();
     }
-
-    /**
-     * Populates an animation that fades =/unfades the entire StatusView container with the given
-     * start delay and duration, adding it to the given list of animators.
-     */
-    public void populateFadeAnimation(
-            List<Animator> animators, long startDelayMs, long durationMs, float targetAlpha) {}
 }

@@ -78,10 +78,6 @@
     'agent_scheduling_group': {
       'filepath': '.*agent_scheduling_group|.*agent_group_scheduler',
     },
-    'agents': {
-      'filepath': '^\.gemini/|' \
-                  '^agents/',
-    },
     'ai_page_content' : {
       'filepath': 'chrome/browser/ai/ai_data_keyed_service|' \
                   'chrome/browser/glic/host/context/|' \
@@ -157,8 +153,9 @@
                   '|chrome/android/java/src/org/chromium/chrome/browser/searchwidget/'
     },
     'android_side_panel': {
-      'filepath': 'chrome/browser/ui/side_ui/'\
+      'filepath': 'chrome/browser/ui/side_panel/'\
                   '|chrome/browser/ui/side_panel_container/'\
+                  '|chrome/browser/ui/side_ui/'\
                   '|.*SidePanel.*\.java'\
                   '|.*SideUi.*\.java'
     },
@@ -180,6 +177,9 @@
     },
     'android_toolbar_deps': {
       'filepath': 'chrome/android/java/src/org/chromium/chrome/browser/toolbar/DEPS'
+    },
+    'android_ui_actions': {
+      'filepath': 'chrome/browser/ui/android/actions/',
     },
     'android_uma_settings': {
       'filepath': 'chrome/android/java/src/org/chromium/chrome/browser/settings/privacy/PrivacyPreferencesManager.java|'\
@@ -2039,10 +2039,6 @@
                   '|chrome/android/features/stack_unwinder/'\
                   '|chrome/android/modules/stack_unwinder/',
     },
-    'scanning': {
-      'filepath': 'ash/webui/scanning/'\
-                  '|chrome/browser/ash/scanning/',
-    },
     'screen_ai': {
       'filepath': 'screen_ai',
     },
@@ -2243,6 +2239,10 @@
         '|chrome/browser/tab_group_sync/'\
         '|components/data_sharing/'\
         '|components/saved_tab_groups/'
+    },
+    'tab_switcher_button': {
+      'filepath': 'chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/browser/toolbar/top/ToggleTabStackButton.*\.java' \
+                  '|chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/browser/toolbar/TabSwitcherDrawable.java'
     },
     'tab_ui_and_start_surface': {
       'filepath': 'chrome/android/features/tab_ui/' \
@@ -2558,15 +2558,12 @@
     'accessibility_service': ['hirokisato+watch@chromium.org',
                               'katie+watch@chromium.org'],
     'actor': ['mfoltz+watch-actor@chromium.org'],
-    'actor_ui': ['chrstne+watch@google.com', 'aashnas+watch@google.com', 'boujane+watch@google.com',
-      'kmg+watch@google.com'
-    ],
+    'actor_ui': ['aashnas+watch@google.com'],
     'ad_tracker': ['jkarlin@chromium.org', 'yaoxia@chromium.org'],
     'add_to_homescreen': ['pkotwicz+watch@chromium.org',
                           'webapks-watchlist@chromium.org'],
     'agent_scheduling_group': ['blink-isolation-reviews@chromium.org',
                                'chikamune+watch@chromium.org'],
-    'agents': ['estaab+watch@chromium.org'],
     'ai_page_content': ['mfoltz+watch-actor@chromium.org'],
     'ai_settings_page_desktop': ['rainhard+watch@chromium.org'],
     'android_accessibility_ui': ['mschillaci@google.com'],
@@ -2584,13 +2581,21 @@
     'android_lint': ['wnwen+watch@chromium.org'],
     'android_omnibox': ['ender+watch@chromium.org'],
     'android_search_widget': ['yusufo+watch@chromium.org'],
-    'android_side_panel': ['mschillaci@google.com'],
+    'android_side_panel': ['adelm@google.com',
+                           'clhager@google.com',
+                           'linyuh@google.com',
+                           'mschillaci@google.com',
+                           'nemco@google.com',
+                           'shuyng@google.com',
+                           'sinansahin@google.com'],
     'android_startup_metrics': ['pasko+watch@chromium.org'],
     'android_studio': ['wnwen+watch@chromium.org',
                        'nyquist+watch@chromium.org'],
     'android_tab': ['dtrainor+watch@chromium.org'],
     'android_toolbar': ['hanxi+watch@chromium.org'],
     'android_toolbar_deps': ['jinsukkim+watch@chromium.org'],
+    'android_ui_actions': ['polardz+watch@google.com',
+                           'ckitagawa+watch@chromium.org'],
     'android_uma_settings': ['asvitkine+watch@chromium.org',
                              'gayane+watch@chromium.org'],
     'android_webapk': ['webapks-watchlist@chromium.org'],
@@ -2626,8 +2631,7 @@
                 'hugobenichi+watch-arc-net@google.com',
                 'jasongustaman+watch-arc-net@chromium.org'],
     'arc_power': ['ejcaruso+watch@chromium.org'],
-    'ash_webui_common': ['gavinwill+watch-ash-webui-common@chromium.org',
-                         'jimmyxgong+watch-ash-webui-common@chromium.org'],
+    'ash_webui_common': ['jimmyxgong+watch-ash-webui-common@chromium.org'],
     'ash_wm_desks': ['dandersson@chromium.org',
                      'bicioglu@google.com'],
     'assistive': ['croissant-eng+reviews@chromium.org'],
@@ -2845,7 +2849,7 @@
     'chrome_performance_manager': ['performance-manager-reviews@chromium.org'],
     'chromecast': ['halliwell+watch@chromium.org'],
     'chromecast_public': ['gfhuang+watch@chromium.org'],
-    'chromedriver': ['mathias@chromium.org'],
+    'chromedriver': [],
     'chromeos': ['oshima+watch@chromium.org'],
     'chromeos_attestation': ['dkrahn+watch@chromium.org'],
     'chromeos_bluetooth': ['chadduffin+watch-bluetooth@chromium.org',
@@ -3266,7 +3270,6 @@
                       'xinghuilu+watch@chromium.org',
                       'zackhan+watch@chromium.org'],
     'sampling_profiler': ['thiabaud@google.com', 'spvm@chromium.org'],
-    'scanning': ['gavinwill+scanning-watch@chromium.org'],
     'screen_ai': ['rhalavati+watch@chromium.org'],
     'search_engine_choice_screen': ['chrome-regionalcapabilities+watch@google.com'],
     'search_prefetch': ['lingqi+watch@chromium.org'],
@@ -3338,6 +3341,8 @@
                      'avi@chromium.org',
                      'creis+watch@chromium.org'],
     'tab_group_infra' : [ 'chrome-tab-group-eng-leads+watch-infra@google.com' ],
+    'tab_switcher_button': ['polardz+watch@google.com',
+                            'ckitagawa+watch@chromium.org'],
     'tab_ui_and_start_surface': ['meiliang+watch@chromium.org',
                                  'yuezhanggg+watch@chromium.org',
                                  'wychen+watch@chromium.org',

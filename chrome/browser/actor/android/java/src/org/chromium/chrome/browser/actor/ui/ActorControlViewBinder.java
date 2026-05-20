@@ -22,14 +22,18 @@ public class ActorControlViewBinder {
     public static void bind(PropertyModel model, ActorControlView view, PropertyKey propertyKey) {
         if (ActorControlProperties.TASK_TITLE == propertyKey) {
             view.setTitle(model.get(ActorControlProperties.TASK_TITLE));
-        } else if (ActorControlProperties.TASK_STEP_DESCRIPTION == propertyKey) {
-            view.setStepDescription(model.get(ActorControlProperties.TASK_STEP_DESCRIPTION));
-        } else if (ActorControlProperties.ON_PLAY_PAUSE_CLICKED == propertyKey) {
-            view.setPlayPauseListener(model.get(ActorControlProperties.ON_PLAY_PAUSE_CLICKED));
+        } else if (ActorControlProperties.PEEK_VIEW_UI_STATE == propertyKey) {
+            PeekViewUiState state = model.get(ActorControlProperties.PEEK_VIEW_UI_STATE);
+            view.configurePeekViewForState(state);
+        } else if (ActorControlProperties.ON_ACTOR_CONTROL_CLICKED == propertyKey) {
+            view.setActorControlClickListener(
+                    v -> model.get(ActorControlProperties.ON_ACTOR_CONTROL_CLICKED).run());
         } else if (ActorControlProperties.ON_CLOSE_CLICKED == propertyKey) {
-            view.setCloseClickListener(model.get(ActorControlProperties.ON_CLOSE_CLICKED));
-        } else if (propertyKey == ActorControlProperties.STATUS_ICON_RESOURCE) {
-            view.setStatusIconResource(model.get(ActorControlProperties.STATUS_ICON_RESOURCE));
+            view.setCloseClickListener(
+                    v -> model.get(ActorControlProperties.ON_CLOSE_CLICKED).run());
+        } else if (ActorControlProperties.ON_PEEK_VIEW_CLICKED == propertyKey) {
+            view.setPeekViewClickListener(
+                    v -> model.get(ActorControlProperties.ON_PEEK_VIEW_CLICKED).run());
         }
     }
 }

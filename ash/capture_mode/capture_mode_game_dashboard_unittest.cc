@@ -34,6 +34,7 @@
 #include "ash/wm/tablet_mode/tablet_mode_controller_test_api.h"
 #include "base/system/sys_info.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "extensions/common/constants.h"
@@ -51,6 +52,8 @@ bool operator==(const ButtonInfo& lhs, const ButtonInfo& rhs) {
 }  // namespace message_center
 
 namespace ash {
+
+using chromeos::AppType;
 
 namespace {
 
@@ -87,7 +90,8 @@ class GameDashboardCaptureModeTest : public AshTestBase {
     active_user_prefs->SetBoolean(prefs::kGameDashboardShowWelcomeDialog,
                                   false);
 
-    game_window_ = CreateAppWindow(gfx::Rect(0, 100, 300, 200));
+    game_window_ =
+        CreateWindowWithAppType(AppType::SYSTEM_APP, {0, 100, 300, 200});
     game_window_->SetProperty(kAppIDKey,
                               std::string(extension_misc::kGeForceNowAppId));
   }
@@ -176,8 +180,8 @@ TEST_F(GameDashboardCaptureModeTest, SwitchToDefaultCaptureMode) {
 // will be reset.
 TEST_F(GameDashboardCaptureModeTest, StartForGameDashboardTest) {
   UpdateDisplay("1000x700");
-  std::unique_ptr<aura::Window> other_window(
-      CreateAppWindow(gfx::Rect(0, 300, 500, 300)));
+  std::unique_ptr<aura::Window> other_window =
+      CreateWindowWithAppType(AppType::SYSTEM_APP, {0, 300, 500, 300});
   CaptureModeController* controller = StartGameCaptureModeSession();
   BaseCaptureModeSession* capture_mode_session =
       controller->capture_mode_session();
@@ -946,8 +950,8 @@ TEST_F(GameDashboardCaptureModeTest, AvoidToolbarAndCameraPreviewIntersection) {
 
 TEST_F(GameDashboardCaptureModeTest, CursorAndClickBehaviorWhenAnchored) {
   // Create second window on screen that underlaps `game_window_` slightly.
-  std::unique_ptr<aura::Window> window(
-      CreateTestWindow(gfx::Rect(50, 150, 100, 100)));
+  std::unique_ptr<aura::Window> window =
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {50, 150, 100, 100});
 
   // The game window should be the top most active window.
   wm::ActivateWindow(game_window());
@@ -1250,9 +1254,9 @@ TEST_P(GameDashboardCaptureModeHistogramTest,
   game_dashboard_test_api->OpenTheMainMenu();
   LeftClickOn(game_dashboard_test_api->GetMainMenuRecordGameTile());
   // Clicking on the record game tile closes the main menu, and asynchronously
-  // starts the capture session. Run until idle to ensure that the posted task
-  // runs synchronously and completes before proceeding.
-  base::RunLoop().RunUntilIdle();
+  // starts the capture session.
+  ASSERT_TRUE(base::test::RunUntil(
+      [] { return CaptureModeController::Get()->IsActive(); }));
   LeftClickOn(GetStartRecordingButton());
   WaitForRecordingToStart();
   EXPECT_TRUE(CaptureModeController::Get()->is_recording_in_progress());

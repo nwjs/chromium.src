@@ -60,6 +60,9 @@
 #include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
+#include "chrome/browser/ui/page_actions/action_ids.h"
+#include "chrome/browser/ui/page_actions/page_action_controller.h"
+#include "chrome/browser/ui/page_actions/page_action_properties_provider.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
@@ -87,18 +90,14 @@
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_webui_base_content.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_webui_content.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
-#include "chrome/browser/ui/views/page_action/action_ids.h"
 #include "chrome/browser/ui/views/page_action/page_action_container_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_container.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_params.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_properties_provider.h"
 #include "chrome/browser/ui/views/page_action/page_action_view_params.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_specification.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view.h"
-#include "chrome/browser/ui/views/passwords/manage_passwords_icon_views.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_dashboard_view.h"
 #include "chrome/browser/ui/views/sharing_hub/sharing_hub_icon_view.h"
@@ -311,12 +310,12 @@ void LocationBarView::Init() {
         std::make_unique<PermissionDashboardController>(
             this, this, permission_dashboard_view_);
   } else {
-    chip_controller_ = std::make_unique<ChipController>(
-        this, this,
+    chip_view_ =
         AddChildViewAt(std::make_unique<PermissionChipView>(
                            PermissionChipView::Role::kPermissionRequestChip,
                            PermissionChipView::PressedCallback()),
-                       0));
+                       0);
+    chip_controller_ = std::make_unique<ChipController>(this, this, chip_view_);
   }
 
   const auto& typography_provider = views::TypographyProvider::Get();
@@ -372,7 +371,7 @@ void LocationBarView::Init() {
 
   const bool web_ui_popup_dropdown_only =
       omnibox::IsWebUIOmniboxPopupEnabled() &&
-      !base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup);
+      !omnibox::IsWebUIOmniboxFullPopupEnabled();
 
   // Default to the legacy popup view for web apps and devtools windows since
   // creating the WebUI popup results in an extra Omnibox process being created
@@ -383,7 +382,7 @@ void LocationBarView::Init() {
   if (!is_web_app && !is_devtools &&
       ((web_ui_popup_dropdown_only &&
         !base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopupDebug)) ||
-       base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup))) {
+       omnibox::IsWebUIOmniboxFullPopupEnabled())) {
     omnibox_popup_view_ = std::make_unique<OmniboxPopupViewWebUI>(
         /*omnibox_view=*/omnibox_view_, omnibox_controller_.get(),
         /*location_bar=*/this, /*presenter_delegate=*/*this);
@@ -509,7 +508,6 @@ void LocationBarView::Init() {
     if (optimization_guide::features::ShouldEnableOptimizationGuideIconView()) {
       params.types_enabled.push_back(PageActionIconType::kOptimizationGuide);
     }
-    params.types_enabled.push_back(PageActionIconType::kManagePasswords);
     if (!apps::features::ShouldShowLinkCapturingUX()) {
       params.types_enabled.push_back(PageActionIconType::kIntentPicker);
     }
@@ -915,9 +913,10 @@ void LocationBarView::Layout(PassKey) {
                                         false, 0, /*intra_item_padding=*/0,
                                         icon_left, permission_dashboard_view_);
     } else {
+      CHECK(chip_view_);
       leading_decorations.AddDecoration(vertical_padding, location_height,
                                         false, 0, /*intra_item_padding=*/0,
-                                        icon_left, chip_controller_->chip());
+                                        icon_left, chip_view_);
     }
   }
 
@@ -1245,7 +1244,7 @@ std::optional<bubble_anchor_util::AnchorConfiguration>
 LocationBarView::GetChipAnchor() {
   auto* chip = GetChipController()->chip();
   if (chip->GetVisible()) {
-    return {{views::BubbleAnchor(chip),
+    return {{chip->GetAnchor(),
              PermissionChipView::kPermissionRequestChipElementId,
              views::BubbleBorder::TOP_LEFT}};
   }
@@ -1394,7 +1393,7 @@ bool LocationBarView::ShouldHidePageActionIcon(
   }
 
   PinnedToolbarActions* pinned_toolbar_actions =
-      browser_view->toolbar()->pinned_toolbar_actions();
+      browser_view->toolbar_button_provider()->GetPinnedToolbarActions();
   return pinned_toolbar_actions &&
          pinned_toolbar_actions->IsActionPinnedOrPoppedOut(
              icon_view->action_id().value_or(-1));
@@ -1901,7 +1900,7 @@ void LocationBarView::OnPopupStateChanged(OmniboxPopupState old_state,
     // Close any overlapping user education bubbles when any popup opens.
     // It's not great for promos to overlap the omnibox if the user opens the
     // drop-down after showing the promo. This especially causes issues on Mac
-    // and Linux due to z-order/rendering issues, see crbug.com/1225046 and
+    // and Linux due to z-order/rendering issues, see crbug.com/40775593 and
     // crbug.com/332769403 for examples.
     BrowserHelpBubble::MaybeCloseOverlappingHelpBubbles(this);
   }
@@ -1975,7 +1974,8 @@ void LocationBarView::ValidatePopupState(OmniboxPopupState state) {
   // Note: GetWidget() returns the BrowserView's widget, not the popup widget.
   if (views::Widget* widget = GetWidget();
       !widget || !widget->IsVisible() ||
-      base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+      base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) ||
+      base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopupV2)) {
     return;
   }
 

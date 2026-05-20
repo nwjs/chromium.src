@@ -15,10 +15,10 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
+#include "chrome/browser/ui/page_actions/page_action_controller.h"
+#include "chrome/browser/ui/page_actions/page_action_model_observer.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/anchored_message_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_model_observer.h"
-#include "chrome/browser/ui/views/page_action/page_action_triggers.h"
 #include "ui/actions/actions.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/models/image_model.h"
@@ -29,14 +29,15 @@
 
 namespace page_actions {
 
-class PageActionController;
 class PageActionModelInterface;
 struct PageActionViewParams;
 
 // PageActionView is the view displaying the page action. There is one per
 // browser, per page action.
 class PageActionView : public IconLabelBubbleView,
-                       public PageActionModelObserver {
+                       public PageActionModelObserver,
+                       public PageActionController::Delegate,
+                       public AnchoredMessageBubbleView::Delegate {
   METADATA_HEADER(PageActionView, IconLabelBubbleView)
  public:
   PageActionView(actions::ActionItem* action_item,
@@ -60,16 +61,32 @@ class PageActionView : public IconLabelBubbleView,
   // expanding and collapsing).
   bool IsChipVisible() const;
 
+  // Indicates whether this view is showing an anchored message
+  bool IsAnchoredMessageVisible() const;
+
   // Reports the chip visibility change state at the beginning of the animation.
   using ChipVisibilityChanged = base::RepeatingCallback<void(PageActionView*)>;
   base::CallbackListSubscription AddChipVisibilityChangedCallback(
       ChipVisibilityChanged callback);
 
+  // Reports the anchored message visibility change state
+  using AnchoredMessageVisibilityCallback =
+      base::RepeatingCallback<void(PageActionView*)>;
+  base::CallbackListSubscription AddAnchoredMessageVisibilityChangedCallback(
+      AnchoredMessageVisibilityCallback callback);
+
+  // PageActionController::Delegate:
   // Reports the chip visibility change state at the end of the animation.
-  using IsChipShowingChangedCallback =
-      base::RepeatingCallback<void(bool is_chip_showing)>;
-  void SetIsChipShowingChangedCallback(IsChipShowingChangedCallback callback);
-  void SetAnchoredMessageCloseCallback(base::RepeatingClosure callback);
+  void SetIsChipShowingChangedCallback(
+      IsChipShowingChangedCallback callback) override;
+  void SetAnchoredMessageCloseCallback(
+      base::RepeatingClosure callback) override;
+  void SetAnchoredMessagePauseCallback(
+      base::RepeatingClosure callback) override;
+  void SetAnchoredMessageResumeCallback(
+      base::RepeatingClosure callback) override;
+  void SetClickCallback(
+      base::RepeatingCallback<void(PageActionTrigger)> callback) override;
 
   // PageActionModelObserver:
   void OnPageActionModelChanged(const PageActionModelInterface& model) override;
@@ -91,18 +108,22 @@ class PageActionView : public IconLabelBubbleView,
   bool IsTriggerableEvent(const ui::Event& event) override;
   void AnimationEnded(const gfx::Animation* animation) override;
 
+  // AnchoredMessageBubbleView::Delegate:
+  void AnchoredMessageChipClick() override;
+  void CloseAnchoredMessage() override;
+  void PauseAnchoredMessageTimeout() override;
+  void ResumeAnchoredMessageTimeout() override;
+
   actions::ActionId GetActionId() const;
 
   views::View* GetLabelForTesting();
   gfx::SlideAnimation& GetSlideAnimationForTesting();
   AnchoredMessageBubbleView* GetAnchoredMessageForTesting();
 
-  static base::PassKey<PageActionView> PassKeyForTesting() { return PassKey(); }
+  static PageActionPassKey PassKeyForTesting() { return PageActionPassKey(); }
 
  protected:
-  static base::PassKey<PageActionView> PassKey() {
-    return base::PassKey<PageActionView>();
-  }
+  static PageActionPassKey PassKey() { return PageActionPassKey(); }
 
  private:
   // The image associated with the `action_item_` size may be different from the
@@ -119,9 +140,6 @@ class PageActionView : public IconLabelBubbleView,
   // Runs `is_chip_showing_changed_callback_` asynchronously to ensure that this
   // notification will happen after PageActionModel::NotifyChange().
   void NotifyIsChipShowingChange();
-
-  void CloseAnchoredMessage();
-  void AnchoredMessageClick();
 
   void OnAnchoredMessageWidgetClose(views::Widget::ClosedReason closed_reason);
 
@@ -147,11 +165,18 @@ class PageActionView : public IconLabelBubbleView,
   base::RepeatingCallbackList<void(PageActionView*)>
       chip_visibility_changed_callbacks_;
 
+  // Client-provided callbacks for changes to anchored message state.
+  base::RepeatingCallbackList<void(PageActionView*)>
+      anchored_message_visibility_changed_callbacks_;
+
   // Used to notify when the chip state changes (expanded/hidden). The state is
   // only reported when there is not an ongoing animation. It's initialized to
   // base::DoNothing() for testing purpose.
   IsChipShowingChangedCallback is_chip_showing_changed_callback_ =
       base::DoNothing();
+
+  // The last "chip showing" state that was sent for a notification.
+  std::optional<bool> last_notified_is_chip_showing_;
 
   // Used to record click event histogram. It's initialized to base::DoNothing()
   // for testing purpose.
@@ -165,6 +190,8 @@ class PageActionView : public IconLabelBubbleView,
   std::unique_ptr<views::Widget> anchored_message_widget_;
 
   base::RepeatingClosure anchored_message_close_callback_ = base::DoNothing();
+  base::RepeatingClosure anchored_message_pause_callback_ = base::DoNothing();
+  base::RepeatingClosure anchored_message_resume_callback_ = base::DoNothing();
   base::WeakPtrFactory<PageActionView> weak_factory_{this};
 };
 

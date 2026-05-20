@@ -39,6 +39,7 @@ suite('AutofillAiAddOrEditDialogUiTest', function() {
         editEntityTypeString: 'Edit vehicle',
         deleteEntityTypeString: 'Delete vehicle',
         supportsWalletStorage: true,
+        passType: chrome.autofillPrivate.EntityPassType.PUBLIC_PASS,
       },
       attributeInstances: [
         {
@@ -202,8 +203,9 @@ suite('AutofillAiAddOrEditDialogUiTest', function() {
             expectedEntityInstance.storedInWallet = true;
           }
 
-          const dialogConfirmedPromise =
-              eventToPromise('autofill-ai-add-or-edit-done', dialog);
+          const dialogConfirmedPromise = eventToPromise<
+              CustomEvent<chrome.autofillPrivate.EntityInstance>>(
+              'autofill-ai-add-or-edit-done', dialog);
           saveButton.click();
 
           const dialogConfirmedEvent = await dialogConfirmedPromise;
@@ -400,19 +402,42 @@ suite('AutofillAiAddOrEditDialogUiTest', function() {
     }
   });
 
-  test('FooterHiddenForIneligibleEntity', async function() {
-    // Create ineligible entity
-    const ineligibleEntity = structuredClone(testEntityInstance);
-    ineligibleEntity.type.supportsWalletStorage = false;
+  test('FooterVisibleForIneligibleEntity', async function() {
+    const originalGetAccountInfo = chrome.autofillPrivate.getAccountInfo;
+    chrome.autofillPrivate.getAccountInfo = () => Promise.resolve({
+      email: 'test@example.com',
+      isSyncEnabledForAutofillProfiles: true,
+      isEligibleForAddressAccountStorage: true,
+      isAutofillSyncToggleEnabled: true,
+      isAutofillSyncToggleAvailable: true,
+    });
 
-    dialog.entityInstance = ineligibleEntity;
-    document.body.appendChild(dialog);
-    await entityDataManager.whenCalled('getAllAttributeTypesForEntityTypeName');
-    await flushTasks();
+    try {
+      // Create ineligible entity.
+      const ineligibleEntity = structuredClone(testEntityInstance);
+      ineligibleEntity.type.supportsWalletStorage = false;
+      ineligibleEntity.guid = '';
 
-    const footer = dialog.shadowRoot!.querySelector<HTMLElement>('#footer');
-    assertTrue(!!footer);
-    assertTrue(footer.hidden, 'Footer should be hidden for ineligible entity');
+      dialog.entityInstance = ineligibleEntity;
+      loadTimeData.overrideValues({
+        autofillAiSaveOrUpdateLocalEntitySourceNotice:
+            'Your info is saved to your device',
+      });
+
+      document.body.appendChild(dialog);
+      await entityDataManager.whenCalled(
+          'getAllAttributeTypesForEntityTypeName');
+      await flushTasks();
+
+      const footer = dialog.shadowRoot!.querySelector<HTMLElement>('#footer');
+      assertTrue(!!footer);
+      assertFalse(
+          footer.hidden, 'Footer should be visible for ineligible entity');
+      assertTrue(
+          footer.innerText.includes('Your info is saved to your device'));
+    } finally {
+      chrome.autofillPrivate.getAccountInfo = originalGetAccountInfo;
+    }
   });
 
   test('AsyncSave_ShowsSpinnerAndDisablesButton', async function() {
@@ -531,6 +556,7 @@ suite('AutofillAiAddOrEditDialogSelectElementUiTest', function() {
         editEntityTypeString: 'Edit passport',
         deleteEntityTypeString: 'Delete passport',
         supportsWalletStorage: false,
+        passType: chrome.autofillPrivate.EntityPassType.PRIVATE_PASS,
       },
       attributeInstances: [],
       guid: 'e4bbe384-ee63-45a4-8df3-713a58fdc181',
@@ -626,7 +652,8 @@ suite('AutofillAiAddOrEditDialogSelectElementUiTest', function() {
         assertTrue(!!saveButton);
 
         const dialogConfirmedPromise =
-            eventToPromise('autofill-ai-add-or-edit-done', dialog);
+            eventToPromise<CustomEvent<chrome.autofillPrivate.EntityInstance>>(
+                'autofill-ai-add-or-edit-done', dialog);
         saveButton.click();
 
         const dialogConfirmedEvent = await dialogConfirmedPromise;
@@ -729,7 +756,8 @@ suite('AutofillAiAddOrEditDialogSelectElementUiTest', function() {
         assertTrue(!!saveButton);
 
         const dialogConfirmedPromise =
-            eventToPromise('autofill-ai-add-or-edit-done', dialog);
+            eventToPromise<CustomEvent<chrome.autofillPrivate.EntityInstance>>(
+                'autofill-ai-add-or-edit-done', dialog);
         saveButton.click();
 
         const dialogConfirmedEvent = await dialogConfirmedPromise;

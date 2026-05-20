@@ -33,6 +33,7 @@
 #include "components/services/storage/public/cpp/quota_error_or.h"
 #include "components/services/storage/public/mojom/blob_storage_context.mojom.h"
 #include "components/services/storage/public/mojom/file_system_access_context.mojom.h"
+#include "content/browser/indexed_db/inactivity_timer.h"
 #include "content/browser/indexed_db/indexed_db_data_loss_info.h"
 #include "content/browser/indexed_db/indexed_db_database_error.h"
 #include "content/browser/indexed_db/indexed_db_external_object.h"
@@ -220,8 +221,6 @@ class CONTENT_EXPORT BucketContext
 
   ClosingState closing_stage() const { return closing_stage_; }
 
-  void ReportOutstandingBlobs(bool blobs_outstanding);
-
   // Called when `space_requested` bytes are about to be used by committing a
   // transaction. Will invoke `disk_space_check_callback` if this usage is
   // approved, or false if there's insufficient space as per the `QuotaManager`.
@@ -316,9 +315,6 @@ class CONTENT_EXPORT BucketContext
                        Status status,
                        const std::string& message);
 
-  // Called when the backing store has been corrupted.
-  void HandleBackingStoreCorruption(const std::string& error_message);
-
   // base::trace_event::MemoryDumpProvider:
   bool OnMemoryDump(const base::trace_event::MemoryDumpArgs& args,
                     base::trace_event::ProcessMemoryDump* pmd) override;
@@ -330,7 +326,7 @@ class CONTENT_EXPORT BucketContext
   friend class DatabaseTest;
   friend class IndexedDBTest;
   friend class IndexedDBTestBase;
-  friend class IndexedDBTestForSqliteMigration;
+  friend class SqliteBackingStoreRolloutStageTest;
   friend class TransactionTestBase;
 
   FRIEND_TEST_ALL_PREFIXES(IndexedDBTest, CompactionKillSwitchWorks);
@@ -392,7 +388,7 @@ class CONTENT_EXPORT BucketContext
   // Called when there is any activity that should reset the idle timer.
   void OnActivity();
   // Called after a period of inactivity.
-  void RunIdleTasks();
+  void RunIdleTasks(bool long_idle);
 
   void OnGotBucketSpaceRemaining(storage::QuotaErrorOr<int64_t> space_left);
 
@@ -425,6 +421,9 @@ class CONTENT_EXPORT BucketContext
 
   std::string SanitizeErrorMessage(const std::string& message);
 
+  // Called when the backing store has been corrupted.
+  void HandleBackingStoreCorruption(const std::string& error_message);
+
   // Called when a Web Blob is being read from SQLite. `final_result` will hold
   // a value IFF the read operation has completed.
   void OnSqliteBlobActivity(std::optional<net::Error> final_result);
@@ -438,14 +437,11 @@ class CONTENT_EXPORT BucketContext
   // `SetSqliteRolloutStageForTesting()`.
   SqliteRolloutStage sqlite_rollout_stage_;
 
-  // True if there are blobs referencing this backing store that are still
-  // alive. This is used as closing criteria for this object, see CanClose.
-  bool has_blobs_outstanding_ = false;
-
   bool running_tasks_ = false;
 
   ClosingState closing_stage_ = ClosingState::kNotClosing;
-  base::RetainingOneShotTimer idle_timer_;
+  InactivityTimer idle_timer_;
+  InactivityTimer long_idle_timer_;
   std::optional<base::TimeTicks> last_idle_tasks_completion_time_;
   base::OneShotTimer close_timer_;
   std::unique_ptr<PartitionedLockManager> lock_manager_;

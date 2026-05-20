@@ -5,6 +5,7 @@
 #include "media/gpu/windows/d3d12_helpers.h"
 
 #include "base/check_is_test.h"
+#include "base/containers/span.h"
 #include "base/logging.h"
 #include "media/base/video_codecs.h"
 #include "media/gpu/windows/d3d11_picture_buffer.h"

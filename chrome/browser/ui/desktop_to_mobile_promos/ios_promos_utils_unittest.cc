@@ -58,7 +58,11 @@ std::unique_ptr<syncer::DeviceInfo> CreateDeviceInfo(
       /*fcm_registration_token=*/std::string(),
       /*interested_data_types=*/syncer::DataTypeSet::All(),
       /*auto_sign_out_last_signin_timestamp=*/std::nullopt,
-      /*desktop_to_ios_promo_receiving_enabled=*/false);
+      /*desktop_to_ios_promo_receiving_enabled=*/false,
+      /*desktop_to_ios_promo_receiving_types=*/
+      MobilePromoOnDesktopPromoTypeSet{},
+      /*glic_experimental_triggering_state=*/
+      syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable);
 }
 
 std::unique_ptr<syncer::DeviceInfo> CreateDeviceInfoWithTime(
@@ -80,7 +84,11 @@ std::unique_ptr<syncer::DeviceInfo> CreateDeviceInfoWithTime(
       /*fcm_registration_token=*/std::string(),
       /*interested_data_types=*/syncer::DataTypeSet::All(),
       /*auto_sign_out_last_signin_timestamp=*/std::nullopt,
-      /*desktop_to_ios_promo_receiving_enabled=*/false);
+      /*desktop_to_ios_promo_receiving_enabled=*/false,
+      /*desktop_to_ios_promo_receiving_types=*/
+      MobilePromoOnDesktopPromoTypeSet{},
+      /*glic_experimental_triggering_state=*/
+      syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable);
 }
 
 class IOSPromosUtilsTest : public testing::Test {

@@ -5,6 +5,7 @@
 #include "chrome/browser/indigo/indigo_service.h"
 
 #include "base/test/mock_callback.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/indigo/indigo_prefs.h"
@@ -18,11 +19,16 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+#if BUILDFLAG(IS_MAC)
+#include "base/mac/mac_util.h"
+#endif
+
 namespace indigo {
 
 class IndigoServiceTest : public testing::Test {
  public:
   void SetUp() override {
+    scoped_feature_list_.InitAndEnableFeature(features::kIndigo);
     ::indigo::prefs::RegisterProfilePrefs(prefs_.registry());
   }
 
@@ -99,6 +105,7 @@ class IndigoServiceTest : public testing::Test {
   TestingPrefServiceSimple prefs_;
   signin::IdentityTestEnvironment identity_test_env_;
   std::unique_ptr<IndigoService> service_;
+  base::test::ScopedFeatureList scoped_feature_list_;
   RemoteEligibility mock_remote_eligibility_ =
       RemoteEligibility{.is_service_supported_for_account = true,
                         .has_user_image = true};
@@ -147,6 +154,13 @@ TEST_F(IndigoServiceTest, PolicyChangeTriggersUpdate) {
 }
 
 TEST_F(IndigoServiceTest, AnchoredMessageTrigger) {
+#if BUILDFLAG(IS_MAC)
+  // TODO(crbug.com/434660312): Re-enable on macOS 26 once issues with
+  // unexpected test timeout failures are resolved.
+  if (base::mac::MacOSMajorVersion() == 26) {
+    GTEST_SKIP() << "Disabled on macOS Tahoe.";
+  }
+#endif
   CreateService();
 
   EXPECT_TRUE(service_->CanShowAnchoredMessage());

@@ -140,16 +140,16 @@ void UrlRule::Canonicalize() {
   CanonicalizeDomainList(&domains);
 }
 
-CssRule::CssRule() = default;
+StyleRule::StyleRule() = default;
 
-CssRule::CssRule(const CssRule&) = default;
+StyleRule::StyleRule(const StyleRule&) = default;
 
-CssRule::~CssRule() = default;
+StyleRule::~StyleRule() = default;
 
-CssRule& CssRule::operator=(const CssRule&) = default;
+StyleRule& StyleRule::operator=(const StyleRule&) = default;
 
-url_pattern_index::proto::CssRule CssRule::ToProtobuf() const {
-  url_pattern_index::proto::CssRule result;
+url_pattern_index::proto::StyleRule StyleRule::ToProtobuf() const {
+  url_pattern_index::proto::StyleRule result;
 
   result.set_semantics(
       is_allowlist ? url_pattern_index::proto::RULE_SEMANTICS_ALLOWLIST
@@ -168,14 +168,14 @@ url_pattern_index::proto::CssRule CssRule::ToProtobuf() const {
     }
   }
 
-  if (!css_selector.empty()) {
-    result.set_css_selector(css_selector);
+  if (!selector.empty()) {
+    result.set_selector(selector);
   }
 
   return result;
 }
 
-void CssRule::Canonicalize() {
+void StyleRule::Canonicalize() {
   CanonicalizeDomainList(&domains);
 }
 
@@ -330,7 +330,7 @@ std::string ToString(const url_pattern_index::proto::UrlRule& rule) {
   return result;
 }
 
-std::string ToString(const url_pattern_index::proto::CssRule& rule) {
+std::string ToString(const url_pattern_index::proto::StyleRule& rule) {
   std::string result;
   if (rule.domains_size()) {
     DomainListJoin(rule.domains(), ',', &result);
@@ -347,15 +347,118 @@ std::string ToString(const url_pattern_index::proto::CssRule& rule) {
       LOG(FATAL);
   }
 
-  return result += rule.css_selector();
+  return result += rule.selector();
 }
 
 std::ostream& operator<<(std::ostream& os, const UrlRule& rule) {
   return os << "UrlRule(" << ToString(rule.ToProtobuf()) << ")";
 }
 
-std::ostream& operator<<(std::ostream& os, const CssRule& rule) {
-  return os << "CssRule(" << ToString(rule.ToProtobuf()) << ")";
+std::ostream& operator<<(std::ostream& os, const StyleRule& rule) {
+  return os << "StyleRule(" << ToString(rule.ToProtobuf()) << ")";
+}
+
+bool GetAnchorsIfSupported(std::string_view selector,
+                           bool is_site_specific,
+                           std::vector<std::string>& classes,
+                           std::vector<std::string>& ids) {
+  // Skip empty selectors and at-rules (e.g., @media).
+  if (selector.empty() || selector.starts_with('@')) {
+    return false;
+  }
+
+  // State variables for the parser.
+  bool has_pseudo = false;
+  bool in_attribute = false;
+  bool in_quotes = false;
+  char quote_char = 0;
+
+  std::string current_name;
+  char identifier_type = 0;  // '.' for class, '#' for ID, 0 for none.
+
+  bool in_escape = false;
+
+  for (char c : selector) {
+    // CSS identifiers allow a broad range of characters, especially if escaped.
+    // We treat anything non-ASCII, alphanumeric, '-', '_', or escaped as an
+    // identifier character.
+    bool is_id_char = (c & 0x80) || (c >= 'a' && c <= 'z') ||
+                      (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                      c == '-' || c == '_' || in_escape;
+
+    // If we are currently parsing an identifier and hit a delimiter (like a
+    // space, dot, or hash) that is NOT part of an escape sequence, we finish
+    // the identifier.
+    if (identifier_type && !is_id_char && c != '\\') {
+      if (!current_name.empty()) {
+        if (identifier_type == '.') {
+          classes.emplace_back(std::move(current_name));
+        } else {
+          ids.emplace_back(std::move(current_name));
+        }
+        current_name.clear();
+      }
+      identifier_type = 0;
+    }
+
+    // Handle escapes. In CSS, a backslash escapes the next character.
+    // We skip the backslash itself and treat the next character as part of the
+    // identifier.
+    if (c == '\\' && !in_escape) {
+      in_escape = true;
+      continue;  // Skip the escape character itself
+    }
+
+    // Handle quotes. Characters inside quotes are ignored for anchor
+    // extraction.
+    if ((c == '"' || c == '\'') && !in_escape) {
+      if (!in_quotes) {
+        in_quotes = true;
+        quote_char = c;
+      } else if (c == quote_char) {
+        in_quotes = false;
+      }
+    }
+
+    // Handle attribute selectors. Characters inside [...] are ignored.
+    else if (!in_quotes && c == '[' && !in_escape) {
+      in_attribute = true;
+    } else if (!in_quotes && c == ']' && !in_escape) {
+      in_attribute = false;
+    }
+
+    // Outside of quotes and attributes, look for anchors and pseudo-classes.
+    else if (!in_attribute && !in_escape) {
+      if (c == '.' || c == '#') {
+        identifier_type = c;
+      } else if (c == ':') {
+        has_pseudo = true;
+      }
+    }
+    // Append character to the current identifier if we are inside one.
+    if (identifier_type && (is_id_char || in_escape)) {
+      current_name += c;
+    }
+
+    in_escape = false;
+  }
+
+  // Handle the last identifier if the selector ends with one.
+  if (identifier_type && !current_name.empty()) {
+    if (identifier_type == '.') {
+      classes.emplace_back(std::move(current_name));
+    } else {
+      ids.emplace_back(std::move(current_name));
+    }
+  }
+
+  if (has_pseudo || !is_site_specific) {
+    return !classes.empty() || !ids.empty();
+  }
+
+  // Site-specific rules without pseudo-classes are allowed even without anchors
+  // (e.g., tag selectors or attribute selectors specific to a site).
+  return true;
 }
 
 }  // namespace subresource_filter

@@ -54,7 +54,11 @@ std::unique_ptr<DeviceInfo> CreateFakeDeviceInfo(
       /*sharing_info=*/std::nullopt, /*paask_info=*/std::nullopt,
       fcm_registration_token, interested_data_types,
       /*auto_sign_out_last_signin_timestamp=*/std::nullopt,
-      /*desktop_to_ios_promo_receiving_enabled=*/false);
+      /*desktop_to_ios_promo_receiving_enabled=*/false,
+      /*desktop_to_ios_promo_receiving_types=*/
+      MobilePromoOnDesktopPromoTypeSet{},
+      /*glic_experimental_triggering_state=*/
+      syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable);
 }
 
 DataTypeSet DefaultInterestedDataTypes() {

@@ -280,6 +280,7 @@
 
           **질문 추천:** 사용자가 스크린샷을 더 잘 파악하기 위해 물어볼 법하면서 생각할 거리를 주는 질문 3~5개를 글머리기호 목록 형식으로 생성해 줘. 질문에는 시각적 객체, 디자인 또는 배치에 관한 질문이 하나 이상 포함되어야 해.</translation>
 <translation id="386202838227397562">Chrome 창을 모두 닫고 다시 시도해 보세요.</translation>
+<translation id="3869083394918739976">탭을 전환하지 않고도 AI 모드로 계속 채팅할 수 있습니다. 시작하려면 Chrome에 로그인하세요. 이렇게 하면 이용 중인 모든 기기에서 비밀번호 등도 사용할 수 있습니다.</translation>
 <translation id="3873044882194371212">Chrome 시크릿 창에서 링크 열기(&amp;G)</translation>
 <translation id="3885770153807205175">언어 선택 도구</translation>
 <translation id="3889417619312448367">Chrome 제거</translation>
@@ -423,6 +424,7 @@ Chrome에서 설정을 복구할 수 없습니다.</translation>
 <translation id="547202872422499512">이제 Windows 시작 시 Chrome이 실행되므로 즉시 탐색을 시작할 수 있습니다. 설정에서 이 기능을 사용 중지할 수 있습니다</translation>
 <translation id="5486346529181556467">유해하다고 생각되는 사이트를 신고하면 모든 사용자를 위해 온라인 안전을 개선할 수 있습니다. <ph name="BEGIN_LINK" />Google의 안전하지 않은 사이트 정책<ph name="END_LINK" />에 대해 자세히 알아보세요.</translation>
 <translation id="5524890928877629608">검색 영역의 왼쪽 상단: 왼쪽 <ph name="LEFT" />%, 상단 <ph name="TOP" />%</translation>
+<translation id="5529390769101499214">Chrome 기본 메뉴에서 확장 프로그램을 클릭하여 확장 프로그램을 관리하세요.</translation>
 <translation id="5550137307985173298">새 탭 페이지에서 Chrome 맞춤설정 버튼을 클릭하여 Chrome에 새로운 디자인을 적용하세요</translation>
 <translation id="5566025111015594046">Chrome(mDNS-In)</translation>
 <translation id="5579324208890605088">시작 오류: 관리자가 아닌 일반 사용자로 설치 프로그램을 실행하세요.</translation>
@@ -783,7 +785,6 @@ Chrome에서 설정을 복구할 수 없습니다.</translation>
 <translation id="8862326446509486874">시스템 수준의 설치 권한이 없습니다. 관리자 권한으로 설치 프로그램을 다시 실행해 보세요.</translation>
 <translation id="8865415417596392024">계정의 Chrome 데이터</translation>
 <translation id="8883862939660515976">Google 렌즈에 이 이미지에 관해 질문하기</translation>
-<translation id="8892956691293410744">페이지를 나가지 않고 탭에 관해 AI 모드에게 물어보려면 Chrome에 로그인하세요. 이렇게 하면 이용 중인 모든 기기에서 비밀번호 등도 사용할 수 있습니다.</translation>
 <translation id="8914504000324227558">Chrome 다시 시작</translation>
 <translation id="8922193594870374009"><ph name="ORIGIN" />에서 Android 휴대전화로 번호를 전송하려면 두 기기 모두에서 Chrome에 로그인하세요.</translation>
 <translation id="8922998289262614701">Chrome에서 이 앱 데이터 삭제</translation>

@@ -219,6 +219,7 @@ if (is_win || is_mac || is_linux) {
       ":version_header",
       "//base",
       "//base:i18n",
+      "//build:branding_buildflags",
       "//build:chromeos_buildflags",
       "//chrome/enterprise_companion:client",
       "//chrome/enterprise_companion:constants_prod",
@@ -573,6 +574,7 @@ if (is_win || is_mac || is_linux) {
       "certificate_tag_internal.h",
       "tag.cc",
       "tag.h",
+      "tag_internal.h",
     ]
 
     deps = [ "//base" ]
@@ -913,6 +915,7 @@ if (is_win || is_mac || is_linux) {
       "get_updater_scope_unittest.cc",
       "installer_unittest.cc",
       "net/fallback_net_fetcher_unittest.cc",
+      "net/network_fetcher_unittest.cc",
       "net/network_unittest.cc",
       "out_of_process_unzipper_unittest.cc",
       "persisted_data_unittest.cc",
@@ -921,6 +924,7 @@ if (is_win || is_mac || is_linux) {
       "policy/policy_manager_unittest.cc",
       "policy/service_unittest.cc",
       "prefs_unittest.cc",
+      "tag_fuzztest.cc",
       "tag_unittest.cc",
       "test/dm_policy_builder.cc",
       "test/dm_policy_builder.h",
@@ -975,6 +979,7 @@ if (is_win || is_mac || is_linux) {
       "//testing/gtest",
       "//third_party/abseil-cpp:absl",
       "//third_party/crashpad/crashpad/client",
+      "//third_party/fuzztest",
       "//third_party/re2",
       "//third_party/zlib/google:compression_utils",
       "//url",
@@ -1038,6 +1043,7 @@ if (is_win || is_mac || is_linux) {
         "win/ui/l10n_util_unittest.cc",
         "win/ui/progress_wnd_unittest.cc",
         "win/updater_tests.rc",
+        "win/user_info_unittest.cc",
       ]
 
       configs -= [ "//build/config/win:winver" ]
@@ -1273,6 +1279,12 @@ if (is_win || is_mac || is_linux) {
     }
   }
 
+  updater_fuzztests = [
+    "TagFuzzTest.FuzzParseBroad",
+    "TagFuzzTest.FuzzParseShared",
+    "TagFuzzTest.FuzzReadTag",
+  ]
+
   # These tests are run serially since they mutate system state.
   test("updater_tests") {
     testonly = true
@@ -1282,6 +1294,8 @@ if (is_win || is_mac || is_linux) {
       "test/run_all_unittests.cc",
       "test/test_scope_user.cc",
     ]
+
+    fuzztests = updater_fuzztests
 
     deps = [
       ":base",
@@ -1322,6 +1336,8 @@ if (is_win || is_mac || is_linux) {
       "test/run_all_unittests.cc",
       "test/test_scope_system.cc",
     ]
+
+    fuzztests = updater_fuzztests
 
     deps = [
       ":base",

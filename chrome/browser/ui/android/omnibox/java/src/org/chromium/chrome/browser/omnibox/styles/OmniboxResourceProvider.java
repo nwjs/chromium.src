@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.omnibox.styles;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -40,6 +41,7 @@ import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.styles.IncognitoColors;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.browser_ui.util.DrawableUtils;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.util.ColorUtils;
@@ -439,14 +441,14 @@ public class OmniboxResourceProvider {
     private static @ColorInt int getHoverSuggestionBackgroundColor(
             Context context, @BrandedColorScheme int colorScheme) {
 
-        if (colorScheme == BrandedColorScheme.INCOGNITO) {
-            return context.getColor(R.color.search_suggestion_bg_color_hover_incognito);
-        }
-
-        // search_suggestion_bg_color + 8% colorOnSurface
+        @ColorInt int baseColor = getStandardSuggestionBackgroundColor(context, colorScheme);
         @ColorInt
-        int baseColor = ContextCompat.getColor(context, R.color.search_suggestion_bg_color);
-        @ColorInt int hoverColor = MaterialColors.getColor(context, R.attr.colorOnSurface, TAG);
+        int hoverColor =
+                switch (colorScheme) {
+                    case BrandedColorScheme.INCOGNITO ->
+                            context.getColor(R.color.baseline_neutral_90);
+                    default -> MaterialColors.getColor(context, R.attr.colorOnSurface, TAG);
+                };
         float fraction =
                 context.getResources()
                         .getFraction(R.fraction.omnibox_suggestion_bg_hover_overlay_fraction, 1, 1);
@@ -756,6 +758,21 @@ public class OmniboxResourceProvider {
         return ChromeColors.getPrimaryIconTint(context, isIncognito);
     }
 
+    /**
+     * Resolves the background color for primary icons.
+     *
+     * @param context The context to retrieve the resources from.
+     * @param brandedColorScheme The {@link BrandedColorScheme}.
+     * @return The primary icon background color.
+     */
+    public static ColorStateList getPrimaryIconBackgroundColor(
+            Context context, @BrandedColorScheme int brandedColorScheme) {
+        boolean isIncognito =
+                convertBrandedColorSchemeToIncognitoOrDayNightAdaptive(brandedColorScheme);
+        return ColorStateList.valueOf(
+                IncognitoColors.getColorSurfaceContainer(context, isIncognito));
+    }
+
     /** Resolves the icon tint color for the icons that should be vivid, such as the + button. */
     public static @ColorInt int getPopupDividerLineColor(
             Context context, @BrandedColorScheme int brandedColorScheme) {
@@ -801,6 +818,14 @@ public class OmniboxResourceProvider {
         return IncognitoColors.getTextMediumPrimary(isIncognito);
     }
 
+    /** Resolves the text appearance for attachment buttons in the popup. */
+    public static @StyleRes int getAttachmentButtonTextRes(
+            @BrandedColorScheme int brandedColorScheme) {
+        boolean isIncognito =
+                convertBrandedColorSchemeToIncognitoOrDayNightAdaptive(brandedColorScheme);
+        return IncognitoColors.getTextSmallSecondary(isIncognito);
+    }
+
     /** Resolves the text appearance for header visibility text in the popup. */
     public static @StyleRes int getPopupHeaderVisibilityTextRes(
             @BrandedColorScheme int brandedColorScheme) {
@@ -812,14 +837,11 @@ public class OmniboxResourceProvider {
     /** Returns the drawable that is to go behind the + button in the search box. */
     public static Drawable getSearchBoxIconBackground(
             Context context, @BrandedColorScheme int brandedColorScheme) {
+        Resources res = context.getResources();
         boolean isIncognito =
                 convertBrandedColorSchemeToIncognitoOrDayNightAdaptive(brandedColorScheme);
-        @DrawableRes
-        int resId =
-                isIncognito
-                        ? R.drawable.search_box_icon_background_opaque_incognito
-                        : R.drawable.search_box_icon_background_opaque;
-        return getDrawable(context, resId);
+        @Px int size = res.getDimensionPixelSize(R.dimen.small_icon_background_size);
+        return DrawableUtils.getIconBackground(context, isIncognito, size, size);
     }
 
     /** Returns the drawable for the popup menu that shows menu items for context and tools. */

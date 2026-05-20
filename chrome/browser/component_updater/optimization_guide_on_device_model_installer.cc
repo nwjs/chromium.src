@@ -8,11 +8,13 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <vector>
 
 #include "base/byte_count.h"
 #include "base/callback_list.h"
+#include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -94,6 +96,14 @@ bool IsModelAlreadyInstalled(ComponentUpdateService* cus,
 
   return update_item.component->version.CompareToWildcardString(
              target_version) == 0;
+}
+
+bool GetPublicKeyHashFromHex(const std::string& public_key_hex,
+                             std::vector<uint8_t>* public_key_hash) {
+  if (!base::HexStringToBytes(public_key_hex, public_key_hash)) {
+    return false;
+  }
+  return public_key_hash->size() == 32;
 }
 
 base::FilePath GetComponentInstallDirectory() {
@@ -349,10 +359,8 @@ class ManifestComponentsInstallerPolicy final
       : public_key_hex_(std::move(public_key_hex)),
         target_version_(std::move(target_version)),
         asset_manager_(std::move(asset_manager)) {
-    bool success = base::HexStringToBytes(public_key_hex_, &public_key_hash_);
-    if (!success || public_key_hash_.size() != 32) {
-      LOG(ERROR) << "Invalid public key hex: [" << public_key_hex_
-                 << "]  with hash size " << public_key_hash_.size();
+    if (!GetPublicKeyHashFromHex(public_key_hex_, &public_key_hash_)) {
+      LOG(ERROR) << "Invalid public key hex: [" << public_key_hex_ << "]";
     }
   }
 
@@ -379,8 +387,11 @@ class ManifestComponentsInstallerPolicy final
   }
 
   base::FilePath GetRelativeInstallDir() const override {
-    return base::FilePath(FILE_PATH_LITERAL("OptGuideManifestModel"))
-        .AppendASCII(public_key_hex_);
+    // Temporary redirection to avoid re-downloading the legacy model again.
+    return std::ranges::equal(public_key_hash_, base::span(kPublicKeySHA256))
+               ? base::FilePath(kInstallationRelativePath)
+               : base::FilePath(FILE_PATH_LITERAL("OptGuideManifestModel"))
+                     .AppendASCII(public_key_hex_);
   }
 
   void GetHash(std::vector<uint8_t>* hash) const override {
@@ -496,12 +507,17 @@ class ManifestAssetManagerDelegateImpl final
         [](base::WeakPtr<optimization_guide::ManifestAssetManager> manager,
            ComponentUpdateService* cus, const std::string& public_key_hex,
            const std::string& target_version) {
+          std::vector<uint8_t> public_key_hash;
+          std::string extension_id;
+          if (GetPublicKeyHashFromHex(public_key_hex, &public_key_hash)) {
+            extension_id =
+                crx_file::id_util::GenerateIdFromHash(public_key_hash);
+          }
+
           if (manager) {
             manager->InstallerRegistered(
                 public_key_hex, target_version,
-                IsModelAlreadyInstalled(
-                    cus, crx_file::id_util::GenerateIdFromHex(public_key_hex),
-                    target_version));
+                IsModelAlreadyInstalled(cus, extension_id, target_version));
           }
         },
         manager, cus, public_key_hex, target_version);
@@ -527,8 +543,15 @@ class ManifestAssetManagerDelegateImpl final
     if (!g_browser_process) {
       return;
     }
+    std::vector<uint8_t> public_key_hash;
+    if (!GetPublicKeyHashFromHex(public_key_hex, &public_key_hash)) {
+      LOG(ERROR) << "Invalid public key hex in RequestUpdate: ["
+                 << public_key_hex << "]";
+      return;
+    }
+
     OptimizationGuideOnDeviceModelInstallerPolicy::UpdateOnDemand(
-        crx_file::id_util::GenerateIdFromHex(public_key_hex),
+        crx_file::id_util::GenerateIdFromHash(public_key_hash),
         is_background ? OnDemandUpdater::Priority::BACKGROUND
                       : OnDemandUpdater::Priority::FOREGROUND);
   }

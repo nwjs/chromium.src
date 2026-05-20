@@ -17,7 +17,6 @@
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/window_controller.h"
 #include "chrome/browser/extensions/window_controller_list.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/common/chrome_features.h"
@@ -438,7 +437,7 @@ IN_PROC_BROWSER_TEST_F(NativeMessagingLaunchBackgroundModeApiTest,
   EXPECT_EQ(kExtensionId, extension->id());
 }
 
-// Flaky on a Windows bot. See crbug.com/1030332.
+// Flaky on a Windows bot. See crbug.com/40109939.
 #if BUILDFLAG(IS_WIN)
 #define MAYBE_Success DISABLED_Success
 #else

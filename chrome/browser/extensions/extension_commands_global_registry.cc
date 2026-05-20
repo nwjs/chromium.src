@@ -11,6 +11,7 @@
 #include "chrome/browser/extensions/commands/command_service.h"
 #include "chrome/browser/extensions/extension_keybinding_registry.h"
 #include "components/prefs/pref_service.h"
+#include "components/user_prefs/user_prefs.h"
 #include "content/public/browser/browser_context.h"
 #include "extensions/browser/pref_names.h"
 #include "extensions/buildflags/buildflags.h"
@@ -21,8 +22,8 @@
 #if defined(USE_AURA) && !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/gfx/native_ui_types.h"
@@ -43,7 +44,9 @@ gfx::AcceleratedWidget GetAcceleratedWidgetForContext(
   }
 
   BrowserWindowInterface* const browser =
-      chrome::FindLastActiveWithProfile(Profile::FromBrowserContext(context));
+      ProfileBrowserCollection::GetForProfile(
+          Profile::FromBrowserContext(context))
+          ->GetLastActiveBrowser();
   if (!browser || !browser->GetWindow()) {
     return gfx::kNullAcceleratedWidget;
   }
@@ -141,9 +144,7 @@ bool ExtensionCommandsGlobalRegistry::PopulateCommands(
             extensions::CommandService::ANY_SCOPE, commands)) {
       return false;
     }
-    PrefService* prefs =
-        ExtensionsBrowserClient::Get()->GetPrefServiceForContext(
-            browser_context_);
+    PrefService* prefs = user_prefs::UserPrefs::Get(browser_context_);
     std::string profile_id = prefs->GetString(pref_names::kGlobalShortcutsUuid);
     if (profile_id.empty()) {
       auto uuid = base::Uuid::GenerateRandomV4();

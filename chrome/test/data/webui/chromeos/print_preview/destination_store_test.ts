@@ -159,7 +159,7 @@ suite('DestinationStoreTest', function() {
   /**
    * Tests that if the user has multiple valid recent destinations, the
    * correct destination is selected for the preview request.
-   * For crbug.com/666595.
+   * For crbug.com/40494294.
    */
   test(
       'MultipleRecentDestinationsOneRequest', function() {
@@ -253,7 +253,8 @@ suite('DestinationStoreTest', function() {
         return Promise
             .all([
               setInitialSettings(true),
-              eventToPromise(DestinationStoreEventType.ERROR, destinationStore),
+              eventToPromise<CustomEvent<DestinationErrorType>>(
+                  DestinationStoreEventType.ERROR, destinationStore),
             ])
             .then(function(argsArray) {
               const errorEvent = argsArray[1];
@@ -266,7 +267,7 @@ suite('DestinationStoreTest', function() {
   /**
    * Tests that if the user has a recent destination that is already in the
    * store (PDF printer), the DestinationStore does not try to select a
-   * printer again later. Regression test for https://crbug.com/927162.
+   * printer again later. Regression test for https://crbug.com/40611877.
    */
   test('RecentSaveAsPdf', function() {
     const pdfPrinter = getSaveAsPdfDestination();
@@ -497,9 +498,10 @@ suite('DestinationStoreTest', function() {
           // Add a printer status then trigger the event again. The printer
           // status should be parsed and appended to the existing destination.
           printer1.printerStatus = expectedPrinterStatus;
-          const onPrinterStatusUpdatePromise = eventToPromise(
-              DestinationStoreEventType.DESTINATION_PRINTER_STATUS_UPDATE,
-              destinationStore);
+          const onPrinterStatusUpdatePromise =
+              eventToPromise<CustomEvent<{nowOnline: boolean}>>(
+                  DestinationStoreEventType.DESTINATION_PRINTER_STATUS_UPDATE,
+                  destinationStore);
           webUIListenerCallback('local-printers-updated', [printer1]);
           return onPrinterStatusUpdatePromise;
         })
@@ -534,9 +536,10 @@ suite('DestinationStoreTest', function() {
             }],
           };
 
-          const onPrinterStatusUpdatePromise = eventToPromise(
-              DestinationStoreEventType.DESTINATION_PRINTER_STATUS_UPDATE,
-              destinationStore);
+          const onPrinterStatusUpdatePromise =
+              eventToPromise<CustomEvent<{nowOnline: boolean}>>(
+                  DestinationStoreEventType.DESTINATION_PRINTER_STATUS_UPDATE,
+                  destinationStore);
           webUIListenerCallback('local-printers-updated', [printer1]);
           return onPrinterStatusUpdatePromise;
         })
@@ -553,9 +556,10 @@ suite('DestinationStoreTest', function() {
             }],
           };
 
-          const onPrinterStatusUpdatePromise = eventToPromise(
-              DestinationStoreEventType.DESTINATION_PRINTER_STATUS_UPDATE,
-              destinationStore);
+          const onPrinterStatusUpdatePromise =
+              eventToPromise<CustomEvent<{nowOnline: boolean}>>(
+                  DestinationStoreEventType.DESTINATION_PRINTER_STATUS_UPDATE,
+                  destinationStore);
           webUIListenerCallback('local-printers-updated', [printer1]);
           return onPrinterStatusUpdatePromise;
         })
@@ -572,9 +576,10 @@ suite('DestinationStoreTest', function() {
             }],
           };
 
-          const onPrinterStatusUpdatePromise = eventToPromise(
-              DestinationStoreEventType.DESTINATION_PRINTER_STATUS_UPDATE,
-              destinationStore);
+          const onPrinterStatusUpdatePromise =
+              eventToPromise<CustomEvent<{nowOnline: boolean}>>(
+                  DestinationStoreEventType.DESTINATION_PRINTER_STATUS_UPDATE,
+                  destinationStore);
           webUIListenerCallback('local-printers-updated', [printer1]);
           return onPrinterStatusUpdatePromise;
         })

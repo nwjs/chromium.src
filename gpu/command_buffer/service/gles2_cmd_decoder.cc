@@ -602,6 +602,13 @@ class GLES2DecoderImpl : public GLES2Decoder,
   void RestoreVertexAttribArray(unsigned index) override {
     RestoreStateForAttrib(index, true);
   }
+  void PauseTransformFeedback() override {
+    if (state_.bound_transform_feedback.get() &&
+        state_.bound_transform_feedback->active() &&
+        !state_.bound_transform_feedback->paused()) {
+      state_.api()->glPauseTransformFeedbackFn();
+    }
+  }
   void RestoreBufferBinding(unsigned int target) override;
   void RestoreFramebufferBindings() const override;
   void RestoreRenderbufferBindings() override;
@@ -5447,6 +5454,8 @@ void GLES2DecoderImpl::DoBeginTransformFeedback(GLenum primitive_mode) {
   }
   transform_feedback->DoBeginTransformFeedback(primitive_mode);
   DCHECK(transform_feedback->active());
+
+  transform_feedback->SetActiveProgram(program);
 }
 
 void GLES2DecoderImpl::DoEndTransformFeedback() {
@@ -5459,6 +5468,11 @@ void GLES2DecoderImpl::DoEndTransformFeedback() {
   }
   // TODO(zmo): Validate binding points.
   state_.bound_transform_feedback->DoEndTransformFeedback();
+
+  Program* program = state_.bound_transform_feedback->active_program();
+  if (program) {
+    state_.bound_transform_feedback->ClearActiveProgram();
+  }
 }
 
 void GLES2DecoderImpl::DoPauseTransformFeedback() {
@@ -8055,9 +8069,12 @@ void GLES2DecoderImpl::DoRenderbufferStorageMultisampleCHROMIUM(
                                                width, height, kDoNotForce);
   GLenum error =
       LOCAL_PEEK_GL_ERROR("glRenderbufferStorageMultisampleCHROMIUM");
+
   if (error == GL_NO_ERROR) {
     renderbuffer_manager()->SetInfoAndInvalidate(renderbuffer, samples,
                                                  internalformat, width, height);
+  } else {
+    renderbuffer_manager()->SetAllocationFailed(renderbuffer);
   }
 }
 
@@ -8180,6 +8197,12 @@ void GLES2DecoderImpl::DoLinkProgram(GLuint program_id) {
   Program* program = GetProgramInfoNotShader(
       program_id, "glLinkProgram");
   if (!program) {
+    return;
+  }
+
+  if (program->IsActiveForTransformFeedback()) {
+    LOCAL_SET_GL_ERROR(GL_INVALID_OPERATION, "glLinkProgram",
+                       "program is active for transform feedback");
     return;
   }
 
@@ -8516,14 +8539,11 @@ void GLES2DecoderImpl::DoUniform1iv(GLint fake_location,
   auto values_copy = std::make_unique<GLint[]>(count);
   GLint* safe_values = values_copy.get();
   std::copy(values, UNSAFE_TODO(values + count), safe_values);
-  if (type == GL_SAMPLER_2D || type == GL_SAMPLER_2D_RECT_ANGLE ||
-      type == GL_SAMPLER_CUBE || type == GL_SAMPLER_EXTERNAL_OES) {
-    if (!state_.current_program->SetSamplers(
-            state_.texture_units.size(), fake_location, count, safe_values)) {
-      LOCAL_SET_GL_ERROR(
-          GL_INVALID_VALUE, "glUniform1iv", "texture unit out of range");
-      return;
-    }
+  if (!state_.current_program->SetSamplers(state_.texture_units.size(),
+                                           fake_location, count, safe_values)) {
+    LOCAL_SET_GL_ERROR(GL_INVALID_VALUE, "glUniform1iv",
+                       "texture unit out of range");
+    return;
   }
   api()->glUniform1ivFn(real_location, count, safe_values);
 }
@@ -13633,6 +13653,9 @@ void GLES2DecoderImpl::DoCopyTexSubImage2D(
   GLint dy = src.y() - y;
   GLint destX = xoffset + dx;
   GLint destY = yoffset + dy;
+
+  LOCAL_COPY_REAL_GL_ERRORS_TO_WRAPPER(func_name);
+
   // It's only legal to skip clearing the level of the target texture
   // if the entire level is being redefined.
   GLsizei level_width = 0;
@@ -13642,10 +13665,15 @@ void GLES2DecoderImpl::DoCopyTexSubImage2D(
       target, level, &level_width, &level_height, &level_depth);
   // Validated above.
   DCHECK(have_level);
+
+  bool set_cleared = false;
+  gfx::Rect cleared_rect_to_set;
+  bool set_cleared_rect = false;
+
   if (destX == 0 && destY == 0 &&
       src.width() == level_width && src.height() == level_height) {
     // Write all pixels in below.
-    texture_manager()->SetLevelCleared(texture_ref, target, level, true);
+    set_cleared = true;
   } else {
     gfx::Rect cleared_rect;
     if (TextureManager::CombineAdjacentRects(
@@ -13654,8 +13682,8 @@ void GLES2DecoderImpl::DoCopyTexSubImage2D(
             &cleared_rect)) {
       DCHECK_GE(cleared_rect.size().GetArea(),
                 texture->GetLevelClearedRect(target, level).size().GetArea());
-      texture_manager()->SetLevelClearedRect(texture_ref, target, level,
-                                             cleared_rect);
+      cleared_rect_to_set = cleared_rect;
+      set_cleared_rect = true;
     } else {
       // Otherwise clear part of texture level that is not already cleared.
       if (!texture_manager()->ClearTextureLevel(this, texture_ref, target,
@@ -13680,6 +13708,15 @@ void GLES2DecoderImpl::DoCopyTexSubImage2D(
   } else {
     api()->glCopyTexSubImage2DFn(target, level, destX, destY, src.x(), src.y(),
                                  src.width(), src.height());
+  }
+
+  if (LOCAL_PEEK_GL_ERROR(func_name) == GL_NO_ERROR) {
+    if (set_cleared) {
+      texture_manager()->SetLevelCleared(texture_ref, target, level, true);
+    } else if (set_cleared_rect) {
+      texture_manager()->SetLevelClearedRect(texture_ref, target, level,
+                                             cleared_rect_to_set);
+    }
   }
 
   // This may be a slow command.  Exit command processing to allow for
@@ -14552,55 +14589,6 @@ error::Error GLES2DecoderImpl::HandleShaderBinary(
   // TODO(gman): call glShaderBinary
   return error::kNoError;
 #endif
-}
-
-error::Error GLES2DecoderImpl::HandleEnableFeatureCHROMIUM(
-    uint32_t immediate_data_size,
-    const volatile void* cmd_data) {
-  const volatile gles2::cmds::EnableFeatureCHROMIUM& c =
-      *static_cast<const volatile gles2::cmds::EnableFeatureCHROMIUM*>(
-          cmd_data);
-  Bucket* bucket = GetBucket(c.bucket_id);
-  if (!bucket || bucket->size() == 0) {
-    return error::kInvalidArguments;
-  }
-  typedef cmds::EnableFeatureCHROMIUM::Result Result;
-  Result* result = GetSharedMemoryAs<Result*>(
-      c.result_shm_id, c.result_shm_offset, sizeof(*result));
-  if (!result) {
-    return error::kOutOfBounds;
-  }
-  // Check that the client initialized the result.
-  if (*result != 0) {
-    return error::kInvalidArguments;
-  }
-  std::string feature_str;
-  if (!bucket->GetAsString(&feature_str)) {
-    return error::kInvalidArguments;
-  }
-
-  // TODO(gman): make this some kind of table to function pointer thingy.
-  if (feature_str.compare("pepper3d_allow_buffers_on_multiple_targets") == 0) {
-    buffer_manager()->set_allow_buffers_on_multiple_targets(true);
-  } else if (feature_str.compare("pepper3d_support_fixed_attribs") == 0) {
-    buffer_manager()->set_allow_fixed_attribs(true);
-    // TODO(gman): decide how to remove the need for this const_cast.
-    // I could make validators_ non const but that seems bad as this is the only
-    // place it is needed. I could make some special friend class of validators
-    // just to allow this to set them. That seems silly. I could refactor this
-    // code to use the extension mechanism or the initialization attributes to
-    // turn this feature on. Given that the only real point of this is to make
-    // the conformance tests pass and given that there is lots of real work that
-    // needs to be done it seems like refactoring for one to one of those
-    // methods is a very low priority.
-    const_cast<Validators*>(validators_.get())
-        ->vertex_attrib_type.AddValue(GL_FIXED);
-  } else {
-    return error::kNoError;
-  }
-
-  *result = 1;  // true.
-  return error::kNoError;
 }
 
 error::Error GLES2DecoderImpl::HandleGetRequestableExtensionsCHROMIUM(
@@ -16704,7 +16692,8 @@ bool GLES2DecoderImpl::UnmapBufferHelper(Buffer* buffer, GLenum target) {
     DCHECK(mapped_range->pointer);
     UNSAFE_TODO(memcpy(mapped_range->pointer, mem, mapped_range->size));
     if (buffer->shadowed()) {
-      buffer->SetRange(mapped_range->offset, mapped_range->size, mem);
+      buffer->SetRange(mapped_range->offset, mapped_range->size,
+                       mapped_range->pointer);
     }
   }
   buffer->RemoveMappedRange();
@@ -16795,7 +16784,7 @@ void GLES2DecoderImpl::DoFlushMappedBufferRange(
   UNSAFE_TODO(memcpy(gpu_data + offset, client_data + offset, size));
   if (buffer->shadowed()) {
     buffer->SetRange(mapped_range->offset + offset, size,
-                     UNSAFE_TODO(client_data + offset));
+                     UNSAFE_TODO(gpu_data + offset));
   }
   api()->glFlushMappedBufferRangeFn(target, offset, size);
 }
@@ -16929,7 +16918,8 @@ void GLES2DecoderImpl::ClearFramebufferForWorkaround(GLbitfield mask) {
   ScopedGLErrorSuppressor suppressor("GLES2DecoderImpl::ClearWorkaround",
                                      error_state_.get());
   clear_framebuffer_blit_->ClearFramebuffer(
-      this, gfx::Size(viewport_max_width_, viewport_max_height_), mask,
+      this, state_.bound_transform_feedback.get(),
+      gfx::Size(viewport_max_width_, viewport_max_height_), mask,
       state_.color_clear_red, state_.color_clear_green, state_.color_clear_blue,
       state_.color_clear_alpha, state_.depth_clear, state_.stencil_clear);
 }
@@ -17061,8 +17051,6 @@ error::Error GLES2DecoderImpl::HandleSetActiveURLCHROMIUM(
 // we can easily edit the non-auto generated parts right here in this file
 // instead of having to edit some template or the code generator.
 #include "gpu/command_buffer/service/gles2_cmd_decoder_autogen.h"
-#include "base/check_op.h"
-#include "base/check.h"
 
 }  // namespace gles2
 }  // namespace gpu

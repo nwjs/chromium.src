@@ -54,7 +54,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Empty Response Body"/>
   <int value="2" label="Empty Response Header"/>
   <int value="3" label="Proto Parse Failure"/>
-  <int value="4" label="Network Error"/>
+  <int value="4" label="Network Error (any non-200)"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/skills/public/skills_metrics.h:SkillsFetchResult) -->
@@ -89,6 +89,8 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Clicked Delete Skill"/>
   <int value="4" label="Clicked Copy Instructions"/>
   <int value="5" label="Clicked Browse Skills"/>
+  <int value="6" label="Non-Empty Search"/>
+  <int value="7" label="Empty Search"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/skills/public/skill_metrics.mojom:SkillsManagementAction) -->
@@ -135,6 +137,7 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Write Failed"/>
   <int value="4" label="Service Not Found"/>
   <int value="5" label="Service Not Ready"/>
+  <int value="6" label="Invalid Request"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/skills/public/skills_metrics.h:SkillsSaveResult) -->

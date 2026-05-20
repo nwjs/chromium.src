@@ -61,16 +61,13 @@ class TrustTokenRequestRedemptionHelper : public TrustTokenRequestHelper {
    public:
     virtual ~Cryptographer() = default;
 
-    // Initializes the delegate. |issuer_configured_version| and
-    // |issuer_configured_batch_size| must be the "protocol_version" and
-    // "batchsize" values, from an issuer-provided key commitment result.
+    // Initializes the delegate. |issuer_configured_batch_size| must be
+    // "batchsize" value, from an issuer-provided key commitment result.
     //
     // Returns true on success and false if the batch size or key is
     // unacceptable or an internal error occurred in the underlying
     // cryptographic library.
-    virtual bool Initialize(
-        mojom::TrustTokenProtocolVersion issuer_configured_version,
-        int issuer_configured_batch_size) = 0;
+    virtual bool Initialize(int issuer_configured_batch_size) = 0;
 
     // Given a trust token to redeem and parameters to encode in the redemption
     // request, returns a base64-encoded string suitable for attachment in the
@@ -118,8 +115,6 @@ class TrustTokenRequestRedemptionHelper : public TrustTokenRequestHelper {
       mojom::TrustTokenRefreshPolicy refresh_policy,
       TrustTokenStore* token_store,
       const TrustTokenKeyCommitmentGetter* key_commitment_getter,
-      std::optional<std::string> custom_key_commitment,
-      std::optional<url::Origin> custom_issuer,
       std::unique_ptr<Cryptographer> cryptographer,
       net::NetLogWithSource net_log = net::NetLogWithSource());
   ~TrustTokenRequestRedemptionHelper() override;
@@ -201,8 +196,6 @@ class TrustTokenRequestRedemptionHelper : public TrustTokenRequestHelper {
 
   const raw_ptr<TrustTokenStore> token_store_;
   const raw_ptr<const TrustTokenKeyCommitmentGetter> key_commitment_getter_;
-  const std::optional<std::string> custom_key_commitment_;
-  const std::optional<url::Origin> custom_issuer_;
   const std::unique_ptr<KeyPairGenerator> key_pair_generator_;
   const std::unique_ptr<Cryptographer> cryptographer_;
   net::NetLogWithSource net_log_;

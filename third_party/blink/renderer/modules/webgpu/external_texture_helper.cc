@@ -278,10 +278,9 @@ ExternalTexture CreateExternalTexture(
        media_video_frame->metadata().is_webgpu_compatible &&
        DstColorSpaceSupportedByZeroCopy(dst_predefined_color_space));
 
-  TRACE_EVENT_INSTANT2(TRACE_DISABLED_BY_DEFAULT("webgpu"),
-                       "CreateExternalTexture", TRACE_EVENT_SCOPE_THREAD,
-                       "zero_copy", !!zero_copy, "video_frame",
-                       media_video_frame->AsHumanReadableString());
+  TRACE_EVENT_INSTANT(
+      TRACE_DISABLED_BY_DEFAULT("webgpu"), "CreateExternalTexture", "zero_copy",
+      !!zero_copy, "video_frame", media_video_frame->AsHumanReadableString());
   if (zero_copy) {
     scoped_refptr<WebGPUMailboxTexture> mailbox_texture =
         WebGPUMailboxTexture::FromVideoFrame(
@@ -420,8 +419,13 @@ ExternalTexture CreateExternalTexture(
   scoped_refptr<CanvasResource> canvas_resource;
   if (use_copy_to_shared_image) {
     gpu::SyncToken sync_token;
-    auto client_si = resource_provider->BeginExternalWrite(
-        sync_token, /*is_overwrite=*/false);
+
+    // The size of the resource provider here is the VideoFrame's natural size,
+    // which is guaranteed to be the same size as its visible rect since
+    // `use_copy_to_shared_image` is true. Below we are going to copy the
+    // contents of that visible rect into the resource provider's SharedImage,
+    // completely overwriting the SharedImage.
+    auto client_si = resource_provider->BeginExternalOverwrite(sync_token);
 
     // The returned sync token is from the SharedGpuContext.
     sync_token = video_renderer->CopyVideoFrameToSharedImage(
@@ -446,7 +450,7 @@ ExternalTexture CreateExternalTexture(
 
     media::PaintCanvasVideoRenderer::PaintParams params;
     params.dest_rect = gfx::RectF(resource_provider->Size());
-    canvas_resource = resource_provider->DoExternalDrawAndProduceResource(
+    canvas_resource = resource_provider->DoExternalOverdrawAndProduceResource(
         [&](cc::PaintCanvas& canvas) {
           video_renderer->Paint(media_video_frame.get(), &canvas, media_flags,
                                 params, raster_context_provider);

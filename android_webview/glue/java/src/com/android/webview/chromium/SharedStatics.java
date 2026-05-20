@@ -17,12 +17,10 @@ import org.chromium.android_webview.AwContentsStatics;
 import org.chromium.android_webview.AwDevToolsServer;
 import org.chromium.android_webview.AwSettings;
 import org.chromium.android_webview.common.AwFeatures;
-import org.chromium.android_webview.common.AwSwitches;
 import org.chromium.android_webview.common.Lifetime;
 import org.chromium.android_webview.common.WebViewCachedFlags;
 import org.chromium.base.ApkInfo;
 import org.chromium.base.Callback;
-import org.chromium.base.CommandLine;
 import org.chromium.base.MemoryPressureLevel;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
@@ -99,15 +97,6 @@ public class SharedStatics {
     public static void recordStaticApiCall(@ApiCall int sample) {
         RecordHistogram.recordEnumeratedHistogram(
                 "Android.WebView.ApiCall.Static", sample, ApiCall.COUNT);
-    }
-
-    public String findAddress(String addr) {
-        mAwInit.triggerAndWaitForChromiumStarted(
-                WebViewChromiumAwInit.CallSite.STATIC_FIND_ADDRESS);
-        try (TraceEvent event = TraceEvent.scoped("WebView.APICall.Framework.FIND_ADDRESS")) {
-            recordStaticApiCall(ApiCall.FIND_ADDRESS);
-            return AwContentsStatics.findAddress(addr);
-        }
     }
 
     public String getDefaultUserAgent(Context context) {
@@ -266,32 +255,11 @@ public class SharedStatics {
         }
     }
 
-    private boolean shouldStopBrowserStartupInIsMultiProcessEnabled() {
-        if (mAwInit.isAsyncStartupWithMultiProcessExperimentEnabled()) {
-            return true;
-        }
-
-        if (CommandLine.getInstance()
-                .hasSwitch(AwSwitches.WEBVIEW_STOP_BROWSER_STARTUP_IN_IS_MULTI_PROCESS_ENABLED)) {
-            return true;
-        }
-
-        return WebViewCachedFlags.get()
-                .isCachedFeatureEnabled(
-                        AwFeatures.WEBVIEW_STOP_BROWSER_STARTUP_IN_IS_MULTI_PROCESS_ENABLED);
-    }
-
     public boolean isMultiProcessEnabled() {
         try (TraceEvent event =
                 TraceEvent.scoped("WebView.APICall.Framework.IS_MULTI_PROCESS_ENABLED")) {
             recordStaticApiCall(ApiCall.IS_MULTI_PROCESS_ENABLED);
-            if (shouldStopBrowserStartupInIsMultiProcessEnabled()) {
-                return mAwInit.isMultiProcessEnabled();
-            }
-
-            mAwInit.triggerAndWaitForChromiumStarted(
-                    WebViewChromiumAwInit.CallSite.STATIC_IS_MULTI_PROCESS_ENABLED);
-            return AwContentsStatics.isMultiProcessEnabled();
+            return mAwInit.isMultiProcessEnabled();
         }
     }
 

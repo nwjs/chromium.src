@@ -129,13 +129,6 @@
         android:theme="@style/Theme.Chromium.DialogWhenLarge"
         android:windowSoftInputMode="stateAlwaysHidden">
     </activity>  # DIFF-ANCHOR: 002f9e99
-    <activity  # DIFF-ANCHOR: 9bfe10ab
-        android:name="org.chromium.chrome.browser.app.creator.CreatorActivity"
-        android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize|uiMode"
-        android:exported="false"
-        android:theme="@style/Theme.Chromium.Activity.Fullscreen"
-        android:windowSoftInputMode="stateAlwaysHidden|adjustResize">
-    </activity>  # DIFF-ANCHOR: 9bfe10ab
     <activity  # DIFF-ANCHOR: 8f3f76d9
         android:name="org.chromium.chrome.browser.app.download.home.DownloadActivity"
         android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize|uiMode"
@@ -309,8 +302,28 @@
       <intent-filter>  # DIFF-ANCHOR: 13c9b0a8
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
-        <data android:mimeType="image/*"/>
-        <data android:mimeType="video/*"/>
+        <data android:mimeType="image/apng"/>
+        <data android:mimeType="image/avif"/>
+        <data android:mimeType="image/bmp"/>
+        <data android:mimeType="image/gif"/>
+        <data android:mimeType="image/jpeg"/>
+        <data android:mimeType="image/jpg"/>
+        <data android:mimeType="image/jxl"/>
+        <data android:mimeType="image/pjpeg"/>
+        <data android:mimeType="image/png"/>
+        <data android:mimeType="image/svg+xml"/>
+        <data android:mimeType="image/vnd.microsoft.icon"/>
+        <data android:mimeType="image/webp"/>
+        <data android:mimeType="image/x-icon"/>
+        <data android:mimeType="image/x-png"/>
+        <data android:mimeType="image/x-xbitmap"/>
+        <data android:mimeType="video/3gpp"/>
+        <data android:mimeType="video/matroska"/>
+        <data android:mimeType="video/mp4"/>
+        <data android:mimeType="video/ogg"/>
+        <data android:mimeType="video/webm"/>
+        <data android:mimeType="video/x-m4v"/>
+        <data android:mimeType="video/x-matroska"/>
         <data android:scheme="content"/>
         <data android:scheme="file"/>
       </intent-filter>  # DIFF-ANCHOR: 13c9b0a8
@@ -405,14 +418,6 @@
         android:launchMode="singleInstance"
         android:theme="@style/Theme.Chromium.Activity">
     </activity>  # DIFF-ANCHOR: 6e34d703
-    <activity  # DIFF-ANCHOR: 43bfa5de
-        android:name="org.chromium.chrome.browser.test_dummy.TestDummyActivity"
-        android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize"
-        android:excludeFromRecents="true"
-        android:exported="true"
-        android:noHistory="true"
-        android:theme="@style/Theme.Material3Expressive.DayNight">
-    </activity>  # DIFF-ANCHOR: 43bfa5de
     <activity  # DIFF-ANCHOR: 9bb1f409
         android:name="org.chromium.chrome.browser.webapps.ActivateWebApkActivity"
         android:exported="true"
@@ -682,7 +687,20 @@
       <intent-filter>  # DIFF-ANCHOR: 13c9b0a8
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
-        <data android:mimeType="audio/*"/>
+        <data android:mimeType="application/ogg"/>
+        <data android:mimeType="audio/aac"/>
+        <data android:mimeType="audio/flac"/>
+        <data android:mimeType="audio/matroska"/>
+        <data android:mimeType="audio/mp3"/>
+        <data android:mimeType="audio/mp4"/>
+        <data android:mimeType="audio/mpeg"/>
+        <data android:mimeType="audio/ogg"/>
+        <data android:mimeType="audio/wav"/>
+        <data android:mimeType="audio/webm"/>
+        <data android:mimeType="audio/x-m4a"/>
+        <data android:mimeType="audio/x-matroska"/>
+        <data android:mimeType="audio/x-mp3"/>
+        <data android:mimeType="audio/x-wav"/>
         <data android:scheme="content"/>
         <data android:scheme="file"/>
       </intent-filter>  # DIFF-ANCHOR: 13c9b0a8
@@ -865,11 +883,6 @@
         android:exported="false">
     </receiver>  # DIFF-ANCHOR: 2553238b
     <service android:name="androidx.browser.customtabs.PostMessageService"/>
-    <service  # DIFF-ANCHOR: e97ae51b
-        android:name="androidx.pdf.service.PdfDocumentService"
-        android:exported="false"
-        android:isolatedProcess="true">
-    </service>  # DIFF-ANCHOR: e97ae51b
     <service  # DIFF-ANCHOR: 5d82e3ff
         android:name="androidx.pdf.service.PdfDocumentServiceImpl"
         android:exported="false"

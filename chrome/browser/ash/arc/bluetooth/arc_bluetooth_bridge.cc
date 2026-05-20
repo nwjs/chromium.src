@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "ash/constants/ash_pref_names.h"
@@ -24,7 +25,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
-#include "base/memory/singleton.h"
+#include "base/no_destructor.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/sequenced_task_runner.h"
@@ -152,8 +153,7 @@ arc::mojom::BluetoothGattStatus ConvertGattErrorCodeToStatus(
 // Example of identifier: /org/bluez/hci0/dev_E0_CF_65_8C_86_1A/service001a
 // Convert the last 4 characters of |identifier| to an
 // int, by interpreting them as hexadecimal digits.
-std::optional<uint16_t> ConvertGattIdentifierToId(
-    const std::string& identifier) {
+std::optional<uint16_t> ConvertGattIdentifierToId(std::string_view identifier) {
   uint32_t result;
   if (identifier.size() < 4 ||
       !base::HexStringToUInt(identifier.substr(identifier.size() - 4), &result))
@@ -304,11 +304,12 @@ class ArcBluezBridgeFactory
   static constexpr const char* kName = "ArcBluezBridgeFactory";
 
   static ArcBluezBridgeFactory* GetInstance() {
-    return base::Singleton<ArcBluezBridgeFactory>::get();
+    static base::NoDestructor<ArcBluezBridgeFactory> instance;
+    return instance.get();
   }
 
  private:
-  friend base::DefaultSingletonTraits<ArcBluezBridgeFactory>;
+  friend base::NoDestructor<ArcBluezBridgeFactory>;
   ArcBluezBridgeFactory() = default;
   ~ArcBluezBridgeFactory() override = default;
 };
@@ -323,11 +324,12 @@ class ArcFlossBridgeFactory
   static constexpr const char* kName = "ArcFlossBridgeFactory";
 
   static ArcFlossBridgeFactory* GetInstance() {
-    return base::Singleton<ArcFlossBridgeFactory>::get();
+    static base::NoDestructor<ArcFlossBridgeFactory> instance;
+    return instance.get();
   }
 
  private:
-  friend base::DefaultSingletonTraits<ArcFlossBridgeFactory>;
+  friend base::NoDestructor<ArcFlossBridgeFactory>;
   ArcFlossBridgeFactory() = default;
   ~ArcFlossBridgeFactory() override = default;
 };

@@ -430,6 +430,16 @@ void HTMLFrameOwnerElement::DisposePluginSoon(WebPluginContainerImpl* plugin) {
     plugin->Dispose();
 }
 
+void HTMLFrameOwnerElement::NaturalSizingInfoChanged() {
+  if (auto* frame_view = DynamicTo<FrameView>(OwnedEmbeddedContentView())) {
+    last_natural_sizing_info_ = frame_view->GetNaturalDimensions();
+  }
+}
+
+void HTMLFrameOwnerElement::ClearLastNaturalSizingInfo() {
+  last_natural_sizing_info_.reset();
+}
+
 void HTMLFrameOwnerElement::UpdateContainerPolicy() {
   frame_policy_.container_policy = ConstructContainerPolicy();
   DidChangeContainerPolicy();
@@ -733,7 +743,7 @@ bool HTMLFrameOwnerElement::LoadOrRedirectSubframe(
 
     if (RuntimeEnabledFeatures::ResourceTimingInitiatorEnabled()) {
       v8::Isolate* isolate =
-          ResourceInitiatorHelper::GetIsolateIfRunningScriptOnMainThread();
+          ResourceInitiatorHelper::GetIsolateIfRunningScript();
       fallback_timing_info_->initiator_url =
           isolate ? ResourceInitiatorHelper::GetScriptInitiatorUrl(*isolate)
                   : GetDocument().Url();

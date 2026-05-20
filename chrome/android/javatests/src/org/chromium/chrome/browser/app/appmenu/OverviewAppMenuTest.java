@@ -21,13 +21,12 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.quick_delete.QuickDeleteMetricsDelegate;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTabbedActivityEntryPoints;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.ReusedCtaTransitTestRule;
@@ -42,7 +41,6 @@ import java.util.List;
 
 /** Tests the Tab Switcher app menu. */
 @RunWith(ChromeJUnit4ClassRunner.class)
-@Restriction({Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE})
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Batch(Batch.PER_CLASS)
 public class OverviewAppMenuTest {
@@ -72,7 +70,7 @@ public class OverviewAppMenuTest {
     @LargeTest
     @Feature({"Browser", "Main"})
     public void testAllMenuItems() {
-        TabSwitcherAppMenuFacility menu = mTabSwitcher.openAppMenu();
+        TabSwitcherAppMenuFacility<RegularTabSwitcherStation> menu = mTabSwitcher.openAppMenu();
 
         try {
             List<Integer> expectedItems =
@@ -91,7 +89,8 @@ public class OverviewAppMenuTest {
     public void testIncognitoAllMenuItems() {
         IncognitoTabSwitcherStation incognitoTabSwitcher =
                 mTabSwitcher.openAppMenu().openNewIncognitoTabOrWindow().openIncognitoTabSwitcher();
-        TabSwitcherAppMenuFacility menu = incognitoTabSwitcher.openAppMenu();
+        TabSwitcherAppMenuFacility<IncognitoTabSwitcherStation> menu =
+                incognitoTabSwitcher.openAppMenu();
 
         try {
             List<Integer> expectedItems = buildExpectedMenuItemIds(/* isIncognitoSwitcher= */ true);

@@ -17,8 +17,8 @@ async function main() {
 
       // Filter out native providers.
       providers = providers.filter(
-          provider =>
-              provider.providerId.length == 0 || provider.providerId[0] != '@');
+          provider => provider.providerId.length === 0 ||
+              provider.providerId[0] !== '@');
       chrome.test.assertEq(providers.length, 1);
       // For extension based providers, provider id is the same as
       // extension id.
@@ -62,7 +62,7 @@ async function main() {
       chrome.test.assertTrue(!!error, 'Configuration should have failed.');
       chrome.test.assertEq('Failed to complete configuration.', error.message);
       chrome.test.succeed();
-    }
+    },
   ]);
 }
 

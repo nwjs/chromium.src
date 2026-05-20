@@ -501,7 +501,7 @@ String AtomicStringTable::Add(String&& string) {
   return base::WrapRefCounted(entry);
 }
 
-String AtomicStringTable::AddUTF8(base::span<const uint8_t> characters_span) {
+String AtomicStringTable::AddUtf8(base::span<const uint8_t> characters_span) {
   bool seen_non_ascii = false;
   bool seen_non_latin1 = false;
 
@@ -522,8 +522,7 @@ String AtomicStringTable::AddUTF8(base::span<const uint8_t> characters_span) {
   }
 
   auto utf16_buf = base::HeapArray<UChar>::Uninit(utf16_length);
-  if (blink::unicode::ConvertUtf8ToUtf16(characters_span, utf16_buf).status !=
-      blink::unicode::kConversionOK) {
+  if (!unicode::ConvertUtf8ToUtf16(characters_span, utf16_buf).IsSuccess()) {
     NOTREACHED();
   }
 

@@ -202,8 +202,9 @@ suite('AppReceivesToolbarChanges', () => {
 
   test('line focus style change updates line focus', async () => {
     chrome.readingMode.isLineFocusEnabled = true;
-    const lineFocus =
-        app.$.containerParent.querySelector<HTMLElement>('#lineFocus');
+    app.updateContent();
+    await microtasksFinished();
+    const lineFocus = app.$.lineFocus;
     assertTrue(!!lineFocus);
 
     let expectedData = LineFocusStyle.UNDERLINE;
@@ -223,6 +224,7 @@ suite('AppReceivesToolbarChanges', () => {
 
   test('line focus style change updates padding', async () => {
     chrome.readingMode.isLineFocusEnabled = true;
+    app.connectedCallback();
     emitEvent(
         app, ToolbarEvent.LINE_FOCUS_MOVEMENT,
         {detail: {data: LineFocusMovement.STATIC}});
@@ -252,16 +254,21 @@ suite('AppReceivesToolbarChanges', () => {
     emitEvent(
         app, ToolbarEvent.LINE_FOCUS_MOVEMENT,
         {detail: {data: LineFocusMovement.CURSOR}});
-    assertFalse(lineFocusController.isStatic());
+    assertEquals(
+        LineFocusMovement.CURSOR,
+        lineFocusController.getCurrentLineFocusMovement());
 
     emitEvent(
         app, ToolbarEvent.LINE_FOCUS_MOVEMENT,
         {detail: {data: LineFocusMovement.STATIC}});
-    assertTrue(lineFocusController.isStatic());
+    assertEquals(
+        LineFocusMovement.STATIC,
+        lineFocusController.getCurrentLineFocusMovement());
   });
 
   test('line focus movement change updates padding', async () => {
     chrome.readingMode.isLineFocusEnabled = true;
+    app.connectedCallback();
     emitEvent(
         app, ToolbarEvent.LINE_FOCUS_STYLE,
         {detail: {data: LineFocusStyle.UNDERLINE}});
@@ -310,8 +317,7 @@ suite('AppReceivesToolbarChanges', () => {
 
   test('line focus change does nothing with flag disabled', async () => {
     chrome.readingMode.isLineFocusEnabled = false;
-    const lineFocus =
-        app.$.containerParent.querySelector<HTMLElement>('#lineFocus');
+    const lineFocus = app.$.lineFocus;
     assertTrue(!!lineFocus);
 
     emitEvent(

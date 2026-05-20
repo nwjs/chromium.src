@@ -12,6 +12,9 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
@@ -78,10 +81,13 @@ extensions::WebViewGuest* GetAuthWebViewGuest(
       GetAuthFrame(web_contents, parent_frame_name));
 }
 
-Browser* GetDesktopBrowser(content::WebUI* web_ui) {
-  Browser* browser = chrome::FindBrowserWithTab(web_ui->GetWebContents());
+BrowserWindowInterface* GetDesktopBrowser(content::WebUI* web_ui) {
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          web_ui->GetWebContents());
   if (!browser) {
-    browser = chrome::FindLastActiveWithProfile(Profile::FromWebUI(web_ui));
+    return ProfileBrowserCollection::GetForProfile(Profile::FromWebUI(web_ui))
+        ->GetLastActiveBrowser();
   }
   return browser;
 }

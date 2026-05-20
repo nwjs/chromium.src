@@ -200,6 +200,15 @@ void PasswordManualFallbackFlow::OnSuggestionsShown(
 void PasswordManualFallbackFlow::OnSuggestionsHidden(
     autofill::SuggestionHidingReason reason) {}
 
+bool PasswordManualFallbackFlow::OnFilterChanged(const std::u16string& filter) {
+  return false;
+}
+
+bool PasswordManualFallbackFlow::OnSearchSubmitted(
+    const std::u16string& filter) {
+  return false;
+}
+
 void PasswordManualFallbackFlow::DidSelectSuggestion(
     const Suggestion& suggestion) {
   CHECK(SupportsSuggestionType(suggestion.type));
@@ -361,6 +370,10 @@ void PasswordManualFallbackFlow::OnTabSelected(
     autofill::TabbedPaneTabType tab_type) {
   // Tabbed panes do not currently exist for passwords.
   NOTREACHED();
+}
+
+bool PasswordManualFallbackFlow::IsSearching() const {
+  return false;
 }
 
 void PasswordManualFallbackFlow::RunFlowImpl(

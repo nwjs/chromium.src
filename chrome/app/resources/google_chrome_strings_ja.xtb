@@ -276,6 +276,7 @@
 
           **質問の提案:** スクリーンショットの理解を深めるためにユーザーが質問しそうな項目を箇条書きで 3～5 つ生成します。視覚的なオブジェクトやそのデザイン、または配置に関する具体的な質問が 1 つ以上含まれます。</translation>
 <translation id="386202838227397562">すべての Google Chrome ウィンドウを閉じてからもう一度お試しください。</translation>
+<translation id="3869083394918739976">タブを切り替えることなく、AI モードでチャットを続けることができます。開始するには、Chrome にログインしてください。これにより、すべてのデバイスでパスワードなどの設定も使用できるようになります。</translation>
 <translation id="3873044882194371212">Chrome のシークレット ウインドウでリンクを開く(&amp;G)</translation>
 <translation id="3885770153807205175">言語選択ツール</translation>
 <translation id="3889417619312448367">Google Chrome をアンインストール</translation>
@@ -415,6 +416,7 @@
 <translation id="547202872422499512">Windows の起動時に Chrome を自動で起動して、すぐにブラウジングを開始できるようになりました。この動作は設定でオフにできます。</translation>
 <translation id="5486346529181556467">有害と思われるサイトを報告すると、他のユーザーのオンライン セキュリティの向上に役立てられます。詳しくは、<ph name="BEGIN_LINK" />Google の安全でないサイトに関するポリシー<ph name="END_LINK" />をご覧ください。</translation>
 <translation id="5524890928877629608">検索範囲の左上隅: 左 <ph name="LEFT" />%、上 <ph name="TOP" />%</translation>
+<translation id="5529390769101499214">Chrome メインメニューの [拡張機能] をクリックして拡張機能を管理できます。</translation>
 <translation id="5550137307985173298">新しいタブページで [Chrome をカスタマイズ] ボタンをクリックして、Chrome のレイアウトを変更できます</translation>
 <translation id="5566025111015594046">Google Chrome（mDNS インバウンド）</translation>
 <translation id="5579324208890605088">起動エラー: 管理者ではなく標準ユーザーとしてインストーラを実行してください。</translation>
@@ -775,7 +777,6 @@
 <translation id="8862326446509486874">権限が不十分なためシステムレベルのインストールができません。管理者権限でインストールしてください。</translation>
 <translation id="8865415417596392024">アカウント内の Chrome のデータ</translation>
 <translation id="8883862939660515976">Google レンズでこの画像について質問する</translation>
-<translation id="8892956691293410744">ページを離れることなく、タブについて AI モードに質問するには、Chrome にログインしてください。これにより、すべてのデバイスでパスワードなどの設定も使用できるようになります。</translation>
 <translation id="8914504000324227558">Chrome の再起動</translation>
 <translation id="8922193594870374009"><ph name="ORIGIN" /> から Android スマートフォンに番号を送信するには、両方のデバイスで Chrome にログインしてください。</translation>
 <translation id="8922998289262614701">Chrome からこのアプリのデータを削除する</translation>

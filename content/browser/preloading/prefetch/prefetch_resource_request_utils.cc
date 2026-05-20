@@ -17,6 +17,7 @@
 #include "content/browser/preloading/preloading_trigger_type_impl.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/client_hints.h"
 #include "content/public/browser/frame_accept_header.h"
 #include "content/public/browser/web_contents.h"
@@ -98,8 +99,8 @@ void AddSecPurposeHeader(net::HttpRequestHeaders& request_headers,
                          const url::Origin& request_url_origin,
                          const PrefetchRequest& prefetch_request) {
   const char* header_value = [&]() {
-    switch (prefetch_request.preload_pipeline_info()
-                .planned_max_preloading_type()) {
+    switch (
+        prefetch_request.preload_pipeline_info_planned_max_preloading_type()) {
       case PreloadingType::kPrefetch:
         if (prefetch_request.IsProxyRequiredForURL(request_url_origin)) {
           return blink::kSecPurposePrefetchAnonymousClientIpHeaderValue;
@@ -123,7 +124,6 @@ void AddSecPurposeHeader(net::HttpRequestHeaders& request_headers,
       case PreloadingType::kUnspecified:
       case PreloadingType::kPreconnect:
       case PreloadingType::kNoStatePrefetch:
-      case PreloadingType::kLinkPreview:
         NOTREACHED();
     }
   }();
@@ -387,10 +387,9 @@ void MaybeApplyOverrideForDevtoolsUserAgentHeader(
   }
 }
 
-PrefetchUpdateHeadersParams PrepareInitialHeadersForPrefetch(
+PrefetchUpdateHeadersParams PrepareInitialHeadersForPrefetchPhase1(
     const GURL& request_url,
-    const PrefetchRequest& prefetch_request,
-    bool is_first_party_context_for_variations_header) {
+    const PrefetchRequest& prefetch_request) {
   PrefetchUpdateHeadersParams params;
 
   url::Origin request_url_origin = url::Origin::Create(request_url);
@@ -400,15 +399,11 @@ PrefetchUpdateHeadersParams PrepareInitialHeadersForPrefetch(
   AddAdditionalHeaders(params.modified_headers, prefetch_request);
 
   // ------------------------------------------------------------------------
-  // [2] `Accept`, `Upgrade-Insecure-Requests` and `Purpose`:
-  CHECK(prefetch_request.browser_context());
-  params.modified_headers.SetHeader(
-      net::HttpRequestHeaders::kAccept,
-      FrameAcceptHeaderValue(/*allow_sxg_responses=*/true,
-                             prefetch_request.browser_context()));
-
+  // [2] `Upgrade-Insecure-Requests`:
   params.modified_headers.SetHeader("Upgrade-Insecure-Requests", "1");
 
+  // ------------------------------------------------------------------------
+  // [2] `Purpose`:
   if (!base::FeatureList::IsEnabled(
           blink::features::kRemovePurposeHeaderForPrefetch)) {
     params.modified_headers.SetHeader(blink::kPurposeHeaderName,
@@ -424,6 +419,26 @@ PrefetchUpdateHeadersParams PrepareInitialHeadersForPrefetch(
   // [2] `Sec-Speculation-Tags`:
   AddSpeculationTagsHeader(params.modified_headers, request_url_origin,
                            prefetch_request);
+
+  return params;
+}
+
+PrefetchUpdateHeadersParams PrepareInitialHeadersForPrefetchPhase2(
+    const GURL& request_url,
+    const PrefetchRequest& prefetch_request,
+    bool is_first_party_context_for_variations_header) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  PrefetchUpdateHeadersParams params;
+
+  url::Origin request_url_origin = url::Origin::Create(request_url);
+
+  // [2] `Accept`:
+  CHECK(prefetch_request.browser_context());
+  params.modified_headers.SetHeader(
+      net::HttpRequestHeaders::kAccept,
+      FrameAcceptHeaderValue(/*allow_sxg_responses=*/true,
+                             prefetch_request.browser_context()));
 
   // ------------------------------------------------------------------------
   // [2] `X-Client-Data`:
@@ -599,6 +614,12 @@ MaybeMakeSelfOwnedNetworkServiceDevToolsObserverForPrefetch(
     return mojo::NullRemote();
   }
 
+  if (base::FeatureList::IsEnabled(
+          features::kPrefetchOffTheMainThreadForceForTesting) &&
+      !BrowserThread::CurrentlyOn(content::BrowserThread::UI)) {
+    return mojo::NullRemote();
+  }
+
   auto* ftn =
       FrameTreeNode::From(renderer_initiator_info->GetRenderFrameHost());
   if (!ftn) {
@@ -610,6 +631,9 @@ MaybeMakeSelfOwnedNetworkServiceDevToolsObserverForPrefetch(
 }
 
 // ------------------------------------------------------------------------
+// Constructs a `ResourceRequest` without headers.
+// Headers should be added using `PrepareInitialHeadersForPrefetch*()`, in
+// `MakeInitialResourceRequestForPrefetch()` or separately for OMT prefetch.
 std::unique_ptr<network::ResourceRequest>
 MakeInitialResourceRequestWithoutHeadersForPrefetch(
     const PrefetchRequest& prefetch_request,
@@ -725,17 +749,55 @@ MakeInitialResourceRequestWithoutHeadersForPrefetch(
 std::unique_ptr<network::ResourceRequest> MakeInitialResourceRequestForPrefetch(
     const PrefetchRequest& prefetch_request,
     bool is_decoy) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
   auto resource_request = MakeInitialResourceRequestWithoutHeadersForPrefetch(
       prefetch_request, is_decoy);
 
-  PrefetchUpdateHeadersParams headers_params =
-      PrepareInitialHeadersForPrefetch(resource_request->url, prefetch_request,
-                                       IsFirstPartyContext(*resource_request));
+  PrefetchUpdateHeadersParams headers_params1 =
+      PrepareInitialHeadersForPrefetchPhase1(resource_request->url,
+                                             prefetch_request);
 
-  CHECK(headers_params.removed_headers.empty());
-  resource_request->headers.MergeFrom(headers_params.modified_headers);
+  PrefetchUpdateHeadersParams headers_params2 =
+      PrepareInitialHeadersForPrefetchPhase2(
+          resource_request->url, prefetch_request,
+          IsFirstPartyContext(*resource_request));
+
+  CHECK(headers_params1.removed_headers.empty());
+  resource_request->headers.MergeFrom(headers_params1.modified_headers);
   resource_request->cors_exempt_headers.MergeFrom(
-      headers_params.modified_cors_exempt_headers);
+      headers_params1.modified_cors_exempt_headers);
+
+  CHECK(headers_params2.removed_headers.empty());
+  resource_request->headers.MergeFrom(headers_params2.modified_headers);
+  resource_request->cors_exempt_headers.MergeFrom(
+      headers_params2.modified_cors_exempt_headers);
+
+  return resource_request;
+}
+
+std::unique_ptr<network::ResourceRequest>
+MakeInitialResourceRequestForPrePrefetch(
+    const PrefetchRequest& prefetch_request,
+    const PrefetchUpdateHeadersParams& ui_thread_pre_calculated_headers) {
+  auto resource_request = MakeInitialResourceRequestWithoutHeadersForPrefetch(
+      prefetch_request, /*is_decoy=*/false);
+
+  PrefetchUpdateHeadersParams omt_calculated_headers =
+      PrepareInitialHeadersForPrefetchPhase1(prefetch_request.key().url(),
+                                             prefetch_request);
+
+  CHECK(omt_calculated_headers.removed_headers.empty());
+  resource_request->headers.MergeFrom(omt_calculated_headers.modified_headers);
+  resource_request->cors_exempt_headers.MergeFrom(
+      omt_calculated_headers.modified_cors_exempt_headers);
+
+  CHECK(ui_thread_pre_calculated_headers.removed_headers.empty());
+  resource_request->headers.MergeFrom(
+      ui_thread_pre_calculated_headers.modified_headers);
+  resource_request->cors_exempt_headers.MergeFrom(
+      ui_thread_pre_calculated_headers.modified_cors_exempt_headers);
+
   return resource_request;
 }
 

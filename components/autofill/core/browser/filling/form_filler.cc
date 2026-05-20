@@ -13,6 +13,7 @@
 #include "base/check_op.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/map_util.h"
+#include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/hash/hash.h"
 #include "base/metrics/histogram_functions.h"
@@ -164,8 +165,6 @@ std::optional<FieldTypeSet> GetFieldTypesToFillFromFillingProduct(
       return FieldTypeSet{IBAN_VALUE};
     case FillingProduct::kLoyaltyCard:
       return FieldTypeSet{LOYALTY_MEMBERSHIP_ID};
-    case FillingProduct::kPlusAddresses:
-      return FieldTypeSet{EMAIL_ADDRESS};
     case FillingProduct::kIdentityCredential:
       return FieldTypeSet{EMAIL_ADDRESS, NAME_FIRST, NAME_FULL};
     case FillingProduct::kAutocomplete:
@@ -283,7 +282,6 @@ bool ShouldRecordFillingHistory(FillingProduct filling_product) {
     case FillingProduct::kAutofillAi:
     case FillingProduct::kCreditCard:
     case FillingProduct::kLoyaltyCard:
-    case FillingProduct::kPlusAddresses:
     case FillingProduct::kOneTimePassword:
       return true;
     case FillingProduct::kNone:
@@ -448,7 +446,6 @@ struct FormFiller::AugmentedFillingPayload {
       case FillingProduct::kIban:
       case FillingProduct::kLoyaltyCard:
       case FillingProduct::kMerchantPromoCode:
-      case FillingProduct::kPlusAddresses:
       case FillingProduct::kIdentityCredential:
       case FillingProduct::kOneTimePassword:
       case FillingProduct::kAtMemory:
@@ -527,8 +524,8 @@ struct FormFiller::RefillContext {
   bool allows_automatic_refill = true;
   // The timer used to trigger a refill.
   base::OneShotTimer on_refill_timer;
-  // The field type groups that were initially filled.
-  DenseSet<FieldTypeGroup> type_groups_originally_filled;
+  // The field types that were initially filled.
+  FieldTypeSet types_originally_filled;
   // If populated, this map determines which values will be filled into a
   // field (it does not matter whether the field already contains a value).
   std::map<FieldGlobalId, FillingValueAndType> forced_fill_values;
@@ -552,7 +549,7 @@ FormFiller::RefillOptions FormFiller::RefillOptions::NotRefill() {
 }
 
 FormFiller::RefillOptions FormFiller::RefillOptions::Refill(
-    DenseSet<FieldTypeGroup> originally_filled) {
+    FieldTypeSet originally_filled) {
   RefillOptions r;
   r.originally_filled_ = originally_filled;
   return r;
@@ -565,8 +562,26 @@ bool FormFiller::RefillOptions::is_refill() const {
 bool FormFiller::RefillOptions::may_refill(
     const FieldTypeSet& field_types) const {
   CHECK(is_refill());
-  return originally_filled_->contains_all(
-      DenseSet<FieldTypeGroup>(field_types, &GroupTypeOfFieldType));
+  FieldTypeGroupSet requested_groups(field_types, &GroupTypeOfFieldType);
+  FieldTypeGroupSet filled_groups(*originally_filled_, &GroupTypeOfFieldType);
+  if (!filled_groups.contains_all(requested_groups)) {
+    return false;
+  }
+
+  // Rule for CCs: Filling other CC information without Credit Card Number or
+  // CVC does not allow refilling CCN/CVC.
+  if (requested_groups.contains(FieldTypeGroup::kCreditCard) ||
+      requested_groups.contains(FieldTypeGroup::kStandaloneCvcField)) {
+    auto contains_sensitive_cc = [](const FieldTypeSet& types) {
+      return types.contains_any({CREDIT_CARD_NUMBER,
+                                 CREDIT_CARD_VERIFICATION_CODE,
+                                 CREDIT_CARD_STANDALONE_VERIFICATION_CODE});
+    };
+    return contains_sensitive_cc(*originally_filled_) ||
+           !contains_sensitive_cc(field_types);
+  }
+
+  return true;
 }
 
 DenseSet<FieldFillingSkipReason> FormFiller::GetFillingSkipReasonsForField(
@@ -624,11 +639,11 @@ DenseSet<FieldFillingSkipReason> FormFiller::GetFillingSkipReasonsForField(
   // is empty and its initial value (= cached value) was empty as well. A
   // similar check is done in ForEachMatchingFormFieldCommon(), which
   // frequently has false negatives.
-  add_if(
-      (field.properties_mask() & kUserTyped) &&
-          !(field.value().empty() && autofill_field.initial_value().empty()) &&
-          !is_trigger_field,
-      FieldFillingSkipReason::kUserFilledFields);
+  add_if((autofill_field.properties_mask() & kUserTyped) &&
+             !(autofill_field.value().empty() &&
+               autofill_field.initial_value().empty()) &&
+             !is_trigger_field,
+         FieldFillingSkipReason::kUserFilledFields);
 
   // Don't fill previously autofilled fields except the initiating field or
   // when it's a refill or for credit card fields, when
@@ -827,15 +842,18 @@ void FormFiller::UndoAutofill(mojom::ActionPersistence action_persistence,
           previous_state.autofill_source_profile_guid);
       autofill_field.set_autofilled_type(previous_state.autofilled_type);
       autofill_field.set_filling_product(previous_state.filling_product);
-
-      // The filling history is not cleared on previews as it might be used for
-      // future previews or for the filling. it is also cleared field by field
-      // because some fields in the current entry might not be used now but
-      // could still be valuable (see crbug.com/416019464).
-      form_autofill_history_.EraseFieldFillingEntry(fill_operation_it,
-                                                    field.global_id());
     }
   }
+
+  if (action_persistence == mojom::ActionPersistence::kFill) {
+    // The filling history is not cleared on previews as it might be used for
+    // future previews or for the filling. It is also cleared field by field
+    // because some fields in the current entry might not be used now but
+    // could still be valuable (see crbug.com/416019464).
+    form_autofill_history_.EraseFieldFillingEntries(
+        fill_operation_it, base::ToVector(fields, &FormFieldData::global_id));
+  }
+
   form.set_fields(std::move(fields));
 
   // Do not attempt a refill after an Undo operation.
@@ -947,7 +965,7 @@ void FormFiller::FillOrPreviewForm(
       !refill_trigger_reason;
   RefillOptions refill_options =
       refill_trigger_reason.has_value() && refill_context
-          ? RefillOptions::Refill(refill_context->type_groups_originally_filled)
+          ? RefillOptions::Refill(refill_context->types_originally_filled)
           : RefillOptions::NotRefill();
   if (refill_trigger_reason.has_value() && refill_context) {
     fill_id = refill_context->fill_id;
@@ -1031,8 +1049,7 @@ void FormFiller::FillOrPreviewForm(
       filled_field_types.emplace(result_fields[i].global_id(),
                                  *filled_field_type);
       if (may_refill_in_future) {
-        refill_context->type_groups_originally_filled.insert_all(
-            autofill_field.Type().GetGroups());
+        refill_context->types_originally_filled.insert(*filled_field_type);
       }
     }
 
@@ -1272,7 +1289,8 @@ void FormFiller::MaybeScheduleAutomaticRefill(
     case RefillTriggerReason::kSelectOptionsChanged:
       if (!field || !field->IsSelectElement() ||
           field->Type().GetGroups().contains_none(
-              refill_context->type_groups_originally_filled)) {
+              FieldTypeGroupSet(refill_context->types_originally_filled,
+                                &GroupTypeOfFieldType))) {
         // The element in question is not fillable as a result of this signal.
         // Do not trigger a refill as it would most likely be a trivial one.
         return;

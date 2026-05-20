@@ -95,14 +95,20 @@ let kLRUCacheAdditionalCapacityForPinnedTabsEnabled = 4
     }
   }
 
-  // Sets the image in both the LRU cache and the disk.
+  // Downsample before caching so the LRU cache holds smaller images,
+  // reducing the overall memory footprint of snapshot storage.
   public func setImage(_ image: UIImage?, withSnapshotID snapshotID: SnapshotIDWrapper) {
     guard let image = image, snapshotID.valid() else {
       return
     }
 
-    lruCache.setObject(value: image, forKey: snapshotID)
-    fileManager.write(image: image, snapshotID: snapshotID)
+    let optimizedImage = IsSnapshotDownsampleImageEnabled()
+      ? Self.downsampledForStorage(image) : image
+    lruCache.setObject(value: optimizedImage, forKey: snapshotID)
+    HistogramUtils.recordHistogram(
+      "IOS.Snapshots.SnapshotImageMemoryFootprint",
+      withMemoryKB: UiKitUtils.memoryFootprint(for: image))
+    fileManager.write(image: optimizedImage, snapshotID: snapshotID)
 
     for observer in observers {
       observer.value?.didUpdateSnapshotStorage?(snapshotID: snapshotID)
@@ -231,5 +237,18 @@ let kLRUCacheAdditionalCapacityForPinnedTabsEnabled = 4
   // Removes all UIImages from the cache.
   @objc fileprivate func handleEnterBackground() {
     lruCache.removeAllObjects()
+  }
+
+  // Halves the pixel density of the image for disk storage while keeping
+  // the same point dimensions, so UIKit layout stays correct when the
+  // image is read back from disk.
+  private static func downsampledForStorage(_ image: UIImage) -> UIImage {
+    let targetSize = image.size
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = image.scale / 2.0
+    let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+    return renderer.image { _ in
+      image.draw(in: CGRect(origin: .zero, size: targetSize))
+    }
   }
 }

@@ -71,6 +71,12 @@ TEST_F(GLES2DecoderPassthroughTest, DiscardFramebufferEXTUnsupported) {
 }
 
 TEST_F(GLES2DecoderPassthroughTest, ReadPixelsOutOfRange) {
+#if 1
+  // TODO(anglebug.com/507782759): re-enable with modifications after
+  // ANGLE rolls in.
+  GTEST_SKIP() << "Temporarily skipped while ANGLE changes are rolling in in "
+                  "anglebug.com/507782759";
+#else
   const GLint kWidth = 5;
   const GLint kHeight = 3;
   const GLenum kFormat = GL_RGBA;
@@ -161,9 +167,10 @@ TEST_F(GLES2DecoderPassthroughTest, ReadPixelsOutOfRange) {
       }
     }
   }
+#endif
 }
 
-TEST_F(GLES2DecoderPassthroughTest, ReadPixelsAsync) {
+TEST_F(GLES3DecoderPassthroughTest, ReadPixelsAsync) {
   auto* result = GetSharedMemoryAs<cmds::ReadPixels::Result*>();
   const GLsizei kWidth = 4;
   const GLsizei kHeight = 4;
@@ -235,7 +242,7 @@ TEST_F(GLES3DecoderPassthroughTest, ReadPixelsAsyncSkippedIfPBOBound) {
   EXPECT_FALSE(GetDecoder()->HasMoreIdleWork());
 }
 
-TEST_F(GLES2DecoderPassthroughTest, ReadPixelsAsyncModifyCommand) {
+TEST_F(GLES3DecoderPassthroughTest, ReadPixelsAsyncModifyCommand) {
   size_t shm_size = 0;
   auto* result =
       GetSharedMemoryAsWithSize<cmds::ReadPixels::Result*>(&shm_size);
@@ -287,7 +294,7 @@ TEST_F(GLES2DecoderPassthroughTest, ReadPixelsAsyncModifyCommand) {
   }
 }
 
-TEST_F(GLES2DecoderPassthroughTest, ReadPixelsAsyncChangePackAlignment) {
+TEST_F(GLES3DecoderPassthroughTest, ReadPixelsAsyncChangePackAlignment) {
   size_t shm_size = 0;
   auto* result =
       GetSharedMemoryAsWithSize<cmds::ReadPixels::Result*>(&shm_size);

@@ -66,8 +66,7 @@ public class ExtensionsMenuTypes {
         public final ControlState contextMenuButton;
         public final ControlState siteAccessToggle;
         public final ControlState sitePermissionsButton;
-
-        // TODO(crbug.com/471016915): add is enterprise boolean.
+        public final boolean isEnterprise;
 
         @CalledByNative
         public MenuEntryState(
@@ -75,12 +74,14 @@ public class ExtensionsMenuTypes {
                 ControlState actionButton,
                 ControlState contextMenuButton,
                 ControlState siteAccessToggle,
-                ControlState sitePermissionsButton) {
+                ControlState sitePermissionsButton,
+                boolean isEnterprise) {
             this.id = id;
             this.actionButton = actionButton;
             this.contextMenuButton = contextMenuButton;
             this.siteAccessToggle = siteAccessToggle;
             this.sitePermissionsButton = sitePermissionsButton;
+            this.isEnterprise = isEnterprise;
         }
     }
 
@@ -126,6 +127,41 @@ public class ExtensionsMenuTypes {
             this.extensionId = extensionId;
             this.extensionName = extensionName;
             this.extensionIcon = extensionIcon;
+        }
+    }
+
+    /** Mirrors {@code extensions::PermissionsManager::UserSiteAccess} */
+    @IntDef({UserSiteAccess.ON_CLICK, UserSiteAccess.ON_SITE, UserSiteAccess.ON_ALL_SITES})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface UserSiteAccess {
+        int ON_CLICK = 0;
+        int ON_SITE = 1;
+        int ON_ALL_SITES = 2;
+    }
+
+    /** Mirrors {@code ExtensionsMenuViewModel::ExtensionSitePermissionsState} */
+    public static class ExtensionSitePermissionsState {
+        public final String extensionName;
+        public final @Nullable Bitmap extensionIcon;
+        public final ControlState onClickOption;
+        public final ControlState onSiteOption;
+        public final ControlState onAllSitesOption;
+        public final ControlState showRequestsToggle;
+
+        @CalledByNative
+        public ExtensionSitePermissionsState(
+                @JniType("std::u16string") String extensionName,
+                @Nullable Bitmap extensionIcon,
+                ControlState onClickOption,
+                ControlState onSiteOption,
+                ControlState onAllSitesOption,
+                ControlState showRequestsToggle) {
+            this.extensionName = extensionName;
+            this.extensionIcon = extensionIcon;
+            this.onClickOption = onClickOption;
+            this.onSiteOption = onSiteOption;
+            this.onAllSitesOption = onAllSitesOption;
+            this.showRequestsToggle = showRequestsToggle;
         }
     }
 }

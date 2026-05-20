@@ -1,7 +1,6 @@
 // Copyright 2026 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
 package org.chromium.chrome.browser.actor;
 
 import android.app.Notification;
@@ -26,6 +25,9 @@ import org.chromium.components.browser_ui.notifications.NotificationWrapper;
 import org.chromium.components.browser_ui.notifications.NotificationWrapperBuilder;
 import org.chromium.components.browser_ui.notifications.PendingIntentProvider;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
 /** Builds all types of notifications for Actor tasks. */
 @NullMarked
 public class ActorNotificationFactory {
@@ -40,7 +42,7 @@ public class ActorNotificationFactory {
         NotificationCategory.SUCCESS,
         NotificationCategory.INTERRUPTED
     })
-    @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE)
+    @Retention(RetentionPolicy.SOURCE)
     private @interface NotificationCategory {
         int RUNNING = 0;
         int PAUSED = 1;
@@ -54,9 +56,11 @@ public class ActorNotificationFactory {
      *
      * @param task The {@link ActorTask} to build the notification for.
      * @param state The {@link ActorTaskState} of the task.
+     * @param isSilent Whether the notification should be silent.
      * @return The built {@link NotificationWrapper}.
      */
-    public static NotificationWrapper buildNotification(ActorTask task, @ActorTaskState int state) {
+    public static NotificationWrapper buildNotification(
+            ActorTask task, @ActorTaskState int state, boolean isSilent) {
         int notificationId = task.getId();
         Context context = ContextUtils.getApplicationContext();
         NotificationWrapperBuilder builder =
@@ -67,20 +71,22 @@ public class ActorNotificationFactory {
                                         /* notificationTag= */ null,
                                         notificationId))
                         .setSmallIcon(R.drawable.ic_spark_24dp)
-                        .setGroup(NotificationConstants.GROUP_ACTOR)
                         .setLocalOnly(true)
-                        .setSilent(true);
+                        .setSilent(isSilent);
 
-        if (state == ActorTaskState.ACTING || state == ActorTaskState.REFLECTING) {
+        if (state == ActorTaskState.ACTING
+                || state == ActorTaskState.REFLECTING
+                || state == ActorTaskState.CREATED) {
             return buildRunningNotification(builder, context, task, notificationId);
-        } else if (state == ActorTaskState.PAUSED_BY_USER) {
+        } else if (state == ActorTaskState.PAUSED_BY_ACTOR
+                || state == ActorTaskState.PAUSED_BY_USER) {
             return buildPausedNotification(builder, context, task, notificationId);
         } else if (state == ActorTaskState.WAITING_ON_USER) {
             return buildUserInputNotification(builder, context, task, notificationId);
         } else if (state == ActorTaskState.FINISHED) {
             return buildSuccessNotification(builder, context, task, notificationId);
         } else {
-            return buildInterruptedNotification(builder, context, task);
+            return buildInterruptedNotification(builder, context, task, notificationId);
         }
     }
 
@@ -97,7 +103,9 @@ public class ActorNotificationFactory {
     }
 
     private static @NotificationCategory int getNotificationCategory(@ActorTaskState int state) {
-        if (state == ActorTaskState.ACTING || state == ActorTaskState.REFLECTING) {
+        if (state == ActorTaskState.ACTING
+                || state == ActorTaskState.REFLECTING
+                || state == ActorTaskState.CREATED) {
             return NotificationCategory.RUNNING;
         }
         if (state == ActorTaskState.PAUSED_BY_ACTOR || state == ActorTaskState.PAUSED_BY_USER) {
@@ -115,7 +123,8 @@ public class ActorNotificationFactory {
                 .setContentTitle(
                         context.getString(R.string.actor_notification_title_working_on_task))
                 .setContentText(body)
-                .setBigTextStyle(body);
+                .setBigTextStyle(body)
+                .setContentIntent(createTabRoutingIntent(context, id, task));
         addViewAction(builder, context, id, task);
         addPauseAction(builder, context, id, task);
         return builder.buildNotificationWrapper();
@@ -127,7 +136,8 @@ public class ActorNotificationFactory {
         builder.setOngoing(true)
                 .setContentTitle(context.getString(R.string.actor_notification_title_task_paused))
                 .setContentText(body)
-                .setBigTextStyle(body);
+                .setBigTextStyle(body)
+                .setContentIntent(createTabRoutingIntent(context, id, task));
         addViewAction(builder, context, id, task);
         addResumeAction(builder, context, id, task);
         return builder.buildNotificationWrapper();
@@ -162,7 +172,7 @@ public class ActorNotificationFactory {
     }
 
     private static NotificationWrapper buildInterruptedNotification(
-            NotificationWrapperBuilder builder, Context context, ActorTask task) {
+            NotificationWrapperBuilder builder, Context context, ActorTask task, int id) {
         String body =
                 context.getString(R.string.actor_notification_body_interrupted, task.getTitle());
         builder.setAutoCancel(true)
@@ -170,7 +180,8 @@ public class ActorNotificationFactory {
                 .setContentTitle(
                         context.getString(R.string.actor_notification_title_task_interrupted))
                 .setContentText(body)
-                .setBigTextStyle(body);
+                .setBigTextStyle(body)
+                .setContentIntent(createTabRoutingIntent(context, id, task));
         return builder.buildNotificationWrapper();
     }
 

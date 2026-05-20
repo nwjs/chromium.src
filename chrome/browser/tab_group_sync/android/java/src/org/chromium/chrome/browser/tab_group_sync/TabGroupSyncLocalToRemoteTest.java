@@ -49,7 +49,7 @@ import java.util.List;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @DoNotBatch(reason = "TODO(b/40743432): SyncTestRule doesn't support batching.")
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@Restriction({DeviceFormFactor.PHONE, Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE})
+@Restriction(DeviceFormFactor.PHONE)
 public class TabGroupSyncLocalToRemoteTest {
     public SyncTestRule mSyncTestRule = new SyncTestRule();
 
@@ -70,6 +70,7 @@ public class TabGroupSyncLocalToRemoteTest {
     @MediumTest
     @Feature({"Sync"})
     @DisabledTest(message = "crbug.com/353952795")
+    @SuppressWarnings("unchecked") // clickSelectTabs() returns raw TabSwitcherListEditorFacility.
     public void testCreateTabGroup() {
         WebPageStation firstPage = mCtaTestRule.alreadyStartedOnBlankPage();
         Tab firstTab = firstPage.loadedTabElement.value();

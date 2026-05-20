@@ -27,18 +27,20 @@ BASE_FEATURE(kAllowEyeDropperWGCScreenCapture,
 #endif  // BUILDFLAG(IS_WIN)
 );
 
-BASE_FEATURE(kBrowserWidgetCacheThemeService,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kCreateNewTabGroupAppMenuTopLevel,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kTabStripDeclutter, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableExtensionsMenuTeardownFix,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kImportExportFlags, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kGlassToolbar, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kTabStripDeclutter, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kToolbarGlowUp, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kRoundedIcons, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kMenuSimplification, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kTabGroupColorRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebuiRefresh2026, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kDseIntegrity, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -53,18 +55,9 @@ BASE_FEATURE(kExtensionsCollapseMainMenu, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
-BASE_FEATURE(kInfobarRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_WIN)
-BASE_FEATURE(kOfferPinToTaskbarInFirstRunExperience,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kOfferPinToTaskbarInSettings, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_WIN)
+BASE_FEATURE(kInfobarRefresh, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-// Shows an infobar at startup offering to pin Chrome to the taskbar (on
-// Windows) or the Dock (on MacOS).
-BASE_FEATURE(kOfferPinToTaskbarInfoBar, base::FEATURE_ENABLED_BY_DEFAULT);
 // Shows an infobar on PDFs offering to become the default PDF viewer if Chrome
 // isn't the default already.
 BASE_FEATURE(kPdfInfoBar, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -157,7 +150,7 @@ BASE_FEATURE_PARAM(int,
 BASE_FEATURE(kTabDuplicateMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables tabs to be frozen when collapsed.
-// https://crbug.com/1110108
+// https://crbug.com/40141996
 BASE_FEATURE(kTabGroupsCollapseFreezing, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -176,7 +169,7 @@ bool IsTabGroupHoverCardsEnabled() {
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 // Enables preview images in tab-hover cards.
-// https://crbug.com/928954
+// https://crbug.com/41439486
 BASE_FEATURE(kTabHoverCardImages,
 #if BUILDFLAG(IS_MAC)
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -196,17 +189,23 @@ BASE_FEATURE(kTearOffWebAppTabOpensWebAppWindow,
 BASE_FEATURE(kThreeButtonPasswordSaveDialog, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-BASE_FEATURE(kToolbarHeightSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSidePanelFlyoverAnimation, base::FEATURE_ENABLED_BY_DEFAULT);
-bool UseSidePanelFlyoverAnimation() {
+BASE_FEATURE(kSidePanelFlyoverAnimation,
 #if BUILDFLAG(IS_MAC)
-  // Mac can smoothly resize contents and does not need flyover.
-  return false;
+             base::FEATURE_DISABLED_BY_DEFAULT
 #else
-  return base::FeatureList::IsEnabled(kSidePanelFlyoverAnimation);
+             base::FEATURE_ENABLED_BY_DEFAULT
 #endif
+);
+
+bool UseSidePanelFlyoverAnimation() {
+  return base::FeatureList::IsEnabled(kSidePanelFlyoverAnimation);
 }
+
+BASE_FEATURE_PARAM(int,
+                   kSidePanelFlyoverDurationMs,
+                   &kSidePanelFlyoverAnimation,
+                   "flyover_animation_duration_ms",
+                   350);
 
 // Enables enterprise profile badging for managed profiles on the toolbar avatar
 // and in the profile menu. On managed profiles, a building icon will be used as
@@ -227,21 +226,6 @@ BASE_FEATURE(kEnterpriseManagementDisclaimerUsesCustomLabel,
 
 BASE_FEATURE(kManagedProfileRequiredInterstitial,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables a web-based tab strip. See https://crbug.com/989131. Note this
-// feature only works when the ENABLE_WEBUI_TAB_STRIP buildflag is enabled.
-BASE_FEATURE(kWebUITabStrip, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// The default value of this flag is aligned with platform behavior to handle
-// context menu with touch.
-// TODO(crbug.com/40796475): Enable this flag for all platforms after launch.
-BASE_FEATURE(kWebUITabStripContextMenuAfterTap,
-#if BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-);
 
 #if BUILDFLAG(IS_MAC)
 BASE_FEATURE(kViewsJSAppModalDialog, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -289,12 +273,6 @@ BASE_FEATURE_PARAM(bool,
                    kPageActionsMigrationFileSystemAccess,
                    &kPageActionsMigration,
                    "file_system_access",
-                   true);
-
-BASE_FEATURE_PARAM(bool,
-                   kPageActionsMigrationManagePasswords,
-                   &kPageActionsMigration,
-                   "manage_passwords",
                    true);
 
 BASE_FEATURE_PARAM(bool,
@@ -361,7 +339,8 @@ BASE_FEATURE(kByDateHistoryInSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTabsFromOtherDevicesSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kTabStripBrowserApi, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kTabsFromOtherDevicesSidePanelPinnedByDefault,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNonMilestoneUpdateToast, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -400,6 +379,11 @@ bool IsWebUIHomeButtonEnabled() {
          base::FeatureList::IsEnabled(features::kWebUIHomeButton);
 }
 
+bool IsWebUIAppMenuButtonEnabled() {
+  return base::FeatureList::IsEnabled(features::kInitialWebUI) &&
+         base::FeatureList::IsEnabled(features::kWebUIAppMenuButton);
+}
+
 bool IsWebUIBackForwardButtonEnabled() {
   return base::FeatureList::IsEnabled(features::kInitialWebUI) &&
          base::FeatureList::IsEnabled(features::kWebUIBackForwardButton);
@@ -429,7 +413,8 @@ bool IsWebUIToolbarEnabled() {
   return IsWebUIReloadButtonEnabled() || IsWebUISplitTabsButtonEnabled() ||
          IsWebUIHomeButtonEnabled() || IsWebUILocationBarEnabled() ||
          IsWebUIBackForwardButtonEnabled() ||
-         IsWebUIPinnedToolbarActionsEnabled() || IsWebUIAvatarButtonEnabled();
+         IsWebUIPinnedToolbarActionsEnabled() || IsWebUIAvatarButtonEnabled() ||
+         IsWebUIAppMenuButtonEnabled();
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 

@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <optional>
 
-#include "base/metrics/histogram_macros.h"
 #include "services/network/public/cpp/permissions_policy/fenced_frame_permissions_policies.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy.h"
 #include "services/network/public/cpp/web_sandbox_flags.h"
@@ -73,10 +72,6 @@ void SecurityContextInit::ApplyDocumentPolicy(
   document_policy = FilterByOriginTrial(document_policy, execution_context_);
   if (!document_policy.feature_state.empty()) {
     UseCounter::Count(execution_context_, WebFeature::kDocumentPolicyHeader);
-    for (const auto& policy_entry : document_policy.feature_state) {
-      UMA_HISTOGRAM_ENUMERATION("Blink.UseCounter.DocumentPolicy.Header",
-                                policy_entry.first);
-    }
   }
   execution_context_->GetSecurityContext().SetDocumentPolicy(
       DocumentPolicy::CreateWithHeaderPolicy(document_policy));
@@ -184,11 +179,31 @@ void SecurityContextInit::ApplyPermissionsPolicy(
     container_policy = frame_policy.container_policy;
   }
 
+  if (RuntimeEnabledFeatures::BlockingFocusWithoutUserActivationEnabled(
+          execution_context_)) {
+    // Track when the focus-without-user-activation policy is declared via any
+    // source: iframe allow attribute, Permissions-Policy header, or
+    // Permissions-Policy-Report-Only header.
+    if (IsFeatureDeclared(network::mojom::PermissionsPolicyFeature::
+                              kFocusWithoutUserActivation,
+                          container_policy) ||
+        IsFeatureDeclared(network::mojom::PermissionsPolicyFeature::
+                              kFocusWithoutUserActivation,
+                          permissions_policy_header_) ||
+        IsFeatureDeclared(network::mojom::PermissionsPolicyFeature::
+                              kFocusWithoutUserActivation,
+                          parsed_report_only_permissions_policy_header)) {
+      UseCounter::Count(execution_context_,
+                        WebFeature::kFocusWithoutUserActivationPolicySet);
+    }
+  }
+
   // DocumentLoader applied the sandbox flags before calling this function, so
   // they are accessible here.
   auto sandbox_flags = execution_context_->GetSandboxFlags();
 
-  if (RuntimeEnabledFeatures::BlockingFocusWithoutUserActivationEnabled() &&
+  if (RuntimeEnabledFeatures::BlockingFocusWithoutUserActivationEnabled(
+          execution_context_) &&
       frame.Tree().Parent() &&
       (sandbox_flags & network::mojom::blink::WebSandboxFlags::kNavigation) !=
           network::mojom::blink::WebSandboxFlags::kNone) {

@@ -4,8 +4,7 @@
 
 package org.chromium.chrome.browser.tab_bottom_sheet;
 
-import static org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetProperties.PEEK_VIEW_AND_EXPANDED_CONTENT_ALPHA;
-import static org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetProperties.PEEK_VIEW_AND_EXPANDED_CONTENT_VISIBILITY;
+import static org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetProperties.PEEK_STATE_ALPHA;
 
 import android.view.View;
 
@@ -25,24 +24,16 @@ public class TabBottomSheetViewBinder {
      * @param propertyKey The {@link PropertyKey} that changed.
      */
     public static void bind(PropertyModel model, View view, PropertyKey propertyKey) {
-        if (propertyKey == TabBottomSheetProperties.SHEET_HEIGHT) {
-            int sheetHeight = model.get(TabBottomSheetProperties.SHEET_HEIGHT);
-            CoBrowseViews coBrowseViews = model.get(TabBottomSheetProperties.BOTTOM_SHEET_VIEWS);
-            coBrowseViews.setSheetHeight(sheetHeight);
-        } else if (PEEK_VIEW_AND_EXPANDED_CONTENT_ALPHA == propertyKey) {
+        if (PEEK_STATE_ALPHA == propertyKey) {
+            float alpha = model.get(PEEK_STATE_ALPHA);
             View peekContainer = view.findViewById(R.id.actor_control_container);
-            peekContainer.setAlpha(model.get(PEEK_VIEW_AND_EXPANDED_CONTENT_ALPHA));
             View expandedContent = view.findViewById(R.id.expanded_content_group);
-            expandedContent.setAlpha(1.0f - model.get(PEEK_VIEW_AND_EXPANDED_CONTENT_ALPHA));
-        } else if (PEEK_VIEW_AND_EXPANDED_CONTENT_VISIBILITY == propertyKey) {
-            int webContainerVisibility =
-                    model.get(PEEK_VIEW_AND_EXPANDED_CONTENT_VISIBILITY) == View.VISIBLE
-                            ? View.GONE
-                            : View.VISIBLE;
-            View peekContainer = view.findViewById(R.id.actor_control_container);
-            peekContainer.setVisibility(model.get(PEEK_VIEW_AND_EXPANDED_CONTENT_VISIBILITY));
-            View expandedContent = view.findViewById(R.id.expanded_content_group);
-            expandedContent.setVisibility(webContainerVisibility);
+            peekContainer.setAlpha(alpha);
+            peekContainer.setVisibility(alpha == 0.0f ? View.INVISIBLE : View.VISIBLE);
+            expandedContent.setAlpha(1.0f - alpha);
+            // Using INVISIBLE instead of GONE to keep the view in layout hierarchy,
+            // allowing the BottomSheetController to calculate correct scrollable height.
+            expandedContent.setVisibility(alpha == 1.0f ? View.INVISIBLE : View.VISIBLE);
         }
     }
 }

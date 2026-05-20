@@ -198,12 +198,13 @@ class LOCKABLE AAudioDestructionHelper {
     CHECK(!is_closing_);
 
     is_closing_ = true;
+    wrapper_ = nullptr;
     aaudio_stream_ = stream;
   }
 
  private:
   base::Lock lock_;
-  const raw_ptr<AAudioStreamWrapper> wrapper_ GUARDED_BY(lock_) = nullptr;
+  raw_ptr<AAudioStreamWrapper> wrapper_ GUARDED_BY(lock_) = nullptr;
   raw_ptr<AAudioStream> aaudio_stream_ GUARDED_BY(lock_) = nullptr;
   bool is_closing_ GUARDED_BY(lock_) = false;
 };
@@ -243,7 +244,8 @@ static void OnStreamErrorCallback(AAudioStream* stream,
   destruction_helper->UnlockWrapper();
 }
 
-// Matches the ordering of media::Channels.
+// Strictly matches the ordering of media::Channels, and uses the Channels'
+// underlying value as the map key for kMediaChannelToAAudioChannel.
 static constexpr REQUIRES_ANDROID_API(
     AAUDIO_CHANNEL_MASK_MIN_API) auto kMediaChannelToAAudioChannel =
     std::to_array<uint32_t>({
@@ -258,11 +260,22 @@ static constexpr REQUIRES_ANDROID_API(
         AAUDIO_CHANNEL_BACK_CENTER,
         AAUDIO_CHANNEL_SIDE_LEFT,
         AAUDIO_CHANNEL_SIDE_RIGHT,
+        AAUDIO_CHANNEL_TOP_CENTER,
         AAUDIO_CHANNEL_TOP_FRONT_LEFT,
+        AAUDIO_CHANNEL_FRONT_CENTER,
         AAUDIO_CHANNEL_TOP_FRONT_RIGHT,
         AAUDIO_CHANNEL_TOP_BACK_LEFT,
+        AAUDIO_CHANNEL_TOP_BACK_CENTER,
         AAUDIO_CHANNEL_TOP_BACK_RIGHT,
     });
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability"
+// It is safe to query the size of kMediaChannelToAAudioChannel at compile time.
+// The availability attributes only apply to runtime usage on older devices.
+static_assert(kMediaChannelToAAudioChannel.size() == CHANNELS_MAX + 1,
+              "kMediaChannelToAAudioChannel is likely missing a new channel");
+#pragma clang diagnostic pop
 
 REQUIRES_ANDROID_API(AAUDIO_CHANNEL_MASK_MIN_API)
 std::optional<aaudio_channel_mask_t> ChannelMaskFromChannelLayout(
@@ -505,6 +518,8 @@ bool AAudioStreamWrapper::Open() {
     if (!device_id_matches) {
       DLOG(WARNING) << "Failed to set device ID for AAudio stream. Expected: "
                     << expected_device_id << "; actual: " << actual_device_id;
+      AAudioStream_close(aaudio_stream_);
+      aaudio_stream_ = nullptr;
       return false;
     }
   }

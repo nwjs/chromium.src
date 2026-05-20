@@ -33,6 +33,7 @@
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/on_device_base_model_metadata.pb.h"
 #include "components/optimization_guide/public/mojom/model_broker.mojom-forward.h"
+#include "components/optimization_guide/public/mojom/model_broker_debug.mojom-forward.h"
 #include "components/prefs/pref_change_registrar.h"
 
 class PrefService;
@@ -214,6 +215,20 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
   };
 
   struct RegistrationCriteria {
+    // `UninstallReason` is deliberately made to be the same as
+    // an enum class of the same name in
+    // components/optimization_guide/core/model_execution/manifest_broker/manifest.h.
+    // This is to allow logging model deletion reasons regardless of which model
+    // management scheme is used.
+    enum class UninstallReason {
+      kUnknown = 0,
+      kInsufficientDisk = 1,
+      kPolicyNotAllowed = 2,
+      kDeviceNotCapable = 3,
+      kParseError = 4,
+      kUserSettingNotAllowed = 5,
+      kMaxValue = kUserSettingNotAllowed,
+    };
     RegistrationCriteria();
     ~RegistrationCriteria();
     RegistrationCriteria(const RegistrationCriteria&);
@@ -262,7 +277,7 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
     }
 
     std::optional<ModelInstallMode> get_install_mode() const {
-      if (should_uninstall() || !is_disk_space_available() ||
+      if (should_uninstall().has_value() || !is_disk_space_available() ||
           !is_model_allowed()) {
         return std::nullopt;
       }
@@ -282,20 +297,26 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
       return std::nullopt;
     }
 
-    bool should_uninstall() const {
+    // Returns the reason of uninstall if the component should be uninstalled.
+    // nullopt is returned otherwise.
+    std::optional<UninstallReason> should_uninstall() const {
       if (!is_already_installing) {
-        return false;
+        return std::nullopt;
       }
-      if (is_running_out_of_disk_space() || !enabled_by_enterprise_policy ||
-          !enabled_by_user_setting) {
-        return true;
+      if (!enabled_by_enterprise_policy) {
+        return UninstallReason::kPolicyNotAllowed;
       }
-      if (out_of_retention &&
-          !base::FeatureList::IsEnabled(
-              features::kOnDeviceModelBackgroundDownload)) {
-        return true;
+      if (!enabled_by_user_setting) {
+        return UninstallReason::kUserSettingNotAllowed;
       }
-      return false;
+      if (is_running_out_of_disk_space()) {
+        return UninstallReason::kInsufficientDisk;
+      }
+      if (out_of_retention && !base::FeatureList::IsEnabled(
+                                  features::kOnDeviceModelBackgroundDownload)) {
+        return UninstallReason::kUnknown;
+      }
+      return std::nullopt;
     }
   };
 
@@ -376,9 +397,12 @@ class OnDeviceModelComponentStateManager final : public UsageTracker::Observer {
     return weak_ptr_factory_.GetWeakPtr();
   }
 
- private:
   DebugState GetDebugState();
 
+  std::vector<mojom::BrokerPropertyInfoPtr> GetBrokerProperties() const;
+  std::vector<mojom::BrokerAssetInfoPtr> GetBrokerAssets() const;
+
+ private:
   // Should be called whenever the device performance class changes.
   void OnPerformanceClassAvailable();
 

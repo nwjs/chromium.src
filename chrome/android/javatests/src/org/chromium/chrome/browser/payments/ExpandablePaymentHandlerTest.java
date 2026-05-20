@@ -40,6 +40,7 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.overlay_panel.OverlayPanel.StateChangeReason;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -47,7 +48,6 @@ import org.chromium.chrome.browser.payments.handler.PaymentHandlerContentFrameLa
 import org.chromium.chrome.browser.payments.handler.PaymentHandlerCoordinator;
 import org.chromium.chrome.browser.payments.handler.PaymentHandlerCoordinator.PaymentHandlerUiObserver;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
@@ -231,7 +231,7 @@ public class ExpandablePaymentHandlerTest {
 
     @Test
     @SmallTest
-    @DisabledTest(message = "https://crbug.com/1191988")
+    @DisabledTest(message = "https://crbug.com/40756976")
     @Feature({"Payments"})
     public void testSwipeDownCloseUi() throws Throwable {
         startDefaultServer();
@@ -398,7 +398,7 @@ public class ExpandablePaymentHandlerTest {
     @Test
     @SmallTest
     @Feature({"Payments"})
-    @DisabledTest(message = "https://crbug.com/1491094")
+    @DisabledTest(message = "https://crbug.com/40074447")
     public void testWebContentsInputProtection() throws Throwable {
         startDefaultServer();
         PaymentHandlerCoordinator paymentHandler = createPaymentHandlerAndShow();
@@ -446,7 +446,7 @@ public class ExpandablePaymentHandlerTest {
     @Test
     @SmallTest
     @Feature({"Payments"})
-    @DisabledTest(message = "https://crbug.com/1382925")
+    @DisabledTest(message = "https://crbug.com/40877540")
     public void testOpenPageInfoDialog() throws Throwable {
         startDefaultServer();
         PaymentHandlerCoordinator paymentHandler = createPaymentHandlerAndShow();
@@ -525,7 +525,7 @@ public class ExpandablePaymentHandlerTest {
     @Test
     @SmallTest
     @Feature({"Payments"})
-    @DisableIf.Device(DeviceFormFactor.ONLY_TABLET) // https://crbug.com/1135547
+    @DisableIf.Device(DeviceFormFactor.ONLY_TABLET) // https://crbug.com/40151924
     @ParameterAnnotations.UseMethodParameter(GoodCertParams.class)
     public void testSecureConnectionShowUi(int goodCertificate) throws Throwable {
         startServer(goodCertificate);

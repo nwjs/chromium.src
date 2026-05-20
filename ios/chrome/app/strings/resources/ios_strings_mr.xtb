@@ -54,6 +54,7 @@
 <translation id="1179890706672152411">तुमचे स्टोरेज पूर्ण भरले आहे</translation>
 <translation id="1181037720776840403">काढून टाका</translation>
 <translation id="1190609913194133056">सूचना केंद्र</translation>
+<translation id="1199631150313925648">मॅन्‍युअली एंटर करा</translation>
 <translation id="1199963004393929848">ग्रीन थीम</translation>
 <translation id="1201402288615127009">पुढील</translation>
 <translation id="1204075260022434100">{count,plural, =1{बुकमार्क तुमच्या {email} या खात्यामध्ये "{title}" मध्ये सेव्ह केला आहे}other{{count} बुकमार्क तुमच्या {email} या खात्यामध्ये "{title}" मध्ये सेव्ह केले आहेत}}</translation>
@@ -99,6 +100,7 @@
 <translation id="1347468774581902829">अ‍ॅक्टिव्हिटी व्यवस्थापित करा</translation>
 <translation id="1348596747084433075">https://www.amazon.com/Wife-Gifts/s?k=for+Wife+Gifts</translation>
 <translation id="1355337783640312381">खात्यांदरम्यान स्विच करण्यासाठी, तुमच्या खाते आयकनवर टॅप करा</translation>
+<translation id="135806768612505061">सर्व टॅब</translation>
 <translation id="1358106883354237005">व्यवस्थापित केलेले खाते</translation>
 <translation id="1358214951266274152">तुम्ही कॉपी केलेल्या लिंकला भेट द्या</translation>
 <translation id="1360432990279830238">साइन आउट करून सिंक बंद करायचे आहे का?</translation>
@@ -258,6 +260,7 @@
 <translation id="1861262398884155592">हे फोल्डर रिक्त आहे</translation>
 <translation id="1864266050569350424">तुम्ही जिथे पासवर्ड सेव्ह केले आहेत त्या साइटवर, साइन-इन पासवर्ड फील्डवर टॅप करा.</translation>
 <translation id="1866700949421703765">वाचन मोड सुरू करा हे लपवा</translation>
+<translation id="1869050523388525800">Google हे तुमचे डीफॉल्ट सर्च इंजीन म्हणून सेट केलेले असते, तेव्हाच शोध स्क्रीन उपलब्ध असते. तुम्ही <ph name="BEGIN_LINK" />सेटिंग्ज<ph name="END_LINK" /> मध्ये तुमचे डीफॉल्ट सर्च इंजीन बदलू शकता.</translation>
 <translation id="1872096359983322073">टॉर्च</translation>
 <translation id="1875733418125333939"><ph name="FILENAME" />.</translation>
 <translation id="1881621406744213161">कुटुंब सदस्यांना आमंत्रित करा</translation>
@@ -718,6 +721,7 @@
 <translation id="3565012355885596568">इमेज लोड करता आल्या नाहीत</translation>
 <translation id="3565930036634619844">टॅब. <ph name="NUMBER_OF_TABS" /> पैकी <ph name="TAB_INDEX" /> क्रमांकाचा टॅब.</translation>
 <translation id="3567168891086460374">दुसऱ्या पद्धतीने सेव्ह करा</translation>
+<translation id="3571703298474554279">अ‍ॅप वापरण्याचा आणखी जलद मार्ग</translation>
 <translation id="3572503683475187385">तुम्ही नवीन चॅट सुरू करता, तेव्हा सद्य टॅब Gemini सोबत शेअर केला जातो. तुम्ही Gemini सोबत टॅब शेअर करता, तेव्हा त्यांमधील आशय आणि URL या गोष्टी Google ला पाठवल्या जातात. <ph name="BEGIN_LINK" />अधिक जाणून घ्या<ph name="END_LINK" /></translation>
 <translation id="3572607909481582402">तुमच्या Google खाते मध्ये</translation>
 <translation id="3575234738189584619">Lens वापरून शोधा</translation>
@@ -784,7 +788,6 @@
 <translation id="3838691874161539578">तुमची सुरक्षा मजबूत करण्यासाठी आणि ऑनलाइन सुरक्षित राहण्यासाठी तुमचे सेव्ह केलेले पासवर्ड तपासा</translation>
 <translation id="3838985624086228724">तुमच्या ट्रॅक केलेल्या उत्पादनावरील किमतीतील घट, <ph name="PREVIOUS_PRICE" /> पासून <ph name="PRICE" /> पर्यंत, <ph name="PRODUCT_NAME" />, <ph name="DOMAIN" /></translation>
 <translation id="385051799172605136">मागील</translation>
-<translation id="3850952228519377137">"तुमच्या टॅबमधील किमतींचा माग ठेवा" लपवा</translation>
 <translation id="3851938967634752633"><ph name="WEBSITE" />, <ph name="SECOND_WEBSITE" /> आणि <ph name="NUMBER_OF_ACCOUNTS" /> इतर खात्यांचे पासवर्ड हटवले जातील. तुमची खाती हटवली जाणार नाहीत.</translation>
 <translation id="3853162385423733133">तुमच्या Google खाते <ph name="EMAIL" /> मधील पासवर्ड वापरणे आणि सेव्ह करणे सुरू ठेवा</translation>
 <translation id="3853873210696342070">इंपोर्ट करा</translation>
@@ -802,6 +805,7 @@
 <translation id="3893858854379998374">तुमच्या खात्यामध्ये बुकमार्क सेव्ह करण्यासाठी, तुमचे न वापरलेले बुकमार्क हटवा</translation>
 <translation id="3897092660631435901">मेनू</translation>
 <translation id="3904270275864974753">कॅरावसल संपादित करा</translation>
+<translation id="3905384981098338147">AI मोड इतिहास</translation>
 <translation id="3909222758573607742">खात्यामध्ये पासवर्ड आणि इतर आयटम सेव्ह करा</translation>
 <translation id="3913463964270756493">Google Lens वापरून शोध स्क्रीन लपवा</translation>
 <translation id="3914640181019354363">पत्ते डिटेक्ट करा</translation>
@@ -931,7 +935,6 @@
 <translation id="4323122584592971322">OID.</translation>
 <translation id="4324735664183300693">नोटिफिकेशन सुरू करा</translation>
 <translation id="4326912346867677256">सुरक्षितपणे साइन इन करण्यासाठी "पासवर्ड वापरा" वर साइन इन करा.</translation>
-<translation id="4327017157997423717"><ph name="PRODUCT_NAME" />, <ph name="PRICE" />, <ph name="DOMAIN" /> वर किमतीचा माग ठेवा</translation>
 <translation id="4328843285884395590">माझे ड्राइव्ह</translation>
 <translation id="4331177082088332784">तुम्ही हे BEGIN_LINK आशय सेटिंग्ज END_LINK मध्ये व्यवस्थापित करू शकता</translation>
 <translation id="4334428914252001502">न वाचलेला एक लेख.</translation>
@@ -955,6 +958,7 @@
 <translation id="441868831736628555">गोपनीयता सूचना</translation>
 <translation id="4420409367264901497">बुकमार्क संपादित करा</translation>
 <translation id="4425365312778464779">हे खाते व्यवस्थापित केले जात आहे</translation>
+<translation id="443008484043213881">साधने</translation>
 <translation id="4430277756566635951">सध्या <ph name="EMAIL" /> ला निवडले आहे. खाते निवडा.</translation>
 <translation id="4430505936695785931">इतर ॲप्समध्ये सेव्ह केलेले पासवर्ड मिळवा</translation>
 <translation id="4431224949908513835">भरण्यासाठी पेमेंट पद्धत निवडा.</translation>
@@ -1073,6 +1077,7 @@
 <translation id="4824497107140370669">{count,plural, =0{{domain}}=1{{domain} आणि इतर एक}other{{domain} आणि इतर {count}}}</translation>
 <translation id="4826588772550366629">कॅमेरा आणि मायक्रोफोन</translation>
 <translation id="4828431027673677473">तुमच्या स्वारस्यांवर आधारित उत्पादने</translation>
+<translation id="4829420936835028285">टॅब गट संपादित करा</translation>
 <translation id="4833786495304741580">Google ला वापरविषयक आकडेवारी आणि क्रॅश अहवाल आपोआप पाठवते.</translation>
 <translation id="483689884442613745">सेव्ह करा…</translation>
 <translation id="4840495572919996524">तुमचे बुकमार्क, इतिहास, पासवर्ड आणि बरेच काही आता तुमच्या Google खातेमध्ये सिंक केले जाणार नाही</translation>
@@ -1080,7 +1085,6 @@
 <translation id="484462545196658690">ऑटो</translation>
 <translation id="4850886885716139402">पहा</translation>
 <translation id="4854068532375923088">“Gemini” ला तुमचा कॅमेरा वापरण्याची अनुमती द्या</translation>
-<translation id="4860114370595561279">तुमची सेव्ह केलेली माहिती तुमच्या डिव्हाइसवर स्टोअर केली जाते</translation>
 <translation id="4860895144060829044">कॉल करा</translation>
 <translation id="4861953997778766866">सर्वजण तुमच्या शेअर केलेल्या टॅब गटांमध्ये बदल करू शकतात</translation>
 <translation id="4865063548323785458">साइट आणि ॲप्समध्ये सहजपणे साइन इन करण्यासाठी तुमचे पासवर्ड सहजपणे सेव्ह करा आणि ऑटोफिल करा</translation>
@@ -1171,6 +1175,7 @@
 <translation id="5145331760738811130">टॅब स्विचरमधून बाहेर पडा</translation>
 <translation id="5148717509369231739">Safari संबंधित इंपोर्ट</translation>
 <translation id="5152483358138813104">तुमच्या सर्व डिव्हाइसवर अधिक जलद साइन इन करा</translation>
+<translation id="515315847398512535">तुमच्या खात्यासाठी शोध स्क्रीन बंद केली आहे. अधिक माहितीसाठी तुमच्या ॲडमिनशी संपर्क साधा.</translation>
 <translation id="5155502059906700593">तुमच्या अ‍ॅड्रेस बारची जागा सर्वात वरती किंवा तळाशी स्विच करा.</translation>
 <translation id="5157638238828697074">काहीतरी चुकले. अ‍ॅप्लिकेशन उघडता आले नाही.</translation>
 <translation id="5163417375525818870">PDFs</translation>
@@ -1290,6 +1295,7 @@
 <translation id="5581786858144165447">AI मोड ला विचारा</translation>
 <translation id="5585019845078534178">कार्डे</translation>
 <translation id="5591526871732898147">अटॅच केलेली इमेज {index}</translation>
+<translation id="5594597292424622277">व्हिडिओ थांबवा</translation>
 <translation id="5595485650161345191">पत्ता संपादित करा</translation>
 <translation id="559567008082979829">तुमचे डाउनलोड एका महिन्यानंतर हटवले जाण्यासाठी सेट करा.</translation>
 <translation id="5596627076506792578">अधिक पर्याय</translation>
@@ -1315,7 +1321,6 @@
 <translation id="5647702255748985085">गट सोडायचा आहे का?</translation>
 <translation id="5648166631817621825">अखेरच्या 7 दिवसांमधील</translation>
 <translation id="5652623411397330904">तुम्ही माग ठेवत असलेली उत्पादने येथे दिसतील.</translation>
-<translation id="5653100054596780862">सर्व टॅब</translation>
 <translation id="5656431592348714536">वर्धित केलेले कॅलेंडर</translation>
 <translation id="5659593005791499971">ई-मेल</translation>
 <translation id="5665739277590037307"><ph name="GOOGLE_TERMS" /> आणि <ph name="GEMINI_APPS_PRIVACY" /> लागू होतात. Gemini चुका करू शकते, त्यामुळे ते दोनदा तपासा.</translation>
@@ -1501,7 +1506,6 @@
 <translation id="6259928806013786178">वाचन मोड सुरू करता आला नाही</translation>
 <translation id="6268773951964630964">कॉपी केलेली इमेज शोधा</translation>
 <translation id="6271462272606946663">मोबाइल साइट ची विनंती करा हे लपवा</translation>
-<translation id="6271556257184622612">Google ला टॅब आणि आणखी बऱ्याच गोष्टींबद्दल विचारा</translation>
 <translation id="6271824294945464304">पासवर्ड शेअर करत आहे</translation>
 <translation id="628251768213143684">तुमच्या Google खाते मध्ये सेव्ह केलेल्या गोष्टी तुम्ही कधीही व्यवस्थापित करू शकता</translation>
 <translation id="6284652193729350524"><ph name="LANGUAGE" /> भाषांतरित करण्यासाठी ऑफर</translation>
@@ -1515,8 +1519,8 @@
 <translation id="6307241780749477694">तुम्हाला या डिव्हाइसवर तुमचे सर्व पासवर्ड मिळवण्यासाठी तुम्हीच आहात याची पडताळणी करा</translation>
 <translation id="6316141353357700666">दिसणाऱ्या सूचीमधून तुम्हाला वापरायचा असलेला पासवर्ड निवडा.</translation>
 <translation id="6321526113093607004">बुकमार्क मध्ये जोडा</translation>
+<translation id="6327249202318869726">तुमच्या खात्यासाठी Gemini बंद केले आहे. अधिक माहितीसाठी तुमच्या ॲडमिनशी संपर्क साधा.</translation>
 <translation id="6331836477476466332">तुमच्यासाठी सुरक्षित, आणखी प्रभावी ब्राउझर</translation>
-<translation id="6335744088476213315">हे कार्ड तुम्ही अलीकडे पाहिलेली उत्पादने दाखवते आणि किमती कमी होण्यासंबंधित सूचना मिळवण्यासाठी माग ठेवण्यात स्वारस्य असू शकते</translation>
 <translation id="6337234675334993532">एंक्रिप्शन</translation>
 <translation id="6337313937331295309">Gemini अ‍ॅप्स गोपनीयता नोटिस</translation>
 <translation id="633809752005859102">खरोखर काहीतरी चूक झाली. आम्ही त्यावर कार्य करू.</translation>
@@ -1571,6 +1575,7 @@
 <translation id="6476800141292307438">पेजचे <ph name="LANGUAGE" /> मध्ये भाषांतर करत आहे. पर्याय स्क्रीनच्या खाली उपलब्ध आहेत.</translation>
 <translation id="647867789226964031">तुमचे पासवर्ड बदला</translation>
 <translation id="6480363549849064919">क्लायंट ऑथेंटिकेशन</translation>
+<translation id="6489174933860678546">वेब आणखी खाजगीरीत्या ब्राउझ करण्यासाठी गुप्त टॅब उघडा.</translation>
 <translation id="6494931198667773526">संपेल</translation>
 <translation id="6503077044568424649">सर्वाधिक भेट दिलेले</translation>
 <translation id="6503763061813913607">सुरक्षितता तपासणी नोटिफिकेशन</translation>
@@ -1607,6 +1612,7 @@
 <translation id="6596481460663245319">Google वापरून इमेज शोधा</translation>
 <translation id="6598432073497341323">{COUNT,plural, =1{१ पासवर्ड}other{# पासवर्ड}}</translation>
 <translation id="6601302169302852717"><ph name="USER_EMAIL" /> साठी Google Photos मध्ये इमेज सेव्ह केली आहे</translation>
+<translation id="6602173570135186741">ऑटोफिल आणि पासवर्ड</translation>
 <translation id="6603393121510733479">तुमच्या संस्थेने खाजगी ब्राउझिंग बंद केले आहे.
 <ph name="BEGIN_LINK" />अधिक जाणून घ्या<ph name="END_LINK" /></translation>
 <translation id="6606914854592108404">सुरक्षितता तपासणी रन करत आहे…</translation>
@@ -1627,6 +1633,7 @@
 <translation id="6640268266988685324">टॅब उघडा</translation>
 <translation id="6641465290890659327">तुमच्या पासवर्डची कॉपी शेअर करा</translation>
 <translation id="6642362222295953972">विद्यमान टॅबवर स्विच करा</translation>
+<translation id="6643016212128521049">साफ करा</translation>
 <translation id="6645899968535965230">QR कोड: <ph name="PAGE_TITLE" /></translation>
 <translation id="6657585470893396449">पासवर्ड</translation>
 <translation id="6659660757330712663">तुम्ही टॅबदरम्यान स्विच करण्यासाठी टूलबार स्‍वाइप करू शकता.</translation>
@@ -1693,6 +1700,7 @@
 <translation id="6871397658902960384">ब्राउझिंग सुरू करा</translation>
 <translation id="6874328931822449112">{COUNT,plural, =1{पासवर्ड खात्यामध्ये सेव्ह करा}other{पासवर्ड खात्यामध्ये सेव्ह करा}}</translation>
 <translation id="6875166646976836138">तुम्ही हे आयटम तुमचे बुकमार्क, वाचन सूची किंवा Password Manager यामध्येदेखील पाहू आणि व्यवस्थापित करू शकता.</translation>
+<translation id="6878052248816456143">तुमच्या Google Drive मधील फाइल कधीही अ‍ॅक्सेस करा.</translation>
 <translation id="6882836635272038266">धोकादायक म्हणून ओळखल्या जाणार्‍या वेबसाइट, डाउनलोड आणि एक्स्टेंशनपासून साधारण संरक्षण.</translation>
 <translation id="6884135917113737984">{COUNT,plural, =1{तुमच्या Google खाते मध्ये {COUNT} पासवर्ड सेव्ह करा}other{तुमच्या Google खाते मध्ये {COUNT} पासवर्ड सेव्ह करा}}</translation>
 <translation id="6888009575607455378">तुम्हाला तुमचे बदल नक्की काढून टाकायचे आहेत का?</translation>
@@ -1806,6 +1814,7 @@
 <translation id="7345061034321640811">इंपोर्ट करण्याची अनुमती नाही</translation>
 <translation id="7347998088283246662">पासवर्ड, इतिहास, बुकमार्क आणि आणखी बऱ्याच गोष्टी इंपोर्ट करा</translation>
 <translation id="7352651011704765696">काहीतरी चूक झाली</translation>
+<translation id="7363497636543208734">आता ॲप वापरणे आणखी सोपे झाले आहे.</translation>
 <translation id="7364796246159120393">फाइल निवडा</translation>
 <translation id="736564850024123010">कस्टमाइझ केलेल्या अनुभवासाठी तुमच्या अ‍ॅड्रेस बारचे स्थान स्विच करा.</translation>
 <translation id="7366909168761621528">ब्राउझिंग डेटा</translation>
@@ -1859,6 +1868,7 @@
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">तुमचे गुप्त टॅब लॉक करण्यासाठी, टच आयडी, फेस आयडी किंवा पासकोड सेट करा.</translation>
 <translation id="750886945254958667">नंतर टॅब जोडण्यासाठी हा गट कायम ठेवा किंवा तुम्हाला यापुढे त्याचा अ‍ॅक्सेस नको असल्यास, त्यामधून बाहेर पडा</translation>
+<translation id="7511099437872594216">टॅब</translation>
 <translation id="7511727374778217603">{COUNT,plural, =1{कमाल १ टॅब जोडा}other{कमाल {COUNT} टॅब जोडा}}</translation>
 <translation id="7512909159512473473">पासफ्रेझ एंटर करा…</translation>
 <translation id="7514365320538308">डाउनलोड करा</translation>
@@ -2104,7 +2114,6 @@
 <translation id="8319282042900445670"><ph name="TIME" />, <ph name="DATE" /> साठी रिमाइंडर सेट करा</translation>
 <translation id="8320212361750431956">अलीकडील अ‍ॅक्टिव्हिटी</translation>
 <translation id="8325455175867928593">"तुमच्या स्वारस्यांवर आधारित परीक्षणे" लपवा</translation>
-<translation id="8328777765163860529">सर्व बंद करा</translation>
 <translation id="833647236762414178">साइट आणि ॲप्समध्ये सहजपणे साइन इन करण्यासाठी तुमचे पासवर्ड आणि पासकी तयार करा, सेव्ह करा आणि व्यवस्थापित करा. <ph name="BEGIN_LINK" />अधिक जाणून घ्या<ph name="END_LINK" /></translation>
 <translation id="8343993175958086504">तुमच्या आशयाचा बॅकअप घ्या आणि तो कोणत्याही डिव्हाइसवर वापरा.</translation>
 <translation id="8348530355586151720">थ्री डॉट मेनूवर टॅप करा</translation>
@@ -2159,6 +2168,7 @@
 <translation id="8528009254289981965">गुप्त मोड मध्ये इतर ॲप्समधील लिंक उघडा</translation>
 <translation id="8529767659511976195">नवीन</translation>
 <translation id="8531572740963685410">PDFs</translation>
+<translation id="8532059953132740592">व्हिडिओ प्ले करा</translation>
 <translation id="8533411848724153701">Gemini</translation>
 <translation id="8533670235862049797">सुरक्षित ब्राउझिंग सुरू आहे</translation>
 <translation id="8534481786647257214">Google+ पोस्ट पूर्ण केले.</translation>
@@ -2287,6 +2297,7 @@
 <translation id="8915916167043355778">सर्व बंद करा</translation>
 <translation id="892185197271200809">सर्वजण तात्काळ "<ph name="GROUP_NAME" />" टॅब गटाचा अ‍ॅक्सेस गमवतील आणि तो सर्व डिव्हाइसवरून हटवला जाईल</translation>
 <translation id="8923178205567790913">पासवर्ड</translation>
+<translation id="8926498511977337209">गुप्त मोड मध्ये ब्राउझ करा</translation>
 <translation id="892776311701544612">अधिक जाणून घ्या…</translation>
 <translation id="8928133177108699615">डेस्कटॉप</translation>
 <translation id="8928426232677696166"><ph name="EMAIL" />, तुमच्या संस्थेने व्यवस्थापित केला आहे, सध्या निवडलेले. खाते निवडा.</translation>

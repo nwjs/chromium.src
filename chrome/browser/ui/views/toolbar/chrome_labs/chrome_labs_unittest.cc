@@ -138,12 +138,13 @@ class ChromeLabsCoordinatorTest : public TestWithBrowserView {
         chrome_labs_prefs::kBrowserLabsEnabledEnterprisePolicy, true);
 
     chrome_labs_coordinator_ =
-        std::make_unique<ChromeLabsCoordinator>(browser_view()->browser());
+        ChromeLabsCoordinator::From(browser_view()->browser());
   }
 
   void TearDown() override {
     about_flags::GetCurrentFlagsState()->Reset();
     chrome_labs_coordinator_->TearDown();
+    chrome_labs_coordinator_ = nullptr;
     TestWithBrowserView::TearDown();
   }
 
@@ -160,7 +161,7 @@ class ChromeLabsCoordinatorTest : public TestWithBrowserView {
 
  protected:
   ScopedChromeLabsModelDataForTesting scoped_chrome_labs_model_data_;
-  std::unique_ptr<ChromeLabsCoordinator> chrome_labs_coordinator_;
+  raw_ptr<ChromeLabsCoordinator> chrome_labs_coordinator_ = nullptr;
 
  private:
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -536,7 +537,7 @@ TEST_F(ChromeLabsViewControllerTest, RestartPromptShows) {
 // This test checks that the restart prompt does not show when the lab state has
 // not changed.
 // TODO(elainechien): This currently only works for default. This will be
-// changed to work for all states. See design doc in crbug/1145666.
+// changed to work for all states. See design doc in crbug.com/1145666.
 TEST_F(ChromeLabsViewControllerTest, SelectDefaultTwiceNoRestart) {
   std::unique_ptr<ChromeLabsViewController> view_controller =
       CreateViewController();

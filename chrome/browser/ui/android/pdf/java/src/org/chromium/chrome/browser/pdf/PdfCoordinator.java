@@ -9,6 +9,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.SystemClock;
+import android.util.SparseArray;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ProgressBar;
@@ -31,6 +32,7 @@ import org.json.JSONObject;
 import org.chromium.base.Log;
 import org.chromium.base.PackageUtils;
 import org.chromium.base.ResettersForTesting;
+import org.chromium.base.ThreadUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.pdf.PdfUtils.PdfLoadResult;
@@ -43,6 +45,9 @@ import org.chromium.ui.base.PageTransition;
 import org.chromium.url.GURL;
 import org.chromium.url.Origin;
 
+import java.util.Locale;
+import java.util.Set;
+
 /**
  * The class responsible for setting up PdfPage.
  *
@@ -54,6 +59,20 @@ import org.chromium.url.Origin;
 public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDelegate {
     private static final String TAG = "PdfCoordinator";
     private static final int PAGE_TRANSITION_TYPE = PageTransition.LINK;
+
+    // PDF link annotations are untrusted input (ISO 32000-1 §12.6.4.7 leaves scheme policy
+    // to the viewer). Restrict to schemes that have a meaningful web-navigation or
+    // communication semantic, mirroring the defaults used by pdf.js
+    // (PDFLinkService.getAnchorUrl) and Adobe Reader's Trust Manager. Blocks dangerous
+    // schemes such as javascript:, data:, file:, content:, intent:, chrome:, devtools:.
+    private static final Set<String> ALLOWED_LINK_SCHEMES =
+            Set.of("http", "https", "mailto", "tel", "ftp");
+
+    static final String JSON_KEY_FILE_METADATA = "file_metadata";
+    static final String JSON_KEY_FILE_URI = "file_uri";
+    static final String JSON_KEY_MIME_TYPE = "mime_type";
+    static final String JSON_KEY_FILE_NAME = "file_name";
+    static final String JSON_KEY_IS_WORK_PROFILE = "is_work_profile";
 
     /**
      * The timestamp when the last pdf document starts to load. Used to calculate the elapsed time
@@ -73,6 +92,7 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
     private final NativePageHost mNativePageHost;
 
     private final String mTabId;
+    private String mTitle;
     private final String mUrl;
     private final boolean mIsIncognito;
     /** A unique id to identity the FragmentContainerView in the current PdfPage. */
@@ -106,6 +126,7 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
      * @param profile The current Profile.
      * @param activity The current Activity.
      * @param filepath The pdf filepath.
+     * @param title The pdf title.
      * @param tabId The id of the tab.
      * @param url The url of the pdf.
      */
@@ -114,12 +135,14 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
             Profile profile,
             Activity activity,
             @Nullable String filepath,
+            String title,
             int tabId,
             String url) {
         mActivity = activity;
         mTabId = String.valueOf(tabId);
         mNativePageHost = host;
         mIsIncognito = profile.isOffTheRecord();
+        mTitle = title;
         mUrl = url;
         mView = LayoutInflater.from(activity).inflate(R.layout.pdf_page, null);
         mProgressBar = mView.findViewById(R.id.progress_bar);
@@ -154,9 +177,7 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
             mProgressBar.setVisibility(View.VISIBLE);
         }
         mToolbarCoordinator =
-                PdfUtils.isInlinePdfV2Enabled()
-                        ? new PdfToolbarCoordinator(activity, mView, this)
-                        : null;
+                PdfUtils.isInlinePdfV2Enabled() ? new PdfToolbarCoordinator(mView, this) : null;
         // TODO(crbug.com/496635305): Remove this log after mToolbarCoordinator is used elsewhere.
         Log.d(TAG, "Toolbar coordinator is null: " + (mToolbarCoordinator == null));
         loadPdfFile(filepath);
@@ -178,41 +199,39 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
             mPdfView = pdfView;
 
             // TODO(crbug.com/498644542): call getPageCount() within onLoadDocumentSuccess()
-            if (PdfUtils.isInlinePdfV2Enabled()) {
-                // Add a one-time listener to track total page count and remove itself afterwards.
-                // This listener is necessary because getPdfDocument() can return null up until the
-                // viewport is changed.
-                mPdfView.addOnViewportChangedListener(
-                        new PdfView.OnViewportChangedListener() {
-                            @Override
-                            public void onViewportChanged(
-                                    int firstVisiblePage,
-                                    int visiblePagesCount,
-                                    android.util.SparseArray pageLocations,
-                                    float zoomLevel) {
-                                if (mDelegate != null
-                                        && mPdfView != null
-                                        && mPdfView.getPdfDocument() != null) {
-                                    mDelegate.onDocumentLoaded(
-                                            mPdfView.getPdfDocument().getPageCount());
-                                    mPdfView.post(
-                                            () -> {
-                                                if (mPdfView != null) {
-                                                    mPdfView.removeOnViewportChangedListener(this);
-                                                }
-                                            });
-                                }
-                            }
-                        });
-
-                // Add a persistent listener to track page changes.
-                mPdfView.addOnViewportChangedListener(
-                        (firstVisiblePage, visiblePagesCount, pageLocations, zoomLevel) -> {
-                            if (mDelegate != null) {
-                                mDelegate.onPageChanged(firstVisiblePage);
-                            }
-                        });
+            if (!PdfUtils.isInlinePdfV2Enabled() || mDelegate == null) {
+                return;
             }
+            final PdfView capturedView = pdfView;
+            final PdfActionsDelegate delegate = mDelegate;
+
+            // Add a one-time listener to track total page count and remove itself afterwards.
+            // This listener is necessary because getPdfDocument() can return null up until the
+            // viewport is changed.
+            capturedView.addOnViewportChangedListener(
+                    new PdfView.OnViewportChangedListener() {
+                        @Override
+                        public void onViewportChanged(
+                                int firstVisiblePage,
+                                int visiblePagesCount,
+                                SparseArray pageLocations,
+                                float zoomLevel) {
+                            if (capturedView.getPdfDocument() != null) {
+                                // Post to the UI thread to avoid removing the listener while
+                                // androidx.pdf.view.PdfView is notifying its listeners, which can
+                                // throw an IndexOutOfBoundsException error.
+                                ThreadUtils.postOnUiThread(
+                                        () -> capturedView.removeOnViewportChangedListener(this));
+                                delegate.onDocumentLoaded(
+                                        capturedView.getPdfDocument().getPageCount());
+                            }
+                        }
+                    });
+
+            // Add a persistent listener to track page changes.
+            capturedView.addOnViewportChangedListener(
+                    (firstVisiblePage, visiblePagesCount, pageLocations, zoomLevel) ->
+                            delegate.onViewportChanged(firstVisiblePage, zoomLevel));
         }
 
         /** Public no-arg constructor for FragmentManager. */
@@ -285,6 +304,12 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
                 mPdfView.scrollToPosition(new PdfPoint(pageIndex, 0f, yOffsetPoints));
             }
         }
+
+        void zoomTo(float zoomLevel) {
+            if (mPdfView != null) {
+                mPdfView.setZoom(zoomLevel);
+            }
+        }
     }
 
     /** Returns the intended view for PdfPage tab. */
@@ -314,6 +339,9 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
     void destroy() {
         mPdfSandboxHandle.close();
         mPdfSandboxHandle = null;
+        if (mToolbarCoordinator != null) {
+            mToolbarCoordinator.destroy();
+        }
         if (mChromePdfViewerFragment == null) {
             Log.w(TAG, "Fragment is null when pdf page is destroyed.");
             return;
@@ -337,8 +365,10 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
      * Called after pdf download complete.
      *
      * @param pdfFilePath The filepath of the downloaded pdf document.
+     * @param pdfFileName The filename of the downloaded pdf document.
      */
-    void onDownloadComplete(String pdfFilePath) {
+    void onDownloadComplete(String pdfFilePath, String pdfFileName) {
+        mTitle = pdfFileName;
         loadPdfFile(pdfFilePath);
     }
 
@@ -363,6 +393,29 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
             return;
         }
         mUri = PdfUtils.getUriFromFilePath(mPdfFilePath);
+        PdfUtils.recordIsUriNull(mUri == null);
+        loadPdfInternal();
+    }
+
+    void reload() {
+        if (mUri == null) {
+            return;
+        }
+        // Remove current fragment.
+        mFragmentManager
+                .beginTransaction()
+                .remove(mChromePdfViewerFragment)
+                .commitAllowingStateLoss();
+        mFragmentManager.executePendingTransactions();
+
+        // Create new fragment.
+        mChromePdfViewerFragment = new ChromePdfViewerFragment(this);
+
+        // Add new fragment and load document again.
+        loadPdfInternal();
+    }
+
+    private void loadPdfInternal() {
         if (mUri != null) {
             if (sSkipLoadPdfForTesting) {
                 mIsPdfLoaded = true;
@@ -395,6 +448,33 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
         }
     }
 
+    /**
+     * Returns the URI of the PDF file and grants read permission to the specified target package.
+     * If the target package is null, the assistant package is set as the target.
+     *
+     * @param isWorkProfile Whether the current profile is a work profile.
+     * @param targetPackage The package name to grant URI permission to. If null, the default
+     *     assistant package is used.
+     * @return The URI of the PDF file, or null if the URI is not available.
+     */
+    @Nullable Uri getFileUri(boolean isWorkProfile, @Nullable String targetPackage) {
+        if (mUri == null) {
+            return null;
+        }
+
+        if (targetPackage == null) {
+            targetPackage = PackageUtils.getDefaultAssistantPackageName(mActivity);
+            PdfUtils.recordGetAssistantPackageResult(targetPackage != null);
+        }
+
+        if (targetPackage != null) {
+            mActivity.grantUriPermission(
+                    targetPackage, mUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        }
+        PdfUtils.recordIsWorkProfile(isWorkProfile);
+        return mUri;
+    }
+
     @Nullable String requestAssistContent(String filename, boolean isWorkProfile) {
         if (mUri == null) {
             return null;
@@ -404,12 +484,12 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
             structuredData =
                     new JSONObject()
                             .put(
-                                    "file_metadata",
+                                    JSON_KEY_FILE_METADATA,
                                     new JSONObject()
-                                            .put("file_uri", mUri.toString())
-                                            .put("mime_type", MimeTypeUtils.PDF_MIME_TYPE)
-                                            .put("file_name", filename)
-                                            .put("is_work_profile", isWorkProfile))
+                                            .put(JSON_KEY_FILE_URI, mUri.toString())
+                                            .put(JSON_KEY_MIME_TYPE, MimeTypeUtils.PDF_MIME_TYPE)
+                                            .put(JSON_KEY_FILE_NAME, filename)
+                                            .put(JSON_KEY_IS_WORK_PROFILE, isWorkProfile))
                             .toString();
         } catch (JSONException e) {
             return null;
@@ -438,12 +518,7 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
         ResettersForTesting.register(() -> sSkipLoadPdfForTesting = oldValue);
     }
 
-    static float calculateYOffsetPoints(float viewHeightPx, float currentZoom) {
-        return (viewHeightPx / 2f) / currentZoom;
-    }
-
     // Implementation of PdfToolbarActionsDelegate
-
     /**
      * Navigates to the specified page.
      *
@@ -454,11 +529,25 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
         mChromePdfViewerFragment.scrollToPage(pageIndex);
     }
 
+    /**
+     * Sets the zoom level to a specified amount.
+     *
+     * @param zoomLevel The new value of the zoom.
+     */
+    @Override
+    public void changeZoomLevel(float zoomLevel) {
+        mChromePdfViewerFragment.zoomTo(zoomLevel);
+    }
+
     // Implementation of PdfActionsDelegate
 
     @Override
     public boolean onLinkClicked(Uri uri) {
         if (!PdfUtils.isInlinePdfV2Enabled()) {
+            return false;
+        }
+        String scheme = uri.getScheme();
+        if (scheme == null || !ALLOWED_LINK_SCHEMES.contains(scheme.toLowerCase(Locale.ROOT))) {
             return false;
         }
         LoadUrlParams params = new LoadUrlParams(uri.toString(), PAGE_TRANSITION_TYPE);
@@ -472,12 +561,14 @@ public class PdfCoordinator implements PdfActionsDelegate, PdfToolbarActionsDele
     @Override
     public void onDocumentLoaded(int pageCount) {
         assert mToolbarCoordinator != null;
-        mToolbarCoordinator.onDocumentLoaded(pageCount);
+        assert mUri != null;
+        assert mTitle != null;
+        mToolbarCoordinator.onDocumentLoaded(pageCount, mTitle);
     }
 
     @Override
-    public void onPageChanged(int pageIndex) {
+    public void onViewportChanged(int pageIndex, float zoomLevel) {
         assert mToolbarCoordinator != null;
-        mToolbarCoordinator.onViewportChanged(pageIndex);
+        mToolbarCoordinator.onViewportChanged(pageIndex, zoomLevel);
     }
 }

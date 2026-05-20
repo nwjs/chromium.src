@@ -54,6 +54,9 @@ class CORE_EXPORT HTMLUserMediaElement
 
   void ResetMediaStreamRequestTime();
 
+  void UpdateAppearance() override;
+  void UpdateIcon(mojom::blink::PermissionName permission) override;
+
   const Vector<mojom::blink::PermissionDescriptorPtr>&
   GetPermissionDescriptors() const {
     return permission_descriptors_;
@@ -70,7 +73,8 @@ class CORE_EXPORT HTMLUserMediaElement
 // HTMLUserMediaElement appearing in a document that does not have the
 // UserMediaElement origin trial enabled (this would result in the creation of
 // an HTMLUnknownElement with the "usermedia" tag name).
-// See third_party/blink/renderer/core/html/Custom_element_type_helpers.md
+// See
+// https://chromium.googlesource.com/chromium/src.git/+/main/docs/custom_type_helpers_for_origin_trial_elements.md
 // for more details.
 template <>
 struct DowncastTraits<HTMLUserMediaElement> {

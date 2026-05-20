@@ -231,20 +231,21 @@ bool ReadPixmap(PaintOpReader& reader, SkPixmap& pixmap) {
   }
 
   reader.AlignMemory(alignment);
-  const volatile void* data = reader.ExtractReadableMemory(data_size);
+  auto data = reader.ExtractReadableMemory(data_size);
   if (!reader.valid()) {
     DLOG(ERROR) << "Failed to read pixels";
     return false;
   }
-  if (reinterpret_cast<uintptr_t>(data) % alignment) {
+  if (reinterpret_cast<uintptr_t>(data.data()) % alignment) {
     DLOG(ERROR) << "Pixel pointer not aligned";
     return false;
   }
 
-  // Const-cast away the "volatile" on |pixel_data|. We specifically understand
+  // Const-cast away the "volatile" on `data`. We specifically understand
   // that a malicious caller may change our pixels under us, and are OK with
   // this as the worst case scenario is visual corruption.
-  pixmap = SkPixmap(image_info, const_cast<const void*>(data), row_bytes);
+  pixmap =
+      SkPixmap(image_info, const_cast<const uint8_t*>(data.data()), row_bytes);
   return true;
 }
 
@@ -532,7 +533,7 @@ bool ClientImageTransferCacheEntry::Serialize(base::span<uint8_t> data) const {
   // We don't need to populate the SerializeOptions here since the writer is
   // only used for serializing primitives.
   PaintOp::SerializeOptions options;
-  PaintOpWriter writer(data.data(), data.size(), options);
+  PaintOpWriter writer(data, options);
 
   DCHECK_EQ(gainmap_image_.has_value(), gainmap_info_.has_value());
   bool has_gainmap = gainmap_image_.has_value();
@@ -603,7 +604,7 @@ bool ServiceImageTransferCacheEntry::Deserialize(
   // only used for de-serializing primitives.
   std::vector<uint8_t> scratch_buffer;
   PaintOp::DeserializeOptions options{.scratch_buffer = scratch_buffer};
-  PaintOpReader reader(data.data(), data.size(), options);
+  PaintOpReader reader(data, options);
 
   // Parameters common to RGBA and YUVA images.
   reader.Read(&has_gainmap_);

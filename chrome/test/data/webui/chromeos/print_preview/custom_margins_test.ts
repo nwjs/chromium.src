@@ -454,7 +454,7 @@ suite('CustomMarginsTest', function() {
   // Test that setting the margin controls with their textbox inputs updates
   // the custom margins setting, using a metric measurement system with a ','
   // as the decimal delimiter and '.' as the thousands delimiter. Regression
-  // test for https://crbug.com/1005816.
+  // test for https://crbug.com/40648464.
   test(
       'SetControlsWithTextboxMetric', function() {
         measurementSystem =
@@ -640,7 +640,8 @@ suite('CustomMarginsTest', function() {
               // the viewer is showing only the top left quarter of the page.
               const bottomControl = controls[2]!;
               const whenEventFired =
-                  eventToPromise('text-focus-position', container);
+                  eventToPromise<CustomEvent<{x: number, y: number}>>(
+                      'text-focus-position', container);
               bottomControl.$.input.focus();
               // Workaround for mac so that this does not need to be an
               // interactive test: manually fire the focus event from the

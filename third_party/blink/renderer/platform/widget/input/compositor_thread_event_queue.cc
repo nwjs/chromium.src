@@ -184,9 +184,9 @@ std::unique_ptr<EventWithCallback> CompositorThreadEventQueue::Pop() {
 void CompositorThreadEventQueue::DidFinishDispatch() {
   backlog_count_ = queue_.size();
   if (backlog_count_) {
-    TRACE_EVENT_INSTANT1(
-        "input", "CompositorThreadEventQueue::DidFinishDispatch",
-        TRACE_EVENT_SCOPE_THREAD, "backlog_count", backlog_count_);
+    TRACE_EVENT_INSTANT("input",
+                        "CompositorThreadEventQueue::DidFinishDispatch",
+                        "backlog_count", backlog_count_);
   }
 }
 
@@ -325,6 +325,10 @@ base::TimeTicks CompositorThreadEventQueue::PeekTimestamp() const {
 
 const WebInputEvent* CompositorThreadEventQueue::FirstOriginalEvent() const {
   return empty() ? nullptr : queue_.front()->first_original_event();
+}
+
+const cc::EventMetrics* CompositorThreadEventQueue::FirstMetrics() const {
+  return empty() ? nullptr : queue_.front()->metrics();
 }
 
 }  // namespace blink

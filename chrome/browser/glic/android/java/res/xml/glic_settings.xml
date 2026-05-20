@@ -6,15 +6,27 @@ found in the LICENSE file.
 -->
 <PreferenceScreen
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:title="@string/glic_setting_label">
+
+    <org.chromium.chrome.browser.glic.GlicExtraInfoPreference
+        android:key="glic_custom_box_preference"
+        android:layout="@layout/glic_settings_extra_info"
+        app:backgroundStyle="none" />
 
     <PreferenceCategory
         android:key="glic_preference_section"
         android:title="@string/settings_glic_preferences_section" />
 
-    <org.chromium.components.browser_ui.settings.ChromeSwitchPreference
+    <Preference
             android:key="glic_button"
-            android:title="@string/settings_glic_button_toggle"
+            android:title="@string/glic_pin"
+            android:summary="@string/settings_glic_button_toggle_sublabel"
+            android:fragment="org.chromium.chrome.browser.toolbar.adaptive.settings.AdaptiveToolbarSettingsFragment" />
+
+    <org.chromium.components.browser_ui.settings.ChromeSwitchPreference
+            android:key="glic_button_toggle"
+            android:title="@string/glic_pin"
             android:summary="@string/settings_glic_button_toggle_sublabel"
             android:defaultValue="false" />
 

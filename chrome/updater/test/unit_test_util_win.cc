@@ -18,8 +18,9 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/test_timeouts.h"
-#include "base/win/atl.h"
 #include "base/win/registry.h"
+#include "base/win/security_descriptor.h"
+#include "base/win/sid.h"
 #include "chrome/updater/test/unit_test_util.h"
 #include "chrome/updater/updater_scope.h"
 #include "chrome/updater/util/win_util.h"
@@ -144,7 +145,7 @@ void SetupCmdExe(UpdaterScope scope,
   }
 
   ScopedScHandle service(::CreateService(
-      scm.Get(), service_name.c_str(), display_name.c_str(),
+      scm.get(), service_name.c_str(), display_name.c_str(),
       DELETE | SERVICE_QUERY_CONFIG | SERVICE_CHANGE_CONFIG,
       SERVICE_WIN32_OWN_PROCESS, SERVICE_DEMAND_START, SERVICE_ERROR_NORMAL,
       command_line.c_str(), nullptr, nullptr, nullptr, nullptr, nullptr));
@@ -159,28 +160,28 @@ void SetupCmdExe(UpdaterScope scope,
   }
 
   ScopedScHandle service(
-      ::OpenService(scm.Get(), service_name.c_str(),
+      ::OpenService(scm.get(), service_name.c_str(),
                     SERVICE_QUERY_CONFIG | SERVICE_CHANGE_CONFIG));
   if (!service.is_valid()) {
     return true;
   }
 
-  return ::ChangeServiceConfig(service.Get(), SERVICE_NO_CHANGE,
+  return ::ChangeServiceConfig(service.get(), SERVICE_NO_CHANGE,
                                SERVICE_DISABLED, SERVICE_NO_CHANGE, nullptr,
                                nullptr, nullptr, nullptr, nullptr, nullptr,
                                nullptr) ||
          (::GetLastError() == ERROR_SERVICE_MARKED_FOR_DELETE);
 }
 
-CSecurityDesc GetEveryoneDaclSecurityDescriptor(ACCESS_MASK accessmask) {
-  CSecurityDesc sd;
-  CDacl dacl;
-  dacl.AddAllowedAce(Sids::System(), accessmask);
-  dacl.AddAllowedAce(Sids::Admins(), accessmask);
-  dacl.AddAllowedAce(Sids::Interactive(), accessmask);
-
-  sd.SetDacl(dacl);
-  sd.MakeAbsolute();
+base::win::SecurityDescriptor GetEveryoneDaclSecurityDescriptor(
+    ACCESS_MASK accessmask) {
+  base::win::SecurityDescriptor sd;
+  sd.SetDaclEntry(base::win::WellKnownSid::kLocalSystem,
+                  base::win::SecurityAccessMode::kGrant, accessmask, 0);
+  sd.SetDaclEntry(base::win::WellKnownSid::kBuiltinAdministrators,
+                  base::win::SecurityAccessMode::kGrant, accessmask, 0);
+  sd.SetDaclEntry(base::win::WellKnownSid::kInteractive,
+                  base::win::SecurityAccessMode::kGrant, accessmask, 0);
   return sd;
 }
 
@@ -188,7 +189,10 @@ test::EventHolder CreateEveryoneWaitableEventForTest() {
   const std::wstring event_name =
       base::StrCat({base::UTF8ToWide(test::GetTestName()), L" ",
                     base::NumberToWString(::GetCurrentProcessId())});
-  CSecurityAttributes sa(GetEveryoneDaclSecurityDescriptor(GENERIC_ALL));
+  base::win::SecurityDescriptor sd =
+      GetEveryoneDaclSecurityDescriptor(GENERIC_ALL);
+  SECURITY_DESCRIPTOR absolute_sd = sd.ToAbsolute();
+  SECURITY_ATTRIBUTES sa = {sizeof(sa), &absolute_sd, FALSE};
   return {base::WaitableEvent(base::win::ScopedHandle(
               ::CreateEvent(&sa, FALSE, FALSE, event_name.c_str()))),
           event_name};

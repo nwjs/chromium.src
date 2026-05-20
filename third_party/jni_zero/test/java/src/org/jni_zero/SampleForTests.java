@@ -191,7 +191,7 @@ class SampleForTests {
             mString = s;
         }
 
-        @CalledByNative("InnerStructA")
+        @CalledByNative
         private static InnerStructA create(long l, int i, String s) {
             return new InnerStructA(l, i, s);
         }
@@ -230,12 +230,12 @@ class SampleForTests {
             mValue = v;
         }
 
-        @CalledByNative("InnerStructB")
+        @CalledByNative
         private long getKey() {
             return mKey;
         }
 
-        @CalledByNative("InnerStructB")
+        @CalledByNative
         private String getValue() {
             return mValue;
         }
@@ -308,7 +308,7 @@ class SampleForTests {
         long init(
                 SampleForTests caller,
                 String param,
-                @JniType("jni_zero::ByteArrayView") byte[] bytes,
+                byte[] bytes,
                 @JniType("jni_zero::tests::CPPClass*") SampleForTests convertedType,
                 @JniType("std::vector") SampleForTests[] nonConvertedArray);
 

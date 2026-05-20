@@ -107,7 +107,7 @@ class DesktopSessionProxy
   std::unique_ptr<UrlForwarderConfigurator> CreateUrlForwarderConfigurator();
   std::unique_ptr<RemoteWebAuthnStateChangeNotifier>
   CreateRemoteWebAuthnStateChangeNotifier();
-#if BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
   void OnSessionServicesClientConnected(
       mojo::PendingReceiver<mojom::ChromotingSessionServices> receiver);
 #endif
@@ -122,8 +122,7 @@ class DesktopSessionProxy
       mojo::ScopedInterfaceEndpointHandle handle) override;
 
   // Connects to the desktop session agent.
-  bool AttachToDesktop(mojo::ScopedMessagePipeHandle desktop_pipe,
-                       int session_id);
+  bool AttachToDesktop(mojo::ScopedMessagePipeHandle desktop_pipe);
 
   // Closes the connection to the desktop session agent and cleans up
   // the associated resources.
@@ -167,6 +166,10 @@ class DesktopSessionProxy
                            std::optional<webrtc::ScreenId> screen_id);
   void SetVideoLayout(const protocol::VideoLayout& layout);
 
+  // APIs used to implement the AudioInjector interface.
+  void StartAudioInjector();
+  void InjectAudioPacket(std::unique_ptr<AudioPacket> packet);
+
   // API used to implement the ActionExecutor interface.
   void ExecuteAction(const protocol::ActionRequest& request);
 
@@ -191,6 +194,7 @@ class DesktopSessionProxy
   void OnLocalKeyboardInputDetected(int32_t usb_keycode) override;
   void OnSecurityKeyConnection(
       mojo::PendingReceiver<mojom::SecurityKeyForwarder> receiver) override;
+  void OnMicrophoneControl(const protocol::MicrophoneControl& control) override;
 
   // mojom::DesktopSessionStateHandler implementation.
   void DisconnectSession(protocol::ErrorCode error,
@@ -204,7 +208,6 @@ class DesktopSessionProxy
       const UrlForwarderConfigurator::SetUpUrlForwarderCallback& callback);
 
   std::string_view client_jid() const;
-  uint32_t desktop_session_id() const { return desktop_session_id_; }
 
  private:
   friend class base::RefCountedDeleteOnSequence<DesktopSessionProxy>;
@@ -301,9 +304,6 @@ class DesktopSessionProxy
 
   DesktopEnvironmentOptions options_ GUARDED_BY_CONTEXT(sequence_checker_);
 
-  // Stores the session id for the proxied desktop process.
-  uint32_t desktop_session_id_ = UINT32_MAX;
-
   // Caches the last keyboard layout received so it can be provided when Start
   // is called on IpcKeyboardLayoutMonitor.
   std::optional<protocol::KeyboardLayout> keyboard_layout_
@@ -344,6 +344,12 @@ class DesktopSessionProxy
   // TODO: crbug.com/455622961 - Remove this once the clientRenderedHostCursor
   // experiment is fully rolled out, where this is always set to true.
   bool host_cursor_rendered_by_client_ GUARDED_BY_CONTEXT(sequence_checker_) =
+      false;
+
+  // Boolean to ensure desktop_session_control_->StartAudioInjector() is
+  // called when StartAudioInjector() is called before
+  // `desktop_session_control_` is bound.
+  bool should_start_audio_injector_ GUARDED_BY_CONTEXT(sequence_checker_) =
       false;
 
   SEQUENCE_CHECKER(sequence_checker_);

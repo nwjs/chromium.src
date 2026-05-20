@@ -22,6 +22,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
 #include "base/scoped_multi_source_observation.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/values.h"
 #include "base/version.h"
@@ -29,11 +30,9 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/api/webstore_private/extension_install_status.h"
-#include "chrome/browser/extensions/extension_allowlist.h"
+#include "chrome/browser/extensions/extension_allowlist_factory.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/install_tracker_factory.h"
-#include "chrome/browser/extensions/manifest_v2_experiment_manager.h"
-#include "chrome/browser/extensions/mv2_experiment_stage.h"
 #include "chrome/browser/policy/policy_ui_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_observer.h"
@@ -42,10 +41,8 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_browser_utils.h"
 #include "chrome/browser/ui/extensions/extensions_dialogs.h"
-#include "chrome/common/extensions/extension_constants.h"
-#include "chrome/common/pref_names.h"
-#include "chrome/grit/generated_resources.h"
 #include "components/crx_file/id_util.h"
+#include "components/enterprise/browser/reporting/common_pref_names.h"
 #include "components/policy/core/common/cloud/cloud_policy_manager.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
@@ -60,6 +57,7 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/api/management/management_api.h"
+#include "extensions/browser/extension_allowlist.h"
 #include "extensions/browser/extension_dialog_auto_confirm.h"
 #include "extensions/browser/extension_function_constants.h"
 #include "extensions/browser/extension_registry.h"
@@ -67,15 +65,19 @@
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/install_approval.h"
 #include "extensions/browser/install_tracker.h"
+#include "extensions/browser/manifest_v2_experiment_manager.h"
+#include "extensions/browser/mv2_experiment_stage.h"
 #include "extensions/browser/pref_names.h"
 #include "extensions/browser/scoped_active_install.h"
 #include "extensions/buildflags/buildflags.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/common/manifest.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handlers/permissions_parser.h"
 #include "extensions/common/permissions/permission_set.h"
+#include "extensions/strings/grit/extensions_strings.h"
 #include "net/base/load_flags.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
@@ -313,7 +315,7 @@ ExtensionInstallStatus AddExtensionToPendingList(
   }
 
   ScopedDictPrefUpdate pending_requests_update(
-      profile->GetPrefs(), prefs::kCloudExtensionRequestIds);
+      profile->GetPrefs(), enterprise_reporting::kCloudExtensionRequestIds);
   DCHECK(!pending_requests_update->Find(id));
   base::DictValue request_data;
   request_data.Set(extension_misc::kExtensionRequestTimestamp,
@@ -485,12 +487,11 @@ WebstorePrivateBeginInstallWithManifest3Function::Run() {
   scoped_active_install_ =
       std::make_unique<ScopedActiveInstall>(tracker, install_data);
 
-  network::mojom::URLLoaderFactory* loader_factory = nullptr;
+  scoped_refptr<network::SharedURLLoaderFactory> loader_factory = nullptr;
   if (!icon_url.is_empty()) {
     loader_factory = browser_context()
                          ->GetDefaultStoragePartition()
-                         ->GetURLLoaderFactoryForBrowserProcess()
-                         .get();
+                         ->GetURLLoaderFactoryForBrowserProcess();
   }
 
   auto helper = base::MakeRefCounted<WebstoreInstallHelper>(
@@ -525,9 +526,13 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnWebstoreParseSuccess(
       std::string(), &error);
 
   if (!dummy_extension_.get()) {
+    std::string detailed_error = kWebstoreInvalidManifestError;
+    if (!error.empty()) {
+      detailed_error += ": " + base::UTF16ToUTF8(error);
+    }
     OnWebstoreParseFailure(details().id,
                            WebstoreInstallHelper::Delegate::kManifestError,
-                           kWebstoreInvalidManifestError);
+                           detailed_error);
     return;
   }
 
@@ -721,6 +726,17 @@ void WebstorePrivateBeginInstallWithManifest3Function::
 
 void WebstorePrivateBeginInstallWithManifest3Function::OnExtensionApprovalDone(
     SupervisedExtensionApprovalResult result) {
+#if BUILDFLAG(IS_ANDROID)
+  if (result != SupervisedExtensionApprovalResult::kApproved &&
+      supervised_user::AreExtensionsPermissionsEnabled(profile_) &&
+      !supervised_user::SupervisedUserCanSkipExtensionParentApprovals(
+          profile_)) {
+    supervised_user_extensions_metrics_recorder_.RecordEnablementUmaMetrics(
+        SupervisedUserExtensionsMetricsRecorder::EnablementState::
+            kFailedToEnable);
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+
   switch (result) {
     case SupervisedExtensionApprovalResult::kApproved:
       OnExtensionApprovalApproved();
@@ -1017,7 +1033,8 @@ bool WebstorePrivateBeginInstallWithManifest3Function::ShouldShowFrictionDialog(
   }
 
   // Only show friction if the allowlist warnings are enabled for the profile.
-  return ExtensionAllowlist::Get(profile)->warnings_enabled();
+  return ExtensionAllowlistFactory::GetForBrowserContext(profile)
+      ->warnings_enabled();
 }
 
 void WebstorePrivateBeginInstallWithManifest3Function::

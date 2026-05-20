@@ -24,6 +24,7 @@
 #import "ios/chrome/browser/authentication/test/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/policy/model/policy_earl_grey_utils.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_actions.h"
@@ -184,6 +185,7 @@ id<GREYMatcher> DownloadButton() {
     // can only be accessed in non-stable channels.
     config.additional_args = {"--fake-variations-channel=canary"};
   }
+  config.features_disabled.push_back(kIOSSaveToDriveSignedOut);
   return config;
 }
 
@@ -284,6 +286,30 @@ id<GREYMatcher> DownloadButton() {
   VerifyPolicies(expected_policies);
 }
 
+// Tests that a policy with a complex value (list of dictionaries) is displayed
+// without escape characters.
+- (void)testComplexPolicyShowsWithoutEscaping {
+  // Set a complex policy.
+  base::DictValue bookmark;
+  bookmark.Set("name", "Google");
+  bookmark.Set("url", "https://google.com");
+
+  base::ListValue bookmarkList;
+  bookmarkList.Append(std::move(bookmark));
+
+  policy_test_utils::SetPolicy(base::Value(std::move(bookmarkList)),
+                               "ManagedBookmarks");
+
+  // Navigate to chrome://policy.
+  [ChromeEarlGrey loadURL:GURL(kChromeUIPolicyURL)];
+
+  // Verify that the policy set is shown on the page with the correct value.
+  std::vector<std::vector<std::string>> expected_policies;
+  expected_policies.push_back(PopulateExpectedPolicy(
+      "ManagedBookmarks", R"([{"name":"Google","url":"https://google.com"}])"));
+  VerifyPolicies(expected_policies);
+}
+
 // Tests that the "Chrome Policies" table is visible on the page.
 - (void)testChromePoliciesTableIsVisible {
   [ChromeEarlGrey loadURL:GURL(kChromeUIPolicyURL)];
@@ -348,39 +374,42 @@ id<GREYMatcher> DownloadButton() {
 // -----------------------------------------------------------------------------
 
 // MACRO to force Xcode's Test Navigator to see the inherited tests.
-#define MULTIPLEX_TESTS                         \
-  -(void)testPolicyPageLoadsCorrectly {         \
-    [super testPolicyPageLoadsCorrectly];       \
-  }                                             \
-  -(void)testPolicyLogsPageLoadsCorrectly {     \
-    [super testPolicyLogsPageLoadsCorrectly];   \
-  }                                             \
-  -(void)testPolicyTestPageLoadsCorrectly {     \
-    [super testPolicyTestPageLoadsCorrectly];   \
-  }                                             \
-  -(void)testPolicyPageUnmanaged {              \
-    [super testPolicyPageUnmanaged];            \
-  }                                             \
-  -(void)testPolicyPageManagedWithCBCM {        \
-    [super testPolicyPageManagedWithCBCM];      \
-  }                                             \
-  -(void)testPoliciesShowOnPage {               \
-    [super testPoliciesShowOnPage];             \
-  }                                             \
-  -(void)testChromePoliciesTableIsVisible {     \
-    [super testChromePoliciesTableIsVisible];   \
-  }                                             \
-  -(void)testPolicyPrecedenceTableIsVisible {   \
-    [super testPolicyPrecedenceTableIsVisible]; \
-  }                                             \
-  -(void)testViewLogsRedirectsToLogsPage {      \
-    [super testViewLogsRedirectsToLogsPage];    \
-  }                                             \
-  -(void)testExportLogsToJson {                 \
-    [super testExportLogsToJson];               \
-  }                                             \
-  -(void)testVersionInformationIsCorrect {      \
-    [super testVersionInformationIsCorrect];    \
+#define MULTIPLEX_TESTS                            \
+  -(void)testPolicyPageLoadsCorrectly {            \
+    [super testPolicyPageLoadsCorrectly];          \
+  }                                                \
+  -(void)testPolicyLogsPageLoadsCorrectly {        \
+    [super testPolicyLogsPageLoadsCorrectly];      \
+  }                                                \
+  -(void)testPolicyTestPageLoadsCorrectly {        \
+    [super testPolicyTestPageLoadsCorrectly];      \
+  }                                                \
+  -(void)testPolicyPageUnmanaged {                 \
+    [super testPolicyPageUnmanaged];               \
+  }                                                \
+  -(void)testPolicyPageManagedWithCBCM {           \
+    [super testPolicyPageManagedWithCBCM];         \
+  }                                                \
+  -(void)testPoliciesShowOnPage {                  \
+    [super testPoliciesShowOnPage];                \
+  }                                                \
+  -(void)testComplexPolicyShowsWithoutEscaping {   \
+    [super testComplexPolicyShowsWithoutEscaping]; \
+  }                                                \
+  -(void)testChromePoliciesTableIsVisible {        \
+    [super testChromePoliciesTableIsVisible];      \
+  }                                                \
+  -(void)testPolicyPrecedenceTableIsVisible {      \
+    [super testPolicyPrecedenceTableIsVisible];    \
+  }                                                \
+  -(void)testViewLogsRedirectsToLogsPage {         \
+    [super testViewLogsRedirectsToLogsPage];       \
+  }                                                \
+  -(void)testExportLogsToJson {                    \
+    [super testExportLogsToJson];                  \
+  }                                                \
+  -(void)testVersionInformationIsCorrect {         \
+    [super testVersionInformationIsCorrect];       \
   }
 
 @interface PolicyUIMojoDisabledTestCase : PolicyUITestCaseBase

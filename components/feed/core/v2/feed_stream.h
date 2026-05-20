@@ -38,13 +38,13 @@
 #include "components/feed/core/v2/scheduling.h"
 #include "components/feed/core/v2/stream/info_card_tracker.h"
 #include "components/feed/core/v2/stream/privacy_notice_card_tracker.h"
+#include "components/feed/core/v2/stream/unread_content_notifier.h"
 #include "components/feed/core/v2/stream_model.h"
 #include "components/feed/core/v2/stream_surface_set.h"
 #include "components/feed/core/v2/tasks/load_more_task.h"
 #include "components/feed/core/v2/tasks/load_stream_task.h"
 #include "components/feed/core/v2/tasks/wait_for_store_initialize_task.h"
 #include "components/feed/core/v2/user_actions_collector.h"
-#include "components/feed/core/v2/web_feed_subscription_coordinator.h"
 #include "components/feed/core/v2/wire_response_translator.h"
 #include "components/feed/core/v2/xsurface_datastore.h"
 #include "components/offline_pages/task/task_queue.h"
@@ -59,7 +59,6 @@ class UnreadContentNotifier;
 }
 class FeedNetwork;
 class FeedStore;
-class WebFeedSubscriptionCoordinator;
 class ImageFetcher;
 class MetricsReporter;
 class RefreshTaskScheduler;
@@ -74,7 +73,7 @@ class FeedStream : public FeedApi,
                    public MetricsReporter::Delegate,
                    public StreamModel::StoreObserver {
  public:
-  class Delegate : public WebFeedSubscriptionCoordinator::Delegate {
+  class Delegate {
    public:
     virtual ~Delegate() = default;
     // Returns true if Chrome's EULA has been accepted.
@@ -111,11 +110,9 @@ class FeedStream : public FeedApi,
 
   // FeedApi.
 
-  WebFeedSubscriptionCoordinator& subscriptions() override;
   std::string GetSessionId() const override;
 
-  SurfaceId CreateSurface(const StreamType& type,
-                          SingleWebFeedEntryPoint entry_point) override;
+  SurfaceId CreateSurface(const StreamType& type) override;
   void DestroySurface(SurfaceId surface) override;
   void AttachSurface(SurfaceId surface_id, SurfaceRenderer* renderer) override;
   void DetachSurface(SurfaceId surface_id) override;
@@ -201,17 +198,11 @@ class FeedStream : public FeedApi,
       base::TimeDelta elapsed) override;
   base::Time GetLastFetchTime(SurfaceId surface_id) override;
   std::vector<std::string> GetFeedUrls(SurfaceId surface_id) override;
-  void SetContentOrder(const StreamType& stream_type,
-                       ContentOrder content_order) override;
-  ContentOrder GetContentOrder(const StreamType& stream_type) const override;
-  ContentOrder GetContentOrderFromPrefs(const StreamType& stream_type) override;
-  void IncrementFollowedFromWebPageMenuCount() override;
 
   // offline_pages::TaskQueue::Delegate.
   void OnTaskQueueIsIdle() override;
 
   // MetricsReporter::Delegate.
-  void SubscribedWebFeedCount(base::OnceCallback<void(int)> callback) override;
   void RegisterFeedUserSettingsFieldTrial(std::string_view group) override;
 
   // StreamModel::StoreObserver.
@@ -295,16 +286,11 @@ class FeedStream : public FeedApi,
   // is not true. Returns CARDS_UNSPECIFIED if loading is to proceed, or another
   // DiscoverLaunchResult if loading will not be attempted.
   feedwire::DiscoverLaunchResult TriggerStreamLoad(
-      const StreamType& stream_type,
-      SingleWebFeedEntryPoint entry_point = SingleWebFeedEntryPoint::kOther);
+      const StreamType& stream_type);
 
   // Only to be called by ClearAllTask. This clears other stream data stored in
   // memory.
   void FinishClearAll();
-
-  // Only to be called by ClearStreamTask. This clears other stream data stored
-  // in memory.
-  void FinishClearStream(const StreamType& stream_type);
 
   // Returns the model associated with the stream type or surface if it is
   // loaded, or null otherwise.
@@ -367,11 +353,6 @@ class FeedStream : public FeedApi,
     return FindStream(stream_type) != nullptr;
   }
 
-  // Used by tests to control the chained refresh of the web-feed.
-  void SetChainedWebFeedRefreshEnabledForTesting(bool enabled) {
-    chained_web_feed_refresh_enabled_ = enabled;
-  }
-
  private:
   using UnreadContentNotifier = feed_stream::UnreadContentNotifier;
 
@@ -426,7 +407,6 @@ class FeedStream : public FeedApi,
   void FetchResourceComplete(base::OnceCallback<void(NetworkResponse)> callback,
                              FeedNetwork::RawResponse response);
   void ClearAll();
-  void ClearStream(const StreamType& stream_type, int sequence_number);
 
   bool IsFeedEnabledByEnterprisePolicy();
   bool IsFeedEnabled();
@@ -496,8 +476,6 @@ class FeedStream : public FeedApi,
   // Time of the last destroyed surface.
   base::TimeTicks surface_destroy_time_;
 
-  std::unique_ptr<WebFeedSubscriptionCoordinator>
-      web_feed_subscription_coordinator_;
 
   // Mutable state.
   RequestThrottler request_throttler_;
@@ -531,8 +509,6 @@ class FeedStream : public FeedApi,
   UserActionsCollector user_actions_collector_;
 
   base::TimeTicks last_refresh_scheduled_on_interaction_time_{};
-
-  bool chained_web_feed_refresh_enabled_ = true;
 
   // True if the stream with any stream type has been loaded at least once since
   // the start.

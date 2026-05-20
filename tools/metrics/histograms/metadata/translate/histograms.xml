@@ -82,7 +82,7 @@ chromium-metrics-reviews@google.com.
 <!-- LINT.ThenChange(//components/on_device_translation/public/supported_languages.h:SupportedLanguage) -->
 
 <histogram name="Translate.ApplicationStart.AlwaysTranslateLanguage"
-    enum="LocaleCodeBCP47" expires_after="2026-08-23">
+    enum="LocaleCodeBCP47" expires_after="2026-10-25">
   <owner>megjablon@google.com</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
@@ -163,16 +163,6 @@ chromium-metrics-reviews@google.com.
     Percentage of the bytes that are associated with the most popular language
     on the input page. Only recorded if the detection returned a
     &quot;known&quot; result.
-  </summary>
-</histogram>
-
-<histogram name="Translate.CLD3.TopLanguageEvaluationDuration" units="ms"
-    expires_after="2022-06-30">
-  <owner>mcrouse@chromium.org</owner>
-  <owner>chrome-language@google.com</owner>
-  <summary>
-    The time to evaluate the CLD3 language detection model for the top language.
-    This information is logged on every request.
   </summary>
 </histogram>
 
@@ -546,7 +536,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Translate.PageLoad.NumTranslations" units="translations"
-    expires_after="2026-08-16">
+    expires_after="2026-10-18">
   <owner>megjablon@google.com</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
@@ -557,7 +547,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Translate.PageLoad.Ranker.Decision"
-    enum="TranslateRankerDecision" expires_after="2026-08-02">
+    enum="TranslateRankerDecision" expires_after="2026-10-04">
   <owner>megjablon@google.com</owner>
   <owner>chrome-language@google.com</owner>
   <summary>

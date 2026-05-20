@@ -17,6 +17,13 @@ class EntityInstance;
 class WalletPassAccessManager;
 }  // namespace autofill
 
+namespace consent_auditor {
+class ConsentAuditor;
+}
+namespace signin {
+class IdentityManager;
+}
+
 @protocol AutofillAIEntityEditConsumer;
 @protocol ReauthenticationProtocol;
 
@@ -24,6 +31,14 @@ class WalletPassAccessManager;
 @class TableViewItem;
 @class AutofillAIEntityCountryItem;
 @class AutofillAIEntityEditDateItem;
+
+@class AutofillAIEntityEditMediator;
+
+@protocol AutofillAIEntityEditMediatorDelegate <NSObject>
+// Asks the delegate if the given entity type can be saved to the wallet.
+- (BOOL)mediator:(AutofillAIEntityEditMediator*)mediator
+    canPerformWalletSaveForType:(autofill::EntityType)type;
+@end
 
 @interface AutofillAIEntityEditMediator : NSObject <AutofillAIEntityEditMutator>
 
@@ -37,6 +52,8 @@ class WalletPassAccessManager;
     initWithEntityInstance:(autofill::EntityInstance)entityInstance
          entityDataManager:(autofill::EntityDataManager*)entityDataManager
          walletPassManager:(autofill::WalletPassAccessManager*)walletPassManager
+            consentAuditor:(consent_auditor::ConsentAuditor*)consentAuditor
+           identityManager:(signin::IdentityManager*)identityManager
               reauthModule:(id<ReauthenticationProtocol>)reauthModule
                  userEmail:(NSString*)userEmail NS_DESIGNATED_INITIALIZER;
 
@@ -48,6 +65,8 @@ class WalletPassAccessManager;
 
 // Returns the URL to manage the Server Wallet item.
 - (GURL)walletManagementURL;
+
+@property(nonatomic, weak) id<AutofillAIEntityEditMediatorDelegate> delegate;
 
 @end
 

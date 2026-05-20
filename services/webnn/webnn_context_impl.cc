@@ -8,11 +8,13 @@
 #include <utility>
 
 #include "base/atomic_sequence_num.h"
+#include "base/files/file_util.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/sequence_checker.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/bind_post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_manager.h"
 #include "services/webnn/error.h"
@@ -33,6 +35,10 @@
 #include "services/webnn/webnn_graph_impl.h"
 #include "services/webnn/webnn_tensor_impl.h"
 #include "third_party/tflite/buildflags.h"
+
+#if BUILDFLAG(WEBNN_USE_TFLITE) || BUILDFLAG(WEBNN_USE_LITERT)
+#include "services/webnn/tflite/context_provider_tflite.h"  // nogncheck
+#endif  // BUILDFLAG(WEBNN_USE_TFLITE) || BUILDFLAG(WEBNN_USE_LITERT)
 
 #if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
 #include "third_party/xnnpack/src/include/xnnpack.h"  // nogncheck
@@ -74,9 +80,37 @@ WebNNContextImpl::WebNNContextImpl(
       main_task_runner_(std::move(main_task_runner)),
       owning_task_runner_(std::move(owning_task_runner)),
       tracing_id_(g_next_webnn_context_tracing_id.GetNext()) {
+  InitializeContext(backend_uma);
+}
+
+#if BUILDFLAG(WEBNN_USE_TFLITE) || BUILDFLAG(WEBNN_USE_LITERT)
+WebNNContextImpl::WebNNContextImpl(
+    mojo::PendingReceiver<mojom::WebNNContext> receiver,
+    base::WeakPtr<tflite::ContextProviderTflite> tflite_context_provider,
+    WebNNContextImpl::ContextBackendUma backend_uma,
+    ContextProperties properties,
+    mojom::CreateContextOptionsPtr options,
+    scoped_refptr<base::SingleThreadTaskRunner> owning_task_runner,
+    scoped_refptr<base::SingleThreadTaskRunner> main_task_runner)
+    : WebNNObjectBase<mojom::WebNNContext,
+                      blink::WebNNContextToken,
+                      mojo::Receiver<mojom::WebNNContext>>(std::move(receiver),
+                                                           owning_task_runner),
+      tflite_context_provider_(std::move(tflite_context_provider)),
+      is_tflite_context_provider_(true),
+      properties_(IntersectWithBaseProperties(std::move(properties))),
+      options_(std::move(options)),
+      memory_type_tracker_(base::MakeRefCounted<gpu::MemoryTracker>()),
+      main_task_runner_(std::move(main_task_runner)),
+      owning_task_runner_(std::move(owning_task_runner)),
+      tracing_id_(g_next_webnn_context_tracing_id.GetNext()) {
+  InitializeContext(backend_uma);
+}
+#endif  // BUILDFLAG(WEBNN_USE_TFLITE) || BUILDFLAG(WEBNN_USE_LITERT)
+
+void WebNNContextImpl::InitializeContext(ContextBackendUma backend_uma) {
   RecordContextBackendUma(backend_uma);
 #if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
-  // Initialize XNNPACK
   const xnn_status status = xnn_initialize(/*allocator=*/nullptr);
   CHECK_EQ(status, xnn_status_success);
 #endif  // BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
@@ -113,15 +147,26 @@ void WebNNContextImpl::RecordContextBackendUma(ContextBackendUma backend_uma) {
 }
 
 void WebNNContextImpl::OnDisconnect() {
-  if (!main_task_runner_->RunsTasksInCurrentSequence()) {
-    main_task_runner_->PostTask(
-        FROM_HERE,
+  base::OnceClosure remove_task;
+#if BUILDFLAG(WEBNN_USE_TFLITE) || BUILDFLAG(WEBNN_USE_LITERT)
+  if (is_tflite_context_provider_) {
+    remove_task =
+        base::BindOnce(&tflite::ContextProviderTflite::RemoveWebNNContextImpl,
+                       tflite_context_provider_, handle());
+  }
+#endif  // BUILDFLAG(WEBNN_USE_TFLITE) || BUILDFLAG(WEBNN_USE_LITERT)
+
+  if (!remove_task) {
+    remove_task =
         base::BindOnce(&WebNNContextProviderImpl::RemoveWebNNContextImpl,
-                       context_provider_, handle()));
-    return;
+                       context_provider_, handle());
   }
 
-  context_provider_->RemoveWebNNContextImpl(handle());
+  if (!main_task_runner_->RunsTasksInCurrentSequence()) {
+    main_task_runner_->PostTask(FROM_HERE, std::move(remove_task));
+  } else {
+    std::move(remove_task).Run();
+  }
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -141,16 +186,27 @@ void WebNNContextImpl::DestroyAllContextsAndKillGpuProcess() {
 
 void WebNNContextImpl::CreateWeightsFile(
     base::OnceCallback<void(base::File)> callback) {
-  if (!main_task_runner_->RunsTasksInCurrentSequence()) {
-    main_task_runner_->PostTask(
-        FROM_HERE,
-        base::BindOnce(
-            &WebNNContextProviderImpl::CreateWeightsFile, context_provider_,
-            base::BindPostTaskToCurrentDefault(std::move(callback))));
-    return;
+  base::OnceClosure create_task;
+#if BUILDFLAG(WEBNN_USE_TFLITE) || BUILDFLAG(WEBNN_USE_LITERT)
+  if (is_tflite_context_provider_) {
+    create_task =
+        base::BindOnce(&tflite::ContextProviderTflite::CreateWeightsFile,
+                       tflite_context_provider_,
+                       base::BindPostTaskToCurrentDefault(std::move(callback)));
+  }
+#endif  // BUILDFLAG(WEBNN_USE_TFLITE) || BUILDFLAG(WEBNN_USE_LITERT)
+
+  if (!create_task) {
+    create_task = base::BindOnce(
+        &WebNNContextProviderImpl::CreateWeightsFile, context_provider_,
+        base::BindPostTaskToCurrentDefault(std::move(callback)));
   }
 
-  context_provider_->CreateWeightsFile(std::move(callback));
+  if (!main_task_runner_->RunsTasksInCurrentSequence()) {
+    main_task_runner_->PostTask(FROM_HERE, std::move(create_task));
+  } else {
+    std::move(create_task).Run();
+  }
 }
 
 void WebNNContextImpl::ReportBadGraphBuilderMessage(
@@ -159,10 +215,37 @@ void WebNNContextImpl::ReportBadGraphBuilderMessage(
   graph_builder_impls_.ReportBadMessage(message);
 }
 
-void WebNNContextImpl::TakeGraph(
-    scoped_refptr<WebNNGraphImpl> graph_impl,
-    base::PassKey<WebNNGraphBuilderImpl> pass_key) {
-  graph_impls_.emplace(std::move(graph_impl));
+void WebNNContextImpl::BuildGraph(
+    mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
+    mojom::GraphInfoPtr graph_info,
+    WebNNGraphImpl::ComputeResourceInfo compute_resource_info,
+    base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>
+        constant_operands,
+    base::flat_map<OperandId, scoped_refptr<WebNNTensorImpl>>
+        constant_tensor_operands,
+    BuildGraphCallback callback) {
+  CreateGraphImpl(std::move(receiver), std::move(graph_info),
+                  std::move(compute_resource_info),
+                  std::move(constant_operands),
+                  std::move(constant_tensor_operands),
+                  base::BindOnce(&WebNNContextImpl::OnGraphBuilt, AsWeakPtr(),
+                                 std::move(callback)));
+}
+
+void WebNNContextImpl::OnGraphBuilt(
+    BuildGraphCallback callback,
+    base::expected<scoped_refptr<WebNNGraphImpl>, mojom::ErrorPtr> result) {
+  if (!result.has_value()) {
+    std::move(callback).Run(base::unexpected(std::move(result.error())));
+    return;
+  }
+
+  GraphCreationResult creation_result;
+  creation_result.devices = result.value()->devices();
+
+  graph_impls_.emplace(std::move(result.value()));
+
+  std::move(callback).Run(std::move(creation_result));
 }
 
 void WebNNContextImpl::RemoveGraphBuilder(
@@ -179,14 +262,14 @@ void WebNNContextImpl::CreateGraphBuilder(
   mojo::ReceiverId id =
       graph_builder_impls_.Add(std::move(graph_builder), std::move(receiver));
 
-  graph_builder_ptr->SetId(id, base::PassKey<WebNNContextImpl>());
+  graph_builder_ptr->SetId(id, GraphBuilderContext::GetPassKey());
 }
 
 void WebNNContextImpl::CreateTensor(
     mojom::TensorInfoPtr tensor_info,
     mojo_base::BigBuffer tensor_data,
     mojom::WebNNContext::CreateTensorCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(gpu_sequence_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   ScopedTrace scoped_trace("WebNNContextImpl::CreateTensor");
 
@@ -246,9 +329,11 @@ void WebNNContextImpl::CreateTensor(
   tensor_impls_.emplace(*std::move(result));
 }
 
-const scoped_refptr<gpu::SchedulerTaskRunner>&
-WebNNContextImpl::scheduler_task_runner() const {
-  return gpu_sequence_->scheduler_task_runner();
+scoped_refptr<base::SequencedTaskRunner> WebNNContextImpl::task_runner() const {
+  if (gpu_sequence_) {
+    return gpu_sequence_->scheduler_task_runner();
+  }
+  return owning_task_runner_;
 }
 
 ScopedGpuSequence* WebNNContextImpl::gpu_sequence() const {
@@ -293,7 +378,7 @@ void WebNNContextImpl::CreateTensorFromMailbox(mojom::TensorInfoPtr tensor_info,
                                                const gpu::Mailbox& mailbox,
                                                const gpu::SyncToken& fence,
                                                CreateTensorCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(gpu_sequence_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   ScopedTrace scoped_trace("WebNNContextImpl::CreateTensorFromMailbox");
 
@@ -313,14 +398,30 @@ void WebNNContextImpl::CreateTensorFromMailbox(mojom::TensorInfoPtr tensor_info,
     return;
   }
 
+  // SharedImageManager is not available when running without GPU
+  // dependencies. WebGPU interop requires GPU process resources.
+  if (!shared_image_manager_) {
+    std::move(callback).Run(ToError<mojom::CreateTensorResult>(
+        mojom::Error::Code::kNotSupportedError,
+        "WebGPU interop is not supported in this context."));
+    return;
+  }
+
+  if (!gpu_sequence_) {
+    std::move(callback).Run(ToError<mojom::CreateTensorResult>(
+        mojom::Error::Code::kNotSupportedError,
+        "WebGPU interop is not supported without a GPU sequence."));
+    return;
+  }
+
   // Ensure the Mojo callback is posted back to the task runner. Running
   // it directly on the GPU sequence can violate Mojo's sequence checks,
   // even if executing on the same thread.
   auto mojo_callback_wrapper =
-      base::BindPostTask(scheduler_task_runner(), std::move(callback));
+      base::BindPostTask(task_runner(), std::move(callback));
 
   // Must be a scheduled task since this depends on shared image creation task.
-  ScheduleGpuTaskWithThisContext(
+  RunOrScheduleTaskWithThisContext(
       base::BindOnce(
           [](mojom::TensorInfoPtr tensor_info, const gpu::Mailbox& mailbox,
              CreateTensorCallback callback, ScopedTrace scoped_trace,
@@ -396,8 +497,16 @@ void WebNNContextImpl::RemoveWebNNGraphImpl(
   graph_impls_.erase(it);
 }
 
+const ContextProperties& WebNNContextImpl::properties() const {
+  return properties_;
+}
+
+const mojom::CreateContextOptions& WebNNContextImpl::options() const {
+  return *options_;
+}
+
 void WebNNContextImpl::OnLost(const std::string& reason) {
-  ScheduleGpuTaskWithThisContext(base::BindOnce(
+  RunOrScheduleTaskWithThisContext(base::BindOnce(
       [](const std::string& reason, WebNNContextImpl& self) {
         self.GetMojoReceiver().ResetWithReason(
             /*custom_reason_code=*/0, reason);
@@ -406,18 +515,26 @@ void WebNNContextImpl::OnLost(const std::string& reason) {
       reason));
 }
 
-void WebNNContextImpl::ScheduleGpuTaskWithThisContext(
-    ScheduleGpuTaskCallback task) {
-  ScheduleGpuTaskWithThisContext(std::move(task), {});
-}
-
-void WebNNContextImpl::ScheduleGpuTaskWithThisContext(
-    ScheduleGpuTaskCallback task,
+void WebNNContextImpl::RunOrScheduleTaskWithThisContext(
+    RunOrScheduleTaskCallback task,
     const gpu::SyncToken& fence) {
   // Safe to use std::ref because `this` owns gpu_sequence_ and
   // its deletion drops all pending tasks before the context is destroyed.
-  gpu_sequence_->ScheduleGpuTask(
-      base::BindOnce(std::move(task), std::ref(*this)), fence);
+  RunOrScheduleTask(base::BindOnce(std::move(task), std::ref(*this)), fence);
+}
+
+void WebNNContextImpl::RunOrScheduleTask(base::OnceClosure task,
+                                         const gpu::SyncToken& fence,
+                                         const gpu::SyncToken& release) {
+  if (gpu_sequence_) {
+    gpu_sequence_->ScheduleGpuTask(std::move(task), fence, release);
+    return;
+  }
+
+  DCHECK(!fence.HasData());
+  DCHECK(!release.HasData());
+  DCHECK(owning_task_runner()->RunsTasksInCurrentSequence());
+  std::move(task).Run();
 }
 
 scoped_refptr<WebNNTensorImpl> WebNNContextImpl::GetWebNNTensorImpl(

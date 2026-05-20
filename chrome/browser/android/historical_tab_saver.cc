@@ -50,8 +50,8 @@ std::vector<WebContentsStateByteBuffer> AllTabsWebContentsStateByteBuffer(
 
   for (int i = 0; i < jbyte_buffers_count; ++i) {
     web_contents_states.emplace_back(
-        ScopedJavaLocalRef<jobject>::Adopt(
-            env, env->GetObjectArrayElement(jbyte_buffers.obj(), i)),
+        jni_zero::AdoptRef(env,
+                           env->GetObjectArrayElement(jbyte_buffers.obj(), i)),
         saved_state_versions[i]);
   }
   return web_contents_states;
@@ -169,7 +169,6 @@ void CreateHistoricalBulkClosure(
   DCHECK(model);
   DCHECK_EQ(tab_group_ids.size(), group_titles.size());
   DCHECK_EQ(tab_group_ids.size(), group_colors.size());
-  DCHECK_EQ(tab_group_ids.size(), tab_group_ids.size());
   DCHECK_EQ(tab_group_ids.size(), saved_tab_group_ids.size());
   DCHECK_EQ(per_tab_optional_tab_group_ids.size(), tabs.size());
 

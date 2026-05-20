@@ -36,6 +36,7 @@
 #include "components/viz/common/features.h"
 #include "components/viz/common/resources/peak_gpu_memory_tracker_util.h"
 #include "components/viz/service/gl/gpu_log_message_manager.h"
+#include "components/vrp_flags/buildflags.h"
 #include "gpu/command_buffer/service/dawn_caching_interface.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/command_buffer/service/scheduler.h"
@@ -124,6 +125,11 @@
 #include "ui/ozone/public/ozone_platform.h"
 #include "ui/ozone/public/surface_factory_ozone.h"
 #endif  // BUILDFLAG(IS_OZONE)
+
+#if BUILDFLAG(ENABLE_VRP_FLAGS)
+#include "components/vrp_flags/vrp_flags.h"       // nogncheck
+#include "components/vrp_flags/vrp_flags_impl.h"  // nogncheck
+#endif                                            // BUILDFLAG(ENABLE_VRP_FLAGS)
 
 namespace viz {
 
@@ -654,14 +660,9 @@ void GpuServiceImpl::CreateWebNNContextProviderIfNeeded() {
     return;
   }
 
-  scoped_refptr<gpu::SharedContextState> shared_context_state =
-      GetContextState();
-  // `shared_context_state` may be nullptr if there is no GPU acceleration.
-  // For such case, WebNN CPU backend, e.g. TFLite XNNPACK, is still useful.
-
   webnn_context_provider_ = webnn::WebNNContextProviderImpl::Create(
-      std::move(shared_context_state), gpu_feature_info_, gpu_info_,
-      shared_image_manager(), gpu_channel_manager_->peak_memory_monitor(),
+      gpu_feature_info_, gpu_info_, shared_image_manager(),
+      gpu_channel_manager_->peak_memory_monitor(),
       base::BindOnce(&GpuServiceImpl::LoseAllContexts, weak_ptr_),
       main_runner(), GetGpuScheduler(), gpu_host_);
 }
@@ -774,6 +775,7 @@ void GpuServiceImpl::DidLoseContext(gpu::error::ContextLostReason reason,
 }
 
 std::string GpuServiceImpl::GetShaderPrefixKey() {
+  base::AutoLock lock(shader_prefix_key_lock_);
   if (shader_prefix_key_.empty()) {
     const gpu::GPUInfo::GPUDevice& active_gpu = gpu_info_.active_gpu();
     std::string product =
@@ -1200,6 +1202,20 @@ void GpuServiceImpl::ThrowJavaException() {
   NOTREACHED() << "Java exception not supported on this platform.";
 #endif
 }
+
+#if BUILDFLAG(ENABLE_VRP_FLAGS)
+void GpuServiceImpl::GetVrpFlags(GetVrpFlagsCallback callback) {
+  mojo::PendingRemote<vrp_flags::mojom::VrpFlags> remote;
+  if (!vrp_flags::IsEnabled()) {
+    std::move(callback).Run(std::move(remote));
+    return;
+  }
+
+  vrp_flags::VrpFlagsImpl::GetInstance()->Bind(
+      remote.InitWithNewPipeAndPassReceiver());
+  std::move(callback).Run(std::move(remote));
+}
+#endif
 
 void GpuServiceImpl::StartPeakMemoryMonitorOnMainThread(uint32_t sequence_num) {
   gpu_channel_manager_->StartPeakMemoryMonitor(sequence_num);

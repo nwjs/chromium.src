@@ -37,7 +37,7 @@
 #include "chrome/browser/ash/guest_os/guest_os_registry_service_factory.h"
 #include "chrome/browser/metrics/usertype_by_devicetype_metrics_provider.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/test/base/chrome_ash_test_base.h"
 #include "chrome/test/base/test_browser_window_aura.h"
@@ -459,7 +459,7 @@ class AppPlatformMetricsServiceTest : public AppPlatformMetricsServiceTestBase {
                   /*is_platform_app=*/false, WindowMode::kUnknown,
                   install_reason);
     std::unique_ptr<Browser> browser = CreateBrowserWithAuraWindow1();
-    EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+    EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
     return browser;
   }
 
@@ -825,10 +825,10 @@ TEST_F(AppPlatformMetricsServiceTest, BrowserWindow) {
                 Readiness::kReady, InstallSource::kSystem);
 
   // Expect no Browsers at the beginning.
-  EXPECT_EQ(0U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(0U, GlobalBrowserCollection::GetInstance()->GetSize());
   std::unique_ptr<Browser> browser1 = CreateBrowserWithAuraWindow1();
 
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   // Set the browser window active.
   ModifyInstance(app_constants::kChromeAppId,
@@ -846,7 +846,7 @@ TEST_F(AppPlatformMetricsServiceTest, BrowserWindow) {
 
   // Test multiple browsers.
   std::unique_ptr<Browser> browser2 = CreateBrowserWithAuraWindow2();
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   ModifyInstance(app_constants::kChromeAppId,
                  browser2->window()->GetNativeWindow(), kActiveInstanceState);
@@ -1268,7 +1268,7 @@ TEST_F(AppPlatformMetricsServiceTest, UsageTimeUkmWithMultipleWindows) {
   InstallOneApp(app_constants::kChromeAppId, AppType::kChromeApp, "Chrome",
                 Readiness::kReady, InstallSource::kSystem);
   std::unique_ptr<Browser> browser1 = CreateBrowserWithAuraWindow1();
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   // Set the browser window1 active.
   ModifyInstance(app_constants::kChromeAppId,
@@ -1281,7 +1281,7 @@ TEST_F(AppPlatformMetricsServiceTest, UsageTimeUkmWithMultipleWindows) {
   task_environment_.FastForwardBy(base::Minutes(1));
 
   std::unique_ptr<Browser> browser2 = CreateBrowserWithAuraWindow2();
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   // Set the browser window2 active.
   ModifyInstance(app_constants::kChromeAppId,
@@ -2014,94 +2014,6 @@ TEST_F(AppPlatformInputMetricsTest, MultipleEvents) {
   EXPECT_EQ(2, mouse_event_count);
   EXPECT_EQ(1, keyboard_event_count);
   EXPECT_EQ(1, stylus_event_count);
-}
-
-TEST_F(AppPlatformInputMetricsTest, BrowserWindow) {
-  InstallOneApp(app_constants::kChromeAppId, AppType::kChromeApp, "Chrome",
-                Readiness::kReady, InstallSource::kSystem);
-  auto browser = CreateBrowser();
-
-  // Set the browser window as activated.
-  ModifyInstance(app_constants::kChromeAppId, window(), kActiveInstanceState);
-  CreateInputEvent(InputEventSource::kMouse);
-  app_platform_input_metrics()->OnFiveMinutes();
-  VerifyNoUkm();
-  app_platform_input_metrics()->OnTwoHours();
-  VerifyUkm(std::string("app://") + app_constants::kChromeAppId,
-            AppTypeName::kChromeBrowser, /*event_count=*/1,
-            InputEventSource::kMouse);
-
-  // Create a web app tab1.
-  const GURL url1 = GURL("https://foo.com");
-  auto web_app_window1 =
-      CreateWebAppWindow(browser->window()->GetNativeWindow());
-
-  // Set the web app tab1 as activated.
-  ModifyInstance(kWebAppId1, web_app_window1.get(), kActiveInstanceState);
-  CreateInputEvent(InputEventSource::kMouse);
-  app_platform_input_metrics()->OnFiveMinutes();
-
-  // Verify no more input events UKM recorded.
-  auto entries =
-      test_ukm_recorder()->GetEntriesByName("ChromeOSApp.InputEvent");
-  ASSERT_EQ(1U, entries.size());
-
-  app_platform_input_metrics()->OnTwoHours();
-  // Verify 2 input metrics events are recorded.
-  VerifyUkm(2, url1.spec(), AppTypeName::kChromeBrowser,
-            /*event_count=*/1, InputEventSource::kMouse);
-
-  // Create a web app tab2.
-  const GURL url2 = GURL("https://foo2.com");
-  auto web_app_window2 =
-      CreateWebAppWindow(browser->window()->GetNativeWindow());
-
-  // Set the web app tab2 as activated.
-  ModifyInstance(kWebAppId2, web_app_window2.get(), kActiveInstanceState);
-  ModifyInstance(kWebAppId1, web_app_window1.get(), kInactiveInstanceState);
-  CreateInputEvent(InputEventSource::kStylus);
-  CreateInputEvent(InputEventSource::kStylus);
-  app_platform_input_metrics()->OnFiveMinutes();
-
-  // Verify no more input events UKM recorded.
-  entries = test_ukm_recorder()->GetEntriesByName("ChromeOSApp.InputEvent");
-  ASSERT_EQ(2U, entries.size());
-
-  app_platform_input_metrics()->OnTwoHours();
-  // Verify 3 input metrics events are recorded.
-  VerifyUkm(3, url2.spec(), AppTypeName::kChromeBrowser,
-            /*event_count=*/2, InputEventSource::kStylus);
-
-  // Set the web app tab2 as destroyed, and web app tab1 as activated.
-  ModifyInstance(kWebAppId2, web_app_window2.get(),
-                 apps::InstanceState::kDestroyed);
-  ModifyInstance(kWebAppId1, web_app_window1.get(), kActiveInstanceState);
-  CreateInputEvent(InputEventSource::kKeyboard);
-  app_platform_input_metrics()->OnFiveMinutes();
-
-  // Verify no more input events UKM recorded.
-  entries = test_ukm_recorder()->GetEntriesByName("ChromeOSApp.InputEvent");
-  ASSERT_EQ(3U, entries.size());
-
-  app_platform_input_metrics()->OnTwoHours();
-  // Verify 4 input metrics events are recorded.
-  VerifyUkm(4, url1.spec(), AppTypeName::kChromeBrowser,
-            /*event_count=*/1, InputEventSource::kKeyboard);
-
-  // Set the web app tab1 as inactivated.
-  ModifyInstance(kWebAppId1, web_app_window1.get(), kInactiveInstanceState);
-  CreateInputEvent(InputEventSource::kStylus);
-  app_platform_input_metrics()->OnFiveMinutes();
-
-  // Verify no more input events UKM recorded.
-  entries = test_ukm_recorder()->GetEntriesByName("ChromeOSApp.InputEvent");
-  ASSERT_EQ(4U, entries.size());
-
-  app_platform_input_metrics()->OnTwoHours();
-  // Verify 5 input metrics events are recorded.
-  VerifyUkm(5, std::string("app://") + app_constants::kChromeAppId,
-            AppTypeName::kChromeBrowser,
-            /*event_count=*/1, InputEventSource::kStylus);
 }
 
 TEST_F(AppPlatformInputMetricsTest, InputEventsUkmReportAfterReboot) {

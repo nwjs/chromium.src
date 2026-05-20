@@ -16,7 +16,6 @@
 #include "base/test/test_future.h"
 #include "chrome/browser/web_applications/external_install_options.h"
 #include "chrome/browser/web_applications/externally_managed_app_manager.h"
-#include "chrome/browser/web_applications/manifest_update_utils.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom-shared.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/scheduler/manifest_silent_update_result.h"
@@ -102,7 +101,7 @@ class ManifestSilentUpdateCommandTest : public WebAppTest {
     // Set up manifest.
     auto manifest = blink::mojom::Manifest::New();
     manifest->start_url = kAppUrl;
-    manifest->id = GenerateManifestIdFromStartUrlOnly(kAppUrl);
+    manifest->id = GenerateManifestIdFromStartUrlOnly(kAppUrl).value();
     manifest->scope = kAppUrl.GetWithoutFilename();
     manifest->display = DisplayMode::kStandalone;
     manifest->name = u"Foo App";

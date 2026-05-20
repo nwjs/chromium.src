@@ -211,6 +211,9 @@ function createRoutes(): SettingsRoutes {
         r.GEMINI_LOGIN = r.GEMINI.createChild('/ai/gemini/login');
       }
     }
+    if (loadTimeData.getBoolean('showAiSuggestionsControl')) {
+      r.AI_SUGGESTIONS = r.AI.createChild('/ai/suggestions');
+    }
   }
 
   if (visibility.appearance !== false) {
@@ -232,6 +235,9 @@ function createRoutes(): SettingsRoutes {
       r.YOUR_SAVED_INFO_IDENTITY_DOCS =
           r.YOUR_SAVED_INFO.createChild('/identityDocs');
       r.YOUR_SAVED_INFO_TRAVEL = r.YOUR_SAVED_INFO.createChild('/travel');
+      if (loadTimeData.getBoolean('enableYourSavedInfoShoppingPage')) {
+        r.YOUR_SAVED_INFO_SHOPPING = r.YOUR_SAVED_INFO.createChild('/shopping');
+      }
 
       // <if expr="is_win or is_macosx">
       r.PASSKEYS = r.YOUR_SAVED_INFO.createChild('/passkeys');

@@ -13,7 +13,6 @@
 #import "base/threading/scoped_blocking_call.h"
 #import "components/favicon/core/fallback_url_util.h"
 #import "components/ntp_tiles/ntp_tile.h"
-#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_pref_names.h"
 #import "crypto/obsolete/md5.h"
 #import "google_apis/gaia/gaia_id.h"
@@ -123,8 +122,11 @@ NSDictionary* DecodeData(NSData* data) {
     return [[NSMutableDictionary alloc] init];
   }
 
-  unarchiver.requiresSecureCoding = NO;
-  return [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
+  unarchiver.requiresSecureCoding = YES;
+  NSSet* classes = [NSSet
+      setWithObjects:[NSDictionary class], [NSURL class], [NTPTile class], nil];
+  return [unarchiver decodeObjectOfClasses:classes
+                                    forKey:NSKeyedArchiveRootObjectKey];
 }
 
 void GetFaviconsAndSave(
@@ -223,7 +225,7 @@ void WriteSavedMostVisited(
   NSDate* last_modification_date = NSDate.date;
   NSError* error = nil;
   NSData* data = [NSKeyedArchiver archivedDataWithRootObject:most_visited_data
-                                       requiringSecureCoding:NO
+                                       requiringSecureCoding:YES
                                                        error:&error];
   if (!data || error) {
     DLOG(WARNING) << "Error serializing most visited: "

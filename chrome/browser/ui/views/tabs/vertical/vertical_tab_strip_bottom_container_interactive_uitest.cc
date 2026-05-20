@@ -15,14 +15,21 @@
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
+#include "ui/base/clipboard/clipboard.h"
+#include "ui/base/clipboard/clipboard_buffer.h"
+#include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/interaction_test_util.h"
+#include "ui/base/interaction/polling_state_observer.h"
 #include "ui/gfx/animation/animation.h"
 #include "ui/gfx/animation/animation_test_api.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/view_utils.h"
 
 namespace base::test {
+
+DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ui::test::PollingStateObserver<int>,
+                                    kTabCountState);
 
 class VerticalTabStripBottomContainerInteractiveUiTest
     : public VerticalTabsInteractiveTestMixin<InteractiveBrowserTest> {
@@ -63,6 +70,45 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBottomContainerInteractiveUiTest,
         histogram_tester.ExpectTotalCount(
             "TabStrip.TimeToCreateNewTabFromPress", 1);
         EXPECT_EQ(1, user_action_tester.GetActionCount("NewTab_Button"));
+      }));
+}
+
+// This functionality is only defined on Linux.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_MiddleClickPasteAndNavigate MiddleClickPasteAndNavigate
+#else
+#define MAYBE_MiddleClickPasteAndNavigate DISABLED_MiddleClickPasteAndNavigate
+#endif
+// This test checks that middle-clicking the new tab button in the bottom
+// container of the vertical tab strip pastes text from the selection clipboard
+// and navigates to it.
+IN_PROC_BROWSER_TEST_F(VerticalTabStripBottomContainerInteractiveUiTest,
+                       MAYBE_MiddleClickPasteAndNavigate) {
+  if (!ui::Clipboard::IsSupportedClipboardBuffer(
+          ui::ClipboardBuffer::kSelection) ||
+      !ui::Clipboard::IsMiddleClickPasteEnabled()) {
+    GTEST_SKIP() << "Middle click paste or kSelection not supported";
+  }
+
+  const std::u16string kPasteText = u"https://www.google.com/";
+  base::UserActionTester user_action_tester;
+
+  {
+    ui::ScopedClipboardWriter writer(ui::ClipboardBuffer::kSelection);
+    writer.WriteText(kPasteText);
+  }
+
+  RunTestSequence(
+      CheckResult([this]() { return browser()->tab_strip_model()->count(); },
+                  1),
+      WaitForShow(kNewTabButtonElementId), MoveMouseTo(kNewTabButtonElementId),
+      ClickMouse(ui_controls::MIDDLE),
+      PollState(kTabCountState,
+                [this]() { return browser()->tab_strip_model()->count(); }),
+      WaitForState(kTabCountState, 2), StopObservingState(kTabCountState),
+      Do([&]() {
+        EXPECT_EQ(1, user_action_tester.GetActionCount(
+                         "NewTabButton_PasteAndNavigate"));
       }));
 }
 
@@ -124,15 +170,6 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBottomContainerInteractiveUiTest,
 
             gfx::Point pt_above = point_above_new_tab_button;
             views::View::ConvertPointFromScreen(vt_region_view, &pt_above);
-
-            LOG(ERROR)
-                << "<<<<<<<<<<<<<<<<<< " << __func__
-                << " vt_region_view->IsPositionInWindowCaption(pt_center)="
-                << vt_region_view->IsPositionInWindowCaption(pt_center);
-            LOG(ERROR)
-                << "<<<<<<<<<<<<<<<<<< " << __func__
-                << " vt_region_view->IsPositionInWindowCaption(pt_above)="
-                << vt_region_view->IsPositionInWindowCaption(pt_above);
             return !vt_region_view->IsPositionInWindowCaption(pt_center) &&
                    !vt_region_view->IsPositionInWindowCaption(pt_above);
           },

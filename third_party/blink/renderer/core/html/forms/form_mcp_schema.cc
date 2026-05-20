@@ -20,6 +20,7 @@
 #include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
 #include "third_party/blink/renderer/core/html/forms/base_text_input_type.h"
+#include "third_party/blink/renderer/core/html/forms/form_mcp_schema.h"
 #include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
@@ -125,6 +126,9 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeJSON() {
   auto required = std::make_unique<JSONArray>();
   auto properties = std::make_unique<JSONObject>();
 
+  // This needs to run before name_to_controls_.erase
+  ReportMissingParamNameIssuesIfNeeded();
+
   // We must emit parameters in the same order they (first) appear
   // in the ListedElements() traversal.
   for (const String& name : ordered_names_) {
@@ -132,7 +136,7 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeJSON() {
     // Note that a nullptr from ComputeParameterSchema() means the parameter
     // is not supported, for whatever reason.
     if (std::unique_ptr<JSONObject> parameter_schema =
-            ComputeParameterSchema(name, is_required)) {
+            ComputeParameterSchemaForName(name, is_required)) {
       ReportParameterIssueIfNeeded(name, *parameter_schema);
       properties->SetObject(name, std::move(parameter_schema));
       if (is_required) {
@@ -146,6 +150,36 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeJSON() {
   out->SetArray("required", std::move(required));
 
   return out;
+}
+
+void FormMCPSchema::ReportMissingParamNameIssuesIfNeeded() {
+  if (!form_->GetDocument().GetFrame()) {
+    return;
+  }
+  // Iterate through controls with an empty name
+  if (auto it = name_to_controls_.find(""); it != name_to_controls_.end()) {
+    for (ListedElement* element : *it->value) {
+      auto* temp_vector = MakeGarbageCollected<ControlVector>();
+      temp_vector->push_back(element);
+
+      bool required_unused;
+      if (!ComputeParameterSchemaForControls(*temp_vector, required_unused)) {
+        continue;
+      }
+      DOMNodeId violating_node_id =
+          DOMNodeIds::IdForNode(&element->ToHTMLElement());
+      auto* form_control =
+          DynamicTo<HTMLFormControlElement>(&element->ToHTMLElement());
+      bool is_required = form_control && form_control->IsRequired();
+      AuditsIssue::ReportGenericIssue(
+          form_->GetDocument().GetFrame(),
+          is_required ? mojom::blink::GenericIssueErrorType::
+                            kFormModelContextRequiredParameterMissingName
+                      : mojom::blink::GenericIssueErrorType::
+                            kFormModelContextParameterMissingName,
+          violating_node_id);
+    }
+  }
 }
 
 void FormMCPSchema::ReportParameterIssueIfNeeded(
@@ -162,6 +196,9 @@ void FormMCPSchema::ReportParameterIssueIfNeeded(
   CHECK(!controls.empty());
   DOMNodeId violating_node_id =
       DOMNodeIds::IdForNode(&controls.front()->ToHTMLElement());
+  if (!form_->GetDocument().GetFrame()) {
+    return;
+  }
   AuditsIssue::ReportGenericIssue(
       form_->GetDocument().GetFrame(),
       mojom::blink::GenericIssueErrorType::
@@ -452,7 +489,58 @@ void FormMCPSchema::FillParameterData(const String& name,
   }
 }
 
-std::unique_ptr<JSONObject> FormMCPSchema::ComputeParameterSchema(
+std::unique_ptr<JSONObject> FormMCPSchema::ComputeParameterSchemaForControls(
+    const ControlVector& controls_for_name,
+    bool& required) {
+  if (IsText(controls_for_name)) {
+    return ComputeTextParameterSchema(controls_for_name, required);
+  }
+  if (IsDate(controls_for_name)) {
+    return ComputeDateParameterSchema(controls_for_name, required);
+  }
+  if (IsDatetimeLocal(controls_for_name)) {
+    return ComputeDatetimeLocalParameterSchema(controls_for_name, required);
+  }
+  if (IsMonth(controls_for_name)) {
+    return ComputeMonthParameterSchema(controls_for_name, required);
+  }
+  if (IsWeek(controls_for_name)) {
+    return ComputeWeekParameterSchema(controls_for_name, required);
+  }
+  if (IsTime(controls_for_name)) {
+    return ComputeTimeParameterSchema(controls_for_name, required);
+  }
+  if (IsNumber(controls_for_name)) {
+    return ComputeNumberParameterSchema(controls_for_name, required);
+  }
+  if (IsSelect(controls_for_name)) {
+    return ComputeSelectParameterSchema(controls_for_name, required);
+  }
+  if (IsRange(controls_for_name)) {
+    return ComputeRangeParameterSchema(controls_for_name, required);
+  }
+  if (IsCheckbox(controls_for_name)) {
+    return ComputeCheckboxParameterSchema(controls_for_name, required);
+  }
+  if (IsRadio(controls_for_name)) {
+    return ComputeRadioParameterSchema(controls_for_name, required);
+  }
+  if (IsColor(controls_for_name)) {
+    return ComputeColorParameterSchema(controls_for_name, required);
+  }
+  if (IsCustomElement(controls_for_name)) {
+    return ComputeCustomElementParameterSchema(controls_for_name, required);
+  }
+  if (IsFile(controls_for_name)) {
+    CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled(
+        form_->GetExecutionContext()));
+    return ComputeFileParameterSchema(controls_for_name, required);
+  }
+
+  return nullptr;
+}
+
+std::unique_ptr<JSONObject> FormMCPSchema::ComputeParameterSchemaForName(
     const String& name,
     bool& required) {
   auto it = name_to_controls_.find(name);
@@ -463,52 +551,7 @@ std::unique_ptr<JSONObject> FormMCPSchema::ComputeParameterSchema(
   ControlVector* controls_for_name = it->value;
   CHECK(controls_for_name);
 
-  if (IsText(*controls_for_name)) {
-    return ComputeTextParameterSchema(*controls_for_name, required);
-  }
-  if (IsDate(*controls_for_name)) {
-    return ComputeDateParameterSchema(*controls_for_name, required);
-  }
-  if (IsDatetimeLocal(*controls_for_name)) {
-    return ComputeDatetimeLocalParameterSchema(*controls_for_name, required);
-  }
-  if (IsMonth(*controls_for_name)) {
-    return ComputeMonthParameterSchema(*controls_for_name, required);
-  }
-  if (IsWeek(*controls_for_name)) {
-    return ComputeWeekParameterSchema(*controls_for_name, required);
-  }
-  if (IsTime(*controls_for_name)) {
-    return ComputeTimeParameterSchema(*controls_for_name, required);
-  }
-  if (IsNumber(*controls_for_name)) {
-    return ComputeNumberParameterSchema(*controls_for_name, required);
-  }
-  if (IsSelect(*controls_for_name)) {
-    return ComputeSelectParameterSchema(*controls_for_name, required);
-  }
-  if (IsRange(*controls_for_name)) {
-    return ComputeRangeParameterSchema(*controls_for_name, required);
-  }
-  if (IsCheckbox(*controls_for_name)) {
-    return ComputeCheckboxParameterSchema(*controls_for_name, required);
-  }
-  if (IsRadio(*controls_for_name)) {
-    return ComputeRadioParameterSchema(*controls_for_name, required);
-  }
-  if (IsColor(*controls_for_name)) {
-    return ComputeColorParameterSchema(*controls_for_name, required);
-  }
-  if (IsCustomElement(*controls_for_name)) {
-    return ComputeCustomElementParameterSchema(*controls_for_name, required);
-  }
-  if (IsFile(*controls_for_name)) {
-    CHECK(RuntimeEnabledFeatures::WebMCPDeclarativeFileInputEnabled(
-        form_->GetExecutionContext()));
-    return ComputeFileParameterSchema(*controls_for_name, required);
-  }
-
-  return nullptr;
+  return ComputeParameterSchemaForControls(*controls_for_name, required);
 }
 
 std::unique_ptr<JSONObject> FormMCPSchema::ComputeTextParameterSchema(
@@ -1218,6 +1261,7 @@ void FormMCPSchema::ProcessForm(HTMLFormElement& form) {
       }
     }
   }
+  DCHECK_EQ(submit_button_, form.FindDefaultButton());
 }
 
 FormMCPSchema::ControlVector& FormMCPSchema::EnsureControlVector(

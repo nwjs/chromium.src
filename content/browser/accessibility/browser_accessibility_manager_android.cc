@@ -306,15 +306,7 @@ void BrowserAccessibilityManagerAndroid::FireDocumentSelectionChangedEvent(
           static_cast<BrowserAccessibilityAndroid*>(
               GetFromAXNode(ax_tree()->root()));
       ClearNodeInfoCacheForGivenId(android_root_object->GetUniqueId());
-      if (selection.has_value()) {
-        wcax->HandleExtendedSelectionChanged(
-            android_root_object->GetUniqueId(),
-            selection->focus_object->GetUniqueId(), selection->focus_offset);
-      } else {
-        wcax->HandleExtendedSelectionChanged(
-            android_root_object->GetUniqueId(), ui::kAXAndroidInvalidViewId,
-            ui::kAXAndroidUndefinedSelectionIndex);
-      }
+      wcax->HandleTextSelectionChanged(android_root_object->GetUniqueId());
       return;
     }
   } else if (!selection.has_value()) {
@@ -422,6 +414,15 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
           ANDROID_ACCESSIBILITY_EVENT_CONTENT_CHANGE_TYPE_TEXT);
       break;
     }
+    case ui::AXEventGenerator::Event::INVALID_STATUS_CHANGED: {
+      if (base::FeatureList::IsEnabled(
+              features::kAccessibilityAriaInvalidAndErrorMessage)) {
+        wcax->HandleWindowContentChange(
+            android_node->GetUniqueId(),
+            ANDROID_ACCESSIBILITY_EVENT_CONTENT_CHANGE_TYPE_CONTENT_INVALID);
+      }
+      break;
+    }
     case ui::AXEventGenerator::Event::LIVE_REGION_CHANGED: {
       // When a change is made within a live region, this event is fired on the
       // root node of that live region. For atomic live regions, we should begin
@@ -524,6 +525,8 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
       break;
     }
     case ui::AXEventGenerator::Event::VALUE_IN_TEXT_FIELD_CHANGED:
+    case ui::AXEventGenerator::Event::VALUE_IN_SPIN_BUTTON_DECREMENTED:
+    case ui::AXEventGenerator::Event::VALUE_IN_SPIN_BUTTON_INCREMENTED:
       // Sometimes `RetargetForEvents` will walk up to the lowest platform leaf
       // and fire the same event on that node. However, in some rare cases the
       // leaf node might not be a text field. For example, in the unusual case
@@ -581,7 +584,6 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
     case ui::AXEventGenerator::Event::HIERARCHICAL_LEVEL_CHANGED:
     case ui::AXEventGenerator::Event::HIGHLIGHT_MARKER_CHANGED:
     case ui::AXEventGenerator::Event::IGNORED_CHANGED:
-    case ui::AXEventGenerator::Event::INVALID_STATUS_CHANGED:
     case ui::AXEventGenerator::Event::KEY_SHORTCUTS_CHANGED:
     case ui::AXEventGenerator::Event::LABELED_BY_CHANGED:
     case ui::AXEventGenerator::Event::LANGUAGE_CHANGED:

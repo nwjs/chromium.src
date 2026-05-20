@@ -23,9 +23,7 @@ namespace features {
 
 // If enabled, generates an empty GestureScrollUpdate if the preceding TouchMove
 // event had no gestures and sends both events together.
-BASE_FEATURE(kSendEmptyGestureScrollUpdate,
-             base::FEATURE_DISABLED_BY_DEFAULT
-);
+BASE_FEATURE(kSendEmptyGestureScrollUpdate, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(bool,
                    kSendEmptyGestureScrollUpdateFilterOutEmptyUpdates,
@@ -117,6 +115,11 @@ BASE_FEATURE(kWaylandTextInputV3, base::FEATURE_ENABLED_BY_DEFAULT);
 // Controls whether Wayland session management protocol is enabled.
 BASE_FEATURE(kWaylandSessionManagement, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_OZONE)
+
+#if BUILDFLAG(IS_LINUX)
+BASE_FEATURE(kGlobalShortcutsPortalPreferredTrigger,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 // When enabled, the feature will query the OS for a default cursor size,
 // to be used in determining the concrete object size of a custom cursor in
@@ -437,6 +440,12 @@ bool IsHandleIMESpanChangesOnUpdateCompositionEnabled() {
       features::kHandleIMESpanChangesOnUpdateComposition);
 }
 
+BASE_FEATURE(kTSFHonorAutocorrectOff, base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool IsTSFHonorAutocorrectOffEnabled() {
+  return base::FeatureList::IsEnabled(features::kTSFHonorAutocorrectOff);
+}
+
 BASE_FEATURE(kUseSystemDefaultAccentColors, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kStringWidthCache, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -462,5 +471,15 @@ BASE_FEATURE_PARAM(int,
                    50);
 
 BASE_FEATURE(kSplitViewLinkOpen, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlassFrame, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsGlassFrameEnabled() {
+#if BUILDFLAG(IS_MAC)
+  return base::FeatureList::IsEnabled(kGlassFrame);
+#else
+  return false;
+#endif
+}
 
 }  // namespace features

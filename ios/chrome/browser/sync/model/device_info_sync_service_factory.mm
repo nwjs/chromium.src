@@ -15,6 +15,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/time/default_clock.h"
 #import "components/desktop_to_mobile_promos/features.h"
+#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/device_id_helper.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/sync/invalidations/sync_invalidations_service.h"
@@ -151,6 +152,12 @@ class DeviceInfoSyncClient : public syncer::DeviceInfoSyncClient {
       }
     }
     return enabled_types;
+  }
+
+  // syncer::DeviceInfoSyncClient:
+  syncer::DeviceInfo::GlicExperimentalTriggeringState
+  GetGlicExperimentalTriggeringState() const override {
+    return syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable;
   }
 
  private:

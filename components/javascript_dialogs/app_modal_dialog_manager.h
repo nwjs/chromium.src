@@ -9,7 +9,7 @@
 
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
-#include "base/memory/singleton.h"
+#include "base/no_destructor.h"
 #include "components/javascript_dialogs/app_modal_dialog_controller.h"
 #include "components/javascript_dialogs/app_modal_dialog_manager_delegate.h"
 #include "content/public/browser/javascript_dialog_manager.h"
@@ -30,8 +30,8 @@ class AppModalDialogManager : public content::JavaScriptDialogManager {
  public:
   // A factory method to create and returns a platform-specific dialog class.
   // The returned object should own itself.
-  using AppModalViewFactory =
-      base::RepeatingCallback<AppModalDialogView*(AppModalDialogController*)>;
+  using AppModalViewFactory = base::RepeatingCallback<AppModalDialogView*(
+      std::unique_ptr<AppModalDialogController>)>;
 
   static AppModalDialogManager* GetInstance();
 
@@ -89,7 +89,7 @@ class AppModalDialogManager : public content::JavaScriptDialogManager {
 
  private:
   FRIEND_TEST_ALL_PREFIXES(AppModalDialogManagerTest, GetTitle);
-  friend struct base::DefaultSingletonTraits<AppModalDialogManager>;
+  friend class base::NoDestructor<AppModalDialogManager>;
 
   AppModalDialogManager();
   ~AppModalDialogManager() override;

@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.contextualsearch;
 
-import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
-
 import android.os.Build;
 import android.text.TextUtils;
 import android.view.ViewConfiguration;
@@ -34,6 +32,7 @@ import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.content_public.browser.SelectionClient;
 import org.chromium.content_public.common.ContentFeatures;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.touch_selection.SelectionEventType;
 
 /** Tests the Related Searches Feature of Contextual Search using instrumentation tests. */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -41,7 +40,6 @@ import org.chromium.ui.base.DeviceFormFactor;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @EnableFeatures(ChromeFeatureList.CONTEXTUAL_SEARCH_DISABLE_ONLINE_DETECTION)
 @Features.DisableFeatures({ContentFeatures.ANDROID_DESKTOP_ZOOM_SCALING})
-@Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
 @Batch(Batch.PER_CLASS)
 public class ContextualSearchTriggerTest extends ContextualSearchInstrumentationBase {
     @Override
@@ -123,7 +121,7 @@ public class ContextualSearchTriggerTest extends ContextualSearchInstrumentation
     @Test
     @SmallTest
     @Feature({"ContextualSearch"})
-    // Previously flaky and disabled 4/2021.  https://crbug.com/1180304
+    // Previously flaky and disabled 4/2021.  https://crbug.com/40750236
     public void testTapGestureOnSpecialCharacterDoesntSelect() throws Exception {
         clickNode("question-mark");
         Assert.assertNull(getSelectedText());
@@ -151,7 +149,7 @@ public class ContextualSearchTriggerTest extends ContextualSearchInstrumentation
     @Test
     @SmallTest
     @Feature({"ContextualSearch"})
-    // Previously flaky and disabled 4/2021.  https://crbug.com/1192285
+    // Previously flaky and disabled 4/2021.  https://crbug.com/40757167
     public void testTapGestureFollowedByInvalidTextTapCloses() throws Exception {
         clickWordNode("states-far");
         waitForPanelToPeek();
@@ -164,7 +162,7 @@ public class ContextualSearchTriggerTest extends ContextualSearchInstrumentation
     @Test
     @SmallTest
     @Feature({"ContextualSearch"})
-    @DisabledTest(message = "crbug.com/662104")
+    @DisabledTest(message = "crbug.com/40491981")
     public void testTapGestureFollowedByNonTextTap() throws Exception {
         clickWordNode("states-far");
         waitForPanelToPeek();
@@ -192,8 +190,8 @@ public class ContextualSearchTriggerTest extends ContextualSearchInstrumentation
     @Test
     @SmallTest
     @Feature({"ContextualSearch"})
-    // Previously disabled at https://crbug.com/1075895
-    @DisabledTest(message = "See crbug.com/1455161") // Disabled because it is flaky
+    // Previously disabled at https://crbug.com/40687948
+    @DisabledTest(message = "See crbug.com/40917264") // Disabled because it is flaky
     public void testTapGesturesNearbyKeepSelecting() throws Exception {
         clickWordNode("states");
         Assert.assertEquals("States", getSelectedText());
@@ -236,7 +234,7 @@ public class ContextualSearchTriggerTest extends ContextualSearchInstrumentation
     @SmallTest
     @Feature({"ContextualSearch"})
     @Restriction(DeviceFormFactor.PHONE)
-    @DisabledTest(message = "See https://crbug.com/837998")
+    @DisabledTest(message = "See https://crbug.com/40574139")
     public void testLongPressGestureFollowedByTapDoesntSelect() throws Exception {
         longPressNode("intelligence");
         waitForPanelToPeek();
@@ -249,7 +247,6 @@ public class ContextualSearchTriggerTest extends ContextualSearchInstrumentation
     @Test
     @SmallTest
     @Feature({"ContextualSearch"})
-    @Restriction(Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     @EnableFeatures(ChromeFeatureList.CONTEXTUAL_SEARCH_SUPPRESS_SHORT_VIEW)
     public void testIsSuppressedOnViewHeight_ridiculouslyShort() {
         FeatureOverrides.overrideParam(
@@ -262,7 +259,6 @@ public class ContextualSearchTriggerTest extends ContextualSearchInstrumentation
     @Test
     @SmallTest
     @Feature({"ContextualSearch"})
-    @Restriction(Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     @EnableFeatures(ChromeFeatureList.CONTEXTUAL_SEARCH_SUPPRESS_SHORT_VIEW)
     public void testIsSuppressedOnViewHeight_ridiculouslyTall() {
         FeatureOverrides.overrideParam(
@@ -288,7 +284,7 @@ public class ContextualSearchTriggerTest extends ContextualSearchInstrumentation
 
     /**
      * Tests that a Tap gesture on an element with an ARIA attribute does not trigger.
-     * http://crbug.com/542874
+     * http://crbug.com/40440018
      */
     @Test
     @SmallTest
@@ -347,7 +343,7 @@ public class ContextualSearchTriggerTest extends ContextualSearchInstrumentation
     // https://crbug.com/399388784: Causes Espresso clicks to stop working in subsequent tests in
     // Android 10 (Q).
     @DisableIf.Build(sdk_equals = Build.VERSION_CODES.Q)
-    // Previously flaky, disabled 4/2021.  https://crbug.com/1192285, https://crbug.com/1291558
+    // Previously flaky, disabled 4/2021.  https://crbug.com/40757167, https://crbug.com/40818837
     public void testPreventHandlingCurrentSelectionModification() throws Exception {
         longPressNode("search");
 
@@ -360,15 +356,9 @@ public class ContextualSearchTriggerTest extends ContextualSearchInstrumentation
                 () -> {
                     SelectionClient selectionClient = mManager.getContextualSearchSelectionClient();
                     selectionClient.onSelectionEvent(
-                            org.chromium.ui.touch_selection.SelectionEventType
-                                    .SELECTION_HANDLE_DRAG_STARTED,
-                            333,
-                            450);
+                            SelectionEventType.SELECTION_HANDLE_DRAG_STARTED, 333, 450);
                     selectionClient.onSelectionEvent(
-                            org.chromium.ui.touch_selection.SelectionEventType
-                                    .SELECTION_HANDLE_DRAG_STOPPED,
-                            303,
-                            450);
+                            SelectionEventType.SELECTION_HANDLE_DRAG_STOPPED, 303, 450);
                 });
         assertPanelClosedOrUndefined();
 
@@ -380,7 +370,7 @@ public class ContextualSearchTriggerTest extends ContextualSearchInstrumentation
     @Test
     @SmallTest
     @Feature({"ContextualSearch"})
-    // Previously flaky and disabled 4/2021.  https://crbug.com/1180304
+    // Previously flaky and disabled 4/2021.  https://crbug.com/40750236
     public void testSelectionExpansionOnSearchTermResolution() throws Exception {
         triggerResolve("intelligence");
         waitForPanelToPeek();

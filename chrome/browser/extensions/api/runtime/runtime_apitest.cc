@@ -194,16 +194,11 @@ class RuntimeAPIUpdateTest : public ExtensionApiTest {
  private:
   base::ScopedTempDir scoped_temp_dir_;
 };
-
 }  // namespace
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-// TODO(crbug.com/383366125): Enable this test for desktop Android once
-// ChromeRuntimeAPIDelegate::OpenOptionsPage() is implemented.
 IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ChromeRuntimeOpenOptionsPage) {
   ASSERT_TRUE(RunExtensionTest("runtime/open_options_page"));
 }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ChromeRuntimeOpenOptionsPageError) {
   ASSERT_TRUE(RunExtensionTest("runtime/open_options_page_error"));
@@ -340,6 +335,35 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ChromeRuntimeReload) {
   ready_listener_done.Reply("done");
   EXPECT_TRUE(reload_catcher.GetNextResult());
 }
+
+#if BUILDFLAG(ENABLE_PLATFORM_APPS)
+IN_PROC_BROWSER_TEST_F(RuntimeApiTest, ChromeRuntimeReloadApp) {
+  scoped_refptr<const Extension> extension;
+
+  // Load and launch the app and wait for it to create a window.
+  extension = base::WrapRefCounted(
+      LoadAndLaunchApp(test_data_dir_.AppendASCII("runtime/platform_app")));
+
+  const ExtensionId extension_id = extension->id();
+  ExtensionRegistry* registry = ExtensionRegistry::Get(profile());
+
+  // Reload the extension and wait for a pair of
+  // ExtensionRegistry::OnExtensionUnloaded()/Loaded() calls.
+  TestExtensionRegistryObserver registry_observer(registry, extension_id);
+  ASSERT_TRUE(ExecuteScriptInBackgroundPageNoWait(extension_id,
+                                                  "chrome.runtime.reload();"));
+  ASSERT_EQ(extension, registry_observer.WaitForExtensionUnloaded());
+  EXPECT_TRUE(registry->disabled_extensions().Contains(extension_id));
+  ASSERT_TRUE(extension = registry_observer.WaitForExtensionLoaded());
+  ASSERT_EQ(extension->id(), extension_id);
+  EXPECT_TRUE(registry->enabled_extensions().Contains(extension_id));
+
+  // Reloading the app should launch it again automatically.
+  // Wait for the app to create a new window.
+  ResultCatcher catcher;
+  ASSERT_TRUE(catcher.GetNextResult());
+}
+#endif  // BUILDFLAG(ENABLE_PLATFORM_APPS)
 
 // Tests sending messages from a webpage in the extension using
 // chrome.runtime.sendMessage and responding to those from the extension's
@@ -661,7 +685,7 @@ IN_PROC_BROWSER_TEST_F(RuntimeApiTest,
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if !BUILDFLAG(IS_ANDROID)
-// Regression test for https://crbug.com/1298195 - whether a tab opened
+// Regression test for https://crbug.com/40822787 - whether a tab opened
 // from the background page (via `window.open(...)`) will be correctly
 // marked as `mojom::ViewType::kTabContents`.
 //

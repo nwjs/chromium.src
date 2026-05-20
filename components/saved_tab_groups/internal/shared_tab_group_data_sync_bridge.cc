@@ -39,7 +39,6 @@
 #include "components/sync/base/unique_position.h"
 #include "components/sync/model/data_type_local_change_processor.h"
 #include "components/sync/model/entity_change.h"
-#include "components/sync/model/in_memory_metadata_change_list.h"
 #include "components/sync/model/metadata_batch.h"
 #include "components/sync/model/metadata_change_list.h"
 #include "components/sync/model/model_error.h"
@@ -569,12 +568,6 @@ SharedTabGroupDataSyncBridge::~SharedTabGroupDataSyncBridge() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 }
 
-std::unique_ptr<syncer::MetadataChangeList>
-SharedTabGroupDataSyncBridge::CreateMetadataChangeList() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return std::make_unique<syncer::InMemoryMetadataChangeList>();
-}
-
 std::optional<syncer::ModelError>
 SharedTabGroupDataSyncBridge::MergeFullSyncData(
     std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
@@ -867,7 +860,8 @@ void SharedTabGroupDataSyncBridge::ApplyDisableSyncChanges(
   // Delete all shared tabs and sync metadata from the store.
   // `delete_metadata_change_list` is not used because all the metadata is
   // deleted anyway.
-  store_->DeleteAllDataAndMetadata(base::DoNothing());
+  store_->DeleteAllDataAndMetadata(std::move(delete_metadata_change_list),
+                                   base::DoNothing());
 
   model_wrapper_->OnSyncBridgeUpdateTypeChanged(
       SyncBridgeUpdateType::kCompletedDisableSyncThisSession);
@@ -1607,12 +1601,14 @@ SharedTabGroupDataSyncBridge::ResolveTabsMissingGroups(
   // This method should only be called when there is an ongoing write batch,
   // for example during a remote update.
   CHECK(ongoing_write_batch_);
-  for (const auto& [tab_guid, tab_missing_group] : tabs_missing_groups_) {
+  auto it = tabs_missing_groups_.begin();
+  while (it != tabs_missing_groups_.end()) {
+    const auto& [tab_guid, tab_missing_group] = *it;
     base::Uuid group_guid = base::Uuid::ParseLowercase(
         tab_missing_group.specifics.tab().shared_tab_group_guid());
     const SavedTabGroup* group = model_wrapper_->GetGroup(group_guid);
     if (!group) {
-      // The group still does not exist in the model.
+      ++it;
       continue;
     }
 
@@ -1629,6 +1625,10 @@ SharedTabGroupDataSyncBridge::ResolveTabsMissingGroups(
                                  tab_missing_group.modification_time)) {
       return error;
     }
+
+    // Cleanup tabs so subsequent calls to ResolveTabsMissingGroups does not add
+    // stale data.
+    it = tabs_missing_groups_.erase(it);
   }
   return std::nullopt;
 }

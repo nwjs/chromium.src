@@ -315,7 +315,7 @@ void FinalizeInstallJob::Start(InstallFinalizedCallback callback) {
     origin_associations.migration_sources = web_app_info_.migration_sources;
   }
   origin_association_manager().GetWebAppOriginAssociations(
-      manifest_id, std::move(origin_associations),
+      manifest_id.value(), std::move(origin_associations),
       base::BindOnce(&FinalizeInstallJob::OnOriginAssociationValidated,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -716,7 +716,7 @@ void FinalizeInstallJob::OnDatabaseCommitCompletedForInstall(
 
   const WebApp* web_app = registrar().GetAppById(app_id);
   // TODO(dmurph): Verify this check is not needed and remove after
-  // isolation work is done. https://crbug.com/1298130
+  // isolation work is done. https://crbug.com/40215411
   if (!web_app) {
     lock_ = nullptr;
     resources_lock_ = nullptr;

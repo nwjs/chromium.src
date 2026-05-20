@@ -126,7 +126,7 @@ std::wstring GetEmailDomains() {
     return device_policies.GetAllowedDomainsStr();
   }
 
-  // TODO (crbug.com/1135458): Clean up directly reading from registry after
+  // TODO (crbug.com/40151888): Clean up directly reading from registry after
   // cloud policies is launched.
   std::wstring email_domains_reg = GetEmailDomains(kEmailDomainsKey);
   std::wstring email_domains_reg_new = GetEmailDomains(kEmailDomainsKeyNew);
@@ -1961,11 +1961,11 @@ HRESULT CGaiaCredentialBase::ForkPerformPostSigninActionsStub(
 
     DWORD written = 0;
     // First, write the buffer size then write the buffer content.
-    if (!::WriteFile(parent_handles.hstdin_write.Get(), &buffer_size,
+    if (!::WriteFile(parent_handles.hstdin_write.get(), &buffer_size,
                      sizeof(buffer_size), &written, /*lpOverlapped=*/nullptr)) {
       HRESULT hrWrite = HRESULT_FROM_WIN32(::GetLastError());
       LOGFN(ERROR) << "WriteFile hr=" << putHR(hrWrite);
-    } else if (!::WriteFile(parent_handles.hstdin_write.Get(), json.c_str(),
+    } else if (!::WriteFile(parent_handles.hstdin_write.get(), json.c_str(),
                             buffer_size, &written, /*lpOverlapped=*/nullptr)) {
       HRESULT hrWrite = HRESULT_FROM_WIN32(::GetLastError());
       LOGFN(ERROR) << "WriteFile hr=" << putHR(hrWrite);
@@ -2499,7 +2499,15 @@ HRESULT CGaiaCredentialBase::OnUserAuthenticated(BSTR authentication_info,
     }
 
     const std::wstring email = GetDictString(*properties, kKeyEmail);
-    const std::wstring email_domain = email.substr(email.find(L"@") + 1);
+    size_t at_pos = email.find(L"@");
+    if (at_pos == std::wstring::npos) {
+      LOGFN(ERROR) << "Email " << email << " is invalid (missing '@').";
+      *status_text =
+          CGaiaCredentialBase::AllocErrorString(IDS_INVALID_EMAIL_DOMAIN_BASE);
+      SecurelyClearDictionaryValue(properties);
+      return E_FAIL;
+    }
+    const std::wstring email_domain = email.substr(at_pos + 1);
     const std::vector<std::wstring> allowed_domains = GetEmailDomainsList();
 
     if (!std::ranges::contains(allowed_domains, email_domain)) {

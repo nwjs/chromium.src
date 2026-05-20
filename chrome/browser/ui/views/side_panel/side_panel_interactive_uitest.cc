@@ -138,7 +138,7 @@ class SidePanelInteractiveTest : public InteractiveBrowserTest {
 };
 
 // This test is specifically to guard against this regression
-// (crbug.com/1428606).
+// (crbug.com/40900604).
 IN_PROC_BROWSER_TEST_F(SidePanelInteractiveTest, SidePanelNotShownOnPwa) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kSecondTabElementId);
   GURL second_tab_url("https://test.com");
@@ -191,7 +191,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelInteractiveTest, SidePanelNotShownOnPwa) {
   // App does not show side panel.
   EXPECT_FALSE(BrowserView::GetBrowserViewForBrowser(
                    app_browser->GetBrowserForMigrationOnly())
-                   ->contents_height_side_panel()
+                   ->side_panel()
                    ->GetVisible());
 }
 
@@ -324,8 +324,8 @@ class PinnedSidePanelInteractiveTest : public InteractiveFeaturePromoTest {
         << "Test needs modification to support WebUIPinnedToolbarActions";
     return static_cast<PinnedToolbarActionsContainer*>(
         BrowserView::GetBrowserViewForBrowser(browser())
-            ->toolbar()
-            ->pinned_toolbar_actions());
+            ->toolbar_button_provider()
+            ->GetPinnedToolbarActions());
   }
 
   auto OpenReadingModeSidePanel() {
@@ -509,7 +509,7 @@ IN_PROC_BROWSER_TEST_F(
       Check(([&]() {
         return actions_model->Contains(kActionSidePanelShowBookmarks);
       })),
-      WaitForShow(kPinnedActionToolbarButtonElementId),
+      WaitForShow(kPinnedToolbarActionShowSidePanelBookmarksElementId),
       CheckView(
           kPinnedToolbarActionsContainerElementId,
           [](views::View* view) { return view->children().size() == 2u; }),
@@ -533,7 +533,7 @@ IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
   RunTestSequence(
       // Ensure the side panel isn't open
       EnsureNotPresent(kSidePanelElementId),
-      EnsureNotPresent(kPinnedActionToolbarButtonElementId),
+      EnsureNotPresent(kPinnedToolbarActionShowSidePanelBookmarksElementId),
       // Open bookmarks sidepanel
       OpenBookmarksSidePanel(), WaitForShow(kSidePanelElementId),
       WaitForShow(kPinnedToolbarActionsContainerElementId),
@@ -542,9 +542,9 @@ IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
       PressButton(kSidePanelPinButtonElementId),
       CheckActionPinnedToToolbar(kActionSidePanelShowBookmarks, true),
       EnsurePresent(kPinnedToolbarActionsContainerElementId),
-      WaitForShow(kPinnedActionToolbarButtonElementId),
+      WaitForShow(kPinnedToolbarActionShowSidePanelBookmarksElementId),
       // Toggle side panel
-      PressButton(kPinnedActionToolbarButtonElementId),
+      PressButton(kPinnedToolbarActionShowSidePanelBookmarksElementId),
       WaitForHide(kSidePanelElementId));
 }
 
@@ -612,11 +612,11 @@ IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
   RunTestSequence(
       // Ensure the side panel isn't open
       EnsureNotPresent(kSidePanelElementId),
-      EnsureNotPresent(kPinnedActionToolbarButtonElementId),
+      EnsureNotPresent(kPinnedToolbarActionShowSidePanelBookmarksElementId),
       // Open bookmarks sidepanel
       OpenBookmarksSidePanel(), WaitForShow(kSidePanelElementId),
       WaitForShow(kPinnedToolbarActionsContainerElementId),
-      WaitForShow(kPinnedActionToolbarButtonElementId),
+      WaitForShow(kPinnedToolbarActionShowSidePanelBookmarksElementId),
       NameChildViewByType<PinnedActionToolbarButton>(
           kPinnedToolbarActionsContainerElementId, kBookmarksButton),
       WaitForShow(kBookmarksButton),
@@ -640,11 +640,11 @@ IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest, CloseSidePanel) {
   RunTestSequence(
       // Ensure the side panel isn't open
       EnsureNotPresent(kSidePanelElementId),
-      EnsureNotPresent(kPinnedActionToolbarButtonElementId),
+      EnsureNotPresent(kPinnedToolbarActionShowSidePanelBookmarksElementId),
       // Open bookmarks sidepanel
       OpenBookmarksSidePanel(), WaitForShow(kSidePanelElementId),
       WaitForShow(kPinnedToolbarActionsContainerElementId),
-      WaitForShow(kPinnedActionToolbarButtonElementId),
+      WaitForShow(kPinnedToolbarActionShowSidePanelBookmarksElementId),
       WaitForPromo(feature_engagement::kIPHSidePanelGenericPinnableFeature),
       PressButton(kSidePanelCloseButtonElementId),
       WaitForHide(kSidePanelElementId));

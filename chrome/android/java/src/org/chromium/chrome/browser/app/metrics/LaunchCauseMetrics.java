@@ -14,6 +14,7 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationState;
 import org.chromium.base.ApplicationStatus;
+import org.chromium.base.ApplicationStatus.ActivityStateListener;
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
@@ -31,8 +32,7 @@ import java.lang.annotation.RetentionPolicy;
 /** Computes and records metrics for what caused Chrome to be launched. */
 @NullMarked
 public abstract class LaunchCauseMetrics
-        implements ApplicationStatus.ApplicationStateListener,
-                ApplicationStatus.ActivityStateListener {
+        implements ApplicationStatus.ApplicationStateListener, ActivityStateListener {
     private static final boolean DEBUG = false;
     private static final String TAG = "LaunchCauseMetrics";
 
@@ -52,7 +52,7 @@ public abstract class LaunchCauseMetrics
     @SuppressLint("StaticFieldLeak")
     private static @Nullable Activity sLastResumedActivity;
 
-    private static ApplicationStatus.@Nullable ActivityStateListener sAppActivityListener;
+    private static @Nullable ActivityStateListener sAppActivityListener;
 
     static {
         doStaticInit();
@@ -60,7 +60,7 @@ public abstract class LaunchCauseMetrics
 
     private static void doStaticInit() {
         sAppActivityListener =
-                new ApplicationStatus.ActivityStateListener() {
+                new ActivityStateListener() {
                     @Override
                     public void onActivityStateChange(Activity activity, int newState) {
                         if (newState == ActivityState.RESUMED) sLastResumedActivity = activity;
@@ -119,6 +119,7 @@ public abstract class LaunchCauseMetrics
         LaunchCause.NFC,
         LaunchCause.AUTH_TAB,
         LaunchCause.RECREATION,
+        LaunchCause.HANDOFF,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface LaunchCause {
@@ -144,8 +145,9 @@ public abstract class LaunchCauseMetrics
         int NFC = 18;
         int AUTH_TAB = 19;
         int RECREATION = 20;
+        int HANDOFF = 21;
 
-        int NUM_ENTRIES = 22;
+        int NUM_ENTRIES = 23;
     }
 
     /**

@@ -13,7 +13,6 @@
 #include "base/metrics/user_metrics_action.h"
 #include "base/notimplemented.h"
 #include "chrome/browser/indigo/indigo_agent_host.h"
-#include "chrome/browser/indigo/indigo_alpha_rpc.h"
 #include "chrome/browser/indigo/indigo_service.h"
 #include "chrome/browser/indigo/indigo_service_factory.h"
 #include "chrome/browser/indigo/onboarding/indigo_onboarding_dialog.h"
@@ -22,7 +21,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/views/page_action/page_action_controller.h"
+#include "chrome/browser/ui/page_actions/page_action_controller.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/grit/branded_strings.h"
 #include "components/optimization_guide/core/hints/optimization_guide_decider.h"
@@ -132,34 +131,18 @@ void IndigoPageActionController::InvokeAction() {
     return;
   }
 
-  // TODO: b/482792874 - Analyze the page and act on it, instead of just opening
-  // a tab based on a fixed input.
-  LOG(WARNING) << "IndigoAgentHost doesn't expect to be able to load. "
-               << "Directly invoking generate RPC (for prototyping).";
-  Profile* profile =
-      Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  if (!profile) {
+}
+
+void IndigoPageActionController::ShowToolbarInside(const gfx::Rect& rect) {
+  content::WebContents* web_contents = tab().GetContents();
+  if (!web_contents) {
     return;
   }
 
-  scoped_refptr<network::SharedURLLoaderFactory> loader_factory =
-      profile->GetDefaultStoragePartition()
-          ->GetURLLoaderFactoryForBrowserProcess();
-  ExecuteAlphaGenerateRpc(
-      loader_factory.get(),
-      base::BindOnce(
-          [](base::WeakPtr<BrowserWindowInterface> window,
-             base::expected<GURL, AlphaGenerateError> result) {
-            if (window && result.has_value()) {
-              window->OpenGURL(result.value(),
-                               WindowOpenDisposition::NEW_FOREGROUND_TAB);
-            } else if (!result.has_value()) {
-              LOG(ERROR) << "Indigo alpha generate error "
-                         << result.error().error_type << ": "
-                         << result.error().error_message;
-            }
-          },
-          tab().GetBrowserWindowInterface()->GetWeakPtr()));
+  if (!toolbar_) {
+    toolbar_ = std::make_unique<IndigoToolbar>(this);
+    toolbar_->ShowInside(web_contents->GetNativeView(), rect);
+  }
 }
 
 void IndigoPageActionController::DidFinishNavigation(
@@ -236,7 +219,13 @@ void IndigoPageActionController::UpdateEntryPointsState() {
       page_action_controller_->SetAnchoredMessageText(
           kActionIndigo, l10n_util::GetStringUTF16(
                              IDS_INDIGO_ENTRYPOINT_ANCHORED_MESSAGE_TEXT));
-      page_action_controller_->ShowAnchoredMessage(kActionIndigo);
+      page_action_controller_->ShowAnchoredMessage(
+          kActionIndigo,
+          {.priority =
+               page_actions::PageActionPriorityCategory::kContextualCue});
+      // TODO(b/483103108): ShowAnchoredMessage is not guaranteed to show the
+      // anchored message. Migrate the following logic to use
+      // PageActionObserver.
       indigo_service_->AnchoredMessageShown();
       base::RecordAction(
           base::UserMetricsAction("Indigo.PageAction.ShowAnchoredMessage"));
@@ -250,7 +239,8 @@ void IndigoPageActionController::UpdateEntryPointsState() {
   is_shown_ = should_show;
 }
 
-void IndigoPageActionController::OnOnboardingDialogClosed() {
+void IndigoPageActionController::OnOnboardingDialogClosed(
+    const OnboardingResult& result) {
   onboarding_dialog_.reset();
 }
 

@@ -51,9 +51,8 @@ void ExternalBeginFrameSourceWin::OnVSyncOnSequence(
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
   vsync_interval_ = vsync_interval;
   if (skip_next_vsync_) {
-    TRACE_EVENT_INSTANT0("gpu",
-                         "ExternalBeginFrameSourceWin::OnVSync - skip_vsync",
-                         TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT("gpu",
+                        "ExternalBeginFrameSourceWin::OnVSync - skip_vsync");
     skip_next_vsync_ = false;
     return;
   }
@@ -86,8 +85,7 @@ BeginFrameArgs ExternalBeginFrameSourceWin::GetMissedBeginFrameArgs(
   if (!last_begin_frame_args_.IsValid() ||
       frame_time > last_begin_frame_args_.frame_time) {
     last_begin_frame_args_ = begin_frame_args_generator_.GenerateBeginFrameArgs(
-        source_id(), frame_time, frame_time + interval, interval,
-        vsync_interval_);
+        source_id(), frame_time, frame_time + interval, interval, interval);
   }
 
   return ExternalBeginFrameSource::GetMissedBeginFrameArgs(obs);

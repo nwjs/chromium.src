@@ -21,9 +21,9 @@
 #include "chrome/browser/ui/views/web_apps/isolated_web_apps/isolated_web_app_installer_view.h"
 #include "chrome/browser/ui/views/web_apps/isolated_web_apps/isolated_web_app_user_installability_checker.h"
 #include "chrome/browser/web_applications/icons/icon_masker.h"
-#include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/install/isolated_web_app_install_source.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_features.h"
+#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_user_installed_manager.h"
 #include "chrome/browser/web_applications/isolated_web_apps/signed_web_bundle_metadata.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
@@ -92,6 +92,10 @@ std::string CreateRandomInstanceId() {
   return uuid.AsLowercaseString();
 }
 
+// Checks if a user is able to install Isolated Web Apps.
+// This function combines checks for the general feature
+// enablement, browser-level policy settings, and (on ChromeOS) the
+// OS-level IWA enablement setting.
 bool IsUserInstallEnabledForProfile(Profile* profile) {
   if (!web_app::IsIwaUnmanagedInstallEnabled(profile)) {
     return false;
@@ -346,7 +350,7 @@ bool IsolatedWebAppInstallerViewController::OnAccept() {
           app_id, ui::EF_NONE, apps::LaunchSource::kFromInstaller,
           /*window_info=*/nullptr);
 #else
-      web_app_provider_->scheduler().LaunchApp(
+      web_app_provider_->scheduler().LaunchAppFromCommandLine(
           app_id, *base::CommandLine::ForCurrentProcess(),
           /*current_directory=*/base::FilePath(),
           /*protocol_handler_launch_url=*/std::nullopt,
@@ -488,14 +492,12 @@ void IsolatedWebAppInstallerViewController::OnChildDialogAccepted() {
               weak_ptr_factory_.GetWeakPtr()));
 
       const SignedWebBundleMetadata& metadata = model_->bundle_metadata();
-      web_app_provider_->scheduler().InstallIsolatedWebApp(
+      web_app_provider_->isolated_web_app_user_installed_manager().Install(
           metadata.url_info(),
           IsolatedWebAppInstallSource::FromGraphicalInstaller(
               model_->source().WithFileOp(IwaSourceBundleProdFileOp::kCopy,
                                           IwaSourceBundleDevFileOp::kCopy)),
           metadata.version(),
-          /*optional_keep_alive=*/nullptr,
-          /*optional_profile_keep_alive=*/nullptr,
           callback_delayer_->StartDelayingCallback(base::BindOnce(
               &IsolatedWebAppInstallerViewController::OnInstallComplete,
               weak_ptr_factory_.GetWeakPtr())));

@@ -12,15 +12,18 @@
 #import "components/open_from_clipboard/fake_clipboard_recent_content.h"
 #import "components/policy/core/common/policy_pref_names.h"
 #import "components/search_engines/search_engines_test_environment.h"
+#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #import "components/sync_preferences/testing_pref_service_syncable.h"
 #import "components/tab_groups/tab_group_id.h"
 #import "components/tab_groups/tab_group_visual_data.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_consumer.h"
 #import "ios/chrome/browser/browsing_data/model/browsing_data_remover_factory.h"
+#import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
+#import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent_observer_bridge.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/test/test_fullscreen_controller.h"
-#import "ios/chrome/browser/intelligence/bwg/model/bwg_service_impl.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_service_impl.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_prefs.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
@@ -40,10 +43,10 @@
 #import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
+#import "ios/chrome/browser/shared/public/commands/open_lens_input_selection_command.h"
 #import "ios/chrome/browser/shared/public/commands/qr_scanner_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
-#import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_groups_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -71,7 +74,9 @@
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
 
-@protocol TestAppBarConsumer <AppBarConsumer, FullscreenUIElement>
+@protocol TestAppBarConsumer <AppBarConsumer,
+                              FullscreenUIElement,
+                              FullscreenBrowserAgentObserving>
 @end
 
 namespace {
@@ -83,12 +88,14 @@ MenuScenarioHistogram kTestMenuScenario = kMenuScenarioHistogramToolbarMenu;
 @interface AppBarMediator (Test)
 - (void)updateConsumer;
 - (void)updateAssistantButton;
+- (void)addNewTabInCurrentTabGroup;
 @end
 
 class AppBarMediatorTest : public PlatformTest {
  protected:
   AppBarMediatorTest() {
-    scoped_feature_list_.InitAndEnableFeature(kChromeNextIa);
+    scoped_feature_list_.InitWithFeatures(
+        {kChromeNextIa, kFullscreenRefactoring}, {});
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         IdentityManagerFactory::GetInstance(),
@@ -119,7 +126,7 @@ class AppBarMediatorTest : public PlatformTest {
 
     auth_service_ =
         AuthenticationServiceFactory::GetForProfile(regular_profile_.get());
-    gemini_service_ptr_ = std::make_unique<BwgServiceImpl>(
+    gemini_service_ptr_ = std::make_unique<GeminiServiceImpl>(
         regular_profile_.get(), auth_service_,
         IdentityManagerFactory::GetForProfile(regular_profile_.get()),
         regular_profile_->GetTestingPrefService(),
@@ -131,6 +138,9 @@ class AppBarMediatorTest : public PlatformTest {
     regular_browser_ = std::make_unique<TestBrowser>(regular_profile_.get());
     incognito_browser_ =
         std::make_unique<TestBrowser>(incognito_profile_.get());
+
+    FullscreenBrowserAgent::CreateForBrowser(regular_browser_.get());
+    FullscreenBrowserAgent::CreateForBrowser(incognito_browser_.get());
 
     mock_scene_handler_ = OCMProtocolMock(@protocol(SceneCommands));
     [regular_browser_->GetCommandDispatcher()
@@ -192,33 +202,39 @@ class AppBarMediatorTest : public PlatformTest {
         std::make_unique<FakeClipboardRecentContent>());
 
     mediator_ = [[AppBarMediator alloc]
-          initWithRegularWebStateList:regular_web_state_list_.get()
-                incognitoWebStateList:incognito_web_state_list_.get()
-          regularFullscreenController:TestFullscreenController::FromBrowser(
-                                          regular_browser_.get())
-        incognitoFullscreenController:TestFullscreenController::FromBrowser(
-                                          incognito_browser_.get())
-                 regularActionFactory:regular_action_factory_
-               incognitoActionFactory:incognito_action_factory_
-                          prefService:regular_profile_->GetTestingPrefService()
-                   templateURLService:search_engines_test_environment_
-                                          .template_url_service()
-                authenticationService:auth_service_
-                        geminiService:gemini_service_ptr_.get()
-                accountManagerService:account_manager_service_
-                      identityManager:IdentityManagerFactory::GetForProfile(
-                                          regular_profile_.get())
-                            URLLoader:url_loader_
-                         tabGridState:tab_grid_state_
-                       incognitoState:incognito_state_];
+            initWithRegularWebStateList:regular_web_state_list_.get()
+                  incognitoWebStateList:incognito_web_state_list_.get()
+            regularFullscreenController:TestFullscreenController::FromBrowser(
+                                            regular_browser_.get())
+          incognitoFullscreenController:TestFullscreenController::FromBrowser(
+                                            incognito_browser_.get())
+          regularFullscreenBrowserAgent:FullscreenBrowserAgent::FromBrowser(
+                                            regular_browser_.get())
+        incognitoFullscreenBrowserAgent:FullscreenBrowserAgent::FromBrowser(
+                                            incognito_browser_.get())
+                   regularActionFactory:regular_action_factory_
+                 incognitoActionFactory:incognito_action_factory_
+                            prefService:regular_profile_
+                                            ->GetTestingPrefService()
+                     templateURLService:search_engines_test_environment_
+                                            .template_url_service()
+                  authenticationService:auth_service_
+                          geminiService:gemini_service_ptr_.get()
+                              URLLoader:url_loader_
+                           tabGridState:tab_grid_state_
+                         incognitoState:incognito_state_];
 
     consumer_ = OCMProtocolMock(@protocol(TestAppBarConsumer));
     mediator_.consumer = consumer_;
     mediator_.sceneHandler = mock_scene_handler_;
     mock_settings_handler_ = OCMProtocolMock(@protocol(SettingsCommands));
     mediator_.settingsHandler = mock_settings_handler_;
+    mediator_.lensHandler = mock_lens_handler_;
     mock_gemini_handler_ = OCMProtocolMock(@protocol(BWGCommands));
     mediator_.geminiHandler = mock_gemini_handler_;
+    mock_tab_groups_handler_ = OCMProtocolMock(@protocol(TabGroupsCommands));
+    mediator_.regularTabGroupsCommands = mock_tab_groups_handler_;
+    mediator_.incognitoTabGroupsCommands = mock_tab_groups_handler_;
   }
 
   ~AppBarMediatorTest() override { [mediator_ disconnect]; }
@@ -281,15 +297,16 @@ class AppBarMediatorTest : public PlatformTest {
   TabGridState* tab_grid_state_;
   IncognitoState* incognito_state_;
   raw_ptr<AuthenticationService> auth_service_;
-  std::unique_ptr<BwgService> gemini_service_ptr_;
+  std::unique_ptr<GeminiService> gemini_service_ptr_;
   raw_ptr<ChromeAccountManagerService> account_manager_service_;
-  id<AppBarConsumer, FullscreenUIElement> consumer_;
+  id<TestAppBarConsumer> consumer_;
   id mock_scene_handler_;
   id mock_browser_coordinator_handler_;
   id mock_lens_handler_;
   id mock_qr_scanner_handler_;
   id mock_settings_handler_;
   id mock_gemini_handler_;
+  id mock_tab_groups_handler_;
 };
 
 // Tests that the consumer is updated when a web state is added.
@@ -418,6 +435,111 @@ TEST_F(AppBarMediatorTest, TestCreateNewTabTabGridIncognito) {
 
   EXPECT_TRUE(url_loader_->last_params.in_incognito);
   EXPECT_EQ(1, url_loader_->load_new_tab_call_count);
+}
+
+// Tests creating a new tab in a group from inside of the tab grid.
+TEST_F(AppBarMediatorTest, TestCreateNewTabTabGridInGroup) {
+  tab_grid_state_.tabGridVisible = YES;
+  tab_grid_state_.currentPage = TabGridPageRegularTabs;
+
+  // Create a group.
+  auto web_state = std::make_unique<web::FakeWebState>();
+  regular_web_state_list_->InsertWebState(std::move(web_state));
+  const TabGroup* group = regular_web_state_list_->CreateGroup(
+      {0},
+      tab_groups::TabGroupVisualData(u"Group",
+                                     tab_groups::TabGroupColorId::kGrey),
+      tab_groups::TabGroupId::GenerateNew());
+
+  tab_grid_state_.visibleTabGroup = group;
+
+  // Expect tab grid to prepare to exit.
+  id mock_tab_grid_handler = OCMProtocolMock(@protocol(TabGridCommands));
+  mediator_.tabGridHandler = mock_tab_grid_handler;
+  OCMExpect([mock_tab_grid_handler prepareToExitTabGrid]);
+  OCMExpect([mock_tab_groups_handler_ hideTabGroup]);
+  // We don't expect exitTabGrid because FakeUrlLoadingBrowserAgent doesn't
+  // mutate the web state list, so addNewTabIncognito returns false.
+
+  // Try to open a new tab.
+  [mediator_ createNewTabFromView:nil];
+
+  EXPECT_FALSE(url_loader_->last_params.in_incognito);
+  EXPECT_FALSE(url_loader_->last_params.load_in_group);
+  EXPECT_EQ(nullptr, url_loader_->last_params.tab_group.get());
+  EXPECT_EQ(1, url_loader_->load_new_tab_call_count);
+
+  EXPECT_OCMOCK_VERIFY(mock_tab_grid_handler);
+  EXPECT_OCMOCK_VERIFY(mock_tab_groups_handler_);
+}
+
+// Tests that adding a new tab in the current group from the tab grid
+// correctly updates the URL loader with the group info and prepares to exit the
+// grid.
+TEST_F(AppBarMediatorTest, TestAddNewTabInCurrentTabGroup) {
+  tab_grid_state_.tabGridVisible = YES;
+  tab_grid_state_.currentPage = TabGridPageRegularTabs;
+
+  // Create a group.
+  auto web_state = std::make_unique<web::FakeWebState>();
+  regular_web_state_list_->InsertWebState(std::move(web_state));
+  const TabGroup* group = regular_web_state_list_->CreateGroup(
+      {0},
+      tab_groups::TabGroupVisualData(u"Group",
+                                     tab_groups::TabGroupColorId::kGrey),
+      tab_groups::TabGroupId::GenerateNew());
+
+  tab_grid_state_.visibleTabGroup = group;
+  [mediator_ updateConsumer];
+
+  // Expect tab grid to prepare to exit.
+  id mock_tab_grid_handler = OCMProtocolMock(@protocol(TabGridCommands));
+  mediator_.tabGridHandler = mock_tab_grid_handler;
+  OCMExpect([mock_tab_grid_handler prepareToExitTabGrid]);
+
+  // Try to open a new tab in group.
+  [mediator_ addNewTabInCurrentTabGroup];
+
+  EXPECT_FALSE(url_loader_->last_params.in_incognito);
+  EXPECT_TRUE(url_loader_->last_params.load_in_group);
+  EXPECT_EQ(group, url_loader_->last_params.tab_group.get());
+  EXPECT_EQ(1, url_loader_->load_new_tab_call_count);
+
+  EXPECT_OCMOCK_VERIFY(mock_tab_grid_handler);
+}
+
+// Tests creating a new tab in a group from inside of the tab grid when disabled
+// by policy.
+TEST_F(AppBarMediatorTest, TestCreateNewTabTabGridInGroupDisabledByPolicy) {
+  tab_grid_state_.tabGridVisible = YES;
+  tab_grid_state_.currentPage = TabGridPageRegularTabs;
+
+  // Create a group.
+  auto web_state = std::make_unique<web::FakeWebState>();
+  regular_web_state_list_->InsertWebState(std::move(web_state));
+  const TabGroup* group = regular_web_state_list_->CreateGroup(
+      {0},
+      tab_groups::TabGroupVisualData(u"Group",
+                                     tab_groups::TabGroupColorId::kGrey),
+      tab_groups::TabGroupId::GenerateNew());
+
+  tab_grid_state_.visibleTabGroup = group;
+
+  // Disable adding regular tabs by policy (forcing incognito).
+  regular_profile_->GetTestingPrefService()->SetManagedPref(
+      policy::policy_prefs::kIncognitoModeAvailability,
+      std::make_unique<base::Value>(
+          static_cast<int>(IncognitoModePrefs::kForced)));
+
+  // We don't expect prepareToExitTabGrid or exitTabGrid to be called.
+  id mock_tab_grid_handler = OCMProtocolMock(@protocol(TabGridCommands));
+  mediator_.tabGridHandler = mock_tab_grid_handler;
+
+  // Try to open a new tab.
+  [mediator_ createNewTabFromView:nil];
+
+  // Verify that Load was NOT called.
+  EXPECT_EQ(0, url_loader_->load_new_tab_call_count);
 }
 
 // Tests that buttons are enabled/disabled based on policy.
@@ -578,14 +700,27 @@ TEST_F(AppBarMediatorTest, TestIncognitoStateTabGrid) {
   EXPECT_OCMOCK_VERIFY(consumer_);
 }
 
+// Tests that the consumer receives fullscreen events.
+TEST_F(AppBarMediatorTest, TestFullscreenEvent) {
+  FullscreenBrowserAgent* agent =
+      FullscreenBrowserAgent::FromBrowser(regular_browser_.get());
+
+  // Expect the consumer to be notified.
+  OCMExpect([consumer_ fullscreenWillUpdateObscuredInsetRange:agent]);
+
+  // Simulate the event.
+  agent->InvalidateInsetRange();
+
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
 // Tests that the assistant button is in the signed out state when not signed
 // in and not location eligible.
-TEST_F(AppBarMediatorTest, TestAssistantButtonStateSignedOut) {
+TEST_F(AppBarMediatorTest, TestAssistantButtonStateLensFallback) {
   SetLocationEligible(false);
 
-  OCMExpect([consumer_
-      setAssistantButtonState:AppBarAssistantButtonState::kSignedOut
-                       avatar:nil]);
+  OCMExpect(
+      [consumer_ setAssistantButtonState:AppBarAssistantButtonState::kLens]);
   [mediator_ updateAssistantButton];
   EXPECT_OCMOCK_VERIFY(consumer_);
 }
@@ -595,21 +730,20 @@ TEST_F(AppBarMediatorTest, TestAssistantButtonStateSignedOut) {
 TEST_F(AppBarMediatorTest, TestAssistantButtonStateAskLocationEligible) {
   SetLocationEligible(true);
 
-  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAsk
-                                        avatar:nil]);
+  OCMExpect(
+      [consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAsk]);
   [mediator_ updateAssistantButton];
   EXPECT_OCMOCK_VERIFY(consumer_);
 }
 
-// Tests that the assistant button is in the account state when signed in but
-// not location eligible.
-TEST_F(AppBarMediatorTest, TestAssistantButtonStateAccount) {
+// Tests that the assistant button remains in the Lens state when signed in but
+// not location eligible (fallback state).
+TEST_F(AppBarMediatorTest, TestAssistantButtonStateLensFallbackSignedIn) {
   SetLocationEligible(false);
   SignInAndSetCapability(false);
 
-  OCMExpect([consumer_
-      setAssistantButtonState:AppBarAssistantButtonState::kAccount
-                       avatar:[OCMArg any]]);
+  OCMExpect(
+      [consumer_ setAssistantButtonState:AppBarAssistantButtonState::kLens]);
   [mediator_ updateAssistantButton];
   EXPECT_OCMOCK_VERIFY(consumer_);
 }
@@ -620,41 +754,24 @@ TEST_F(AppBarMediatorTest, TestAssistantButtonStateAsk) {
   SetLocationEligible(true);
   SignInAndSetCapability(true);
 
-  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAsk
-                                        avatar:nil]);
+  OCMExpect(
+      [consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAsk]);
   [mediator_ updateAssistantButton];
   EXPECT_OCMOCK_VERIFY(consumer_);
 }
 
-// Tests that tapping the assistant button in the signed out state dispatches
-// the sign-in command.
-TEST_F(AppBarMediatorTest, TestAssistantButtonTappedSignedOut) {
-  OCMExpect([mock_scene_handler_
-              showSignin:[OCMArg checkWithBlock:^BOOL(
-                                     ShowSigninCommand* command) {
-                return command.operation ==
-                           AuthenticationOperation::kSigninOnly &&
-                       command.accessPoint ==
-                           signin_metrics::AccessPoint::kIosAppBar;
-              }]
-      baseViewController:[OCMArg any]]);
-  [mediator_
-      assistantButtonTappedWithState:AppBarAssistantButtonState::kSignedOut];
-  EXPECT_OCMOCK_VERIFY(mock_scene_handler_);
-}
-
-// Tests that tapping the assistant button in the account state dispatches
-// the account settings command.
-TEST_F(AppBarMediatorTest, TestAssistantButtonTappedAccount) {
-  SignInAndSetCapability(false);
-  [mediator_ updateAssistantButton];
-
-  OCMExpect([mock_settings_handler_
-      showAccountsSettingsFromViewController:[OCMArg any]
-                        skipIfUINotAvailable:NO]);
-  [mediator_
-      assistantButtonTappedWithState:AppBarAssistantButtonState::kAccount];
-  EXPECT_OCMOCK_VERIFY(mock_settings_handler_);
+// Tests that tapping the assistant button in the Lens state dispatches
+// the Lens command.
+TEST_F(AppBarMediatorTest, TestAssistantButtonTappedLens) {
+  OCMExpect([mock_lens_handler_
+      openLensInputSelection:[OCMArg
+                                 checkWithBlock:^BOOL(
+                                     OpenLensInputSelectionCommand* command) {
+                                   return command.entryPoint ==
+                                          LensEntrypoint::AppBar;
+                                 }]]);
+  [mediator_ assistantButtonTappedWithState:AppBarAssistantButtonState::kLens];
+  EXPECT_OCMOCK_VERIFY(mock_lens_handler_);
 }
 
 // Tests that tapping the assistant button in the ask state dispatches the
@@ -680,8 +797,8 @@ TEST_F(AppBarMediatorTest, TestAssistantButtonStateAIM) {
       {kAssistantContainer, kAimCobrowse, kGeminiKillSwitch},
       {kPageActionMenu});
 
-  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAIM
-                                        avatar:nil]);
+  OCMExpect(
+      [consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAIM]);
   [mediator_ updateAssistantButton];
   EXPECT_OCMOCK_VERIFY(consumer_);
 }

@@ -47,6 +47,7 @@ class ExtensionsToolbarAndroid : public ExtensionsToolbarViewModel::Delegate,
   bool CanShowToolbarActionPopupForAPICall(
       const ToolbarActionsModel::ActionId& action_id) override;
   void ToggleExtensionsMenu() override;
+  void ShowManageExtensionsIPH() override;
 
   // ExtensionsToolbarViewModel::Observer:
   void OnActionsInitialized() override;
@@ -78,8 +79,13 @@ class ExtensionsToolbarAndroid : public ExtensionsToolbarViewModel::Delegate,
       float scale_factor);
   std::vector<ToolbarActionsModel::ActionId> GetAllActionIds(JNIEnv* env);
   std::vector<ToolbarActionsModel::ActionId> GetPinnedActionIds(JNIEnv* env);
-  int GetExtensionsMenuButtonState(JNIEnv* env,
-                                   content::WebContents* web_contents);
+  base::android::ScopedJavaLocalRef<jobject> GetMenuButtonState(
+      JNIEnv* env,
+      content::WebContents* web_contents,
+      int canvas_width_dp,
+      int canvas_height_dp,
+      float scale_factor,
+      int color);
   bool HandleKeyDownEvent(JNIEnv* env, const ui::KeyEventAndroid& key_event);
   bool IsActionDraggable(JNIEnv* env,
                          const ToolbarActionsModel::ActionId& action_id);
@@ -96,9 +102,6 @@ class ExtensionsToolbarAndroid : public ExtensionsToolbarViewModel::Delegate,
 
   void OnActionIconUpdated(const ToolbarActionsModel::ActionId& action_id);
 
-  // TODO(crbug.com/499007513): Move this logic to ExtensionsToolbarViewModel.
-  void GrantSiteAccess(content::WebContents* web_contents,
-                       const std::vector<std::string>& extension_ids);
 
   const raw_ptr<BrowserWindowInterface> browser_;
 

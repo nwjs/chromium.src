@@ -25,7 +25,7 @@ class PasswordChangeServiceInterface {
   // `page_language`.
   virtual bool IsPasswordChangeSupported(
       const PasswordForm& form,
-      const autofill::LanguageCode& page_language) const = 0;
+      bool is_non_password_login_detected) const = 0;
 
   // Records the outcome of the first login attempt
   // using a previously saved APC-password and immediately
@@ -33,6 +33,9 @@ class PasswordChangeServiceInterface {
   virtual void RecordLoginAttemptQuality(
       LogInWithChangedPasswordOutcome outcome,
       const GURL& page_url) const = 0;
+
+  // Add overridden change password URL.
+  virtual void AddChangePasswordUrlOverride(const GURL& url) = 0;
 };
 
 // Return overridden change password URL passed to chrome switch.

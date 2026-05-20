@@ -54,9 +54,9 @@ class ConnectionProxyTest : public testing::Test {
     return connection;
   }
 
-  void OnDisconnect(ErrorCode error_code) {
+  void OnDisconnect(StatusCode status_code) {
     on_disconnect_called_ = true;
-    connection_proxy_->OnDestroy(error_code);
+    connection_proxy_->OnDestroy(status_code);
   }
 
  protected:
@@ -75,7 +75,7 @@ TEST_F(ConnectionProxyTest, Success) {
   CreateConnectionProxy();
 
   // Send a request. It should be buffered.
-  base::test::TestFuture<base::expected<proto::PrivateAiResponse, ErrorCode>>
+  base::test::TestFuture<base::expected<proto::PrivateAiResponse, StatusCode>>
       future;
   proto::PrivateAiRequest request;
   request.set_request_id(1);
@@ -120,7 +120,7 @@ TEST_F(ConnectionProxyTest, SendAfterInitialization) {
   ASSERT_TRUE(inner_connection_);
 
   // Send a request. It should be sent directly.
-  base::test::TestFuture<base::expected<proto::PrivateAiResponse, ErrorCode>>
+  base::test::TestFuture<base::expected<proto::PrivateAiResponse, StatusCode>>
       future;
   proto::PrivateAiRequest request;
   request.set_request_id(1);
@@ -176,7 +176,7 @@ TEST_F(ConnectionProxyTest, FailsWithEmptyProxyUrl) {
 TEST_F(ConnectionProxyTest, ProxyTokenFailure) {
   CreateConnectionProxy();
 
-  base::test::TestFuture<base::expected<proto::PrivateAiResponse, ErrorCode>>
+  base::test::TestFuture<base::expected<proto::PrivateAiResponse, StatusCode>>
       future;
   connection_proxy_->Send(proto::PrivateAiRequest(), base::Seconds(10),
                           future.GetCallback());
@@ -189,22 +189,22 @@ TEST_F(ConnectionProxyTest, ProxyTokenFailure) {
 
   auto result = future.Get();
   EXPECT_FALSE(result.has_value());
-  EXPECT_EQ(result.error(), ErrorCode::kError);
+  EXPECT_EQ(result.error(), StatusCode::kError);
 
   // A subsequent request should also fail.
-  base::test::TestFuture<base::expected<proto::PrivateAiResponse, ErrorCode>>
+  base::test::TestFuture<base::expected<proto::PrivateAiResponse, StatusCode>>
       future2;
   connection_proxy_->Send(proto::PrivateAiRequest(), base::Seconds(10),
                           future2.GetCallback());
   auto result2 = future2.Get();
   EXPECT_FALSE(result2.has_value());
-  EXPECT_EQ(result2.error(), ErrorCode::kError);
+  EXPECT_EQ(result2.error(), StatusCode::kError);
 }
 
 TEST_F(ConnectionProxyTest, ProxyConfigTokenFailure) {
   CreateConnectionProxy();
 
-  base::test::TestFuture<base::expected<proto::PrivateAiResponse, ErrorCode>>
+  base::test::TestFuture<base::expected<proto::PrivateAiResponse, StatusCode>>
       future;
   connection_proxy_->Send(proto::PrivateAiRequest(), base::Seconds(10),
                           future.GetCallback());
@@ -220,13 +220,13 @@ TEST_F(ConnectionProxyTest, ProxyConfigTokenFailure) {
 
   auto result = future.Get();
   EXPECT_FALSE(result.has_value());
-  EXPECT_EQ(result.error(), ErrorCode::kProxyConfigFailed);
+  EXPECT_EQ(result.error(), StatusCode::kProxyConfigFailed);
 }
 
 TEST_F(ConnectionProxyTest, ProxyConfigExtensionFailure) {
   CreateConnectionProxy();
 
-  base::test::TestFuture<base::expected<proto::PrivateAiResponse, ErrorCode>>
+  base::test::TestFuture<base::expected<proto::PrivateAiResponse, StatusCode>>
       future;
   connection_proxy_->Send(proto::PrivateAiRequest(), base::Seconds(10),
                           future.GetCallback());
@@ -242,7 +242,7 @@ TEST_F(ConnectionProxyTest, ProxyConfigExtensionFailure) {
 
   auto result = future.Get();
   EXPECT_FALSE(result.has_value());
-  EXPECT_EQ(result.error(), ErrorCode::kProxyConfigFailed);
+  EXPECT_EQ(result.error(), StatusCode::kProxyConfigFailed);
 }
 
 }  // namespace

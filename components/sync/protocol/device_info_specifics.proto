@@ -128,6 +128,13 @@ message FeatureSpecificFields {
   // The values correspond to the MobilePromoOnDesktopPromoType enum.
   repeated SyncEnums.MobilePromoOnDesktopPromoType
       desktop_to_ios_promo_receiving_types = 5;
+
+  reserved 6;
+  reserved "glic_experimental_triggering_opted_in";
+
+  // Tracks the experimental triggering state for Glic on the device.
+  optional SyncEnums.GlicExperimentalTriggeringState
+      glic_experimental_triggering_state = 7;
 }
 
 // Device specific information for Sharing feature. Used to send end-to-end
@@ -146,11 +153,12 @@ message SharingSpecificFields {
     reserved "CLICK_TO_CALL_VAPID";
     reserved 2;
     reserved "SHARED_CLIPBOARD_VAPID";
+    reserved 6;
+    reserved "DISCOVERY";
 
     UNKNOWN = 0;
     SMS_FETCHER = 3;
     REMOTE_COPY = 4;
-    DISCOVERY = 6;
     // Supports Click to Call via sender ID.
     CLICK_TO_CALL_V2 = 7;
     // Supports Shared Clipboard via sender ID.
@@ -159,6 +167,8 @@ message SharingSpecificFields {
     OPTIMIZATION_GUIDE_PUSH_NOTIFICATION = 9;
     // Supports receiving notifications about new OneTimeTokens in the backend.
     ONE_TIME_TOKEN_BACKEND_NOTIFICATION = 10;
+    // Supports experimental triggering.
+    GLIC_EXPERIMENTAL_TRIGGERING = 11;
   }
   // LINT.ThenChange(/components/sync_device_info/device_info.h:SharingFeature)
 

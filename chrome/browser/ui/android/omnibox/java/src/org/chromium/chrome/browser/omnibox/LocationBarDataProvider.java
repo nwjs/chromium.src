@@ -10,7 +10,6 @@ import androidx.annotation.ColorRes;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.StringRes;
 
-import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -18,6 +17,7 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.security_state.ConnectionMaliciousContentStatus;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
+import org.chromium.content_public.browser.WebContents;
 import org.chromium.url.GURL;
 
 /** Interface defining a provider for data needed by the {@link LocationBar}. */
@@ -119,11 +119,19 @@ public interface LocationBarDataProvider {
     /** Returns the currently active tab, if there is one. */
     @Nullable Tab getTab();
 
-    /** Returns the UserDataHost linked to the current tab (if present) or context (otherwise). */
-    @Nullable UserDataHost getUserDataHost();
+    /**
+     * Returns the FuseboxSessionState linked to the current tab (if present) or context
+     * (otherwise).
+     */
+    @Nullable FuseboxSessionState getFuseboxSessionState();
 
     /** Returns whether the LocationBarDataProvider currently has an active tab. */
     boolean hasTab();
+
+    /** Returns the active WebContents. */
+    default @Nullable WebContents getWebContents() {
+        return null;
+    }
 
     /** Returns the contents of the {@link UrlBar}. */
     UrlBarData getUrlBarData();

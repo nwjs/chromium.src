@@ -9,6 +9,7 @@
 #include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "net/base/net_errors.h"
@@ -71,8 +72,9 @@ GURL GetMockUrl(const std::string& scheme,
   CHECK_GE(phase, URLRequestFailedJob::FailurePhase::START);
   CHECK_LE(phase, URLRequestFailedJob::FailurePhase::READ_ASYNC);
   CHECK_LT(net_error, OK);
-  return GURL(scheme + "://" + hostname + "/error?" + kFailurePhase[phase] +
-              "=" + base::NumberToString(net_error));
+  return GURL(
+      base::StrCat({scheme, "://", hostname, "/error?", kFailurePhase[phase],
+                    "=", base::NumberToString(net_error)}));
 }
 
 }  // namespace
@@ -122,7 +124,7 @@ void URLRequestFailedJob::PopulateNetErrorDetails(
   }
 }
 
-int64_t URLRequestFailedJob::GetTotalReceivedBytes() const {
+base::ByteSize URLRequestFailedJob::GetTotalReceivedBytes() const {
   return total_received_bytes_;
 }
 
@@ -183,7 +185,7 @@ void URLRequestFailedJob::StartAsync() {
   const std::string headers = "HTTP/1.1 200 OK";
   response_info_.headers =
       base::MakeRefCounted<net::HttpResponseHeaders>(headers);
-  total_received_bytes_ = headers.size();
+  total_received_bytes_ = base::ByteSize(headers.size());
   NotifyHeadersComplete();
 }
 

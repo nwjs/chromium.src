@@ -16,7 +16,6 @@
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
 #include "base/time/time.h"
-#include "base/timer/timer.h"
 #include "chrome/common/read_anything/read_anything.mojom-shared.h"
 #include "chrome/common/read_anything/read_anything.mojom.h"
 #include "chrome/common/read_anything/read_anything_util.h"
@@ -63,6 +62,16 @@ class ReadAnythingAppModel {
     kScreen2x = 0,
     kReadability = 1,
     kMaxValue = kReadability,
+  };
+
+  // Enum for tracking the side panel's distillation mode. This determines
+  // whether the view is derived from the main content article or from
+  // a specific user selection in the main panel.
+  // TODO: crbug.com/503024139 - Track when we switch modes.
+  enum class SidePanelDistillationMode {
+    kMainContent = 0,
+    kSelection = 1,
+    kMaxValue = kSelection,
   };
 
   struct AXTreeInfo {
@@ -136,6 +145,17 @@ class ReadAnythingAppModel {
     ui::AXNodeID id;
   };
 
+  // Represents a segment of text within an AXNode. A distilled Readability
+  // block may be mapped to multiple AXNodes (e.g., a paragraph with a link
+  // inside); each part of that mapping is a MappingSegment.
+  struct MappingSegment {
+    ui::AXNodeID id;
+    // The 0-based start and end character offsets within the *Readability
+    // block's* text content that correspond to this AXNode.
+    int start;
+    int end;
+  };
+
   // Represents a grouping of AXTreeUpdates received in the same accessibility
   // event.
   using Updates = std::vector<ui::AXTreeUpdate>;
@@ -184,6 +204,13 @@ class ReadAnythingAppModel {
 
   bool redraw_required() const { return redraw_required_; }
   void reset_redraw_required() { redraw_required_ = false; }
+
+  bool reset_distillation_delay_timer() const {
+    return reset_distillation_delay_timer_;
+  }
+  void set_reset_distillation_delay_timer(bool reset) {
+    reset_distillation_delay_timer_ = reset;
+  }
 
   int unprocessed_selections_from_reading_mode() {
     return selections_from_reading_mode_;
@@ -275,13 +302,10 @@ class ReadAnythingAppModel {
     return current_content_distillation_method_ ==
            DistillationMethod::kReadability;
   }
-  bool should_apply_accessibility_updates_for_readability_links() const {
+  bool should_apply_accessibility_updates_for_readability() const {
     // Accessibility updates for Readability shouldn't be applied outside
-    // of the regular accessibility update process if Readability is disabled
-    // or ReadAnythingWithReadabilityAllowLinksEnabled is disabled, as these
-    // updates are only needed when links are supported.
-    if (!features::IsReadAnythingWithReadabilityEnabled() ||
-        !features::IsReadAnythingWithReadabilityAllowLinksEnabled()) {
+    // of the regular accessibility update process if Readability is disabled.
+    if (!features::IsReadAnythingWithReadabilityEnabled()) {
       return false;
     }
 
@@ -357,23 +381,12 @@ class ReadAnythingAppModel {
   }
 
   bool should_extract_anchors_from_tree_for_readability() const {
-    bool is_readability_with_links_enabled =
-        features::IsReadAnythingWithReadabilityAllowLinksEnabled();
-    DUMP_WILL_BE_CHECK(is_readability_with_links_enabled);
-
-    return is_readability_with_links_enabled
-               ? should_extract_anchors_from_tree_for_readability_
-               : false;
+    return should_extract_anchors_from_tree_for_readability_;
   }
   void set_should_extract_anchors_from_tree_for_readability(
       bool should_extract_anchors_from_tree_for_readability) {
-    bool is_readability_with_links_enabled =
-        features::IsReadAnythingWithReadabilityAllowLinksEnabled();
-    DUMP_WILL_BE_CHECK(is_readability_with_links_enabled);
     should_extract_anchors_from_tree_for_readability_ =
-        is_readability_with_links_enabled
-            ? should_extract_anchors_from_tree_for_readability
-            : false;
+        should_extract_anchors_from_tree_for_readability;
   }
 
   // Processes the tree anchors.
@@ -386,14 +399,40 @@ class ReadAnythingAppModel {
     return ax_tree_anchors_;
   }
 
-  // The following methods are used for the screen2x data collection pipeline.
-  // They all have CHECKs to ensure that the DataCollectionModeForScreen2x
-  // feature flag is enabled.
-  bool ScreenAIServiceReadyForDataCollection() const;
-  void SetScreenAIServiceReadyForDataCollection();
-  bool PageFinishedLoadingForDataCollection() const;
-  void SetDataCollectionForScreen2xCallback(
-      base::OnceCallback<void()> callback);
+  const std::vector<std::string>& readability_text_blocks() const {
+    return readability_text_blocks_;
+  }
+  void set_readability_text_blocks(std::vector<std::string> blocks) {
+    readability_text_blocks_ = std::move(blocks);
+  }
+
+  bool should_map_rendered_text_to_tree_for_readability() const {
+    return should_map_rendered_text_to_tree_for_readability_;
+  }
+  void set_should_map_rendered_text_to_tree_for_readability(
+      bool should_map_rendered_text_to_tree_for_readability) {
+    should_map_rendered_text_to_tree_for_readability_ =
+        should_map_rendered_text_to_tree_for_readability;
+  }
+
+  const std::map<std::string, std::vector<std::vector<MappingSegment>>>&
+  text_to_ax_map() const {
+    return text_to_ax_map_;
+  }
+  const std::map<std::string, size_t>& text_to_ax_map_index() const {
+    return text_to_ax_map_index_;
+  }
+
+  // Maps the distilled rendered text from the WebUI with the AXtree.
+  // Returns true if the AXtree was successfully processed and we can
+  // notify the frontend that the mapping is ready.
+  bool MapRenderedTextToTree(const std::vector<std::string>& blocks);
+
+  // Returns the AX mapping for the given text. This is the primary interface
+  // for the WebUI to consume the results of the mapping algorithm. It ensures
+  // sequential consumption of identical strings.
+  std::vector<MappingSegment> GetAXMappingForText(
+      const std::string& text) const;
 
   bool page_finished_loading() const { return page_finished_loading_; }
   void set_page_finished_loading(bool page_finished_loading) {
@@ -481,11 +520,28 @@ class ReadAnythingAppModel {
   // the distilled content.
   bool PostProcessSelection();
 
+  // Synchronizes the model's selection endpoints (start_ and end_) with the
+  // latest state of the active accessibility tree. Ensures that the endpoints
+  // are stored in forward tree order.
+  void UpdateSelectionEndpoints();
+
+  // Returns true if the user's current selection is entirely contained within
+  // the distilled article content (display_node_ids_).
+  bool IsSelectionInDistilledContent() const;
+
+  // Traverses the accessibility tree to populate |selection_node_ids_| with
+  // the nodes required to render a custom user selection in the side panel.
+  void ComputeSelectionNodeIdsForSelectionMode();
+
   // Computes display nodes from the content nodes. These display nodes will be
   // displayed in the Read Anything app.ts by default.
   void ComputeDisplayNodeIdsForDistilledTree();
 
   ui::AXSerializableTree* GetActiveTree() const;
+
+  // Returns the active AXTree if it is available, initialized, and contains a
+  // root node. Returns nullptr otherwise.
+  ui::AXSerializableTree* GetValidActiveTree() const;
 
   bool ContainsTree(const ui::AXTreeID& tree_id) const;
 
@@ -567,6 +623,10 @@ class ReadAnythingAppModel {
     distillation_state_ = distillation_state;
   }
 
+  SidePanelDistillationMode side_panel_distillation_mode() const {
+    return side_panel_distillation_mode_;
+  }
+
  private:
   struct SelectionEndpoint {
     enum class Source {
@@ -608,16 +668,6 @@ class ReadAnythingAppModel {
   void EnsureAXTreeExists(const ui::AXTreeID& tree_id);
 
   void UpdateActiveTreeIfNeeded(const ui::AXTreeID& tree_id);
-
-  void HandleScreen2xDataCollection(const Updates& updates);
-
-  // Runs the data collection for screen2x pipeline, provided in the form of a
-  // callback from the ReadAnythingAppController. This should only be called
-  // when the DataCollectionModeForScreen2x feature is enabled.
-  void MaybeRunDataCollectionForScreen2xCallback();
-
-  void OnPageLoadTimerTriggered();
-  void OnTreeChangeTimerTriggered();
 
   void SetFontSize(double font_size, int increment = 0);
   void SetUkmSourceId(ukm::SourceId ukm_source_id);
@@ -724,17 +774,6 @@ class ReadAnythingAppModel {
   int line_focus_keyboard_lines_ = 0;
   int line_focus_speech_lines_ = 0;
 
-  // For screen2x data collection, Chrome is launched from the CLI to open one
-  // webpage. We record the result of the distill() call for this entire
-  // webpage, so we only make the call once the webpage finished loading and
-  // screen ai has loaded.
-  bool screen_ai_service_ready_for_data_collection_ = false;
-  bool waiting_for_page_load_completion_timer_trigger_ = true;
-  bool waiting_for_tree_change_timer_trigger_ = true;
-  base::OneShotTimer timer_since_page_load_for_data_collection_;
-  base::RetainingOneShotTimer timer_since_tree_changed_for_data_collection_;
-  base::OnceCallback<void()> data_collection_for_screen2x_callback_;
-
   // Whether the webpage has finished loading or not.
   bool page_finished_loading_ = false;
 
@@ -746,11 +785,46 @@ class ReadAnythingAppModel {
 
   bool will_hide_ = false;
 
+  // Whether the distillation delay timer should be reset.
+  bool reset_distillation_delay_timer_ = false;
+
   // Whether we should traverse the tree to find all the anchors on it.
   bool should_extract_anchors_from_tree_for_readability_;
   // Holds a map of an URL string with all the AX Tree Nodes that are related
   // to that specific URL.
   std::map<std::string, std::vector<AnchorData>> ax_tree_anchors_;
+
+  // Holds the text blocks extracted from the current rendered distillation. A
+  // "block" represents the textContent of a non-whitespace DOM text node from
+  // the WebUI. Blocks are used as one of the inputs along with the AXTree for
+  // the select text mapping algorithm. This algorithm maps these rendered
+  // blocks back to their source AXNodes.
+  std::vector<std::string> readability_text_blocks_;
+
+  // Whether we should execute the mapping algorithm between the rendered text
+  // and the AXtree that is used to populate the nodestore for a readability
+  // distillation.
+  bool should_map_rendered_text_to_tree_for_readability_ = false;
+
+  // A mapping from a distilled Readability text block (normalized string) to
+  // its corresponding AXTree segments.
+  //
+  // Structure:
+  // Key: The exact text content of a Readability block (normalized).
+  // Value: A vector of "occurrences".
+  //   - Since a page may contain multiple identical text blocks (e.g., "Read
+  //     more"), we store a vector for every time that string appears.
+  //   - Each "occurrence" is itself a vector of MappingSegments, because one
+  //     distilled block might correspond to multiple underlying AXNodes.
+  std::map<std::string, std::vector<std::vector<MappingSegment>>>
+      text_to_ax_map_;
+
+  // Tracks which occurrence of a string was last requested by the WebUI
+  // to ensure sequential mapping. When the WebUI processes the distilled
+  // content, it walks the DOM and requests the mapping for each block in order.
+  // This index ensures that if "Hello" appears twice, the first call gets the
+  // first occurrence and the second call gets the second.
+  mutable std::map<std::string, size_t> text_to_ax_map_index_;
 
   // The distillation method that will be used for the next content update.
   DistillationMethod next_distillation_method_;
@@ -758,6 +832,12 @@ class ReadAnythingAppModel {
   // The distillation method that produced the content currently visible in the
   // UI.
   DistillationMethod current_content_distillation_method_;
+
+  // Tracks whether the side panel distillation is derived from the main content
+  // article (even for an empty distillation) or from a specific user
+  // selection in the main panel.
+  SidePanelDistillationMode side_panel_distillation_mode_ =
+      SidePanelDistillationMode::kMainContent;
 
   std::map<ui::AXTreeID, ukm::SourceId> pending_ukm_sources_;
 

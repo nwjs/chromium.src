@@ -8,6 +8,7 @@
 #ifndef CHROME_COMMON_CHROME_SWITCHES_H_
 #define CHROME_COMMON_CHROME_SWITCHES_H_
 
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/common/buildflags.h"
 #include "extensions/buildflags/buildflags.h"
@@ -41,6 +42,7 @@ extern const char kAllowAppShimSignatureMismatchForTests[];
 #endif
 extern const char kAllowCrossOriginAuthPrompt[];
 extern const char kAllowHttpScreenCapture[];
+extern const char kAllowUnsafeDevToolsRemoteFileLoading[];
 extern const char kAllowRunningInsecureContent[];
 extern const char kAllowSilentPush[];
 extern const char kApp[];
@@ -103,7 +105,6 @@ extern const char kEnableDevToolsPwaHandler[];
 extern const char kEnableDownloadWarningImprovements[];
 extern const char kEnableExtensionActivityLogging[];
 extern const char kEnableExtensionActivityLogTesting[];
-extern const char kEnableUnsafeExtensionDebugging[];
 extern const char kEnableHangoutServicesExtensionForTesting[];
 extern const char kEnableNetBenchmarking[];
 extern const char kEnablePotentiallyAnnoyingSecurityFeatures[];
@@ -215,6 +216,7 @@ extern const char kWinHttpProxyResolver[];
 extern const char kWinJumplistAction[];
 
 #if BUILDFLAG(IS_ANDROID)
+extern const char kAndroidEntraSsoAllowDebugBrokers[];
 extern const char kAuthAndroidNegotiateAccountType[];
 extern const char kDisableDefaultBrowserPromo[];
 extern const char kForceDeviceOwnership[];
@@ -226,6 +228,7 @@ extern const char kForceDisableSigninFRE[];
 extern const char kForceUpdateMenuType[];
 extern const char kMarketUrlForTesting[];
 extern const char kRequestDesktopSites[];
+extern const char kUseWebUiNtp[];
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
@@ -321,6 +324,10 @@ extern const char kUseSystemDefaultPrinter[];
 
 #if BUILDFLAG(ENABLE_DOWNGRADE_PROCESSING)
 extern const char kUserDataMigrated[];
+#endif
+
+#if BUILDFLAG(CHROME_FOR_TESTING)
+extern const char kEnterpriseSigninDialogBehaviorForTesting[];
 #endif
 
 // DON'T ADD RANDOM STUFF HERE. Put it in the main section above in

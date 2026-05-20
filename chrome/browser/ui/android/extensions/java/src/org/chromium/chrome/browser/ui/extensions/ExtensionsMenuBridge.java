@@ -29,11 +29,18 @@ public class ExtensionsMenuBridge implements Destroyable {
     private long mNativeExtensionsMenuDelegateAndroid;
     private final Observer mObserver;
 
-    public ExtensionsMenuBridge(ChromeAndroidTask task, Profile profile, Observer observer) {
+    public ExtensionsMenuBridge(
+            ChromeAndroidTask task,
+            Profile profile,
+            ExtensionsToolbarBridge toolbarBridge,
+            Observer observer) {
         mObserver = observer;
         mNativeExtensionsMenuDelegateAndroid =
                 ExtensionsMenuBridgeJni.get()
-                        .init(this, task.getOrCreateNativeBrowserWindowPtr(profile));
+                        .init(
+                                this,
+                                task.getOrCreateNativeBrowserWindowPtr(profile),
+                                toolbarBridge.getNativePtr());
     }
 
     @Override
@@ -44,10 +51,28 @@ public class ExtensionsMenuBridge implements Destroyable {
         LifetimeAssert.destroy(mLifetimeAssert);
     }
 
+    /**
+     * Executes the extension action.
+     *
+     * @param extensionId The ID of the extension to execute.
+     */
+    public void executeAction(String extensionId) {
+        ExtensionsMenuBridgeJni.get()
+                .executeAction(mNativeExtensionsMenuDelegateAndroid, extensionId);
+    }
+
     /** Returns the icon for the given extension index from native. */
     public @Nullable Bitmap getActionIcon(int actionIndex) {
         return ExtensionsMenuBridgeJni.get()
                 .getActionIcon(mNativeExtensionsMenuDelegateAndroid, actionIndex);
+    }
+
+    /** Returns the extension site permissions state from native. */
+    public ExtensionsMenuTypes.ExtensionSitePermissionsState getExtensionSitePermissionsState(
+            String extensionId) {
+        return ExtensionsMenuBridgeJni.get()
+                .getExtensionSitePermissionsState(
+                        mNativeExtensionsMenuDelegateAndroid, extensionId);
     }
 
     /** Returns the list of menu entries with their states from native. */
@@ -71,6 +96,19 @@ public class ExtensionsMenuBridge implements Destroyable {
     }
 
     /**
+     * Called when a site access option for an extension is selected in the UI.
+     *
+     * @param extensionId The ID of the extension.
+     * @param siteAccess The selected site access option.
+     */
+    public void onExtensionSiteAccessSelected(
+            String extensionId, @ExtensionsMenuTypes.UserSiteAccess int siteAccess) {
+        ExtensionsMenuBridgeJni.get()
+                .onSiteAccessSelected(
+                        mNativeExtensionsMenuDelegateAndroid, extensionId, siteAccess);
+    }
+
+    /**
      * Called when the site access toggle for an extension is changed in the UI.
      *
      * @param extensionId The ID of the extension.
@@ -79,6 +117,18 @@ public class ExtensionsMenuBridge implements Destroyable {
     public void onExtensionToggleSelected(String extensionId, boolean isOn) {
         ExtensionsMenuBridgeJni.get()
                 .onExtensionToggleSelected(mNativeExtensionsMenuDelegateAndroid, extensionId, isOn);
+    }
+
+    /**
+     * Called when the show requests toggle for an extension is changed in the UI.
+     *
+     * @param extensionId The ID of the extension.
+     * @param isOn Whether the toggle is on.
+     */
+    public void onShowRequestsTogglePressed(String extensionId, boolean isOn) {
+        ExtensionsMenuBridgeJni.get()
+                .onShowRequestsTogglePressed(
+                        mNativeExtensionsMenuDelegateAndroid, extensionId, isOn);
     }
 
     /**
@@ -169,6 +219,12 @@ public class ExtensionsMenuBridge implements Destroyable {
         mObserver.onActionUpdated(actionIndex);
     }
 
+    /** Callback from native indicating the list of pinned actions changed. */
+    @CalledByNative
+    public void onPinnedActionsChanged() {
+        mObserver.onPinnedActionsChanged();
+    }
+
     /**
      * Callback from native indicating that the menu data is ready. This will not be called if the
      * menu data is ready at the menu bridge initialization.
@@ -205,6 +261,12 @@ public class ExtensionsMenuBridge implements Destroyable {
         mObserver.onHostAccessRequestsCleared();
     }
 
+    @CalledByNative
+    private void onShowHostAccessRequestsInToolbarChanged(
+            @JniType("std::string") String extensionId) {
+        mObserver.onShowHostAccessRequestsInToolbarChanged(extensionId);
+    }
+
     public interface Observer {
         /** Called when an extension icon has been updated on actionIndex. */
         void onActionIconUpdated(int actionIndex);
@@ -217,6 +279,9 @@ public class ExtensionsMenuBridge implements Destroyable {
 
         /** Called when an extension has been updated on actionIndex. */
         void onActionUpdated(int actionIndex);
+
+        /** Called when the pinned actions in the model are changed. */
+        void onPinnedActionsChanged();
 
         /** Called when the menu data is ready to be consumed. */
         void onReady();
@@ -239,6 +304,9 @@ public class ExtensionsMenuBridge implements Destroyable {
 
         /** Called when all host access requests have been cleared. */
         void onHostAccessRequestsCleared();
+
+        /** Called when the show requests toggle for an extension changed. */
+        void onShowHostAccessRequestsInToolbarChanged(String extensionId);
     }
 
     @NativeMethods
@@ -249,13 +317,26 @@ public class ExtensionsMenuBridge implements Destroyable {
          * @param bridge The Java bridge object.
          * @param browserWindowInterfacePtr The pointer to the native BrowserWindowInterface.
          */
-        long init(ExtensionsMenuBridge bridge, long browserWindowInterfacePtr);
+        long init(
+                ExtensionsMenuBridge bridge,
+                long browserWindowInterfacePtr,
+                long nativeExtensionsToolbarAndroid);
 
         /** Destroys the native ExtensionsMenuDelegateAndroid. */
         void destroy(long nativeExtensionsMenuDelegateAndroid);
 
-        // Returns the icon for an extension's action at actionIndex.
+        /** Executes the extension action. */
+        void executeAction(
+                long nativeExtensionsMenuDelegateAndroid,
+                @JniType("std::string") String extensionId);
+
+        /** Returns the icon for an extension's action at actionIndex. */
         @Nullable Bitmap getActionIcon(long nativeExtensionsMenuDelegateAndroid, int actionIndex);
+
+        /** Returns the extension site permissions state from native. */
+        ExtensionsMenuTypes.ExtensionSitePermissionsState getExtensionSitePermissionsState(
+                long nativeExtensionsMenuDelegateAndroid,
+                @JniType("std::string") String extensionId);
 
         /** Returns the list of menu entries with their states from native. */
         @JniType("std::vector<base::android::ScopedJavaLocalRef<jobject>>")
@@ -270,6 +351,12 @@ public class ExtensionsMenuBridge implements Destroyable {
 
         /** Returns the optional section to display in the menu. */
         int getOptionalSection(long nativeExtensionsMenuDelegateAndroid);
+
+        /** Called when a site access option for an extension is selected in the UI. */
+        void onSiteAccessSelected(
+                long nativeExtensionsMenuDelegateAndroid,
+                @JniType("std::string") String extensionId,
+                @JniType("extensions::PermissionsManager::UserSiteAccess") int siteAccess);
 
         /** Called when the site access toggle for an extension is changed in the UI. */
         void onExtensionToggleSelected(
@@ -294,6 +381,12 @@ public class ExtensionsMenuBridge implements Destroyable {
 
         /** Tells the native model to reload the page. */
         void onReloadPageButtonClicked(long nativeExtensionsMenuDelegateAndroid);
+
+        /** Called when the show requests toggle for an extension is changed in the UI. */
+        void onShowRequestsTogglePressed(
+                long nativeExtensionsMenuDelegateAndroid,
+                @JniType("std::string") String extensionId,
+                boolean isOn);
 
         /** Returns whether the native menu model is ready. */
         boolean isReady(long nativeExtensionsMenuDelegateAndroid);

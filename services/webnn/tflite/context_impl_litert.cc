@@ -73,7 +73,7 @@ ContextImplLiteRt::ContextImplLiteRt(
 ContextImplLiteRt::~ContextImplLiteRt() = default;
 
 base::WeakPtr<WebNNContextImpl> ContextImplLiteRt::AsWeakPtr() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(gpu_sequence_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return weak_factory_.GetWeakPtr();
 }
 
@@ -155,6 +155,13 @@ ContextImplLiteRt::CreateTensorFromSharedImageImpl(
 
 std::string_view ContextImplLiteRt::GetBackendName() const {
   return "LiteRT";
+}
+
+std::vector<mojom::WebNNExecutionProviderDetailsPtr>
+ContextImplLiteRt::GetExecutionProvidersInfo() const {
+  // LiteRT does not have the concept of execution providers, so we return an
+  // empty list.
+  return {};
 }
 
 }  // namespace webnn::litert

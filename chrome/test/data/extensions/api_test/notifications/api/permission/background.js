@@ -13,15 +13,14 @@ function getPermissionLevel() {
 }
 
 function onPermissionLevelChangedListener(permissionLevel) {
-  if (permissionLevel != 'denied' && permissionLevel != 'granted') {
+  if (permissionLevel !== 'denied' && permissionLevel !== 'granted') {
     chrome.test.notifyFail(
         `Unexpected permission level ${permissionLevel} received`);
     return;
   }
 
-  if (permissionLevel == currentPermissionLevel) {
-    chrome.test.notifyFail(
-        `Same permission level ${permissionLevel} received`);
+  if (permissionLevel === currentPermissionLevel) {
+    chrome.test.notifyFail(`Same permission level ${permissionLevel} received`);
     return;
   }
 

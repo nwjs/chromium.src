@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
@@ -45,11 +46,13 @@
 #include "cc/trees/layer_tree_settings.h"
 #include "cc/trees/property_tree.h"
 #include "cc/trees/task_runner_provider.h"
+#include "cc/trees/tree_synchronizer.h"
 #include "components/viz/client/client_resource_provider.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/common/quads/compositor_frame.h"
 #include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
 #include "components/viz/service/frame_sinks/frame_sink_manager_impl.h"
+#include "components/viz/service/layers/viz_layer_tree_host_impl.h"
 #include "ui/gfx/animation/keyframe/keyframed_animation_curve.h"
 
 namespace viz {
@@ -213,10 +216,10 @@ base::expected<void, std::string> CreateLayer(
       break;
     }
 
-    default:
-      // TODO(rockot): Support other layer types.
-      layer = cc::SolidColorLayerImpl::Create(&tree, id);
-      break;
+    case cc::mojom::LayerType::kHeadsUpDisplay:
+    case cc::mojom::LayerType::kPicture:
+    case cc::mojom::LayerType::kVideo:
+      return base::unexpected("Invalid LayerType for CreateLayer.");
   }
   return base::ok();
 }
@@ -532,10 +535,12 @@ DeserializeStickyPositionData(
   std::vector<cc::StickyPositionNodeData> sticky_position_node_data;
   sticky_position_node_data.reserve(wire_data.size());
   for (auto& wire : wire_data) {
-    if (!IsPropertyTreeIndexValid(trees.scroll_tree(),
-                                  wire->x_scroll_ancestor) &&
-        !IsPropertyTreeIndexValid(trees.scroll_tree(),
-                                  wire->y_scroll_ancestor)) {
+    if (!IsOptionalPropertyTreeIndexValid(trees.scroll_tree(),
+                                          wire->x_scroll_ancestor) ||
+        !IsOptionalPropertyTreeIndexValid(trees.scroll_tree(),
+                                          wire->y_scroll_ancestor) ||
+        (wire->x_scroll_ancestor == cc::kInvalidPropertyNodeId &&
+         wire->y_scroll_ancestor == cc::kInvalidPropertyNodeId)) {
       return base::unexpected("Invalid scroll ancestor ID");
     }
 
@@ -983,8 +988,17 @@ base::expected<void, std::string> UpdateLayer(const mojom::Layer& wire,
             general.layer_extra->get_view_transition_content_layer_extra(),
             static_cast<cc::ViewTransitionContentLayerImpl&>(layer));
         break;
-      default:
-        // TODO(zmo): handle other types of LayerImpl.
+      case cc::mojom::LayerType::kHeadsUpDisplay:
+      case cc::mojom::LayerType::kPicture:
+      case cc::mojom::LayerType::kVideo:
+        return base::unexpected("Invalid LayerType for UpdateLayer.");
+      case cc::mojom::LayerType::kLayer:
+        RETURN_IF_FALSE(!general.layer_extra,
+                        "Unexpected layer_extra for LayerImpl");
+        break;
+      case cc::mojom::LayerType::kSolidColor:
+        RETURN_IF_FALSE(!general.layer_extra,
+                        "Unexpected layer_extra for SolidColorLayerImpl");
         break;
     }
   }
@@ -999,53 +1013,33 @@ base::expected<void, std::string> CreateOrUpdateLayers(
     cc::LayerTreeImpl& layers) {
   TRACE_EVENT1("viz", "CreateOrUpdateLayers", "LayerCount", updates.size());
 
-  // First, apply all updates. This may create new layers or update existing
-  // ones.
+  // First add new layers to the tree
   for (auto& wire : updates) {
     cc::LayerImpl* layer = layers.LayerById(wire->id);
-    if (layer) {
-      RETURN_IF_ERROR(UpdateLayer(*wire, *layer));
-    } else {
+    if (!layer) {
       if (!layer_order) {
         // If there's a new layer, there must also be a new |layer_order|.
         return base::unexpected("Invalid layer ID");
       }
       std::unique_ptr<cc::LayerImpl> new_layer;
       RETURN_IF_ERROR(CreateLayer(host_impl, layers, *wire, new_layer));
-      cc::LayerImpl* layer_ptr = new_layer.get();
-      RETURN_IF_ERROR(UpdateLayer(*wire, *layer_ptr));
       layers.AddLayer(std::move(new_layer));
     }
   }
 
+  // Reorder layers if necessary; obsolete layers will be deleted.
   if (layer_order) {
-    cc::OwnedLayerImplList old_layers = layers.DetachLayers();
-    std::vector<std::pair<int, size_t>> layer_indices_vector;
-    layer_indices_vector.reserve(old_layers.size());
-    for (size_t i = 0; i < old_layers.size(); ++i) {
-      layer_indices_vector.emplace_back(old_layers[i]->id(), i);
-    }
+    RETURN_IF_ERROR(cc::TreeSynchronizer::SynchronizeLayerOrder(
+        layer_order.value(), layers));
+  }
 
-    // Layer ids should be unique here, so doing a std::sort and
-    // base::sorted_unique initializer is the most efficient, avoiding
-    // a std::stable_sort inside base::flat_map.
-    std::sort(layer_indices_vector.begin(), layer_indices_vector.end());
-    base::flat_map<int, size_t> layer_indices(base::sorted_unique,
-                                              std::move(layer_indices_vector));
-
-    layers.ReserveLayers(layer_order->size());
-    for (auto id : *layer_order) {
-      auto it = layer_indices.find(id);
-      if (it == layer_indices.end()) {
-        return base::unexpected("Invalid or duplicate layer ID");
-      }
-      size_t index = it->second;
-      auto& layer = old_layers[index];
-      if (!layer) {
-        return base::unexpected("Invalid or duplicate layer ID");
-      }
-      layers.AddLayer(std::move(layer));
+  // Apply layer updates
+  for (auto& wire : updates) {
+    cc::LayerImpl* layer = layers.LayerById(wire->id);
+    if (!layer) {
+      return base::unexpected("Layer ID not found after synchronization");
     }
+    RETURN_IF_ERROR(UpdateLayer(*wire, *layer));
   }
 
   return base::ok();
@@ -1069,11 +1063,16 @@ base::expected<void, std::string> UpdateViewportPropertyIds(
   if (!IsOptionalPropertyTreeIndexValid(scroll_tree, update.inner_scroll)) {
     return base::unexpected("Invalid inner_scroll");
   }
-  if (update.inner_scroll == cc::kInvalidPropertyNodeId &&
-      (update.outer_clip != cc::kInvalidPropertyNodeId ||
-       update.outer_scroll != cc::kInvalidPropertyNodeId)) {
-    return base::unexpected(
-        "Cannot set outer_clip or outer_scroll without valid inner_scroll");
+  if (update.inner_scroll == cc::kInvalidPropertyNodeId) {
+    if (update.outer_clip != cc::kInvalidPropertyNodeId ||
+        update.outer_scroll != cc::kInvalidPropertyNodeId) {
+      return base::unexpected(
+          "Cannot set outer_clip or outer_scroll without valid inner_scroll");
+    }
+  } else {
+    if (update.outer_scroll == cc::kInvalidPropertyNodeId) {
+      return base::unexpected("Must set outer_scroll if inner_scroll is set");
+    }
   }
   if (!IsOptionalPropertyTreeIndexValid(clip_tree, update.outer_clip)) {
     return base::unexpected("Invalid outer_clip");
@@ -1081,6 +1080,7 @@ base::expected<void, std::string> UpdateViewportPropertyIds(
   if (!IsOptionalPropertyTreeIndexValid(scroll_tree, update.outer_scroll)) {
     return base::unexpected("Invalid outer_scroll");
   }
+
   layers.SetViewportPropertyIds(cc::ViewportPropertyIds{
       .overscroll_elasticity_transform = update.overscroll_elasticity_transform,
       .page_scale_transform = update.page_scale_transform,
@@ -1154,6 +1154,29 @@ base::expected<void, std::string> DeserializeTiling(
   tiling.SetTileSize(wire.tile_size);
   tiling.SetTilingRect(wire.tiling_rect);
   for (auto& wire_tile : wire.tiles) {
+    const bool is_out_of_bounds =
+        wire_tile->column_index >=
+            static_cast<uint32_t>(tiling.tiling_data()->num_tiles_x()) ||
+        wire_tile->row_index >=
+            static_cast<uint32_t>(tiling.tiling_data()->num_tiles_y());
+    if (is_out_of_bounds) {
+      const bool is_deleted = wire_tile->contents->is_missing_reason() &&
+                              wire_tile->contents->get_missing_reason() ==
+                                  cc::mojom::MissingTileReason::kTileDeleted;
+
+      if (!is_deleted) {
+        return base::unexpected("Invalid tile index in Tiling");
+      }
+
+      // OOB deleted tiles are allowed for cleanup, but they cannot track damage
+      // because they have no valid bounds in the current tiling grid.
+      if (wire_tile->update_damage) {
+        return base::unexpected(
+            "Out-of-bounds deleted tile cannot update damage");
+      }
+    }
+    // TODO(zmo): Should we also reject deleted tiles with |update_damage| set
+    // to true?
     ASSIGN_OR_RETURN(auto contents,
                      DeserializeTileContents(host_impl, *wire_tile->contents));
     tiling.SetTileContents(
@@ -1232,6 +1255,10 @@ DeserializeTimingFunction(mojom::TimingFunction& wire) {
       }
       if (points.empty()) {
         return gfx::LinearTimingFunction::Create();
+      }
+      if (points.size() < 2) {
+        return base::unexpected(
+            "Invalid number of points: must be at least 2 for LinearTiming");
       }
       return gfx::LinearTimingFunction::Create(std::move(points));
     }
@@ -1426,7 +1453,8 @@ base::expected<void, std::string> DeserializeAnimationCurve(
   model->set_playback_rate(wire.playback_rate);
   model->set_iterations(wire.iterations);
   model->set_iteration_start(wire.iteration_start);
-  model->set_time_offset(wire.time_offset);
+  model->set_start_delay(wire.start_delay);
+  model->set_hold_time(wire.hold_time);
   model->set_element_id(wire.element_id);
   animation.keyframe_effect()->AddKeyframeModel(std::move(model));
   return base::ok();
@@ -1561,7 +1589,7 @@ LayerContextImpl::LayerContextImpl(
       task_runner_provider_(cc::TaskRunnerProvider::CreateForDisplayTree(
           base::SingleThreadTaskRunner::GetCurrentDefault())),
       rendering_stats_(cc::RenderingStatsInstrumentation::Create()),
-      host_impl_(cc::LayerTreeHostImpl::Create(
+      host_impl_(VizLayerTreeHostImpl::Create(
           GetDisplayTreeSettings(std::move(settings)),
           this,
           task_runner_provider_.get(),
@@ -1813,9 +1841,18 @@ void LayerContextImpl::UpdateDisplayTree(mojom::LayerTreeUpdatePtr update) {
   const BeginFrameArgs begin_frame_args = update->begin_frame_args;
   auto start_update_display_tree = base::TimeTicks::Now();
   const bool frame_has_damage = update->frame_has_damage;
+  const bool is_flush = update->is_flush;
   auto result = DoUpdateDisplayTree(std::move(update));
   if (!result.has_value()) {
     HandleBadMojoMessage("UpdateDisplayTree", result.error());
+    return;
+  }
+
+  // If this is a flush-only update, we only want to synchronize the state
+  // and return any resources that were released. We skip the draw and
+  // expensive post-sync recomputations.
+  if (is_flush) {
+    DoReturnResources();
     return;
   }
 
@@ -1830,16 +1867,30 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
     mojom::LayerTreeUpdatePtr update) {
   TRACE_EVENT0("viz", "LayerContextImpl::DoUpdateDisplayTree");
   cc::LayerTreeImpl& layers = *host_impl_->active_tree();
+  cc::PropertyTrees& property_trees = *layers.property_trees();
+
+  // Any update to the display tree requires a new draw properties update if
+  // validation fails and returns early, because we may have already mutated
+  // some state (like taking render surfaces or resizing trees).
+  base::ScopedClosureRunner cleanup(base::BindOnce(
+      [](cc::LayerTreeImpl* layers) {
+        layers->set_needs_update_draw_properties();
+      },
+      &layers));
+
+  std::vector<std::unique_ptr<cc::RenderSurfaceImpl>> old_render_surfaces;
+  property_trees.effect_tree_mutable().TakeRenderSurfaces(&old_render_surfaces);
 
   // We resize all property trees first, as layers and property tree nodes
   // themselves may index one or more other property tree nodes. These indices
   // need to be validated, and the dependency can be cyclic (e.g. scroll nodes
   // may index transform nodes and transform nodes may index scroll nodes).
-  cc::PropertyTrees& property_trees = *layers.property_trees();
   const bool transform_size_changed = ResizePropertyTree(
       property_trees.transform_tree_mutable(), update->num_transform_nodes);
   const bool clip_size_changed = ResizePropertyTree(
       property_trees.clip_tree_mutable(), update->num_clip_nodes);
+  const bool effect_size_increased =
+      update->num_effect_nodes > property_trees.effect_tree().nodes().size();
   const bool effect_size_changed = ResizePropertyTree(
       property_trees.effect_tree_mutable(), update->num_effect_nodes);
   const bool scroll_size_changed = ResizePropertyTree(
@@ -1943,13 +1994,27 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
   if (update->local_surface_id_from_parent) {
     layers.SetLocalSurfaceIdFromParent(*update->local_surface_id_from_parent);
   }
-  host_impl_->set_current_local_surface_id_from_client(
-      update->current_local_surface_id);
+
+  // Regular updates (non-flush) must provide a valid current LocalSurfaceId.
+  // During backgrounding (flush updates), this may be omitted if the renderer
+  // no longer has a valid ID.
+  if (!update->is_flush) {
+    RETURN_IF_FALSE(update->current_local_surface_id,
+                    "Missing current_local_surface_id in non-flush update");
+  }
+
+  if (update->current_local_surface_id) {
+    host_impl_->set_current_local_surface_id_from_client(
+        *update->current_local_surface_id);
+  }
 
   RETURN_IF_FALSE(update->next_frame_token > 0, "invalid frame token");
   host_impl_->set_next_frame_token_from_client(update->next_frame_token);
 
   for (const auto& latency : update->latency_info) {
+    if (latency.terminated()) {
+      return base::unexpected("Received already-terminated LatencyInfo");
+    }
     layers.QueuePinnedSwapPromise(
         std::make_unique<cc::LatencyInfoSwapPromise>(latency));
   }
@@ -2106,6 +2171,16 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
     }
   }
 
+  const bool viewport_deltas_changed =
+      property_trees.inner_viewport_container_bounds_delta() !=
+          update->inner_viewport_container_bounds_delta ||
+      property_trees.outer_viewport_container_bounds_delta() !=
+          update->outer_viewport_container_bounds_delta;
+  property_trees.SetInnerViewportContainerBoundsDelta(
+      update->inner_viewport_container_bounds_delta);
+  property_trees.SetOuterViewportContainerBoundsDelta(
+      update->outer_viewport_container_bounds_delta);
+
   property_trees.UpdateChangeTracking();
   property_trees.transform_tree_mutable().set_needs_update(
       transform_size_changed || transform_properties_changed ||
@@ -2118,31 +2193,36 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
       effect_size_changed || effect_nodes_changed ||
       property_trees.effect_tree().needs_update());
 
+  const bool any_tree_except_effect_size_changed =
+      viewport_deltas_changed || transform_size_changed ||
+      transform_nodes_changed || clip_size_changed || clip_nodes_changed ||
+      effect_nodes_changed || scroll_size_changed || scroll_nodes_changed;
   const bool any_tree_changed =
-      transform_size_changed || transform_nodes_changed || clip_size_changed ||
-      clip_nodes_changed || effect_size_changed || effect_nodes_changed ||
-      scroll_size_changed || scroll_nodes_changed;
+      any_tree_except_effect_size_changed || effect_size_changed;
   property_trees.set_changed(any_tree_changed);
   if (any_tree_changed) {
     property_trees.ResetCachedData();
-    layers.set_needs_update_draw_properties();
+
+    // Any property tree change normally requires a draw property update.
+    // However, if the only change is that some effect nodes were removed, we
+    // can defer the update until we determine if any render surfaces were
+    // removed. This is handled below.
+    if (any_tree_except_effect_size_changed || effect_size_increased) {
+      layers.set_needs_update_draw_properties();
+    }
   }
 
-  std::vector<std::unique_ptr<cc::RenderSurfaceImpl>> old_render_surfaces;
-  property_trees.effect_tree_mutable().TakeRenderSurfaces(&old_render_surfaces);
   const bool render_surfaces_changed =
       property_trees.effect_tree_mutable().CreateOrReuseRenderSurfaces(
           &old_render_surfaces, &layers);
-  if (effect_size_changed || render_surfaces_changed) {
-    // TODO(rockot): Forcing draw property updates here isn't strictly necessary
-    // when `effect_size_changed` is true unless it's because we've removed at
-    // least one EffectNode that was inducing a render surface.
+  if (render_surfaces_changed) {
     layers.set_needs_update_draw_properties();
   }
   // Set this last, making sure renderer side state isn't overwritten by other
   // updates. As this is a transient property, we should set but not clear it.
   if (update->full_tree_damaged) {
     property_trees.set_full_tree_damaged(true);
+    layers.set_needs_update_draw_properties();
   }
 
   // Safe down-cast: AnimationHost is the only subclass of MutatorHost.
@@ -2155,10 +2235,11 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
   // flagging draw properties as needing an update when no relevant properties
   // have changed.
   if (any_tree_changed || scroll_properties_changed ||
-      transform_layer_properties_changed) {
+      transform_layer_properties_changed || update->full_tree_damaged) {
     layers.MoveChangeTrackingToLayers();
   }
 
+  cleanup.ReplaceClosure(base::DoNothing());
   return base::ok();
 }
 
@@ -2247,11 +2328,6 @@ void LayerContextImpl::UpdateDisplayTiling(mojom::TilingPtr tiling) {
   }
 }
 
-void LayerContextImpl::SetTargetLocalSurfaceId(
-    const LocalSurfaceId& target_local_surface_id) {
-  host_impl_->SetTargetLocalSurfaceId(target_local_surface_id);
-}
-
 base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTiling(
     mojom::TilingPtr tiling) {
   cc::LayerTreeImpl& layers = *host_impl_->active_tree();
@@ -2267,12 +2343,21 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTiling(
   return base::ok();
 }
 
+void LayerContextImpl::SetTargetLocalSurfaceId(
+    const LocalSurfaceId& target_local_surface_id) {
+  CHECK(receiver_);
+  auto result = DoSetTargetLocalSurfaceId(target_local_surface_id);
+  if (!result.has_value()) {
+    HandleBadMojoMessage("SetTargetLocalSurfaceId", result.error());
+  }
+}
+
 base::expected<void, std::string> LayerContextImpl::DoSetTargetLocalSurfaceId(
     const LocalSurfaceId& target_local_surface_id) {
   if (!target_local_surface_id.is_valid()) {
     return base::unexpected("Invalid target_local_surface_id");
   }
-  SetTargetLocalSurfaceId(target_local_surface_id);
+  host_impl_->SetTargetLocalSurfaceId(target_local_surface_id);
   return base::ok();
 }
 

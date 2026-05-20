@@ -14,18 +14,24 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/android/extensions/extension_action_delegate_android.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/extensions/extensions_toolbar_view_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/permissions_manager.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
+#include "ui/color/color_provider.h"
 #include "ui/events/android/key_event_android.h"
 #include "ui/gfx/android/java_bitmap.h"
+#include "ui/gfx/canvas.h"
+#include "ui/gfx/image/canvas_image_source.h"
 #include "ui/gfx/image/image_skia_rep.h"
+#include "ui/gfx/paint_vector_icon.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/browser/ui/android/extensions/jni_headers/ExtensionAction_jni.h"
+#include "chrome/browser/ui/android/extensions/jni_headers/ExtensionsMenuButtonState_jni.h"
 #include "chrome/browser/ui/android/extensions/jni_headers/ExtensionsToolbarBridge_jni.h"
 #include "chrome/browser/ui/android/extensions/jni_headers/RequestAccessButtonParams_jni.h"
 
@@ -113,8 +119,8 @@ void ExtensionsToolbarAndroid::HideActivePopup() {
 }
 
 void ExtensionsToolbarAndroid::CloseExtensionsMenuIfOpen() {
-  // TODO(crbug.com/461981075)
-  NOTIMPLEMENTED();
+  Java_ExtensionsToolbarBridge_closeExtensionsMenuIfOpen(AttachCurrentThread(),
+                                                         java_object_);
 }
 
 bool ExtensionsToolbarAndroid::CanShowToolbarActionPopupForAPICall(
@@ -124,8 +130,14 @@ bool ExtensionsToolbarAndroid::CanShowToolbarActionPopupForAPICall(
 }
 
 void ExtensionsToolbarAndroid::ToggleExtensionsMenu() {
-  // TODO(crbug.com/461981075)
+  // On Android, the menu is tied to the extensions menu button within Java and
+  // therefore this method is not used.
   NOTIMPLEMENTED();
+}
+
+void ExtensionsToolbarAndroid::ShowManageExtensionsIPH() {
+  Java_ExtensionsToolbarBridge_showManageExtensionsIPH(AttachCurrentThread(),
+                                                       java_object_);
 }
 
 void ExtensionsToolbarAndroid::OnActionsInitialized() {
@@ -183,9 +195,37 @@ base::android::ScopedJavaLocalRef<jobject> ExtensionsToolbarAndroid::GetAction(
     content::WebContents* web_contents) {
   ToolbarActionViewModel* action =
       toolbar_view_model_->GetActionModelForId(action_id);
+
+  auto hover_card_state = action->GetHoverCardState(web_contents);
+  ExtensionActionViewModel::HoverCardUiState ui_state =
+      action->GetHoverCardUiState(hover_card_state, web_contents);
+
+  std::optional<std::string> site_access_title;
+  if (ui_state.site_access_title.has_value()) {
+    site_access_title = base::UTF16ToUTF8(ui_state.site_access_title.value());
+  }
+
+  std::optional<std::string> site_access_description;
+  if (ui_state.site_access_description.has_value()) {
+    site_access_description =
+        base::UTF16ToUTF8(ui_state.site_access_description.value());
+  }
+
+  std::optional<std::string> policy_text;
+  if (ui_state.policy_text.has_value()) {
+    policy_text = base::UTF16ToUTF8(ui_state.policy_text.value());
+  }
+
+  base::android::ScopedJavaLocalRef<jobject> java_hover_card_state =
+      Java_HoverCardState_Constructor(
+          env, static_cast<int>(hover_card_state.site_access),
+          site_access_title, site_access_description,
+          static_cast<int>(hover_card_state.policy), policy_text);
+
   return Java_ExtensionAction_Constructor(
-      env, action_id, base::UTF16ToUTF8(action->GetTooltip(web_contents)),
-      base::UTF16ToUTF8(action->GetAccessibleName(web_contents)));
+      env, action_id, base::UTF16ToUTF8(action->GetActionName()),
+      base::UTF16ToUTF8(action->GetAccessibleName(web_contents)),
+      java_hover_card_state);
 }
 
 base::android::ScopedJavaLocalRef<jobject> ExtensionsToolbarAndroid::GetIcon(
@@ -230,10 +270,69 @@ ExtensionsToolbarAndroid::GetPinnedActionIds(JNIEnv* env) {
   return std::vector(ids.begin(), ids.end());
 }
 
-int ExtensionsToolbarAndroid::GetExtensionsMenuButtonState(
-    JNIEnv* env,
-    content::WebContents* web_contents) {
-  return static_cast<int>(toolbar_view_model_->GetButtonState(*web_contents));
+namespace {
+
+class MenuButtonIconSource : public gfx::CanvasImageSource {
+ public:
+  MenuButtonIconSource(const gfx::VectorIcon& icon,
+                       int width,
+                       int height,
+                       SkColor color)
+      : gfx::CanvasImageSource(gfx::Size(width, height)),
+        icon_(icon),
+        color_(color) {}
+  MenuButtonIconSource(const MenuButtonIconSource&) = delete;
+  MenuButtonIconSource& operator=(const MenuButtonIconSource&) = delete;
+  ~MenuButtonIconSource() override = default;
+
+  // gfx::CanvasImageSource:
+  void Draw(gfx::Canvas* canvas) override {
+    int icon_size = std::min(size().width(), size().height());
+    int x = (size().width() - icon_size) / 2;
+    int y = (size().height() - icon_size) / 2;
+    canvas->Translate(gfx::Vector2d(x, y));
+    gfx::PaintVectorIcon(canvas, *icon_, icon_size, color_);
+  }
+
+ private:
+  const raw_ref<const gfx::VectorIcon> icon_;
+  SkColor color_;
+};
+
+}  // namespace
+
+base::android::ScopedJavaLocalRef<jobject>
+ExtensionsToolbarAndroid::GetMenuButtonState(JNIEnv* env,
+                                             content::WebContents* web_contents,
+                                             int canvas_width_dp,
+                                             int canvas_height_dp,
+                                             float scale_factor,
+                                             int color) {
+  auto state = toolbar_view_model_->GetButtonState(*web_contents);
+
+  std::u16string tooltip =
+      ExtensionsToolbarViewModel::GetToolbarButtonTooltipText(state);
+  std::u16string accessible_text =
+      ExtensionsToolbarViewModel::GetToolbarButtonAccessibleText(state);
+
+  const gfx::VectorIcon& icon =
+      ExtensionsToolbarViewModel::GetToolbarButtonIcon(state);
+
+  gfx::ImageSkia image_skia = gfx::ImageSkia(
+      std::make_unique<MenuButtonIconSource>(
+          icon, canvas_width_dp, canvas_height_dp, static_cast<SkColor>(color)),
+      gfx::Size(canvas_width_dp, canvas_height_dp));
+  const SkBitmap& bitmap =
+      image_skia.GetRepresentation(scale_factor).GetBitmap();
+
+  base::android::ScopedJavaLocalRef<jobject> java_bitmap;
+  if (!bitmap.isNull()) {
+    java_bitmap = gfx::ConvertToJavaBitmap(bitmap);
+  }
+
+  return Java_ExtensionsMenuButtonState_Constructor(
+      env, base::UTF16ToUTF8(tooltip), base::UTF16ToUTF8(accessible_text),
+      java_bitmap);
 }
 
 bool ExtensionsToolbarAndroid::HandleKeyDownEvent(
@@ -254,34 +353,13 @@ void ExtensionsToolbarAndroid::OnRequestAccessButtonClicked(
   ExtensionsToolbarViewModel::RequestAccessButtonParams params =
       toolbar_view_model_->GetRequestAccessButtonParams(web_contents);
 
-  GrantSiteAccess(web_contents, params.extension_ids);
+  toolbar_view_model_->GrantSiteAccess(web_contents, params.extension_ids);
 }
 
 void ExtensionsToolbarAndroid::ExecuteUserAction(
     const ToolbarActionsModel::ActionId& action_id,
     ToolbarActionViewModel::InvocationSource source) {
   toolbar_view_model_->ExecuteUserAction(action_id, source);
-}
-
-// TODO(crbug.com/499007513): Move this logic to ExtensionsToolbarViewModel so
-// it can be shared and used by all delegates.
-void ExtensionsToolbarAndroid::GrantSiteAccess(
-    content::WebContents* web_contents,
-    const std::vector<std::string>& extension_ids) {
-  Profile* profile = browser_->GetProfile();
-  auto* registry = extensions::ExtensionRegistry::Get(profile);
-  std::vector<const extensions::Extension*> extensions_to_run;
-  for (const auto& id : extension_ids) {
-    const extensions::Extension* extension =
-        registry->enabled_extensions().GetByID(id);
-    if (extension) {
-      extensions_to_run.push_back(extension);
-    }
-  }
-
-  extensions::SitePermissionsHelper(profile).UpdateSiteAccess(
-      extensions_to_run, web_contents,
-      extensions::PermissionsManager::UserSiteAccess::kOnSite);
 }
 
 void ExtensionsToolbarAndroid::RegisterIconObserverForAction(

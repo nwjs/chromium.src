@@ -8,7 +8,6 @@
 #include <string>
 #include <utility>
 
-#include "audio_capture_permission_checker_mac.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -22,8 +21,8 @@
 #include "chrome/browser/media/webrtc/desktop_media_picker_controller.h"
 #include "chrome/browser/media/webrtc/desktop_media_picker_manager.h"
 #include "chrome/browser/media/webrtc/desktop_media_picker_utils.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/extensions/extensions_container.h"
 #include "chrome/browser/ui/layout_constants.h"
@@ -72,6 +71,11 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/style/typography.h"
 #include "ui/views/widget/widget.h"
+
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/ui/views/desktop_capture/audio_capture_permission_checker_mac.h"
+#endif
+
 #if defined(USE_AURA)
 #include "ui/aura/window_tree_host.h"
 #endif
@@ -678,7 +682,9 @@ DesktopMediaPickerDialogView::DesktopMediaPickerDialogView(
 
   bool modal_dialog = MediaPickerCanShowAsWebModal(params.web_contents);
   views::Widget* widget = CreateMediaPickerDialogWidget(
-      modal_dialog ? chrome::FindBrowserWithTab(params.web_contents) : nullptr,
+      modal_dialog ? GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+                         params.web_contents)
+                   : nullptr,
       params.web_contents,
       /*delegate=*/this, params.context, /*parent=*/gfx::NativeView());
 

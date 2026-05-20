@@ -209,14 +209,8 @@ void ChromeBrowserCloudManagementControllerDesktop::OnServiceAccountSet(
 }
 
 void ChromeBrowserCloudManagementControllerDesktop::ShutDown() {
-  if (policy_invalidator_) {
-    policy_invalidator_->Shutdown();
-    policy_invalidator_.reset();
-  }
-  if (extension_install_invalidator_) {
-    extension_install_invalidator_->Shutdown();
-    extension_install_invalidator_.reset();
-  }
+  policy_invalidator_.reset();
+  extension_install_invalidator_.reset();
   commands_invalidator_.reset();
   fm_registration_token_uploaders_.clear();
   invalidation_listener_per_project_.clear();
@@ -339,7 +333,7 @@ ChromeBrowserCloudManagementControllerDesktop::
 void ChromeBrowserCloudManagementControllerDesktop::StartInvalidations() {
   if (IsInvalidationsServiceStarted()) {
     NOTREACHED() << "Trying to start an invalidation service when there's "
-                    "already one. Please see crbug.com/1186159.";
+                    "already one. Please see crbug.com/40172363.";
   }
 
   device_instance_id_driver_ = std::make_unique<instance_id::InstanceIDDriver>(

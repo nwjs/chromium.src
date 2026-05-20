@@ -30,7 +30,10 @@ import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.signin.AppRestrictionSupplier;
@@ -40,7 +43,6 @@ import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncHelper;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync.SyncService;
@@ -51,6 +53,7 @@ import org.chromium.components.sync.SyncService;
  */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
+@DisableFeatures(ChromeFeatureList.DEFAULT_BROWSER_PROMO_FRE)
 public class FirstRunFlowSequencerTest {
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -114,7 +117,7 @@ public class FirstRunFlowSequencerTest {
         IdentityServicesProvider.setInstanceForTests(mock(IdentityServicesProvider.class));
         when(IdentityServicesProvider.get().getIdentityManager(profile))
                 .thenReturn(mIdentityManagerMock);
-        when(mIdentityManagerMock.hasPrimaryAccount(ConsentLevel.SIGNIN)).thenReturn(false);
+        when(mIdentityManagerMock.hasPrimaryAccount()).thenReturn(false);
 
         SyncServiceFactory.setInstanceForTesting(mSyncServiceMock);
         HistorySyncHelper.setInstanceForTesting(mHistorySyncHelperMock);
@@ -233,7 +236,7 @@ public class FirstRunFlowSequencerTest {
     @Feature({"FirstRun"})
     public void testFlowShowHistorySyncPageWhenUserIsSignedIn() {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        when(mIdentityManagerMock.hasPrimaryAccount(ConsentLevel.SIGNIN)).thenReturn(true);
+        when(mIdentityManagerMock.hasPrimaryAccount()).thenReturn(true);
         setDelegateFactory(false);
         HistogramWatcher numberOfAccountsHistogram =
                 HistogramWatcher.newSingleRecordWatcher(
@@ -257,7 +260,7 @@ public class FirstRunFlowSequencerTest {
     public void testFlowUserIsSignedIn_historySyncDisabledByPolicy() {
         when(mHistorySyncHelperMock.isHistorySyncDisabledByPolicy()).thenReturn(true);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        when(mIdentityManagerMock.hasPrimaryAccount(ConsentLevel.SIGNIN)).thenReturn(true);
+        when(mIdentityManagerMock.hasPrimaryAccount()).thenReturn(true);
         setDelegateFactory(false);
         HistogramWatcher numberOfAccountsHistogram =
                 HistogramWatcher.newSingleRecordWatcher(
@@ -278,10 +281,11 @@ public class FirstRunFlowSequencerTest {
 
     @Test
     @Feature({"FirstRun"})
+    @EnableFeatures(ChromeFeatureList.DEFAULT_BROWSER_PROMO_FRE)
     public void testFlowUserIsSignedIn_userAlreadySyncsHistory() {
         when(mHistorySyncHelperMock.didAlreadyOptIn()).thenReturn(true);
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
-        when(mIdentityManagerMock.hasPrimaryAccount(ConsentLevel.SIGNIN)).thenReturn(true);
+        when(mIdentityManagerMock.hasPrimaryAccount()).thenReturn(true);
         setDelegateFactory(false);
         HistogramWatcher numberOfAccountsHistogram =
                 HistogramWatcher.newSingleRecordWatcher(
@@ -295,7 +299,8 @@ public class FirstRunFlowSequencerTest {
         numberOfAccountsHistogram.assertExpected();
         assertTrue(sequencer.calledOnFlowIsKnown);
         final Bundle bundle = sequencer.bundle;
-        assertFalse(bundle.getBoolean(FirstRunActivityBase.SHOW_HISTORY_SYNC_PAGE));
+        // Verify that the history syc page shows even if the user already opted in.
+        assertTrue(bundle.getBoolean(FirstRunActivityBase.SHOW_HISTORY_SYNC_PAGE));
         assertFalse(bundle.getBoolean(FirstRunActivityBase.SHOW_SEARCH_ENGINE_PAGE));
         assertEquals(2, bundle.size());
     }

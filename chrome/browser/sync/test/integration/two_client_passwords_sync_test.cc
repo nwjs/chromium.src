@@ -144,11 +144,9 @@ IN_PROC_BROWSER_TEST_P(TwoClientPasswordsSyncTest,
   ASSERT_TRUE(SetupClients());
 
   // Sign in on all clients without enabling Sync-the-feature.
+  ASSERT_TRUE(SignIn());
   for (int i = 0; i < num_clients(); i++) {
-    ASSERT_TRUE(GetClient(i)->SignInPrimaryAccount());
-    ASSERT_TRUE(GetClient(i)->AwaitSyncTransportActive());
     ASSERT_FALSE(GetSyncService(i)->IsSyncFeatureEnabled());
-    PasswordSyncActiveChecker(GetSyncService(i)).Wait();
   }
 
   ASSERT_TRUE(
@@ -209,7 +207,7 @@ IN_PROC_BROWSER_TEST_P(TwoClientPasswordsSyncTest, MergeWithTheMostRecent) {
     // Enable sync on Client 0 and wait until they are committed.
     ASSERT_TRUE(GetClient(0)->SetupSync());
   } else {
-    ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
+    ASSERT_TRUE(GetClient(0)->SignInNoWaitForCompletion());
     ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   }
   ASSERT_TRUE(UpdatedProgressMarkerChecker(GetSyncService(0)).Wait());
@@ -222,7 +220,7 @@ IN_PROC_BROWSER_TEST_P(TwoClientPasswordsSyncTest, MergeWithTheMostRecent) {
     // Enable sync on Client 1 and wait until they are committed.
     ASSERT_TRUE(GetClient(1)->SetupSync());
   } else {
-    ASSERT_TRUE(GetClient(1)->SignInPrimaryAccount());
+    ASSERT_TRUE(GetClient(1)->SignInNoWaitForCompletion());
     ASSERT_TRUE(GetClient(1)->AwaitSyncTransportActive());
   }
   ASSERT_TRUE(SamePasswordFormsChecker(GetPasswordStoreType()).Wait());
@@ -521,8 +519,8 @@ IN_PROC_BROWSER_TEST_P(TwoClientPasswordsSyncTestWithVerifier,
   ASSERT_TRUE(
       AllProfilesContainSamePasswordFormsAsVerifier(GetPasswordStoreType()));
   // There should be only one deletion. This is to test the bug
-  // (crbug.com/1046309) where the USS client was local deletions when receiving
-  // remote deletions.
+  // (crbug.com/40670749) where the USS client was local deletions when
+  // receiving remote deletions.
   EXPECT_EQ(1, histogram_tester.GetBucketCount(
                    "Sync.DataTypeEntityChange.PASSWORD",
                    syncer::DataTypeEntityChange::kLocalDeletion));
@@ -555,7 +553,7 @@ IN_PROC_BROWSER_TEST_P(TwoClientPasswordsSyncTest,
     // Enable sync on Client 0 and wait until they are committed.
     ASSERT_TRUE(GetClient(0)->SetupSync());
   } else {
-    ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
+    ASSERT_TRUE(GetClient(0)->SignInNoWaitForCompletion());
     ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   }
   ASSERT_TRUE(UpdatedProgressMarkerChecker(GetSyncService(0)).Wait());
@@ -567,7 +565,7 @@ IN_PROC_BROWSER_TEST_P(TwoClientPasswordsSyncTest,
     // Enable sync on Client 1 and wait until all passwords are merged.
     ASSERT_TRUE(GetClient(1)->SetupSync());
   } else {
-    ASSERT_TRUE(GetClient(1)->SignInPrimaryAccount());
+    ASSERT_TRUE(GetClient(1)->SignInNoWaitForCompletion());
     ASSERT_TRUE(GetClient(1)->AwaitSyncTransportActive());
   }
   ASSERT_TRUE(SamePasswordFormsChecker(GetPasswordStoreType()).Wait());
@@ -677,7 +675,7 @@ IN_PROC_BROWSER_TEST_P(TwoClientPasswordsSyncTest,
       ElementsAre(Pointee(password_manager::HasPrimaryKeyAndEquals(form))));
 }
 
-// Regression test for crbug.com/1346576.
+// Regression test for crbug.com/40232558.
 IN_PROC_BROWSER_TEST_P(
     TwoClientPasswordsSyncTest,
     MatchingDeletionsConflictDoesNotInvokeTrimmingEntitySpecifics) {

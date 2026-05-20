@@ -21,10 +21,11 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/navigation_handle_user_data_forwarder.h"
 #include "chrome/browser/ui/web_applications/web_app_browser_controller.h"
@@ -153,11 +154,13 @@ void ReparentToAppBrowser(content::WebContents* old_web_contents,
       app_id,
       WebAppFilter::IsIsolatedApp() | WebAppFilter::IsIsolatedSubApp()));
 
-  Browser* main_browser = chrome::FindBrowserWithTab(old_web_contents);
+  BrowserWindowInterface* main_browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          old_web_contents);
   BrowserWindowInterface* target_browser = nullptr;
   if (target_display_mode == blink::mojom::DisplayMode::kTabbed) {
     target_browser =
-        AppBrowserController::FindForWebApp(*main_browser->profile(), app_id);
+        AppBrowserController::FindForWebApp(*main_browser->GetProfile(), app_id);
     // If somehow we found a browser that doesn't have a tab strip (which
     // might be possible if the manifest updated while a window is open),
     // don't return it to use for new tabs.
@@ -170,14 +173,14 @@ void ReparentToAppBrowser(content::WebContents* old_web_contents,
     target_browser = CreateWebAppWindowMaybeWithHomeTab(
         app_id,
         CreateParamsForApp(app_id, /*is_popup=*/false, /*trusted_source=*/true,
-                           gfx::Rect(), main_browser->profile(),
+                           gfx::Rect(), main_browser->GetProfile(),
                            /*user_gesture=*/true));
   }
   CHECK(AppBrowserController::IsWebApp(target_browser));
-  ReparentWebContentsIntoBrowserImpl(main_browser, old_web_contents,
-                                     target_browser,
-                                     AppBrowserController::From(target_browser)
-                                         ->IsUrlInHomeTabScope(target_url));
+  ReparentWebContentsIntoBrowserImpl(
+      main_browser, old_web_contents, target_browser,
+      AppBrowserController::From(target_browser)
+          ->IsUrlInHomeTabScope(target_url));
   CHECK(old_web_contents);
 }
 
@@ -186,33 +189,36 @@ void ReparentToAppBrowser(content::WebContents* old_web_contents,
 void ReparentWebContentsToTabbedBrowser(content::WebContents* old_web_contents,
                                         WindowOpenDisposition disposition,
                                         Browser* navigate_params_browser) {
-  Browser* source_browser = chrome::FindBrowserWithTab(old_web_contents);
+  BrowserWindowInterface* source_browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          old_web_contents);
 
   // Cannot reparent contents to browser from Isolated Web App.
   // This will never be called, because redirect chain stops when it encounters
   // Isolated Web App, meaning redirection like browser -> app -> browser is not
   // possible.
-  CHECK(!source_browser->app_controller() ||
-        !source_browser->app_controller()->IsIsolatedWebApp());
+  CHECK(!AppBrowserController::From(source_browser) ||
+        !AppBrowserController::From(source_browser)->IsIsolatedWebApp());
 
   BrowserWindowInterface* existing_browser_window =
       navigate_params_browser &&
               !AppBrowserController::IsWebApp(navigate_params_browser)
           ? navigate_params_browser
-          : chrome::FindTabbedBrowser(source_browser->profile(),
-                                      /*match_original_profiles=*/false);
+          : ProfileBrowserCollection::GetForProfile(
+                source_browser->GetProfile())
+                ->FindTabbedBrowser();
 
   // Create a new browser window if the navigation was triggered via a
   // shift-click, or if there are no open tabbed browser windows at the moment.
   BrowserWindowInterface* target_browser_window =
       (disposition == WindowOpenDisposition::NEW_WINDOW ||
        !existing_browser_window)
-          ? Browser::Create(Browser::CreateParams(source_browser->profile(),
-                                                  /*user_gesture=*/true))
+          ? Browser::Create(Browser::CreateParams(
+                source_browser->GetProfile(), /*user_gesture=*/true))
           : existing_browser_window;
 
-  ReparentWebContentsIntoBrowserImpl(source_browser, old_web_contents,
-                                     target_browser_window);
+  ReparentWebContentsIntoBrowserImpl(
+      source_browser, old_web_contents, target_browser_window);
 }
 
 BrowserWindowInterface* FindNormalBrowser(const Profile& profile) {
@@ -250,7 +256,7 @@ ReparentIfPossibleOrInitiateIsolatedWebAppLaunch(
   if (registrar.AppMatches(app_id, WebAppFilter::IsIsolatedApp() |
                                        WebAppFilter::IsIsolatedSubApp())) {
     LaunchWebAppCallback callback =
-        base::IgnoreArgs<base::WeakPtr<Browser>,
+        base::IgnoreArgs<base::WeakPtr<BrowserWindowInterface>,
                          base::WeakPtr<content::WebContents>,
                          apps::LaunchContainer>(base::BindOnce(
             &content::WebContents::Close, old_web_contents->GetWeakPtr()));

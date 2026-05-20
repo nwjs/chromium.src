@@ -8,6 +8,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "cc/test/fake_layer_tree_host_impl_client.h"
 #include "cc/test/fake_rendering_stats_instrumentation.h"
+#include "cc/trees/client_layer_tree_host_impl.h"
 #include "cc/trees/layer_tree_host_impl.h"
 #include "cc/trees/single_thread_proxy.h"
 
@@ -20,7 +21,7 @@ class AnimationHost;
 // will use a Proxy or FakeLayerTreeHost::CreateFakeLayerTreeHostImpl if it
 // doesn't use a Proxy. These will ensure we're not accidentally creating
 // multiple HostImpls.
-class FakeLayerTreeHostImpl : public LayerTreeHostImpl {
+class FakeLayerTreeHostImpl : public ClientLayerTreeHostImpl {
  public:
   FakeLayerTreeHostImpl(TaskRunnerProvider* task_runner_provider,
                         TaskGraphRunner* task_graph_runner);
@@ -51,9 +52,9 @@ class FakeLayerTreeHostImpl : public LayerTreeHostImpl {
   TargetColorParams GetTargetColorParams(
       gfx::ContentColorUsage content_color_usage) const override;
 
-  using LayerTreeHostImpl::ActivateSyncTree;
-  using LayerTreeHostImpl::prepare_tiles_needed;
+  using ClientLayerTreeHostImpl::ActivateSyncTree;
   using LayerTreeHostImpl::is_likely_to_require_a_draw;
+  using LayerTreeHostImpl::prepare_tiles_needed;
   using LayerTreeHostImpl::RemoveRenderPasses;
 
   bool notify_tile_state_changed_called() const {

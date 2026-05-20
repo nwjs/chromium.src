@@ -178,7 +178,7 @@ public final class AnnotatedClass {
 
   @NativeMethods
   interface Natives {
-    List<@JniType("vec<vec<int>>") String> foo(@JniType("vec<vec<int>>") String bar);
+    List<@Foo("vec<vec<int>>") String> foo(@JniType("vec<vec<int>>") String bar);
     Outer.@Nullable Inner bar(@Nullable @JniType("string") String arg);
   }
 }
@@ -217,6 +217,8 @@ public class Test {
 package org.jni_zero;
 public class Outer<T1> {
     public static class Inner<T2> {
+        // No longer accepts a value, but we still parse it to not break
+        // WebRTC's copy of the annotation.
         @CalledByNative("Inner")
         public T2 foo(T1 arg) {}
     }
@@ -264,12 +266,12 @@ public interface java.util.List<E> extends java.util.SequencedCollection<E> {
 """
     expected = """\
 public class List<E> {
-  public static <E> @Nullable List<E> copyOf(@Nullable Collection<E> p0);
   public <T extends Comparable<Object>> void method2(@Nullable T[] p0);
-  public static <E> @Nullable List<E> of(@Nullable E[] p0);
   public @Nullable List<E> reversed();
   public void sort(@Nullable Comparator<Object> p0);
   public <T> @Nullable T[] toArray(@Nullable T[] p0);
+  public static <E> @Nullable List<E> copyOf(@Nullable Collection<E> p0);
+  public static <E> @Nullable List<E> of(@Nullable E[] p0);
 }
 """
     parsed_file = parse.parse_javap_data('List.class', contents)

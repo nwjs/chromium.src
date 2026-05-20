@@ -17,7 +17,6 @@
 #include "components/feed/core/v2/public/stream_type.h"
 #include "components/feed/core/v2/public/types.h"
 #include "components/feed/core/v2/public/unread_content_observer.h"
-#include "components/feed/core/v2/public/web_feed_subscriptions.h"
 #include "url/gurl.h"
 
 namespace feedui {
@@ -29,7 +28,6 @@ class DataOperation;
 
 namespace feed {
 class PersistentKeyValueStore;
-class WebFeedSubscriptions;
 struct LoggingParameters;
 class SurfaceRenderer;
 
@@ -42,15 +40,13 @@ class FeedApi {
   FeedApi(const FeedApi&) = delete;
   FeedApi& operator=(const FeedApi&) = delete;
 
-  virtual WebFeedSubscriptions& subscriptions() = 0;
 
   // Surfaces present feed content to users. When a surface is visible to users
   // and should be displaying feed content, it is attached to request to feed
   // content and render it. A surface may be attached and detached several times
   // through its lifetime. When a surface is no longer needed, it should be
   // destroyed with DestroySurface.
-  virtual SurfaceId CreateSurface(const StreamType& type,
-                                  SingleWebFeedEntryPoint entry_point) = 0;
+  virtual SurfaceId CreateSurface(const StreamType& type) = 0;
   virtual void DestroySurface(SurfaceId surface) = 0;
 
   // Attach/detach a surface for rendering. Surfaces should be attached when
@@ -79,19 +75,6 @@ class FeedApi {
   // the feed stream is cleared (on sign-in, sign-out, and some data clear
   // events).
   virtual std::string GetSessionId() const = 0;
-
-  // Sets the requested content order of the feed, and triggers a refresh if
-  // necessary. Note that currently, only Web Feed can change the content order.
-  virtual void SetContentOrder(const StreamType& stream_type,
-                               ContentOrder content_order) = 0;
-
-  // Returns the current `ContentOrder` for `stream_type`.
-  virtual ContentOrder GetContentOrder(const StreamType& stream_type) const = 0;
-
-  // Gets the "raw" content order value stored in prefs. Returns `kUnspecified`
-  // if the user has not selected one yet.
-  virtual ContentOrder GetContentOrderFromPrefs(
-      const StreamType& stream_type) = 0;
 
   // Invoked by RefreshTaskScheduler's scheduled task.
   virtual void ExecuteRefreshTask(RefreshTaskId task_id) = 0;
@@ -257,9 +240,6 @@ class FeedApi {
       const feedui::StreamUpdate& stream_update) = 0;
   // Returns the time of the last successful content fetch.
   virtual base::Time GetLastFetchTime(SurfaceId surface_id) = 0;
-  // Increase the count of the number of times the user has followed from the
-  // web page menu.
-  virtual void IncrementFollowedFromWebPageMenuCount() = 0;
 };
 
 }  // namespace feed

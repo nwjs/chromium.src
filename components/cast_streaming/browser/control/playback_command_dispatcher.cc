@@ -137,7 +137,7 @@ void PlaybackCommandDispatcher::OnRemotingSessionNegotiated(
                           base::Unretained(this)),
       base::BindRepeating(
           &PlaybackCommandDispatcher::SendRemotingRpcMessageToRemote,
-          base::Unretained(this)));
+          weak_factory_.GetWeakPtr()));
 }
 
 void PlaybackCommandDispatcher::ConfigureRemotingAsync(
@@ -173,6 +173,7 @@ void PlaybackCommandDispatcher::OnRemotingSessionEnded() {
   demuxer_stream_handler_.reset();
   messenger_ = nullptr;
   streaming_init_info_ = std::nullopt;
+  streaming_dispatcher_ = nullptr;
 }
 
 void PlaybackCommandDispatcher::SendRemotingRpcMessageToRemote(

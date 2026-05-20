@@ -56,9 +56,6 @@ namespace optimization_guide::proto {
 class AnnotatedPageContent;
 }
 
-namespace plus_addresses::hats {
-enum class SurveyType;
-}
 
 namespace signin {
 class IdentityManager;
@@ -91,6 +88,11 @@ enum class Channel;
 
 namespace accessibility_annotator {
 class AccessibilityQueryService;
+enum class RemoteAnnotatorEnablementState;
+}
+
+namespace metrics {
+class ProfileMetricsService;
 }
 
 namespace autofill {
@@ -100,7 +102,6 @@ class AutofillManager;
 class AddressNormalizer;
 class AutocompleteHistoryManager;
 class AutofillAblationStudy;
-class AutofillPlusAddressDelegate;
 class AutofillAiManager;
 class AutofillAiModelCache;
 class AutofillAiModelExecutor;
@@ -253,10 +254,11 @@ class AutofillClient {
   // Details about the UI that was shown to the user in an entity import bubble.
   struct EntityImportUIContext {
     // String ID of the consent displayed in the import bubble, if any.
-    std::optional<int> consent_string_id;
+    // Populated only when the user accepts the prompt.
+    std::optional<int> accepted_consent_string_id;
     // The string ID of the button that the user clicked, in case the user
-    // accepted or declined the bubble.
-    std::optional<int> clicked_button_string_id;
+    // accepted the bubble.
+    std::optional<int> accept_button_string_id;
   };
   using EntityImportPromptResultCallback =
       base::OnceCallback<void(AutofillAiBubbleResult result,
@@ -297,11 +299,6 @@ class AutofillClient {
   // accepted the delete dialog. The callback is intended to be called only upon
   // user closing the dialog directly and not when user closes the browser tab.
   using AddressProfileDeleteDialogCallback = base::OnceCallback<void(bool)>;
-
-  // Callback to run when the user decides to undo the plus address full form
-  // fulling. If the user never undoes the operation, the callback is never
-  // triggered.
-  using EmailOverrideUndoCallback = base::OnceClosure;
 
   virtual ~AutofillClient() = default;
 
@@ -422,14 +419,14 @@ class AutofillClient {
 
   virtual IdentityCredentialDelegate* GetIdentityCredentialDelegate();
 
-  // Returns the `AutofillPlusAddressDelegate` associated with the profile of
-  // the window of this tab.
-  virtual AutofillPlusAddressDelegate* GetPlusAddressDelegate();
-
   // Returns the `AccessibilityQueryService` associated with the profile of
   // the window of this tab.
   virtual accessibility_annotator::AccessibilityQueryService*
   GetAccessibilityQueryService();
+
+  // Returns the enablement state of the Accessibility Annotator.
+  virtual accessibility_annotator::RemoteAnnotatorEnablementState
+  GetAccessibilityAnnotatorEnablementState() const;
 
   // Returns the `PasswordManagerDelegate` responsible to provide
   // password suggestions for the given `field_id`.
@@ -447,6 +444,9 @@ class AutofillClient {
   // Gets the IdentityManager associated with the client.
   virtual signin::IdentityManager* GetIdentityManager() = 0;
   virtual const signin::IdentityManager* GetIdentityManager() const = 0;
+
+  // Gets the ProfileMetricsService associated with the client.
+  virtual metrics::ProfileMetricsService* GetProfileMetricsService() = 0;
 
   // Gets the `GoogleGroupsManager` associated with the client.
   virtual const GoogleGroupsManager* GetGoogleGroupsManager() const;
@@ -537,21 +537,12 @@ class AutofillClient {
       const PopupOpenArgs& open_args,
       base::WeakPtr<AutofillSuggestionDelegate> delegate) = 0;
 
-  // Notifies the user via a patform specific UI that full form filling for plus
-  // addresses has occurred (i.e. the filled email address was overridden by the
-  // plus address). The UI provides the user with the option to undo the
-  // filling operation back to back to `original_email`, in which case the
-  // `email_override_undo_callback` is triggered.
-  virtual void ShowPlusAddressEmailOverrideNotification(
-      const std::string& original_email,
-      EmailOverrideUndoCallback email_override_undo_callback);
-
   // Update the data list values shown by the Autofill suggestions, if visible.
   virtual void UpdateAutofillDataListValues(
       base::span<const SelectOption> datalist) = 0;
 
   // Returns the identifier of the suggestion UI that is currently showing or
-  // `std::nullopt` is there is none.
+  // `std::nullopt` if there is none.
   virtual std::optional<SuggestionUiSessionId>
   GetSessionIdForCurrentAutofillSuggestions() const;
 
@@ -653,6 +644,9 @@ class AutofillClient {
   virtual const AutofillAblationStudy& GetAblationStudy() const;
 
 #if BUILDFLAG(IS_ANDROID)
+  // Shows the @memory bottom sheet on Android.
+  virtual void ShowAtMemoryBottomSheet();
+
   // The AutofillSnackbarController is used to show a snackbar notification
   // on Android.
   virtual AutofillSnackbarControllerImpl* GetAutofillSnackbarController();
@@ -716,10 +710,6 @@ class AutofillClient {
       FormGlobalId form_id,
       FieldGlobalId field_id) const;
 
-  // Triggers the HaTS survey of the `survey_type`.
-  // TODO: crbug.com/348139343 - Move back for components/plus_addresses.
-  virtual void TriggerPlusAddressUserPerceptionSurvey(
-      plus_addresses::hats::SurveyType survey_type);
 
   // Returns the service used in order to log metrics into MQLS.
   virtual optimization_guide::ModelQualityLogsUploaderService*

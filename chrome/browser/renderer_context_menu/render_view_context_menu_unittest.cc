@@ -24,7 +24,6 @@
 #include "chrome/browser/extensions/menu_manager.h"
 #include "chrome/browser/extensions/menu_manager_factory.h"
 #include "chrome/browser/extensions/test_extension_environment.h"
-#include "chrome/browser/feed/web_feed_tab_helper.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor_keyed_service.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor_keyed_service_factory.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
@@ -63,6 +62,7 @@
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #include "components/autofill/core/common/autofill_features.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/custom_handlers/protocol_handler_registry.h"
 #include "components/lens/buildflags.h"
 #include "components/lens/lens_features.h"
@@ -93,8 +93,10 @@
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/test_extension_prefs.h"
 #include "extensions/common/url_pattern.h"
+#include "media/base/media_switches.h"
 #include "services/network/test/test_shared_url_loader_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/context_menu_data/context_menu_data.h"
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
 #include "third_party/blink/public/common/navigation/impression.h"
 #include "third_party/blink/public/mojom/context_menu/context_menu.mojom.h"
@@ -248,20 +250,6 @@ class RenderViewContextMenuTest : public testing::Test {
  private:
   content::RenderViewHostTestEnabler rvh_test_enabler_;
 };
-
-// Check that the fenced frame untrusted network status gated command ids are
-// within the valid command id range.
-TEST_F(RenderViewContextMenuTest,
-       CommandsGatedOnFencedFrameUntrustedNetworkStatus) {
-  ASSERT_GE(
-      *std::cbegin(TestRenderViewContextMenu::
-                       GetFencedFrameUntrustedNetworkStatusGatedCommands()),
-      IDC_MinimumLabelValue);
-  ASSERT_LT(
-      *std::crbegin(TestRenderViewContextMenu::
-                        GetFencedFrameUntrustedNetworkStatusGatedCommands()),
-      IDC_FIRST_UNBOUNDED_MENU);
-}
 
 class RenderViewContextMenuExtensionsTest : public RenderViewContextMenuTest {
  protected:
@@ -800,6 +788,68 @@ TEST_F(RenderViewContextMenuPrefsTest, LoadBrokenImage) {
   ASSERT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_LOAD_IMAGE));
 }
 
+TEST_F(RenderViewContextMenuPrefsTest, ContextMenu2026VideoOrderDisabled) {
+  base::test::ScopedFeatureList features;
+  features.InitAndDisableFeature(media::kContextMenu2026);
+
+  content::ContextMenuParams params = CreateParams(MenuItem::VIDEO);
+  params.media_flags |= blink::ContextMenuData::kMediaCanPictureInPicture;
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      *web_contents()->GetPrimaryMainFrame(), params);
+  menu->Init();
+
+  auto pip_item =
+      menu->GetMenuModelAndItemIndex(IDC_CONTENT_CONTEXT_PICTUREINPICTURE);
+  ASSERT_TRUE(pip_item.has_value());
+
+  auto loop_item = menu->GetMenuModelAndItemIndex(IDC_CONTENT_CONTEXT_LOOP);
+  ASSERT_TRUE(loop_item.has_value());
+
+  // PiP should be somewhere AFTER Loop and Controls when disabled.
+  EXPECT_GT(pip_item->second, loop_item->second);
+}
+
+// Verify that the 2026 video context menu are ordered properly.
+TEST_F(RenderViewContextMenuPrefsTest, ContextMenu2026VideoOrder) {
+  base::test::ScopedFeatureList features;
+  features.InitAndEnableFeature(media::kContextMenu2026);
+
+  content::ContextMenuParams params = CreateParams(MenuItem::VIDEO);
+  params.media_flags |= blink::ContextMenuData::kMediaCanPictureInPicture;
+  auto menu = std::make_unique<TestRenderViewContextMenu>(
+      *web_contents()->GetPrimaryMainFrame(), params);
+  menu->Init();
+
+  auto pip_item =
+      menu->GetMenuModelAndItemIndex(IDC_CONTENT_CONTEXT_PICTUREINPICTURE);
+  ASSERT_TRUE(pip_item.has_value());
+
+  auto route_media_item = menu->GetMenuModelAndItemIndex(IDC_ROUTE_MEDIA);
+  auto loop_item = menu->GetMenuModelAndItemIndex(IDC_CONTENT_CONTEXT_LOOP);
+  ASSERT_TRUE(loop_item.has_value());
+
+  // PiP should be somewhere BEFORE Loop and Controls when enabled.
+  EXPECT_LT(pip_item->second, loop_item->second);
+
+  ASSERT_TRUE(route_media_item.has_value());
+  EXPECT_EQ(pip_item->second + 1, route_media_item->second);
+  // Ensure there is a separator after them.
+  EXPECT_EQ(ui::MenuModel::TYPE_SEPARATOR,
+            pip_item->first->GetTypeAt(route_media_item->second + 1));
+
+  // Check that the Video Frame submenu exists.
+  auto video_frame_menu =
+      menu->GetMenuModelAndItemIndex(IDC_CONTENT_CONTEXT_VIDEO_FRAME);
+  ASSERT_TRUE(video_frame_menu.has_value());
+
+  // Check that "Save Video Frame As" is in the submenu.
+  auto save_video_frame =
+      menu->GetMenuModelAndItemIndex(IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS);
+  ASSERT_TRUE(save_video_frame.has_value());
+  EXPECT_EQ(save_video_frame->first, video_frame_menu->first->GetSubmenuModelAt(
+                                         video_frame_menu->second));
+}
+
 // Verify that the suggested file name is propagated to web contents when save a
 // media file in context menu.
 TEST_F(RenderViewContextMenuPrefsTest, SaveMediaSuggestedFileName) {
@@ -1135,6 +1185,139 @@ TEST_F(RenderViewContextMenuPrefsTest, LensImageSearchEnabled) {
   EXPECT_FALSE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHWEBFORIMAGE));
   EXPECT_TRUE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHLENSFORIMAGE));
 }
+
+// Verify that the Lens Image Search menu item has an icon in fallback case
+TEST_F(RenderViewContextMenuPrefsTest, LensImageSearchFallbackHasIcon) {
+  base::test::ScopedFeatureList features;
+  features.InitWithFeatures({lens::features::kLensStandalone,
+                             lens::features::kShowContextualTasksMenuIcon},
+                            {lens::features::kLensOverlay});
+  SetUserSelectedDefaultSearchProvider("https://www.google.com",
+                                       /*supports_image_search=*/true);
+  content::ContextMenuParams params = CreateParams(MenuItem::IMAGE);
+  params.has_image_contents = true;
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.Init();
+
+  EXPECT_TRUE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHLENSFORIMAGE));
+  std::optional<size_t> index = menu.menu_model().GetIndexOfCommandId(
+      IDC_CONTENT_CONTEXT_SEARCHLENSFORIMAGE);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_FALSE(menu.menu_model().GetIconAt(index.value()).IsEmpty());
+}
+
+// Verify that the Lens Video Search menu item has an icon in fallback case
+TEST_F(RenderViewContextMenuPrefsTest, LensVideoSearchFallbackHasIcon) {
+  base::test::ScopedFeatureList features;
+  features.InitWithFeatures(
+      {lens::features::kLensStandalone, media::kContextMenuSearchForVideoFrame,
+       lens::features::kShowContextualTasksMenuIcon},
+      {lens::features::kLensOverlay});
+  SetUserSelectedDefaultSearchProvider("https://www.google.com",
+                                       /*supports_image_search=*/true);
+  content::ContextMenuParams params = CreateParams(MenuItem::VIDEO);
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.Init();
+
+  EXPECT_TRUE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHLENSFORVIDEOFRAME));
+  std::optional<size_t> index = menu.menu_model().GetIndexOfCommandId(
+      IDC_CONTENT_CONTEXT_SEARCHLENSFORVIDEOFRAME);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_FALSE(menu.menu_model().GetIconAt(index.value()).IsEmpty());
+}
+
+#if BUILDFLAG(IS_MAC)
+// Verify that the Lens Image Search menu item has NO icon when flag is disabled
+TEST_F(RenderViewContextMenuPrefsTest,
+       LensImageSearchFallbackNoIconWhenFlagDisabled) {
+  base::test::ScopedFeatureList features;
+  features.InitWithFeatures({lens::features::kLensStandalone},
+                            {lens::features::kLensOverlay,
+                             lens::features::kShowContextualTasksMenuIcon});
+  SetUserSelectedDefaultSearchProvider("https://www.google.com",
+                                       /*supports_image_search=*/true);
+  content::ContextMenuParams params = CreateParams(MenuItem::IMAGE);
+  params.has_image_contents = true;
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.Init();
+
+  EXPECT_TRUE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHLENSFORIMAGE));
+  std::optional<size_t> index = menu.menu_model().GetIndexOfCommandId(
+      IDC_CONTENT_CONTEXT_SEARCHLENSFORIMAGE);
+  ASSERT_TRUE(index.has_value());
+  EXPECT_TRUE(menu.menu_model().GetIconAt(index.value()).IsEmpty());
+}
+#endif  // BUILDFLAG(IS_MAC)
+
+// Verify that the Lens Image Search menu item has an icon in overlay case
+TEST_F(RenderViewContextMenuPrefsTest, LensImageSearchOverlayHasIcon) {
+  base::test::ScopedFeatureList features;
+  features.InitWithFeatures(
+      {lens::features::kLensStandalone, lens::features::kLensOverlay,
+       lens::features::kShowContextualTasksMenuIcon},
+      {});
+  SetUserSelectedDefaultSearchProvider("https://www.google.com",
+                                       /*supports_image_search=*/true);
+  content::ContextMenuParams params = CreateParams(MenuItem::IMAGE);
+  params.has_image_contents = true;
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.Init();
+
+  // Item ID might be different for overlay, let's check both
+  bool present = menu.IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHLENSFORIMAGE) ||
+                 menu.IsItemPresent(IDC_CONTENT_CONTEXT_LENS_OVERLAY);
+  EXPECT_TRUE(present);
+
+  std::optional<size_t> index = menu.menu_model().GetIndexOfCommandId(
+      IDC_CONTENT_CONTEXT_SEARCHLENSFORIMAGE);
+  if (!index.has_value()) {
+    index =
+        menu.menu_model().GetIndexOfCommandId(IDC_CONTENT_CONTEXT_LENS_OVERLAY);
+  }
+  ASSERT_TRUE(index.has_value());
+  EXPECT_FALSE(menu.menu_model().GetIconAt(index.value()).IsEmpty());
+}
+
+#if BUILDFLAG(IS_MAC)
+// Verify that the Lens Image Search menu item has NO icon in overlay case when
+// flag is disabled
+TEST_F(RenderViewContextMenuPrefsTest,
+       LensImageSearchOverlayNoIconWhenFlagDisabled) {
+  base::test::ScopedFeatureList features;
+  features.InitWithFeatures(
+      {lens::features::kLensStandalone, lens::features::kLensOverlay},
+      {lens::features::kShowContextualTasksMenuIcon});
+  SetUserSelectedDefaultSearchProvider("https://www.google.com",
+                                       /*supports_image_search=*/true);
+  content::ContextMenuParams params = CreateParams(MenuItem::IMAGE);
+  params.has_image_contents = true;
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.Init();
+
+  bool present = menu.IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHLENSFORIMAGE) ||
+                 menu.IsItemPresent(IDC_CONTENT_CONTEXT_LENS_OVERLAY);
+  EXPECT_TRUE(present);
+
+  std::optional<size_t> index = menu.menu_model().GetIndexOfCommandId(
+      IDC_CONTENT_CONTEXT_SEARCHLENSFORIMAGE);
+  if (!index.has_value()) {
+    index =
+        menu.menu_model().GetIndexOfCommandId(IDC_CONTENT_CONTEXT_LENS_OVERLAY);
+  }
+  ASSERT_TRUE(index.has_value());
+  EXPECT_TRUE(menu.menu_model().GetIconAt(index.value()).IsEmpty());
+}
+#endif  // BUILDFLAG(IS_MAC)
 
 // Verify that the Lens Image Search menu item is enabled for Progressive Web
 // Apps
@@ -1660,7 +1843,7 @@ class FormatUrlForClipboardTest
 const FormatUrlForClipboardTestData kFormatUrlForClipboardTestData[]{
     {"http://www.foo.com/", "http://www.foo.com/", "HttpNoEscapes"},
     // Percent-encoded ASCII characters are no longer unescaped.
-    // See https://crbug.com/1252531.
+    // See https://crbug.com/40198802.
     {"http://www.foo.com/%61%62%63", "http://www.foo.com/%61%62%63",
      "HttpNoEscape"},
     {"https://www.foo.com/abc%20def", "https://www.foo.com/abc%20def",
@@ -1672,7 +1855,7 @@ const FormatUrlForClipboardTestData kFormatUrlForClipboardTestData[]{
     {"file://stuff.host.co/my%2Bshare/foo.txt",
      "file://stuff.host.co/my%2Bshare/foo.txt", "FileEscapedSpecialCharacters"},
     // Percent-encoded ASCII characters are no longer unescaped.
-    // See https://crbug.com/1252531.
+    // See https://crbug.com/40198802.
     {"file://stuff.host.co/my%2Dshare/foo.txt",
      "file://stuff.host.co/my%2Dshare/foo.txt", "FileNoEscape"},
     {"mailto:me@foo.com", "me@foo.com", "MailToNoEscapes"},
@@ -1697,145 +1880,6 @@ TEST_P(FormatUrlForClipboardTest, FormatUrlForClipboard) {
   GURL url(param.input);
   const std::u16string result = FormatUrl(url);
   DCHECK_EQ(base::UTF8ToUTF16(param.output), result);
-}
-
-// TODO(crbug.com/374253376): Once existing fenced frame context menu browser
-// tests are changed to interactive UI tests, the test cases here should also be
-// added the interactive UI tests.
-class FencedFrameRenderViewContextMenuTest
-    : public RenderViewContextMenuPrefsTest {
- public:
-  FencedFrameRenderViewContextMenuTest() = default;
-  ~FencedFrameRenderViewContextMenuTest() override = default;
-
-  // Create a fenced frame that is eligible for disabling untrusted network
-  // access.
-  content::RenderFrameHost* CreateAndNavigateFencedFrame(
-      content::RenderFrameHostTester* main_frame) {
-    content::RenderFrameHost* fenced_frame_rfh =
-        main_frame->AppendFencedFrame();
-    GURL fenced_frame_url = GURL("https://fencedframe.com");
-    std::unique_ptr<content::NavigationSimulator> navigation_simulator =
-        content::NavigationSimulator::CreateRendererInitiated(fenced_frame_url,
-                                                              fenced_frame_rfh);
-
-    navigation_simulator->Commit();
-    fenced_frame_rfh = navigation_simulator->GetFinalRenderFrameHost();
-    EXPECT_EQ(fenced_frame_rfh->GetLastCommittedURL(), fenced_frame_url);
-
-    // Set fenced frame config so that its mapped url is the same as the
-    // committed URL.
-    content::test::SetFencedFrameConfig(fenced_frame_rfh, fenced_frame_url);
-
-    return fenced_frame_rfh;
-  }
-
- private:
-  // Enable fenced frame feature flags when constructed.
-  content::test::FencedFrameTestHelper fenced_frame_test_helper_;
-};
-
-TEST_F(FencedFrameRenderViewContextMenuTest,
-       DisableOpenLinkEntriesWhenFencedFrameNetworkRevoked) {
-  content::ContextMenuParams params = CreateParams(MenuItem::LINK);
-
-  // Append a fenced frame to the primary main frame.
-  content::RenderFrameHostTester* main_frame =
-      content::RenderFrameHostTester::For(
-          web_contents()->GetPrimaryMainFrame());
-  main_frame->InitializeRenderFrameIfNeeded();
-  content::RenderFrameHost* fenced_frame_rfh =
-      CreateAndNavigateFencedFrame(main_frame);
-  auto menu =
-      std::make_unique<TestRenderViewContextMenu>(*fenced_frame_rfh, params);
-
-  // "Open Link in New Tab", "Open Link in New Window" and "Open Link in
-  // Incognito Window".
-  std::vector<int> commands{IDC_CONTENT_CONTEXT_OPENLINKNEWTAB,
-                            IDC_CONTENT_CONTEXT_OPENLINKNEWWINDOW,
-                            IDC_CONTENT_CONTEXT_OPENLINKOFFTHERECORD};
-  // Commands should be present and enabled in the context menu.
-  for (auto command : commands) {
-    EXPECT_TRUE(menu->IsCommandIdEnabled(command));
-  }
-
-  ASSERT_TRUE(
-      content::test::RevokeFencedFrameUntrustedNetwork(fenced_frame_rfh));
-  // Commands should be disabled in the context menu after fenced frame has
-  // untrusted network access revoked.
-  menu = std::make_unique<TestRenderViewContextMenu>(*fenced_frame_rfh, params);
-  for (auto command : commands) {
-    EXPECT_FALSE(menu->IsCommandIdEnabled(command));
-  }
-}
-
-TEST_F(FencedFrameRenderViewContextMenuTest,
-       DisableOpenLinkInProfileTabWhenFencedFrameNetworkRevoked) {
-  content::ContextMenuParams params = CreateParams(MenuItem::LINK);
-
-  // Append a fenced frame to the primary main frame.
-  content::RenderFrameHostTester* main_frame =
-      content::RenderFrameHostTester::For(
-          web_contents()->GetPrimaryMainFrame());
-  main_frame->InitializeRenderFrameIfNeeded();
-  content::RenderFrameHost* fenced_frame_rfh =
-      CreateAndNavigateFencedFrame(main_frame);
-  auto menu =
-      std::make_unique<TestRenderViewContextMenu>(*fenced_frame_rfh, params);
-
-  // "Open Link as User ..." sub-menu should be enabled.
-  EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_OPENLINKINPROFILE));
-
-  ASSERT_TRUE(
-      content::test::RevokeFencedFrameUntrustedNetwork(fenced_frame_rfh));
-  // "Open Link as User ..." sub-menu should be disabled in the context menu
-  // after fenced frame has untrusted network access revoked.
-  menu = std::make_unique<TestRenderViewContextMenu>(*fenced_frame_rfh, params);
-  EXPECT_FALSE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_OPENLINKINPROFILE));
-}
-
-// Verifies that OpenLinkInWebApp is is disabled when fenced frame disables
-// untrusted network access.
-TEST_F(FencedFrameRenderViewContextMenuTest,
-       DisableOpenLinkInWebAppWhenFencedFrameNetworkRevoked) {
-  content::ContextMenuParams params = CreateParams(MenuItem::LINK);
-
-  // Append a fenced frame to the primary main frame.
-  content::RenderFrameHostTester* main_frame =
-      content::RenderFrameHostTester::For(
-          web_contents()->GetPrimaryMainFrame());
-  main_frame->InitializeRenderFrameIfNeeded();
-  content::RenderFrameHost* fenced_frame_rfh =
-      CreateAndNavigateFencedFrame(main_frame);
-  auto menu =
-      std::make_unique<TestRenderViewContextMenu>(*fenced_frame_rfh, params);
-  EXPECT_TRUE(
-      menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_OPENLINKBOOKMARKAPP));
-
-  content::test::RevokeFencedFrameUntrustedNetwork(fenced_frame_rfh);
-  EXPECT_FALSE(
-      menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_OPENLINKBOOKMARKAPP));
-}
-
-// Verifies that GoToURL field is disabled when fenced frame disables untrusted
-// network access.
-TEST_F(FencedFrameRenderViewContextMenuTest,
-       DisableGoToURLWhenFencedFrameNetworkRevoked) {
-  content::ContextMenuParams params = CreateParams(MenuItem::SELECTION);
-
-  // Append a fenced frame to the primary main frame.
-  content::RenderFrameHostTester* main_frame =
-      content::RenderFrameHostTester::For(
-          web_contents()->GetPrimaryMainFrame());
-  main_frame->InitializeRenderFrameIfNeeded();
-  content::RenderFrameHost* fenced_frame_rfh =
-      CreateAndNavigateFencedFrame(main_frame);
-  auto menu =
-      std::make_unique<TestRenderViewContextMenu>(*fenced_frame_rfh, params);
-  EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_GOTOURL));
-
-  content::test::RevokeFencedFrameUntrustedNetwork(fenced_frame_rfh);
-  EXPECT_FALSE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_GOTOURL));
 }
 
 class RenderViewContextMenuReadAnythingTest
@@ -1868,10 +1912,8 @@ TEST_P(RenderViewContextMenuReadAnythingTest, AppendPageItems) {
                                  menu_params);
 
   ASSERT_TRUE(GetBrowser());
-  const bool enable_region_search = GetBrowser()
-                                        ->GetFeatures()
-                                        .lens_overlay_entry_point_controller()
-                                        ->IsEnabled();
+  const bool enable_region_search =
+      lens::LensOverlayEntryPointController::From(GetBrowser())->IsEnabled();
   if (enable_region_search) {
     SetUserSelectedDefaultSearchProvider("https://www.google.com",
                                          /*supports_image_search=*/true);
@@ -1934,3 +1976,78 @@ INSTANTIATE_TEST_SUITE_P(All,
                          testing::Values("MenuShuffleDefault",
                                          "MenuShuffleSeparation",
                                          "MenuShufflePlaceAtBottom"));
+
+class RenderViewContextMenuListenToThisPageTest
+    : public RenderViewContextMenuPrefsTest {
+ public:
+  RenderViewContextMenuListenToThisPageTest() = default;
+};
+
+TEST_F(RenderViewContextMenuListenToThisPageTest, MenuItemPresentWhenEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kImprovedReadAloud);
+
+  content::ContextMenuParams params = CreateParams(MenuItem::PAGE);
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.Init();
+
+  EXPECT_TRUE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_LISTEN_TO_THIS_PAGE));
+}
+
+TEST_F(RenderViewContextMenuListenToThisPageTest, MenuItemAbsentWhenDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kImprovedReadAloud);
+
+  content::ContextMenuParams params = CreateParams(MenuItem::PAGE);
+  TestRenderViewContextMenu menu(*web_contents()->GetPrimaryMainFrame(),
+                                 params);
+  menu.SetBrowser(GetBrowser());
+  menu.Init();
+
+  EXPECT_FALSE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_LISTEN_TO_THIS_PAGE));
+}
+
+class ReentrantTestRenderViewContextMenu : public TestRenderViewContextMenu {
+ public:
+  using TestRenderViewContextMenu::TestRenderViewContextMenu;
+
+  void NotifyObserversOnContextMenuShown() {
+    for (auto& observer : observers_) {
+      observer.OnContextMenuShown(params_, gfx::Rect());
+    }
+  }
+};
+
+class MockReentrantObserver : public RenderViewContextMenuObserver {
+ public:
+  explicit MockReentrantObserver(ReentrantTestRenderViewContextMenu* menu)
+      : menu_(menu) {}
+
+  bool IsCommandIdSupported(int command_id) override {
+    return command_id == IDC_CONTENT_CONTEXT_COPY;
+  }
+
+  bool IsCommandIdEnabled(int command_id) override { return true; }
+
+  void OnContextMenuShown(const content::ContextMenuParams& params,
+                          const gfx::Rect& bounds) override {
+    bool enabled = false;
+    menu_->IsCommandIdKnown(IDC_CONTENT_CONTEXT_COPY, &enabled);
+  }
+
+ private:
+  raw_ptr<ReentrantTestRenderViewContextMenu> menu_;
+};
+
+TEST_F(RenderViewContextMenuPrefsTest, ReentrantObserverListTest) {
+  content::ContextMenuParams params;
+  ReentrantTestRenderViewContextMenu menu(
+      *web_contents()->GetPrimaryMainFrame(), params);
+  MockReentrantObserver observer(&menu);
+  menu.AddObserverForTesting(&observer);
+
+  // This should not crash with ReentrantObserverList.
+  menu.NotifyObserversOnContextMenuShown();
+}

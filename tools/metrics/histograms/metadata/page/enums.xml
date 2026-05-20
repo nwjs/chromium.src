@@ -47,6 +47,8 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Unknown"/>
   <int value="1" label="No known agent is active on tab"/>
   <int value="2" label="Glic agent is active on tab"/>
+  <int value="3" label="DevTools agent is active on tab"/>
+  <int value="4" label="Multiple agents are active on tab"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/page_load_metrics/observers/captcha_metrics_observer.h:CaptchaFrameAgentContext) -->
@@ -105,6 +107,17 @@ chromium-metrics-reviews@google.com.
     The ad exceeded the peak CPU usage threshold for the Heavy Ad Intervention.
   </int>
 </enum>
+
+<!-- LINT.IfChange(HttpConnectionInfoCoarse) -->
+
+<enum name="HttpConnectionInfoCoarse">
+  <int value="0" label="HTTP1"/>
+  <int value="1" label="HTTP2"/>
+  <int value="2" label="QUIC"/>
+  <int value="3" label="OTHER"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/http/http_connection_info.h:HttpConnectionInfoCoarse) -->
 
 <enum name="InternalErrorLoadEvent">
   <summary>Internal Errors in the page_load_metrics system</summary>
@@ -272,6 +285,8 @@ chromium-metrics-reviews@google.com.
   <int value="40" label="Indigo"/>
   <int value="41" label="Federation"/>
   <int value="42" label="Glic"/>
+  <int value="43" label="Anchored Contextual Cue"/>
+  <int value="44" label="Web Authentication Ambient"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/page_action/page_action_icon_type.h:PageActionIconType) -->

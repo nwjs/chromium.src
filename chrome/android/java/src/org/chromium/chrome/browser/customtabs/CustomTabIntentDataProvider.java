@@ -33,7 +33,7 @@ import static androidx.browser.trusted.LaunchHandlerClientMode.NAVIGATE_EXISTING
 import static androidx.browser.trusted.LaunchHandlerClientMode.NAVIGATE_NEW;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
-import static org.chromium.chrome.browser.app.tab_activity_glue.PopupCreator.EXTRA_REQUESTED_WINDOW_FEATURES;
+import static org.chromium.chrome.browser.app.tab_activity_glue.PopupCreatorImpl.EXTRA_REQUESTED_WINDOW_FEATURES;
 
 import android.app.Activity;
 import android.app.ActivityOptions;
@@ -214,7 +214,7 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     static final String EXTRA_CUSTOM_CONTENT_ACTIONS =
             "androidx.browser.customtabs.extra.CUSTOM_CONTENT_ACTIONS";
 
-    private static final String EXTRA_TRANSLUCENT_BACKGROUND =
+    static final String EXTRA_TRANSLUCENT_BACKGROUND =
             "androidx.browser.customtabs.extra.TRANSLUCENT_BACKGROUND";
 
     @IntDef({
@@ -509,7 +509,7 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
                 : roundedCornersPosition;
     }
 
-    private static boolean hasTranslucentBackgroundColor(Intent intent) {
+    static boolean hasTranslucentBackgroundColor(Intent intent) {
         try {
             return intent.hasExtra(EXTRA_TRANSLUCENT_BACKGROUND);
         } catch (Throwable t) {
@@ -1905,7 +1905,7 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
             return true;
         }
 
-        if (WebAppHeaderUtils.isWindowControlsOverlayFlagEnabled()
+        if (WebAppHeaderUtils.isWindowControlsOverlayEnabled()
                 && displayMode instanceof TrustedWebActivityDisplayMode.WindowControlsOverlayMode) {
             return isDisplayOverride;
         }
@@ -1949,7 +1949,7 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
             return DisplayMode.MINIMAL_UI;
         }
 
-        if (WebAppHeaderUtils.isWindowControlsOverlayFlagEnabled()
+        if (WebAppHeaderUtils.isWindowControlsOverlayEnabled()
                 && displayMode instanceof TrustedWebActivityDisplayMode.WindowControlsOverlayMode) {
             return DisplayMode.WINDOW_CONTROLS_OVERLAY;
         }

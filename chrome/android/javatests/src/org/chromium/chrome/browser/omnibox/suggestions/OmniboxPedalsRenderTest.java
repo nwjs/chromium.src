@@ -76,7 +76,7 @@ public class OmniboxPedalsRenderTest {
     private OmniboxTestUtils mOmniboxUtils;
 
     public OmniboxPedalsRenderTest(boolean nightMode) {
-        OmniboxFeatures.setShouldRetainOmniboxOnFocusForTesting(false);
+        OmniboxFeatures.setHasDesktopExperienceForTesting(false);
         ChromeNightModeTestUtils.setUpNightModeForChromeActivity(nightMode);
         mRenderTestRule.setNightModeEnabled(nightMode);
         mRenderTestRule.setVariantPrefix("RegularTab");

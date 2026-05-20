@@ -24,6 +24,7 @@
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
 #include "components/affiliations/core/browser/fake_affiliation_service.h"
+#include "components/device_reauth/mock_device_authenticator.h"
 #include "components/password_manager/core/browser/affiliation/mock_affiliated_match_helper.h"
 #include "components/password_manager/core/browser/credential_manager_pending_request_task.h"
 #include "components/password_manager/core/browser/credential_manager_utils.h"
@@ -32,6 +33,7 @@
 #include "components/password_manager/core/browser/leak_detection/leak_detection_check_factory.h"
 #include "components/password_manager/core/browser/leak_detection/leak_detection_request_utils.h"
 #include "components/password_manager/core/browser/leak_detection/mock_leak_detection_check_factory.h"
+#include "components/password_manager/core/browser/password_feature_manager.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_form_manager_for_ui.h"
 #include "components/password_manager/core/browser/password_manager.h"
@@ -73,7 +75,9 @@ class MockLeakDetectionCheck : public LeakDetectionCheck {
  public:
   MOCK_METHOD(void,
               Start,
-              (LeakDetectionInitiator, const PasswordForm&),
+              (LeakDetectionInitiator,
+               const PasswordForm&,
+               LeakDetectionCallback),
               (override));
 };
 
@@ -107,6 +111,10 @@ class MockPasswordManagerClient : public StubPasswordManagerClient {
                const url::Origin&,
                (base::span<const PasswordForm>),
                bool was_autofilled_on_pageload),
+              (override));
+  MOCK_METHOD(std::unique_ptr<device_reauth::DeviceAuthenticator>,
+              GetDeviceAuthenticator,
+              (),
               (override));
 #if !BUILDFLAG(IS_ANDROID)
   MOCK_METHOD(bool, IsActorTaskActive, (), (override));
@@ -312,8 +320,6 @@ class CredentialManagerImplTest : public testing::Test,
     cross_origin_form_.scheme = PasswordForm::Scheme::kHtml;
     cross_origin_form_.skip_zero_click = false;
 
-    store_->Clear();
-    EXPECT_TRUE(store_->IsEmpty());
   }
 
   void TearDown() override {
@@ -541,7 +547,7 @@ TEST_P(CredentialManagerImplTest, StoreFederatedAfterPassword) {
   pending_manager->Save();
 
   RunAllPendingTasks();
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   EXPECT_THAT(passwords["https://example.com/"],
               ElementsAre(MatchesFormExceptStore(form_)));
   federated.date_created =
@@ -581,7 +587,7 @@ TEST_P(CredentialManagerImplTest, CredentialManagerStoreOverwrite) {
 
   EXPECT_TRUE(called);
 
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   EXPECT_EQ(1U, passwords.size());
   EXPECT_EQ(2U, passwords[form_.signon_realm].size());
   EXPECT_THAT(origin_path_form_,
@@ -612,7 +618,7 @@ TEST_P(CredentialManagerImplTest,
   EXPECT_TRUE(called);
 
   // Check that both credentials are present in the password store.
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   EXPECT_EQ(2U, passwords.size());
   EXPECT_EQ(1U, passwords[form_.signon_realm].size());
   EXPECT_EQ(1U, passwords[psl_form.signon_realm].size());
@@ -645,7 +651,7 @@ TEST_P(CredentialManagerImplTest,
   EXPECT_TRUE(called);
 
   // Check that both credentials are present in the password store.
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   EXPECT_THAT(passwords, testing::UnorderedElementsAre(
                              testing::Key(form_.signon_realm),
                              testing::Key(grouped_form.signon_realm)));
@@ -674,7 +680,7 @@ TEST_P(CredentialManagerImplTest,
 
   // Check that only the initial credential is present in the password store
   // and the new one is still pending.
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   EXPECT_EQ(1U, passwords.size());
   EXPECT_EQ(1U, passwords[psl_form.signon_realm].size());
 
@@ -706,7 +712,7 @@ TEST_P(CredentialManagerImplTest,
 
   // Check that only the initial credential is present in the password store
   // and the new one is still pending.
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   EXPECT_EQ(1U, passwords.size());
   EXPECT_EQ(1U, passwords[psl_form.signon_realm].size());
 
@@ -732,7 +738,7 @@ TEST_P(CredentialManagerImplTest, CredentialManagerStoreOverwriteZeroClick) {
   RunAllPendingTasks();
 
   // Verify that the update toggled the skip_zero_click flag off.
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   EXPECT_FALSE(passwords[form_.signon_realm][0].skip_zero_click);
 }
 
@@ -758,7 +764,7 @@ TEST_P(CredentialManagerImplTest,
   RunAllPendingTasks();
 
   // Verify that the update toggled the skip_zero_click flag off.
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   EXPECT_FALSE(passwords[form_.signon_realm][0].skip_zero_click);
 }
 
@@ -790,7 +796,7 @@ TEST_P(CredentialManagerImplTest, CredentialManagerGetOverwriteZeroClick) {
   EXPECT_EQ(CredentialManagerError::SUCCESS, error);
 
   // Verify that the update toggled the skip_zero_click flag.
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   EXPECT_FALSE(passwords[form_.signon_realm][0].skip_zero_click);
 }
 
@@ -816,7 +822,7 @@ TEST_P(CredentialManagerImplTest, CredentialManagerOnPreventSilentAccess) {
   store_->AddLogin(cross_origin_form_);
   RunAllPendingTasks();
 
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   EXPECT_EQ(3U, passwords.size());
   EXPECT_EQ(1U, passwords[form_.signon_realm].size());
   EXPECT_EQ(1U, passwords[subdomain_form_.signon_realm].size());
@@ -832,7 +838,7 @@ TEST_P(CredentialManagerImplTest, CredentialManagerOnPreventSilentAccess) {
 
   EXPECT_TRUE(called);
 
-  passwords = store_->stored_passwords();
+  passwords = GetAllLoginsSync(store_.get());
   EXPECT_EQ(3U, passwords.size());
   EXPECT_EQ(1U, passwords[form_.signon_realm].size());
   EXPECT_EQ(1U, passwords[subdomain_form_.signon_realm].size());
@@ -849,7 +855,7 @@ TEST_P(CredentialManagerImplTest,
   store_->AddLogin(form_);
   RunAllPendingTasks();
 
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   ASSERT_EQ(1U, passwords.size());
   ASSERT_EQ(1U, passwords[form_.signon_realm].size());
   EXPECT_FALSE(passwords[form_.signon_realm][0].skip_zero_click);
@@ -860,7 +866,7 @@ TEST_P(CredentialManagerImplTest,
 
   EXPECT_TRUE(called);
 
-  passwords = store_->stored_passwords();
+  passwords = GetAllLoginsSync(store_.get());
   ASSERT_EQ(1U, passwords.size());
   ASSERT_EQ(1U, passwords[form_.signon_realm].size());
   EXPECT_FALSE(passwords[form_.signon_realm][0].skip_zero_click);
@@ -873,7 +879,7 @@ TEST_P(CredentialManagerImplTest,
   store_->AddLogin(form_);
   RunAllPendingTasks();
 
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   ASSERT_EQ(1U, passwords.size());
   ASSERT_EQ(1U, passwords[form_.signon_realm].size());
   EXPECT_FALSE(passwords[form_.signon_realm][0].skip_zero_click);
@@ -906,7 +912,7 @@ TEST_P(CredentialManagerImplTest,
       cm_service_impl_->GetSynthesizedFormForOrigin(), affiliated_realms);
   RunAllPendingTasks();
 
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   EXPECT_EQ(4U, passwords.size());
   EXPECT_FALSE(passwords[form_.signon_realm][0].skip_zero_click);
   EXPECT_FALSE(passwords[cross_origin_form_.signon_realm][0].skip_zero_click);
@@ -917,7 +923,7 @@ TEST_P(CredentialManagerImplTest,
   CallPreventSilentAccess(base::BindOnce(&RespondCallback, &called));
   RunAllPendingTasks();
 
-  passwords = store_->stored_passwords();
+  passwords = GetAllLoginsSync(store_.get());
   EXPECT_EQ(4U, passwords.size());
   EXPECT_TRUE(passwords[form_.signon_realm][0].skip_zero_click);
   EXPECT_FALSE(passwords[cross_origin_form_.signon_realm][0].skip_zero_click);
@@ -1412,7 +1418,7 @@ TEST_P(CredentialManagerImplTest, ResetSkipZeroClickInProfileStoreAfterPrompt) {
   RunAllPendingTasks();
 
   // Sanity check.
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   EXPECT_EQ(2U, passwords.size());
   EXPECT_EQ(1U, passwords[form_.signon_realm].size());
   EXPECT_EQ(1U, passwords[cross_origin_form_.signon_realm].size());
@@ -1438,7 +1444,7 @@ TEST_P(CredentialManagerImplTest, ResetSkipZeroClickInProfileStoreAfterPrompt) {
 
   RunAllPendingTasks();
 
-  passwords = store_->stored_passwords();
+  passwords = GetAllLoginsSync(store_.get());
   EXPECT_EQ(2U, passwords.size());
   EXPECT_EQ(1U, passwords[form_.signon_realm].size());
   EXPECT_EQ(1U, passwords[cross_origin_form_.signon_realm].size());
@@ -1478,7 +1484,8 @@ TEST_P(CredentialManagerImplTest, ResetSkipZeroClickInAccountStoreAfterPrompt) {
 
   RunAllPendingTasks();
 
-  TestPasswordStore::PasswordMap passwords = account_store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords =
+      GetAllLoginsSync(account_store_.get());
   ASSERT_EQ(1U, passwords.size());
   ASSERT_EQ(1U, passwords[form_.signon_realm].size());
   EXPECT_FALSE(passwords[form_.signon_realm][0].skip_zero_click);
@@ -1521,12 +1528,12 @@ TEST_P(CredentialManagerImplTest,
   RunAllPendingTasks();
 
   // Only the one in the account store is affected.
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   ASSERT_EQ(1U, passwords.size());
   ASSERT_EQ(1U, passwords[form_.signon_realm].size());
   EXPECT_TRUE(passwords[form_.signon_realm][0].skip_zero_click);
 
-  passwords = account_store_->stored_passwords();
+  passwords = GetAllLoginsSync(account_store_.get());
   ASSERT_EQ(1U, passwords.size());
   ASSERT_EQ(1U, passwords[form_.signon_realm].size());
   EXPECT_FALSE(passwords[form_.signon_realm][0].skip_zero_click);
@@ -1712,7 +1719,7 @@ TEST_P(CredentialManagerImplTest, BlockedPasswordCredential) {
 
   // Verify that the site is blocked.
   PasswordForm blocked_form;
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   blocked_form.blocked_by_user = true;
   blocked_form.url = form_.url;
   blocked_form.signon_realm = form_.signon_realm;
@@ -1741,7 +1748,7 @@ TEST_P(CredentialManagerImplTest, BlockedFederatedCredential) {
   RunAllPendingTasks();
 
   // Verify that the site is blocked.
-  TestPasswordStore::PasswordMap passwords = store_->stored_passwords();
+  TestPasswordStore::PasswordMap passwords = GetAllLoginsSync(store_.get());
   ASSERT_TRUE(passwords.count(form_.url.spec()));
   PasswordForm blocked_form;
   blocked_form.blocked_by_user = true;
@@ -1857,10 +1864,10 @@ TEST_P(CredentialManagerImplTest, StorePasswordCredentialStartsLeakDetection) {
       *check_instance,
       Start(
           Eq(LeakDetectionInitiator::kSignInCheck),
-          AllOf(
-              Field(&PasswordForm::url, Eq(form_.url)),
-              Field(&PasswordForm::username_value, Eq(form_.username_value)),
-              Field(&PasswordForm::password_value, Eq(form_.password_value)))));
+          AllOf(Field(&PasswordForm::url, Eq(form_.url)),
+                Field(&PasswordForm::username_value, Eq(form_.username_value)),
+                Field(&PasswordForm::password_value, Eq(form_.password_value))),
+          _));
   EXPECT_CALL(*weak_factory, TryCreateLeakCheck)
       .WillOnce(Return(testing::ByMove(std::move(check_instance))));
   CallStore(PasswordFormToCredentialInfo(form_), base::DoNothing());
@@ -2022,5 +2029,43 @@ INSTANTIATE_TEST_SUITE_P(All,
                          CredentialManagerImplTestWithActorLoginPermissions,
                          testing::Bool());
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+
+TEST_P(CredentialManagerImplTest, ReauthAfterAccountSelection) {
+  ON_CALL(*client_->GetPasswordFeatureManager(),
+          IsBiometricAuthenticationBeforeFillingEnabled)
+      .WillByDefault(Return(true));
+
+  store_->AddLogin(form_);
+  RunAllPendingTasks();
+
+  EXPECT_CALL(*client_, PromptUserToChooseCredentialsPtr).Times(1);
+
+  auto mock_authenticator =
+      std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  device_reauth::MockDeviceAuthenticator* raw_authenticator =
+      mock_authenticator.get();
+  EXPECT_CALL(*client_, GetDeviceAuthenticator)
+      .WillOnce(Return(std::move(mock_authenticator)));
+
+  EXPECT_CALL(*raw_authenticator, AuthenticateWithMessage)
+      .WillOnce([](const std::u16string& message,
+                   device_reauth::MockDeviceAuthenticator::AuthenticateCallback
+                       callback) {
+        std::move(callback).Run(true);  // Success
+      });
+
+  bool called = false;
+  CredentialManagerError error;
+  std::optional<CredentialInfo> credential;
+  CallGet(CredentialMediationRequirement::kOptional, /*include_passwords=*/true,
+          /*federations=*/{},
+          base::BindOnce(&GetCredentialCallback, &called, &error, &credential));
+
+  RunAllPendingTasks();
+
+  EXPECT_TRUE(called);
+  EXPECT_EQ(CredentialManagerError::SUCCESS, error);
+  EXPECT_EQ(form_.username_value, credential->id);
+}
 
 }  // namespace password_manager

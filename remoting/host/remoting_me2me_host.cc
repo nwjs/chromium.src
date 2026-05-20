@@ -124,7 +124,6 @@
 #include "remoting/signaling/corp_signal_strategy.h"
 #include "remoting/signaling/ftl_host_device_id_provider.h"
 #include "remoting/signaling/ftl_signal_strategy.h"
-#include "remoting/signaling/session_config.h"
 #include "remoting/signaling/signal_strategy.h"
 #include "remoting/signaling/signaling_id_util.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_capture_types.h"
@@ -136,10 +135,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "remoting/host/pam_authorization_factory_posix.h"
 #include "remoting/host/posix/signal_handler.h"
 #include "remoting/host/security_key/security_key_auth_handler_posix.h"
 #endif  // BUILDFLAG(IS_POSIX)
+
+#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_CHROMEOS)
+#include "remoting/host/pam_authorization_factory_posix.h"
+#endif  // BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_APPLE)
 #include "remoting/host/audio_capturer_mac.h"
@@ -161,8 +163,8 @@
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #include "base/linux_util.h"
-#include "remoting/host/linux/audio_capturer_linux.h"
 #include "remoting/host/linux/certificate_watcher.h"
+#include "remoting/host/linux/pulse_audio_capturer.h"
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN)
@@ -432,10 +434,9 @@ class HostProcess : public ConfigWatcher::Delegate,
       ::mojo::PlatformHandle privileged_handle,
       ::mojo::PlatformHandle unprivileged_handle) override;
 #endif
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_MAC)
   void BindChromotingHostServices(
-      mojo::PendingReceiver<mojom::ChromotingHostServices> receiver,
-      int peer_pid) override;
+      mojo::PendingReceiver<mojom::ChromotingHostServices> receiver) override;
 #endif
 
 #if BUILDFLAG(IS_MAC)
@@ -980,14 +981,14 @@ void HostProcess::CreateAuthenticatorFactory() {
           base::BindRepeating(&HostProcess::CheckAccessPermission, this),
           std::move(auth_config));
 
-#if BUILDFLAG(IS_POSIX)
+#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_CHROMEOS)
   // For Linux and Mac single-process hosts, perform a PAM authorization step
   // after authentication. For multi-process hosts, the check will be done by
   // the daemon process.
   if (!multi_process_) {
     factory = std::make_unique<PamAuthorizationFactory>(std::move(factory));
   }
-#endif  // BUILDFLAG(IS_POSIX)
+#endif  // BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_CHROMEOS)
   host_->SetAuthenticatorFactory(std::move(factory));
 }
 
@@ -1088,12 +1089,12 @@ void HostProcess::StartOnUiThread() {
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   // If an audio pipe is specific on the command-line then initialize
-  // AudioCapturerLinux to capture from it.
+  // PulseAudioCapturer to capture from it.
   base::FilePath audio_pipe_name =
       base::CommandLine::ForCurrentProcess()->GetSwitchValuePath(
           kAudioPipeSwitchName);
   if (!audio_pipe_name.empty()) {
-    remoting::AudioCapturerLinux::InitializePipeReader(
+    remoting::PulseAudioCapturer::InitializePipeReader(
         context_->audio_task_runner(), audio_pipe_name);
   }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
@@ -1166,7 +1167,7 @@ void HostProcess::ShutdownOnUiThread() {
   // thread will remain in-use and prevent the process from exiting.
   // TODO(wez): DesktopEnvironmentFactory should own the pipe reader.
   // See crbug.com/161373 and crbug.com/104544.
-  AudioCapturerLinux::InitializePipeReader(nullptr, base::FilePath());
+  PulseAudioCapturer::InitializePipeReader(nullptr, base::FilePath());
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
 #if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) && defined(REMOTING_USE_X11)
@@ -1310,14 +1311,13 @@ void HostProcess::InitializePairingRegistry(
 
 #endif  // BUILDFLAG(IS_WIN)
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_MAC)
 void HostProcess::BindChromotingHostServices(
-    mojo::PendingReceiver<mojom::ChromotingHostServices> receiver,
-    int peer_pid) {
+    mojo::PendingReceiver<mojom::ChromotingHostServices> receiver) {
   if (context_->ui_task_runner()->BelongsToCurrentThread()) {
     context_->network_task_runner()->PostTask(
         FROM_HERE, base::BindOnce(&HostProcess::BindChromotingHostServices,
-                                  this, std::move(receiver), peer_pid));
+                                  this, std::move(receiver)));
     return;
   }
   // This IPC is handled on the UI thread and bounced over to the network thread
@@ -1327,7 +1327,7 @@ void HostProcess::BindChromotingHostServices(
     LOG(ERROR) << "Binding rejected. Host has not started.";
     return;
   }
-  host_->BindChromotingHostServices(std::move(receiver), peer_pid);
+  host_->BindChromotingHostServices(std::move(receiver));
 }
 #endif
 
@@ -1981,16 +1981,6 @@ void HostProcess::StartHost() {
         corp_signal_strategy_.get());
   }
 
-  auto protocol_config = CandidateSessionConfig::CreateDefault();
-  if (!desktop_environment_factory_->SupportsAudioCapture()) {
-    protocol_config->DisableAudioChannel();
-  }
-  protocol_config->set_webrtc_supported(true);
-  if (corp_session_manager) {
-    corp_session_manager->set_protocol_config(protocol_config->Clone());
-  }
-  session_manager->set_protocol_config(std::move(protocol_config));
-
   if (is_corp_host_) {
     // Enabling this policy means that a local user sitting at a host would not
     // see any UI or indication that a remote user was connected.  We do have a
@@ -2020,8 +2010,7 @@ void HostProcess::StartHost() {
   host_ = std::make_unique<ChromotingHost>(
       desktop_environment_factory_.get(), std::move(session_manager),
       std::move(corp_session_manager), transport_context,
-      context_->audio_task_runner(), context_->video_encode_task_runner(),
-      desktop_environment_options_,
+      context_->audio_task_runner(), desktop_environment_options_,
       base::BindRepeating(&HostProcess::OnSessionPoliciesReceived,
                           base::Unretained(this)),
       &local_session_policies_provider_);

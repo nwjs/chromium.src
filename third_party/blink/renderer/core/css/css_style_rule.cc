@@ -35,7 +35,6 @@
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/disallow_new_wrapper.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
@@ -90,8 +89,9 @@ void CSSStyleRule::setSelectorText(const ExecutionContext* execution_context,
 
   const auto* context = MakeGarbageCollected<CSSParserContext>(
       ParserContext(execution_context->GetSecureContextMode()));
+  CSSStyleSheet* parent_stylesheet = parentStyleSheet();
   StyleSheetContents* parent_contents =
-      parentStyleSheet() ? parentStyleSheet()->Contents() : nullptr;
+      parent_stylesheet ? parent_stylesheet->Contents() : nullptr;
   HeapVector<CSSSelector> arena;
 
   NestingContext nesting_context = CalculateNestingContext(parentRule());
@@ -112,9 +112,13 @@ void CSSStyleRule::setSelectorText(const ExecutionContext* execution_context,
           new_style_rule, /*mixin_parameter_bindings=*/nullptr));
     }
   }
+
+  position_hint_ = ReplaceChildRuleInParentIfExists(
+      /*old_rule=*/style_rule_, new_style_rule, position_hint_);
+
   if (parent_contents) {
-    position_hint_ = parent_contents->ReplaceRuleIfExists(
-        style_rule_, new_style_rule, position_hint_);
+    parent_contents->NotifyRuleChanged(style_rule_);
+    parent_contents->NotifyRuleChanged(new_style_rule);
   }
 
   // Updates style_rule_, as well as any inner CSSOM wrappers.
@@ -183,10 +187,14 @@ void CSSStyleRule::Reattach(StyleRuleBase* rule) {
   if (properties_cssom_wrapper_) {
     properties_cssom_wrapper_->Reattach(style_rule_->MutableProperties());
   }
-  for (unsigned i = 0; i < child_rule_cssom_wrappers_.size(); ++i) {
-    if (child_rule_cssom_wrappers_[i]) {
-      child_rule_cssom_wrappers_[i]->Reattach(
-          (*style_rule_->ChildRules())[i].Get());
+  if (style_rule_->ChildRules()) {
+    CHECK_EQ(style_rule_->ChildRules()->size(),
+             child_rule_cssom_wrappers_.size());
+    for (auto [child_rule, child_wrapper] :
+         base::zip(*style_rule_->ChildRules(), child_rule_cssom_wrappers_)) {
+      if (child_wrapper) {
+        child_wrapper->Reattach(child_rule);
+      }
     }
   }
 }

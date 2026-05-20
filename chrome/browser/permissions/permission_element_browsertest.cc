@@ -26,6 +26,7 @@
 #include "components/permissions/permission_request_manager.h"
 #include "components/permissions/test/mock_permission_request.h"
 #include "components/permissions/test/permission_request_observer.h"
+#include "components/zoom/zoom_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -34,6 +35,8 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/mojom/permissions/permission.mojom-shared.h"
+#include "components/ukm/test_ukm_recorder.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/views/widget/any_widget_observer.h"
 
@@ -402,10 +405,6 @@ IN_PROC_BROWSER_TEST_F(PermissionElementBrowserTest, TabSwitchingClosesPrompt) {
 
 IN_PROC_BROWSER_TEST_F(PermissionElementBrowserTest,
                        DoubleClickDoesNotTriggerTwoRequests) {
-  permissions::PermissionRequestManager::FromWebContents(web_contents())
-      ->set_auto_response_for_test(
-          permissions::PermissionRequestManager::AutoResponseType::DISMISS);
-
   permissions::PermissionRequestObserver observer1(web_contents());
 
   // Click the element twice.
@@ -418,8 +417,16 @@ IN_PROC_BROWSER_TEST_F(PermissionElementBrowserTest,
   // request.
   observer1.Wait();
   EXPECT_TRUE(observer1.request_shown());
+
+  // Dismiss the prompt.
+  auto* permission_request_manager =
+      permissions::PermissionRequestManager::FromWebContents(web_contents());
+  permission_request_manager->Dismiss(/*prompt_options=*/std::monostate());
+  permission_request_manager->FinalizeCurrentRequests();
   WaitForDismissEvent("microphone");
 
+  permission_request_manager->set_auto_response_for_test(
+      permissions::PermissionRequestManager::AutoResponseType::DISMISS);
   // Verify that no duplicate "microphone" requests or dismiss events are
   // created.
   permissions::PermissionRequestObserver observer2(web_contents());
@@ -759,6 +766,7 @@ IN_PROC_BROWSER_TEST_F(PermissionElementBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(MiscellaneousElementBrowserTest, CountMetrics) {
   WebFeatureHistogramTester histogram_tester;
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
   NavigateToURL("/permissions/permission_element_count.html");
 
   // Even though we have two geolocation elements in the page, the count only
@@ -773,6 +781,31 @@ IN_PROC_BROWSER_TEST_F(MiscellaneousElementBrowserTest, CountMetrics) {
   // incremented.
   histogram_tester.ExpectCounts(
       {{blink::mojom::WebFeature::kHTMLPermissionElement, 0}});
+
+  // UKM metrics are recorded when the page is unloaded or on a new navigation.
+  browser()->tab_strip_model()->CloseAllTabs();
+  base::RunLoop().RunUntilIdle();
+
+  auto entries = ukm_recorder.GetEntriesByName(
+      ukm::builders::Blink_UseCounter::kEntryName);
+  std::vector<int64_t> ukm_features;
+  for (const ukm::mojom::UkmEntry* entry : entries) {
+    const auto* metric = ukm_recorder.GetEntryMetric(
+        entry, ukm::builders::Blink_UseCounter::kFeatureName);
+    if (metric) {
+      ukm_features.push_back(*metric);
+    }
+  }
+
+  EXPECT_THAT(ukm_features,
+              testing::Contains(static_cast<int64_t>(
+                  blink::mojom::WebFeature::kHTMLGeolocationElement)));
+  EXPECT_THAT(ukm_features,
+              testing::Contains(static_cast<int64_t>(
+                  blink::mojom::WebFeature::kHTMLInstallElement)));
+  EXPECT_THAT(ukm_features,
+              testing::Contains(static_cast<int64_t>(
+                  blink::mojom::WebFeature::kHTMLUserMediaElement)));
 }
 
 IN_PROC_BROWSER_TEST_F(MiscellaneousElementBrowserTest, InvalidStyleMetrics) {

@@ -1,5 +1,7 @@
 include_rules = [
   "+components/google/core/common",
+  "+components/signin/public/base",
+  "+components/signin/public/identity_manager",
   "+components/version_info",
   "+google_apis",
   "+net/base",
@@ -12,5 +14,8 @@ include_rules = [
 specific_include_rules = {
   ".*_unittest\.cc": [
     "+services/network/test",
+  ],
+  "fake_annotation_index_server\.(cc|h)": [
+    "+net/test/embedded_test_server",
   ],
 }

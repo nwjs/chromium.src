@@ -10,6 +10,7 @@
 #include "base/functional/bind.h"
 #include "base/json/values_util.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/thread_pool.h"
 #include "base/time/default_clock.h"
@@ -556,7 +557,7 @@ bool HttpsFirstModeService::UpdatePrefs(
   // default. If the feature flag is disabled, then the kEnabledFull and
   // kDisabled settings will only be mapped to the kHttpsOnlyModeEnabled pref.
   //
-  // Note: The Security.HttpsFirstMode.SettingChanged* histograms are logged
+  // Note: The Security.HttpsFirstMode.SettingChanged2 histogram is logged
   // here instead of in HttpsFirstModeService::OnHttpsFirstModePrefChanged()
   // because this will fire the pref observer _twice_, so logging the histogram
   // in the pref observer would cause double counting.
@@ -584,8 +585,8 @@ bool HttpsFirstModeService::UpdatePrefs(
   } else {
     // TODO(crbug.com/349860796): Remove old settings path once Balanced Mode
     // is launched.
-    base::UmaHistogramBoolean("Security.HttpsFirstMode.SettingChanged",
-                              selection == HttpsFirstModeSetting::kEnabledFull);
+    base::UmaHistogramEnumeration("Security.HttpsFirstMode.SettingChanged2",
+                                  selection);
     profile_->GetPrefs()->SetBoolean(
         prefs::kHttpsOnlyModeEnabled,
         selection == HttpsFirstModeSetting::kEnabledFull);
@@ -625,7 +626,8 @@ HttpsFirstModeService* HttpsFirstModeServiceFactory::GetForProfile(
 
 // static
 HttpsFirstModeServiceFactory* HttpsFirstModeServiceFactory::GetInstance() {
-  return base::Singleton<HttpsFirstModeServiceFactory>::get();
+  static base::NoDestructor<HttpsFirstModeServiceFactory> instance;
+  return instance.get();
 }
 
 // static

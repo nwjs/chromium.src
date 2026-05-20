@@ -50,12 +50,9 @@ class TabWebContentsDelegateAndroid
   void RunFileChooser(content::RenderFrameHost* render_frame_host,
                       scoped_refptr<content::FileSelectListener> listener,
                       const blink::mojom::FileChooserParams& params) override;
-  void CreateSmsPrompt(content::RenderFrameHost*,
-                       const std::vector<url::Origin>&,
-                       const std::string& one_time_code,
-                       base::OnceClosure on_confirm,
-                       base::OnceClosure on_cancel) override;
   bool ShouldFocusLocationBarByDefault(content::WebContents* source) override;
+  void NavigationStateChanged(content::WebContents* source,
+                              content::InvalidateTypes changed_flags) override;
   void FindReply(content::WebContents* web_contents,
                  int request_id,
                  int number_of_matches,
@@ -66,6 +63,24 @@ class TabWebContentsDelegateAndroid
                            int version,
                            const std::vector<gfx::RectF>& rects,
                            const gfx::RectF& active_rect) override;
+  bool IsWebContentsCreationOverridden(
+      content::RenderFrameHost* opener,
+      content::SiteInstance* source_site_instance,
+      content::mojom::WindowContainerType window_container_type,
+      const GURL& opener_url,
+      const std::string& frame_name,
+      const GURL& target_url) override;
+  content::WebContents* CreateCustomWebContents(
+      content::RenderFrameHost* opener,
+      content::SiteInstance* source_site_instance,
+      bool is_new_browsing_instance,
+      const GURL& opener_url,
+      const std::string& frame_name,
+      const GURL& target_url,
+      WindowOpenDisposition disposition,
+      const blink::mojom::WindowFeatures& window_features,
+      const content::StoragePartitionConfig& partition_config,
+      content::SessionStorageNamespace* session_storage_namespace) override;
   content::JavaScriptDialogManager* GetJavaScriptDialogManager(
       content::WebContents* source) override;
   void RequestMediaAccessPermission(
@@ -138,9 +153,8 @@ class TabWebContentsDelegateAndroid
   void OnFindTabHelperDestroyed(find_in_page::FindTabHelper* helper) override;
 
   bool ShouldEnableEmbeddedMediaExperience() const;
-  bool IsPictureInPictureEnabled() const;
-  virtual bool IsNightModeEnabled() const;
-  bool IsForceDarkWebContentEnabled() const;
+  bool IsDocumentPictureInPictureBlockedBySystem() const override;
+  bool IsPictureInPictureEnabled() const override;
   bool CanShowAppBanners() const;
 
   // Returns true if this tab is currently presented in the context of custom
@@ -151,7 +165,6 @@ class TabWebContentsDelegateAndroid
   bool IsInstalledWebappDelegateGeolocation() const;
   bool IsModalContextMenu() const;
   bool IsDynamicSafeAreaInsetsEnabled() const;
-  bool OpenInAppOrChromeFromCct(GURL url);
 
   void DraggableRegionsChanged(
       const std::vector<blink::mojom::DraggableRegionPtr>& regions,
@@ -167,6 +180,11 @@ class TabWebContentsDelegateAndroid
 
   // Timestamp when the user last successfully escaped from a lock request.
   base::TimeTicks pointer_lock_last_user_escape_time_;
+
+  void NavigationStateChangedDeferred(content::WebContents* source,
+                                      content::InvalidateTypes changed_flags);
+
+  base::WeakPtrFactory<TabWebContentsDelegateAndroid> weak_ptr_factory_{this};
 };
 
 }  // namespace android

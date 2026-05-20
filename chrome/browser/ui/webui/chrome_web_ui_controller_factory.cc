@@ -32,6 +32,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/grit/theme_resources.h"
 #include "components/commerce/core/commerce_constants.h"
 #include "components/favicon/core/favicon_service.h"
 #include "components/favicon_base/favicon_util.h"
@@ -59,6 +60,8 @@
 #include "url/url_constants.h"
 
 #if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/webui/bookmarks/bookmarks_ui_android.h"
+#include "chrome/browser/ui/webui/history/history_ui_android.h"
 #include "components/feed/feed_feature_list.h"
 #else  // BUILDFLAG(IS_ANDROID)
 #include "base/memory/ref_counted_memory.h"
@@ -76,8 +79,8 @@
 #include "chrome/browser/ui/webui/password_manager/password_manager_ui.h"
 #include "chrome/browser/ui/webui/settings/settings_utils.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
+#include "chrome/browser/web_applications/model/web_app_icon_types.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
-#include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "media/base/media_switches.h"
@@ -340,13 +343,13 @@ bool ChromeWebUIControllerFactory::IsWebUIAllowedToMakeNetworkRequests(
   // Allowlist to work around exceptional cases.
   //
   // If you are adding a new host to this list, please file a corresponding bug
-  // to track its removal. See https://crbug.com/829412 for the metabug.
+  // to track its removal. See https://crbug.com/40091019 for the metabug.
   return
-      // https://crbug.com/831812
+      // https://crbug.com/40571286
       origin.host() == chrome::kChromeUISyncConfirmationHost ||
-      // https://crbug.com/831813
+      // https://crbug.com/41382586
       origin.host() == chrome::kChromeUIInspectHost ||
-      // https://crbug.com/859345
+      // https://crbug.com/40583261
       origin.host() == chrome::kChromeUIDownloadsHost ||
       // https://crbug.com/376417346
       origin.host() == chrome::kChromeUIExtensionsHost;
@@ -366,9 +369,18 @@ base::RefCountedMemory* ChromeWebUIControllerFactory::GetFaviconResourceBytes(
   }
 #endif
 
+#if BUILDFLAG(IS_ANDROID)
+  // For Android, we're allowing the favicon requests for chrome native pages.
+  // Now only history and bookmarks are supported.
+  if (!content::HasWebUIScheme(page_url) &&
+      !HasFaviconForNativePage(page_url)) {
+    return nullptr;
+  }
+#else
   if (!content::HasWebUIScheme(page_url)) {
     return nullptr;
   }
+#endif
 
 #if 0
   if (page_url.host() == chrome::kChromeUIComponentsHost) {
@@ -394,6 +406,14 @@ base::RefCountedMemory* ChromeWebUIControllerFactory::GetFaviconResourceBytes(
     return VersionUI::GetFaviconResourceBytes(scale_factor);
   }
 
+  if (page_url.host() == chrome::kChromeUIBookmarksHost) {
+    return BookmarksUI::GetFaviconResourceBytes(scale_factor);
+  }
+
+  if (page_url.host() == chrome::kChromeUIHistoryHost) {
+    return HistoryUI::GetFaviconResourceBytes(scale_factor);
+  }
+
 #if !BUILDFLAG(IS_ANDROID)
 #if !BUILDFLAG(IS_CHROMEOS)
   // The chrome://apps page is not available on Android or ChromeOS.
@@ -412,15 +432,6 @@ base::RefCountedMemory* ChromeWebUIControllerFactory::GetFaviconResourceBytes(
     return WhatsNewUI::GetFaviconResourceBytes(scale_factor);
   }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-
-  // Bookmarks are part of NTP on Android.
-  if (page_url.host() == chrome::kChromeUIBookmarksHost) {
-    return BookmarksUI::GetFaviconResourceBytes(scale_factor);
-  }
-
-  if (page_url.host() == chrome::kChromeUIHistoryHost) {
-    return HistoryUI::GetFaviconResourceBytes(scale_factor);
-  }
 
   if (page_url.host() == password_manager::kChromeUIPasswordManagerHost) {
     return PasswordManagerUI::GetFaviconResourceBytes(scale_factor);
@@ -468,3 +479,14 @@ base::RefCountedMemory* ChromeWebUIControllerFactory::GetFaviconResourceBytes(
 
   return nullptr;
 }
+
+#if BUILDFLAG(IS_ANDROID)
+bool ChromeWebUIControllerFactory::HasFaviconForNativePage(
+    const GURL& page_url) const {
+  if (!page_url.SchemeIs(content::kChromeNativeScheme)) {
+    return false;
+  }
+  return page_url.host() == chrome::kChromeUIHistoryHost ||
+         page_url.host() == chrome::kChromeUIBookmarksHost;
+}
+#endif

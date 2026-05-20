@@ -38,7 +38,6 @@
 #import "components/metrics/metrics_service.h"
 #import "components/metrics_services_manager/metrics_services_manager.h"
 #import "components/open_from_clipboard/clipboard_recent_content.h"
-#import "components/os_crypt/sync/os_crypt.h"
 #import "components/prefs/json_pref_store.h"
 #import "components/prefs/pref_service.h"
 #import "components/previous_session_info/previous_session_info.h"
@@ -70,6 +69,7 @@
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_dependency_manager_ios.h"
 #import "ios/chrome/browser/signin/model/signin_util.h"
+#import "ios/chrome/browser/tracing/ios_tracing_controller.h"
 #import "ios/chrome/browser/translate/model/translate_service_ios.h"
 #import "ios/chrome/browser/web/model/ios_thread_profiler.h"
 #import "ios/chrome/common/channel_info.h"
@@ -95,14 +95,6 @@
 #endif
 
 namespace {
-
-// Initializes OSCrypt.
-void EnsureOSCryptInitialized() {
-  // There is no public API to initialize OSCrypt. It is performed one the
-  // first call to the library, so call `OSCrypt::IsEncryptionAvailable()`
-  // and discard the result to perform the initialisation.
-  std::ignore = OSCrypt::IsEncryptionAvailable();
-}
 
 }  // namespace
 
@@ -197,6 +189,10 @@ void IOSChromeMainParts::ApplyFeatureList() {
 }
 
 void IOSChromeMainParts::PreCreateThreads() {
+  // Initialize Perfetto tracing before threads are spawned so the
+  // TrackNameRecorder can capture and name the new background threads.
+  IOSTracingController::CreateInstance();
+
   // Create and start the stack sampling profiler if CANARY or DEV. The warning
   // below doesn't apply.
   const version_info::Channel channel = ::GetChannel();
@@ -286,12 +282,6 @@ void IOSChromeMainParts::PreMainMessageLoopRun() {
   base::ThreadPool::PostTask(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
       base::BindOnce(&FirstRun::LoadSentinelInfo));
-
-  // Force the initialisation of the OSCrypt library early in the application
-  // startup sequence. See https://crbug.com/383661630 for why this is needed.
-  base::ThreadPool::PostTask(
-      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
-      base::BindOnce(&EnsureOSCryptInitialized));
 
   // ContentSettingsPattern need to be initialized before creating the
   // ProfileIOS.

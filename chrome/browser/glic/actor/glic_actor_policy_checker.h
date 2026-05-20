@@ -12,15 +12,14 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/actor/aggregated_journal.h"
-#include "chrome/browser/actor/enterprise_policy_content_checker.h"
-#include "chrome/browser/actor/enterprise_policy_url_checker.h"
+#include "chrome/browser/actor/enterprise_policy_checker.h"
 #include "chrome/browser/glic/glic_enums.h"
-#include "chrome/browser/subscription_eligibility/subscription_eligibility_service.h"
 #include "chrome/common/actor/task_id.h"
 #include "chrome/common/buildflags.h"
 #include "components/policy/core/browser/url_list/url_blocklist_manager.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/subscription_eligibility/subscription_eligibility_service.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "url/origin.h"
 
@@ -37,13 +36,12 @@ class AggregatedJournal;
 
 namespace glic {
 
-// The Glic implementation of an Actor EnterprisePolicyUrlChecker and
-// EnterprisePolicyContentChecker, used to determine the act on web capability
+// The Glic implementation of the EnterprisePolicyChecker interface, used to
+// determine the act on web capability
 // enabling state and validate content sent to the renderer. This class blends
 // various signals from account, preferences, managed policies, etc. to make a
 // determination.
-class GlicActorPolicyChecker : public actor::EnterprisePolicyUrlChecker,
-                               public actor::EnterprisePolicyContentChecker,
+class GlicActorPolicyChecker : public actor::EnterprisePolicyChecker,
                                public signin::IdentityManager::Observer,
                                public subscription_eligibility::
                                    SubscriptionEligibilityService::Observer {
@@ -54,6 +52,15 @@ class GlicActorPolicyChecker : public actor::EnterprisePolicyUrlChecker,
   ~GlicActorPolicyChecker() override;
 
   static const base::flat_set<int32_t>& GetActorEligibleTiers();
+
+  // Returns true if Glic Actor considers the profile to belong to a managed
+  // Enterprise account. This check is specific to Glic Actor and should not
+  // be used as a generic check for managed Enterprise accounts.
+  static bool IsEnterpriseAccount(Profile& profile,
+                                  actor::AggregatedJournal& journal);
+
+  // Returns true if the Chrome browser is managed by an IT administrator.
+  static bool IsBrowserManaged(Profile& profile);
 
   // Adds a callback to run whenever the value of CanActOnWeb changes.
   using CanActOnWebChangedCallback =
@@ -79,15 +86,12 @@ class GlicActorPolicyChecker : public actor::EnterprisePolicyUrlChecker,
   bool CanActOnWeb() const;
   CannotActReason CannotActOnWebReason() const;
 
-  // EnterprisePolicyUrlChecker interface
-  actor::EnterprisePolicyBlockReason Evaluate(const GURL& url) const override;
-
-  // EnterprisePolicyContentChecker interface
+  // EnterprisePolicyChecker interface
+  UrlBlockReason Evaluate(const GURL& url) const override;
   void ValidateContentSentToRenderer(
       content::RenderFrameHost* frame,
       const std::string& content,
-      actor::EnterprisePolicyContentChecker::ValidationCallback callback)
-      override;
+      ContentValidationCallback callback) const override;
 
  private:
   void OnPrefOrAccountChanged();

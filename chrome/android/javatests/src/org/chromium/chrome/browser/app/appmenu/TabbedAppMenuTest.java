@@ -38,6 +38,7 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UrlUtils;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.bookmarks.PowerBookmarkUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -50,7 +51,6 @@ import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuTestSupport;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.util.ActivityTestUtils;
@@ -171,7 +171,7 @@ public class TabbedAppMenuTest {
 
     /**
      * Test that hitting ENTER past the bottom item doesn't crash Chrome. Catches regressions for
-     * http://crbug.com/181067
+     * http://crbug.com/40965967
      */
     @Test
     @SmallTest
@@ -184,7 +184,7 @@ public class TabbedAppMenuTest {
 
     /**
      * Test that hitting ENTER on the top item actually triggers the top item. Catches regressions
-     * for https://crbug.com/191239 for shrunken menus in landscape.
+     * for https://crbug.com/40306580 for shrunken menus in landscape.
      */
     @Test
     @SmallTest

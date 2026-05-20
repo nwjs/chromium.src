@@ -19,7 +19,6 @@
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
-#include "components/autofill/core/browser/suggestions/addresses/address_on_typing_suggestion_data.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_generator.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
@@ -62,7 +61,6 @@ std::vector<Suggestion> CreateSuggestionsFromProfilesForTest(
     FieldType trigger_field_type,
     const FormFieldData& trigger_field,
     const std::string& app_locale = "en-US",
-    std::optional<std::string> plus_address_email_override = std::nullopt,
     const std::string& gaia_email = "");
 
 // Returns true if a suggestion for an `AutofillProfile` with record type equal
@@ -76,25 +74,9 @@ bool ContainsProfileSuggestionWithRecordType(
 // suggestions should be done only through this class.
 class AddressSuggestionGenerator : public SuggestionGenerator {
  public:
-  // TODO(crbug.com/409962888): `plus_address_email_override`
-  // has to be removed once the plus address suggestion generator and
-  // suggestions merging are implemented.
-  AddressSuggestionGenerator(
-      const std::optional<std::string>& plus_address_email_override,
-      LogManager* log_manager,
-      AutofillSuggestionTriggerSource trigger_source);
+  AddressSuggestionGenerator(LogManager* log_manager,
+                             AutofillSuggestionTriggerSource trigger_source);
   ~AddressSuggestionGenerator() override;
-
-  void FetchSuggestionData(
-      const FormData& form,
-      const FormFieldData& trigger_field,
-      const FormStructure* form_structure,
-      const AutofillField* trigger_autofill_field,
-      const AutofillClient& client,
-      base::OnceCallback<
-          void(std::pair<SuggestionDataSource,
-                         std::vector<SuggestionGenerator::SuggestionData>>)>
-          callback) override;
 
   void GenerateSuggestions(
       const FormData& form,
@@ -102,33 +84,16 @@ class AddressSuggestionGenerator : public SuggestionGenerator {
       const FormStructure* form_structure,
       const AutofillField* trigger_autofill_field,
       const AutofillClient& client,
-      const base::flat_map<SuggestionDataSource, std::vector<SuggestionData>>&
-          all_suggestion_data,
       base::OnceCallback<void(ReturnedSuggestions)> callback) override;
 
   // Like SuggestionGenerator override, but takes a base::FunctionRef instead of
   // a base::OnceCallback. Calls that callback exactly once.
-  void FetchSuggestionData(
-      const FormData& form,
-      const FormFieldData& trigger_field,
-      const FormStructure* form_structure,
-      const AutofillField* trigger_autofill_field,
-      const AutofillClient& client,
-      base::FunctionRef<
-          void(std::pair<SuggestionDataSource,
-                         std::vector<SuggestionGenerator::SuggestionData>>)>
-          callback);
-
-  // Like SuggestionGenerator override, but takes a base::FunctionRef instead of
-  // a base::OnceCallback. Calls that callback exactly once.
   void GenerateSuggestions(
       const FormData& form,
       const FormFieldData& trigger_field,
       const FormStructure* form_structure,
       const AutofillField* trigger_autofill_field,
       const AutofillClient& client,
-      const base::flat_map<SuggestionDataSource, std::vector<SuggestionData>>&
-          all_suggestion_data,
       base::FunctionRef<void(ReturnedSuggestions)> callback);
 
  private:
@@ -140,32 +105,12 @@ class AddressSuggestionGenerator : public SuggestionGenerator {
       const FormFieldData& trigger_field,
       const FormStructure* form_structure,
       const AutofillField* trigger_autofill_field,
-      const AutofillClient& client);
-
-  // Returns a vector of suggestions that will be suggested on a
-  // `trigger_field` in a `form`.
-  std::vector<Suggestion> GenerateAddressSuggestions(
-      const FormData& form,
-      const FormFieldData& trigger_field,
-      const FormStructure* form_structure,
-      const AutofillField* trigger_autofill_field,
       const AutofillClient& client,
-      std::vector<AutofillProfile>& profiles_to_suggest,
-      const std::optional<std::string>& plus_address_email_override);
-
-  // Used to change the emails matching the GAIA email in suggestions with
-  // the `plus_address_email_override_`.
-  // TODO(crbug.com/409962888): `plus_address_email_override_` has to be removed
-  // once the plus address suggestion generator and suggestions merging are
-  // implemented.
-  const std::optional<std::string> plus_address_email_override_;
+      FieldTypeSet field_types);
 
   raw_ptr<LogManager> log_manager_;
 
   AutofillSuggestionTriggerSource trigger_source_;
-
-  // Stores a set of types of fillable fields that are in the form.
-  FieldTypeSet field_types_;
 };
 
 }  // namespace autofill

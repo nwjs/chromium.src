@@ -10,8 +10,10 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_sync_iterator_highlight.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/abstract_range.h"
+#include "third_party/blink/renderer/core/dom/live_collection_iterator.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_linked_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
@@ -47,18 +49,21 @@ class CORE_EXPORT Highlight : public ScriptWrappable,
 
   bool Contains(AbstractRange*) const;
 
-  // HighlightSetIterable
-  class IterationSource final : public HighlightSetIterable::IterationSource {
+  // HighlightSetIterable implements live iteration following Set semantics.
+  using HighlightLiveIterator = LiveCollectionIterator<AbstractRange>;
+
+  class CORE_EXPORT IterationSource final
+      : public HighlightSetIterable::IterationSource,
+        public HighlightLiveIterator {
    public:
-    explicit IterationSource(const Highlight& highlight);
+    explicit IterationSource(Highlight& highlight);
 
     bool FetchNextItem(ScriptState*, AbstractRange*&) override;
 
     void Trace(blink::Visitor*) const override;
 
    private:
-    wtf_size_t index_;
-    HeapVector<Member<AbstractRange>> highlight_ranges_snapshot_;
+    Member<Highlight> highlight_;
   };
 
   const HeapLinkedHashSet<Member<AbstractRange>>& GetRanges() const {
@@ -73,6 +78,11 @@ class CORE_EXPORT Highlight : public ScriptWrappable,
       ScriptState*) override;
 
   HeapLinkedHashSet<Member<AbstractRange>> highlight_ranges_;
+  // Active iteration sources that need to be notified of mutations.
+  HeapHashSet<WeakMember<HighlightLiveIterator>> active_iterators_;
+  void NotifyIteratorsWillRemoveItem(AbstractRange* range);
+  void NotifyIteratorsWillClear();
+
   int32_t priority_ = 0;
   V8HighlightType type_ = V8HighlightType{V8HighlightType::Enum::kHighlight};
   // Since a Highlight can be registered many times under different names in

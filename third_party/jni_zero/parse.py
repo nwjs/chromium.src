@@ -75,7 +75,6 @@ class ParsedFile:
   non_proxy_methods: List[ParsedNative]
   proxy_interface: Optional[java_types.JavaClass] = None
   proxy_visibility: Optional[str] = None
-  module_name: Optional[str] = None  # E.g. @NativeMethods("module_name")
   jni_namespace: Optional[str] = None  # E.g. @JNINamespace("content")
 
 
@@ -83,7 +82,6 @@ class ParsedFile:
 class _ParsedProxyNatives:
   interface_name: str
   visibility: str
-  module_name: str
   methods: List[ParsedNative]
 
 
@@ -134,7 +132,7 @@ def _parse_package(contents, require=True):
 _CLASSES_REGEX = re.compile(
     r'^((?:(?!\b(?:class|interface|enum)\b)'
     r'(?:[^{}"]|"[^"]*"))*?)\b'
-    r'(?:class|interface|enum)\b\s+\b([\w.]+)'
+    r'(?:class|interface|enum)\b\s+\b([\w.$]+)'
     r'(<[\s\S]*?>)?\s*[^{]*?\{', re.MULTILINE)
 _INDENT_REGEX = re.compile(r'\s*')
 _SAME_LINE_CLOSING_BRACE_REGEX = re.compile(r'\s*\}')
@@ -342,6 +340,8 @@ def _parse_type(type_resolver, value):
       generics = tuple(
           _parse_type(type_resolver, g)
           for g in _split_by_delimiter(generics_str, ','))
+      if any(t.converted_type for t in generics):
+        raise ParseError('@JniType not allowed within generics: ' + value)
 
     java_class = type_resolver.resolve(parsed_value)
     primitive_name = None
@@ -432,7 +432,7 @@ def _parse_param_list(type_resolver, value) -> java_types.JavaParamList:
 
 
 _NATIVE_METHODS_INTERFACE_REGEX = re.compile(
-    r'@NativeMethods(?:\(\s*"(?P<module_name>\w+)"\s*\))?[\S\s]+?'
+    r'@NativeMethods[\S\s]+?'
     r'(?P<visibility>public)?\s*\binterface\s*'
     r'(?P<interface_name>\w*)\s*{(?P<interface_body>(\s*.*)+?\s*)}')
 
@@ -452,7 +452,6 @@ def _parse_proxy_natives(type_resolver, contents):
   match = matches[0]
   ret = _ParsedProxyNatives(interface_name=match.group('interface_name'),
                             visibility=match.group('visibility'),
-                            module_name=match.group('module_name'),
                             methods=[])
   interface_body = match.group('interface_body')
 
@@ -515,7 +514,7 @@ def _make_called_by_native_regex(is_javap):
   sb = []
   if not is_javap:
     sb.append(r'@CalledByNative((?P<Unchecked>(?:Unchecked)?|ForTesting))'
-              r'(?:\("(?P<annotation_value>.*)"\))?'
+              r'(?:\(".*"\))?'
               r'(?P<method_annotations>(?:\s*@\w+(?:\(.*?\))?)+)?')
   # Enfore a space after the type params to account for:
   # <T extends java.lang.Comparable<? super T>>
@@ -705,7 +704,6 @@ def parse_java_file_data(filename, contents, *, package_prefix,
 
   if parsed_proxy_natives:
     outer_java_class = outer_class.type_resolver.java_class
-    ret.module_name = parsed_proxy_natives.module_name
     ret.proxy_interface = outer_java_class.make_nested(
         parsed_proxy_natives.interface_name)
     ret.proxy_visibility = parsed_proxy_natives.visibility

@@ -276,6 +276,8 @@
     "args": [
       "--results-directory",
       "${ISOLATED_OUTDIR}",
+      "--test-launcher-filter-file=../../third_party/blink/web_tests/TestLists/content_shell.filter",
+      "--inverted-test-launcher-filter-file=../../third_party/blink/web_tests/TestLists/chrome.filter",
     ],
   },
   "boringssl_crypto_tests": {
@@ -581,6 +583,12 @@
   },
   "chrome_public_apk_baseline_profile_generator": {
     "label": "//chrome/test/android:chrome_public_apk_baseline_profile_generator",
+    "type": "console_test_launcher",
+    "module_scheme": "junit",
+    "skip_usage_check": True,
+  },
+  "chrome_public_bundle_smoke_test": {
+    "label": "//chrome/android:chrome_public_bundle_smoke_test",
     "type": "console_test_launcher",
     "module_scheme": "junit",
     "skip_usage_check": True,
@@ -1064,11 +1072,6 @@
   },
   "exo_unittests": {
     "label": "//components/exo:exo_unittests",
-    "type": "windowed_test_launcher",
-    "module_scheme": "gtest",
-  },
-  "extensions_browsertests": {
-    "label": "//extensions:extensions_browsertests",
     "type": "windowed_test_launcher",
     "module_scheme": "gtest",
   },
@@ -1689,6 +1692,11 @@
     "label": "//third_party/pdfium/testing:pdfium_test",
     "type": "additional_compile_target",
   },
+  "perfetto_diff_tests": {
+    "label": "//base/tracing:perfetto_diff_tests",
+    "type": "generated_script",
+    "skip_usage_check": True,
+  },
   "perfetto_unittests": {
     "label": "//third_party/perfetto:perfetto_unittests",
     "type": "console_test_launcher",
@@ -2064,12 +2072,6 @@
   "traffic_annotation_proto": {
     "label": "//chrome/browser/privacy:traffic_annotation_proto",
     "type": "additional_compile_target",
-  },
-  "trichrome_chrome_bundle_smoke_test": {
-    "label": "//chrome/android:trichrome_chrome_bundle_smoke_test",
-    "type": "console_test_launcher",
-    "module_scheme": "junit",
-    "skip_usage_check": True,
   },
   "trichrome_webview_wpt_64": {
     "label": "//android_webview/test:trichrome_webview_wpt_64",

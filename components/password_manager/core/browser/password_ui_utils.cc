@@ -14,6 +14,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/affiliations/core/browser/affiliation_utils.h"
+#include "components/autofill/core/common/form_data.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_form_manager_for_ui.h"
 #include "components/password_manager/core/browser/password_form_metrics_recorder.h"
@@ -145,6 +146,97 @@ std::u16string ToUsernameString(const std::u16string& username) {
 
 std::u16string ToUsernameString(const std::string& username) {
   return ToUsernameString(base::UTF8ToUTF16(username));
+}
+
+bool CalculateTriggerSubmission(SubmissionReadinessState submission_readiness) {
+  switch (submission_readiness) {
+    case SubmissionReadinessState::kNoInformation:
+    case SubmissionReadinessState::kError:
+    case SubmissionReadinessState::kNoUsernameField:
+    case SubmissionReadinessState::kNoPasswordField:
+    case SubmissionReadinessState::kFieldBetweenUsernameAndPassword:
+    case SubmissionReadinessState::kFieldAfterPasswordField:
+    case SubmissionReadinessState::kLikelyHasCaptcha:
+      return false;
+    case SubmissionReadinessState::kEmptyFields:
+    case SubmissionReadinessState::kMoreThanTwoFields:
+    case SubmissionReadinessState::kTwoFields:
+      return true;
+  }
+}
+
+// Returns a prediction whether the form that contains |username_element| and
+// |password_element| will be ready for submission after filling these two
+// elements.
+SubmissionReadinessState CalculateSubmissionReadiness(
+    const autofill::FormData& form_data,
+    const autofill::FieldGlobalId& username_field_id,
+    const autofill::FieldGlobalId& password_field_id) {
+  const std::vector<autofill::FormFieldData>& fields = form_data.fields();
+  auto username_it = std::ranges::find(fields, username_field_id,
+                                       &autofill::FormFieldData::global_id);
+  auto password_it = std::ranges::find(fields, password_field_id,
+                                       &autofill::FormFieldData::global_id);
+  if (username_it == fields.end() && password_it == fields.end()) {
+    // This is unexpected. `form` is supposed to contain username or password
+    // elements.
+    return SubmissionReadinessState::kError;
+  }
+  if (username_it == fields.end() && password_it != fields.end()) {
+    return SubmissionReadinessState::kNoUsernameField;
+  }
+  if (password_it == fields.end()) {
+    return SubmissionReadinessState::kNoPasswordField;
+  }
+
+  auto ShouldIgnoreField = [](const autofill::FormFieldData& field) {
+    if (!field.is_focusable()) {
+      return true;
+    }
+    // Don't treat a checkbox (e.g. "remember me") as an input field that may
+    // block a form submission. Note: Don't use `check_status != kNotCheckable`,
+    // a radio button is considered a "checkable" element too, but it should
+    // block a submission.
+    return field.form_control_type() ==
+           autofill::FormControlType::kInputCheckbox;
+  };
+
+  if (username_it < password_it) {
+    for (auto it = username_it + 1; it != password_it; ++it) {
+      if (!ShouldIgnoreField(*it)) {
+        return SubmissionReadinessState::kFieldBetweenUsernameAndPassword;
+      }
+    }
+  }
+
+  for (auto it = password_it + 1; it != fields.end(); ++it) {
+    if (!ShouldIgnoreField(*it)) {
+      return SubmissionReadinessState::kFieldAfterPasswordField;
+    }
+  }
+
+  // There is likely a CAPTCHA in the child frame.
+  if (form_data.likely_contains_captcha()) {
+    return SubmissionReadinessState::kLikelyHasCaptcha;
+  }
+
+  size_t number_of_visible_elements = 0;
+  for (auto it = fields.begin(); it != fields.end(); ++it) {
+    if (ShouldIgnoreField(*it)) {
+      continue;
+    }
+
+    if (username_it != it && password_it != it && it->value().empty()) {
+      return SubmissionReadinessState::kEmptyFields;
+    }
+    number_of_visible_elements++;
+  }
+
+  if (number_of_visible_elements > 2) {
+    return SubmissionReadinessState::kMoreThanTwoFields;
+  }
+
+  return SubmissionReadinessState::kTwoFields;
 }
 
 }  // namespace password_manager

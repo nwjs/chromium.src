@@ -33,7 +33,6 @@ source_set("default_browser_prompt") {
     "//chrome/browser:browser_process",
     "//chrome/browser:shell_integration",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui:browser_list",
     "//chrome/browser/ui:browser_tab_strip",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/tabs:tab_model",
@@ -76,6 +75,7 @@ source_set("impl") {
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
+    "//chrome/browser/ui/views/toolbar",
     "//chrome/browser/ui/webui/default_browser:default_browser_modal",
     "//components/infobars/content",
     "//components/infobars/core",
@@ -89,7 +89,10 @@ source_set("impl") {
   ]
 
   if (is_win) {
-    deps += [ "//chrome/installer/util:with_no_strings" ]
+    deps += [
+      "//chrome/browser/win",
+      "//chrome/installer/util:with_no_strings",
+    ]
   }
 }
 
@@ -106,7 +109,6 @@ source_set("unit_tests") {
     "//base",
     "//chrome/browser:browser_process",
     "//chrome/browser/default_browser",
-    "//chrome/browser/ui:browser_list",
     "//chrome/common:constants",
     "//chrome/test:test_support",
     "//components/infobars/content",

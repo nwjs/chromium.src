@@ -59,7 +59,6 @@
 #include "third_party/blink/renderer/platform/loader/fetch/resource_response.h"
 #include "third_party/blink/renderer/platform/network/http_names.h"
 #include "third_party/blink/renderer/platform/network/mime/mime_type_registry.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "ui/base/clipboard/clipboard_constants.h"
@@ -539,7 +538,7 @@ static void WriteImageToDataObject(DataObject* data_object,
     return;
 
   data_object->AddFileSharedBuffer(
-      image_buffer, cached_image->IsAccessAllowed(), image_url,
+      image_buffer, cached_image->IsCorsSameOrigin(), image_url,
       image->FilenameExtension(),
       cached_image->GetResponse().HttpHeaderFields().Get(
           http_names::kContentDisposition));
@@ -590,7 +589,7 @@ void DataTransfer::WriteSelection(const FrameSelection& selection) {
 
   String str = selection.SelectedTextForClipboard();
 #if BUILDFLAG(IS_WIN)
-  str = NormalizeLineEndingsToCRLF(str);
+  str = NormalizeLineEndingsToCrLf(str);
 #endif
   ReplaceNBSPWithSpace(str);
   data_object_->SetData(ui::kMimeTypePlainText, str);

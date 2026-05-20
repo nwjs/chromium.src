@@ -28,6 +28,7 @@
 #include <utility>
 
 #include "base/check_op.h"
+#include "base/compiler_specific.h"
 #include "base/debug/alias.h"
 #include "base/memory/values_equivalent.h"
 #include "base/metrics/histogram_functions.h"
@@ -64,7 +65,6 @@
 #include "third_party/blink/renderer/core/layout/layout_text_combine.h"
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
 #include "third_party/blink/renderer/core/layout/map_coordinates_flags.h"
-#include "third_party/blink/renderer/core/layout/text_autosizer.h"
 #include "third_party/blink/renderer/core/paint/compositing/compositing_reason_finder.h"
 #include "third_party/blink/renderer/core/style/applied_text_decoration.h"
 #include "third_party/blink/renderer/core/style/basic_shapes.h"
@@ -253,22 +253,26 @@ static bool PseudoElementStylesEqual(const ComputedStyle& old_style,
   return true;
 }
 
-static bool DiffAffectsContainerQueries(const ComputedStyle& old_style,
-                                        const ComputedStyle& new_style) {
-  if (!base::ValuesEquivalent(old_style.ContainerName(),
-                              new_style.ContainerName()) ||
-      old_style.ContainerType() != new_style.ContainerType()) {
-    return true;
-  }
-  if (!old_style.IsContainerForSizeContainerQueries() &&
-      !new_style.IsContainerForSizeContainerQueries() &&
-      !old_style.IsContainerForScrollStateContainerQueries() &&
-      !new_style.IsContainerForScrollStateContainerQueries()) {
+bool ComputedStyle::DiffAffectsContainerQueries(
+    const ComputedStyle* old_style,
+    const ComputedStyle* new_style) {
+  if (!old_style || !new_style) {
     return false;
   }
-  if (new_style.Display() != old_style.Display()) {
-    if (new_style.Display() == EDisplay::kNone ||
-        new_style.Display() == EDisplay::kContents) {
+  if (!base::ValuesEquivalent(old_style->ContainerName(),
+                              new_style->ContainerName()) ||
+      old_style->ContainerType() != new_style->ContainerType()) {
+    return true;
+  }
+  if (!old_style->IsContainerForSizeContainerQueries() &&
+      !new_style->IsContainerForSizeContainerQueries() &&
+      !old_style->IsContainerForScrollStateContainerQueries() &&
+      !new_style->IsContainerForScrollStateContainerQueries()) {
+    return false;
+  }
+  if (new_style->Display() != old_style->Display()) {
+    if (new_style->Display() == EDisplay::kNone ||
+        new_style->Display() == EDisplay::kContents) {
       return true;
     }
   }
@@ -438,10 +442,6 @@ ComputedStyle::ComputeDifferenceIgnoringInheritedFirstLineStyle(
     return Difference::kDescendantAffecting;
   }
   if (old_style.ScrollMarkerGroupNone() != new_style.ScrollMarkerGroupNone()) {
-    return Difference::kDescendantAffecting;
-  }
-  // TODO(crbug.com/1213888): Only recalc affected descendants.
-  if (DiffAffectsContainerQueries(old_style, new_style)) {
     return Difference::kDescendantAffecting;
   }
   if (!old_style.NonIndependentInheritedEqual(new_style)) {
@@ -853,7 +853,11 @@ StyleDifference ComputedStyle::VisualInvalidationDiff(
   if (field_diff & kFilterData) {
     diff.filter_changed = true;
   }
-
+  if (field_diff & kInert) {
+    if (IsInert() != other.IsInert()) {
+      diff.ax_visibility_or_inert_changed = true;
+    }
+  }
   if (field_diff & kMask) {
     diff.mask_changed = true;
   }
@@ -893,6 +897,7 @@ StyleDifference ComputedStyle::VisualInvalidationDiff(
         (other.Visibility() == EVisibility::kCollapse)) {
       diff.SetNeedsFullLayout();
     }
+    diff.ax_visibility_or_inert_changed = true;
   }
   if (field_diff & kZIndex) {
     diff.z_index_changed = true;
@@ -1893,7 +1898,7 @@ static String DisableNewGeorgianCapitalLetters(const String& text) {
   // |input| must be well-formed UTF-16 so that there's no worry
   // about surrogate handling.
   for (unsigned i = 0; i < length; ++i) {
-    UChar character = input[i];
+    UChar character = UNSAFE_TODO(input[i]);
     if (Character::IsModernGeorgianUppercase(character)) {
       result.Append(Character::LowercaseModernGeorgianUppercase(character));
     } else {
@@ -2432,21 +2437,6 @@ StyleScrollbarColor* ComputedStyle::UsedScrollbarColor() const {
   }
 
   return ScrollbarColor();
-}
-
-Length ComputedStyle::LineHeight() const {
-  const Length& lh = LineHeightInternal();
-  // Unlike getFontDescription().computedSize() and hence fontSize(), this is
-  // recalculated on demand as we only store the specified line height.
-  // FIXME: Should consider scaling the fixed part of any calc expressions
-  // too, though this involves messily poking into CalcExpressionLength.
-  if (lh.IsFixed()) {
-    float multiplier = TextAutosizingMultiplier();
-    return Length::Fixed(TextAutosizer::ComputeAutosizedFontSize(
-        lh.Pixels(), multiplier, EffectiveZoom()));
-  }
-
-  return lh;
 }
 
 float ComputedStyle::ComputedLineHeight(const Length& lh, const Font& font) {
@@ -3154,34 +3144,6 @@ void ComputedStyleBuilder::UpdateFontOrientation() {
   SetFontDescription(font_description);
 }
 
-void ComputedStyleBuilder::SetTextAutosizingMultiplier(float multiplier) {
-  if (TextAutosizingMultiplier() == multiplier) {
-    return;
-  }
-
-  SetTextAutosizingMultiplierInternal(multiplier);
-
-  float size = GetFontDescription().SpecifiedSize();
-
-  DCHECK(std::isfinite(size));
-  if (!std::isfinite(size) || size < 0) {
-    size = 0;
-  } else {
-    size = std::min(kMaximumAllowedFontSize, size);
-  }
-
-  FontDescription desc(GetFontDescription());
-  desc.SetSpecifiedSize(size);
-
-  float computed_size = size * EffectiveZoom();
-
-  float autosized_font_size = TextAutosizer::ComputeAutosizedFontSize(
-      computed_size, multiplier, EffectiveZoom());
-  desc.SetComputedSize(std::min(kMaximumAllowedFontSize, autosized_font_size));
-
-  SetFontDescription(desc);
-}
-
 void ComputedStyleBuilder::SetUsedColorScheme(
     ColorSchemeFlags flags,
     mojom::blink::PreferredColorScheme preferred_color_scheme,
@@ -3256,6 +3218,8 @@ STATIC_ASSERT_ENUM(cc::OverscrollBehavior::Type::kAuto,
                    EOverscrollBehavior::kAuto);
 STATIC_ASSERT_ENUM(cc::OverscrollBehavior::Type::kContain,
                    EOverscrollBehavior::kContain);
+STATIC_ASSERT_ENUM(cc::OverscrollBehavior::Type::kChain,
+                   EOverscrollBehavior::kChain);
 STATIC_ASSERT_ENUM(cc::OverscrollBehavior::Type::kNone,
                    EOverscrollBehavior::kNone);
 

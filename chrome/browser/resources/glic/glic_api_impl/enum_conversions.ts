@@ -36,6 +36,12 @@ export function enumToClient(
   val: mojomGlic.ActorTaskStopReason | null):
     glicApi.ActorTaskStopReason | undefined;
 export function enumToClient(
+  val: mojomGlic.ActuationTarget):
+    glicApi.ActuationTarget;
+export function enumToClient(
+  val: mojomGlic.ActuationTarget | null):
+    glicApi.ActuationTarget | undefined;
+export function enumToClient(
   val: mojomGlic.AdditionalContextSource):
     glicApi.AdditionalContextSource;
 export function enumToClient(
@@ -66,6 +72,12 @@ export function enumToClient(
   val: mojomGlic.ClientCapabilities | null):
     glicApi.ClientCapabilities | undefined;
 export function enumToClient(
+  val: mojomGlic.ClientErrorDialogType):
+    glicApi.ClientErrorDialogType;
+export function enumToClient(
+  val: mojomGlic.ClientErrorDialogType | null):
+    glicApi.ClientErrorDialogType | undefined;
+export function enumToClient(
   val: mojomGlic.CreateTaskErrorReason):
     glicApi.CreateTaskErrorReason;
 export function enumToClient(
@@ -77,6 +89,12 @@ export function enumToClient(
 export function enumToClient(
   val: mojomActor.CredentialType | null):
     glicApi.CredentialType | undefined;
+export function enumToClient(
+  val: mojomGlic.ExperimentalTriggeringUpdateType):
+    glicApi.ExperimentalTriggeringUpdateType;
+export function enumToClient(
+  val: mojomGlic.ExperimentalTriggeringUpdateType | null):
+    glicApi.ExperimentalTriggeringUpdateType | undefined;
 export function enumToClient(
   val: mojomGlic.FeatureMode):
     glicApi.FeatureMode;
@@ -233,7 +251,7 @@ export function enumToClient(
 export function enumToClient(
   val: mojomGlic.WebUseCounter | null):
     glicApi.WebUseCounter | undefined;
-export function enumToClient(val: any): any {
+export function enumToClient(val: unknown): unknown {
   return val ?? undefined;
 }
 
@@ -261,6 +279,12 @@ export function enumFromClient(
 export function enumFromClient(
   val: glicApi.ActorTaskStopReason | undefined):
     mojomGlic.ActorTaskStopReason | null;
+export function enumFromClient(
+  val: glicApi.ActuationTarget):
+    mojomGlic.ActuationTarget;
+export function enumFromClient(
+  val: glicApi.ActuationTarget | undefined):
+    mojomGlic.ActuationTarget | null;
 export function enumFromClient(
   val: glicApi.AdditionalContextSource):
     mojomGlic.AdditionalContextSource;
@@ -292,6 +316,12 @@ export function enumFromClient(
   val: glicApi.ClientCapabilities | undefined):
     mojomGlic.ClientCapabilities | null;
 export function enumFromClient(
+  val: glicApi.ClientErrorDialogType):
+    mojomGlic.ClientErrorDialogType;
+export function enumFromClient(
+  val: glicApi.ClientErrorDialogType | undefined):
+    mojomGlic.ClientErrorDialogType | null;
+export function enumFromClient(
   val: glicApi.CreateTaskErrorReason):
     mojomGlic.CreateTaskErrorReason;
 export function enumFromClient(
@@ -303,6 +333,12 @@ export function enumFromClient(
 export function enumFromClient(
   val: glicApi.CredentialType | undefined):
     mojomActor.CredentialType | null;
+export function enumFromClient(
+  val: glicApi.ExperimentalTriggeringUpdateType):
+    mojomGlic.ExperimentalTriggeringUpdateType;
+export function enumFromClient(
+  val: glicApi.ExperimentalTriggeringUpdateType | undefined):
+    mojomGlic.ExperimentalTriggeringUpdateType | null;
 export function enumFromClient(
   val: glicApi.FeatureMode):
     mojomGlic.FeatureMode;
@@ -459,6 +495,6 @@ export function enumFromClient(
 export function enumFromClient(
   val: glicApi.WebUseCounter | undefined):
     mojomGlic.WebUseCounter | null;
-export function enumFromClient(val: any): any {
+export function enumFromClient(val: unknown): unknown {
   return val ?? null;
 }

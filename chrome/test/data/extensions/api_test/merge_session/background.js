@@ -22,8 +22,7 @@ function startXHRRequests(
   const xhr = new XMLHttpRequest();
 
   const validateResponse = function() {
-    if (xhr.status == 200 &&
-        xhr.responseText.indexOf('Hello Google') != -1) {
+    if (xhr.status === 200 && xhr.responseText.indexOf('Hello Google') !== -1) {
       chrome.test.sendMessage('google-xhr-received');
       googleResponseReceived = true;
       googlePageCheckCallback();
@@ -40,6 +39,8 @@ function startXHRRequests(
       case XMLHttpRequest.DONE:
         validateResponse();
         break;
+      default:
+        // Uninteresting state.
     }
   };
   chrome.test.sendMessage(`opening ${googlePageUrl}`);
@@ -57,8 +58,8 @@ function startNonGoogleXHRRequests(
   const xhr = new XMLHttpRequest();
 
   const validateResponse = function() {
-    if (xhr.status == 200 &&
-        xhr.responseText.indexOf('SomethingElse') != -1) {
+    if (xhr.status === 200 &&
+        xhr.responseText.indexOf('SomethingElse') !== -1) {
       chrome.test.sendMessage('non-google-xhr-received');
       nonGoogleResponseReceived = true;
       nonGooglePageCheckCallback();
@@ -70,11 +71,13 @@ function startNonGoogleXHRRequests(
     chrome.test.sendMessage(`xhr.onreadystatechange: ${xhr.readyState}`);
     switch (xhr.readyState) {
       case XMLHttpRequest.OPENED:
-        chrome.test.sendMessage("Both XHR's Opened");
+        chrome.test.sendMessage('Both XHR\'s Opened');
         break;
       case XMLHttpRequest.DONE:
         validateResponse();
         break;
+      default:
+        // Uninteresting state.
     }
   };
   xhr.open('GET', nonGooglePageUrl, isAsync);
@@ -87,18 +90,20 @@ function startNonGoogleXHRRequests(
 
 function googlePageCheck() {
   // Responses may be reordered.
-  if (nonGoogleResponseReceived)
+  if (nonGoogleResponseReceived) {
     chrome.test.succeed();
-  else
+  } else {
     console.info('non-Google response still pending');
+  }
 }
 
 function nonGooglePageCheck() {
   // Responses may be reordered.
-  if (googleResponseReceived)
+  if (googleResponseReceived) {
     chrome.test.succeed();
-  else
+  } else {
     console.info('Google response still pending');
+  }
 }
 
 // Performs test that will verify if XHR request had completed prematurely.

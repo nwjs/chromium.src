@@ -32,11 +32,11 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.sync.SyncTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.BookmarkTestRule;
 import org.chromium.chrome.test.util.BookmarkTestUtil;
 import org.chromium.components.browser_ui.widget.RecyclerViewTestUtils;
@@ -82,7 +82,8 @@ public class AccountBookmarkTest {
     @Restriction({DeviceFormFactor.PHONE})
     @DisabledTest(
             message =
-                    "Enable this test when reading list is available w/o restart crbug.com/1510547")
+                    "Enable this test when reading list is available w/o restart"
+                        + " crbug.com/41483140")
     public void testOpenFromReadingListAndNavigateBack() throws Exception {
         CriteriaHelper.pollUiThread(() -> mBookmarkModel.getAccountReadingListFolder() != null);
         RecyclerViewTestUtils.waitForStableMvcRecyclerView(

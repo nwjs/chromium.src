@@ -608,12 +608,13 @@ void WebAppPolicyManager::ApplyForceOSUnregistrationPolicySettings(
   options.force_unregister_os_integration = true;
   for (const auto& [manifest_string, setting] : settings_by_url_) {
     const GURL manifest_id = GURL(manifest_string);
-    if (!manifest_id.is_valid()) {
+    std::optional<webapps::ManifestId> valid_manifest_id =
+        webapps::ManifestId::Create(manifest_id);
+    if (!valid_manifest_id.has_value()) {
       continue;
     }
-
     const webapps::AppId& app_id =
-        web_app::GenerateAppIdFromManifestId(manifest_id);
+        web_app::GenerateAppIdFromManifestId(*valid_manifest_id);
     if (provider_->registrar_unsafe().GetInstallState(app_id) !=
         proto::INSTALLED_WITH_OS_INTEGRATION) {
       continue;
@@ -666,7 +667,7 @@ WebAppPolicyManager::ParseInstallPolicyEntry(const base::DictValue& entry) {
 
   // TODO(dmurph): Store expected os integration state in the database so
   // this doesn't re-apply when we already have it done.
-  // https://crbug.com/1295044
+  // https://crbug.com/40214162
   install_options.add_to_applications_menu = true;
   install_options.add_to_desktop = create_desktop_shortcut.value_or(false);
   // Pinning apps to the ChromeOS shelf is done through the PinnedLauncherApps
@@ -702,7 +703,7 @@ WebAppPolicyManager::ParseInstallPolicyEntry(const base::DictValue& entry) {
   }
 
   const base::DictValue* custom_icon = entry.FindDict(kCustomIconKey);
-  if (custom_icon && custom_icon) {
+  if (custom_icon) {
     const std::string* icon_url = custom_icon->FindString(kCustomIconURLKey);
     if (icon_url) {
       GURL icon_gurl = GURL(*icon_url);
@@ -784,7 +785,9 @@ void WebAppPolicyManager::MaybeOverrideManifest(
   // policy-installed URL as start_url, so they are covered by the first case.
   // Second case first:
   if (manifest->id.is_valid()) {
-    const webapps::AppId& app_id = GenerateAppIdFromManifestId(manifest->id);
+    std::optional<webapps::ManifestId> manifest_id =
+        webapps::ManifestId::Create(manifest->id);
+    const webapps::AppId& app_id = GenerateAppIdFromManifestId(*manifest_id);
     // List of policy-installed apps and their install URLs:
     base::flat_map<webapps::AppId, base::flat_set<GURL>> policy_installed_apps =
         provider_->registrar_unsafe().GetExternallyInstalledApps(
@@ -828,10 +831,13 @@ bool WebAppPolicyManager::IsPreventCloseEnabled(
   if (!provider_->registrar_unsafe().IsInstalledByPolicy(app_id)) {
     return false;
   }
-
-  const webapps::ManifestId manifest_id =
-      provider_->registrar_unsafe().GetComputedManifestId(app_id);
-  auto it = settings_by_url_.find(manifest_id.spec());
+  std::optional<webapps::ManifestId> manifest_id =
+        webapps::ManifestId::Create(provider_->registrar_unsafe()
+        .GetComputedManifestId(app_id));
+  if(!manifest_id.has_value()){
+    return false;
+  }
+  auto it = settings_by_url_.find(manifest_id->spec());
   if (it != settings_by_url_.end()) {
     return it->second.prevent_close;
   }

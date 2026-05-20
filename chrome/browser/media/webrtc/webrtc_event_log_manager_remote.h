@@ -87,8 +87,8 @@ class WebRtcRemoteEventLogManager final
   // Called to inform |this| that a peer connection has been associated
   // with |session_id|. After this, it is possible to refer to  that peer
   // connection using StartRemoteLogging() by providing |session_id|.
-  bool OnPeerConnectionSessionIdSet(const PeerConnectionKey& key,
-                                    const std::string& session_id);
+  bool OnSessionIdSetForPeerConnection(const PeerConnectionKey& key,
+                                       const std::string& session_id);
 
   // Attempt to start logging the WebRTC events of an active peer connection.
   // Logging is subject to several restrictions:
@@ -126,6 +126,7 @@ class WebRtcRemoteEventLogManager final
                           size_t max_file_size_bytes,
                           int output_period_ms,
                           size_t web_app_id,
+                          std::optional<std::string> diagnostic_uuid,
                           std::string* log_id,
                           std::string* error_message);
 
@@ -166,6 +167,17 @@ class WebRtcRemoteEventLogManager final
   // An implicit PeerConnectionRemoved() on all of the peer connections that
   // were associated with the renderer process.
   void RenderProcessHostExitedDestroyed(int render_process_id);
+
+  // Stops logging all the peer connections associated with the renderer
+  // process. If StopLoggingAction is kStore, the logs are stored and uploaded,
+  // otherwise the logs are deleted.
+  // In addition, if the provided |diagnostic_uuid| matches the one in any of
+  // the PENDING logs and the StopLoggingAction is kDelete, the matching logs
+  // will be deleted.
+  void StopLogging(int render_process_id,
+                   StopLoggingAction action,
+                   std::optional<std::string> diagnostic_uuid,
+                   base::OnceClosure callback);
 
   // network::NetworkConnectionTracker::NetworkConnectionObserver implementation
   void OnConnectionChanged(
@@ -264,7 +276,7 @@ class WebRtcRemoteEventLogManager final
                        size_t max_file_size_bytes,
                        int output_period_ms,
                        size_t web_app_id,
-                       std::string* log_id_out,
+                       const std::string& log_id,
                        std::string* error_message_out);
 
   // Checks if the referenced peer connection has an associated active

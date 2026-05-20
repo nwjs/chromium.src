@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.omnibox;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -12,7 +13,6 @@ import static org.mockito.Mockito.when;
 
 import android.view.View;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -21,12 +21,14 @@ import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.RuntimeEnvironment;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
+import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
 
 /** Unit tests for {@link LocationBarCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -38,6 +40,7 @@ public class LocationBarCoordinatorUnitTest {
     @Mock private LocationBarLayout mLocationBarLayout;
     @Mock private LocationBarEmbedder mLocationBarEmbedder;
     @Mock private View mAddButton;
+    @Mock private LocationBarDataProvider mLocationBarDataProvider;
 
     // LocationBarCoordinator takes a lot of dependencies and a very busy constructor.
     // This allows us to set up tests to verify logic we need to protect without overwhelming test
@@ -54,8 +57,7 @@ public class LocationBarCoordinatorUnitTest {
         when(mUrlCoordinator.hasFocus()).thenReturn(true);
         when(mLocationBarLayout.findViewById(R.id.location_bar_attachments_add))
                 .thenReturn(mAddButton);
-        when(mLocationBarLayout.getContext())
-                .thenReturn(org.robolectric.RuntimeEnvironment.getApplication());
+        when(mLocationBarLayout.getContext()).thenReturn(RuntimeEnvironment.getApplication());
     }
 
     @Test
@@ -65,7 +67,7 @@ public class LocationBarCoordinatorUnitTest {
         mCoordinator.onFuseboxStateChange(FuseboxState.COMPACT);
 
         // Verify state is updated but animation doesn't run.
-        Assert.assertEquals(FuseboxState.COMPACT, mCoordinator.getCurrentFuseboxStateForTesting());
+        assertEquals(FuseboxState.COMPACT, mCoordinator.getCurrentFuseboxStateForTesting());
         verify(mLocationBarEmbedder, never()).beginEmbeddedDelayedTransition(any(), any());
     }
 
@@ -76,7 +78,7 @@ public class LocationBarCoordinatorUnitTest {
         mCoordinator.onFuseboxStateChange(FuseboxState.DISABLED);
 
         // Verify state is updated but animation doesn't run.
-        Assert.assertEquals(FuseboxState.DISABLED, mCoordinator.getCurrentFuseboxStateForTesting());
+        assertEquals(FuseboxState.DISABLED, mCoordinator.getCurrentFuseboxStateForTesting());
         verify(mLocationBarEmbedder, never()).beginEmbeddedDelayedTransition(any(), any());
     }
 
@@ -87,7 +89,39 @@ public class LocationBarCoordinatorUnitTest {
         mCoordinator.onFuseboxStateChange(FuseboxState.EXPANDED);
 
         // Verify state is updated and animation runs by calling beginEmbeddedDelayedTransition.
-        Assert.assertEquals(FuseboxState.EXPANDED, mCoordinator.getCurrentFuseboxStateForTesting());
+        assertEquals(FuseboxState.EXPANDED, mCoordinator.getCurrentFuseboxStateForTesting());
         verify(mLocationBarEmbedder).beginEmbeddedDelayedTransition(eq(mLocationBarLayout), any());
+    }
+
+    @Test
+    public void testInitializeBoundsEllipsis_EnableInTabbedMode() {
+        when(mLocationBarDataProvider.getPageClassification(false))
+                .thenReturn(PageClassification.OTHER_VALUE);
+        mCoordinator.initializeBoundsEllipsis(mLocationBarDataProvider);
+        verify(mUrlCoordinator).setBoundsEllipsisEnabled(true);
+    }
+
+    @Test
+    public void testInitializeBoundsEllipsis_DisableInHubSearch() {
+        when(mLocationBarDataProvider.getPageClassification(false))
+                .thenReturn(PageClassification.ANDROID_HUB_VALUE);
+        mCoordinator.initializeBoundsEllipsis(mLocationBarDataProvider);
+        verify(mUrlCoordinator).setBoundsEllipsisEnabled(false);
+    }
+
+    @Test
+    public void testInitializeBoundsEllipsis_DisableInCct() {
+        when(mLocationBarDataProvider.getPageClassification(false))
+                .thenReturn(PageClassification.OTHER_ON_CCT_VALUE);
+        mCoordinator.initializeBoundsEllipsis(mLocationBarDataProvider);
+        verify(mUrlCoordinator).setBoundsEllipsisEnabled(false);
+    }
+
+    @Test
+    public void testInitializeBoundsEllipsis_DisableInCobrowseComposebox() {
+        when(mLocationBarDataProvider.getPageClassification(false))
+                .thenReturn(PageClassification.CO_BROWSING_COMPOSEBOX_VALUE);
+        mCoordinator.initializeBoundsEllipsis(mLocationBarDataProvider);
+        verify(mUrlCoordinator).setBoundsEllipsisEnabled(false);
     }
 }

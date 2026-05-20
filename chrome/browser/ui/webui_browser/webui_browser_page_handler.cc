@@ -224,8 +224,11 @@ void WebUIBrowserPageHandler::OpenAppMenu() {
   menu_model_ =
       std::make_unique<AppMenuModel>(GetBrowserWindow(), GetBrowser());
   menu_model_->Init();
-  menu_ = std::make_unique<AppMenu>(GetBrowser(), menu_model_.get(),
-                                    views::MenuRunner::NO_FLAGS);
+  menu_ = std::make_unique<AppMenu>(
+      GetBrowser(), menu_model_.get(), views::MenuRunner::NO_FLAGS,
+      // The WebUI browser architecture doesn't currently use BrowserView or
+      // an AppMenuControl that needs to be notified when the menu closes.
+      base::DoNothing());
   menu_->RunMenu(GetBrowserWindow()->widget(),
                  app_menu_button->GetScreenBounds());
 }
@@ -243,8 +246,7 @@ void WebUIBrowserPageHandler::LaunchDevToolsForBrowser() {
 }
 
 void WebUIBrowserPageHandler::OnSidePanelClosed() {
-  GetBrowserWindow()->GetWebUIBrowserSidePanelUI()->OnSidePanelClosed(
-      SidePanelEntry::PanelType::kContent);
+  GetBrowserWindow()->GetWebUIBrowserSidePanelUI()->OnSidePanelClosed();
 }
 
 void WebUIBrowserPageHandler::Minimize() {

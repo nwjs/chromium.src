@@ -20,6 +20,7 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.homepage.settings.HomepageMetricsEnums.HomeButtonStatus;
 import org.chromium.chrome.browser.homepage.settings.HomepageMetricsEnums.HomepageLocationType;
 import org.chromium.chrome.browser.homepage.settings.HomepageSettings;
@@ -120,7 +121,7 @@ public class HomepageManager
         // If the current homepage is the NTP, this will return true, regardless of the value of
         // isIncognito.
         return isHomepageEnabled()
-                && !UrlUtilities.isNtpUrl(getHomepageGurl(/* isIncognito= */ false));
+                && !UrlUtilities.isNtpUrl(getHomepageGurlForZeroTabs(/* isIncognito= */ false));
     }
 
     /**
@@ -145,13 +146,25 @@ public class HomepageManager
      * @see #getPrefHomepageUseDefaultUri()
      */
     public GURL getHomepageGurl(boolean isIncognito) {
+        return getHomepageGurlInternal(isIncognito, /* forZeroTabs= */ false);
+    }
+
+    /**
+     * {@see #getHomepageGurl(boolean)}, but may still return the partner homepage for zero tabs
+     * depending on {@link ChromeFeatureList#sDisablePartnerHomepageAndroidForZeroTabs}.
+     */
+    public GURL getHomepageGurlForZeroTabs(boolean isIncognito) {
+        return getHomepageGurlInternal(isIncognito, /* forZeroTabs= */ true);
+    }
+
+    private GURL getHomepageGurlInternal(boolean isIncognito, boolean forZeroTabs) {
         if (HomepagePolicyManager.isHomepageNewTabPageEnabled()) {
             return getNtpUrl(isIncognito);
         }
 
         if (!isHomepageEnabled()) return GURL.emptyGURL();
 
-        GURL homepageGurl = getHomepageGurlIgnoringEnabledState(isIncognito);
+        GURL homepageGurl = getHomepageGurlIgnoringEnabledState(isIncognito, forZeroTabs);
         if (homepageGurl.isEmpty()) {
             homepageGurl = getNtpUrl(isIncognito);
         }
@@ -164,7 +177,27 @@ public class HomepageManager
      *     tab page if the homepage button is force enabled via flag.
      */
     public GURL getDefaultHomepageGurl(boolean isIncognito) {
-        if (PartnerBrowserCustomizations.getInstance().isHomepageProviderAvailableAndEnabled()) {
+        return getDefaultHomepageGurlInternal(isIncognito, /* forZeroTabs= */ false);
+    }
+
+    private GURL getDefaultHomepageGurlInternal(boolean isIncognito, boolean forZeroTabs) {
+        // Shortcut to just the NTP if the partner homepage is disabled. Except for the zero tabs
+        // case, which is controlled by the `disable_partner_homepage_android_for_zero_tabs` param.
+        if (ChromeFeatureList.sDisablePartnerHomepageAndroid.isEnabled()
+                && (!forZeroTabs
+                        || ChromeFeatureList.sDisablePartnerHomepageAndroidForZeroTabs
+                                .getValue())) {
+            return getNtpUrl(isIncognito);
+        }
+
+        boolean isHomepageProviderAvailableAndEnabled =
+                forZeroTabs
+                        ? PartnerBrowserCustomizations.getInstance()
+                                .isHomepageProviderAvailableAndEnabledForZeroTabs()
+                        : PartnerBrowserCustomizations.getInstance()
+                                .isHomepageProviderAvailableAndEnabled();
+
+        if (isHomepageProviderAvailableAndEnabled) {
             return assumeNonNull(PartnerBrowserCustomizations.getInstance().getHomePageUrl());
         }
 
@@ -224,9 +257,11 @@ public class HomepageManager
     /**
      * Get homepage URI without checking if the homepage is enabled.
      *
+     * @param isIncognito Whether the request is for incognito mode.
+     * @param forZeroTabs Whether the homepage is being requested for zero tabs state decisions.
      * @return Homepage GURL based on policy and shared preference settings.
      */
-    private GURL getHomepageGurlIgnoringEnabledState(boolean isIncognito) {
+    private GURL getHomepageGurlIgnoringEnabledState(boolean isIncognito, boolean forZeroTabs) {
         if (HomepagePolicyManager.isHomepageNewTabPageEnabled()) {
             return getNtpUrl(isIncognito);
         }
@@ -237,7 +272,7 @@ public class HomepageManager
             return getNtpUrl(isIncognito);
         }
         if (getPrefHomepageUseDefaultUri()) {
-            return getDefaultHomepageGurl(isIncognito);
+            return getDefaultHomepageGurlInternal(isIncognito, forZeroTabs);
         }
         return getPrefHomepageCustomGurl();
     }

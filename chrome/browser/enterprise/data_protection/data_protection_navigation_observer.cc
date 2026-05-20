@@ -32,6 +32,7 @@
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 #include "chrome/browser/safe_browsing/chrome_enterprise_url_lookup_service_factory.h"
+#include "components/enterprise/data_protection/features.h"
 #include "components/safe_browsing/core/browser/realtime/chrome_enterprise_url_lookup_service.h"
 #include "components/safe_browsing/core/browser/realtime/policy_engine.h"
 #include "components/safe_browsing/core/browser/realtime/url_lookup_service_base.h"
@@ -51,10 +52,12 @@ constexpr char kURLVerdictSourceHistogram[] =
 // This is non-null in tests to install a fake service.
 safe_browsing::RealTimeUrlLookupServiceBase* g_lookup_service = nullptr;
 
+#if BUILDFLAG(ENTERPRISE_WATERMARK)
 bool IsWatermarkWebUIURL(const GURL& url) {
   return url.SchemeIs(content::kChromeUIScheme) &&
          url.host() == chrome::kChromeUIWatermarkHost;
 }
+#endif  // ENTERPRISE_WATERMARK
 
 content::Page& GetPageFromWebContents(content::WebContents* web_contents) {
   return web_contents->GetPrimaryMainFrame()->GetPage();
@@ -211,6 +214,7 @@ DataProtectionNavigationObserver::CreateForNavigationIfNeeded(
     return nullptr;
   }
 
+#if BUILDFLAG(ENTERPRISE_WATERMARK)
   if (IsWatermarkWebUIURL(navigation_handle->GetURL())) {
     UrlSettings settings;
     // TODO(crbug.com/434714853): Replace with i18n string
@@ -218,6 +222,7 @@ DataProtectionNavigationObserver::CreateForNavigationIfNeeded(
     std::move(callback).Run(settings);
     return nullptr;
   }
+#endif  // ENTERPRISE_WATERMARK
 
   VLOG(1) << "enterprise.data_protection: same document navigation: "
           << navigation_handle->IsSameDocument();
@@ -255,6 +260,7 @@ void DataProtectionNavigationObserver::ApplyDataProtectionSettings(
     Profile* profile,
     content::WebContents* web_contents,
     Callback callback) {
+#if BUILDFLAG(ENTERPRISE_WATERMARK)
   if (IsWatermarkWebUIURL(web_contents->GetLastCommittedURL())) {
     UrlSettings settings;
     // TODO(crbug.com/434714853): Replace with i18n string
@@ -262,6 +268,7 @@ void DataProtectionNavigationObserver::ApplyDataProtectionSettings(
     std::move(callback).Run(settings);
     return;
   }
+#endif  // ENTERPRISE_WATERMARK
   auto* ud = GetUserData(web_contents);
   if (ud) {
     std::move(callback).Run(ud->settings());
@@ -474,11 +481,6 @@ void DataProtectionNavigationObserver::DidFinishNavigation(
   }
 
   DCHECK(pending_navigation_callback_.is_null());
-}
-
-// static
-size_t DataProtectionNavigationObserver::GetVerdictCacheMaxSize() {
-  return kVerdictCacheMaxSize;
 }
 
 NAVIGATION_HANDLE_USER_DATA_KEY_IMPL(DataProtectionNavigationObserver);

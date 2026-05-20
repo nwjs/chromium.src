@@ -24,6 +24,7 @@
 #include "content/public/common/url_constants.h"
 #include "media/media_buildflags.h"
 #include "printing/buildflags/buildflags.h"
+#include "url/gurl.h"
 
 namespace chrome {
 
@@ -37,6 +38,10 @@ inline constexpr char kChromeUIAboutURL[] = "chrome://about/";
 inline constexpr char kChromeUIAccessCodeCastHost[] = "access-code-cast";
 inline constexpr char kChromeUIAccessCodeCastURL[] =
     "chrome://access-code-cast/";
+inline constexpr char kChromeUIAccessibilityAnnotatorInternalsHost[] =
+    "accessibility-annotator-internals";
+inline constexpr char kChromeUIAccessibilityAnnotatorInternalsURL[] =
+    "chrome://accessibility-annotator-internals/";
 inline constexpr char kChromeUIAccessibilityHost[] = "accessibility";
 inline constexpr char kChromeUIAccountSettingsURL[] =
     "chrome://settings/account";
@@ -98,10 +103,6 @@ inline constexpr char kChromeUIContentAnnotatorInternalsURL[] =
 inline constexpr char kChromeUIContextualTasksHost[] = "contextual-tasks";
 inline constexpr char kChromeUIContextualTasksURL[] =
     "chrome://contextual-tasks/";
-#if BUILDFLAG(IS_ANDROID)
-inline constexpr char kChromeUINativeContextualTasksHost[] =
-    "contextual-tasks-page";
-#endif
 inline constexpr char kChromeUIContentSettingsURL[] =
     "chrome://settings/content";
 inline constexpr char16_t kChromeUIContentSettingsURL16[] =
@@ -137,6 +138,11 @@ inline constexpr char kChromeUIDiceWebSigninInterceptURL[] =
 inline constexpr char kChromeUIDownloadInternalsHost[] = "download-internals";
 inline constexpr char kChromeUIDownloadsHost[] = "downloads";
 inline constexpr char kChromeUIDownloadsURL[] = "chrome://downloads/";
+inline constexpr char kChromeUIDrivePickerHostHost[] = "drive-picker-host";
+inline constexpr char kChromeUIDrivePickerHostURL[] =
+    "chrome://drive-picker-host/";
+inline constexpr char kChromeUIDrivePickerHostUntrustedURL[] =
+    "chrome-untrusted://drive-picker-host/";
 inline constexpr char kChromeUIEDUCoexistenceLoginURLV2[] =
     "chrome://chrome-signin/edu-coexistence";
 inline constexpr char kChromeUIExtensionIconHost[] = "extension-icon";
@@ -151,6 +157,9 @@ inline constexpr char kChromeUIExtensionsZeroStatePromoURL[] =
     "chrome://extensions-zero-state";
 inline constexpr char kChromeUIFamilyLinkUserInternalsHost[] =
     "family-link-user-internals";
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+inline constexpr char kChromeUIFeatureShowcaseHost[] = "feature-showcase";
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 inline constexpr char kChromeUIFavicon2Host[] = "favicon2";
 inline constexpr char kChromeUIFaviconHost[] = "favicon";
 inline constexpr char kChromeUIFaviconURL[] = "chrome://favicon/";
@@ -216,7 +225,9 @@ inline constexpr char kChromeUINewTabPageThirdPartyHost[] =
 inline constexpr char kChromeUINewTabPageThirdPartyURL[] =
     "chrome://new-tab-page-third-party/";
 inline constexpr char kChromeUINewTabPageURL[] = "chrome://new-tab-page/";
+const GURL& ChromeUINewTabPageURLAsGURL();
 inline constexpr char kChromeUINewTabURL[] = "chrome://newtab/";
+const GURL& ChromeUINewTabURLAsGURL();
 inline constexpr char kChromeUINewTabFooterURL[] = "chrome://newtab-footer/";
 inline constexpr char kChromeUIUntrustedNtpMicrosoftAuthHost[] =
     "ntp-microsoft-auth";
@@ -243,6 +254,7 @@ inline constexpr char kChromeUIPasswordManagerURL[] =
 inline constexpr char kChromeUiPasswordChangeUrl[] =
     "chrome://password-manager/settings/password-change";
 inline constexpr char kChromeUIPolicyHost[] = "policy";
+inline constexpr char kChromeUIPolicyLogsURL[] = "chrome://policy/logs";
 inline constexpr char kChromeUIPolicyTestURL[] = "chrome://policy/test";
 inline constexpr char kChromeUIPolicyURL[] = "chrome://policy/";
 inline constexpr char kChromeUIPredictorsHost[] = "predictors";
@@ -294,6 +306,8 @@ inline constexpr char kChromeUISkillsYourSkillsPath[] = "yourSkills";
 inline constexpr char kChromeUISkillsBrowsePath[] = "browse";
 inline constexpr char kChromeUISplitViewNewTabPageURL[] =
     "chrome://tab-search.top-chrome/split_new_tab_page.html";
+inline constexpr char kChromeUISubresourceFilterInternalsHost[] =
+    "subresource-filter-internals";
 inline constexpr char kChromeUISuggestInternalsHost[] = "suggest-internals";
 inline constexpr char kChromeUISuggestInternalsURL[] =
     "chrome://suggest-internals/";
@@ -352,6 +366,7 @@ inline constexpr char kChromeUIWebUIToolbarHost[] = "webui-toolbar.top-chrome";
 inline constexpr char kChromeUIWebNNInternalsHost[] = "webnn-internals";
 inline constexpr char kChromeUIWebNNInternalsURL[] =
     "chrome://webnn-internals/";
+inline constexpr char kChromeUIIndigoInternalsHost[] = "indigo-internals";
 
 #if BUILDFLAG(IS_ANDROID)
 inline constexpr char kChromeUIJavaCrashURL[] = "chrome://java-crash/";
@@ -473,6 +488,8 @@ inline constexpr char kChromeUIBrowserSwitchURL[] = "chrome://browser-switch/";
 inline constexpr char kChromeUIIntroDefaultBrowserSubPage[] = "default-browser";
 inline constexpr char kChromeUIIntroDefaultBrowserURL[] =
     "chrome://intro/default-browser";
+inline constexpr char kChromeUIIntroSignInCelebrationSubPage[] =
+    "sign-in-celebration";
 inline constexpr char kChromeUIIntroHost[] = "intro";
 inline constexpr char kChromeUIIntroURL[] = "chrome://intro";
 inline constexpr char kChromeUIManagedUserProfileNoticeHost[] =
@@ -511,11 +528,6 @@ inline constexpr char kChromeUIPrintHost[] = "print";
 #if BUILDFLAG(ENABLE_SESSION_SERVICE)
 inline constexpr char kChromeUISessionServiceInternalsPath[] =
     "session-service";
-#endif
-
-#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
-inline constexpr char kChromeUITabStripHost[] = "tab-strip.top-chrome";
-inline constexpr char kChromeUITabStripURL[] = "chrome://tab-strip.top-chrome";
 #endif
 
 #if BUILDFLAG(ENTERPRISE_WATERMARK)
@@ -590,6 +602,7 @@ inline constexpr char kSearchSubPage[] = "search";
 inline constexpr char kSecuritySubPage[] = "security";
 inline constexpr char kSignOutSubPage[] = "signOut";
 inline constexpr char kSiteDetailsSubpage[] = "content/siteDetails";
+inline constexpr char kSuggestionsSubPage[] = "ai/suggestions";
 inline constexpr char kSyncSetupSubPage[] = "syncSetup";
 inline constexpr char kSyncSetupAdvancedSubPage[] = "syncSetup/advanced";
 inline constexpr char kTriggeredResetProfileSettingsSubPage[] =

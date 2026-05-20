@@ -22,8 +22,8 @@
  * @param {string} expectedContent Expected file content.
  */
 function readFileAndExpectContent(entry, expectedContent) {
-  chrome.test.assertFalse(!entry.file,
-                          'The object does not have \'file\' method');
+  chrome.test.assertFalse(
+      !entry.file, 'The object does not have \'file\' method');
   entry.file(
       function(file) {
         const reader = new FileReader();
@@ -78,8 +78,9 @@ function onError(message) {
  * received.
  */
 function launchedListener(launchData) {
-  if (testPreRunStatus.done)
+  if (testPreRunStatus.done) {
     return;
+  }
 
   if (!launchData) {
     onError('No launchData');
@@ -91,23 +92,21 @@ function launchedListener(launchData) {
     return;
   }
 
-  if (!launchData.items || launchData.items.length != 1) {
+  if (!launchData.items || launchData.items.length !== 1) {
     onError('Invalid launch data items.');
     return;
   }
 
-  if (launchData.id == 'xulAction') {
-    handlerTests.push(
-      function readXulAction() {
-        readFileAndExpectContent(launchData.items[0].entry,
-                                 'This is some test content.');
+  if (launchData.id === 'xulAction') {
+    handlerTests.push(function readXulAction() {
+      readFileAndExpectContent(
+          launchData.items[0].entry, 'This is some test content.');
     });
     testPreRunStatus.gotXulAction = true;
-  } else if (launchData.id == 'tiffAction') {
-    handlerTests.push(
-      function readTiffAction() {
-        readFileAndExpectContent(launchData.items[0].entry,
-                                 'This is some test content.');
+  } else if (launchData.id === 'tiffAction') {
+    handlerTests.push(function readTiffAction() {
+      readFileAndExpectContent(
+          launchData.items[0].entry, 'This is some test content.');
     });
     testPreRunStatus.gotTiffAction = true;
     window.domAutomationController.send(

@@ -22,13 +22,13 @@
 #include "chrome/browser/password_manager/factories/password_counter_factory.h"
 #include "chrome/browser/plus_addresses/plus_address_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/webauthn/context_menu_helper.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/accessibility_annotator/core/accessibility_annotator_types.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/autofill_feedback_data.h"
@@ -257,11 +257,6 @@ void AutofillContextMenuManager::ExecuteCommand(int command_id) {
     return;
   }
 
-  if (command_id == IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PLUS_ADDRESS) {
-    ExecuteFallbackForPlusAddressesCommand(*autofill_driver);
-    return;
-  }
-
   if (command_id ==
       IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SELECT_PASSWORD) {
     ExecuteFallbackForSelectPasswordCommand(*autofill_driver);
@@ -274,7 +269,8 @@ void AutofillContextMenuManager::ExecuteCommand(int command_id) {
       IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_IMPORT_PASSWORDS) {
     // This function also records metrics.
     NavigateToManagePasswordsPage(
-        chrome::FindBrowserWithTab(web_contents),
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+            web_contents),
         password_manager::ManagePasswordsReferrer::kPasswordContextMenu);
     return;
   }
@@ -298,7 +294,7 @@ void AutofillContextMenuManager::MaybeAddAutofillFeedbackItem() {
   ContentAutofillDriver* autofill_driver =
       ContentAutofillDriver::GetForRenderFrameHost(rfh);
   // Do not show autofill context menu options for input fields that cannot be
-  // filled by the driver. See crbug.com/1367547.
+  // filled by the driver. See crbug.com/40061116.
   if (!autofill_driver || !autofill_driver->CanShowAutofillUi()) {
     return;
   }
@@ -335,6 +331,14 @@ void AutofillContextMenuManager::MaybeAddAutofillAtMemoryItem() {
     return;
   }
 
+  if (autofill_driver->GetAutofillManager()
+          .client()
+          .GetAccessibilityAnnotatorEnablementState() ==
+      accessibility_annotator::RemoteAnnotatorEnablementState::
+          kDisabledNotEligible) {
+    return;
+  }
+
   menu_model_->AddItemWithStringIdAndIcon(
       IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AT_MEMORY,
       IDS_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AT_MEMORY,
@@ -363,14 +367,14 @@ void AutofillContextMenuManager::MaybeAddAutofillManualFallbackItems() {
   bool add_passwords_fallback = false;
 
   // Do not show autofill context menu options for input fields that cannot be
-  // filled by the driver. See crbug.com/1367547.
+  // filled by the driver. See crbug.com/40061116.
   if (autofill_driver && autofill_driver->CanShowAutofillUi()) {
     add_plus_address_fallback =
         ShouldAddPlusAddressManualFallbackItem(*autofill_driver);
   }
 
   // Do not show password manager context menu options for input fields that
-  // cannot be filled by the driver. See crbug.com/1367547.
+  // cannot be filled by the driver. See crbug.com/40061116.
   if (password_manager_driver && password_manager_driver->CanShowAutofillUi()) {
     add_passwords_fallback =
         ShouldAddPasswordsManualFallbackItem(*password_manager_driver);
@@ -519,7 +523,8 @@ void AutofillContextMenuManager::ExecuteAutofillFeedbackCommand(
   // The cast is safe since the context menu is only available on Desktop.
   auto& client = static_cast<ContentAutofillClient&>(manager.client());
   BrowserWindowInterface* browser =
-      chrome::FindBrowserWithTab(&client.GetWebContents());
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          &client.GetWebContents());
   chrome::ShowFeedbackPage(
       browser, feedback::kFeedbackSourceAutofillContextMenu,
       /*description_template=*/std::string(),
@@ -530,20 +535,6 @@ void AutofillContextMenuManager::ExecuteAutofillFeedbackCommand(
       data_logs::FetchAutofillFeedbackData(
           &manager,
           LoadTriggerFormAndFieldLogs(manager, frame_token, params_)));
-}
-
-void AutofillContextMenuManager::ExecuteFallbackForPlusAddressesCommand(
-    AutofillDriver& autofill_driver) {
-  autofill_driver.RendererShouldTriggerSuggestions(
-      /*field_id=*/{autofill_driver.GetFrameToken(),
-                    FieldRendererId(params_.field_renderer_id)},
-      AutofillSuggestionTriggerSource::kManualFallbackPlusAddresses);
-
-  base::RecordAction(base::UserMetricsAction(
-      "PlusAddresses.ManualFallbackDesktopContextManualFallbackSelected"));
-  UserEducationService::MaybeNotifyNewBadgeFeatureUsed(
-      delegate_->GetBrowserContext(),
-      plus_addresses::features::kPlusAddressFallbackFromContextMenu);
 }
 
 void AutofillContextMenuManager::ExecuteFallbackForSelectPasswordCommand(

@@ -20,7 +20,8 @@
 #include "chrome/browser/after_startup_task_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_metrics_factory.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
@@ -99,7 +100,8 @@ void WebAppMetrics::OnEngagementEvent(
     return;
   }
 
-  Browser* browser = chrome::FindBrowserWithTab(web_contents);
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents);
   if (!browser) {
     return;
   }
@@ -128,7 +130,7 @@ void WebAppMetrics::OnEngagementEvent(
   CHECK(!app_id->empty());
 
   // No HostedAppBrowserController if app is running as a tab in common browser.
-  const bool in_window = !!browser->app_controller();
+  const bool in_window = !!AppBrowserController::From(browser);
   WebAppRegistrar& registrar =
       WebAppProvider::GetForLocalAppsUnchecked(profile_)->registrar_unsafe();
   const bool user_installed =

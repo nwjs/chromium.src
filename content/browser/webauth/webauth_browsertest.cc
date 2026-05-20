@@ -32,8 +32,8 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "content/browser/back_forward_cache/back_forward_cache_disable.h"
 #include "content/browser/payments/stub_secure_payment_confirmation_service.h"
-#include "content/browser/renderer_host/back_forward_cache_disable.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/webauth/authenticator_environment.h"
 #include "content/browser/webauth/authenticator_impl.h"
@@ -1617,6 +1617,35 @@ IN_PROC_BROWSER_TEST_F(WebAuthJavascriptClientBrowserTest, WinMakeCredential) {
   ASSERT_EQ(kOkMessage,
             EvalJs(shell()->web_contents(),
                    BuildCreateCallWithParameters(CreateParameters())));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAuthJavascriptClientBrowserTest,
+                       WinMakeCredentialTransports) {
+  EXPECT_TRUE(
+      NavigateToURL(shell(), GetHttpsURL("www.acme.com", "/title1.html")));
+
+  device::FakeWinWebAuthnApi fake_api;
+  fake_api.set_is_uvpaa(true);
+  fake_api.set_version(WEBAUTHN_API_VERSION_9);
+  device::WinWebAuthnApi::ScopedOverride win_webauthn_api_override(&fake_api);
+
+  ASSERT_EQ("hybrid,internal",
+            EvalJs(shell()->web_contents(),
+                   "navigator.credentials.create({ publicKey: {"
+                   "  challenge: new TextEncoder().encode('climb a mountain'),"
+                   "  rp: { id: 'acme.com', name: 'Acme' },"
+                   "  user: { "
+                   "    id: new TextEncoder().encode('1098237235409872'),"
+                   "    name: 'avery.a.jones@example.com',"
+                   "    displayName: 'Avery A. Jones' },"
+                   "  pubKeyCredParams: [{ type: 'public-key', alg: -257 }],"
+                   "  timeout: 10000,"
+                   "  authenticatorSelection: {"
+                   "     userVerification: 'preferred',"
+                   "     authenticatorAttachment: 'platform',"
+                   "  },"
+                   "}}).then(c => c.response.getTransports().sort().join(','),"
+                   "         e => e.toString())"));
 }
 
 IN_PROC_BROWSER_TEST_F(WebAuthJavascriptClientBrowserTest,

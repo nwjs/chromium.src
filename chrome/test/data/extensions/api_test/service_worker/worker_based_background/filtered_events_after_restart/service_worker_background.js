@@ -10,13 +10,17 @@ function getURL(port, filename) {
   return `http://127.0.0.1:${port}${TEST_DIR}${filename}`;
 }
 
-function pass() { chrome.test.sendMessage('PASS_FROM_WORKER'); }
-function fail() { chrome.test.sendMessage('FAIL_FROM_WORKER'); }
+function pass() {
+  chrome.test.sendMessage('PASS_FROM_WORKER');
+}
+function fail() {
+  chrome.test.sendMessage('FAIL_FROM_WORKER');
+}
 
 const seenURLs = [];
 const recordCommitAndVerify = function(committedURL, filename) {
   const url = new URL(committedURL);
-  if (url.pathname != TEST_DIR + filename) {
+  if (url.pathname !== TEST_DIR + filename) {
     fail();
     return;
   }
@@ -26,15 +30,14 @@ const recordCommitAndVerify = function(committedURL, filename) {
     fail();
     return;
   }
-  if (seenURLs.length != 2) {
+  if (seenURLs.length !== 2) {
     return;
   }
 
   chrome.test.getConfig(function(config) {
     const port = config.testServer.port;
-    const passed =
-        seenURLs[0].href == getURL(port, 'a.html') &&
-        seenURLs[1].href == getURL(port, 'b.html');
+    const passed = seenURLs[0].href === getURL(port, 'a.html') &&
+        seenURLs[1].href === getURL(port, 'b.html');
     passed ? pass() : fail();
   });
 };

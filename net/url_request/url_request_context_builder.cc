@@ -343,6 +343,7 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
     // QUIC connection migration should not be enabled when binding a context
     // to a network.
     quic_params->migrate_sessions_on_network_change_v2 = false;
+    quic_params->migrate_sessions_early_v2 = false;
 
     // Objects used by network sessions for this context shouldn't listen to
     // network changes.
@@ -484,7 +485,8 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
   } else if (reporting_policy_) {
     context->set_reporting_service(
         ReportingService::Create(*reporting_policy_, context.get(),
-                                 persistent_reporting_and_nel_store_.get()));
+                                 persistent_reporting_and_nel_store_.get(),
+                                 std::move(prepare_upload_request_callback_)));
   }
 
   if (network_error_logging_enabled_) {

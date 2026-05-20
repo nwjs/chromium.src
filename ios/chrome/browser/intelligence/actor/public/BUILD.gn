@@ -3,10 +3,30 @@
 # found in the LICENSE file.
 
 source_set("actor_types") {
-  sources = [ "actor_types.h" ]
-  deps = [ "//base" ]
+  sources = [
+    "actor_types.h",
+    "actor_types.mm",
+  ]
+  deps = [
+    "//base",
+    "//ios/chrome/browser/intelligence/actor/tools/public",
+    "//ios/chrome/browser/intelligence/proto_wrappers",
+    "//ios/web/public",
+  ]
 }
 
-source_set("actor_task_ui_delegate") {
-  sources = [ "actor_task_ui_delegate.h" ]
+source_set("actor_task_ui_protocols") {
+  sources = [
+    "actor_task_intervention_delegate.h",
+    "actor_task_updates_observer.h",
+  ]
+  deps = [
+    ":actor_types",
+    "//ios/web/public",
+  ]
+}
+
+source_set("actor_task_controller") {
+  sources = [ "actor_task_controller.h" ]
+  deps = [ ":actor_types" ]
 }

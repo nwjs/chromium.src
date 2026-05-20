@@ -81,6 +81,7 @@
 #include "third_party/blink/renderer/core/paint/timing/container_timing.h"
 #include "third_party/blink/renderer/core/performance_entry_names.h"
 #include "third_party/blink/renderer/core/timing/animation_frame_timing_info.h"
+#include "third_party/blink/renderer/core/timing/global_performance.h"
 #include "third_party/blink/renderer/core/timing/interaction_contentful_paint.h"
 #include "third_party/blink/renderer/core/timing/largest_contentful_paint.h"
 #include "third_party/blink/renderer/core/timing/layout_shift.h"
@@ -94,10 +95,12 @@
 #include "third_party/blink/renderer/core/timing/performance_paint_timing.h"
 #include "third_party/blink/renderer/core/timing/performance_timing.h"
 #include "third_party/blink/renderer/core/timing/performance_timing_for_reporting.h"
+#include "third_party/blink/renderer/core/timing/preload_data.h"
 #include "third_party/blink/renderer/core/timing/responsiveness_metrics.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_context.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_entry.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_heuristics.h"
+#include "third_party/blink/renderer/core/timing/speculation_data.h"
 #include "third_party/blink/renderer/core/timing/timing_utils.h"
 #include "third_party/blink/renderer/core/timing/visibility_state_entry.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_deque.h"
@@ -105,6 +108,7 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
@@ -114,9 +118,6 @@
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 
 namespace blink {
-
-BASE_FEATURE(kEventTimingReportingInStrictOrderOnly,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 static constexpr base::TimeDelta kLongTaskObserverThreshold =
     base::Milliseconds(50);
@@ -208,6 +209,33 @@ base::TimeDelta TotalNonOverlappingProcessingDuration(
     }
   }
   return processing_duration;
+}
+
+bool ShouldLogEvent(const Event& event) {
+  return event.type() == event_type_names::kPointerdown ||
+         event.type() == event_type_names::kPointerup ||
+         event.type() == event_type_names::kClick ||
+         event.type() == event_type_names::kKeydown ||
+         event.type() == event_type_names::kMousedown ||
+         event.type() == event_type_names::kMouseup;
+}
+
+void HandleInputDelay(LocalDOMWindow* window,
+                      const Event& event,
+                      base::TimeTicks processing_start) {
+  auto* pointer_event = DynamicTo<PointerEvent>(&event);
+  base::TimeTicks event_timestamp =
+      pointer_event ? pointer_event->OldestPlatformTimeStamp()
+                    : event.PlatformTimeStamp();
+
+  if (ShouldLogEvent(event) && event.isTrusted()) {
+    InteractiveDetector* interactive_detector =
+        InteractiveDetector::From(*window->document());
+    if (interactive_detector) {
+      interactive_detector->HandleForInputDelay(event, event_timestamp,
+                                                processing_start);
+    }
+  }
 }
 
 }  // namespace
@@ -453,7 +481,6 @@ void WindowPerformance::BuildJSONValue(V8ObjectBuilder& builder) const {
 
 void WindowPerformance::Trace(Visitor* visitor) const {
   visitor->Trace(event_timing_entries_);
-  visitor->Trace(entries_waiting_for_interaction_id_for_issue328902994_);
   visitor->Trace(active_event_timing_entries_);
   visitor->Trace(first_pointer_down_event_timing_);
   visitor->Trace(event_counts_);
@@ -565,11 +592,12 @@ void WindowPerformance::ReportLongTask(base::TimeTicks start_time,
 }
 
 PerformanceEventTiming* WindowPerformance::EventTimingProcessingStart(
-    const Event& event,
-    base::TimeTicks processing_start) {
+    const Event& event) {
   CHECK(DomWindow());
   CHECK(DomWindow()->GetFrame());
-  CHECK(!processing_start.is_null());
+  base::TimeTicks processing_start = base::TimeTicks::Now();
+
+  HandleInputDelay(DomWindow(), event, processing_start);
 
   const AtomicString& event_type = event.type();
 
@@ -639,13 +667,11 @@ PerformanceEventTiming* WindowPerformance::EventTimingProcessingStart(
   return entry;
 }
 
-void WindowPerformance::EventTimingProcessingEnd(
-    PerformanceEventTiming* entry,
-    const Event& event,
-    base::TimeTicks processing_end) {
+void WindowPerformance::EventTimingProcessingEnd(PerformanceEventTiming* entry,
+                                                 const Event& event) {
   // DomWindow()->GetFrame() may no longer be available, do not CHECK for it.
   current_event_ = nullptr;
-  CHECK(!processing_end.is_null());
+  base::TimeTicks processing_end = base::TimeTicks::Now();
 
   CHECK(entry);
   CHECK(!active_event_timing_entries_.empty());
@@ -931,14 +957,12 @@ void WindowPerformance::ReportAllPendingEventTimingsOnPageHidden() {
 void WindowPerformance::TryFlushEventTimingQueue() {
   if (!DomWindow() || !DomWindow()->GetFrame()) {
     event_timing_entries_.clear();
-    entries_waiting_for_interaction_id_for_issue328902994_.clear();
     return;
   }
   CHECK(DomWindow()->document());
   InteractiveDetector* interactive_detector =
       InteractiveDetector::From(*(DomWindow()->document()));
 
-  ReportEntriesWaitingForInteractionIdForIssue328902994();
 
   bool tracing_enabled = TRACE_EVENT_CATEGORY_ENABLED("latency");
   const auto parent_track =
@@ -958,13 +982,8 @@ void WindowPerformance::TryFlushEventTimingQueue() {
         std::distance(all_entries.begin(), end_of_frame_it)));
 
     // Unless ALL events in this range are ready to be reported, break out.
-    // If we're not reporting in strict order, we only need to check if each
-    // event has an end time, even if its waiting for an interactionId.
-    bool strict_order =
-        base::FeatureList::IsEnabled(kEventTimingReportingInStrictOrderOnly);
-    if (!std::ranges::all_of(frame_entries, [strict_order](const auto& entry) {
-          return strict_order ? entry->IsReadyForReporting()
-                              : entry->IsReadyForReportingForIssue328902994();
+    if (!std::ranges::all_of(frame_entries, [](const auto& entry) {
+          return entry->IsReadyForReporting();
         })) {
       break;
     }
@@ -1135,11 +1154,7 @@ void WindowPerformance::FlushEventTiming(
     return;
   }
 
-  if (base::FeatureList::IsEnabled(kEventTimingReportingInStrictOrderOnly)) {
-    CHECK(entry->IsReadyForReporting());
-  } else {
-    CHECK(entry->IsReadyForReportingForIssue328902994());
-  }
+  CHECK(entry->IsReadyForReporting());
 
   auto* timings = entry->GetEventTimingReportingInfo();
   base::TimeTicks event_creation_time = timings->creation_time;
@@ -1183,22 +1198,8 @@ void WindowPerformance::FlushEventTiming(
 
   TryReportAsFirstInputTiming(entry);
 
-  // TODO(crbug.com/328902994): There are two paths to get here: with or without
-  // interactionID enforcement on this entry.  Either path has already reported
-  // it to tracing and certain UMA, but now we have to check again if we are
-  // fully ready for reporting.  If we aren't, move the event to a separate
-  // queue.  This previously would have been done in |responsiveness_metrics.cc|
-  // but now happens here.  This previously would have emitted each event as
-  // they are assigned an interactionid, but now just iterates the list and
-  // flushes it as it resolves.  We always try flushing events in all paths that
-  // might update interactionid (processing_start) so we will always immediately
-  // check and flush as interactionids are assigned.
-  if (entry->IsReadyForReporting()) {
-    responsiveness_metrics_->ReportToMetrics(entry);
-    ReportEventTimingToPerformanceTimeline(entry);
-  } else {
-    entries_waiting_for_interaction_id_for_issue328902994_.push_back(entry);
-  }
+  responsiveness_metrics_->ReportToMetrics(entry);
+  ReportEventTimingToPerformanceTimeline(entry);
 }
 
 // TODO(crbug.com/328902994): Delay creating the PerformanceEventTiming entry
@@ -1423,22 +1424,6 @@ void WindowPerformance::AddContainerTiming(
   }
 }
 
-void WindowPerformance::
-    ReportEntriesWaitingForInteractionIdForIssue328902994() {
-  if (base::FeatureList::IsEnabled(kEventTimingReportingInStrictOrderOnly)) {
-    CHECK(entries_waiting_for_interaction_id_for_issue328902994_.empty());
-    return;
-  }
-  EraseIf(entries_waiting_for_interaction_id_for_issue328902994_,
-          [&](const auto& entry) {
-            if (entry->IsReadyForReporting()) {
-              responsiveness_metrics_->ReportToMetrics(entry);
-              ReportEventTimingToPerformanceTimeline(entry);
-              return true;
-            }
-            return false;
-          });
-}
 
 void WindowPerformance::TryReportAsFirstInputTiming(
     PerformanceEventTiming* event_timing_entry) {
@@ -1451,49 +1436,10 @@ void WindowPerformance::TryReportAsFirstInputTiming(
 
   PerformanceEventTiming* new_first_input_entry = nullptr;
 
-  if (base::FeatureList::IsEnabled(kEventTimingReportingInStrictOrderOnly)) {
-    CHECK(event_timing_entry->HasKnownInteractionID());
-    // NEW: Now with 98% less complexity!
-    if (event_timing_entry->interactionId() != 0) {
-      new_first_input_entry =
-          PerformanceEventTiming::CreateFirstInputTiming(event_timing_entry);
-    }
-  } else {
-    CHECK(event_timing_entry->IsReadyForReportingForIssue328902994());
-
-    // TODO(crbug.com/487091601): Sequential pointer interactions are not
-    // guaranteed to have the same pointerid in multi-touch use cases.  Thus, a
-    // pending pointerdown may not match a pointerup or pointercancel signal.
-    // This little state machine tries not to overwrite or emit the very first
-    // pointerdown until it can or has to-- but may drop the "second" input to
-    // do so.  If the first pending pointerdown ends up cancelled, this can lead
-    // to inaccurate FID reporting-- which has always been true for mouse and
-    // keydown already.
-    // This will all be fixed with crbug.com/331806288!
-    // Update: Fixed, above, with |kEventTimingReportingInStrictOrderOnly|.
-    if (first_pointer_down_event_timing_) {
-      if (event_timing_entry->name() == event_type_names::kPointercancel) {
-        first_pointer_down_event_timing_ = nullptr;
-        return;
-      }
-
-      if (event_timing_entry->name() == event_type_names::kPointerup &&
-          first_pointer_down_event_timing_->HasKnownInteractionID()) {
-        new_first_input_entry = PerformanceEventTiming::CreateFirstInputTiming(
-            first_pointer_down_event_timing_);
-      }
-    } else {
-      if (event_timing_entry->name() == event_type_names::kPointerdown) {
-        first_pointer_down_event_timing_ = event_timing_entry;
-        return;
-      }
-
-      if (event_timing_entry->name() == event_type_names::kClick ||
-          event_timing_entry->name() == event_type_names::kKeydown) {
-        new_first_input_entry =
-            PerformanceEventTiming::CreateFirstInputTiming(event_timing_entry);
-      }
-    }
+  CHECK(event_timing_entry->HasKnownInteractionID());
+  if (event_timing_entry->interactionId() != 0) {
+    new_first_input_entry =
+        PerformanceEventTiming::CreateFirstInputTiming(event_timing_entry);
   }
 
   if (!new_first_input_entry) {
@@ -1584,6 +1530,26 @@ EventCounts* WindowPerformance::eventCounts() {
     event_counts_ = MakeGarbageCollected<EventCounts>();
   }
   return event_counts_.Get();
+}
+
+SpeculationData* WindowPerformance::getSpeculations() {
+  LocalDOMWindow* window = DomWindow();
+  if (!window || !window->document() || !window->document()->Fetcher()) {
+    return MakeGarbageCollected<SpeculationData>(
+        HeapVector<Member<PreloadData>>());
+  }
+
+  HeapVector<Member<PreloadData>> preloads;
+  const auto& preload_records =
+      window->document()->Fetcher()->GetPreloadRecords();
+  for (const auto& [url, info] : preload_records) {
+    preloads.push_back(MakeGarbageCollected<PreloadData>(
+        url, info.resource_type,
+        info.crossorigin.value_or(kCrossOriginAttributeNotSet),
+        info.used_time));
+  }
+
+  return MakeGarbageCollected<SpeculationData>(std::move(preloads));
 }
 
 uint64_t WindowPerformance::interactionCount() const {
@@ -1688,6 +1654,15 @@ void WindowPerformance::IterateEventTimingsByAnimationFrame(
       callback(entry);
     }
   }
+}
+
+// static
+void WindowPerformance::ClearForWindowReuse(LocalDOMWindow& window) {
+  // While `WindowPerformance` is per-`LocalDOMWindow`, metrics data is
+  // typically per-`Document`. Some data (e.g. first input timestamp) can be
+  // captured and cached on the initially empty document, so we need to clear it
+  // if clearing that document so it doesn't leak to the new document.
+  GlobalPerformance::performance(window)->timing_for_reporting_ = nullptr;
 }
 
 }  // namespace blink

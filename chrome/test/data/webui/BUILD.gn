@@ -49,6 +49,7 @@ source_set("browser_tests") {
     sources += [
       "about_sys/about_sys_browsertest.cc",
       "access_code_cast/access_code_cast_browsertest.cc",
+      "accessibility_annotator_info/accessibility_annotator_info_browsertest.cc",
       "actor_overlay/actor_overlay_browsertest.cc",
       "bookmarks/bookmarks_browsertest.cc",
       "chrome_apis/chrome_histograms_browsertest.cc",
@@ -59,6 +60,7 @@ source_set("browser_tests") {
       "data_sharing/data_sharing_browsertest.cc",
       "device_log/device_log_ui_browsertest.cc",
       "downloads/downloads_browsertest.cc",
+      "drive_picker/drive_picker_browsertest.cc",
       "engagement/site_engagement_browsertest.cc",
       "feedback/feedback_browsertest.cc",
       "glic/glic_browsertest.cc",
@@ -92,8 +94,10 @@ source_set("browser_tests") {
       "side_panel/history_clusters/history_clusters_browsertest.cc",
       "side_panel/read_anything/read_anything_browsertest.cc",
       "side_panel/reading_list/reading_list_browsertest.cc",
+      "subresource_filter/subresource_filter_internals_browsertest.cc",
       "tab_group_home/tab_group_home_browsertest.cc",
       "tab_search/tab_search_browsertest.cc",
+      "web_app_internals/web_app_internals_browsertest.cc",
       "webnn_internals/webnn_internals_browsertest.cc",
       "webui_toolbar/webui_toolbar_js_browsertest.cc",
       "webview/webui_webview_browsertest.cc",
@@ -131,10 +135,6 @@ source_set("browser_tests") {
 
   if (enable_extensions) {
     sources += [ "extensions_zero_state/zero_state_promo_browsertest.cc" ]
-  }
-
-  if (enable_webui_tab_strip) {
-    sources += [ "tab_strip/tab_strip_browsertest.cc" ]
   }
 
   if (enable_print_preview && !is_chromeos) {
@@ -363,10 +363,6 @@ source_set("interactive_ui_tests") {
     deps += [ "//chrome/test/data/webui:composebox_pixel_test_support" ]
   }
 
-  if (enable_webui_tab_strip) {
-    sources += [ "tab_strip/tab_strip_focus_test.cc" ]
-  }
-
   if (enable_extensions_core) {
     sources += [ "extensions/extensions_focus_test.cc" ]
   }
@@ -396,6 +392,7 @@ source_set("interactive_ui_tests") {
   if (!is_android) {
     deps += [
       "//chrome/browser/autocomplete:aim_eligibility_service",
+      "//chrome/browser/contextual_tasks:test_support",
       "//chrome/browser/contextual_tasks:ui",
       "//chrome/browser/ui:ui_features",
       "//components/contextual_tasks/public",
@@ -538,7 +535,6 @@ generate_grd("build_grd") {
     "commerce_internals:build_grdp",
     "cr_elements:build_grdp",
     "flags:build_grdp",
-    "glic:build_grdp",
     "js:build_grdp",
     "location_internals:build_grdp",
     "sync_internals:build_grdp",
@@ -552,7 +548,6 @@ generate_grd("build_grd") {
     "$target_gen_dir/commerce_internals/resources.grdp",
     "$target_gen_dir/cr_elements/resources.grdp",
     "$target_gen_dir/flags/resources.grdp",
-    "$target_gen_dir/glic/resources.grdp",
     "$target_gen_dir/js/resources.grdp",
     "$target_gen_dir/location_internals/resources.grdp",
     "$target_gen_dir/mocha_resources.grdp",
@@ -569,6 +564,7 @@ generate_grd("build_grd") {
     deps += [
       "about_sys:build_grdp",
       "access_code_cast:build_grdp",
+      "accessibility_annotator_info:build_grdp",
       "actor_overlay:build_grdp",
       "bookmarks:build_grdp",
       "chrome_apis:build_grdp",
@@ -586,8 +582,10 @@ generate_grd("build_grd") {
       "device_log:build_grdp",
       "discards:build_grdp",
       "downloads:build_grdp",
+      "drive_picker:build_grdp",
       "engagement:build_grdp",
       "feedback:build_grdp",
+      "glic:build_grdp",
       "histograms:build_grdp",
       "history:build_grdp",
       "history_clusters_internals:build_grdp",
@@ -614,9 +612,11 @@ generate_grd("build_grd") {
       #"side_panel:build_grdp",
       #"side_panel/customize_chrome:build_grdp",
       #"side_panel/read_anything:build_grdp",
+      "subresource_filter:build_grdp",
       "support_tool:build_grdp",
       "tab_group_home:build_grdp",
       "tab_search:build_grdp",
+      "web_app_internals:build_grdp",
       "webnn_internals:build_grdp",
       "webui_toolbar:build_grdp",
       "webview:build_grdp",
@@ -625,6 +625,7 @@ generate_grd("build_grd") {
     grdp_files += [
       "$target_gen_dir/about_sys/resources.grdp",
       "$target_gen_dir/access_code_cast/resources.grdp",
+      "$target_gen_dir/accessibility_annotator_info/resources.grdp",
       "$target_gen_dir/actor_overlay/resources.grdp",
       "$target_gen_dir/chrome_apis/resources.grdp",
 
@@ -644,8 +645,10 @@ generate_grd("build_grd") {
       "$target_gen_dir/device_log/resources.grdp",
       "$target_gen_dir/discards/resources.grdp",
       "$target_gen_dir/downloads/resources.grdp",
+      "$target_gen_dir/drive_picker/resources.grdp",
       "$target_gen_dir/engagement/resources.grdp",
       "$target_gen_dir/feedback/resources.grdp",
+      "$target_gen_dir/glic/resources.grdp",
       "$target_gen_dir/histograms/resources.grdp",
       "$target_gen_dir/history/resources.grdp",
       "$target_gen_dir/history_clusters_internals/resources.grdp",
@@ -672,10 +675,12 @@ generate_grd("build_grd") {
       #"$target_gen_dir/side_panel/customize_chrome/resources.grdp",
       #"$target_gen_dir/side_panel/read_anything/resources.grdp",
       #"$target_gen_dir/side_panel/resources.grdp",
+      "$target_gen_dir/subresource_filter/resources.grdp",
       "$target_gen_dir/support_tool/resources.grdp",
       "$target_gen_dir/tab_group_home/resources.grdp",
       "$target_gen_dir/tab_search/resources.grdp",
       "$target_gen_dir/webnn_internals/resources.grdp",
+      "$target_gen_dir/web_app_internals/resources.grdp",
       "$target_gen_dir/webui_toolbar/resources.grdp",
     ]
 
@@ -708,11 +713,6 @@ generate_grd("build_grd") {
   if (chrome_root_store_cert_management_ui) {
     deps += [ "certificate_manager:build_grdp" ]
     grdp_files += [ "$target_gen_dir/certificate_manager/resources.grdp" ]
-  }
-
-  if (enable_webui_tab_strip) {
-    deps += [ "tab_strip:build_grdp" ]
-    grdp_files += [ "$target_gen_dir/tab_strip/resources.grdp" ]
   }
 
   if (enable_pdf) {

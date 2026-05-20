@@ -29,7 +29,6 @@
 #include "third_party/blink/renderer/core/scheduler/web_scheduling_task_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/task_attribution_info.h"
 #include "third_party/blink/renderer/platform/scheduler/public/task_attribution_tracker.h"
 #include "third_party/blink/renderer/platform/scheduler/public/web_scheduling_priority.h"
@@ -88,10 +87,10 @@ DOMTask::DOMTask(ScriptPromiseResolver<IDLAny>* resolver,
       callback_->CallbackRelevantScriptStateOrReportError("DOMTask", "Create");
   DCHECK(script_state && script_state->ContextIsValid());
 
-  web_scheduling_task_state_ = MakeGarbageCollected<WebSchedulingTaskState>(
-      CaptureCurrentTaskStateIfMainWorld(script_state), scheduler_task_context);
-
   auto* context = ExecutionContext::From(script_state);
+  web_scheduling_task_state_ = MakeGarbageCollected<WebSchedulingTaskState>(
+      CaptureCurrentTaskState(context), scheduler_task_context);
+
   DEVTOOLS_TIMELINE_TRACE_EVENT_INSTANT(
       "SchedulePostTaskCallback", inspector_scheduler_schedule_event::Data,
       context, task_id_for_tracing_, task_queue_->GetPriority(),
@@ -168,6 +167,10 @@ void DOMTask::InvokeInternal(ScriptState* script_state) {
   // is no tracker.
   auto* tracker =
       scheduler::TaskAttributionTracker::From(script_state->GetIsolate());
+  // TODO(crbug.com/40919714): When "Initiator url for Resource timing" feature
+  // is mature, the |tracker| will exist in both main thread and worker thread.
+  // The "else" clause below and the clause to clear the context at the end of
+  // this function can be removed then.
   if (tracker) {
     task_attribution_scope = tracker->SetCurrentTaskState(
         web_scheduling_task_state_, TaskScopeType::kSchedulerPostTask);

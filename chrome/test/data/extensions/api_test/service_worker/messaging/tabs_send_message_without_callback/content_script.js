@@ -3,10 +3,9 @@
 // found in the LICENSE file.
 
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg != 'worker->tab') {
+  if (msg !== 'worker->tab') {
     chrome.runtime.sendMessage('failure');
     return;
   }
   chrome.runtime.sendMessage('worker->tab->worker');
 });
-

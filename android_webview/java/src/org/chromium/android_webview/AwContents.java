@@ -65,11 +65,12 @@ import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.android_webview.AwDisplayCutoutController.Delegate;
-import org.chromium.android_webview.autofill.AndroidAutofillSafeModeAction;
 import org.chromium.android_webview.common.AwFeatureMap;
 import org.chromium.android_webview.common.AwFeatures;
 import org.chromium.android_webview.common.AwSwitches;
 import org.chromium.android_webview.common.Lifetime;
+import org.chromium.android_webview.common.SafeModeActionIds;
+import org.chromium.android_webview.common.SafeModeController;
 import org.chromium.android_webview.gfx.AwDrawFnImpl;
 import org.chromium.android_webview.gfx.AwPicture;
 import org.chromium.android_webview.metrics.AwOriginVisitLogger;
@@ -1157,7 +1158,7 @@ public class AwContents implements SmartClipProvider {
         if (mAutofillProvider == null) {
             mAutofillProvider =
                     new AutofillProvider(
-                            new WeakReference(mContext),
+                            new WeakReference<>(mContext),
                             mContainerView,
                             mWebContents,
                             "Android WebView");
@@ -1521,13 +1522,13 @@ public class AwContents implements SmartClipProvider {
                                     listenToActivityState,
                                     IntentRequestTracker.createFromActivity(activity),
                                     /* insetObserver= */ null,
-                                    /* trackOcclusion= */ false);
+                                    /* occlusionTrackingAllowed= */ false);
                 }
                 wrapper = new WindowAndroidWrapper(activityWindow);
             } else {
                 wrapper =
                         new WindowAndroidWrapper(
-                                new WindowAndroid(context, /* trackOcclusion= */ false));
+                                new WindowAndroid(context, /* occlusionTrackingAllowed= */ false));
             }
             sContextWindowMap.put(context, wrapper);
         }
@@ -1634,7 +1635,8 @@ public class AwContents implements SmartClipProvider {
         mSettings.setWebContents(mWebContents);
         mAwDarkMode.setWebContents(mWebContents);
 
-        if (AndroidAutofillSafeModeAction.isAndroidAutofillDisabled()) {
+        if (SafeModeController.getInstance()
+                .isActionEnabled(SafeModeActionIds.DISABLE_ANDROID_AUTOFILL)) {
             Log.i(TAG, "Android autofill is disabled by SafeMode");
         } else {
             initializeAutofillProvider(selectionActionMenuDelegate);
@@ -3595,7 +3597,7 @@ public class AwContents implements SmartClipProvider {
                 // sure that we only reclaim memory when we've spent enough continuous time in
                 // background. Use a weak ref to make sure we don't prevent AwContents from being
                 // GC-eligible while this task is in the queue.
-                WeakReference<AwContents> weakAwc = new WeakReference(this);
+                WeakReference<AwContents> weakAwc = new WeakReference<>(this);
                 Runnable task =
                         () -> {
                             AwContents awc = weakAwc.get();

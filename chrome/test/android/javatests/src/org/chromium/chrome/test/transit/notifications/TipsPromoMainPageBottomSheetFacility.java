@@ -13,11 +13,11 @@ import com.airbnb.lottie.LottieAnimationView;
 import org.chromium.base.test.transit.Station;
 import org.chromium.base.test.transit.ViewElement;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.lens.LensController;
 import org.chromium.chrome.browser.safe_browsing.settings.SafeBrowsingSettingsFragment;
 import org.chromium.chrome.browser.toolbar.settings.AddressBarSettingsFragment;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.quick_delete.QuickDeleteDialogFacility;
 import org.chromium.chrome.test.transit.settings.SettingsStation;
 import org.chromium.chrome.test.transit.ui.BottomSheetFacility;
@@ -56,7 +56,7 @@ public class TipsPromoMainPageBottomSheetFacility<
      *
      * @param detailPageStepsRes The list of resource ids for the detail steps.
      */
-    public TipsPromoDetailsPageBottomSheetFacility clickDetailsButton(
+    public TipsPromoDetailsPageBottomSheetFacility<HostStationT> clickDetailsButton(
             @Nullable List<Integer> detailPageStepsRes) {
         return detailsButtonElement
                 .clickTo()
@@ -68,7 +68,7 @@ public class TipsPromoMainPageBottomSheetFacility<
      * Press the details button to navigate to the details page without expectations for the detail
      * steps.
      */
-    public TipsPromoDetailsPageBottomSheetFacility clickDetailsButton() {
+    public TipsPromoDetailsPageBottomSheetFacility<HostStationT> clickDetailsButton() {
         return clickDetailsButton(null);
     }
 

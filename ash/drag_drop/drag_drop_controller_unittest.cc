@@ -1509,10 +1509,10 @@ TEST_F(DragDropControllerTest, ToplevelWindowDragDelegate) {
 
     const gfx::Rect bounds_within_root1(0, 0, 800, 600);
     const gfx::Rect bounds_within_root2(800, 0, 800, 600);
-    std::unique_ptr<aura::Window> window1 =
-        CreateTestWindow(bounds_within_root1);
-    std::unique_ptr<aura::Window> window2 =
-        CreateTestWindow(bounds_within_root2);
+    std::unique_ptr<aura::Window> window1 = CreateWindowWithAppType(
+        chromeos::AppType::NON_APP, bounds_within_root1);
+    std::unique_ptr<aura::Window> window2 = CreateWindowWithAppType(
+        chromeos::AppType::NON_APP, bounds_within_root2);
     ASSERT_EQ(root_windows[0], window1->GetRootWindow());
     ASSERT_EQ(root_windows[1], window2->GetRootWindow());
 
@@ -1734,10 +1734,10 @@ class DragDropControllerDlpTest : public DragDropControllerTest {
   void SetUp() override {
     DragDropControllerTest::SetUp();
 
-    window_ = base::WrapUnique(CreateTestWindowInShell(
+    window_ = CreateTestWindowInShell(
         {.delegate =
              aura::test::TestWindowDelegate::CreateSelfDestroyingDelegate(),
-         .bounds = {100, 100}}));
+         .bounds = {100, 100}});
     delegate_ = std::make_unique<EventTargetTestDelegate>(window_.get());
     aura::client::SetDragDropDelegate(window_.get(), delegate_.get());
     drag_and_drop_observer_ = std::make_unique<NiceMock<MockDragDropObserver>>(

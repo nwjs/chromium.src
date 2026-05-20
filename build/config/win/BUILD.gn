@@ -159,6 +159,9 @@ config("compiler") {
 
     # Don't look for libpaths in %LIB%, similar to /X in cflags above.
     ldflags += [ "/lldignoreenv" ]
+
+    # Enable /prefetch-inputs to improve linking performance.
+    ldflags += [ "/prefetch-inputs" ]
   }
 
   # Some binaries create PDBs larger than 4 GiB. Increasing the PDB page size
@@ -499,8 +502,8 @@ if (build_with_chromium && current_cpu == target_cpu && host_os == "win") {
     outputs = [ stamp_file ]
 
     args = [
-      "--stamp=" + rebase_path(stamp_file, root_out_dir),
-      "--dir=" + rebase_path(root_out_dir, root_out_dir),
+      "--stamp=" + rebase_path(stamp_file, root_build_dir),
+      "--dir=" + rebase_path(root_out_dir, root_build_dir),
     ]
   }
 }

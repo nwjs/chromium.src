@@ -133,7 +133,7 @@ suite('DestinationSettingsTest', function() {
    * Initializes the destination store and destination settings using
    * |destinations| and |recentDestinations|.
    */
-  function initialize(): Promise<void> {
+  function initialize(): Promise<Event> {
     const whenCapabilitiesSet = eventToPromise(
         DestinationStoreEventType.SELECTED_DESTINATION_CAPABILITIES_READY,
         destinationSettings.getDestinationStoreForTest());
@@ -370,7 +370,7 @@ suite('DestinationSettingsTest', function() {
         destinationSettings.getSettingValue('recentDestinations');
     assertEquals(expectedDestinationIds.length, recentDestinations.length);
     expectedDestinationIds.forEach((expectedId, index) => {
-      assertEquals(expectedId, recentDestinations[index].id);
+      assertEquals(expectedId, recentDestinations[index]!.id);
     });
   }
 

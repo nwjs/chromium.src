@@ -36,9 +36,8 @@ class GlicFocusedBrowserManagerImpl
       public views::WidgetObserver,
       public GlicInstanceCoordinator::StateObserver {
  public:
-  explicit GlicFocusedBrowserManagerImpl(
-      GlicInstance::UiDelegate* window_controller,
-      Profile* profile);
+  explicit GlicFocusedBrowserManagerImpl(GlicInstance* glic_instance,
+                                         Profile* profile);
   ~GlicFocusedBrowserManagerImpl() override;
 
   GlicFocusedBrowserManagerImpl(const GlicFocusedBrowserManagerImpl&) = delete;
@@ -80,9 +79,7 @@ class GlicFocusedBrowserManagerImpl
   void OnWidgetDestroyed(views::Widget* widget) override;
 
   // GlicInstanceCoordinator::StateObserver:
-  void PanelStateChanged(
-      const mojom::PanelState&,
-      const GlicInstanceCoordinator::PanelStateContext& context) override;
+  void PanelStateChanged(const mojom::PanelState& panel_state) override;
 
   // Sets whether the manager is in testing mode. When in testing mode, logic
   // for determining the active browser is modified to be more deterministic.
@@ -131,7 +128,7 @@ class GlicFocusedBrowserManagerImpl
 
   bool is_initialized_ = false;
 
-  raw_ref<GlicInstance::UiDelegate> window_controller_;
+  raw_ref<GlicInstance> glic_instance_;
 
   BrowserState browser_state_;
 

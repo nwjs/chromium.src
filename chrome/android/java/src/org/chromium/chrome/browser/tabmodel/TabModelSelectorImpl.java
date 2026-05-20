@@ -25,13 +25,13 @@ import org.chromium.chrome.browser.flags.CustomTabProfileType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
 import org.chromium.chrome.browser.ntp.RecentlyClosedBridge;
 import org.chromium.chrome.browser.ntp.RecentlyClosedEntry;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabLaunchType;
-import org.chromium.chrome.browser.tab.TabLoadIfNeededCaller;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
@@ -59,6 +59,7 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
 
     // Type of the Activity for this tab model. Used by sync to determine how to handle restore
     // on cold start.
+    private final @SupportedProfileType int mSupportedProfileType;
     private final @ActivityType int mActivityType;
     private final @Nullable @CustomTabProfileType Integer mCustomTabProfileType;
     private final @TabModelType int mTabModelType;
@@ -87,7 +88,9 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
      * @param supportUndo Whether a tab closure can be undone.
      * @param activityType Type of the activity for the tab model selector.
      * @param customTabProfileType The profile type of the custom tab, may be null.
+     * @param tabModelType The type of the tab model.
      * @param startIncognito Whether to start in incognito mode.
+     * @param supportedProfileType The type of profile supported by this selector.
      */
     public TabModelSelectorImpl(
             Context context,
@@ -100,8 +103,10 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
             @ActivityType int activityType,
             @Nullable @CustomTabProfileType Integer customTabProfileType,
             @TabModelType int tabModelType,
-            boolean startIncognito) {
+            boolean startIncognito,
+            @SupportedProfileType int supportedProfileType) {
         super(tabCreatorManager, startIncognito);
+        mSupportedProfileType = supportedProfileType;
         mContext = context;
         mModalDialogManager = modalDialogManager;
         mProfileProviderSupplier = profileProviderSupplier;
@@ -144,7 +149,7 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
         TabCreator incognitoTabCreator = getTabCreatorManager().getTabCreator(true);
         mRecentlyClosedBridge =
                 new RecentlyClosedBridge(profileProvider.getOriginalProfile(), this);
-        Supplier<TabGroupModelFilter> regularTabGroupModelFilterSupplier =
+        Supplier<@Nullable TabGroupModelFilter> regularTabGroupModelFilterSupplier =
                 () -> getModel(/* incognito= */ false);
         TabRemover regularTabRemover =
                 mModalDialogManager != null
@@ -152,11 +157,16 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
                                 mContext, mModalDialogManager, regularTabGroupModelFilterSupplier)
                         : new PassthroughTabRemover(regularTabGroupModelFilterSupplier);
         TabUngrouperFactory tabUngrouperFactory =
-                (isIncognitoBranded, tabGroupModelFilterSupplier) -> {
-                    return (isIncognitoBranded || mModalDialogManager == null)
-                            ? new PassthroughTabUngrouper(tabGroupModelFilterSupplier)
-                            : new TabUngrouperImpl(
-                                    mContext, mModalDialogManager, tabGroupModelFilterSupplier);
+                new TabUngrouperFactory() {
+                    @Override
+                    public TabUngrouper create(
+                            boolean isIncognitoBranded,
+                            Supplier<@Nullable TabGroupModelFilter> tabGroupModelFilterSupplier) {
+                        return (isIncognitoBranded || mModalDialogManager == null)
+                                ? new PassthroughTabUngrouper(tabGroupModelFilterSupplier)
+                                : new TabUngrouperImpl(
+                                        mContext, mModalDialogManager, tabGroupModelFilterSupplier);
+                    }
                 };
         TabModelHolder normalModelHolder =
                 TabModelHolderFactory.createTabModelHolder(
@@ -173,7 +183,8 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
                         regularTabRemover,
                         mIsUndoSupported,
                         mTabModelType,
-                        tabUngrouperFactory);
+                        tabUngrouperFactory,
+                        mSupportedProfileType);
         if (regularTabCreator instanceof NeedsTabModel needsTabModel) {
             needsTabModel.setTabModel(normalModelHolder.tabModel);
         }
@@ -197,7 +208,8 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
                         mCustomTabProfileType,
                         this,
                         incognitoTabRemover,
-                        tabUngrouperFactory);
+                        tabUngrouperFactory,
+                        mSupportedProfileType);
         if (incognitoTabCreator instanceof NeedsTabModel needsTabModel) {
             needsTabModel.setTabModel(incognitoModelHolder.tabModel);
         }
@@ -432,7 +444,7 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
         // without actual tab switch.
         if (mVisibleTab == tab && !mVisibleTab.isHidden()) {
             // The current tab might have been killed by the os while in tab switcher.
-            tab.loadIfNeeded(TabLoadIfNeededCaller.REQUEST_TO_SHOW_TAB);
+            tab.loadIfNeeded(/* forceBackingSize= */ false);
             // |tabToDropImportance| must be null, so no need to drop importance.
             return;
         }
@@ -440,9 +452,9 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
 
         // Don't execute the tab display part if Chrome has just been sent to background. This
         // avoids unnecessary work (tab restore) and prevents pollution of tab display metrics - see
-        // http://crbug.com/316166.
+        // http://crbug.com/41071624.
         if (type != TabSelectionType.FROM_EXIT) {
-            tab.show(type, TabLoadIfNeededCaller.REQUEST_TO_SHOW_TAB_THEN_SHOW);
+            tab.show(type);
         }
     }
 
@@ -456,5 +468,14 @@ public class TabModelSelectorImpl extends TabModelSelectorBase implements TabMod
     @Override
     public boolean isTabModelRestored() {
         return isTabStateInitialized();
+    }
+
+    @Override
+    public @Nullable Profile getProfile(boolean offTheRecord) {
+        ProfileProvider profileProvider = mProfileProviderSupplier.get();
+        if (profileProvider == null) return null;
+        return offTheRecord
+                ? profileProvider.getOffTheRecordProfile()
+                : profileProvider.getOriginalProfile();
     }
 }

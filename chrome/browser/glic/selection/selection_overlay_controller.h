@@ -66,7 +66,7 @@ class SelectionOverlayController
   void BindCaptureRegionObserver(
       mojo::PendingRemote<mojom::CaptureRegionObserver> observer);
 
-  void Show();
+  void Show(mojom::GetTabContextOptionsPtr options);
   void Close();
 
   // `selection::SelectionOverlayPageHandler`:
@@ -96,7 +96,7 @@ class SelectionOverlayController
   void NotifyIsOverlayShowing(bool is_showing) override;
   int GetToolResourceId() override;
   ui::ElementIdentifier GetViewContainerId() override;
-  SidePanelEntry::PanelType GetSidePanelType() override;
+  SidePanelType GetSidePanelType() override;
   bool ShouldCloseSidePanel() override;
   bool ShouldShowPreselectionBubble() override;
   bool UseOverlayBlur() override;
@@ -128,7 +128,8 @@ class SelectionOverlayController
 
   void Reset();
   glic::mojom::AdditionalContextPtr CreateAdditionalContext(
-      const std::vector<std::pair<base::UnguessableToken, gfx::Rect>>& regions);
+      std::vector<std::pair<base::UnguessableToken,
+                            glic::mojom::CapturedRegionPtr>> regions);
 
   // Connections to and from the overlay WebUI. Only valid while
   // `OverlayBaseController::overlay_view_` is showing and the underlying
@@ -146,6 +147,7 @@ class SelectionOverlayController
   SkBitmap initial_rgb_screenshot_;
   SkBitmap redacted_screenshot_;
   mojom::TabContextPtr tab_context_;
+  mojom::GetTabContextOptionsPtr options_;
   // Caches the user-selected region. To be renderer on top of
   // `initial_screenshot_`.
   base::flat_map<base::UnguessableToken, selection::SelectedRegionPtr>

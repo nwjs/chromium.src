@@ -7,7 +7,10 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/finds/core/finds_pref_names.h"
 #include "chrome/browser/finds/core/finds_service.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
+#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/proto/features/finds.pb.h"
+#include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -52,15 +55,32 @@ TEST_F(FindsUtilsTest, MarkThemeAsNotInterested) {
   EXPECT_TRUE(updated_themes.contains("Shopping"));
 }
 
-TEST_F(FindsUtilsTest, MarkNotificationShown) {
-  base::HistogramTester histogram_tester;
+TEST_F(FindsUtilsTest, MarkModelExecutionLastTimestamp) {
   EXPECT_EQ(0, prefs()->GetInt64(prefs::kFindsModelExecutionLastTimestamp));
 
-  MarkNotificationShown(prefs());
+  MarkModelExecutionLastTimestamp(prefs());
 
   EXPECT_GT(prefs()->GetInt64(prefs::kFindsModelExecutionLastTimestamp), 0);
-  histogram_tester.ExpectUniqueSample(
-      "Notifications.ChromeFinds.NotificationShown", true, 1);
+}
+
+TEST_F(FindsUtilsTest, IsAllowedByEnterprisePolicy) {
+  optimization_guide::model_execution::prefs::RegisterProfilePrefs(
+      prefs()->registry());
+
+  EXPECT_TRUE(IsAllowedByEnterprisePolicy(prefs()));
+
+  prefs()->SetInteger(
+      optimization_guide::prefs::kFindsEnterprisePolicyAllowed,
+      static_cast<int>(optimization_guide::model_execution::prefs::
+                           ModelExecutionEnterprisePolicyValue::kAllow));
+  EXPECT_TRUE(IsAllowedByEnterprisePolicy(prefs()));
+
+  // Should return false when the enterprise policy is explicitly disabled.
+  prefs()->SetInteger(
+      optimization_guide::prefs::kFindsEnterprisePolicyAllowed,
+      static_cast<int>(optimization_guide::model_execution::prefs::
+                           ModelExecutionEnterprisePolicyValue::kDisable));
+  EXPECT_FALSE(IsAllowedByEnterprisePolicy(prefs()));
 }
 
 }  // namespace finds

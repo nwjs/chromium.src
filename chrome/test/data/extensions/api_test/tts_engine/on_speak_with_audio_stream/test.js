@@ -6,8 +6,10 @@ chrome.test.runTests([
   function testSendAudioData() {
     // Sends a series of audio buffers, and verifies we get events for them.
     const expectedEvents = [
-      {type: 'start', charIndex: 0}, {'type': 'word', 'charIndex': 10},
-      {type: 'word', charIndex: 20}, {type: 'end', charIndex: 39}
+      {type: 'start', charIndex: 0},
+      {'type': 'word', 'charIndex': 10},
+      {type: 'word', charIndex: 20},
+      {type: 'end', charIndex: 39},
     ];
 
     chrome.ttsEngine.onStop.addListener(() => {});
@@ -45,7 +47,7 @@ chrome.test.runTests([
     function onEvent(event) {
       const expected = expectedEvents.shift();
       chrome.test.assertEq(JSON.stringify(expected), JSON.stringify(event));
-      if (event.type == 'end') {
+      if (event.type === 'end') {
         chrome.test.assertEq(0, expectedEvents.length);
         chrome.test.assertEq(1, errors);
         chrome.ttsEngine.onSpeakWithAudioStream.removeListener(listener);
@@ -80,28 +82,32 @@ chrome.test.runTests([
 
     // Sent an error.
     toSend = {errorMessage: 'Error encountered'};
-    await new Promise(r => {chrome.tts.speak('asdf', {
-                        voiceName: 'Zach',
-                        onEvent: (event) => {
-                          if (event.errorMessage === 'Error encountered') {
-                            chrome.test.assertEq('error', event.type);
-                            r();
-                          }
-                        }
-                      })});
+    await new Promise(r => {
+      chrome.tts.speak('asdf', {
+        voiceName: 'Zach',
+        onEvent: (event) => {
+          if (event.errorMessage === 'Error encountered') {
+            chrome.test.assertEq('error', event.type);
+            r();
+          }
+        },
+      });
+    });
 
     // Sanity check another utterance with no errors gets cycled back correctly.
     // The check asserts the event type directly without waitiing to catch if
     // 'error' gets sent and causes this to flake.
     toSend = {type: 'start', audioBuffer: new Float32Array(bufferSize)};
-    await new Promise(r => {chrome.tts.speak('asdf', {
-                        voiceName: 'Zach',
-                        onEvent: (event) => {
-                          chrome.test.assertEq('start', event.type);
-                          r();
-                        }
-                      })});
+    await new Promise(r => {
+      chrome.tts.speak('asdf', {
+        voiceName: 'Zach',
+        onEvent: (event) => {
+          chrome.test.assertEq('start', event.type);
+          r();
+        },
+      });
+    });
 
     chrome.test.succeed();
-  }
+  },
 ]);

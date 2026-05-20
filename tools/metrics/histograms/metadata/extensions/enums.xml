@@ -90,6 +90,12 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="kRequestContentScript"/>
 </enum>
 
+<enum name="DeclarativeNetRequestRedirectType">
+  <int value="0" label="Non-MainFrame Redirects"/>
+  <int value="1" label="MainFrame DSE Redirects"/>
+  <int value="2" label="Other MainFrame Redirects"/>
+</enum>
+
 <enum name="ExtensionActionInvocationSource">
   <int value="0" label="Keyboard Shortcut"/>
   <int value="1" label="Toolbar Button"/>
@@ -494,7 +500,7 @@ Called by update_extension_histograms.py.-->
   <int value="298" label="WEB_REQUEST_ON_HEADERS_RECEIVED"/>
   <int value="299" label="WEB_REQUEST_ON_RESPONSE_STARTED"/>
   <int value="300" label="WEB_REQUEST_ON_SEND_HEADERS"/>
-  <int value="301" label="WEBRTC_AUDIO_PRIVATE_ON_SINKS_CHANGED"/>
+  <int value="301" label="DELETED_WEBRTC_AUDIO_PRIVATE_ON_SINKS_CHANGED"/>
   <int value="302" label="WEBSTORE_ON_DOWNLOAD_PROGRESS"/>
   <int value="303" label="WEBSTORE_ON_INSTALL_STAGE_CHANGED"/>
   <int value="304" label="DELETED_WEBSTORE_WIDGET_PRIVATE_ON_SHOW_WIDGET"/>
@@ -1451,10 +1457,10 @@ Called by update_extension_histograms.py.-->
   <int value="611" label="SOCKETS_TCP_SERVER_GETSOCKETS"/>
   <int value="612" label="SYSTEM_STORAGE_GETAVAILABLECAPACITY"/>
   <int value="613" label="BROWSERACTION_OPEN_POPUP"/>
-  <int value="614" label="WEBRTC_AUDIO_PRIVATE_GET_SINKS"/>
+  <int value="614" label="DELETED_WEBRTC_AUDIO_PRIVATE_GET_SINKS"/>
   <int value="615" label="DELETED_WEBRTC_AUDIO_PRIVATE_GET_ACTIVE_SINK"/>
   <int value="616" label="DELETED_WEBRTC_AUDIO_PRIVATE_SET_ACTIVE_SINK"/>
-  <int value="617" label="WEBRTC_AUDIO_PRIVATE_GET_ASSOCIATED_SINK"/>
+  <int value="617" label="DELETED_WEBRTC_AUDIO_PRIVATE_GET_ASSOCIATED_SINK"/>
   <int value="618" label="VIRTUALKEYBOARDPRIVATE_KEYBOARDLOADED"/>
   <int value="619" label="DELETED_APP_CURRENTWINDOWINTERNAL_SETMINWIDTH"/>
   <int value="620" label="DELETED_APP_CURRENTWINDOWINTERNAL_SETMINHEIGHT"/>
@@ -2040,7 +2046,7 @@ Called by update_extension_histograms.py.-->
       label="DELETED_NETWORKINGCASTPRIVATE_SETWIFITDLSENABLEDSTATE"/>
   <int value="1168" label="DELETED_NETWORKINGCASTPRIVATE_GETWIFITDLSSTATUS"/>
   <int value="1169" label="ACCESSIBILITY_PRIVATE_DARKENSCREEN"/>
-  <int value="1170" label="WEBRTC_AUDIO_PRIVATE_SET_AUDIO_EXPERIMENTS"/>
+  <int value="1170" label="DELETED_WEBRTC_AUDIO_PRIVATE_SET_AUDIO_EXPERIMENTS"/>
   <int value="1171" label="AUTOTESTPRIVATE_GETPLAYSTORESTATE"/>
   <int value="1172" label="AUTOTESTPRIVATE_SETPLAYSTOREENABLED"/>
   <int value="1173" label="APP_CURRENTWINDOWINTERNAL_SETACTIVATEONPOINTER"/>
@@ -2891,6 +2897,11 @@ Called by update_extension_histograms.py.-->
       label="AUTOFILLPRIVATE_GETREQUIREDATTRIBUTETYPESFORENTITYTYPENAME"/>
   <int value="1960" label="PDFVIEWERPRIVATE_GLICSUMMARIZE"/>
   <int value="1961" label="GLICPRIVATE_GETSTATE"/>
+  <int value="1962" label="ACCESSIBILITY_PRIVATE_INSTALLTENJI"/>
+  <int value="1963" label="GLICPRIVATE_INVOKE"/>
+  <int value="1964" label="INDIGOPRIVATE_READYTORENDER"/>
+  <int value="1965" label="MIMEHANDLER_GETSTREAMINFO"/>
+  <int value="1966" label="INDIGOPRIVATE_GETORIGINALIMAGE"/>
 </enum>
 
 <!-- LINT.ThenChange(//extensions/browser/extension_function_histogram_value.h:HistogramValue) -->
@@ -3179,7 +3190,7 @@ Called by update_extension_permission.py.-->
   <int value="160" label="kWebrtcAudioPrivate"/>
   <int value="161" label="kWebrtcDesktopCapturePrivate"/>
   <int value="162" label="kWebrtcLoggingPrivate"/>
-  <int value="163" label="kWebstorePrivate"/>
+  <int value="163" label="kDeleted_WebstorePrivate"/>
   <int value="164" label="kDeleted_WebstoreWidgetPrivate"/>
   <int value="165" label="kWebView"/>
   <int value="166" label="kWindowShape"/>
@@ -3282,6 +3293,8 @@ Called by update_extension_permission.py.-->
   <int value="263" label="kEnterpriseLogin"/>
   <int value="264" label="kProxyOverrideRulesPrivate"/>
   <int value="265" label="kGlicPrivate"/>
+  <int value="266" label="kGlicPrivateInvoke"/>
+  <int value="267" label="kIndigoPrivate"/>
 </enum>
 
 <enum name="ExtensionPolicyReinstallReason">

@@ -156,7 +156,7 @@ std::vector<WebAppShortcutsMenuItemInfo> GetShortcutsMenuInfoWithIconSizes(
     const std::vector<WebAppShortcutsMenuItemInfo>& shortcuts_menu_items,
     const ShortcutsMenuIconBitmaps& shortcuts_menu_icon_bitmaps) {
   // Due to the bitmaps possibly being not populated (see
-  // https://crbug.com/1427444), we create empty bitmaps in that case. We
+  // https://crbug.com/40899887), we create empty bitmaps in that case. We
   // continue to check to make sure that there aren't MORE bitmaps than
   // items.
   CHECK_LE(shortcuts_menu_icon_bitmaps.size(), shortcuts_menu_items.size());
@@ -725,15 +725,16 @@ void SetWebAppManifestFields(const WebAppInstallInfo& web_app_info,
 
   const GURL& start_url = web_app_info.start_url();
   CHECK(start_url.is_valid());
-  web_app.SetStartUrl(start_url);
+
   // TODO(crbug.com/384536509): Enforce this with a CHECK after verifying this
   // doesn't happen in the codebase.
-  if (!base::StartsWith(start_url.spec(), web_app_info.scope.spec(),
-                        base::CompareCase::SENSITIVE)) {
-    web_app.SetScope(start_url.GetWithoutFilename());
-  } else {
-    web_app.SetScope(web_app_info.scope);
-  }
+  const GURL& scope =
+      base::StartsWith(start_url.spec(), web_app_info.scope.spec(),
+                       base::CompareCase::SENSITIVE)
+          ? web_app_info.scope
+          : start_url.GetWithoutFilename();
+
+  web_app.SetStartUrlAndScope(start_url, scope);
   CHECK(web_app.scope().is_valid());
 
   web_app.SetDisplayMode(web_app_info.display_mode);

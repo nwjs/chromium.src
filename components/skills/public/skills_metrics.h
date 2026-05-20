@@ -7,6 +7,7 @@
 
 #include <cstddef>
 
+#include "base/time/time.h"
 #include "components/skills/public/skill.h"
 namespace skills {
 
@@ -75,7 +76,9 @@ enum class SkillsSaveResult {
   kServiceNotFound = 4,
   // Sync hasn't finished initializing on startup
   kServiceNotReady = 5,
-  kMaxValue = kServiceNotReady,
+  // The UI sent an empty name or prompt
+  kInvalidRequest = 6,
+  kMaxValue = kInvalidRequest,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/skills/enums.xml:SkillsSaveResult)
 
@@ -163,6 +166,9 @@ void RecordSkillsSaveResult(SkillsSaveResult result);
 // captures the success or failure of the Optimization Guide ML model
 // execution and response parsing.
 void RecordSkillsRefineResult(SkillsRefineResult result);
+
+// Records the end-to-end latency of a skill prompt refinement request.
+void RecordSkillsRefineLatency(base::TimeDelta latency);
 
 // Records the current total number of skills the user possesses.
 // This is called periodically by the SkillsMetricsProvider to capture

@@ -6,6 +6,8 @@ package org.chromium.chrome.browser.app.tabmodel;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 
+import androidx.annotation.VisibleForTesting;
+
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
 import org.chromium.base.metrics.RecordHistogram;
@@ -19,7 +21,7 @@ import org.chromium.chrome.browser.crypto.CipherFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.StorageLoadedData;
 import org.chromium.chrome.browser.tab.StorageLoadedData.LoadedTabState;
-import org.chromium.chrome.browser.tab.StorageLoadingStatus;
+import org.chromium.chrome.browser.tab.StorageLoadedData.StorageLoadWarning;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabStateAttributes;
@@ -38,7 +40,6 @@ import org.chromium.chrome.browser.tabmodel.TabPersistentStore;
 import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 
 import java.util.List;
-import java.util.Locale;
 
 /** Orchestrates saving of tabs to the {@link TabStateStorageService}. */
 @NullMarked
@@ -61,6 +62,7 @@ public class TabStateStore implements TabPersistentStore {
             this::onTabStateDirtinessChanged;
     private final ObserverList<TabPersistentStoreObserver> mObservers = new ObserverList<>();
     private final ActiveTabCache mActiveTabCache;
+    private final boolean mIsFromRecreating;
     private @MonotonicNonNull ModelTrackingOrchestrator mModelTrackingManager;
     private boolean mHasCipherFactory;
 
@@ -171,6 +173,7 @@ public class TabStateStore implements TabPersistentStore {
      * @param activeTabCacheFactory The factory to create {@link ModelTrackingOrchestrator}
      *     instances.
      * @param isAuthoritative Whether the store is authoritative for the window.
+     * @param isFromRecreating Whether the current activity is launched from recreating.
      */
     public TabStateStore(
             TabModelSelector tabModelSelector,
@@ -182,7 +185,8 @@ public class TabStateStore implements TabPersistentStore {
             TabCountTracker tabCountTracker,
             ModelTrackingOrchestrator.Factory orchestratorFactory,
             ActiveTabCache.Factory activeTabCacheFactory,
-            boolean isAuthoritative) {
+            boolean isAuthoritative,
+            boolean isFromRecreating) {
         mTabModelSelector = tabModelSelector;
         mWindowTag = windowTag;
         mTabCreatorManager = tabCreatorManager;
@@ -192,6 +196,7 @@ public class TabStateStore implements TabPersistentStore {
         mIsAuthoritative = isAuthoritative;
         mOrchestratorFactory = orchestratorFactory;
         mTabCountTracker = tabCountTracker;
+        mIsFromRecreating = isFromRecreating;
 
         // Begins fetching the active tab immediately.
         mActiveTabCache =
@@ -291,7 +296,8 @@ public class TabStateStore implements TabPersistentStore {
                         mTabCreatorManager,
                         mTabStateStorageService::createBatch,
                         mTabModelSelector,
-                        /* logRestoreDuration= */ true);
+                        /* logRestoreDuration= */ true,
+                        mIsFromRecreating);
 
         boolean[] restoreOrder =
                 mTabModelSelector.isIncognitoSelected()
@@ -351,7 +357,8 @@ public class TabStateStore implements TabPersistentStore {
                         mTabCreatorManager,
                         mTabStateStorageService::createBatch,
                         mTabModelSelector,
-                        /* logRestoreDuration= */ false);
+                        /* logRestoreDuration= */ false,
+                        mIsFromRecreating);
 
         for (boolean incognito : new boolean[] {false, true}) {
             final boolean incognitoFinal = incognito;
@@ -500,8 +507,15 @@ public class TabStateStore implements TabPersistentStore {
         return StoreType.TAB_STATE_STORE;
     }
 
+    /** Called when the authoritative store has finished loading state for the window. */
+    public void onAuthoritativeStateLoaded() {
+        assert !mIsAuthoritative;
+        assertInitialized();
+        mModelTrackingManager.onAuthoritativeStateLoaded();
+    }
+
     private void onTabStateDirtinessChanged(Tab tab, @DirtinessState int dirtiness) {
-        if (dirtiness != DirtinessState.CLEAN && !tab.isDestroyed()) {
+        if (dirtiness != DirtinessState.CLEAN) {
             saveTab(tab);
         }
     }
@@ -519,7 +533,7 @@ public class TabStateStore implements TabPersistentStore {
     private void saveTab(Tab tab) {
         assertInitialized();
         assertOtrOperationSafe(tab.isOffTheRecord());
-        // If a tab is not in a closing or destroyed state we shouldn't save it. Tabs that are
+        // If a tab is in a closing or destroyed state we shouldn't save it. Tabs that are
         // not attached to a parent collection will not be restored at startup and shouldn't be
         // saved. If the tab becomes attached to a collection later it will be saved then.
         if (tab.isDestroyed() || tab.isClosing() || !tab.hasParentCollection()) return;
@@ -530,7 +544,8 @@ public class TabStateStore implements TabPersistentStore {
         assert !isOtrOperation || mHasCipherFactory;
     }
 
-    private void onTabRegistered(Tab tab) {
+    @VisibleForTesting
+    void onTabRegistered(Tab tab) {
         boolean isTabOtr = tab.isOffTheRecord();
         assertOtrOperationSafe(isTabOtr);
 
@@ -538,7 +553,7 @@ public class TabStateStore implements TabPersistentStore {
         assumeNonNull(attributes);
         // Save every clean tab on registration if we are not authoritative, we are catching up.
         if (attributes.addObserver(mAttributesObserver) != DirtinessState.CLEAN
-                || mIsAuthoritative) {
+                || !mIsAuthoritative) {
             saveTab(tab);
         }
         updateTabCountForModel(isTabOtr);
@@ -566,22 +581,27 @@ public class TabStateStore implements TabPersistentStore {
         assertInitialized();
         assertOtrOperationSafe(incognito);
 
-        if (data.getLoadingStatus() != StorageLoadingStatus.SUCCESS) {
+        StorageLoadWarning[] warnings = data.getWarnings();
+        RecordHistogram.recordCount1000Histogram(
+                "Tabs.TabStateStore.LoadWarningCount", warnings.length);
+        if (!mIsAuthoritative && warnings.length > 0) {
             mTabStateStorageService.clearUnusedNodesForWindow(
                     mWindowTag, incognito, /* tabStripCollection= */ null);
             mTabCountTracker.clearTabCount(incognito);
             mActiveTabCache.clearActiveTab(incognito);
-            String formattedErrorMessage =
-                    String.format(
-                            Locale.ROOT,
-                            "Failed to load data with error code %d: %s",
-                            data.getLoadingStatus(),
-                            assumeNonNull(data.getErrorMessage()));
+
+            StringBuilder errorMsgBuilder = new StringBuilder("Failed to load data with warnings:");
+            for (StorageLoadWarning warning : warnings) {
+                errorMsgBuilder
+                        .append("\nCode: ")
+                        .append(warning.code)
+                        .append(", Message: ")
+                        .append(warning.message);
+            }
+            String formattedErrorMessage = errorMsgBuilder.toString();
             Log.e(TAG, formattedErrorMessage);
 
-            if (!mIsAuthoritative) {
-                mMigrationManager.onShadowStoreRazed();
-            }
+            mMigrationManager.onShadowStoreRazed();
             fullyDestroyLoadedData(data);
 
             // Leave to guarantee failures are caught in debug.

@@ -8,7 +8,6 @@
 
 #include "base/functional/bind.h"
 #include "base/task/sequenced_task_runner.h"
-#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_metrics.h"
 #include "chrome/browser/actor/actor_proto_conversion.h"
 #include "chrome/browser/actor/actor_tab_data.h"
@@ -24,6 +23,9 @@
 #include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
+#include "components/actor/core/actor_features.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
+#include "components/enterprise/connectors/core/features.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/content/browser/page_content_proto_util.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
@@ -200,9 +202,14 @@ PageTool::PageTool(TaskId task_id,
 PageTool::~PageTool() = default;
 
 void PageTool::Validate(ToolCallback callback) {
-  if (!base::FeatureList::IsEnabled(
-          features::kGlicActorSplitValidateAndExecute) ||
-      !base::FeatureList::IsEnabled(features::kGlicActorUiMagicCursor)) {
+  bool validation_supported =
+      base::FeatureList::IsEnabled(
+          features::kGlicActorSplitValidateAndExecute) &&
+      base::FeatureList::IsEnabled(features::kGlicActorUiMagicCursor);
+  bool scanning_enabled = base::FeatureList::IsEnabled(
+      enterprise_connectors::kGlicBulkDataEntrySupport);
+
+  if (!validation_supported && !scanning_enabled) {
     // No browser-side validation yet.
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback), MakeOkResult()));
@@ -234,24 +241,97 @@ void PageTool::Validate(ToolCallback callback) {
     last_observation = tab_data->GetLastObservedPageContent();
   }
 
-  mojom::ActionResultPtr observation_result =
-      ComputeObservedTargetAndValidateFrame(last_observation, frame);
+  if (validation_supported) {
+    mojom::ActionResultPtr observation_result =
+        ComputeObservedTargetAndValidateFrame(last_observation, frame);
 
-  if (!IsOk(*observation_result)) {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(std::move(callback), std::move(observation_result)));
-    return;
+    if (!IsOk(*observation_result)) {
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE,
+          base::BindOnce(std::move(callback), std::move(observation_result)));
+      return;
+    }
   }
 
   target_document_ = frame->GetWeakDocumentPtr();
-  frame->GetRemoteAssociatedInterfaces()->GetInterface(&chrome_render_frame_);
-  auto invocation = CreateToolInvocation(*frame);
+  if (validation_supported) {
+    frame->GetRemoteAssociatedInterfaces()->GetInterface(&chrome_render_frame_);
+  }
+  mojom::ToolInvocationPtr invocation;
+  if (validation_supported) {
+    invocation = CreateToolInvocation(*frame);
+  }
 
-  chrome_render_frame_->InitializeTool(
-      std::move(invocation),
-      base::BindOnce(&PageTool::OnInitializeToolComplete,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  // Skip content scanning if no text is being sent to the renderer.
+  std::string text = request_->GetTextContentSentToRenderer();
+  if (text.empty() || !scanning_enabled) {
+    if (validation_supported) {
+      chrome_render_frame_->InitializeTool(
+          std::move(invocation),
+          base::BindOnce(&PageTool::OnInitializeToolComplete,
+                         weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+    } else {
+      std::move(callback).Run(MakeOkResult());
+    }
+    return;
+  }
+
+  const EnterprisePolicyChecker& checker =
+      tool_delegate().GetEnterprisePolicyChecker();
+
+  std::unique_ptr<AggregatedJournal::PendingAsyncEntry> trace_entry =
+      journal().CreatePendingAsyncEntry(JournalURL(), task_id(),
+                                        journal().AllocateDynamicTrackUUID(),
+                                        "ContentAnalysisScan", {});
+
+  checker.ValidateContentSentToRenderer(
+      frame, text,
+      base::BindOnce(
+          [](base::WeakPtr<PageTool> self, ToolCallback callback,
+             mojom::ToolInvocationPtr invocation, bool validation_supported,
+             std::unique_ptr<AggregatedJournal::PendingAsyncEntry> trace_entry,
+             EnterprisePolicyChecker::ContentValidationReason reason) {
+            trace_entry->EndEntry(
+                JournalDetailsBuilder()
+                    .Add("result", reason ==
+                                           EnterprisePolicyChecker::
+                                               ContentValidationReason::kAllowed
+                                       ? "Allowed"
+                                       : "Blocked")
+                    .Build());
+            trace_entry.reset();
+            if (!self) {
+              return;
+            }
+            // The frame might have been destroyed during the async scan.
+            content::RenderFrameHost* rfh =
+                self->target_document_.AsRenderFrameHostIfValid();
+            if (!rfh) {
+              std::move(callback).Run(
+                  MakeResult(mojom::ActionResultCode::kFrameWentAway));
+              return;
+            }
+
+            // TODO(crbug.com/473047343): Add specific handling for kWarned
+            // verdicts when the policy checker starts returning them.
+            if (reason ==
+                EnterprisePolicyChecker::ContentValidationReason::kBlocked) {
+              std::move(callback).Run(
+                  MakeResult(mojom::ActionResultCode::
+                                 kActionBlockedByEnterpriseContentScan));
+              return;
+            }
+            if (validation_supported) {
+              self->chrome_render_frame_->InitializeTool(
+                  std::move(invocation),
+                  base::BindOnce(&PageTool::OnInitializeToolComplete, self,
+                                 std::move(callback)));
+            } else {
+              std::move(callback).Run(MakeOkResult());
+            }
+          },
+          weak_ptr_factory_.GetWeakPtr(), std::move(callback),
+          std::move(invocation), validation_supported, std::move(trace_entry)));
 }
 
 void PageTool::OnInitializeToolComplete(ToolCallback callback,
@@ -563,7 +643,8 @@ std::unique_ptr<ObservationDelayController> PageTool::GetObservationDelayer(
 
 void PageTool::UpdateTaskBeforeInvoke(ActorTask& task,
                                       ToolCallback callback) const {
-  task.AddTab(request_->GetTabHandle(), std::move(callback));
+  task.AddTab(request_->GetTabHandle(), /*stop_task_on_detach=*/true,
+              std::move(callback));
 }
 
 tabs::TabHandle PageTool::GetTargetTab() const {

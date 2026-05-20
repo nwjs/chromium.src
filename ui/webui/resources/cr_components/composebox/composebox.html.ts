@@ -14,10 +14,12 @@ export function getHtml(this: ComposeboxElement) {
   ${!this.disableComposeboxAnimation ? html`
     <search-animated-glow
         animation-state="${this.animationState}"
+        .inVoiceSearchMode="${this.inVoiceSearchMode}"
         .entrypointName="${this.entrypointName}"
         .requiresVoice="${this.shouldShowVoiceSearchAnimation()}"
         .transcript="${this.transcript}"
         .receivedSpeech="${this.receivedSpeech}"
+        .energyEffectAnimationEnabled="${this.energyEffectAnimationEnabled}"
         exportparts="composebox-background">
     </search-animated-glow>
   ` : ''}
@@ -43,6 +45,7 @@ export function getHtml(this: ComposeboxElement) {
             .showDropdown="${this.showDropdown}"
             .inputPlaceholder="${this.inputPlaceholder}"
             .input="${this.input}"
+            .smartComposeEnabled="${this.smartComposeEnabled}"
             .smartComposeInlineHint="${this.smartComposeInlineHint}"
             .isCollapsible="${this.isCollapsible}"
             .submitEnabled="${this.submitEnabled}"
@@ -119,7 +122,7 @@ export function getHtml(this: ComposeboxElement) {
             `: ''}
             ${this.shouldShowVoiceSearchAtBottom() ? html`
               <cr-icon-button id="voiceSearchButton" class="voice-icon" part="voice-icon"
-                  iron-icon="cr:mic" @click="${this.onVoiceSearchButtonClick_}"
+                  iron-icon="cr:mic" @click="${this.onVoiceSearchButtonClick}"
                   title="${this.i18n('voiceSearchButtonLabel')}">
               </cr-icon-button>
             ` : ''}
@@ -169,6 +172,8 @@ export function getHtml(this: ComposeboxElement) {
         @voice-search-error="${this.onVoiceSearchError}"
         @transcript-update="${this.onTranscriptUpdate}"
         @speech-received="${this.onSpeechReceived}"
+        @recording-stopped="${this.onRecordingStopped_}"
+        .submitButtonIconType="${this.submitButtonIconType}"
         exportparts="voice-close-button">
     </cr-composebox-voice-search>
   ` : ''}

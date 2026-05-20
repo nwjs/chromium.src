@@ -213,6 +213,34 @@ sync_pb::SyncEnums_SendTabReceivingType ToSendTabReceivingTypeProto(
   NOTREACHED();
 }
 
+DeviceInfo::GlicExperimentalTriggeringState
+ToDeviceInfoGlicExperimentalTriggeringState(
+    sync_pb::SyncEnums::GlicExperimentalTriggeringState state) {
+  switch (state) {
+    case sync_pb::SyncEnums::UNAVAILABLE:
+      return DeviceInfo::GlicExperimentalTriggeringState::kUnavailable;
+    case sync_pb::SyncEnums::NEEDS_OPT_IN:
+      return DeviceInfo::GlicExperimentalTriggeringState::kNeedsOptIn;
+    case sync_pb::SyncEnums::READY:
+      return DeviceInfo::GlicExperimentalTriggeringState::kReady;
+  }
+  NOTREACHED();
+}
+
+sync_pb::SyncEnums::GlicExperimentalTriggeringState
+ToGlicExperimentalTriggeringStateProto(
+    DeviceInfo::GlicExperimentalTriggeringState state) {
+  switch (state) {
+    case DeviceInfo::GlicExperimentalTriggeringState::kUnavailable:
+      return sync_pb::SyncEnums::UNAVAILABLE;
+    case DeviceInfo::GlicExperimentalTriggeringState::kNeedsOptIn:
+      return sync_pb::SyncEnums::NEEDS_OPT_IN;
+    case DeviceInfo::GlicExperimentalTriggeringState::kReady:
+      return sync_pb::SyncEnums::READY;
+  }
+  NOTREACHED();
+}
+
 DeviceInfo::SharingFeature ToDeviceInfoSharingFeature(
     sync_pb::SharingSpecificFields_EnabledFeatures feature) {
   switch (feature) {
@@ -222,8 +250,6 @@ DeviceInfo::SharingFeature ToDeviceInfoSharingFeature(
       return DeviceInfo::SharingFeature::kSmsFetcher;
     case sync_pb::SharingSpecificFields::REMOTE_COPY:
       return DeviceInfo::SharingFeature::kRemoteCopy;
-    case sync_pb::SharingSpecificFields::DISCOVERY:
-      return DeviceInfo::SharingFeature::kDiscovery;
     case sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2:
       return DeviceInfo::SharingFeature::kClickToCallV2;
     case sync_pb::SharingSpecificFields::SHARED_CLIPBOARD_V2:
@@ -232,6 +258,8 @@ DeviceInfo::SharingFeature ToDeviceInfoSharingFeature(
       return DeviceInfo::SharingFeature::kOptimizationGuidePushNotification;
     case sync_pb::SharingSpecificFields::ONE_TIME_TOKEN_BACKEND_NOTIFICATION:
       return DeviceInfo::SharingFeature::kOneTimeTokenBackendNotification;
+    case sync_pb::SharingSpecificFields::GLIC_EXPERIMENTAL_TRIGGERING:
+      return DeviceInfo::SharingFeature::kGlicExperimentalTriggering;
   }
   NOTREACHED();
 }
@@ -245,8 +273,6 @@ sync_pb::SharingSpecificFields_EnabledFeatures ToSharingFeatureProto(
       return sync_pb::SharingSpecificFields::SMS_FETCHER;
     case DeviceInfo::SharingFeature::kRemoteCopy:
       return sync_pb::SharingSpecificFields::REMOTE_COPY;
-    case DeviceInfo::SharingFeature::kDiscovery:
-      return sync_pb::SharingSpecificFields::DISCOVERY;
     case DeviceInfo::SharingFeature::kClickToCallV2:
       return sync_pb::SharingSpecificFields::CLICK_TO_CALL_V2;
     case DeviceInfo::SharingFeature::kSharedClipboardV2:
@@ -257,6 +283,8 @@ sync_pb::SharingSpecificFields_EnabledFeatures ToSharingFeatureProto(
     case DeviceInfo::SharingFeature::kOneTimeTokenBackendNotification:
       return sync_pb::SharingSpecificFields::
           ONE_TIME_TOKEN_BACKEND_NOTIFICATION;
+    case DeviceInfo::SharingFeature::kGlicExperimentalTriggering:
+      return sync_pb::SharingSpecificFields::GLIC_EXPERIMENTAL_TRIGGERING;
   }
   NOTREACHED();
 }

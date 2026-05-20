@@ -9,14 +9,15 @@
 //
 // out/Debug/browser_tests
 //     --gtest_filter=ExtensionWebUITest.CannotEmbedDisabledExtension
+(function() {
 if (!chrome || !chrome.test || !chrome.test.sendMessage) {
-  console.error('chrome.test.sendMessage is unavailable on ' +
-                document.location.href);
+  console.error(
+      'chrome.test.sendMessage is unavailable on ' + document.location.href);
   return false;
 }
 
 chrome.test.sendMessage('ready', function(reply) {
-  var extensionoptions = document.createElement('extensionoptions');
+  const extensionoptions = document.createElement('extensionoptions');
   extensionoptions.addEventListener('load', function() {
     chrome.test.sendMessage('load');
   });
@@ -28,3 +29,4 @@ chrome.test.sendMessage('ready', function(reply) {
 });
 
 return true;
+})();

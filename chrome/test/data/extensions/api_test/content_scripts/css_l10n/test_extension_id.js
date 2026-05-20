@@ -7,7 +7,7 @@
 // not be present in any CSS code).
 
 // NOTE: Using `var` because multiple scripts inject with a `message` variable.
-var message = 'Test failed to complete';
+var message = 'Test failed to complete';  // eslint-disable-line no-var
 try {
   const elem = document.getElementById('bodyId');
   const rules = [];
@@ -20,7 +20,7 @@ try {
   if (rules != null) {
     message = 'passed';
     for (let i = 0; i < rules.length; ++i) {
-      if (rules.item(i).cssText.indexOf('extension_id') != -1) {
+      if (rules.item(i).cssText.indexOf('extension_id') !== -1) {
         message = 'Found unreplaced extension_id in: ' + rules.item(i).cssText;
         break;
       }

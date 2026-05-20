@@ -16,14 +16,16 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/guest_view/mime_handler_view/mime_handler_stream_manager.h"
 #include "extensions/browser/guest_view/mime_handler_view/mime_handler_view_guest.h"
+#include "extensions/browser/mime_handler/generic_mime_handler_stream_delegate.h"
+#include "extensions/browser/mime_handler/mime_handler_stream_manager.h"
 #include "extensions/browser/mime_handler/stream_container.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/manifest_handlers/mime_types_handler.h"
 #include "pdf/buildflags.h"
 
 #if BUILDFLAG(ENABLE_PDF)
-#include "chrome/browser/pdf/pdf_viewer_stream_manager.h"
-#include "extensions/common/constants.h"
+#include "chrome/browser/pdf/pdf_handler_stream_delegate.h"
 #include "pdf/pdf_features.h"
 #endif  // BUILDFLAG(ENABLE_PDF)
 
@@ -36,7 +38,8 @@ void SendExecuteMimeTypeHandlerEvent(
     content::FrameTreeNodeId frame_tree_node_id,
     blink::mojom::TransferrableURLLoaderPtr transferrable_loader,
     const GURL& original_url,
-    const std::string& internal_id) {
+    const std::string& internal_id,
+    const std::string& mime_type) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   content::WebContents* web_contents =
@@ -65,15 +68,18 @@ void SendExecuteMimeTypeHandlerEvent(
     return;
   }
 
-  MimeTypesHandler* handler = MimeTypesHandler::GetHandler(extension);
-  if (!handler->HasPlugin()) {
+  const MimeTypesHandler* handler = MimeTypesHandler::GetHandler(extension);
+  if (!handler) {
     return;
   }
+  const GURL handler_url = handler->GetHandlerUrl(mime_type);
+  if (!handler_url.is_valid()) {
+    return;
+  }
+  CHECK(handler_url.SchemeIs(kExtensionScheme));
+  CHECK_EQ(handler_url.host(), extension_id);
 
-  // If the mime handler uses MimeHandlerViewGuest, the MimeHandlerViewGuest
-  // will take ownership of the stream.
-  GURL handler_url(Extension::GetBaseURLFromExtensionId(extension_id).spec() +
-                   handler->handler_url());
+  const bool is_generic_handler = !handler->IsPluginExtension();
 
   int tab_id = ExtensionTabUtil::GetTabId(web_contents);
   std::unique_ptr<StreamContainer> stream_container(
@@ -83,14 +89,30 @@ void SendExecuteMimeTypeHandlerEvent(
 #if BUILDFLAG(ENABLE_PDF)
   if (chrome_pdf::features::IsOopifPdfEnabled() &&
       extension_id == extension_misc::kPdfExtensionId) {
-    pdf::PdfViewerStreamManager::Create(web_contents);
-    pdf::PdfViewerStreamManager::FromWebContents(web_contents)
+    extensions::mime_handler::MimeHandlerStreamManager::Create(web_contents);
+    extensions::mime_handler::MimeHandlerStreamManager::FromWebContents(
+        web_contents)
         ->AddStreamContainer(frame_tree_node_id, internal_id,
-                             std::move(stream_container));
+                             std::move(stream_container),
+                             std::make_unique<pdf::PdfHandlerStreamDelegate>());
     return;
   }
 #endif  // BUILDFLAG(ENABLE_PDF)
 
+  // Generic MIME handlers (third-party extensions) use the OOPIF path
+  // with the generic delegate.
+  if (is_generic_handler) {
+    extensions::mime_handler::MimeHandlerStreamManager::Create(web_contents);
+    extensions::mime_handler::MimeHandlerStreamManager::FromWebContents(
+        web_contents)
+        ->AddStreamContainer(
+            frame_tree_node_id, internal_id, std::move(stream_container),
+            std::make_unique<
+                extensions::mime_handler::GenericMimeHandlerStreamDelegate>());
+    return;
+  }
+
+  // Legacy GuestView path for allowlisted extensions.
   MimeHandlerStreamManager::Get(browser_context)
       ->AddStream(stream_id, std::move(stream_container), frame_tree_node_id);
 }

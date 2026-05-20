@@ -34,7 +34,6 @@
 #include "chrome/browser/ui/bookmarks/bookmark_utils_desktop.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -125,6 +124,13 @@
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "ash/ash_element_identifiers.h"
+#include "ui/base/interaction/element_tracker.h"
+#include "ui/strings/grit/ui_strings.h"
+#include "ui/views/widget/widget.h"
+#endif
 
 #if BUILDFLAG(IS_OZONE)
 #include "ui/ozone/public/ozone_platform.h"
@@ -1086,14 +1092,63 @@ void TabGroupEditorBubbleView::OnBubbleClose() {
   }
 }
 
+#if BUILDFLAG(IS_CHROMEOS)
+void TabGroupEditorBubbleView::PreventCloseOnDeactivateForEmoji() {
+  if (!close_on_deactivate_pin_) {
+    close_on_deactivate_pin_ = PreventCloseOnDeactivate();
+  }
+
+  if (!emoji_picker_hidden_subscription_) {
+    emoji_picker_hidden_subscription_ =
+        ui::ElementTracker::GetElementTracker()
+            ->AddElementHiddenInAnyContextCallback(
+                ash::kEmojiPickerElementId,
+                base::BindRepeating(
+                    &TabGroupEditorBubbleView::OnEmojiPickerClosed,
+                    base::Unretained(this)));
+  }
+}
+
+void TabGroupEditorBubbleView::ClearCloseOnDeactivatePin() {
+  close_on_deactivate_pin_.reset();
+}
+
+void TabGroupEditorBubbleView::OnEmojiPickerClosed(
+    ui::TrackedElement* element) {
+  emoji_picker_hidden_subscription_ = {};
+
+  ClearCloseOnDeactivatePin();
+
+  // Close the editor bubble if it is no longer active, i.e. when the user
+  // clicks elsewhere, off of both the bubble and emoji picker.
+  if (GetWidget() && !(GetWidget()->IsActive())) {
+    GetWidget()->Close();
+  }
+}
+#endif
+
 tab_groups::TabGroupColorId TabGroupEditorBubbleView::InitColorSet() {
   colors_.clear();
-  const tab_groups::ColorLabelMap& color_map =
-      tab_groups::GetTabGroupColorLabelMap();
+  tab_groups::ColorLabelMap color_map = tab_groups::GetTabGroupColorLabelMap();
+
+  // In the tab group color update, the yellow and pink are better described
+  // as lime and magenta. We update the tooltip accordingly.
+  if (base::FeatureList::IsEnabled(features::kTabGroupColorRefresh)) {
+    color_map[tab_groups::TabGroupColorId::kYellow] =
+        l10n_util::GetStringUTF16(IDS_TAB_GROUP_COLOR_LIME);
+
+    color_map[tab_groups::TabGroupColorId::kPink] =
+        l10n_util::GetStringUTF16(IDS_TAB_GROUP_COLOR_MAGENTA);
+  }
+
+  const std::vector<tab_groups::TabGroupColorId> color_ordering =
+      TabGroupModel::GetColorOrdering();
 
   // TODO(tluk) remove the reliance on the ordering of the color pairs in the
   // vector and use the ColorLabelMap structure instead.
-  std::ranges::copy(color_map, std::back_inserter(colors_));
+  for (const tab_groups::TabGroupColorId color_id : color_ordering) {
+    colors_.emplace_back(color_id, color_map.at(color_id));
+  }
 
   // Keep track of the current group's color, to be returned as the initial
   // selected value.
@@ -1166,10 +1221,20 @@ void TabGroupEditorBubbleView::TitleField::ShowContextMenu(
   views::Textfield::ShowContextMenu(p, source_type);
 }
 
+#if BUILDFLAG(IS_CHROMEOS)
+void TabGroupEditorBubbleView::TitleField::ExecuteCommand(int command_id,
+                                                          int event_flags) {
+  if (command_id == IDS_CONTENT_CONTEXT_EMOJI) {
+    parent_->PreventCloseOnDeactivateForEmoji();
+  }
+  views::Textfield::ExecuteCommand(command_id, event_flags);
+}
+#endif
+
 std::unique_ptr<TabGroupEditorBubbleView::TitleField>
 TabGroupEditorBubbleView::BuildTitleField(const std::u16string& title) {
   std::unique_ptr<TitleField> title_field =
-      std::make_unique<TitleField>(stop_context_menu_propagation_);
+      std::make_unique<TitleField>(*this, stop_context_menu_propagation_);
   title_field->SetText(title);
   title_field->GetViewAccessibility().SetName(l10n_util::GetStringUTF16(
       IDS_TAB_GROUP_HEADER_CXMENU_TAB_GROUP_TITLE_ACCESSIBLE_NAME));

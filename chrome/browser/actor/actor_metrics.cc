@@ -11,6 +11,7 @@
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "chrome/browser/actor/actor_task.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 
 namespace actor {
@@ -131,14 +132,6 @@ void RecordDirectDownloadTriggered(bool success) {
 
 void RecordDownloadSaveAsDialogTriggered(bool success) {
   base::UmaHistogramBoolean("Actor.Download.SaveAsDialogTriggered", success);
-}
-
-void RecordActorNavigationGatingListSize(size_t allow_list_size,
-                                         size_t confirmed_list_size) {
-  base::UmaHistogramCounts1000("Actor.NavigationGating.AllowListSize",
-                               allow_list_size);
-  base::UmaHistogramCounts1000("Actor.NavigationGating.ConfirmedListSize2",
-                               confirmed_list_size);
 }
 
 void RecordScriptToolActionResultCode(

@@ -9,6 +9,7 @@
 #include "base/strings/strcat.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_keyed_service_factory.h"
+#include "chrome/browser/contextual_cueing/features.h"
 #include "chrome/browser/glic/browser_ui/glic_nudge_controller.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
@@ -24,14 +25,12 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/side_panel/side_panel_enums.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui_provider.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/common/pref_names.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/history/core/browser/features.h"
@@ -52,11 +51,12 @@
 #include "url/origin.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"  // nogncheck crbug.com/40147906
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/views/glic/glic_button_interface.h"
-#include "ui/views/controls/button/label_button.h"
+#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
+#include "chrome/browser/ui/views/glic/glic_button_interface.h"  // nogncheck crbug.com/40147906
+#include "ui/views/controls/button/label_button.h"  // nogncheck crbug.com/40147906
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -130,7 +130,9 @@ glic::GlicNudgeController* ContextualCueingHelper::GetGlicNudgeController() {
     return nullptr;
   }
 
-  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents());
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          web_contents());
   if (!browser) {
     return nullptr;
   }
@@ -331,13 +333,13 @@ bool ContextualCueingHelper::IsBrowserBlockingNudges(
     return false;
   }
 
+#if !BUILDFLAG(IS_ANDROID)  // NEEDS_ANDROID_IMPL
   auto* user_education_interface =
       BrowserUserEducationInterface::From(browser_window_interface);
   if (!user_education_interface) {
     return false;
   }
 
-#if !BUILDFLAG(IS_ANDROID)  // NEEDS_ANDROID_IMPL
   if (user_education_interface->IsFeaturePromoActive(
           feature_engagement::kIPHGlicPromoFeature)) {
     recorder->set_nudge_decision(NudgeDecision::kNudgeNotShownIPH);
@@ -388,6 +390,12 @@ bool ContextualCueingHelper::IsBrowserBlockingNudges(
     return true;
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+  if (base::FeatureList::IsEnabled(::contextual_cueing::kContextualCueingV2)) {
+    recorder->set_nudge_decision(
+        NudgeDecision::kNudgeNotShownContextualCueingV2);
+    return true;
+  }
 
   return false;
 }
@@ -459,9 +467,7 @@ ContextualCueingHelper::AutoOpenGlicSidePanel(
       tab_interface ? tab_interface->GetBrowserWindowInterface() : nullptr;
   auto* side_panel_ui = bwi ? SidePanelUIProvider::From(bwi) : nullptr;
 
-  if (side_panel_ui &&
-      (side_panel_ui->IsSidePanelShowing(SidePanelEntry::PanelType::kContent) ||
-       side_panel_ui->IsSidePanelShowing(SidePanelEntry::PanelType::kToolbar))) {
+  if (side_panel_ui && side_panel_ui->IsSidePanelShowing()) {
     return RecordAutoOpenResult(
         GlicAutoOpenResult::kPreventedFromExistingSidePanelOpen);
   }
@@ -509,12 +515,13 @@ ContextualCueingHelper::AutoOpenGlicSidePanel(
       invocation_source = glic::mojom::InvocationSource::kAutoOpenedForPdf;
     }
 
-    glic::GlicInvokeOptions options(invocation_source);
+    glic::GlicInvokeOptions options(glic::Target(tab_interface),
+                                    invocation_source);
     options.fre_override = glic::mojom::FreOverride::kTrustFirstInline;
     if (!decision_result.prompt_suggestion.empty()) {
       options.prompts.push_back(decision_result.prompt_suggestion);
     }
-    glic_service->Invoke(tab_interface, std::move(options));
+    glic_service->Invoke(std::move(options));
     return RecordAutoOpenResult(GlicAutoOpenResult::kSuccess);
   }
 

@@ -12,6 +12,7 @@
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
@@ -22,7 +23,8 @@
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/views/overlay/back_to_tab_button.h"
 #include "chrome/browser/ui/views/overlay/back_to_tab_label_button.h"
@@ -51,6 +53,7 @@
 #include "media/base/media_switches.h"
 #include "media/base/video_util.h"
 #include "services/media_session/public/cpp/media_image_manager.h"
+#include "third_party/blink/public/mojom/picture_in_picture/picture_in_picture.mojom.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -404,15 +407,18 @@ std::unique_ptr<VideoOverlayWindowViews> VideoOverlayWindowViews::Create(
 
 #if BUILDFLAG(IS_WIN)
   std::wstring app_user_model_id;
-  Browser* browser = chrome::FindBrowserWithTab(controller->GetWebContents());
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          controller->GetWebContents());
   if (browser) {
-    const base::FilePath& profile_path = browser->profile()->GetPath();
+    Browser* raw_browser = browser->GetBrowserForMigrationOnly();
+    const base::FilePath& profile_path = browser->GetProfile()->GetPath();
     // Set the window app id to GetAppUserModelIdForApp if the original window
     // is an app window, GetAppUserModelIdForBrowser if it's a browser window.
     app_user_model_id =
-        browser->is_type_app()
+        browser->GetType() == BrowserWindowInterface::Type::TYPE_APP
             ? shell_integration::win::GetAppUserModelIdForApp(
-                  base::UTF8ToWide(browser->app_name()), profile_path)
+                  base::UTF8ToWide(raw_browser->app_name()), profile_path)
             : shell_integration::win::GetAppUserModelIdForBrowser(profile_path);
     if (!app_user_model_id.empty()) {
       ui::win::SetAppIdForWindow(
@@ -2019,6 +2025,11 @@ void VideoOverlayWindowViews::SetPlaybackControlsVisibility(bool is_visible) {
 
   show_playback_controls_ = is_visible;
   OnUpdateControlsBounds();
+}
+
+void VideoOverlayWindowViews::SetImmersiveVideoOptions(
+    blink::mojom::ImmersiveOptionsPtr options) {
+  NOTREACHED();
 }
 
 void VideoOverlayWindowViews::OnNativeWidgetDestroying() {

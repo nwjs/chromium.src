@@ -58,6 +58,7 @@
 #include "base/types/optional_util.h"
 #include "build/build_config.h"
 #include "cc/base/switches.h"
+#include "content/browser/back_forward_cache/back_forward_cache_impl.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
 #include "content/browser/browser_context_impl.h"
@@ -67,7 +68,6 @@
 #include "content/browser/dom_storage/session_storage_namespace_impl.h"
 #include "content/browser/preloading/prerender/prerender_host.h"
 #include "content/browser/process_lock.h"
-#include "content/browser/renderer_host/back_forward_cache_impl.h"
 #include "content/browser/renderer_host/debug_urls.h"
 #include "content/browser/renderer_host/frame_tree.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
@@ -3264,7 +3264,6 @@ void NavigationControllerImpl::NavigateFromFrameProxy(
     bool force_new_browsing_instance,
     bool is_container_initiated,
     bool has_rel_opener,
-    net::StorageAccessApiStatus storage_access_api_status,
     std::optional<std::u16string> embedder_shared_storage_context) {
   if (is_renderer_initiated) {
     DCHECK(initiator_origin.has_value());
@@ -3395,7 +3394,7 @@ void NavigationControllerImpl::NavigateFromFrameProxy(
           /*from_frame_proxy=*/true,
           is_embedder_initiated_fenced_frame_navigation,
           is_unfenced_top_navigation, is_container_initiated,
-          storage_access_api_status, embedder_shared_storage_context);
+          embedder_shared_storage_context);
 
   if (!request) {
     return;
@@ -4236,6 +4235,14 @@ base::WeakPtr<NavigationHandle> NavigationControllerImpl::NavigateWithoutEntry(
       return nullptr;
     }
 
+    // Don't trust opaque origins to run debug URLs (like javascript: URLs) on
+    // the current page.
+    if (params.initiator_origin.has_value() &&
+        params.initiator_origin->opaque()) {
+      DiscardPendingEntry(true);
+      return nullptr;
+    }
+
     HandleRendererDebugURL(node, params.url);
     return nullptr;
   }
@@ -4508,7 +4515,6 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
     bool is_embedder_initiated_fenced_frame_navigation,
     bool is_unfenced_top_navigation,
     bool is_container_initiated,
-    net::StorageAccessApiStatus storage_access_api_status,
     std::optional<std::u16string> embedder_shared_storage_context) {
   DCHECK_EQ(-1, GetIndexOfEntry(entry));
 
@@ -4733,8 +4739,7 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
       params.impression, started_with_transient_activation,
       params.started_by_ad, params.is_pdf,
       is_embedder_initiated_fenced_frame_navigation, is_container_initiated,
-      params.has_rel_opener, storage_access_api_status,
-      embedder_shared_storage_context);
+      params.has_rel_opener, embedder_shared_storage_context);
 
   if (!navigation_request) {
     return nullptr;
@@ -5657,7 +5662,6 @@ bool NavigationControllerImpl::ShouldMaintainTrivialSessionHistory(
   // The preview mode appears as prerendered page in renderers, and
   // GetDocument()->IsPrerendering() covers the case together.
   return frame_tree_->is_prerendering() ||
-         frame_tree_->page_delegate()->IsPageInPreviewMode() ||
          frame_tree_node->IsInFencedFrameTree();
 }
 

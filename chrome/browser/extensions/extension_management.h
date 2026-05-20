@@ -13,15 +13,15 @@
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/singleton.h"
+#include "base/no_destructor.h"
 #include "base/observer_list.h"
 #include "base/values.h"
-#include "chrome/browser/extensions/managed_installation_mode.h"
 #include "chrome/browser/profiles/profile_keyed_service_factory.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "extensions/browser/extension_management_client.h"
 #include "extensions/browser/forced_extensions/install_stage_tracker.h"
+#include "extensions/browser/managed_installation_mode.h"
 #include "extensions/browser/management_policy.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_id.h"
@@ -95,6 +95,14 @@ class ExtensionManagement : public KeyedService,
   bool UsesDefaultPolicyHostRestrictions(const Extension* extension) override;
   bool BlocklistedByDefault() const override;
   GURL GetEffectiveUpdateURL(const Extension& extension) override;
+  bool IsExemptFromMV2DeprecationByPolicy(
+      int manifest_version,
+      const std::string& extension_id,
+      Manifest::Type manifest_type) override;
+  bool IsAllowedManifestVersion(int manifest_version,
+                                const std::string& extension_id,
+                                Manifest::Type manifest_type) override;
+  bool IsAllowedManifestVersion(const Extension* extension) override;
 
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
@@ -148,17 +156,6 @@ class ExtensionManagement : public KeyedService,
   // id `extension_id` is allowed to be installed.
   bool IsAllowedManifestType(Manifest::Type manifest_type,
                              const std::string& extension_id) const;
-
-  bool IsAllowedManifestVersion(int manifest_version,
-                                const std::string& extension_id,
-                                Manifest::Type manifest_type);
-  bool IsAllowedManifestVersion(const Extension* extension);
-
-  // Returns true if the extension associated with the given `extension_id` is
-  // exempt from the MV2 deprecation because of an active admin policy.
-  bool IsExemptFromMV2DeprecationByPolicy(int manifest_version,
-                                          const std::string& extension_id,
-                                          Manifest::Type manifest_type);
 
   bool IsAllowedByUnpublishedAvailabilityPolicy(const Extension* extension);
 
@@ -365,7 +362,7 @@ class ExtensionManagementFactory : public ProfileKeyedServiceFactory {
   static ExtensionManagementFactory* GetInstance();
 
  private:
-  friend struct base::DefaultSingletonTraits<ExtensionManagementFactory>;
+  friend base::NoDestructor<ExtensionManagementFactory>;
 
   ExtensionManagementFactory();
   ~ExtensionManagementFactory() override;

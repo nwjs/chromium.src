@@ -21,6 +21,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "media/base/media_switches.h"
+#include "media/media_buildflags.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/sync_call_restrictions.h"
 #include "net/nqe/network_quality_estimator.h"
@@ -162,21 +163,37 @@ class WebRtcBrowserTest : public WebRtcTestBase {
   raw_ptr<content::WebContents, AcrossTasksDanglingUntriaged> right_tab_;
 };
 
+// TODO(crbug.com/490247578): Flaky on ASan.
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsVP8 \
+  DISABLED_RunsAudioVideoWebRTCCallInTwoTabsVP8
+#else
+#define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsVP8 \
+  RunsAudioVideoWebRTCCallInTwoTabsVP8
+#endif
 IN_PROC_BROWSER_TEST_F(WebRtcBrowserTest,
-                       RunsAudioVideoWebRTCCallInTwoTabsVP8) {
+                       MAYBE_RunsAudioVideoWebRTCCallInTwoTabsVP8) {
   RunsAudioVideoWebRTCCallInTwoTabs("VP8");
 }
 
+// TODO(crbug.com/490247578): Flaky on ASan.
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsVP9 \
+  DISABLED_RunsAudioVideoWebRTCCallInTwoTabsVP9
+#else
+#define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsVP9 \
+  RunsAudioVideoWebRTCCallInTwoTabsVP9
+#endif
 IN_PROC_BROWSER_TEST_F(WebRtcBrowserTest,
-                       RunsAudioVideoWebRTCCallInTwoTabsVP9) {
+                       MAYBE_RunsAudioVideoWebRTCCallInTwoTabsVP9) {
   RunsAudioVideoWebRTCCallInTwoTabs("VP9");
 }
 
-#if BUILDFLAG(RTC_USE_H264)
+#if BUILDFLAG(ENABLE_OPENH264)
 
 IN_PROC_BROWSER_TEST_F(WebRtcBrowserTest,
                        RunsAudioVideoWebRTCCallInTwoTabsH264) {
-  // Only run test if run-time feature corresponding to |rtc_use_h264| is on.
+  // Only run test if run-time feature corresponding to OpenH264 is on.
   if (!base::FeatureList::IsEnabled(media::kOpenH264SoftwareEncoder)) {
     LOG(WARNING)
         << "Run-time feature OpenH264SoftwareEncoder disabled. "
@@ -188,7 +205,7 @@ IN_PROC_BROWSER_TEST_F(WebRtcBrowserTest,
   RunsAudioVideoWebRTCCallInTwoTabs("H264", true /* prefer_hw_video_codec */);
 }
 
-#endif  // BUILDFLAG(RTC_USE_H264)
+#endif  // BUILDFLAG(ENABLE_OPENH264)
 
 IN_PROC_BROWSER_TEST_F(WebRtcBrowserTest, TestWebAudioMediaStream) {
   // This tests against crash regressions for the WebAudio-MediaStream
@@ -212,8 +229,8 @@ IN_PROC_BROWSER_TEST_F(WebRtcBrowserTest,
                                     kKeygenAlgorithmRsa, kKeygenAlgorithmRsa);
 }
 
-// TODO(crbug.com/462962569): Flaky on win-asan.
-#if BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER)
+// TODO(crbug.com/490247578): Flaky on ASan.
+#if defined(ADDRESS_SANITIZER)
 #define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsOfferEcdsaAnswerEcdsa \
   DISABLED_RunsAudioVideoWebRTCCallInTwoTabsOfferEcdsaAnswerEcdsa
 #else
@@ -228,14 +245,22 @@ IN_PROC_BROWSER_TEST_F(
       kKeygenAlgorithmEcdsa, kKeygenAlgorithmEcdsa);
 }
 
+// TODO(crbug.com/490247578): Flaky on ASan.
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsWithClonedCertificateRsa \
+  DISABLED_RunsAudioVideoWebRTCCallInTwoTabsWithClonedCertificateRsa
+#else
+#define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsWithClonedCertificateRsa \
+  RunsAudioVideoWebRTCCallInTwoTabsWithClonedCertificateRsa
+#endif
 IN_PROC_BROWSER_TEST_F(
     WebRtcBrowserTest,
-    RunsAudioVideoWebRTCCallInTwoTabsWithClonedCertificateRsa) {
+    MAYBE_RunsAudioVideoWebRTCCallInTwoTabsWithClonedCertificateRsa) {
   RunsAudioVideoWebRTCCallInTwoTabsWithClonedCertificate(kKeygenAlgorithmRsa);
 }
 
-// TODO(crbug.com/40818639): Flaky on Linux ASAN.
-#if BUILDFLAG(IS_LINUX) && defined(ADDRESS_SANITIZER)
+// TODO(crbug.com/490247578): Flaky on ASan.
+#if defined(ADDRESS_SANITIZER)
 #define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsWithClonedCertificateEcdsa \
   DISABLED_RunsAudioVideoWebRTCCallInTwoTabsWithClonedCertificateEcdsa
 #else
@@ -248,15 +273,24 @@ IN_PROC_BROWSER_TEST_F(
   RunsAudioVideoWebRTCCallInTwoTabsWithClonedCertificate(kKeygenAlgorithmEcdsa);
 }
 
-IN_PROC_BROWSER_TEST_F(WebRtcBrowserTest,
-                       RunsAudioVideoWebRTCCallInTwoTabsOfferRsaAnswerEcdsa) {
+// TODO(crbug.com/490247578): Flaky on ASan.
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsOfferRsaAnswerEcdsa \
+  DISABLED_RunsAudioVideoWebRTCCallInTwoTabsOfferRsaAnswerEcdsa
+#else
+#define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsOfferRsaAnswerEcdsa \
+  RunsAudioVideoWebRTCCallInTwoTabsOfferRsaAnswerEcdsa
+#endif
+IN_PROC_BROWSER_TEST_F(
+    WebRtcBrowserTest,
+    MAYBE_RunsAudioVideoWebRTCCallInTwoTabsOfferRsaAnswerEcdsa) {
   RunsAudioVideoWebRTCCallInTwoTabs(WebRtcTestBase::kUseDefaultVideoCodec,
                                     false /* prefer_hw_video_codec */,
                                     kKeygenAlgorithmRsa, kKeygenAlgorithmEcdsa);
 }
 
-// TODO(crbug.com/462962569): Flaky on win-asan.
-#if BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER)
+// TODO(crbug.com/490247578): Flaky on ASan.
+#if defined(ADDRESS_SANITIZER)
 #define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsOfferEcdsaAnswerRsa \
   DISABLED_RunsAudioVideoWebRTCCallInTwoTabsOfferEcdsaAnswerRsa
 #else
@@ -287,9 +321,17 @@ IN_PROC_BROWSER_TEST_F(WebRtcBrowserTest,
   EXPECT_EQ(0u, GetPeerToPeerConnectionsCountChangeFromNetworkService());
 }
 
+// TODO(crbug.com/490247578): Flaky on ASan.
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsEmitsGatheringStateChange \
+  DISABLED_RunsAudioVideoWebRTCCallInTwoTabsEmitsGatheringStateChange
+#else
+#define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsEmitsGatheringStateChange \
+  RunsAudioVideoWebRTCCallInTwoTabsEmitsGatheringStateChange
+#endif
 IN_PROC_BROWSER_TEST_F(
     WebRtcBrowserTest,
-    RunsAudioVideoWebRTCCallInTwoTabsEmitsGatheringStateChange) {
+    MAYBE_RunsAudioVideoWebRTCCallInTwoTabsEmitsGatheringStateChange) {
   StartServerAndOpenTabs();
   SetupPeerconnectionWithLocalStream(left_tab_);
   SetupPeerconnectionWithLocalStream(right_tab_);
@@ -302,8 +344,8 @@ IN_PROC_BROWSER_TEST_F(
   DetectVideoAndHangUp();
 }
 
-// TODO(crbug.com/462962569): Flaky on win-asan.
-#if BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER)
+// TODO(crbug.com/490247578): Flaky on ASan.
+#if defined(ADDRESS_SANITIZER)
 #define MAYBE_RunsAudioVideoWebRTCCallInTwoTabsEmitsGatheringStateChange_ConnectionCount \
   DISABLED_RunsAudioVideoWebRTCCallInTwoTabsEmitsGatheringStateChange_ConnectionCount
 #else

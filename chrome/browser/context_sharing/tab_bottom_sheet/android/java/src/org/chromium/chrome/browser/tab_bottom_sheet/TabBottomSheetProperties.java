@@ -4,30 +4,28 @@
 
 package org.chromium.chrome.browser.tab_bottom_sheet;
 
+
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModel.ReadableObjectPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableFloatPropertyKey;
-import org.chromium.ui.modelutil.PropertyModel.WritableIntPropertyKey;
 
-/** Properties for the "Tab Bottom Sheet" bottom sheet. */
+/** Properties for the Tab Bottom Sheet. */
 @NullMarked
 public class TabBottomSheetProperties {
+
+
     public static final ReadableObjectPropertyKey<CoBrowseViews> BOTTOM_SHEET_VIEWS =
             new ReadableObjectPropertyKey<>("bottom_sheet_views");
-    public static final WritableIntPropertyKey SHEET_HEIGHT =
-            new WritableIntPropertyKey("sheet_height");
-    public static final WritableFloatPropertyKey PEEK_VIEW_AND_EXPANDED_CONTENT_ALPHA =
-            new WritableFloatPropertyKey("peek_view_alpha_and_expanded_content_alpha");
-    public static final WritableIntPropertyKey PEEK_VIEW_AND_EXPANDED_CONTENT_VISIBILITY =
-            new WritableIntPropertyKey("peek_view_and_expanded_content_visibility");
+    public static final ReadableObjectPropertyKey<WebViewResizingHelper> WEB_VIEW_RESIZING_HELPER =
+            new ReadableObjectPropertyKey<>("web_view_resizing_helper");
+
+    public static final WritableFloatPropertyKey PEEK_STATE_ALPHA =
+            new WritableFloatPropertyKey("peek_state_alpha");
 
     public static final PropertyKey[] ALL_KEYS = {
-        BOTTOM_SHEET_VIEWS,
-        SHEET_HEIGHT,
-        PEEK_VIEW_AND_EXPANDED_CONTENT_ALPHA,
-        PEEK_VIEW_AND_EXPANDED_CONTENT_VISIBILITY,
+        BOTTOM_SHEET_VIEWS, WEB_VIEW_RESIZING_HELPER, PEEK_STATE_ALPHA
     };
 
     /**
@@ -37,6 +35,9 @@ public class TabBottomSheetProperties {
      * @return A new {@link PropertyModel} instance.
      */
     public static PropertyModel createDefaultModel(CoBrowseViews coBrowseViews) {
-        return new PropertyModel.Builder(ALL_KEYS).with(BOTTOM_SHEET_VIEWS, coBrowseViews).build();
+        return new PropertyModel.Builder(ALL_KEYS)
+                .with(BOTTOM_SHEET_VIEWS, coBrowseViews)
+                .with(WEB_VIEW_RESIZING_HELPER, coBrowseViews.getWebViewResizingHelper())
+                .build();
     }
 }

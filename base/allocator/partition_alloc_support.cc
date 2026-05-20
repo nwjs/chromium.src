@@ -310,9 +310,10 @@ std::map<std::string, std::string> ProposeSyntheticFinchTrials() {
     partition_alloc::TagViolationReportingMode reporting_mode =
         partition_alloc::TagViolationReportingMode::kUndefined;
 #if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
-    reporting_mode = allocator_shim::internal::PartitionAllocMalloc::Allocator(
-                         kDefaultAllocToken)
-                         ->memory_tagging_reporting_mode();
+    reporting_mode =
+        allocator_shim::internal::PartitionAllocMalloc::Allocator(
+            allocator_shim::AllocToken(allocator_shim::kDefaultPartitionIndex))
+            ->memory_tagging_reporting_mode();
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
     switch (bootloader_override) {
       case BootloaderOverride::kDefault:
@@ -881,10 +882,10 @@ void ReconfigureSchedulerLoopQuarantineBranch(
   std::string process_type = GetProcessType();
   partition_alloc::internal::SchedulerLoopQuarantineConfig config =
       GetSchedulerLoopQuarantineConfiguration(process_type, branch_type);
-  for (size_t alloc_token = 0; alloc_token <= kMaxAllocToken.value();
+  for (size_t alloc_token = 0; alloc_token < allocator_shim::kNumPartitions;
        alloc_token++) {
     allocator_shim::internal::PartitionAllocMalloc::Allocator(
-        AllocToken(alloc_token))
+        allocator_shim::AllocToken(alloc_token))
         ->ReconfigureSchedulerLoopQuarantineForCurrentThread(config);
   }
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
@@ -1116,6 +1117,15 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
   // current platform. Note that CastOS is not protected by BackupRefPtr
   // a the moment, so they are excluded.
 #if PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR) && !PA_BUILDFLAG(IS_CASTOS)
+#if PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR_V2)
+  base::RawPtrAsanService::GetInstance().Configure(
+      ShouldEnableFeatureOnProcess(
+          base::features::kBackupRefPtrEnabledProcessesParam.Get(),
+          process_type),
+      {.enable_data_race_check = RawPtrAsanServiceOptions::kDisabled,
+       .enable_free_after_quarantined_check =
+           RawPtrAsanServiceOptions::kDisabled});
+#else
   if (ShouldEnableFeatureOnProcess(
           base::features::kBackupRefPtrEnabledProcessesParam.Get(),
           process_type)) {
@@ -1131,6 +1141,7 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
                                                EnableExtractionCheck(false),
                                                EnableInstantiationCheck(false));
   }
+#endif  // PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR_V2)
 #endif  // PA_BUILDFLAG(USE_ASAN_BACKUP_REF_PTR) && !PA_BUILDFLAG(IS_CASTOS)
 
 #if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
@@ -1296,10 +1307,10 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
   partition_alloc::internal::StackTopRegistry::Get().NotifyThreadCreated(
       partition_alloc::internal::GetStackTop());
 
-  for (size_t alloc_token = 0; alloc_token <= kMaxAllocToken.value();
+  for (size_t alloc_token = 0; alloc_token < allocator_shim::kNumPartitions;
        alloc_token++) {
     allocator_shim::internal::PartitionAllocMalloc::Allocator(
-        AllocToken(alloc_token))
+        allocator_shim::AllocToken(alloc_token))
         ->EnableThreadCacheIfSupported();
   }
 
@@ -1307,10 +1318,10 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
           base::features::kPartitionAllocLargeEmptySlotSpanRing)) {
     int16_t size = static_cast<int16_t>(
         features::kPartitionAllocLargeEmptySlotSpanRingSize.Get());
-    for (size_t alloc_token = 0; alloc_token <= kMaxAllocToken.value();
+    for (size_t alloc_token = 0; alloc_token < allocator_shim::kNumPartitions;
          alloc_token++) {
       allocator_shim::internal::PartitionAllocMalloc::Allocator(
-          AllocToken(alloc_token))
+          allocator_shim::AllocToken(alloc_token))
           ->AdjustSlotSpanRing(size, kDefaultMaxEmptySlotSpansDirtyBytesShift);
     }
   }
@@ -1442,10 +1453,10 @@ void PartitionAllocSupport::OnForegrounded(bool has_main_frame) {
           features::kPartitionAllocAdjustSizeWhenInForeground)) {
     int16_t size = static_cast<int16_t>(
         features::kPartitionAllocForegroundEmptySlotSpanRingSize.Get());
-    for (size_t alloc_token = 0; alloc_token <= kMaxAllocToken.value();
+    for (size_t alloc_token = 0; alloc_token < allocator_shim::kNumPartitions;
          alloc_token++) {
       allocator_shim::internal::PartitionAllocMalloc::Allocator(
-          AllocToken(alloc_token))
+          allocator_shim::AllocToken(alloc_token))
           ->AdjustSlotSpanRing(size,
                                kForegroundMaxEmptySlotSpansDirtyBytesShift);
     }
@@ -1489,10 +1500,10 @@ void PartitionAllocSupport::OnBackgrounded() {
           features::kPartitionAllocAdjustSizeWhenInForeground)) {
     int16_t size = static_cast<int16_t>(
         features::kPartitionAllocBackgroundEmptySlotSpanRingSize.Get());
-    for (size_t alloc_token = 0; alloc_token <= kMaxAllocToken.value();
+    for (size_t alloc_token = 0; alloc_token < allocator_shim::kNumPartitions;
          alloc_token++) {
       allocator_shim::internal::PartitionAllocMalloc::Allocator(
-          AllocToken(alloc_token))
+          allocator_shim::AllocToken(alloc_token))
           ->AdjustSlotSpanRing(size,
                                kBackgroundMaxEmptySlotSpansDirtyBytesShift);
     }

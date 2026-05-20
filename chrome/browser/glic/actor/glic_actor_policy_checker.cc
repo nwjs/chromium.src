@@ -114,14 +114,6 @@ bool IsLikelyDogfoodClient() {
   return variations_service && variations_service->IsLikelyDogfoodClient();
 }
 
-bool IsBrowserManaged(Profile& profile) {
-  auto* management_service_factory =
-      policy::ManagementServiceFactory::GetInstance();
-  auto* browser_management_service =
-      management_service_factory->GetForProfile(&profile);
-  return browser_management_service && browser_management_service->IsManaged();
-}
-
 bool ActuationEnabledForManagedUser(Profile& profile,
                                     actor::AggregatedJournal& journal) {
   features::GlicActorEnterprisePrefDefault default_pref =
@@ -169,51 +161,6 @@ bool HasUrlAllowlist(Profile& profile) {
   return !allowlist.empty();
 }
 
-bool IsEnterpriseAccount(Profile& profile, actor::AggregatedJournal& journal) {
-  // Note: both `is_enterprise_account_data_protected` and
-  // `AccountInfo::IsManaged()` check for Workspace accounts. They are backed
-  // by two different Google API endpoints. Both are checked for completeness.
-
-  bool is_enterprise_account_data_protected = false;
-  // Ensure that assumptions about when we do or do not update the cached user
-  // status are not broken.
-  // LINT.IfChange(GlicCachedUserStatusScope)
-  if (base::FeatureList::IsEnabled(features::kGlicUserStatusCheck)) {
-    std::optional<glic::CachedUserStatus> cached_user_status =
-        glic::GlicUserStatusFetcher::GetCachedUserStatus(&profile);
-    if (cached_user_status.has_value()) {
-      is_enterprise_account_data_protected =
-          cached_user_status->is_enterprise_account_data_protected;
-    } else {
-      // NOTE: Do not return false as a fail-closed here. CachedUserStatus is
-      // only fetched when `is_managed` of
-      // GlicUserStatusFetcher::UpdateUserStatus is true. Returning false means
-      // gating all the non-enterprise accounts from actuation.
-    }
-  }
-  // LINT.ThenChange(//chrome/browser/glic/glic_user_status_fetcher.cc:GlicCachedUserStatusScope)
-
-  signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(&profile);
-  CHECK(identity_manager);
-  // `account_info` is empty if the user has not signed in.
-  const CoreAccountInfo account_info =
-      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
-  const AccountInfo extended_account_info =
-      identity_manager->FindExtendedAccountInfoByAccountId(
-          account_info.account_id);
-  auto is_managed = extended_account_info.IsManaged();
-
-  journal.Log(GURL(), actor::TaskId(), "IsEnterpriseAccount",
-              actor::JournalDetailsBuilder()
-                  .Add("is_enterprise_account_data_protected",
-                       base::ToString(is_enterprise_account_data_protected))
-                  .Add("is_managed", signin::TriboolToString(is_managed))
-                  .Build());
-
-  return is_enterprise_account_data_protected ||
-         (is_managed == signin::Tribool::kTrue);
-}
 
 // TODO(crbug.com/471065012): This is a consumer check so it should be moved to
 // the overall actuation account access check. Placed here for a quick fix.
@@ -338,6 +285,66 @@ void GlicActorPolicyChecker::OnExtendedAccountInfoRemoved(
 void GlicActorPolicyChecker::OnAiSubscriptionTierUpdated(
     int32_t new_subscription_tier) {
   OnPrefOrAccountChanged();
+}
+
+// static
+bool GlicActorPolicyChecker::IsEnterpriseAccount(
+    Profile& profile,
+    actor::AggregatedJournal& journal) {
+  // Note: both `is_enterprise_account_data_protected` and
+  // `AccountInfo::IsManaged()` check for Workspace accounts. They are backed
+  // by two different Google API endpoints. Both are checked for completeness.
+
+  bool is_enterprise_account_data_protected = false;
+  // Ensure that assumptions about when we do or do not update the cached user
+  // status are not broken.
+  // LINT.IfChange(GlicCachedUserStatusScope)
+  if (base::FeatureList::IsEnabled(features::kGlicUserStatusCheck)) {
+    std::optional<glic::CachedUserStatus> cached_user_status =
+        glic::GlicUserStatusFetcher::GetCachedUserStatus(&profile);
+    if (cached_user_status.has_value()) {
+      is_enterprise_account_data_protected =
+          cached_user_status->is_enterprise_account_data_protected;
+    } else {
+      // NOTE: Do not return false as a fail-closed here. CachedUserStatus is
+      // only fetched when `is_managed` of
+      // GlicUserStatusFetcher::UpdateUserStatus is true. Returning false means
+      // gating all the non-enterprise accounts from actuation.
+    }
+  }
+  // LINT.ThenChange(//chrome/browser/glic/glic_user_status_fetcher.cc:GlicCachedUserStatusScope)
+
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(&profile);
+  if (!identity_manager) {
+    return false;
+  }
+  // `account_info` is empty if the user has not signed in.
+  const CoreAccountInfo account_info =
+      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
+  const AccountInfo extended_account_info =
+      identity_manager->FindExtendedAccountInfoByAccountId(
+          account_info.account_id);
+  signin::Tribool is_managed = extended_account_info.IsManaged();
+
+  journal.Log(GURL(), actor::TaskId(), "IsEnterpriseAccount",
+              actor::JournalDetailsBuilder()
+                  .Add("is_enterprise_account_data_protected",
+                       base::ToString(is_enterprise_account_data_protected))
+                  .Add("is_managed", signin::TriboolToString(is_managed))
+                  .Build());
+
+  return is_enterprise_account_data_protected ||
+         (is_managed == signin::Tribool::kTrue);
+}
+
+// static
+bool GlicActorPolicyChecker::IsBrowserManaged(Profile& profile) {
+  auto* management_service_factory =
+      policy::ManagementServiceFactory::GetInstance();
+  auto* browser_management_service =
+      management_service_factory->GetForProfile(&profile);
+  return browser_management_service && browser_management_service->IsManaged();
 }
 
 bool GlicActorPolicyChecker::CanActOnWeb() const {
@@ -467,24 +474,24 @@ GlicActorPolicyChecker::ComputeActOnWebCapability() {
   return log_and_return(CanActOutcome::kNo, CannotActReason::kDisabledByPolicy);
 }
 
-actor::EnterprisePolicyBlockReason GlicActorPolicyChecker::Evaluate(
+GlicActorPolicyChecker::UrlBlockReason GlicActorPolicyChecker::Evaluate(
     const GURL& url) const {
   const policy::URLBlocklist::URLBlocklistState state =
       url_blocklist_manager_.GetURLBlocklistState(url);
   if (state == policy::URLBlocklist::URLBlocklistState::URL_IN_BLOCKLIST) {
-    return actor::EnterprisePolicyBlockReason::kExplicitlyBlocked;
+    return UrlBlockReason::kExplicitlyBlocked;
   }
   if (state == policy::URLBlocklist::URLBlocklistState::URL_IN_ALLOWLIST) {
-    return actor::EnterprisePolicyBlockReason::kExplicitlyAllowed;
+    return UrlBlockReason::kExplicitlyAllowed;
   }
 
   // If the general policy is set to disable acting, then if the url is not in
   // the allow list, we block.
   if (can_act_on_web_ == CanActOutcome::kByAllowlistOnly) {
-    return actor::EnterprisePolicyBlockReason::kExplicitlyBlocked;
+    return UrlBlockReason::kExplicitlyBlocked;
   }
 
-  return actor::EnterprisePolicyBlockReason::kNotBlocked;
+  return UrlBlockReason::kNotBlocked;
 }
 
 base::CallbackListSubscription
@@ -496,11 +503,11 @@ GlicActorPolicyChecker::AddUrlListsUpdateObserverForTesting(
 void GlicActorPolicyChecker::ValidateContentSentToRenderer(
     content::RenderFrameHost* frame,
     const std::string& content,
-    actor::EnterprisePolicyContentChecker::ValidationCallback callback) {
+    ContentValidationCallback callback) const {
   content::WebContents* web_contents =
       frame ? content::WebContents::FromRenderFrameHost(frame) : nullptr;
   if (!web_contents || !profile_) {
-    std::move(callback).Run(ValidationReason::kAllowed);
+    std::move(callback).Run(ContentValidationReason::kAllowed);
     return;
   }
 
@@ -517,7 +524,7 @@ void GlicActorPolicyChecker::ValidateContentSentToRenderer(
       enterprise_connectors::ContentAnalysisDelegate::CreateForWebContents(
           web_contents, std::move(data),
           base::BindOnce(
-              [](actor::EnterprisePolicyContentChecker::ValidationCallback cb,
+              [](ContentValidationCallback cb,
                  const enterprise_connectors::ContentAnalysisDelegate::Data&,
                  enterprise_connectors::ContentAnalysisDelegate::Result&
                      result) {
@@ -525,17 +532,17 @@ void GlicActorPolicyChecker::ValidateContentSentToRenderer(
                 // would want to return `kWarned` verdicts at some point.
                 bool allowed =
                     result.text_results.empty() || result.text_results[0];
-                std::move(cb).Run(allowed ? ValidationReason::kAllowed
-                                          : ValidationReason::kBlocked);
+                std::move(cb).Run(allowed ? ContentValidationReason::kAllowed
+                                          : ContentValidationReason::kBlocked);
               },
               std::move(callback)),
-          enterprise_connectors::DeepScanAccessPoint::PASTE);
+          enterprise_connectors::DeepScanAccessPoint::ACTOR);
       return;
     }
   }
 #endif
 
-  std::move(callback).Run(ValidationReason::kAllowed);
+  std::move(callback).Run(ContentValidationReason::kAllowed);
 }
 
 }  // namespace glic

@@ -15,6 +15,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/time/time.h"
 #include "chrome/browser/glic/fre/fre_util.h"
@@ -63,14 +64,8 @@ content::StoragePartitionConfig GetGlicMainStoragePartitionConfig(
 }
 
 content::StoragePartitionConfig GetGlicStoragePartitionConfig(
-    content::BrowserContext* browser_context,
-    bool use_for_fre) {
-  bool use_main_partition_for_fre = base::FeatureList::IsEnabled(
-      features::kGlicUseMainPartitionForUnifiedFre);
-
-  return (use_for_fre && !use_main_partition_for_fre)
-             ? GetFreStoragePartitionConfig(browser_context)
-             : GetGlicMainStoragePartitionConfig(browser_context);
+    content::BrowserContext* browser_context) {
+  return GetGlicMainStoragePartitionConfig(browser_context);
 }
 
 }  // namespace
@@ -102,10 +97,8 @@ class GlicCookieSynchronizer::ClearCookiesTask {
 class GlicCookieSynchronizer::SyncCookiesForDevelopmentTask {
  public:
   SyncCookiesForDevelopmentTask(content::BrowserContext* browser_context,
-                                bool use_for_fre,
                                 base::OnceCallback<void(bool)> callback)
       : browser_context_(browser_context),
-        use_for_fre_(use_for_fre),
         callback_(std::move(callback)) {
     network::mojom::CookieManager* cookie_manager =
         browser_context_->GetDefaultStoragePartition()
@@ -149,7 +142,7 @@ class GlicCookieSynchronizer::SyncCookiesForDevelopmentTask {
     --get_cookie_list_request_count_;
     content::StoragePartition* webview_storage =
         browser_context_->GetStoragePartition(
-            GetGlicStoragePartitionConfig(browser_context_, use_for_fre_));
+            GetGlicStoragePartitionConfig(browser_context_));
     network::mojom::CookieManager* webview_cookie_manager =
         webview_storage->GetCookieManagerForBrowserProcess();
 
@@ -199,7 +192,6 @@ class GlicCookieSynchronizer::SyncCookiesForDevelopmentTask {
   }
 
   const raw_ptr<content::BrowserContext> browser_context_;
-  bool use_for_fre_ = false;
   base::OnceCallback<void(bool)> callback_;
   int set_cookie_request_count_ = 0;
   int get_cookie_list_request_count_ = 0;
@@ -209,11 +201,8 @@ class GlicCookieSynchronizer::SyncCookiesForDevelopmentTask {
 
 GlicCookieSynchronizer::GlicCookieSynchronizer(
     content::BrowserContext* context,
-    signin::IdentityManager* identity_manager,
-    bool use_for_fre)
-    : context_(context),
-      identity_manager_(identity_manager),
-      use_for_fre_(use_for_fre) {
+    signin::IdentityManager* identity_manager)
+    : context_(context), identity_manager_(identity_manager) {
   CHECK(context_);
   observation_.Observe(identity_manager);
 }
@@ -234,12 +223,16 @@ GlicCookieSynchronizer::GetCookieManagerForPartition() {
   return GetStoragePartition()->GetCookieManagerForBrowserProcess();
 }
 
+signin::PartitionSuffix GlicCookieSynchronizer::GetPartitionSuffix() const {
+  return signin::PartitionSuffix::kGlic;
+}
+
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 network::mojom::DeviceBoundSessionManager*
 GlicCookieSynchronizer::GetDeviceBoundSessionManagerForPartition() {
   if (!base::FeatureList::IsEnabled(
           switches::
-              kEnableOAuthMultiloginStandardCookiesBindingForGlicPartition)) {
+              kEnableOAuthMultiloginStandardCookiesBindingForSecondaryPartitions)) {
     return nullptr;
   }
   return GetStoragePartition()->GetDeviceBoundSessionManager();
@@ -274,7 +267,7 @@ void GlicCookieSynchronizer::CopyCookiesToWebviewStoragePartition(
       IsPrimaryAccountGoogleInternal(*identity_manager_)) {
     sync_cookies_for_development_task_ =
         std::make_unique<SyncCookiesForDevelopmentTask>(
-            context_, use_for_fre_,
+            context_,
             base::BindOnce(
                 &GlicCookieSynchronizer::SyncCookiesForDevelopmentComplete,
                 GetWeakPtr()));
@@ -325,6 +318,7 @@ void GlicCookieSynchronizer::BeginCookieSync() {
   if (base::FeatureList::IsEnabled(features::kGlicIgnoreOfflineState)) {
     parameters.wait_on_connectivity = false;
   }
+  metrics_.BeginSync();
   cookie_loader_ =
       identity_manager_->GetAccountsCookieMutator()
           ->SetAccountsInCookieForPartition(
@@ -355,6 +349,7 @@ void GlicCookieSynchronizer::OnTimeout() {
 }
 
 void GlicCookieSynchronizer::CompleteAuth(bool is_success) {
+  metrics_.EndSync(is_success);
   timeout_.Stop();
   cookie_loader_.reset();
 
@@ -368,9 +363,24 @@ void GlicCookieSynchronizer::CompleteAuth(bool is_success) {
 }
 
 content::StoragePartition* GlicCookieSynchronizer::GetStoragePartition() {
-  content::StoragePartition* partition = context_->GetStoragePartition(
-      GetGlicStoragePartitionConfig(context_, use_for_fre_));
+  content::StoragePartition* partition =
+      context_->GetStoragePartition(GetGlicStoragePartitionConfig(context_));
   return partition;
+}
+
+void GlicCookieSynchronizer::Metrics::BeginSync() {
+  sync_start_time_ = base::TimeTicks::Now();
+}
+
+void GlicCookieSynchronizer::Metrics::EndSync(bool success) {
+  if (sync_start_time_.is_null()) {
+    return;
+  }
+  base::UmaHistogramMediumTimes(
+      success ? "Glic.CookieSynchronization.Latency.Success"
+              : "Glic.CookieSynchronization.Latency.Error",
+      base::TimeTicks::Now() - sync_start_time_);
+  sync_start_time_ = base::TimeTicks();
 }
 
 }  // namespace glic

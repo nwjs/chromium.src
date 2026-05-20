@@ -26,6 +26,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
+#include "base/scoped_observation.h"
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
 #include "third_party/skia/include/core/SkPath.h"
@@ -62,7 +63,6 @@
 #include "ui/views/view_targeter.h"
 #include "ui/views/views_export.h"
 
-class BrowserView;
 class InfoBarView;
 class OmniboxPopupPresenter;
 class OmniboxPopupViewViews;
@@ -74,7 +74,6 @@ class CustomTab;
 
 namespace ash {
 class ArcNotificationContentView;
-class WideFrameView;
 }  // namespace ash
 
 namespace exo {
@@ -311,14 +310,12 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
     // DO NOT ADD TO THIS LIST!
     // These existing cases are "grandfathered in", but there shouldn't be more.
     // See comments atop class.
-    friend class ::BrowserView;
     friend class ::InfoBarView;
     friend class ::OmniboxPopupPresenter;
     friend class ::OmniboxPopupViewViews;
     friend class ::StatusIconButtonLinux;
     friend class ::arc::CustomTab;
     friend class ::ash::ArcNotificationContentView;
-    friend class ::ash::WideFrameView;
     friend class ::exo::ShellSurfaceBase;
     friend class ::eye_dropper::EyeDropperView;
     friend class SubmenuView;
@@ -2089,6 +2086,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   std::u16string cached_tooltip_text_;
 
  private:
+  friend class ScopedPaintLock;
   friend class internal::PreEventDispatchHandler;
   friend class internal::PostEventDispatchHandler;
   friend class internal::RootView;
@@ -2104,6 +2102,22 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   FRIEND_TEST_ALL_PREFIXES(ViewTest, PaintWithUnknownInvalidation);
 
   // Painting  -----------------------------------------------------------------
+
+  // Increments the number of paint locks on this view.
+  void AddPaintLock();
+
+  // Decrements the number of paint locks on this view. If the number of locks
+  // reaches zero, this calls UnlockPaint().
+  void RemovePaintLock();
+
+  // Returns true if this view or any of its ancestors has a paint lock active.
+  bool IsPaintLocked() const;
+
+  // Called when the paint lock is removed. This will check if there were any
+  // pending paints while locked, and if so, schedules a paint. Then it iterates
+  // through all children and calls UnlockPaint() on them if they are not
+  // individually locked.
+  void UnlockPaint();
 
   // Responsible for propagating SchedulePaint() to the view's layer. If there
   // is no associated layer, the requested paint rect is propagated up the
@@ -2598,6 +2612,12 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
 
   // Whether SchedulePaintInRect() was invoked on this View.
   bool needs_paint_ = false;
+
+  // The number of active paint locks on this view.
+  int paint_lock_count_ = 0;
+
+  // Whether a paint was requested while this view or an ancestor was locked.
+  bool paint_pending_while_locked_ = false;
 
   // RTL painting --------------------------------------------------------------
 

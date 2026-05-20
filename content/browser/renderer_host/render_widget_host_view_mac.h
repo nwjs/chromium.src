@@ -175,6 +175,7 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
       override;
   std::optional<SkColor> GetBackgroundColor() override;
   viz::SurfaceId GetFallbackSurfaceIdForTesting() const override;
+  bool HasSavedCompositorFrame() const override;
 
   void TransformPointToRootSurface(gfx::PointF* point) override;
   gfx::Rect GetBoundsInRootWindow() override;
@@ -437,7 +438,8 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   bool ShouldWaitRemoteCompositorFrameOnResize() const override;
 
   // AcceleratedWidgetMacNSView implementation.
-  void AcceleratedWidgetCALayerParamsUpdated() override;
+  void AcceleratedWidgetCALayerParamsUpdated(
+      gfx::CALayerParams params) override;
 
   // ui::AccessibilityFocusOverrider::Client:
   id GetAccessibilityFocusedUIElement() override;

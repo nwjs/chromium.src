@@ -58,8 +58,9 @@ std::unique_ptr<webrtc::VideoDecoder> CreateDecoder(
     webrtc::VideoDecoderFactory* factory,
     const webrtc::Environment& env,
     const webrtc::SdpVideoFormat& format) {
-  if (!IsFormatSupported(factory, format))
+  if (!factory || !factory->QueryCodecSupport(format, false).is_supported) {
     return nullptr;
+  }
   return factory->Create(env, format);
 }
 
@@ -109,8 +110,7 @@ class EncoderAdapter : public webrtc::VideoEncoderFactory {
     // trust supported formats reported by |software_encoder_factory_| and do
     // not allow profile mismatch when only software encoder factory is used for
     // creating the simulcast encoder adapter.
-    if (base::EqualsCaseInsensitiveASCII(format.name.c_str(),
-                                         webrtc::kH264CodecName) &&
+    if (base::EqualsCaseInsensitiveASCII(format.name, webrtc::kH264CodecName) &&
         supported_in_hardware) {
       allow_h264_profile_fallback = IsFormatSupported(
           &software_encoder_factory_,

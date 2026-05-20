@@ -168,8 +168,7 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
       return prefs.GetBoolean(prefs::kAutofillAiTravelEntitiesEnabled);
     case EntityTypeName::kOrder:
     case EntityTypeName::kShipment:
-      // TODO(crbug.com/484094746): Add prefs for orders and shipments.
-      return false;
+      return prefs.GetBoolean(prefs::kAutofillAiShoppingEntitiesEnabled);
   }
   NOTREACHED();
 }
@@ -191,6 +190,8 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     case AutofillAiAction::kUseCachedServerClassificationModelResults:
     case AutofillAiAction::kImportToWallet:
     case AutofillAiAction::kWalletDataSharingPromotion:
+    case AutofillAiAction::kAccessibilityAnnotatorInfraAvailable:
+    case AutofillAiAction::kTypeSupportsAccessibilityAnnotatorData:
       return false;
     case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
     case AutofillAiAction::kListEntityInstancesInSettings:
@@ -260,9 +261,12 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     case AutofillAiAction::kListEntityInstancesInSettings:
     case AutofillAiAction::kLogToMqls:
     case AutofillAiAction::kOptIn:
+    case AutofillAiAction::kTypeSupportsAccessibilityAnnotatorData:
       return true;
     case AutofillAiAction::kEnableOrDisable:
       return is_enabled(features::kAutofillAiAvailableByDefault);
+    case AutofillAiAction::kAccessibilityAnnotatorInfraAvailable:
+      return false;
   }
   NOTREACHED();
 }
@@ -290,6 +294,8 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     case AutofillAiAction::kLogToMqls:
     case AutofillAiAction::kOptIn:
     case AutofillAiAction::kEnableOrDisable:
+    case AutofillAiAction::kAccessibilityAnnotatorInfraAvailable:
+    case AutofillAiAction::kTypeSupportsAccessibilityAnnotatorData:
       return true;
   }
   NOTREACHED();
@@ -347,6 +353,25 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
       return policy_pref_enabled && autofill_ai_available;
     case AutofillAiAction::kFilling:
     case AutofillAiAction::kImport:
+    case AutofillAiAction::kTypeSupportsAccessibilityAnnotatorData:
+      if (action == AutofillAiAction::kTypeSupportsAccessibilityAnnotatorData) {
+        if (!entity_type) {
+          return false;
+        }
+        switch (entity_type->name()) {
+          case EntityTypeName::kPassport:
+          case EntityTypeName::kDriversLicense:
+          case EntityTypeName::kNationalIdCard:
+          case EntityTypeName::kFlightReservation:
+          case EntityTypeName::kShipment:
+          case EntityTypeName::kOrder:
+            break;
+          case EntityTypeName::kVehicle:
+          case EntityTypeName::kRedressNumber:
+          case EntityTypeName::kKnownTravelerNumber:
+            return false;
+        }
+      }
       if (!EntityTypeIsEnabledInSettings(*prefs, *entity_type)) {
         return false;
       }
@@ -388,6 +413,8 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     case AutofillAiAction::kEnableOrDisable:
     case AutofillAiAction::kListEntityInstancesInSettings:
       return true;
+    case AutofillAiAction::kAccessibilityAnnotatorInfraAvailable:
+      return false;
   }
   NOTREACHED();
 }
@@ -454,6 +481,8 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     case AutofillAiAction::kServerClassificationModel:
     case AutofillAiAction::kUseCachedServerClassificationModelResults:
     case AutofillAiAction::kWalletDataSharingPromotion:
+    case AutofillAiAction::kAccessibilityAnnotatorInfraAvailable:
+    case AutofillAiAction::kTypeSupportsAccessibilityAnnotatorData:
       break;
   }
   return true;
@@ -482,7 +511,9 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     case AutofillAiAction::kEnableOrDisable:
     case AutofillAiAction::kImportToWallet:
     case AutofillAiAction::kWalletDataSharingPromotion:
-    case AutofillAiAction::kServerClassificationModel: {
+    case AutofillAiAction::kServerClassificationModel:
+    case AutofillAiAction::kAccessibilityAnnotatorInfraAvailable:
+    case AutofillAiAction::kTypeSupportsAccessibilityAnnotatorData: {
       if (is_off_the_record) {
         MaybeOutputReason(debug_message, "Off the record.");
         return false;
@@ -515,6 +546,8 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     case AutofillAiAction::kServerClassificationModel:
     case AutofillAiAction::kFilling:
     case AutofillAiAction::kUseCachedServerClassificationModelResults:
+    case AutofillAiAction::kAccessibilityAnnotatorInfraAvailable:
+    case AutofillAiAction::kTypeSupportsAccessibilityAnnotatorData:
       break;
   }
 
@@ -546,6 +579,8 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     case AutofillAiAction::kServerClassificationModel:
     case AutofillAiAction::kFilling:
     case AutofillAiAction::kUseCachedServerClassificationModelResults:
+    case AutofillAiAction::kAccessibilityAnnotatorInfraAvailable:
+    case AutofillAiAction::kTypeSupportsAccessibilityAnnotatorData:
       break;
   }
 
@@ -754,23 +789,18 @@ bool SetAutofillAiOptInStatus(
   return policy_pref_state == kAutofillPredictionSettingsDisabled;
 }
 
-[[nodiscard]] bool IsAutofillAiEnabledByEnterprisePolicyWithoutLogging(
+[[nodiscard]] bool IsAutofillAiAllowedByEnterprisePolicy(
     const PrefService* prefs) {
   // State of the AutofillAI-specific enterprise policy pref.
-  constexpr int kAutofillPredictionSettingsAllowWithoutLogging =
-      std::to_underlying(
-          optimization_guide::model_execution::prefs::
-              ModelExecutionEnterprisePolicyValue::kAllowWithoutLogging);
-  constexpr int kAutofillPredictionSettingsDisabled =
+  constexpr int kAutofillPredictionSettingsAllow =
       std::to_underlying(optimization_guide::model_execution::prefs::
-                             ModelExecutionEnterprisePolicyValue::kDisable);
-  static_assert(kAutofillPredictionSettingsAllowWithoutLogging == 1);
-  static_assert(kAutofillPredictionSettingsDisabled == 2);
+                             ModelExecutionEnterprisePolicyValue::kAllow);
+  static_assert(kAutofillPredictionSettingsAllow == 0);
 
-  const int policy_pref_state = prefs->GetInteger(
-      optimization_guide::prefs::
-          kAutofillPredictionImprovementsEnterprisePolicyAllowed);
-  return policy_pref_state == kAutofillPredictionSettingsAllowWithoutLogging;
+  return prefs->GetInteger(
+             optimization_guide::prefs::
+                 kAutofillPredictionImprovementsEnterprisePolicyAllowed) ==
+         kAutofillPredictionSettingsAllow;
 }
 
 }  // namespace autofill

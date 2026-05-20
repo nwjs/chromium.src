@@ -272,7 +272,7 @@ void TransformTree::UpdateTransforms(
     UpdateTransformsData* update_data) {
   TransformNode* node = Node(id);
   TransformNode* parent_node = parent(node);
-  DCHECK(parent_node);
+  CHECK(parent_node);
   gfx::Transform old_to_parent = node->to_parent;
   gfx::Vector2dF old_snap_amount = node->snap_amount;
   // TODO(flackr): Only dirty when scroll offset changes.
@@ -283,12 +283,12 @@ void TransformTree::UpdateTransforms(
   } else {
     UndoSnapping(node);
   }
-  UpdateScreenSpaceTransform(node, parent_node);
-  UpdateAnimationProperties(node, parent_node);
+  UpdateScreenSpaceTransform(node, *parent_node);
+  UpdateAnimationProperties(node, *parent_node);
   UpdateSnapping(node);
-  UpdateTransformChanged(node, parent_node);
-  UpdateNodeAndAncestorsAreAnimatedOrInvertible(node, parent_node);
-  UpdateNodeOrAncestorsWillChangeTransform(node, parent_node);
+  UpdateTransformChanged(node, *parent_node);
+  UpdateNodeAndAncestorsAreAnimatedOrInvertible(node, *parent_node);
+  UpdateNodeOrAncestorsWillChangeTransform(node, *parent_node);
 
   // If `node` has been depended by a previous node and neither its `to_parent`
   // nor its `snap_amount` is changed, the depending node actually got correct
@@ -473,10 +473,11 @@ TransformTree::FindDrawnElasticOverscrollFromTransformId(
 
 // This function should match the offset we set for sticky position layer in
 // blink::LayoutBoxModelObject::StickyPositionOffset.
-gfx::Vector2dF TransformTree::StickyPositionOffset(TransformNode* node) {
-  StickyPositionNodeData* sticky_data = MutableStickyPositionData(node->id);
-  if (!sticky_data)
+gfx::Vector2dF TransformTree::StickyPositionOffset(const TransformNode& node) {
+  StickyPositionNodeData* sticky_data = MutableStickyPositionData(node.id);
+  if (!sticky_data) {
     return gfx::Vector2dF();
+  }
   const StickyPositionConstraint& constraint = sticky_data->constraints;
 
   const ScrollNode* scroll_node_x =
@@ -675,18 +676,19 @@ const AnchorPositionScrollData* TransformTree::GetAnchorPositionScrollData(
 }
 
 gfx::Vector2dF TransformTree::AnchorPositionOffset(
-    TransformNode* node,
+    const TransformNode& node,
     int max_updated_node_id,
     UpdateTransformsData* update_data,
     base::flat_set<int>& visited) {
-  if (visited.contains(node->id)) {
+  if (visited.contains(node.id)) {
     return gfx::Vector2dF();
   }
-  visited.insert(node->id);
+  visited.insert(node.id);
 
-  const AnchorPositionScrollData* data = GetAnchorPositionScrollData(node->id);
-  if (!data)
+  const AnchorPositionScrollData* data = GetAnchorPositionScrollData(node.id);
+  if (!data) {
     return gfx::Vector2dF();
+  }
 
   // `update_data` can be null if UpdateTransforms() is called from
   // PropertyTreeBuilder (for layer tree mode for ui), but we should not have
@@ -711,13 +713,13 @@ gfx::Vector2dF TransformTree::AnchorPositionOffset(
                        ->transform_tree_mutable()
                        .FindNodeFromElementId(container_id)) {
       container_transform_id = container_transform->id;
-      accumulated_offset -= StickyPositionOffset(container_transform);
+      accumulated_offset -= StickyPositionOffset(*container_transform);
       // Adjust for chained anchor positioned offset. Note that "-=" here is
       // different from the blink version in anchor_position_scroll_data.cc
       // because AnchorPositionOffset() is the opposite of
       // blink::AnchorPositionScrollData::AccmulatedOffset().
       accumulated_offset -= AnchorPositionOffset(
-          container_transform, max_updated_node_id, update_data, visited);
+          *container_transform, max_updated_node_id, update_data, visited);
     }
     if (container_transform_id > max_updated_node_id) {
       // The adjustment depends on a later transform node that may contain
@@ -737,10 +739,10 @@ gfx::Vector2dF TransformTree::AnchorPositionOffset(
 }
 
 void TransformTree::UndoOverscroll(
-    const TransformNode* node,
+    const TransformNode& node,
     gfx::Vector2dF& position_adjustment,
     const ViewportPropertyIds* viewport_property_ids) {
-  DCHECK(node->should_undo_overscroll);
+  DCHECK(node.should_undo_overscroll);
 
   const int transform_id =
       viewport_property_ids
@@ -859,7 +861,7 @@ void TransformTree::UpdateLocalTransform(
   // on Android we simply skip this.
 #if !BUILDFLAG(IS_ANDROID)
   if (node->should_undo_overscroll) {
-    UndoOverscroll(node, position_adjustment, viewport_property_ids);
+    UndoOverscroll(*node, position_adjustment, viewport_property_ids);
   }
 #endif
   transform.Translate(position_adjustment);
@@ -884,11 +886,11 @@ void TransformTree::UpdateLocalTransform(
   // stretching from the bottom / right is correct.
   transform.Translate(-node->scroll_offset().OffsetFromOrigin());
 
-  transform.Translate(StickyPositionOffset(node));
+  transform.Translate(StickyPositionOffset(*node));
   if (node->anchor_position_scroll_data_id >= 0) {
     base::flat_set<int> visited;
     transform.Translate(
-        AnchorPositionOffset(node, node->id - 1, update_data, visited));
+        AnchorPositionOffset(*node, node->id - 1, update_data, visited));
     // Make sure the damage rect is tracked.
     node->SetTransformChanged(DamageReason::kUntracked);
   }
@@ -899,29 +901,31 @@ void TransformTree::UpdateLocalTransform(
   node->needs_local_transform_update = false;
 }
 
-void TransformTree::UpdateScreenSpaceTransform(TransformNode* node,
-                                               TransformNode* parent_node) {
-  DCHECK(parent_node);
-  gfx::Transform to_screen_space_transform = ToScreen(parent_node->id);
-  if (node->flattens_inherited_transform)
+void TransformTree::UpdateScreenSpaceTransform(
+    TransformNode* node,
+    const TransformNode& parent_node) {
+  gfx::Transform to_screen_space_transform = ToScreen(parent_node.id);
+  if (node->flattens_inherited_transform) {
     to_screen_space_transform.Flatten();
+  }
   to_screen_space_transform.PreConcat(node->to_parent);
-  node->ancestors_are_invertible = parent_node->ancestors_are_invertible;
+  node->ancestors_are_invertible = parent_node.ancestors_are_invertible;
   node->node_and_ancestors_are_flat =
-      parent_node->node_and_ancestors_are_flat && node->to_parent.IsFlat();
+      parent_node.node_and_ancestors_are_flat && node->to_parent.IsFlat();
   SetToScreen(node->id, to_screen_space_transform);
 
   gfx::Transform from_screen;
-  if (!ToScreen(node->id).GetInverse(&from_screen))
+  if (!ToScreen(node->id).GetInverse(&from_screen)) {
     node->ancestors_are_invertible = false;
+  }
   SetFromScreen(node->id, from_screen);
 }
 
-void TransformTree::UpdateAnimationProperties(TransformNode* node,
-                                              TransformNode* parent_node) {
-  DCHECK(parent_node);
+void TransformTree::UpdateAnimationProperties(
+    TransformNode* node,
+    const TransformNode& parent_node) {
   bool ancestor_is_animating = false;
-  ancestor_is_animating = parent_node->to_screen_is_potentially_animated;
+  ancestor_is_animating = parent_node.to_screen_is_potentially_animated;
   node->to_screen_is_potentially_animated =
       node->has_potential_animation || ancestor_is_animating;
 }
@@ -973,18 +977,16 @@ void TransformTree::UpdateSnapping(TransformNode* node) {
 }
 
 void TransformTree::UpdateTransformChanged(TransformNode* node,
-                                           TransformNode* parent_node) {
-  DCHECK(parent_node);
-  if (parent_node->transform_changed()) {
-    node->CopyTransformChangedFrom(*parent_node);
+                                           const TransformNode& parent_node) {
+  if (parent_node.transform_changed()) {
+    node->CopyTransformChangedFrom(parent_node);
   }
 }
 
 void TransformTree::UpdateNodeAndAncestorsAreAnimatedOrInvertible(
     TransformNode* node,
-    TransformNode* parent_node) {
-  DCHECK(parent_node);
-  if (!parent_node->node_and_ancestors_are_animated_or_invertible) {
+    const TransformNode& parent_node) {
+  if (!parent_node.node_and_ancestors_are_animated_or_invertible) {
     node->node_and_ancestors_are_animated_or_invertible = false;
     return;
   }
@@ -992,20 +994,19 @@ void TransformTree::UpdateNodeAndAncestorsAreAnimatedOrInvertible(
   // Even when the current node's transform and the parent's screen space
   // transform are invertible, the current node's screen space transform can
   // become uninvertible due to floating-point arithmetic.
-  if (!node->ancestors_are_invertible && parent_node->ancestors_are_invertible)
+  if (!node->ancestors_are_invertible && parent_node.ancestors_are_invertible) {
     is_invertible = false;
+  }
   node->node_and_ancestors_are_animated_or_invertible =
       node->has_potential_animation || is_invertible;
 }
 
 void TransformTree::UpdateNodeOrAncestorsWillChangeTransform(
     TransformNode* node,
-    TransformNode* parent_node) {
+    const TransformNode& parent_node) {
   node->node_or_ancestors_will_change_transform = node->will_change_transform;
-  if (parent_node) {
-    node->node_or_ancestors_will_change_transform |=
-        parent_node->node_or_ancestors_will_change_transform;
-  }
+  node->node_or_ancestors_will_change_transform |=
+      parent_node.node_or_ancestors_will_change_transform;
 }
 
 void TransformTree::SetRootScaleAndTransform(
@@ -1173,24 +1174,28 @@ void EffectTree::clear() {
 #endif
 }
 
-float EffectTree::EffectiveOpacity(const EffectNode* node) const {
-  return node->subtree_hidden ? 0.f : node->opacity;
+float EffectTree::EffectiveOpacity(const EffectNode& node) const {
+  return node.subtree_hidden ? 0.f : node.opacity;
 }
 
-void EffectTree::UpdateOpacities(EffectNode* node, EffectNode* parent_node) {
-  node->screen_space_opacity = EffectiveOpacity(node);
+void EffectTree::UpdateOpacities(EffectNode* node,
+                                 const EffectNode* parent_node) {
+  node->screen_space_opacity = EffectiveOpacity(*node);
 
-  if (parent_node)
+  if (parent_node) {
     node->screen_space_opacity *= parent_node->screen_space_opacity;
+  }
 }
 
 void EffectTree::UpdateSubtreeHidden(EffectNode* node,
-                                     EffectNode* parent_node) {
-  if (parent_node)
+                                     const EffectNode* parent_node) {
+  if (parent_node) {
     node->subtree_hidden |= parent_node->subtree_hidden;
+  }
 }
 
-void EffectTree::UpdateIsDrawn(EffectNode* node, EffectNode* parent_node) {
+void EffectTree::UpdateIsDrawn(EffectNode* node,
+                               const EffectNode* parent_node) {
   // Nodes that have screen space opacity 0 are hidden. So they are not drawn.
   // Exceptions:
   // 1) Nodes that contribute to copy requests, whether hidden or not, must be
@@ -1203,7 +1208,7 @@ void EffectTree::UpdateIsDrawn(EffectNode* node, EffectNode* parent_node) {
   if (node->has_copy_request || node->cache_render_surface ||
       node->subtree_capture_id.is_valid()) {
     node->is_drawn = true;
-  } else if (EffectiveOpacity(node) == 0.f &&
+  } else if (EffectiveOpacity(*node) == 0.f &&
              (!node->has_potential_opacity_animation ||
               property_trees()->is_active()) &&
              node->backdrop_filters.IsEmpty()) {
@@ -1216,13 +1221,14 @@ void EffectTree::UpdateIsDrawn(EffectNode* node, EffectNode* parent_node) {
 }
 
 void EffectTree::UpdateEffectChanged(EffectNode* node,
-                                     EffectNode* parent_node) {
+                                     const EffectNode* parent_node) {
   if (parent_node && parent_node->effect_changed) {
     node->effect_changed = true;
   }
 }
 
-void EffectTree::UpdateHasFilters(EffectNode* node, EffectNode* parent_node) {
+void EffectTree::UpdateHasFilters(EffectNode* node,
+                                  const EffectNode* parent_node) {
   node->lcd_text_disallowed_by_filter =
       node->has_potential_filter_animation || !node->filters.AllowsLCDText();
   if (parent_node) {
@@ -1232,7 +1238,7 @@ void EffectTree::UpdateHasFilters(EffectNode* node, EffectNode* parent_node) {
 }
 
 void EffectTree::UpdateHasFastRoundedCorner(EffectNode* node,
-                                            EffectNode* parent_node) {
+                                            const EffectNode* parent_node) {
   node->node_or_ancestor_has_fast_rounded_corner = node->is_fast_rounded_corner;
   if (parent_node) {
     node->node_or_ancestor_has_fast_rounded_corner |=
@@ -1241,7 +1247,7 @@ void EffectTree::UpdateHasFastRoundedCorner(EffectNode* node,
 }
 
 void EffectTree::UpdateBackfaceVisibility(EffectNode* node,
-                                          EffectNode* parent_node) {
+                                          const EffectNode* parent_node) {
   if (parent_node && parent_node->hidden_by_backface_visibility) {
     node->hidden_by_backface_visibility = true;
     return;
@@ -1261,18 +1267,19 @@ void EffectTree::UpdateHasMaskingChild(EffectNode* node,
   // Reset to false when a node is first met. We'll set the bit later
   // when we actually encounter a masking child.
   node->has_masking_child = false;
-  if (node->blend_mode == SkBlendMode::kDstIn) {
+  if (node->blend_mode == SkBlendMode::kDstIn && parent_node) {
     parent_node->has_masking_child = true;
   }
 }
 
 void EffectTree::UpdateOnlyDrawsVisibleContent(EffectNode* node,
-                                               EffectNode* parent_node) {
+                                               const EffectNode* parent_node) {
   node->only_draws_visible_content =
       !node->has_copy_request && !node->subtree_capture_id.is_valid() &&
       !node->view_transition_element_resource_id.IsValid();
-  if (parent_node)
+  if (parent_node) {
     node->only_draws_visible_content &= parent_node->only_draws_visible_content;
+  }
   if (!node->backdrop_filters.IsEmpty()) {
     node->only_draws_visible_content &=
         !node->backdrop_filters.HasFilterOfType(FilterOperation::ZOOM);
@@ -1290,8 +1297,9 @@ void EffectTree::UpdateSurfaceContentsScale(EffectNode* effect_node) {
                              transform_tree.device_transform_scale_factor();
   const TransformNode* transform_node =
       transform_tree.Node(effect_node->transform_id);
-  if (transform_node->in_subtree_of_page_scale_layer)
+  if (transform_node->in_subtree_of_page_scale_layer) {
     layer_scale_factor *= transform_tree.page_scale_factor();
+  }
 
   const gfx::Vector2dF old_scale = effect_node->surface_contents_scale;
   effect_node->surface_contents_scale = gfx::ComputeTransform2dScaleComponents(
@@ -1386,8 +1394,9 @@ void EffectTree::UpdateEffects(int id) {
   UpdateSurfaceContentsScale(node);
 }
 
-void EffectTree::UpdateClosestAncestorSharedElement(EffectNode* node,
-                                                    EffectNode* parent_node) {
+void EffectTree::UpdateClosestAncestorSharedElement(
+    EffectNode* node,
+    const EffectNode* parent_node) {
   if (node->view_transition_element_resource_id.IsValid()) {
     node->closest_ancestor_with_shared_element_id = node->id;
   } else if (parent_node) {
@@ -1562,8 +1571,12 @@ void EffectTree::ResetChangeTracking() {
   for (int id = kContentsRootPropertyNodeId; id < static_cast<int>(size());
        ++id) {
     Node(id)->effect_changed = false;
-    if (render_surfaces_[id])
+    // During a flush-only sync (TreesInViz), we skip expensive render surface
+    // recomputations, so |render_surfaces_| might be smaller than |size()|.
+    if (static_cast<size_t>(id) < render_surfaces_.size() &&
+        render_surfaces_[id]) {
       render_surfaces_[id]->ResetPropertyChangedFlags();
+    }
   }
 }
 
@@ -2072,9 +2085,8 @@ void ScrollTree::CollectScrollDeltas(
     // snap targets is during the next frame. This makes it possible for the
     // scroll delta to be zero.
     if (!scroll_delta.IsZero() || snap_target_ids) {
-      TRACE_EVENT_INSTANT2("cc", "CollectScrollDeltas",
-                           TRACE_EVENT_SCOPE_THREAD, "x", scroll_delta.x(), "y",
-                           scroll_delta.y());
+      TRACE_EVENT_INSTANT("cc", "CollectScrollDeltas", "x", scroll_delta.x(),
+                          "y", scroll_delta.y());
       CompositorCommitData::ScrollUpdateInfo update(id, scroll_delta,
                                                     snap_target_ids);
       if (id == inner_viewport_scroll_element_id) {
@@ -2440,7 +2452,11 @@ bool PropertyTrees::operator==(const PropertyTrees& other) const {
          full_tree_damaged() == other.full_tree_damaged() &&
          is_main_thread() == other.is_main_thread() &&
          is_active() == other.is_active() &&
-         sequence_number() == other.sequence_number();
+         sequence_number() == other.sequence_number() &&
+         inner_viewport_container_bounds_delta() ==
+             other.inner_viewport_container_bounds_delta() &&
+         outer_viewport_container_bounds_delta() ==
+             other.outer_viewport_container_bounds_delta();
 }
 #endif
 
@@ -2646,7 +2662,8 @@ void PropertyTrees::UpdateChangeTracking() {
        i < static_cast<int>(mutable_transform_tree.size()); ++i) {
     TransformNode* node = mutable_transform_tree.Node(i);
     TransformNode* parent_node = mutable_transform_tree.parent(node);
-    mutable_transform_tree.UpdateTransformChanged(node, parent_node);
+    DCHECK(parent_node);
+    mutable_transform_tree.UpdateTransformChanged(node, *parent_node);
   }
 }
 
@@ -2755,6 +2772,8 @@ bool PropertyTrees::AnimationScaleCacheIsInvalid(int transform_id) const {
   // animation itself while we want to treat the scale as valid during the
   // animation. |update_number| is reset to kInvalidUpdateNumber when a new
   // property tree is pushed.
+  CHECK(transform_id >= 0 &&
+        transform_id < static_cast<int>(cached_data_.animation_scales.size()));
   return cached_data_.animation_scales[transform_id].update_number ==
          kInvalidUpdateNumber;
 }
@@ -2771,6 +2790,8 @@ const AnimationScaleData& PropertyTrees::GetAnimationScaleData(
     int transform_id) {
   DCHECK(!is_main_thread());
 
+  CHECK(transform_id >= 0 &&
+        transform_id < static_cast<int>(cached_data_.animation_scales.size()));
   auto& animation_scale = cached_data_.animation_scales[transform_id];
   if (animation_scale.update_number ==
       cached_data_.transform_tree_update_number) {
@@ -2840,6 +2861,8 @@ void PropertyTrees::SetMaximumAnimationToScreenScaleForTesting(
     int transform_id,
     float maximum_scale,
     bool affected_by_invalid_scale) {
+  CHECK(transform_id >= 0 &&
+        transform_id < static_cast<int>(cached_data_.animation_scales.size()));
   auto& animation_scale = cached_data_.animation_scales[transform_id];
   animation_scale.maximum_to_screen_scale = maximum_scale;
   animation_scale.affected_by_invalid_scale = affected_by_invalid_scale;
@@ -2895,6 +2918,8 @@ bool PropertyTrees::GetFromTarget(int transform_id,
 DrawTransformData& PropertyTrees::FetchDrawTransformsDataFromCache(
     int transform_id,
     int effect_id) const {
+  CHECK(transform_id >= 0 &&
+        transform_id < static_cast<int>(cached_data_.draw_transforms.size()));
   for (auto& transform_data : cached_data_.draw_transforms[transform_id]) {
     // We initialize draw_transforms with 1 element vectors when
     // ResetCachedData, so if we hit an invalid target id, it means it's the

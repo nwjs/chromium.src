@@ -78,7 +78,11 @@ BASE_FEATURE(kAndroidDesktopUAPlatform, base::FEATURE_DISABLED_BY_DEFAULT);
 // Avoids copying ResourceRequest::TrustedParams when possible.
 BASE_FEATURE(kAvoidTrustedParamsCopies, base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kUnthrottleAsyncTouchMoves, base::FEATURE_ENABLED_BY_DEFAULT);
+#else
 BASE_FEATURE(kUnthrottleAsyncTouchMoves, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 const base::FeatureParam<AsyncTouchMoveThrottlingPolicy>::Option
     async_touch_move_throttling_policies[] = {
@@ -86,13 +90,12 @@ const base::FeatureParam<AsyncTouchMoveThrottlingPolicy>::Option
          "unthrottled_when_gsu_unconsumed"},
         {AsyncTouchMoveThrottlingPolicy::kUnthrottledAlways,
          "unthrottled_always"}};
-BASE_FEATURE_ENUM_PARAM(
-    AsyncTouchMoveThrottlingPolicy,
-    kAsyncTouchMoveThrottlingPolicyParam,
-    &kUnthrottleAsyncTouchMoves,
-    "policy",
-    AsyncTouchMoveThrottlingPolicy::kUnthrottledWhenGsuUnconsumed,
-    &async_touch_move_throttling_policies);
+BASE_FEATURE_ENUM_PARAM(AsyncTouchMoveThrottlingPolicy,
+                        kAsyncTouchMoveThrottlingPolicyParam,
+                        &kUnthrottleAsyncTouchMoves,
+                        "policy",
+                        AsyncTouchMoveThrottlingPolicy::kUnthrottledAlways,
+                        &async_touch_move_throttling_policies);
 
 // Block all MIDI access with the MIDI_SYSEX permission
 BASE_FEATURE(kBlockMidiByDefault, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -174,9 +177,9 @@ BASE_FEATURE(kBFCacheWithSharedWorker, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kBackForwardCacheDWCOnJavaScriptExecution,
              base::FEATURE_DISABLED_BY_DEFAULT);
 // This is a kill switch for pausing microtask while the page is in the BFCache.
-// Remove by m148 if things go well.
+// Remove by m155 if things go well.
 BASE_FEATURE(kBackForwardCachePauseMicrotasks,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable background resource fetch in Blink. See https://crbug.com/1379780 for
 // more details.
@@ -490,6 +493,34 @@ BASE_FEATURE(kDeclarativeCSSModulesUseDataURI,
 
 BASE_FEATURE(kDataUrlWorkerOpaqueOrigin, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, HTMLTreeBuilder::Flush() will be throttled in kTextMode
+// to reduce O(n^2) string copies.
+// The first flush will always be allowed to complete immediately, then
+// subsequent flushes will be throttled and will backoff exponentially up to a
+// "max_interval". The "initial_interval" is the delay introduced after the
+// first flush and is increased by "multiplier" for each subsequent flushes.
+// See https://crbug.com/500385603 for more context and how the numbers were
+// selected.
+BASE_FEATURE(kDeferTreeBuilderFlush, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kDeferTreeBuilderFlushInitialInterval,
+                   &kDeferTreeBuilderFlush,
+                   "initial_interval",
+                   base::Milliseconds(16));
+
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kDeferTreeBuilderFlushMaxInterval,
+                   &kDeferTreeBuilderFlush,
+                   "max_interval",
+                   base::Seconds(2));
+
+BASE_FEATURE_PARAM(double,
+                   kDeferTreeBuilderFlushMultiplier,
+                   &kDeferTreeBuilderFlush,
+                   "multiplier",
+                   2.0);
+
 BASE_FEATURE(kDeferRendererTasksAfterInput, base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kDeferRendererTasksAfterInputPolicyParamName[] = "policy";
@@ -771,11 +802,6 @@ BASE_FEATURE(kFencedFramesReportEventHeaderChanges,
 BASE_FEATURE(kFencedFramesSrcPermissionsPolicy,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Controls access to an API to exempt certain URLs from fenced frame
-// network revocation to facilitate testing.
-BASE_FEATURE(kExemptUrlFromNetworkRevocationForTesting,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Use "style" and "json" destinations for CSS and JSON modules.
 // https://crbug.com/1491336
 BASE_FEATURE(kFetchDestinationJsonCssModules,
@@ -963,10 +989,6 @@ BASE_FEATURE(kFledgeTruncateSelectableBuyerAndSellerReportingIdsToKAnonLimit,
 BASE_FEATURE(kForceHighPerformanceGPUForWebGL,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Text autosizing uses heuristics to inflate text sizes on devices with
-// small screens. This feature is for disabling these heuristics.
-BASE_FEATURE(kForceOffTextAutosizing, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kForceSkcmsICCParsing, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kForceSkExifCppParsing, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1068,6 +1090,11 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    &kInlineScriptCache,
                    "timeout",
                    base::Milliseconds(100));
+BASE_FEATURE_PARAM(bool,
+                   kInlineScriptCacheEnabledForDefaultHint,
+                   &kInlineScriptCache,
+                   "enable_for_default_hint",
+                   true);
 
 BASE_FEATURE(kInputPredictorTypeChoice, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1580,19 +1607,6 @@ BASE_FEATURE(kLightweightNoStatePrefetch,
 #endif
 );
 
-BASE_FEATURE(kLinkPreview, base::FEATURE_DISABLED_BY_DEFAULT);
-
-constexpr base::FeatureParam<LinkPreviewTriggerType>::Option
-    link_preview_trigger_type_options[] = {
-        {LinkPreviewTriggerType::kAltClick, "alt_click"},
-        {LinkPreviewTriggerType::kAltHover, "alt_hover"},
-        {LinkPreviewTriggerType::kLongPress, "long_press"}};
-BASE_FEATURE_ENUM_PARAM(LinkPreviewTriggerType,
-                        kLinkPreviewTriggerType,
-                        &kLinkPreview,
-                        "trigger_type",
-                        LinkPreviewTriggerType::kAltHover,
-                        &link_preview_trigger_type_options);
 
 // Makes network loading tasks unfreezable so that they can be processed while
 // the page is frozen.
@@ -1721,6 +1735,28 @@ BASE_FEATURE(kMixedContentAutoupgrade,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kMemoryCacheIntelligentPruning, base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<MemoryCacheCostScoringModel>::Option
+    memory_cache_cost_scoring_model_options[] = {
+        {MemoryCacheCostScoringModel::kOriginal, "original"},
+        {MemoryCacheCostScoringModel::kValueDensity, "value_density"},
+        {MemoryCacheCostScoringModel::kLogPenalty, "log_penalty"},
+};
+
+BASE_FEATURE_ENUM_PARAM(MemoryCacheCostScoringModel,
+                        kMemoryCacheCostScoringModel,
+                        &kMemoryCacheIntelligentPruning,
+                        "cost_scoring_model",
+                        MemoryCacheCostScoringModel::kOriginal,
+                        &memory_cache_cost_scoring_model_options);
+
+// Decay rate for time-decayed frequency scoring.
+// Default 0.001 halves score in ~11.5 minutes.
+BASE_FEATURE_PARAM(double,
+                   kMemoryCacheDecayRate,
+                   &kMemoryCacheIntelligentPruning,
+                   "decay_rate",
+                   0.001);
 
 // Weight for the resource's type priority in the value calculation.
 // A high default makes type a primary factor in determining importance.
@@ -1861,6 +1897,13 @@ BASE_FEATURE(kMemoryPurgeOnFreeze,
 );
 
 BASE_FEATURE(kMemoryPurgeOnFreezeLimit, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDataURIMemoryCache, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(int,
+                   kDataURIMemoryCacheTotalSizeThresholdParam,
+                   &kDataURIMemoryCache,
+                   "data_uri_memory_cache_total_size_threshold",
+                   512 * 1024);
 
 BASE_FEATURE(kMemorySaverModeRenderTuning, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(int,
@@ -2547,10 +2590,6 @@ BASE_FEATURE(kUrgentMainFrameForInput,
 BASE_FEATURE(kURLPatternDummyURLCanonicalization,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Uses page viewport instead of frame viewport in the Largest Contentful Paint
-// heuristic where images occupying the full viewport are ignored.
-BASE_FEATURE(kUsePageViewportInLCP, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Use PersistentCache on either side of blink.mojom.CodeCacheHost. This feature
 // is dependent on net::HttpCache::IsSplitCacheEnabled() being true. Always use
 // IsPersistentCacheForCodeCacheEnabled() rather than querying this feature
@@ -2612,7 +2651,7 @@ BASE_FEATURE(kWebRtcUseCaptureBeginTimestamp, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kWebRtcAudioSinkUseTimestampAligner,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kWebRtcPqcForDtls, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebRtcPqcForDtls, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebRtcUseMediaThreadTypes, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -2791,11 +2830,6 @@ bool ParkableStringsUseSnappy() {
 bool IsKeepAliveURLLoaderServiceEnabled() {
   return base::FeatureList::IsEnabled(kKeepAliveInBrowserMigration) ||
          base::FeatureList::IsEnabled(kFetchLaterAPI);
-}
-
-bool IsLinkPreviewTriggerTypeEnabled(LinkPreviewTriggerType type) {
-  return base::FeatureList::IsEnabled(blink::features::kLinkPreview) &&
-         type == blink::features::kLinkPreviewTriggerType.Get();
 }
 
 bool IsXrDevice() {

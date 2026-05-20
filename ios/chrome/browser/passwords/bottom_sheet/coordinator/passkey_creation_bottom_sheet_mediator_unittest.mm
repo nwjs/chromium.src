@@ -79,6 +79,7 @@ class PasskeyCreationBottomSheetMediatorTest : public PlatformTest {
     auto client = std::make_unique<webauthn::FakeIOSPasskeyClient>();
     fake_client_ = client.get();
     webauthn::PasskeyTabHelper::CreateForWebState(web_state_, model_.get(),
+                                                  /*password_store=*/nullptr,
                                                   std::move(client));
   }
 

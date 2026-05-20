@@ -93,7 +93,6 @@ MATCHER(ContainsAddressFooterSuggestions, "") {
 class AddressSuggestionGeneratorTest : public testing::Test {
  public:
   void SetUp() override {
-    autofill_client_.SetPrefs(test::PrefServiceForTesting());
     address_data().SetPrefService(autofill_client_.GetPrefs());
     address_data().SetSyncServiceForTest(&sync_service_);
   }
@@ -119,7 +118,6 @@ class AddressSuggestionGeneratorTest : public testing::Test {
 
     std::vector<Suggestion> suggestions;
     AddressSuggestionGenerator address_suggestion_generator(
-        /*plus_address_email_override=*/std::nullopt,
         /*log_manager=*/nullptr,
         mojom::AutofillSuggestionTriggerSource::kFormControlElementClicked);
 
@@ -129,23 +127,11 @@ class AddressSuggestionGeneratorTest : public testing::Test {
           suggestions = std::move(returned_suggestions.second);
         };
 
-    auto on_suggestion_data_returned =
-        [this, &on_suggestions_generated, &form_data, &field_data,
-         &address_suggestion_generator](
-            std::pair<SuggestionGenerator::SuggestionDataSource,
-                      std::vector<SuggestionGenerator::SuggestionData>>
-                suggestion_data) {
-          address_suggestion_generator.GenerateSuggestions(
-              form_data, field_data, form_structure_.get(), &field(),
-              *autofill_client(), {std::move(suggestion_data)},
-              on_suggestions_generated);
-        };
-
     // Since the `on_suggestions_generated` callback is called synchronously,
-    // we can assume that `suggestions` will hold correct value.
-    address_suggestion_generator.FetchSuggestionData(
+    // we can assume that `suggestions` will hold the correct value.
+    address_suggestion_generator.GenerateSuggestions(
         form_data, field_data, form_structure_.get(), &field(),
-        autofill_client_, on_suggestion_data_returned);
+        autofill_client_, on_suggestions_generated);
     return suggestions;
   }
 
@@ -966,21 +952,6 @@ TEST_F(AddressSuggestionGeneratorTest, CreateSuggestionsFromProfiles) {
             suggestions[0].main_text.value);
 }
 
-TEST_F(AddressSuggestionGeneratorTest, CreateSuggestionsUsingEmailOverride) {
-  AutofillProfile profile1 = test::GetFullProfile();
-  AutofillProfile profile2 = test::GetFullProfile2();
-  FormFieldData triggering_field;
-  triggering_field.set_label(u"Email");
-
-  std::vector<Suggestion> suggestions = CreateSuggestionsFromProfilesForTest(
-      {profile1, profile2}, {EMAIL_ADDRESS}, SuggestionType::kAddressEntry,
-      EMAIL_ADDRESS, triggering_field, "en-US", "plus-address-override@me.com",
-      base::UTF16ToUTF8(profile2.GetRawInfo(EMAIL_ADDRESS)));
-  ASSERT_EQ(suggestions.size(), 2u);
-  EXPECT_EQ(profile1.GetRawInfo(EMAIL_ADDRESS), suggestions[0].main_text.value);
-  EXPECT_EQ(u"plus-address-override@me.com", suggestions[1].main_text.value);
-}
-
 TEST_F(AddressSuggestionGeneratorTest,
        CreateSuggestionsFromProfiles_PhoneSubstring) {
   AutofillProfile profile(i18n_model_definition::kLegacyHierarchyCountryCode);
@@ -1443,10 +1414,6 @@ TEST_F(
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 TEST_F(AddressSuggestionGeneratorTest, GeneratesSuggestions) {
-  base::MockCallback<base::OnceCallback<void(
-      std::pair<SuggestionGenerator::SuggestionDataSource,
-                std::vector<SuggestionGenerator::SuggestionData>>)>>
-      suggestion_data_callback;
   base::MockCallback<
       base::OnceCallback<void(SuggestionGenerator::ReturnedSuggestions)>>
       suggestions_generated_callback;
@@ -1463,103 +1430,19 @@ TEST_F(AddressSuggestionGeneratorTest, GeneratesSuggestions) {
   test_api(*form_structure).SetFieldTypes({NAME_FULL});
 
   AddressSuggestionGenerator generator(
-      /*plus_address_email_override=*/std::nullopt,
       /*log_manager=*/nullptr,
       mojom::AutofillSuggestionTriggerSource::kFormControlElementClicked);
-  std::pair<SuggestionGenerator::SuggestionDataSource,
-            std::vector<SuggestionGenerator::SuggestionData>>
-      saved_callback_argument;
-
-  EXPECT_CALL(
-      suggestion_data_callback,
-      Run(testing::Pair(SuggestionGenerator::SuggestionDataSource::kAddress,
-                        testing::ElementsAre(profile1))))
-      .WillOnce(testing::SaveArg<0>(&saved_callback_argument));
-  generator.FetchSuggestionData(form_data, field, form_structure.get(),
-                                form_structure->field(0), *autofill_client(),
-                                suggestion_data_callback.Get());
 
   EXPECT_CALL(
       suggestions_generated_callback,
       Run(testing::Pair(
-          FillingProduct::kAddress,
+          SuggestionGenerator::SuggestionDataSource::kAddress,
           testing::ElementsAre(
               EqualsSuggestion(SuggestionType::kAddressEntry, u"John H. Doe"),
               EqualsSuggestion(SuggestionType::kSeparator),
               EqualsSuggestion(SuggestionType::kManageAddress)))));
   generator.GenerateSuggestions(form_data, field, form_structure.get(),
                                 form_structure->field(0), *autofill_client(),
-                                {saved_callback_argument},
-                                suggestions_generated_callback.Get());
-}
-
-// Tests that if the `AutofillProfile`s email address is equal to the gaia email
-// and there exists a plus address, it is suggested instead of the
-// `AutofillProfile`s email value.
-TEST_F(AddressSuggestionGeneratorTest,
-       GeneratesSuggestions_UsingFetchedPlusAddressEmailOverride) {
-  base::MockCallback<base::OnceCallback<void(
-      std::pair<SuggestionGenerator::SuggestionDataSource,
-                std::vector<SuggestionGenerator::SuggestionData>>)>>
-      suggestion_data_callback;
-  base::MockCallback<
-      base::OnceCallback<void(SuggestionGenerator::ReturnedSuggestions)>>
-      suggestions_generated_callback;
-
-  AutofillProfile profile1 = test::GetFullProfile();
-  address_data().AddProfile(profile1);
-
-  autofill_client()->identity_test_environment().MakePrimaryAccountAvailable(
-      base::UTF16ToUTF8(profile1.GetRawInfo(EMAIL_ADDRESS)),
-      signin::ConsentLevel::kSignin);
-
-  // Create a form with one field, that expects a full name.
-  FormFieldData field;
-  FormData form_data;
-  test_api(form_data).Append(field);
-  std::unique_ptr<FormStructure> form_structure =
-      std::make_unique<FormStructure>(form_data);
-  test_api(*form_structure).SetFieldTypes({EMAIL_ADDRESS});
-
-  AddressSuggestionGenerator generator(
-      /*plus_address_email_override=*/std::nullopt,
-      /*log_manager=*/nullptr,
-      mojom::AutofillSuggestionTriggerSource::kFormControlElementClicked);
-  std::pair<SuggestionGenerator::SuggestionDataSource,
-            std::vector<SuggestionGenerator::SuggestionData>>
-      saved_callback_argument;
-
-  EXPECT_CALL(
-      suggestion_data_callback,
-      Run(testing::Pair(SuggestionGenerator::SuggestionDataSource::kAddress,
-                        testing::ElementsAre(profile1))))
-      .WillOnce(testing::SaveArg<0>(&saved_callback_argument));
-  generator.FetchSuggestionData(form_data, field, form_structure.get(),
-                                form_structure->field(0), *autofill_client(),
-                                suggestion_data_callback.Get());
-
-  // Simulate that `PlusAddressSuggestionGenerator` fetched a plus address.
-  std::vector<SuggestionGenerator::SuggestionData> plus_address_data;
-  plus_address_data.emplace_back(PlusAddress("email_override@gmail.com"));
-  base::flat_map<SuggestionGenerator::SuggestionDataSource,
-                 std::vector<SuggestionGenerator::SuggestionData>>
-      all_suggestion_data;
-  all_suggestion_data.insert(saved_callback_argument);
-  all_suggestion_data.insert(
-      {SuggestionGenerator::SuggestionDataSource::kPlusAddress,
-       std::move(plus_address_data)});
-
-  EXPECT_CALL(suggestions_generated_callback,
-              Run(testing::Pair(
-                  FillingProduct::kAddress,
-                  testing::ElementsAre(
-                      EqualsSuggestion(SuggestionType::kAddressEntry,
-                                       u"email_override@gmail.com"),
-                      EqualsSuggestion(SuggestionType::kSeparator),
-                      EqualsSuggestion(SuggestionType::kManageAddress)))));
-  generator.GenerateSuggestions(form_data, field, form_structure.get(),
-                                form_structure->field(0), *autofill_client(),
-                                all_suggestion_data,
                                 suggestions_generated_callback.Get());
 }
 

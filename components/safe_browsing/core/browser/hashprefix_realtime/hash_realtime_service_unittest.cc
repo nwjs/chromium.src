@@ -147,10 +147,8 @@ class TestOhttpKeyService : public OhttpKeyService {
     ohttp_key_ = ohttp_key;
   }
 
-  void NotifyLookupResponse(
-      const std::string& key,
-      int response_code,
-      scoped_refptr<net::HttpResponseHeaders> headers) override {
+  void NotifyLookupResponse(const std::string& key,
+                            int response_code) override {
     lookup_response_notified_ = true;
   }
 
@@ -257,12 +255,12 @@ class HashRealTimeServiceTest : public PlatformTest {
  protected:
   std::vector<FullHashStr> UrlToFullHashes(const GURL& url) {
     std::vector<FullHashStr> full_hashes;
-    V4ProtocolManagerUtil::UrlToFullHashes(url, &full_hashes);
+    SBProtocolManagerUtil::UrlToFullHashes(url, &full_hashes);
     return full_hashes;
   }
   FullHashStr UrlToSingleFullHash(const GURL& url) {
     std::vector<FullHashStr> full_hashes;
-    V4ProtocolManagerUtil::UrlToFullHashes(url, &full_hashes);
+    SBProtocolManagerUtil::UrlToFullHashes(url, &full_hashes);
     EXPECT_EQ(full_hashes.size(), 1u);
     return full_hashes[0];
   }

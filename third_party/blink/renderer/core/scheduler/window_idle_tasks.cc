@@ -19,7 +19,6 @@
 #include "third_party/blink/renderer/core/scheduler/web_scheduling_task_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/task_attribution_info.h"
 #include "third_party/blink/renderer/platform/scheduler/public/task_attribution_tracker.h"
 #include "third_party/blink/renderer/platform/scheduler/public/web_scheduling_priority.h"
@@ -46,7 +45,7 @@ class V8IdleTask : public IdleTask {
             ->GetFixedPriorityTaskSignal(
                 script_state, WebSchedulingPriority::kBackgroundPriority);
     web_scheduling_task_state_ = MakeGarbageCollected<WebSchedulingTaskState>(
-        CaptureCurrentTaskStateIfMainWorld(script_state),
+        CaptureCurrentTaskState(scheduling_context),
         MakeGarbageCollected<SchedulerTaskContext>(
             scheduling_context, /*abort_source=*/nullptr, signal));
   }

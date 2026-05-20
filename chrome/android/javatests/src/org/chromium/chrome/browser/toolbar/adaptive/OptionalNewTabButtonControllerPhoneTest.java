@@ -40,10 +40,10 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UserActionTester;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.page.WebPageStation;
@@ -222,7 +222,7 @@ public class OptionalNewTabButtonControllerPhoneTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "crbug.com/1450561")
+    @DisabledTest(message = "crbug.com/40915363")
     public void testButton_hidesOnNtp() {
         mActivityTestRule.loadUrl(mTestPageUrl, /* secondsToWait= */ 10);
         ThreadUtils.runOnUiThreadBlocking(

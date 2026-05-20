@@ -341,13 +341,12 @@ static void PromiseRejectHandler(v8::PromiseRejectMessage data,
   if (data.GetEvent() == v8::kPromiseHandlerAddedAfterReject) {
     rejected_promises.HandlerAdded(data);
     return;
-  } else if (data.GetEvent() == v8::kPromiseRejectAfterResolved ||
-             data.GetEvent() == v8::kPromiseResolveAfterResolved) {
-    // Ignore reject/resolve after resolved.
+  } else if (data.GetEvent() != v8::kPromiseRejectWithNoHandler) {
+    // The only other types are kPromiseRejectAfterResolved and
+    // kPromiseResolveAfterResolved. Those are being deprecated in
+    // V8 so we want to avoid explicitly mentioning them here.
     return;
   }
-
-  DCHECK_EQ(v8::kPromiseRejectWithNoHandler, data.GetEvent());
 
   v8::Isolate* isolate = script_state->GetIsolate();
   ExecutionContext* context = ExecutionContext::From(script_state);
@@ -755,7 +754,7 @@ bool WasmCustomDescriptorsEnabledCallback(v8::Local<v8::Context> context) {
   if (!execution_context) {
     return false;
   }
-  return RuntimeEnabledFeatures::WebAssemblyCustomDescriptorsEnabled(
+  return RuntimeEnabledFeatures::WebAssemblyCustomDescriptorsV2Enabled(
       execution_context);
 }
 
@@ -1255,9 +1254,9 @@ std::ostream& operator<<(std::ostream& os, const PrintV8OOM& oom_details) {
 }
 
 void EmitDevToolsEvent(v8::Isolate* isolate) {
-  TRACE_EVENT_INSTANT1(
-      TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "UpdateCounters",
-      TRACE_EVENT_SCOPE_THREAD, "data", [&](perfetto::TracedValue context) {
+  TRACE_EVENT_INSTANT(
+      TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "UpdateCounters", "data",
+      [&](perfetto::TracedValue context) {
         inspector_update_counters_event::Data(std::move(context), isolate);
       });
 }

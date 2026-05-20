@@ -33,6 +33,7 @@
 #include "services/webnn/public/mojom/webnn_device.mojom-shared.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom.h"
 #include "services/webnn/public/mojom/webnn_graph_builder.mojom.h"
+#include "services/webnn/public/mojom/webnn_service_introspection.mojom.h"
 #include "services/webnn/public/mojom/webnn_tensor.mojom.h"
 #include "services/webnn/scoped_gpu_sequence.h"
 #include "services/webnn/webnn_constant_operand.h"
@@ -132,7 +133,7 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
 
   // WebNNContextImpl:
   base::WeakPtr<WebNNContextImpl> AsWeakPtr() override {
-    DCHECK_CALLED_ON_VALID_SEQUENCE(gpu_sequence_checker_);
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     return weak_factory_.GetWeakPtr();
   }
 
@@ -173,6 +174,11 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
 
   std::string_view GetBackendName() const override { return "Fake Backend"; }
 
+  std::vector<mojom::WebNNExecutionProviderDetailsPtr>
+  GetExecutionProvidersInfo() const override {
+    return {};
+  }
+
   base::WeakPtrFactory<FakeWebNNContextImpl> weak_factory_{this};
 };
 
@@ -204,7 +210,7 @@ class FakeWebNNBackend : public WebNNContextProviderImpl::BackendForTesting {
     auto success = mojom::CreateContextSuccess::New(
         std::move(remote), std::move(context_properties),
         context_impl->handle(), mojo::ScopedDataPipeProducerHandle(),
-        mojo::ScopedDataPipeConsumerHandle());
+        mojo::ScopedDataPipeConsumerHandle(), /*command_buffer_id=*/0);
     std::move(callback).Run(
         mojom::CreateContextResult::NewSuccess(std::move(success)));
     return context_impl;
@@ -6549,7 +6555,7 @@ TEST_F(WebNNGraphImplTest, SliceTest) {
         .Test(*this);
   }
   {
-    // Test that going out-of-bounds of the input tensor fails.
+    // Test that the stride being greater than the size to slice will fail.
     SliceTester{
         .input = {.type = OperandDataType::kFloat32, .dimensions = {2, 2}},
         .attributes = {.starts = {1, 0}, .sizes = {1, 1}, .strides = {2, 2}},

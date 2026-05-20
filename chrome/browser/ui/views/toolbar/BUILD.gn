@@ -9,7 +9,9 @@ import("//ui/webui/webui_features.gni")
 
 source_set("toolbar") {
   public = [
+    "ai_overlay_toolbar_button.h",
     "app_menu.h",
+    "app_menu_control.h",
     "back_forward_button.h",
     "browser_app_menu_button.h",
     "chrome_labs/chrome_labs_bubble_view.h",
@@ -17,7 +19,6 @@ source_set("toolbar") {
     "chrome_labs/chrome_labs_item_view.h",
     "chrome_labs/chrome_labs_view_controller.h",
     "home_button.h",
-    "live_toolbar_background.h",
     "overflow_button.h",
     "pinned_action_toolbar_button.h",
     "pinned_action_toolbar_button_menu_model.h",
@@ -42,6 +43,7 @@ source_set("toolbar") {
     "toolbar_icon_container_view.h",
     "toolbar_ink_drop_util.h",
     "toolbar_view.h",
+    "webui_avatar_toolbar_button.h",
     "webui_back_forward_control.h",
     "webui_home_control.h",
     "webui_pinned_toolbar_actions.h",
@@ -56,6 +58,7 @@ source_set("toolbar") {
     "//chrome/browser/bookmarks",
     "//chrome/browser/glic",
     "//chrome/browser/glic/browser_ui",
+    "//chrome/browser/lifetime",
     "//chrome/browser/ui:browser_element_identifiers",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/color:color_headers",
@@ -94,10 +97,6 @@ source_set("toolbar") {
     "//url",
   ]
 
-  if (enable_webui_tab_strip) {
-    public += [ "webui_tab_counter_button.h" ]
-  }
-
   if (is_chromeos) {
     public_deps += [ "//chromeos/ash/experiences/arc/intent_helper" ]
   }
@@ -105,6 +104,7 @@ source_set("toolbar") {
 
 source_set("impl") {
   sources = [
+    "ai_overlay_toolbar_button.cc",
     "app_menu.cc",
     "back_forward_button.cc",
     "browser_app_menu_button.cc",
@@ -113,7 +113,6 @@ source_set("impl") {
     "chrome_labs/chrome_labs_item_view.cc",
     "chrome_labs/chrome_labs_view_controller.cc",
     "home_button.cc",
-    "live_toolbar_background.cc",
     "overflow_button.cc",
     "pinned_action_toolbar_button.cc",
     "pinned_action_toolbar_button_menu_model.cc",
@@ -136,6 +135,7 @@ source_set("impl") {
     "toolbar_icon_container_view.cc",
     "toolbar_ink_drop_util.cc",
     "toolbar_view.cc",
+    "webui_avatar_toolbar_button.cc",
     "webui_back_forward_control.cc",
     "webui_home_control.cc",
     "webui_pinned_toolbar_actions.cc",
@@ -169,6 +169,7 @@ source_set("impl") {
     "//chrome/browser/external_protocol",
     "//chrome/browser/feedback",
     "//chrome/browser/glic/browser_ui",
+    "//chrome/browser/lifetime",
     "//chrome/browser/media/router:media_router_feature",
     "//chrome/browser/performance_manager/public/user_tuning",
     "//chrome/browser/prefs",
@@ -196,6 +197,7 @@ source_set("impl") {
     "//chrome/browser/ui/profiles",
     "//chrome/browser/ui/safety_hub",
     "//chrome/browser/ui/side_panel:side_panel_views_dependent",
+    "//chrome/browser/ui/signin",
     "//chrome/browser/ui/tabs:glic",
     "//chrome/browser/ui/tabs:tab_enums",
     "//chrome/browser/ui/tabs:tab_strip",
@@ -225,6 +227,7 @@ source_set("impl") {
     "//components/autofill/core/common:features",
     "//components/feature_engagement/public",
     "//components/omnibox/browser",
+    "//components/password_manager/content/common",
     "//components/performance_manager",
     "//components/safe_browsing/core/common",
     "//components/send_tab_to_self",
@@ -258,10 +261,6 @@ source_set("impl") {
     "//ui/native_theme",
     "//ui/views/controls/webview",
   ]
-
-  if (enable_webui_tab_strip) {
-    sources += [ "webui_tab_counter_button.cc" ]
-  }
 
   if (use_aura) {
     deps += [ "//ui/aura" ]
@@ -301,6 +300,7 @@ if (!is_android) {
       "//testing/gmock",
       "//testing/gtest",
       "//ui/views",
+      "//ui/views/interaction:test_support",
     ]
   }
 
@@ -348,10 +348,6 @@ if (!is_android) {
 
       deps += [ "//chrome/browser/ui/webui:webui_util" ]
     }
-
-    if (enable_webui_tab_strip) {
-      sources += [ "webui_tab_counter_button_browsertest.cc" ]
-    }
   }
 }
 
@@ -371,9 +367,12 @@ if (!is_android && !is_chromeos_device) {
         "reload_button_browsertest.cc",
         "split_tabs_button_interactive_ui_test.cc",
         "tab_search_toolbar_button_interactive_uitest.cc",
+        "toolbar_accessibility_test.cc",
+        "toolbar_accessibility_test.h",
         "toolbar_action_hover_card_bubble_view_interactive_uitest.cc",
         "toolbar_controller_interactive_uitest.cc",
         "toolbar_view_interactive_uitest.cc",
+        "webui_toolbar_interactive_uitest.cc",
         "webui_toolbar_web_view_uitest.cc",
       ]
     }
@@ -383,6 +382,7 @@ if (!is_android && !is_chromeos_device) {
     }
 
     deps = [
+      ":test_support",
       ":toolbar",
       "//base",
       "//chrome/app:generated_resources",
@@ -390,6 +390,7 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser/bookmarks",
       "//chrome/browser/devtools",
       "//chrome/browser/extensions",
+      "//chrome/browser/profiles:misc",
       "//chrome/browser/ui:tab_search_feature",
       "//chrome/browser/ui:test_support",
       "//chrome/browser/ui:ui_features",
@@ -397,6 +398,7 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser/ui/tabs:tab_menu",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/views/frame",
+      "//chrome/browser/ui/views/page_info",
       "//chrome/browser/ui/waap:manager",
       "//chrome/browser/user_education",
       "//chrome/test:test_support",

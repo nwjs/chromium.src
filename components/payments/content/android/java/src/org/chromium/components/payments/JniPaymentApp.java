@@ -18,6 +18,7 @@ import org.jni_zero.NativeMethods;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.payments.mojom.PaymentDetailsModifier;
+import org.chromium.payments.mojom.PaymentEventResponseType;
 import org.chromium.payments.mojom.PaymentItem;
 import org.chromium.payments.mojom.PaymentMethodData;
 import org.chromium.payments.mojom.PaymentOptions;
@@ -106,11 +107,11 @@ public class JniPaymentApp extends PaymentApp {
     }
 
     @CalledByNative
-    public void onInvokeError(String errorMessage) {
+    public void onInvokeError(@PaymentEventResponseType.EnumType int error, String errorMessage) {
         mHandler.post(
                 () -> {
                     if (mInvokeCallback == null) return;
-                    mInvokeCallback.onInstrumentDetailsError(errorMessage);
+                    mInvokeCallback.onInstrumentDetailsError(error, errorMessage);
                     mInvokeCallback = null;
                 });
     }
@@ -259,7 +260,7 @@ public class JniPaymentApp extends PaymentApp {
     @Override
     public void dismissInstrument() {
         if (mNativeObject == 0) return;
-        JniPaymentAppJni.get().freeNativeObject(mNativeObject);
+        JniPaymentAppJni.get().freeNativeObjectSoon(mNativeObject);
         mNativeObject = 0;
     }
 
@@ -326,7 +327,7 @@ public class JniPaymentApp extends PaymentApp {
 
         void setPaymentHandlerHost(long nativeJniPaymentApp, PaymentHandlerHost paymentHandlerHost);
 
-        void freeNativeObject(long nativeJniPaymentApp);
+        void freeNativeObjectSoon(long nativeJniPaymentApp);
 
         byte[] setAppSpecificResponseFields(long nativeJniPaymentApp, ByteBuffer paymentResponse);
     }

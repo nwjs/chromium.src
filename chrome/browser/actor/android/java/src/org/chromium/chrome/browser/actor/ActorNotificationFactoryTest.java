@@ -13,11 +13,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
+import android.app.Activity;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -29,6 +31,8 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowNotification;
 
+import org.chromium.base.ActivityState;
+import org.chromium.base.ApplicationStatus;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.actor.ui.R;
 import org.chromium.chrome.browser.notifications.NotificationIntentInterceptor;
@@ -47,6 +51,7 @@ public class ActorNotificationFactoryTest {
     @Mock private Profile mProfile;
     @Mock private ProfileResolver.Natives mProfileResolverNatives;
     @Mock private ActorForegroundServiceController mServiceController;
+    @Mock private Activity mActivity;
 
     private Context mContext;
     private static final String TASK_TITLE = "Test Task";
@@ -56,6 +61,10 @@ public class ActorNotificationFactoryTest {
         mContext = RuntimeEnvironment.application;
         ProfileResolverJni.setInstanceForTesting(mProfileResolverNatives);
         ActorForegroundServiceController.setInstanceForTesting(mServiceController);
+        if (!ApplicationStatus.isInitialized()) {
+            ApplicationStatus.initialize(RuntimeEnvironment.application);
+        }
+        ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.CREATED);
 
         when(mTask.getId()).thenReturn(1);
         when(mTask.getTitle()).thenReturn(TASK_TITLE);
@@ -64,10 +73,16 @@ public class ActorNotificationFactoryTest {
                 .thenReturn(new Intent("DEFAULT_ACTION"));
     }
 
+    @After
+    public void tearDown() {
+        ApplicationStatus.destroyForJUnitTests();
+    }
+
     @Test
     public void testBuildNotification_Running() {
         NotificationWrapper wrapper =
-                ActorNotificationFactory.buildNotification(mTask, ActorTaskState.ACTING);
+                ActorNotificationFactory.buildNotification(
+                        mTask, ActorTaskState.ACTING, /* isSilent= */ false);
 
         assertNotNull("Notification wrapper should not be null", wrapper);
         Notification notification = wrapper.getNotification();
@@ -104,7 +119,8 @@ public class ActorNotificationFactoryTest {
     @Test
     public void testBuildNotification_Paused() {
         NotificationWrapper wrapper =
-                ActorNotificationFactory.buildNotification(mTask, ActorTaskState.PAUSED_BY_USER);
+                ActorNotificationFactory.buildNotification(
+                        mTask, ActorTaskState.PAUSED_BY_USER, /* isSilent= */ false);
 
         assertNotNull("Notification wrapper should not be null", wrapper);
         Notification notification = wrapper.getNotification();
@@ -141,7 +157,8 @@ public class ActorNotificationFactoryTest {
     @Test
     public void testBuildNotification_WaitingOnUser() {
         NotificationWrapper wrapper =
-                ActorNotificationFactory.buildNotification(mTask, ActorTaskState.WAITING_ON_USER);
+                ActorNotificationFactory.buildNotification(
+                        mTask, ActorTaskState.WAITING_ON_USER, /* isSilent= */ false);
 
         assertNotNull("Notification wrapper should not be null", wrapper);
         Notification notification = wrapper.getNotification();
@@ -178,7 +195,8 @@ public class ActorNotificationFactoryTest {
         when(mServiceController.createTrustedBringTabToFrontIntent(mTask)).thenReturn(mockIntent);
 
         NotificationWrapper wrapper =
-                ActorNotificationFactory.buildNotification(mTask, ActorTaskState.WAITING_ON_USER);
+                ActorNotificationFactory.buildNotification(
+                        mTask, ActorTaskState.WAITING_ON_USER, /* isSilent= */ false);
 
         verify(mServiceController, atLeastOnce()).createTrustedBringTabToFrontIntent(mTask);
         Notification notification = wrapper.getNotification();
@@ -196,7 +214,8 @@ public class ActorNotificationFactoryTest {
     @Test
     public void testBuildNotification_Complete() {
         NotificationWrapper wrapper =
-                ActorNotificationFactory.buildNotification(mTask, ActorTaskState.FINISHED);
+                ActorNotificationFactory.buildNotification(
+                        mTask, ActorTaskState.FINISHED, /* isSilent= */ false);
 
         assertNotNull("Notification wrapper should not be null", wrapper);
         Notification notification = wrapper.getNotification();
@@ -230,10 +249,51 @@ public class ActorNotificationFactoryTest {
     }
 
     @Test
+    public void testBuildNotification_Reflecting() {
+        NotificationWrapper wrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask, ActorTaskState.REFLECTING, /* isSilent= */ false);
+
+        assertNotNull("Notification wrapper should not be null", wrapper);
+        Notification notification = wrapper.getNotification();
+        assertEquals(
+                "Content title should match status",
+                mContext.getString(R.string.actor_notification_title_working_on_task),
+                shadowOf(notification).getContentTitle());
+        assertNotNull("Content intent should be set", notification.contentIntent);
+        assertEquals("Should have 2 actions", 2, notification.actions.length);
+        assertEquals(
+                "First action should be 'View task'",
+                mContext.getString(R.string.actor_notification_button_view_task),
+                notification.actions[0].title);
+    }
+
+    @Test
+    public void testBuildNotification_PausedByActor() {
+        NotificationWrapper wrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask, ActorTaskState.PAUSED_BY_ACTOR, /* isSilent= */ false);
+
+        assertNotNull("Notification wrapper should not be null", wrapper);
+        Notification notification = wrapper.getNotification();
+        assertEquals(
+                "Content title should match status",
+                mContext.getString(R.string.actor_notification_title_task_paused),
+                shadowOf(notification).getContentTitle());
+        assertNotNull("Content intent should be set", notification.contentIntent);
+        assertEquals("Should have 2 actions", 2, notification.actions.length);
+        assertEquals(
+                "First action should be 'View task'",
+                mContext.getString(R.string.actor_notification_button_view_task),
+                notification.actions[0].title);
+    }
+
+    @Test
     public void testBuildNotification_Interrupted() {
         // Use an unhandled state to trigger the fallback
         NotificationWrapper wrapper =
-                ActorNotificationFactory.buildNotification(mTask, ActorTaskState.PAUSED_BY_ACTOR);
+                ActorNotificationFactory.buildNotification(
+                        mTask, ActorTaskState.FAILED, /* isSilent= */ false);
 
         assertNotNull("Notification wrapper should not be null", wrapper);
         Notification notification = wrapper.getNotification();
@@ -241,7 +301,7 @@ public class ActorNotificationFactoryTest {
         ShadowNotification shadowNotification = shadowOf(notification);
 
         assertEquals(
-                "Content title should match paused status for fallback",
+                "Content title should match interrupted status for fallback",
                 mContext.getString(R.string.actor_notification_title_task_interrupted),
                 shadowNotification.getContentTitle());
         assertEquals(
@@ -255,6 +315,7 @@ public class ActorNotificationFactoryTest {
         assertFalse(
                 "Notification should not be ongoing",
                 (notification.flags & Notification.FLAG_ONGOING_EVENT) != 0);
+        assertNotNull("Content intent should be set", notification.contentIntent);
     }
 
     @Test
@@ -262,7 +323,8 @@ public class ActorNotificationFactoryTest {
         when(mServiceController.createTrustedBringTabToFrontIntent(mTask)).thenReturn(null);
 
         NotificationWrapper wrapper =
-                ActorNotificationFactory.buildNotification(mTask, ActorTaskState.ACTING);
+                ActorNotificationFactory.buildNotification(
+                        mTask, ActorTaskState.ACTING, /* isSilent= */ false);
 
         Notification notification = wrapper.getNotification();
         // Acting notification normally has 2 actions: View and Pause.
@@ -275,5 +337,17 @@ public class ActorNotificationFactoryTest {
                 "Remaining action should be 'Pause task'",
                 mContext.getString(R.string.actor_notification_button_pause_task),
                 notification.actions[0].title);
+    }
+
+    @Test
+    public void testBuildNotification_Silencing_Background() {
+        ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.STOPPED);
+
+        NotificationWrapper wrapper =
+                ActorNotificationFactory.buildNotification(
+                        mTask, ActorTaskState.ACTING, /* isSilent= */ true);
+
+        assertNotNull("Notification wrapper should not be null", wrapper);
+        assertTrue("Notification should be silent", wrapper.isSilent());
     }
 }

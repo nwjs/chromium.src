@@ -13,8 +13,8 @@
 #include "base/test/bind.h"
 #include "base/test/mock_callback.h"
 #include "base/test/task_environment.h"
+#include "components/accessibility_annotator/core/annotation_reducer/entry_type.h"
 #include "components/accessibility_annotator/core/annotation_reducer/memory_search_result.h"
-#include "components/accessibility_annotator/core/annotation_reducer/query_intent_type.h"
 #include "components/accessibility_annotator/core/data_models/entity_types.h"
 #include "components/accessibility_annotator/core/storage/test_accessibility_annotator_backend.h"
 #include "components/sync/protocol/accessibility_annotation_specifics.pb.h"
@@ -25,21 +25,28 @@ namespace accessibility_annotator {
 namespace {
 
 using ::testing::AllOf;
+using ::testing::ElementsAre;
 using ::testing::Field;
 using ::testing::IsEmpty;
-using ::testing::UnorderedElementsAre;
 
 testing::Matcher<MemorySearchResult> MatchesMemorySearchResult(
-    QueryIntentType expected_type,
+    EntryType expected_type,
     std::u16string_view expected_value) {
   return AllOf(Field(&MemorySearchResult::type, expected_type),
                Field(&MemorySearchResult::value, expected_value));
 }
 
-sync_pb::AccessibilityAnnotationSpecifics CreateSpecifics(const std::string& id,
-                                                          EntityType type) {
+sync_pb::AccessibilityAnnotationSpecifics
+CreateSpecifics(const std::string& id, EntityType type, int64_t timestamp = 0) {
   sync_pb::AccessibilityAnnotationSpecifics specifics;
   specifics.set_id(id);
+
+  if (timestamp > 0) {
+    auto* source = specifics.add_sources();
+    source->mutable_gmail_source()->set_received_time_unix_epoch_seconds(
+        timestamp);
+  }
+
   switch (type) {
     case EntityType::kOrder:
       specifics.mutable_order()->set_order_id("order_" + id);
@@ -76,30 +83,76 @@ TEST_F(SyncBridgeDataProviderTest, RetrieveAll_SingleEntry) {
   base::RunLoop run_loop;
   base::MockCallback<base::OnceCallback<void(std::vector<MemorySearchResult>)>>
       callback;
-  EXPECT_CALL(callback, Run(UnorderedElementsAre(MatchesMemorySearchResult(
-                            QueryIntentType::kOrderId, u"order_1"))))
+  EXPECT_CALL(callback, Run(ElementsAre(MatchesMemorySearchResult(
+                            EntryType::kOrderId, u"order_1"))))
       .WillOnce([&]() { run_loop.Quit(); });
 
-  provider()->RetrieveAll(QueryIntentType::kOrderId, callback.Get());
+  provider()->RetrieveAll(EntryType::kOrderId, callback.Get());
   run_loop.Run();
 }
 
-TEST_F(SyncBridgeDataProviderTest, RetrieveAll_MultipleEntriesAndFiltering) {
+TEST_F(SyncBridgeDataProviderTest,
+       RetrieveAll_MultipleEntriesAndFiltering_SortsByTimestamp) {
   backend_.SetSyncAnnotations(
-      {CreateSpecifics("1", EntityType::kOrder),
-       CreateSpecifics("2", EntityType::kFlightReservation),
-       CreateSpecifics("3", EntityType::kOrder)});
+      {CreateSpecifics("1", EntityType::kOrder, /*timestamp=*/100),
+       CreateSpecifics("2", EntityType::kFlightReservation, /*timestamp=*/400),
+       CreateSpecifics("3", EntityType::kOrder, /*timestamp=*/200),
+       CreateSpecifics("4", EntityType::kOrder, /*timestamp=*/50)});
 
   base::RunLoop run_loop;
   base::MockCallback<base::OnceCallback<void(std::vector<MemorySearchResult>)>>
       callback;
-  EXPECT_CALL(
-      callback,
-      Run(UnorderedElementsAre(
-          MatchesMemorySearchResult(QueryIntentType::kOrderId, u"order_1"),
-          MatchesMemorySearchResult(QueryIntentType::kOrderId, u"order_3"))))
+  // Order 3 has timestamp 200, Order 1 has 100, Order 4 has 50.
+  // We expect them to be sorted in descending order of timestamp.
+  EXPECT_CALL(callback,
+              Run(ElementsAre(
+                  MatchesMemorySearchResult(EntryType::kOrderId, u"order_3"),
+                  MatchesMemorySearchResult(EntryType::kOrderId, u"order_1"),
+                  MatchesMemorySearchResult(EntryType::kOrderId, u"order_4"))))
       .WillOnce([&]() { run_loop.Quit(); });
-  provider()->RetrieveAll(QueryIntentType::kOrderId, callback.Get());
+  provider()->RetrieveAll(EntryType::kOrderId, callback.Get());
+  run_loop.Run();
+}
+
+TEST_F(SyncBridgeDataProviderTest,
+       RetrieveAll_MultipleSourcesForSameEntity_SortsByMaxTimestamp) {
+  sync_pb::AccessibilityAnnotationSpecifics specifics1 =
+      CreateSpecifics("1", EntityType::kOrder, /*timestamp=*/100);
+
+  sync_pb::AccessibilityAnnotationSpecifics specifics2;
+  specifics2.set_id("2");
+  specifics2.mutable_order()->set_order_id("order_2");
+  auto* source2_1 = specifics2.add_sources();
+  source2_1->mutable_gmail_source()->set_received_time_unix_epoch_seconds(50);
+  auto* source2_2 = specifics2.add_sources();
+  source2_2->mutable_calendar_source()->set_modified_time_unix_epoch_seconds(
+      400);
+  auto* source2_3 = specifics2.add_sources();
+  source2_3->mutable_photos_source()->set_creation_time_unix_epoch_seconds(150);
+
+  sync_pb::AccessibilityAnnotationSpecifics specifics3;
+  specifics3.set_id("3");
+  specifics3.mutable_order()->set_order_id("order_3");
+  auto* source3_1 = specifics3.add_sources();
+  source3_1->mutable_photos_source()->set_creation_time_unix_epoch_seconds(200);
+  auto* source3_2 = specifics3.add_sources();
+  source3_2->mutable_gmail_source()->set_received_time_unix_epoch_seconds(10);
+
+  backend_.SetSyncAnnotations({specifics1, specifics2, specifics3});
+
+  base::RunLoop run_loop;
+  base::MockCallback<base::OnceCallback<void(std::vector<MemorySearchResult>)>>
+      callback;
+  // Order 2 has max timestamp 400, Order 3 has max timestamp 200, Order 1 has
+  // 100. We expect them to be sorted in descending order of their max
+  // timestamp.
+  EXPECT_CALL(callback,
+              Run(ElementsAre(
+                  MatchesMemorySearchResult(EntryType::kOrderId, u"order_2"),
+                  MatchesMemorySearchResult(EntryType::kOrderId, u"order_3"),
+                  MatchesMemorySearchResult(EntryType::kOrderId, u"order_1"))))
+      .WillOnce([&]() { run_loop.Quit(); });
+  provider()->RetrieveAll(EntryType::kOrderId, callback.Get());
   run_loop.Run();
 }
 
@@ -110,7 +163,7 @@ TEST_F(SyncBridgeDataProviderTest, RetrieveAll_EmptyBackend) {
   base::MockCallback<base::OnceCallback<void(std::vector<MemorySearchResult>)>>
       callback;
   EXPECT_CALL(callback, Run(IsEmpty())).WillOnce([&]() { run_loop.Quit(); });
-  provider()->RetrieveAll(QueryIntentType::kOrderId, callback.Get());
+  provider()->RetrieveAll(EntryType::kOrderId, callback.Get());
   run_loop.Run();
 }
 

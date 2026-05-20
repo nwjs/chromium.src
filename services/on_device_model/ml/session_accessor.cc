@@ -18,6 +18,11 @@ namespace ml {
 
 namespace {
 
+// Whether to respect the constrained decoding hint for early tokenizer
+// initialization.
+BASE_FEATURE(kOnDeviceModelConstrainedDecodingHint,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 namespace odmm = ::on_device_model::mojom;
 
 float GetTemperature(std::optional<float> temperature) {
@@ -55,14 +60,13 @@ class SessionAccessor::Canceler : public base::RefCountedThreadSafe<Canceler> {
  private:
   friend class base::RefCountedThreadSafe<Canceler>;
 
-  DISABLE_CFI_DLSYM
   static void DestroyChromeMLCancel(const raw_ref<const ChromeML> chrome_ml,
                                     ChromeMLCancel cancel = 0) {
     if (cancel == 0) {
       return;
     }
 
-    chrome_ml->api().DestroyCancel(cancel);
+    chrome_ml->DestroyCancel(cancel);
   }
 
   virtual ~Canceler() {
@@ -75,11 +79,9 @@ class SessionAccessor::Canceler : public base::RefCountedThreadSafe<Canceler> {
                                   chrome_ml_, cancel_));
   }
 
-  DISABLE_CFI_DLSYM
-  void CreateInternal() { cancel_ = chrome_ml_->api().CreateCancel(); }
+  void CreateInternal() { cancel_ = chrome_ml_->CreateCancel(); }
 
-  DISABLE_CFI_DLSYM
-  void CancelInternal() { chrome_ml_->api().CancelExecuteModel(get()); }
+  void CancelInternal() { chrome_ml_->CancelExecuteModel(get()); }
 
   const raw_ref<const ChromeML> chrome_ml_;
   ChromeMLCancel cancel_ = 0;
@@ -105,10 +107,9 @@ SessionAccessor::Ptr SessionAccessor::Create(
   return handle;
 }
 
-DISABLE_CFI_DLSYM
 SessionAccessor::~SessionAccessor() {
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  chrome_ml_->api().DestroySession(session_);
+  chrome_ml_->DestroySession(session_);
 }
 
 SessionAccessor::SessionAccessor(
@@ -191,6 +192,15 @@ void SessionAccessor::GetProbabilitiesBlocking(
                      base::Unretained(this), input, std::move(get_prob_fn)));
 }
 
+void SessionAccessor::Hint(on_device_model::mojom::HintOptionsPtr options,
+                           ConstraintFactory* constraint_factory) {
+  TRACE_EVENT("optimization_guide", "SessionAccessor::Hint");
+  task_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(&SessionAccessor::HintInternal, base::Unretained(this),
+                     std::move(options), base::Unretained(constraint_factory)));
+}
+
 void SessionAccessor::SizeInTokens(on_device_model::mojom::InputPtr input,
                                    ChromeMLSizeInTokensFn size_in_tokens_fn) {
   TRACE_EVENT("optimization_guide", "SessionAccessor::SizeInTokens");
@@ -202,13 +212,16 @@ void SessionAccessor::SizeInTokens(on_device_model::mojom::InputPtr input,
 
 void SessionAccessor::CreateAsrStream(
     odmm::AsrStreamOptionsPtr options,
-    const ChromeMLASRStreamOutputFn output_fn) {
+    const ChromeMLASRStreamOutputFn output_fn,
+    base::OnceCallback<void(std::optional<odmm::AsrError>)> done_callback) {
   TRACE_EVENT("optimization_guide", "SessionAccessor::CreateAsrStream");
   DCHECK(output_fn);
-  task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&SessionAccessor::CreateAsrStreamInternal,
-                                base::Unretained(this), std::move(options),
-                                std::move(output_fn)));
+  task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&SessionAccessor::CreateAsrStreamInternal,
+                     base::Unretained(this), std::move(options),
+                     std::move(output_fn)),
+      std::move(done_callback));
 }
 
 void SessionAccessor::AsrAddAudioChunk(odmm::AudioDataPtr data) {
@@ -218,14 +231,12 @@ void SessionAccessor::AsrAddAudioChunk(odmm::AudioDataPtr data) {
                                 base::Unretained(this), std::move(data)));
 }
 
-DISABLE_CFI_DLSYM
 void SessionAccessor::CloneFrom(SessionAccessor* other) {
   TRACE_EVENT("optimization_guide", "SessionAccessor::CloneFrom");
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  session_ = chrome_ml_->api().CloneSession(other->session_);
+  session_ = chrome_ml_->CloneSession(other->session_);
 }
 
-DISABLE_CFI_DLSYM
 void SessionAccessor::CreateInternal(
     on_device_model::mojom::SessionParamsPtr params,
     on_device_model::mojom::LoadAdaptationParamsPtr adaptation_params,
@@ -268,10 +279,9 @@ void SessionAccessor::CreateInternal(
       descriptor.model_data = &data;
     }
   }
-  session_ = chrome_ml_->api().CreateSession(model_, &descriptor);
+  session_ = chrome_ml_->CreateSession(model_, &descriptor);
 }
 
-DISABLE_CFI_DLSYM
 void SessionAccessor::AppendInternal(
     perfetto::Track perfetto_id,
     on_device_model::mojom::AppendOptionsPtr append_options,
@@ -303,10 +313,9 @@ void SessionAccessor::AppendInternal(
       .context_saved_fn = &context_saved_fn,
       .input_source = source,
   };
-  chrome_ml_->api().SessionAppend(session_, &options, canceler->get());
+  chrome_ml_->SessionAppend(session_, &options, canceler->get());
 }
 
-DISABLE_CFI_DLSYM
 void SessionAccessor::GenerateInternal(
     perfetto::Track perfetto_id,
     on_device_model::mojom::GenerateOptionsPtr generate_options,
@@ -334,41 +343,46 @@ void SessionAccessor::GenerateInternal(
       .constraint = constraint,
       .output_fn = &output_fn,
   };
-  chrome_ml_->api().SessionGenerate(session_, &options, canceler->get());
+  chrome_ml_->SessionGenerate(session_, &options, canceler->get());
 }
 
-DISABLE_CFI_DLSYM
 void SessionAccessor::ScoreInternal(const std::string& text,
                                     ChromeMLScoreFn score_fn) {
   TRACE_EVENT("optimization_guide", "SessionAccessor::ScoreInternal");
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  chrome_ml_->api().SessionScore(session_, text, score_fn);
+  chrome_ml_->SessionScore(session_, text, score_fn);
 }
 
-DISABLE_CFI_DLSYM
+void SessionAccessor::HintInternal(
+    on_device_model::mojom::HintOptionsPtr options,
+    ConstraintFactory* constraint_factory) {
+  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  if (options->constrained_decoding_hint &&
+      base::FeatureList::IsEnabled(kOnDeviceModelConstrainedDecodingHint)) {
+    constraint_factory->InitializeTokenizer(model_, session_);
+  }
+}
+
 void SessionAccessor::GetProbabilitiesBlockingInternal(
     const std::string& input,
     ChromeMLGetProbabilitiesBlockingFn get_prob_fn) {
   TRACE_EVENT("optimization_guide",
               "SessionAccessor::GetProbabilitiesBlockingInternal");
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  chrome_ml_->api().SessionGetProbabilitiesBlocking(session_, input,
-                                                    get_prob_fn);
+  chrome_ml_->SessionGetProbabilitiesBlocking(session_, input, get_prob_fn);
 }
 
-DISABLE_CFI_DLSYM
 void SessionAccessor::SizeInTokensInternal(
     on_device_model::mojom::InputPtr input,
     ChromeMLSizeInTokensFn size_in_tokens_fn) {
   TRACE_EVENT("optimization_guide", "SessionAccessor::SizeInTokensInternal");
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  chrome_ml_->api().SessionSizeInTokensInputPiece(
+  chrome_ml_->SessionSizeInTokensInputPiece(
       session_, model_, input->pieces.data(), input->pieces.size(),
       size_in_tokens_fn);
 }
 
-DISABLE_CFI_DLSYM
-void SessionAccessor::CreateAsrStreamInternal(
+std::optional<odmm::AsrError> SessionAccessor::CreateAsrStreamInternal(
     odmm::AsrStreamOptionsPtr asr_options,
     const ChromeMLASRStreamOutputFn output_fn) {
   TRACE_EVENT("optimization_guide", "SessionAccessor::CreateAsrStreamInternal");
@@ -378,10 +392,13 @@ void SessionAccessor::CreateAsrStreamInternal(
       .sample_rate_hz = asr_options->sample_rate_hz,
       .output_fn = &output_fn,
   };
-  asr_stream_ = chrome_ml_->api().asr_api.CreateStream(session_, &options);
+  asr_stream_ = chrome_ml_->ASRCreateStream(session_, &options);
+  if (asr_stream_ == 0) {
+    return odmm::AsrError::kInitializationFailed;
+  }
+  return std::nullopt;
 }
 
-DISABLE_CFI_DLSYM
 void SessionAccessor::AsrAddAudioChunkInternal(odmm::AudioDataPtr data) {
   TRACE_EVENT("optimization_guide.debug",
               "SessionAccessor::AsrAddAudioChunkInternal");
@@ -392,7 +409,7 @@ void SessionAccessor::AsrAddAudioChunkInternal(odmm::AudioDataPtr data) {
   audio.num_channels = data->channel_count;
   audio.num_frames = data->frame_count;
   audio.data = std::move(data->data);
-  chrome_ml_->api().asr_api.AddAudioChunk(asr_stream_, &audio);
+  chrome_ml_->ASRAddAudioChunk(asr_stream_, &audio);
 }
 
 }  // namespace ml

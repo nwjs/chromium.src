@@ -801,7 +801,6 @@ public class ClearBrowsingDataFragment extends ChromeBaseSettingsFragment
                 SignOutCoordinator.startSignOutFlow(
                         requireContext(),
                         getProfile(),
-                        getActivity().getSupportFragmentManager(),
                         ((ModalDialogManagerHolder) getActivity()).getModalDialogManager(),
                         ((SnackbarManager.SnackbarManageable) getActivity()).getSnackbarManager(),
                         SignoutReason.USER_CLICKED_SIGNOUT_FROM_CLEAR_BROWSING_DATA_PAGE,
@@ -933,8 +932,8 @@ public class ClearBrowsingDataFragment extends ChromeBaseSettingsFragment
     private void showSnackbar() {
         SnackbarManager snackbarManager = null;
         Activity activity = getLastFocusedActivity();
-        if (activity instanceof SnackbarManager.SnackbarManageable) {
-            snackbarManager = ((SnackbarManager.SnackbarManageable) activity).getSnackbarManager();
+        if (activity instanceof SnackbarManager.SnackbarManageable manageable) {
+            snackbarManager = manageable.getSnackbarManager();
         }
         if (snackbarManager == null) return;
 

@@ -8,8 +8,10 @@ const CGFloat kOmniboxMinHeight = 44.0;
 const CGFloat kOmniboxIPadMinHeight = 56.0;
 
 const CGFloat kInputPlateMargin = 10.0f;
+const CGFloat kInputPlateIpadMargin = 12.0f;
 
 const CGFloat kInputPlateCornerRadius = 24.0f;
+const CGFloat kInputPlateIpadCornerRadius = 30.0f;
 
 const CGFloat kComposeboxOmniboxLayoutGuideHorizontalMargin = 10.0f;
 
@@ -44,11 +46,6 @@ NSString* const kComposeboxAttachCurrentTabActionAccessibilityIdentifier =
     @"kComposeboxAttachCurrentTabActionAccessibilityIdentifier";
 NSString* const kComposeboxSelectTabsActionAccessibilityIdentifier =
     @"kComposeboxSelectTabsActionAccessibilityIdentifier";
-
-NSString* const kComposeboxTabPickerCollectionViewAccessibilityIdentifier =
-    @"kComposeboxTabPickerCollectionViewAccessibilityIdentifier";
-NSString* const kComposeboxTabPickerEmptyStateViewAccessibilityIdentifier =
-    @"kComposeboxTabPickerEmptyStateViewAccessibilityIdentifier";
 
 NSString* const kComposeboxCarouselAccessibilityIdentifier =
     @"kComposeboxCarouselAccessibilityIdentifier";

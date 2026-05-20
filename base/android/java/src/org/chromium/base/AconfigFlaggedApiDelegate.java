@@ -19,6 +19,7 @@ import android.os.ParcelFileDescriptor;
 import android.util.Pair;
 import android.util.SparseArray;
 import android.view.Display;
+import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.inputmethod.EditorInfo;
@@ -244,7 +245,7 @@ public interface AconfigFlaggedApiDelegate {
      */
     default void setSelection(
             AccessibilityNodeInfoCompat info,
-            android.view.View view,
+            View view,
             int startVirtualDescendantId,
             int startOffset,
             int endVirtualDescendantId,
@@ -317,11 +318,6 @@ public interface AconfigFlaggedApiDelegate {
     default @Nullable Pair<Integer, Integer> getActionSetExtendedSelectionEndArgument(
             Bundle arguments) {
         return null;
-    }
-
-    /** Checks if native-only services are available on this build of Android */
-    default boolean areNativeOnlyServicesEnabled() {
-        return false;
     }
 
     /** Checks if {@link android.content.pm.webapp.WebAppManager} service is available. */
@@ -491,5 +487,44 @@ public interface AconfigFlaggedApiDelegate {
         Promise<Boolean> promise = new Promise<>();
         promise.reject(new UnsupportedOperationException("Not supported"));
         return promise;
+    }
+
+    /**
+     * Sends an intent to the Android platform to display a dialog about the restricted content.
+     *
+     * @param uri The URI of the content being restricted.
+     * @return true if the intent was sent successfully, false otherwise.
+     */
+    default boolean sendShowRestrictedContentIntent(Uri uri) {
+        return false;
+    }
+
+    /**
+     * Checks if the Native WebView Zygote is enabled.
+     *
+     * @param delegate the WebViewDelegate used to check the state.
+     */
+    default boolean isNativeWebViewZygoteEnabled(WebViewDelegate delegate) {
+        return false;
+    }
+
+    /** Checks if the system contacts picker is enabled. */
+    default boolean isSystemContactsPickerEnabled() {
+        return false;
+    }
+
+    /** Returns the ACTION_PICK_CONTACTS intent action string if supported. */
+    default @Nullable String getSystemContactsPickerAction() {
+        return null;
+    }
+
+    /** Returns the EXTRA_PICK_CONTACTS_REQUESTED_DATA_FIELDS intent extra string if supported. */
+    default @Nullable String getSystemContactsPickerExtraRequestedDataFields() {
+        return null;
+    }
+
+    /** Returns the Contacts Picker session provider authority string if supported. */
+    default @Nullable String getSystemContactsPickerAuthority() {
+        return null;
     }
 }

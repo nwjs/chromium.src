@@ -8,16 +8,17 @@ import static org.chromium.content.browser.accessibility.AccessibilityContentShe
 import static org.chromium.content.browser.accessibility.AccessibilityContentShellActivityTestRule.RESULTS_NULL;
 
 import android.annotation.SuppressLint;
+import android.os.Build;
+import android.os.Build.VERSION_CODES_FULL;
 
 import androidx.test.filters.SmallTest;
 
 import org.junit.Assert;
-import org.junit.Before;
+import org.junit.Assume;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import org.chromium.base.CommandLine;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
@@ -25,12 +26,12 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.TestAnimations;
 import org.chromium.content.common.ContentInternalFeatures;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.test.ContentJUnit4ClassRunner;
-import org.chromium.content_public.common.ContentSwitches;
 import org.chromium.ui.test.util.DeviceRestriction;
 
 /** Tests for WebContentsAccessibilityImpl integration with accessibility services. */
@@ -52,6 +53,8 @@ public class WebContentsAccessibilityTreeTest {
     // File path that holds all the relevant tests.
     private static final String BASE_ACCNAME_FILE_PATH = "content/test/data/accessibility/accname/";
     private static final String BASE_ARIA_FILE_PATH = "content/test/data/accessibility/aria/";
+    private static final String BASE_APG_PATTERN_FILE_PATH =
+            "content/test/data/accessibility/aria/apg-patterns/";
     private static final String BASE_CSS_FILE_PATH = "content/test/data/accessibility/css/";
     private static final String BASE_HTML_FILE_PATH = "content/test/data/accessibility/html/";
     private static final String DEFAULT_FILE_SUFFIX = "-expected-android-external.txt";
@@ -63,15 +66,6 @@ public class WebContentsAccessibilityTreeTest {
     @Rule
     public AccessibilityContentShellActivityTestRule mActivityTestRule =
             new AccessibilityContentShellActivityTestRule();
-
-    @Before
-    public void setUp() {
-        // Needed for `interestfor` in test_nameFromPopovertargetAndInterestfor.
-        // TODO(crbug.com/326681249): Remove when the feature is launched.
-        CommandLine.getInstance()
-                .appendSwitchWithValue(
-                        ContentSwitches.ENABLE_BLINK_FEATURES, "HTMLInterestForAttribute");
-    }
 
     /**
      * Perform a single test which will:
@@ -177,6 +171,15 @@ public class WebContentsAccessibilityTreeTest {
         performTest(inputFile, expectationFile, BASE_ARIA_FILE_PATH);
     }
 
+    private void performApgPatternTest(String input) {
+        // Remove the '.html' from the input file, and append the standard suffix.
+        performApgPatternTest(input, input.substring(0, input.length() - 5));
+    }
+
+    private void performApgPatternTest(String inputFile, String expectationFile) {
+        performTest(inputFile, expectationFile, BASE_APG_PATTERN_FILE_PATH);
+    }
+
     private void performCssTest(String input) {
         // Remove the '.html' from the input file, and append the standard suffix.
         performCssTest(input, input.substring(0, input.length() - 5));
@@ -252,18 +255,6 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
-    public void test_ariaAccordion() {
-        performAriaTest("aria-accordion.html");
-    }
-
-    @Test
-    @SmallTest
-    public void test_ariaAlertdialog() {
-        performAriaTest("aria-alertdialog.html");
-    }
-
-    @Test
-    @SmallTest
     public void test_ariaAlert() {
         performAriaTest("aria-alert.html");
     }
@@ -300,12 +291,6 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
-    public void test_ariaBreadcrumb() {
-        performAriaTest("aria-breadcrumb.html");
-    }
-
-    @Test
-    @SmallTest
     public void test_ariaBrailleLabel() {
         performAriaTest("aria-braillelabel.html");
     }
@@ -326,18 +311,6 @@ public class WebContentsAccessibilityTreeTest {
     @SmallTest
     public void test_ariaButton() {
         performAriaTest("aria-button.html");
-    }
-
-    @Test
-    @SmallTest
-    public void test_ariaCarouselButtons() {
-        performAriaTest("aria-carousel-buttons.html");
-    }
-
-    @Test
-    @SmallTest
-    public void test_ariaCarouselTabs() {
-        performAriaTest("aria-carousel-tabs.html");
     }
 
     @Test
@@ -593,8 +566,12 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
     @EnableFeatures(ContentFeatureList.ACCESSIBILITY_POPULATE_SUPPLEMENTAL_DESCRIPTION_API)
     public void test_ariaIllegalVal() {
+        Assume.assumeTrue(
+                "Requires Android 16 QPR2 (36.1) or higher",
+                Build.VERSION.SDK_INT_FULL >= VERSION_CODES_FULL.BAKLAVA_1);
         performAriaTest("aria-illegal-val.html");
     }
 
@@ -675,12 +652,6 @@ public class WebContentsAccessibilityTreeTest {
     @SmallTest
     public void test_ariaListbox() {
         performAriaTest("aria-listbox.html");
-    }
-
-    @Test
-    @SmallTest
-    public void test_ariaListboxGrouped() {
-        performAriaTest("aria-listbox-grouped.html");
     }
 
     @Test
@@ -1037,13 +1008,21 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
     public void test_ariaSortAriaGrid() {
+        Assume.assumeTrue(
+                "Requires Android 16 QPR2 (36.1) or higher",
+                Build.VERSION.SDK_INT_FULL >= VERSION_CODES_FULL.BAKLAVA_1);
         performAriaTest("aria-sort-aria-grid.html");
     }
 
     @Test
     @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
     public void test_ariaSortHtmlTable() {
+        Assume.assumeTrue(
+                "Requires Android 16 QPR2 (36.1) or higher",
+                Build.VERSION.SDK_INT_FULL >= VERSION_CODES_FULL.BAKLAVA_1);
         performAriaTest("aria-sort-html-table.html");
     }
 
@@ -1116,7 +1095,11 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
     public void test_ariaTabpanel() {
+        Assume.assumeTrue(
+                "Requires Android 16 QPR2 (36.1) or higher",
+                Build.VERSION.SDK_INT_FULL >= VERSION_CODES_FULL.BAKLAVA_1);
         performAriaTest("aria-tabpanel.html");
     }
 
@@ -1186,18 +1169,6 @@ public class WebContentsAccessibilityTreeTest {
     @SmallTest
     public void test_ariaTreegrid() {
         performAriaTest("aria-treegrid.html");
-    }
-
-    @Test
-    @SmallTest
-    public void test_ariaTreeviewFileDirectoryComputedProperties() {
-        performAriaTest("aria-treeview-file-directory-computed-properties.html");
-    }
-
-    @Test
-    @SmallTest
-    public void test_ariaTreeviewFileDirectoryDeclaredProperties() {
-        performAriaTest("aria-treeview-file-directory-declared-properties.html");
     }
 
     @Test
@@ -1340,6 +1311,86 @@ public class WebContentsAccessibilityTreeTest {
     @SmallTest
     public void test_toggleButtonExpandCollapse() {
         performAriaTest("toggle-button-expand-collapse.html");
+    }
+
+    // ------------------ ARIA PATTERNS TESTS ------------------ //
+
+    @Test
+    @SmallTest
+    public void test_ariaAccordion() {
+        performApgPatternTest("aria-accordion.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaAlertdialog() {
+        performApgPatternTest("aria-alertdialog.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaBreadcrumb() {
+        performApgPatternTest("aria-breadcrumb.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaCarouselButtons() {
+        performApgPatternTest("aria-carousel-buttons.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaCarouselTabs() {
+        performApgPatternTest("aria-carousel-tabs.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaListboxGrouped() {
+        performApgPatternTest("aria-listbox-grouped.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaQuantitySpinbutton() {
+        performApgPatternTest("aria-quantity-spinbutton.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaSliderColorViewer() {
+        performApgPatternTest("aria-slider-color-viewer.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaSliderMultithumb() {
+        performApgPatternTest("aria-slider-multithumb.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaSliderRating() {
+        performApgPatternTest("aria-slider-rating.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaSliderVertical() {
+        performApgPatternTest("aria-slider-vertical.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaTreeviewFileDirectoryComputedProperties() {
+        performApgPatternTest("aria-treeview-file-directory-computed-properties.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaTreeviewFileDirectoryDeclaredProperties() {
+        performApgPatternTest("aria-treeview-file-directory-declared-properties.html");
     }
 
     // ------------------ CSS TESTS ------------------ //
@@ -2686,6 +2737,18 @@ public class WebContentsAccessibilityTreeTest {
     @SmallTest
     public void test_selectionContainer() {
         performHtmlTest("selection-container.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_selectionOverEditableWithFocus() {
+        performHtmlTest("selection-over-editable-with-focus.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_selectionOverEditableWithoutFocus() {
+        performHtmlTest("selection-over-editable-without-focus.html");
     }
 
     @Test

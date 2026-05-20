@@ -8,6 +8,7 @@
 #import <UIKit/UIKit.h>
 
 #import "ios/chrome/browser/app_bar/ui/app_bar_consumer.h"
+#import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent_observer_bridge.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_element.h"
 
 @protocol AppBarMutator;
@@ -15,24 +16,35 @@
 @protocol SceneCommands;
 @protocol TabGridCommands;
 
-// View controller for the app bar.
+// View controller for the App Bar.
 @interface AppBarViewController
-    : UIViewController <AppBarConsumer, FullscreenUIElement>
-
-// Unhides the spotlight anchor view if `shouldShow`.
-- (void)toggleSpotlightView:(BOOL)shouldShow;
+    : UIViewController <AppBarConsumer,
+                        FullscreenUIElement,
+                        FullscreenBrowserAgentObserving>
 
 // The mutator.
 @property(nonatomic, weak) id<AppBarMutator> mutator;
+
 // This view controller's LayoutGuideCenter.
 @property(nonatomic, strong) LayoutGuideCenter* layoutGuideCenter;
+
 // Command handler for the Scene commands.
 @property(nonatomic, weak) id<SceneCommands> sceneHandler;
+
 // Tab Grid handler.
 @property(nonatomic, weak) id<TabGridCommands> tabGridHandler;
 
 // Updates the App Bar's subviews for a given rotation angle.
 - (void)updateForAngle:(CGFloat)angle;
+
+// Unhides the spotlight anchor view if `shouldShow`.
+- (void)toggleSpotlightView:(BOOL)shouldShow;
+
+// Shows the blue-ish background with a circular gradient.
+- (void)showIPHBackground;
+
+// Hides the blue-ish background.
+- (void)hideIPHBackground;
 
 @end
 

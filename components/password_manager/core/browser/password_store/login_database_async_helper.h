@@ -5,14 +5,16 @@
 #ifndef COMPONENTS_PASSWORD_MANAGER_CORE_BROWSER_PASSWORD_STORE_LOGIN_DATABASE_ASYNC_HELPER_H_
 #define COMPONENTS_PASSWORD_MANAGER_CORE_BROWSER_PASSWORD_STORE_LOGIN_DATABASE_ASYNC_HELPER_H_
 
+#include <variant>
+
 #include "base/cancelable_callback.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/task/sequenced_task_runner.h"
-#include "components/password_manager/core/browser/password_store/password_store.h"
-#include "components/password_manager/core/browser/password_store/password_store_backend.h"
+#include "components/password_manager/core/browser/password_store/password_store_backend_error.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
+#include "components/password_manager/core/browser/password_store/stored_credential.h"
 #include "components/password_manager/core/browser/sync/password_store_sync.h"
 #include "components/sync/model/wipe_model_upon_sync_disabled_behavior.h"
 
@@ -30,8 +32,12 @@ class Encryptor;
 
 namespace password_manager {
 
+using StoredCredentialsResultOrError =
+    std::variant<std::vector<StoredCredential>, PasswordStoreBackendError>;
+
 class LoginDatabase;
 class PasswordSyncBridge;
+struct PasswordFormDigest;
 
 struct InteractionsStats;
 
@@ -60,21 +66,20 @@ class LoginDatabaseAsyncHelper : public PasswordStoreSync {
       os_crypt_async::Encryptor encryptor);
 
   // Synchronous implementation of PasswordStoreBackend interface.
-  LoginsResultOrError GetAllLogins();
-  LoginsResultOrError GetAutofillableLogins();
-  LoginsResultOrError FillMatchingLogins(
+  StoredCredentialsResultOrError GetAllLogins();
+  StoredCredentialsResultOrError GetAutofillableLogins();
+  StoredCredentialsResultOrError FillMatchingLogins(
       const std::vector<PasswordFormDigest>& forms,
       bool include_psl);
 
-  PasswordChangesOrError AddLogin(const PasswordForm& form);
-  PasswordChangesOrError UpdateLogin(const PasswordForm& form);
+  PasswordChangesOrError AddLogin(StoredCredential cred);
+  PasswordChangesOrError UpdateLogin(const StoredCredential& cred);
   PasswordChangesOrError RemoveLogin(const base::Location& location,
-                                     const PasswordForm& form);
+                                     const StoredCredential& cred);
   PasswordChangesOrError RemoveLoginsCreatedBetween(
       const base::Location& location,
       base::Time delete_begin,
-      base::Time delete_end,
-      base::OnceCallback<void(bool)> sync_completion);
+      base::Time delete_end);
   PasswordStoreChangeList DisableAutoSignInForOrigins(
       const base::RepeatingCallback<bool(const GURL&)>& origin_filter);
 
@@ -107,9 +112,6 @@ class LoginDatabaseAsyncHelper : public PasswordStoreSync {
       UpdateCredentialError* error) override;
   void NotifyCredentialsChanged(
       const PasswordStoreChangeList& changes) override;
-  void AddDeletionsHaveSyncedCallback(
-      base::OnceCallback<void(bool)> sync_completion);
-  void NotifyDeletionsHaveSynced(bool success) override;
   bool BeginTransaction() override;
   void RollbackTransaction() override;
   bool CommitTransaction() override;
@@ -124,9 +126,9 @@ class LoginDatabaseAsyncHelper : public PasswordStoreSync {
   std::optional<bool> WereUndecryptableLoginsDeleted() const override;
   void ClearWereUndecryptableLoginsDeleted() override;
 
-  PasswordStoreChangeList AddLoginImpl(const PasswordForm& form,
+  PasswordStoreChangeList AddLoginImpl(StoredCredential cred,
                                        AddCredentialError* error);
-  PasswordStoreChangeList UpdateLoginImpl(const PasswordForm& form,
+  PasswordStoreChangeList UpdateLoginImpl(const StoredCredential& cred,
                                           UpdateCredentialError* error);
 
   // Reports password store metrics that aren't reported by the
@@ -159,16 +161,6 @@ class LoginDatabaseAsyncHelper : public PasswordStoreSync {
   base::RepeatingCallback<void(std::optional<PasswordStoreChangeList>, bool)>
       remote_forms_changes_received_callback_
           GUARDED_BY_CONTEXT(sequence_checker_);
-
-  // A list of callbacks that should be run once all pending deletions have been
-  // sent to the Sync server. Note that the vector itself lives on the
-  // background thread, but the callbacks must be run on the main thread!
-  std::vector<base::OnceCallback<void(bool)>> deletions_have_synced_callbacks_
-      GUARDED_BY_CONTEXT(sequence_checker_);
-
-  // Timeout closure that runs if sync takes too long to propagate deletions.
-  base::CancelableOnceClosure deletions_have_synced_timeout_
-      GUARDED_BY_CONTEXT(sequence_checker_);
 
   scoped_refptr<base::SequencedTaskRunner> main_task_runner_
       GUARDED_BY_CONTEXT(sequence_checker_);

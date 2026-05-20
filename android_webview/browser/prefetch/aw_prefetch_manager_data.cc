@@ -23,8 +23,10 @@ AwPrefetchManagerData::~AwPrefetchManagerData() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 }
 
-AwPrefetchKey AwPrefetchManagerData::AddPrefetchHandle(
+AwPrefetchKey AwPrefetchManagerData::AddNewPrefetchHandleWrapper(
     std::unique_ptr<AwPrefetchHandleWrapper> prefetch_handle_wrapper) {
+  CHECK(!base::FeatureList::IsEnabled(
+      features::kWebViewPrefetchOffTheMainThread));
   int32_t new_prefetch_key;
 
   base::AutoLockMaybe auto_lock(lock_.get());
@@ -42,12 +44,98 @@ AwPrefetchKey AwPrefetchManagerData::AddPrefetchHandle(
   return new_prefetch_key;
 }
 
-bool AwPrefetchManagerData::IsPrefetchDuplicate(
+AwPrefetchKey AwPrefetchManagerData::ReservePrefetchHandleWrapper(
+    const GURL& url,
+    const std::optional<net::HttpNoVarySearchData>& expected_no_vary_search) {
+  CHECK(
+      base::FeatureList::IsEnabled(features::kWebViewPrefetchOffTheMainThread));
+  std::vector<std::unique_ptr<AwPrefetchHandleWrapper>>
+      old_prefetch_handle_wrappers;
+  AwPrefetchKey new_prefetch_key;
+  {
+    base::AutoLockMaybe auto_lock(lock_.get());
+
+    bool is_duplicate = IsPrefetchDuplicateLocked(url, expected_no_vary_search);
+    if (is_duplicate) {
+      return NO_PREFETCH_KEY;
+    }
+
+    // Evict oldest handles if necessary.
+    old_prefetch_handle_wrappers =
+        MayEvictOldestPrefetchHandleForANewRequestLocked();
+
+    new_prefetch_key = GetNextPrefetchKeyLocked();
+    // `all_prefetches_map_[new_prefetch_key]` should have no entry because
+    // `GetNextPrefetchKeyLocked()` always returns a new key.
+    CHECK(!all_prefetches_map_[new_prefetch_key]);
+    all_prefetches_map_[new_prefetch_key] =
+        std::make_unique<AwPrefetchHandleWrapper>(url, expected_no_vary_search);
+    UpdateLastPrefetchKeyLocked(new_prefetch_key);
+  }
+
+  return new_prefetch_key;
+  // `old_prefetch_handle_wrappers` is dropped here, outside of the
+  // `lock_` to prevent accidental reentrancy.
+}
+
+void AwPrefetchManagerData::CommitInitialPrePrefetchHandle(
+    AwPrefetchKey prefetch_key,
+    std::unique_ptr<content::PrePrefetchHandle> pre_prefetch_handle) {
+  CHECK(
+      base::FeatureList::IsEnabled(features::kWebViewPrefetchOffTheMainThread));
+  base::AutoLockMaybe auto_lock(lock_.get());
+
+  auto it = all_prefetches_map_.find(prefetch_key);
+  if (it != all_prefetches_map_.end()) {
+    it->second->CommitInitialPrePrefetchHandle(std::move(pre_prefetch_handle));
+  }
+}
+
+void AwPrefetchManagerData::CommitInitialPrefetchHandle(
+    AwPrefetchKey prefetch_key,
+    std::unique_ptr<content::PrefetchHandle> prefetch_handle) {
+  CHECK(
+      base::FeatureList::IsEnabled(features::kWebViewPrefetchOffTheMainThread));
+  base::AutoLockMaybe auto_lock(lock_.get());
+
+  auto it = all_prefetches_map_.find(prefetch_key);
+  if (it != all_prefetches_map_.end()) {
+    it->second->CommitInitialPrefetchHandle(std::move(prefetch_handle));
+  }
+}
+
+std::unique_ptr<content::PrePrefetchHandle>
+AwPrefetchManagerData::TakePrePrefetchHandleForConsume(
+    AwPrefetchKey prefetch_key) {
+  base::AutoLockMaybe auto_lock(lock_.get());
+
+  auto it = all_prefetches_map_.find(prefetch_key);
+  if (it != all_prefetches_map_.end() &&
+      it->second->CanTakePrePrefetchHandleForConsume()) {
+    return it->second->TakePrePrefetchHandleForConsume();
+  }
+
+  return nullptr;
+}
+
+void AwPrefetchManagerData::CommitPrefetchHandleAfterConsume(
+    AwPrefetchKey prefetch_key,
+    std::unique_ptr<content::PrefetchHandle> prefetch_handle) {
+  base::AutoLockMaybe auto_lock(lock_.get());
+
+  auto it = all_prefetches_map_.find(prefetch_key);
+  if (it != all_prefetches_map_.end()) {
+    it->second->CommitPrefetchHandleAfterConsume(std::move(prefetch_handle));
+  }
+
+  // If the prefetch was already removed by other calls, this does nothing.
+  // `prefetch_handle` will be released here.
+}
+
+bool AwPrefetchManagerData::IsPrefetchDuplicateLocked(
     const GURL& url,
     const std::optional<net::HttpNoVarySearchData>& expected_no_vary_search)
     const {
-  base::AutoLockMaybe auto_lock(lock_.get());
-
   std::vector<const content::PrefetchDeduplicationEntry*> candidates;
   candidates.reserve(all_prefetches_map_.size());
   for (const auto& [_, prefetch_handle_wrapper] : all_prefetches_map_) {
@@ -56,25 +144,33 @@ bool AwPrefetchManagerData::IsPrefetchDuplicate(
   return content::IsPrefetchDuplicate(candidates, url, expected_no_vary_search);
 }
 
+std::vector<std::unique_ptr<AwPrefetchHandleWrapper>>
+AwPrefetchManagerData::MayEvictOldestPrefetchHandleForANewRequestLocked() {
+  std::vector<std::unique_ptr<AwPrefetchHandleWrapper>>
+      old_prefetch_handle_wrappers;
+  if (all_prefetches_map_.size() >= max_prefetches_) {
+    int num_prefetches_to_evict =
+        all_prefetches_map_.size() - max_prefetches_ + 1;
+    auto it = all_prefetches_map_.begin();
+    while (num_prefetches_to_evict > 0 && it != all_prefetches_map_.end()) {
+      // Because the keys should be sequential based on when the prefetch
+      // associated with them was added, a standard iteration should always
+      // prioritize removing the oldest entry.
+      old_prefetch_handle_wrappers.push_back(std::move(it->second));
+      it = all_prefetches_map_.erase(it);
+      num_prefetches_to_evict--;
+    }
+  }
+  return old_prefetch_handle_wrappers;
+}
+
 void AwPrefetchManagerData::MayEvictOldestPrefetchHandleForANewRequest() {
   std::vector<std::unique_ptr<AwPrefetchHandleWrapper>>
       old_prefetch_handle_wrappers;
   {
     base::AutoLockMaybe auto_lock(lock_.get());
-
-    if (all_prefetches_map_.size() >= max_prefetches_) {
-      int num_prefetches_to_evict =
-          all_prefetches_map_.size() - max_prefetches_ + 1;
-      auto it = all_prefetches_map_.begin();
-      while (num_prefetches_to_evict > 0 && it != all_prefetches_map_.end()) {
-        // Because the keys should be sequential based on when the prefetch
-        // associated with it was added, a standard iteration should always
-        // prioritize removing the oldest entry.
-        old_prefetch_handle_wrappers.push_back(std::move(it->second));
-        it = all_prefetches_map_.erase(it);
-        num_prefetches_to_evict--;
-      }
-    }
+    old_prefetch_handle_wrappers =
+        MayEvictOldestPrefetchHandleForANewRequestLocked();
   }
 
   // `old_prefetch_handle_wrappers` is dropped here, outside of the
@@ -95,6 +191,18 @@ void AwPrefetchManagerData::CancelPrefetch(AwPrefetchKey prefetch_key) {
 
   // `old_prefetch_handle_wrapper` is dropped here, outside of the
   // `lock_` to prevent accidental reentrancy.
+}
+
+bool AwPrefetchManagerData::UpdateLatestPrefetchInfo(
+    const AwPrefetchLatestInfoPref& info) {
+  base::AutoLockMaybe auto_lock(lock_.get());
+  CHECK(
+      base::FeatureList::IsEnabled(features::kWebViewPrefetchOffTheMainThread));
+  if (prefetch_latest_info_ == info) {
+    return false;
+  }
+  prefetch_latest_info_ = info;
+  return true;
 }
 
 void AwPrefetchManagerData::SetTtlInSec(int ttl_in_sec) {

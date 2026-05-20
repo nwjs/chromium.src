@@ -17,6 +17,7 @@
 #import "components/omnibox/common/omnibox_features.h"
 #import "components/safe_browsing/core/common/features.h"
 #import "components/safe_browsing/ios/browser/safe_browsing_url_allow_list.h"
+#import "components/send_tab_to_self/features.h"
 #import "components/supervised_user/core/common/features.h"
 #import "components/ukm/ios/ukm_url_recorder.h"
 #import "components/webauthn/ios/features.h"
@@ -49,6 +50,8 @@
 #import "ios/chrome/browser/download/model/vcard_tab_helper.h"
 #import "ios/chrome/browser/drive/model/drive_tab_helper.h"
 #import "ios/chrome/browser/enterprise/data_controls/model/data_controls_tab_helper.h"
+#import "ios/chrome/browser/enterprise/data_protection/model/data_protection_tab_helper.h"
+#import "ios/chrome/browser/enterprise/data_protection/public/features.h"
 #import "ios/chrome/browser/favicon/model/favicon_service_factory.h"
 #import "ios/chrome/browser/find_in_page/model/find_tab_helper.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
@@ -71,6 +74,7 @@
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_tab_helper.h"
 #import "ios/chrome/browser/link_to_text/model/link_to_text_tab_helper.h"
 #import "ios/chrome/browser/metrics/model/pageload_foreground_duration_tab_helper.h"
+#import "ios/chrome/browser/mini_map/model/mini_map_tab_helper.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
@@ -80,6 +84,7 @@
 #import "ios/chrome/browser/overscroll_actions/model/overscroll_actions_tab_helper.h"
 #import "ios/chrome/browser/page_info/features/features.h"
 #import "ios/chrome/browser/page_info/model/about_this_site_tab_helper.h"
+#import "ios/chrome/browser/passwords/model/ios_chrome_account_password_store_factory.h"
 #import "ios/chrome/browser/passwords/model/password_controller.h"
 #import "ios/chrome/browser/passwords/model/password_tab_helper.h"
 #import "ios/chrome/browser/passwords/model/well_known_change_password_tab_helper.h"
@@ -95,6 +100,7 @@
 #import "ios/chrome/browser/safe_browsing/model/tailored_security/tailored_security_tab_helper.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_tab_helper.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
+#import "ios/chrome/browser/send_tab_to_self/model/send_tab_to_self_tab_helper.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -107,6 +113,7 @@
 #import "ios/chrome/browser/tabs/model/ios_chrome_synced_tab_delegate.h"
 #import "ios/chrome/browser/tabs/model/tab_helper_attacher.h"
 #import "ios/chrome/browser/translate/model/chrome_ios_translate_client.h"
+#import "ios/chrome/browser/translate/model/translate_pdf_metric_logger.h"
 #import "ios/chrome/browser/voice/model/voice_search_navigations_tab_helper.h"
 #import "ios/chrome/browser/web/model/annotations/annotations_tab_helper.h"
 #import "ios/chrome/browser/web/model/blocked_popup_tab_helper.h"
@@ -216,6 +223,8 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
       breadcrumbs::IsEnabled(GetApplicationContext()->GetLocalState()));
 
   attacher.Create<AnnotationsTabHelper>();
+  attacher.CreateWhen<SendTabToSelfTabHelper>(base::FeatureList::IsEnabled(
+      send_tab_to_self::kSendTabToSelfPropagateScrollPosition));
 
   SafeBrowsingClient* client =
       SafeBrowsingClientFactory::GetForProfile(profile);
@@ -297,6 +306,10 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
           base::FeatureList::IsEnabled(kIOSPasskeyShim))
       .With([&]() { return IOSPasskeyModelFactory::GetForProfile(profile); },
             [&]() {
+              return IOSChromeAccountPasswordStoreFactory::GetForProfile(
+                  profile, ServiceAccessType::EXPLICIT_ACCESS);
+            },
+            [&]() {
               return std::make_unique<IOSChromePasskeyClient>(web_state);
             });
 
@@ -344,6 +357,11 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
 
   attacher.Create<EditMenuTabHelper>();
 
+  attacher.CreateWhen<MiniMapTabHelper>(
+      (base::FeatureList::IsEnabled(kIOSMiniMapUniversalLink) ||
+       base::FeatureList::IsEnabled(kIOSMiniMapUniversalLinkCounterfactual)) &&
+      attacher.IsNotInTabHelperFilter());
+
   if (IsAimCobrowseEnabled()) {
     attacher.Create<CobrowseTabHelper>(
         ios::TemplateURLServiceFactory::GetForProfile(profile));
@@ -374,10 +392,14 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   }
 
   attacher.Create<data_controls::DataControlsTabHelper>();
+  if (IsEnableScreenshotProtectionIOSEnabled()) {
+    attacher.Create<DataProtectionTabHelper>();
+  }
   attacher.Create<CaptivePortalTabHelper>();
   attacher.Create<PrintTabHelper>();
   attacher.Create<BlockedPopupTabHelper>();
   attacher.Create<NetExportTabHelper>();
+  attacher.Create<TranslatePDFMetricLogger>();
 
   if (web::features::IsCobaltEnabled()) {
     ios::provider::AttachCobaltTabHelpers(attacher);

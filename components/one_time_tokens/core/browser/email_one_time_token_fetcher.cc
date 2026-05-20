@@ -5,11 +5,13 @@
 #include "components/one_time_tokens/core/browser/email_one_time_token_fetcher.h"
 
 #include "base/base64url.h"
+#include "base/metrics/histogram_functions.h"
 #include "components/one_time_tokens/core/browser/fetch_email_one_time_token_request.pb.h"
 #include "components/one_time_tokens/core/browser/fetch_email_one_time_token_response.pb.h"
 #include "components/one_time_tokens/core/browser/one_time_token.h"
 #include "components/one_time_tokens/core/browser/one_time_token_retrieval_error.h"
 #include "components/one_time_tokens/core/browser/one_time_token_type.h"
+#include "components/one_time_tokens/core/common/one_time_token_features.h"
 #include "components/signin/public/base/oauth_consumer_id.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -37,34 +39,40 @@ void EmailOneTimeTokenFetcher::Start(
   StartAccessTokenFetch();
 }
 
+void EmailOneTimeTokenFetcher::InvokeCallbackAndDestroySelf(
+    base::expected<OneTimeToken, OneTimeTokenRetrievalError> result) {
+  std::move(callback_).Run(std::move(result));
+}
+
 void EmailOneTimeTokenFetcher::StartAccessTokenFetch() {
   access_token_fetcher_ =
       std::make_unique<signin::PrimaryAccountAccessTokenFetcher>(
           signin::OAuthConsumerId::kOneTimeTokenService, &*identity_manager_,
           base::BindOnce(&EmailOneTimeTokenFetcher::OnAccessTokenFetched,
-                         weakptr_factory_.GetWeakPtr()),
+                         weakptr_factory_.GetWeakPtr(), base::TimeTicks::Now()),
           signin::PrimaryAccountAccessTokenFetcher::Mode::kWaitUntilAvailable,
           signin::ConsentLevel::kSignin);
 }
 
 void EmailOneTimeTokenFetcher::OnAccessTokenFetched(
+    base::TimeTicks auth_start_time,
     GoogleServiceAuthError error,
     signin::AccessTokenInfo info) {
+  base::UmaHistogramTimes("Autofill.OneTimeTokens.Backend.Gmail.AuthLatency",
+                          base::TimeTicks::Now() - auth_start_time);
   access_token_fetcher_.reset();
-  if (error.state() != GoogleServiceAuthError::NONE) {
-    std::move(callback_).Run(base::unexpected(
-        OneTimeTokenRetrievalError::kGmailOtpBackendAuthError));
+  if (error.state() == GoogleServiceAuthError::NONE) {
+    StartOneTimeTokenServiceCall(std::move(info));
     return;
   }
-
-  StartOneTimeTokenServiceCall(std::move(info));
+  InvokeCallbackAndDestroySelf(
+      base::unexpected(OneTimeTokenRetrievalError::kGmailOtpBackendAuthError));
 }
 
 void EmailOneTimeTokenFetcher::StartOneTimeTokenServiceCall(
     signin::AccessTokenInfo info) {
   auto resource_request = std::make_unique<network::ResourceRequest>();
-  GURL url(
-      "https://onetimetoken.pa.googleapis.com/v1/onetimetokens:fetchEmail");
+  GURL url(features::kFetchEmailOneTimeTokenEndpointUrl.Get());
 
   // TODO(crbug.com/486806779): figure out correct encoding.
   std::string encoded_reference;
@@ -77,13 +85,15 @@ void EmailOneTimeTokenFetcher::StartOneTimeTokenServiceCall(
   resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
   resource_request->headers.SetHeader(net::HttpRequestHeaders::kAuthorization,
                                       "Bearer " + info.token);
+  // Set user-facing criticality header.
+  resource_request->headers.SetHeader(
+      kOneTimeTokenServiceCriticalityHeaderName,
+      kOneTimeTokenServiceCriticalityHeaderValue);
 
-  // TODO(crbug.com/486136247): Update the traffic annotation to include the
-  // enterprise policy.
   net::NetworkTrafficAnnotationTag traffic_annotation =
       net::DefineNetworkTrafficAnnotation("fetch_email_one_time_token", R"(
         semantics {
-          sender: "Gmail OTP filling in Autofill."
+          sender: "Gmail OTP filling by Gemini Live in Chrome."
           description:
             "Sends a request to OneTimeTokenService to fetch an OTP that sits "
             "in user's email. At this point the OTP is already parsed on the "
@@ -108,39 +118,51 @@ void EmailOneTimeTokenFetcher::StartOneTimeTokenServiceCall(
         policy {
           cookies_allowed: NO
           setting:
-            "The feature can be controlled by a dedicated setting in Password "
-            "Manager. Navigate to chrome://password-manager/settings, and "
-            "toggle the 'Autofill Verification Codes from Gmail' setting."
-          policy_exception_justification:
-            "The feature is in progress."
+            "These requests are sent only by Glic trying to fetch email OTP "
+            "from user's Gmail. IT Admins can turn the feature off by "
+            "disabling Glic using GeminiActOnWebSettings."
+          chrome_policy {
+            GeminiActOnWebSettings {
+              GeminiActOnWebSettings: 1
+            }
+          }
         })");
 
   simple_url_loader_ = network::SimpleURLLoader::Create(
       std::move(resource_request), traffic_annotation);
 
+  // Set timeout and retry options for user-facing traffic.
+  simple_url_loader_->SetTimeoutDuration(base::Seconds(60));
+  simple_url_loader_->SetRetryOptions(
+      2, network::SimpleURLLoader::RETRY_ON_NETWORK_CHANGE |
+             network::SimpleURLLoader::RETRY_ON_5XX);
+
   simple_url_loader_->DownloadToString(
       url_loader_factory_.get(),
       base::BindOnce(
           &EmailOneTimeTokenFetcher::OnResponseBytesFromOneTimeTokenService,
-          weakptr_factory_.GetWeakPtr()),
+          weakptr_factory_.GetWeakPtr(), base::TimeTicks::Now()),
       network::SimpleURLLoader::kMaxBoundedStringDownloadSize);
 }
 
 void EmailOneTimeTokenFetcher::OnResponseBytesFromOneTimeTokenService(
+    base::TimeTicks network_request_start_time,
     std::optional<std::string> response_body) {
-  if (!response_body.has_value()) {
-    // TODO(crbug.com/486141336): handle errors.
-    // HTTP error status is available in simple_url_loader.
-    // Additionally, we should parse the error response as
-    // FetchEmailOneTimeTokenErrorDetails and interpret it.
-    std::move(callback_).Run(base::unexpected(
-        OneTimeTokenRetrievalError::kGmailOtpBackendNetworkError));
+  base::UmaHistogramTimes("Autofill.OneTimeTokens.Backend.Gmail.NetworkLatency",
+                          base::TimeTicks::Now() - network_request_start_time);
+  if (response_body.has_value()) {
+    auto result = ExtractOneTimeTokenValueFromResponse(*response_body);
+    simple_url_loader_.reset();
+    InvokeCallbackAndDestroySelf(std::move(result));
     return;
   }
-  base::expected<OneTimeToken, OneTimeTokenRetrievalError> result =
-      ExtractOneTimeTokenValueFromResponse(*response_body);
-  simple_url_loader_.reset();
-  std::move(callback_).Run(std::move(result));
+
+  // TODO(crbug.com/486141336): handle errors.
+  // HTTP error status is available in simple_url_loader.
+  // Additionally, we should parse the error response as
+  // FetchEmailOneTimeTokenErrorDetails and interpret it.
+  InvokeCallbackAndDestroySelf(base::unexpected(
+      OneTimeTokenRetrievalError::kGmailOtpBackendNetworkError));
 }
 
 base::expected<OneTimeToken, OneTimeTokenRetrievalError>

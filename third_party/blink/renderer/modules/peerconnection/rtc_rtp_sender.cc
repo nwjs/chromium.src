@@ -47,6 +47,7 @@
 #include "third_party/blink/renderer/modules/peerconnection/rtc_stats_report.h"
 #include "third_party/blink/renderer/modules/peerconnection/web_rtc_stats_report_callback_resolver.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/heap/cross_thread_persistent.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_dtmf_sender_handler.h"
@@ -605,7 +606,7 @@ void SetRtpCodec(RTCRtpCodec& codec, const webrtc::RtpCodec& webrtc_codec) {
         sdp_fmtp_line += parameter.first + "=" + parameter.second;
       }
     }
-    codec.setSdpFmtpLine(sdp_fmtp_line.c_str());
+    codec.setSdpFmtpLine(String(sdp_fmtp_line));
   }
 }
 
@@ -785,7 +786,7 @@ RTCRtpSendParameters* RTCRtpSender::getParameters() {
       }
       if (webrtc_encoding.scalability_mode) {
         encoding->setScalabilityMode(
-            webrtc_encoding.scalability_mode.value().c_str());
+            String(webrtc_encoding.scalability_mode.value()));
       }
     } else if (kind_ == "audio") {
       encoding->setAdaptivePtime(webrtc_encoding.adaptive_ptime);
@@ -882,8 +883,8 @@ ScriptPromise<RTCStatsReport> RTCRtpSender::getStats(
   auto* resolver =
       MakeGarbageCollected<ScriptPromiseResolver<RTCStatsReport>>(script_state);
   auto promise = resolver->Promise();
-  sender_->GetStats(
-      BindOnce(WebRTCStatsReportCallbackResolver, WrapPersistent(resolver)));
+  sender_->GetStats(CrossThreadBindOnce(WebRTCStatsReportCallbackResolver,
+                                        WrapCrossThreadPersistent(resolver)));
   return promise;
 }
 
@@ -1051,7 +1052,7 @@ RTCRtpCapabilities* RTCRtpSender::getCapabilities(ScriptState* state,
           sdp_fmtp_line += parameter.first + "=" + parameter.second;
         }
       }
-      codec->setSdpFmtpLine(sdp_fmtp_line.c_str());
+      codec->setSdpFmtpLine(String(sdp_fmtp_line));
     }
     codecs.push_back(codec);
   }

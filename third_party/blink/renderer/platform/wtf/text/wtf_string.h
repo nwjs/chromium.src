@@ -28,6 +28,7 @@
 
 #include <array>
 #include <iosfwd>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 
@@ -36,7 +37,6 @@
 #include "base/strings/string_view_util.h"
 #include "build/build_config.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
-#include "third_party/blink/renderer/platform/wtf/text/integer_to_string_conversion.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_impl.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_view.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_export.h"
@@ -74,7 +74,12 @@ class WTF_EXPORT String {
     return StringImpl::CreateUninitialized(length, data);
   }
 
+  // Creates an 8-bit string from a 16-bit source by copying characters.
+  // All characters in the source must be Latin-1 (<= 0xFF).
+  // If the source contains characters > 0xFF, it crashes in debug builds,
+  // and yields undefined or platform-dependent results in release builds.
   [[nodiscard]] static String Make8BitFrom16BitSource(base::span<const UChar>);
+  // Creates a 16-bit string from an 8-bit source by copying characters.
   [[nodiscard]] static String Make16BitFrom8BitSource(base::span<const LChar>);
 
   // String::FromUtf8 will return a null string if
@@ -101,22 +106,33 @@ class WTF_EXPORT String {
     return String(buffer.Release());
   }
 
-  template <typename IntegerType>
-  static String Number(IntegerType number) {
-    IntegerToStringConverter<IntegerType> converter(number);
-    return StringImpl::Create(converter.Span());
-  }
-
   static String Boolean(bool value) { return String(value ? "true" : "false"); }
-
+  // Serialize an integer value.
+  [[nodiscard]] static String Number(int value);
+  // Serialize an integer value.
+  [[nodiscard]] static String Number(unsigned value);
+  // Serialize an integer value.
+  [[nodiscard]] static String Number(long value);
+  // Serialize an integer value.
+  [[nodiscard]] static String Number(unsigned long value);
+  // Serialize an integer value.
+  [[nodiscard]] static String Number(long long value);
+  // Serialize an integer value.
+  [[nodiscard]] static String Number(unsigned long long value);
   [[nodiscard]] static String Number(float);
 
   [[nodiscard]] static String Number(double, unsigned precision = 6);
 
   // Number to String conversion following the ECMAScript definition.
-  [[nodiscard]] static String NumberToStringECMAScript(double);
+  [[nodiscard]] static String NumberToStringEcmaScript(double);
   [[nodiscard]] static String NumberToStringFixedWidth(double,
                                                        unsigned decimal_places);
+
+  // Serializes an unsigned 64-bit integer in hex. This adds no padding,
+  // uses lowercase letters for a-f, and adds no "0x" prefix.
+  //
+  // For example, 266 becomes "10a", and 0 becomes "0".
+  [[nodiscard]] static String HexNumber(uint64_t value);
 
   // Takes a printf format and args and prints into a String.
   // This function supports Latin-1 characters only.
@@ -209,7 +225,8 @@ class WTF_EXPORT String {
     if (!impl_ || index >= impl_->length()) {
       return 0;
     }
-    return (*impl_)[index];
+    // SAFETY: index checked against length above.
+    return UNSAFE_BUFFERS((*impl_)[index]);
   }
 
   // Returns the Unicode code point starting at the specified offset of this
@@ -317,7 +334,15 @@ class WTF_EXPORT String {
     return impl_->RawByteSpan();
   }
 
+  // Returns a std::string containing the characters of this string.
+  // Printable ASCII characters (0x20 to 0x7F) and the null character (0x00)
+  // are preserved. Characters outside of this range (including control
+  // characters and non-ASCII characters) are converted to '?'.
   [[nodiscard]] std::string Ascii() const;
+
+  // Returns a std::string containing the characters of this string encoded as
+  // Latin-1. Characters in the Latin-1 range (0x00 to 0xFF) are preserved.
+  // Characters outside of this range (U+0100 and above) are converted to '?'.
   [[nodiscard]] std::string Latin1() const;
   [[nodiscard]] std::string Utf8(
       Utf8ConversionMode mode = Utf8ConversionMode::kLenient) const {
@@ -416,9 +441,11 @@ class WTF_EXPORT String {
   // string. If `len` exceeds the length from `pos` to the end of the string,
   // the substring from `pos` to the end is returned.
   //
-  // This method exists for historical reasons. For compatibility with
-  // `std::string::substr`, consider using the `substr()` method.
-  [[nodiscard]] String Substring(size_type pos, size_type len = npos) const;
+  // This method is deprecated. Use `str.substr(pos, len)` if `pos` is
+  // guaranteed to be <= `str.length()`. If `pos` might be greater than
+  // `str.length()`, use `str.substr(std::min(pos, str.length()), len)`.
+  [[nodiscard]] String DeprecatedSubstring(size_type pos,
+                                           size_type len = npos) const;
 
   bool starts_with(const StringView& prefix) const {
     return impl_ ? impl_->StartsWith(prefix) : prefix.empty();
@@ -520,16 +547,34 @@ class WTF_EXPORT String {
   // This function copies the content of the string. Please consider if
   // StringView::Split() is applicable.
   //
-  // `StringView("a, , b").Split(", ")` produces ["a", "", "b"], and
-  // `StringView("").Split(",")` produces [""].
+  // `String("a, , b").Split(", ")` produces ["a", "", "b"], and
+  // `String("").Split(",")` produces [""].
   Vector<String> Split(const StringView& separator) const;
   // Returns a list of substrings of `this`, separated by `separator`.
   // This function copies the content of the string. Please consider if
   // StringView::Split() is applicable.
   //
-  // `StringView("a,,b").Split(',')` produces ["a", "", "b"], and
-  // `StringView("").Split(',')` produces [""].
+  // `String("a,,b").Split(',')` produces ["a", "", "b"], and
+  // `String("").Split(',')` produces [""].
   Vector<String> Split(UChar separator) const;
+
+  // Returns a list of substrings of `this`, separated by the positions where
+  // `finder` returns a length.
+  //
+  // `finder` should be a callable object that takes `StringView` and
+  // `size_type` and returns the length of the separator if the specified offset
+  // points to a separator, or std::nullopt otherwise.
+  template <typename Finder>
+    requires requires(Finder finder, const StringView& s, size_type pos) {
+      requires std::is_same_v<decltype(finder(s, pos)),
+                              std::optional<size_type>>;
+    }
+  Vector<String> Split(Finder finder) const {
+    return internal::SplitByFinder<String, Finder,
+                                   /* allow_empty_entries */ true>(*this,
+                                                                   finder);
+  }
+
   // Returns a list of substrings of `this`, separated by `separator`.
   // This doesn't produce empty substrings.
   // This function copies the content of the string. Please consider if
@@ -538,6 +583,23 @@ class WTF_EXPORT String {
   // `String(" a  b").SplitSkippingEmpty(' ')` produces ["a", "b"], and
   // `String("").SplitSkippingEmpty(',')` produces an empty list.
   Vector<String> SplitSkippingEmpty(UChar separator) const;
+
+  // Returns a list of substrings of `this`, separated by the positions where
+  // `finder` returns a length. This doesn't produce empty substrings.
+  //
+  // `finder` should be a callable object that takes `StringView` and
+  // `size_type` and returns the length of the separator if the specified offset
+  // points to a separator, or std::nullopt otherwise.
+  template <typename Finder>
+    requires requires(Finder finder, const StringView& s, size_type pos) {
+      requires std::is_same_v<decltype(finder(s, pos)),
+                              std::optional<size_type>>;
+    }
+  Vector<String> SplitSkippingEmpty(Finder finder) const {
+    return internal::SplitByFinder<String, Finder,
+                                   /* allow_empty_entries */ false>(*this,
+                                                                    finder);
+  }
 
 #ifdef __OBJC__
   String(NSString*);

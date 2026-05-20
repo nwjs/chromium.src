@@ -51,11 +51,25 @@ class CRYPTO_EXPORT PrivateKey {
   // Generates a fresh, random X25519 key.
   static PrivateKey GenerateX25519();
 
+  // Generates a fresh, random ML-DSA-44 key.
+  static PrivateKey GenerateMldsa44();
+
   // Imports a PKCS#8 PrivateKeyInfo block. Returns nullopt if the passed-in
   // buffer is not a valid PrivateKeyInfo block, or if there is trailing data in
   // it after the PrivateKeyInfo block.
   static std::optional<PrivateKey> FromPrivateKeyInfo(
       base::span<const uint8_t> pki);
+
+  // Imports an RFC 8017-encoded RSA private key. Returns nullopt if the
+  // passed-in buffer is not a valid RSA private key.
+  static std::optional<PrivateKey> FromRSAPrivateKey(
+      base::span<const uint8_t> key);
+
+  // Imports an RFC 5915-encoded EC private key. Returns nullopt if the
+  // passed-in buffer is not a valid P-256 private key. If the passed-in key
+  // does not specify a group, it will be treated as though it was P-256.
+  static std::optional<PrivateKey> FromEcP256PrivateKey(
+      base::span<const uint8_t> key);
 
   // Imports an RFC 8032-encoded Ed25519 private key.
   //
@@ -73,6 +87,17 @@ class CRYPTO_EXPORT PrivateKey {
 
   // Exports a PKCS#8 PrivateKeyInfo block.
   std::vector<uint8_t> ToPrivateKeyInfo() const;
+
+  // Exports an RFC 8017-encoded RSA private key. It is illegal to call this if
+  // !IsRsa().
+  std::vector<uint8_t> ToRSAPrivateKey() const;
+
+  // Exports an RFC 5915-encoded EC private key. It is illegal to call this if
+  // !IsEcP256(). The returned ECPrivateKey struct does *not* include the
+  // optional parameters or publicKey fields, despite what RFC 5915 recommends,
+  // because existing clients don't use them. If you need those fields, please
+  // talk to an owner of this class.
+  std::vector<uint8_t> ToEcP256PrivateKey() const;
 
   // Exports an Ed25519 private key in RFC 8032 format. It is illegal to call
   // this if !IsEd25519().
@@ -103,6 +128,7 @@ class CRYPTO_EXPORT PrivateKey {
   bool IsEc() const;
   bool IsEd25519() const;
   bool IsX25519() const;
+  bool IsMldsa44() const;
 
   bool IsEcP256() const;
   bool IsEcP384() const;
@@ -194,6 +220,7 @@ class CRYPTO_EXPORT PublicKey {
   bool IsEc() const;
   bool IsEd25519() const;
   bool IsX25519() const;
+  bool IsMldsa44() const;
 
   bool IsEcP256() const;
   bool IsEcP384() const;

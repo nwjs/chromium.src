@@ -18,7 +18,7 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {getRequiredElement} from 'chrome://resources/js/util.js';
 
 import {BrowserProxy} from './browser_proxy.js';
-import type {PolicyPageHandlerInterface} from './policy.mojom-webui.js';
+import {GetPoliciesReason} from './policy.mojom-webui.js';
 import type {Policy} from './policy_row.js';
 import type {PolicyTableElement, PolicyTableModel} from './policy_table.js';
 import type {Status} from './status_box.js';
@@ -35,6 +35,8 @@ export interface PolicyValues {
     name: string,
     policies: {[name: string]: Policy},
     precedenceOrder?: string[],
+    isExtension?: boolean,
+    forSigninScreen?: boolean,
   };
 }
 
@@ -52,17 +54,12 @@ export class Page {
     this.policyTables = {};
   }
 
-  private get pageHandler(): PolicyPageHandlerInterface {
-    return BrowserProxy.getInstance().handler;
-  }
-
   /**
    * Main initialization function. Called by the browser on page load.
    */
   initialize() {
     if (policyPageMojoMigrationEnabled) {
-      this.pageHandler.getDebugString().then(
-          ({message}) => console.info(message));
+      BrowserProxy.getDebugString().then(message => console.info(message));
     }
 
     // The default path is loaded when one path is not supported, so simple
@@ -79,7 +76,8 @@ export class Page {
 
     const policyElement = getRequiredElement('policy-ui');
 
-    sendWithPromise<boolean>('shouldShowPromotion').then((shouldShowPromo: boolean) => {
+    // <if expr="not is_ios and not is_android">
+    BrowserProxy.checkPromotionEligibility().then((shouldShowPromo: boolean) => {
       if (!shouldShowPromo) {
         return;
       }
@@ -96,7 +94,7 @@ export class Page {
               'promotion-dismiss-button');
 
       promotionDismissButton?.addEventListener('click', () => {
-        chrome.send('setBannerDismissed');
+        BrowserProxy.setBannerDismissed();
         promotionSection.remove();
       });
 
@@ -104,13 +102,14 @@ export class Page {
           promotionSection.shadowRoot!.getElementById(
               'promotion-redirect-button');
       promotionRedirectButton?.addEventListener('click', () => {
-        chrome.send('recordBannerRedirected');
+        BrowserProxy.recordBannerRedirected();
         window.open(
             'https://admin.google.com/ac/chrome/guides/?ref=browser&utm_source=chrome_policy_cec',
             '_blank',
         );
       });
     });
+    // </if>
 
     // Add or remove header shadow based on scroll position.
     policyElement.addEventListener('scroll', () => {
@@ -147,8 +146,10 @@ export class Page {
     if (hideExportButton) {
       exportButton.style.display = 'none';
     } else {
-      exportButton.onclick = () => {
-        sendWithPromise<void>('exportPoliciesJSON');
+      exportButton.onclick = async () => {
+        const policies =
+            await BrowserProxy.getPolicies(GetPoliciesReason.kExport);
+        this.downloadJson(policies);
       };
     }
 
@@ -168,8 +169,9 @@ export class Page {
     };
     // </if>
 
-    getRequiredElement('copy-policies').onclick = () => {
-      sendWithPromise<void>('copyPoliciesJSON');
+    getRequiredElement('copy-policies').onclick = async () => {
+      const policies = await BrowserProxy.getPolicies(GetPoliciesReason.kCopy);
+      navigator.clipboard.writeText(policies);
       this.createToast(loadTimeData.getString('copyPoliciesDone'));
     };
 
@@ -181,13 +183,12 @@ export class Page {
 
     sendWithPromise<void>('listenPoliciesUpdates');
     addWebUiListener(
-        'status-updated', (status: Status) => this.setStatus(status));
+        'status-updated',
+        (status: Record<string, Status>) => this.setStatus(status));
     addWebUiListener(
         'policies-updated',
         (names: PolicyNamesResponse, values: PolicyValuesResponse) =>
             this.onPoliciesReceived_(names, values));
-    addWebUiListener(
-        'download-json', (json: string) => this.downloadJson(json));
   }
 
   private onPoliciesReceived_(
@@ -200,7 +201,7 @@ export class Page {
         policyIds.map((id: string) => {
           const knownPolicyNames =
               policyNames[id] ? policyNames[id].policyNames : [];
-          const value: any = policyValues[id];
+          const value = policyValues[id]!;
           const knownPolicyNamesSet = new Set(knownPolicyNames);
           const receivedPolicyNames =
               value.policies ? Object.keys(value.policies) : [];
@@ -226,7 +227,7 @@ export class Page {
             name: value.forSigninScreen ?
                 `${value.name} [${loadTimeData.getString('signinProfile')}]` :
                 value.name,
-            id: value.isExtension ? id : null,
+            id: value.isExtension ? id : undefined,
             policies,
             ...(value.precedenceOrder &&
                 {precedenceOrder: value.precedenceOrder}),
@@ -399,7 +400,7 @@ export class Page {
    * status.
    * Status is the dictionary containing the current policy status.
    */
-  setStatus(status: {[key: string]: any}) {
+  setStatus(status: Record<string, Status>) {
     // Remove any existing status boxes.
     const container = getRequiredElement('status-box-container');
     while (container.firstChild) {
@@ -411,7 +412,7 @@ export class Page {
 
     // Add a status box for each scope that has a cloud policy status.
     for (const scope in status) {
-      const boxStatus: Status = status[scope];
+      const boxStatus = status[scope]!;
       if (!boxStatus.policyDescriptionKey) {
         continue;
       }

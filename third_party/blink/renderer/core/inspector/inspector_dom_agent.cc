@@ -126,7 +126,7 @@ template <typename Functor>
 void ForEachSupportedPseudo(const Element* element, Functor& func) {
   for (PseudoId pseudo_id :
        {kPseudoIdCheckMark, kPseudoIdBefore, kPseudoIdAfter,
-        kPseudoIdExpandIcon, kPseudoIdPickerIcon, kPseudoIdInterestHint,
+        kPseudoIdExpandIcon, kPseudoIdPickerIcon, kPseudoIdInterestButton,
         kPseudoIdMarker, kPseudoIdBackdrop, kPseudoIdScrollMarker,
         kPseudoIdScrollMarkerGroupBefore, kPseudoIdScrollMarkerGroupAfter,
         kPseudoIdScrollButtonBlockStart, kPseudoIdScrollButtonInlineStart,
@@ -243,8 +243,8 @@ protocol::DOM::PseudoType InspectorDOMAgent::ProtocolPseudoElementType(
       return protocol::DOM::PseudoTypeEnum::ExpandIcon;
     case kPseudoIdPickerIcon:
       return protocol::DOM::PseudoTypeEnum::PickerIcon;
-    case kPseudoIdInterestHint:
-      return protocol::DOM::PseudoTypeEnum::InterestHint;
+    case kPseudoIdInterestButton:
+      return protocol::DOM::PseudoTypeEnum::InterestButton;
     case kPseudoIdMarker:
       return protocol::DOM::PseudoTypeEnum::Marker;
     case kPseudoIdBackdrop:
@@ -1394,15 +1394,15 @@ protocol::Response InspectorDOMAgent::performSearch(
 
   StringView tag_name_query = whitespace_trimmed_query;
   bool start_tag_found = false;
-  if (whitespace_trimmed_query.starts_with("</")) {
+  if (tag_name_query.starts_with("</")) {
     tag_name_query.remove_prefix(2);
     start_tag_found = true;
-  } else if (whitespace_trimmed_query.starts_with('<')) {
+  } else if (tag_name_query.starts_with('<')) {
     tag_name_query.remove_prefix(1);
     start_tag_found = true;
   }
   bool end_tag_found = false;
-  if (whitespace_trimmed_query.ends_with('>')) {
+  if (tag_name_query.ends_with('>')) {
     tag_name_query.remove_suffix(1);
     end_tag_found = true;
   }
@@ -1435,12 +1435,12 @@ protocol::Response InspectorDOMAgent::performSearch(
 
   StringView attribute_query = whitespace_trimmed_query;
   bool start_quote_found = false;
-  if (whitespace_trimmed_query.starts_with('"')) {
+  if (attribute_query.starts_with('"')) {
     attribute_query.remove_prefix(1);
     start_quote_found = true;
   }
   bool end_quote_found = false;
-  if (whitespace_trimmed_query.ends_with('"')) {
+  if (attribute_query.ends_with('"')) {
     attribute_query.remove_suffix(1);
     end_quote_found = true;
   }
@@ -2175,7 +2175,7 @@ bool InspectorDOMAgent::ContainerQueriedByElement(Element* container,
         // Container rule origin no longer known at this point, match name from
         // all scopes.
         if (container == style_resolver.FindContainerForElement(
-                             element, container_rule->Selector(),
+                             element, container_rule->SelectorForInspector(),
                              nullptr /* selector_tree_scope */)) {
           return true;
         }

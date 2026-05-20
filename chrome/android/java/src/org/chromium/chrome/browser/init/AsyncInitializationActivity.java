@@ -27,6 +27,7 @@ import org.chromium.base.library_loader.LoaderErrors;
 import org.chromium.base.library_loader.ProcessInitException;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.BuildConfig;
+import org.chromium.build.annotations.EnsuresNonNullIf;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
@@ -172,7 +173,7 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
             // 1. To prevent multi-window from hiding the tabstrip when on a tablet.
             // 2. To ensure mIsTablet only needs to be set once. Since the override lasts for the
             //    life of the activity, it will never change via onConfigurationUpdated().
-            // See crbug.com/588838, crbug.com/662338, crbug.com/780593.
+            // See crbug.com/40457992, crbug.com/40492108, crbug.com/41353023.
             overrideConfig.smallestScreenWidthDp =
                     DisplayUtil.getCurrentSmallestScreenWidth(baseContext);
             return true;
@@ -211,7 +212,7 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
 
         // Start loading libraries. It happens before triggerLayoutInflation(). This "hides" library
         // loading behind UI inflation and prevents stalling UI thread.
-        // See https://crbug.com/796957 for details. Note that for optimal performance
+        // See https://crbug.com/41361935 for details. Note that for optimal performance
         // AsyncInitTaskRunner.startBackgroundTasks() needs to start warm up renderer only after
         // library is loaded.
 
@@ -652,9 +653,20 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
                             + " is trying to start.");
         }
 
-        if (ChromeFeatureList.sAndroidSelfOcclusionTracking.isEnabled() && mWindowAndroid != null) {
+        if (isSelfOcclusionTrackingEnabled()) {
             WindowOcclusionTracker.getInstance().track(mWindowAndroid);
         }
+    }
+
+    @EnsuresNonNullIf("mWindowAndroid")
+    private boolean isSelfOcclusionTrackingEnabled() {
+        return mWindowAndroid != null
+                && mWindowAndroid.isOcclusionTrackingAllowed()
+                && UiAndroidFeatureList.sAndroidWindowOcclusion.isEnabled()
+                && "self_occlusion"
+                        .equals(
+                                UiAndroidFeatureList.sAndroidWindowOcclusionTrackingMode
+                                        .getValue());
     }
 
     @CallSuper
@@ -689,7 +701,7 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
         super.onStop();
         mNativeInitializationController.onStop();
 
-        if (ChromeFeatureList.sAndroidSelfOcclusionTracking.isEnabled() && mWindowAndroid != null) {
+        if (isSelfOcclusionTrackingEnabled()) {
             WindowOcclusionTracker.getInstance().untrack(mWindowAndroid);
         }
     }
@@ -893,7 +905,7 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
 
         // TODO(crbug.com/40793204): Remove stack trace logging once root cause of bug is
         // identified & fixed.
-        // Piggybacking for multi-instance bug crbug.com/1484026.
+        // Piggybacking for multi-instance bug crbug.com/40282134.
         Log.i(TAG_MULTI_INSTANCE, "Tracing recreate().");
         Thread.dumpStack();
     }

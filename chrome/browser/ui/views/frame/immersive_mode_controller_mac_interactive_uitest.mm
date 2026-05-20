@@ -20,7 +20,6 @@
 #include "chrome/browser/ui/views/frame/immersive_mode_controller_mac.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
-#include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -31,6 +30,7 @@
 #include "ui/base/hit_test.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #import "ui/views/cocoa/native_widget_mac_ns_window_host.h"
+#include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/widget/any_widget_observer.h"
 #include "ui/views/widget/native_widget_mac.h"
 #include "ui/views/widget/widget.h"
@@ -132,11 +132,11 @@ class ImmersiveModeControllerMacInteractiveTest : public InProcessBrowserTest {
     return second_browser_->window()
         ->GetNativeWindow()
         .GetNativeNSWindow()
-        .isOnActiveSpace;
+        .onActiveSpace;
   }
 
   bool WidgetIsVisible() {
-    return widget_->GetNativeWindow().GetNativeNSWindow().isVisible;
+    return widget_->GetNativeWindow().GetNativeNSWindow().visible;
   }
 
   void CleanUp() {
@@ -285,7 +285,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerMacInteractiveTest,
   ActivateSecondBrowserWindow();
 
   // Hide the widget. This would typically cause a space switch to the
-  // fullscreen space in macOS 13+. http://crbug.com/1454606 stops the space
+  // fullscreen space in macOS 13+. http://crbug.com/40272387 stops the space
   // switch from happening on macOS 13+.
   HideWidget();
 
@@ -409,9 +409,10 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerMacInteractiveTest,
 
 // Tests that an -orderOut: or a -close result in an ordering group rebuild of
 // the parent. The rebuild behavior is relied upon by a workaround to
-// http://crbug.com/1454606. If this test starts failing, the workaround for
+// http://crbug.com/40272387. If this test starts failing, the workaround for
 // issue 1454606 will need to be revisited.
-// TODO(http://crbug.com/1454606): Remove this test when Apple fixes FB13529873.
+// TODO(http://crbug.com/40272387): Remove this test when Apple fixes
+// FB13529873.
 IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerMacInteractiveTest,
                        RebuildOrderingGroup) {
   // This test only applies to macOS 13 or greater.
@@ -432,7 +433,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerMacInteractiveTest,
   testWindow.releasedWhenClosed = NO;
   testWindow.backgroundColor = NSColor.redColor;
   [testWindow orderFront:nil];
-  EXPECT_TRUE(testWindow.isVisible);
+  EXPECT_TRUE(testWindow.visible);
 
   // Create a popup window and make it a child of the test window.
   NSWindow* popupWindow =
@@ -443,7 +444,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerMacInteractiveTest,
   popupWindow.releasedWhenClosed = NO;
   popupWindow.backgroundColor = NSColor.greenColor;
   [testWindow addChildWindow:popupWindow ordered:NSWindowAbove];
-  EXPECT_TRUE(popupWindow.isVisible);
+  EXPECT_TRUE(popupWindow.visible);
 
   // Reset the ordering group rebuilt flag and make sure it get set during
   // `-orderOut:`.
@@ -453,7 +454,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerMacInteractiveTest,
 
   // Re-add the popup window as child of the test window.
   [testWindow addChildWindow:popupWindow ordered:NSWindowAbove];
-  EXPECT_TRUE(popupWindow.isVisible);
+  EXPECT_TRUE(popupWindow.visible);
 
   // Reset the ordering group rebuilt flag and make sure it get set during
   // `-close`.
@@ -464,7 +465,7 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerMacInteractiveTest,
   // Re-add the popup window as child of the test window, then ensure that the
   // ordering group is rebuilt when the test window removes the popup window.
   [testWindow addChildWindow:popupWindow ordered:NSWindowAbove];
-  EXPECT_TRUE(popupWindow.isVisible);
+  EXPECT_TRUE(popupWindow.visible);
   testWindow->_orderingGroupRebuilt = NO;
   [testWindow removeChildWindow:popupWindow];
   EXPECT_TRUE(testWindow->_orderingGroupRebuilt);
@@ -539,15 +540,18 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerMacInteractiveTest,
   ScopedAlwaysShowToolbar scoped_always_show(browser(), false);
 
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  views::View* anchor_view = browser_view->toolbar()->app_menu_button();
+  views::View* anchor_view =
+      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+          kToolbarAppMenuButtonElementId, browser_view->GetElementContext());
 
   // Create and show a bubble anchored to the app menu button.
   auto delegate = std::make_unique<views::BubbleDialogDelegate>(
       anchor_view, views::BubbleBorder::TOP_RIGHT);
   delegate->SetContentsView(std::make_unique<views::View>())
       ->SetPreferredSize(gfx::Size(100, 100));
-  views::Widget* bubble_widget =
-      views::BubbleDialogDelegate::CreateBubble(std::move(delegate));
+  views::Widget* bubble_widget = views::BubbleDialogDelegate::CreateBubble(
+      std::move(delegate),
+      views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
   bubble_widget->Show();
 
   ui_test_utils::ToggleFullscreenModeAndWait(browser());
@@ -612,4 +616,52 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerMacInteractiveTest,
   // In immersive fullscreen with vertical tabs, hitting the empty space of the
   // vertical tab strip should return HTCAPTION.
   EXPECT_EQ(hit_test, HTCAPTION);
+}
+
+// Regression test for crbug.com/500609044. Verifies that entering fullscreen
+// with horizontal tabs, exiting, switching to vertical tabs, and re-entering
+// fullscreen does not leave the tab overlay widget visible. Previously, stale
+// tab_native_widget_id_ caused an ImmersiveModeTabbedControllerCocoa to be
+// created even with vertical tabs, resulting in a stuck titlebar.
+IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerMacInteractiveTest,
+                       TabOverlayHiddenAfterSwitchToVerticalTabs) {
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  views::Widget* tab_overlay_widget = browser_view->tab_overlay_widget();
+  ASSERT_TRUE(tab_overlay_widget);
+
+  // Step 1: Start with horizontal tabs (default, VTS pref is false).
+  EXPECT_FALSE(browser_view->ShouldDrawVerticalTabStrip());
+
+  // Step 2: Enter fullscreen with horizontal tabs.
+  ui_test_utils::ToggleFullscreenModeAndWait(browser());
+  FullscreenController* fullscreen_controller = browser()
+                                                    ->GetFeatures()
+                                                    .exclusive_access_manager()
+                                                    ->fullscreen_controller();
+  EXPECT_TRUE(fullscreen_controller->IsFullscreenForBrowser());
+
+  // The tab overlay widget should be visible with horizontal tabs in
+  // fullscreen, and should have non-zero height.
+  EXPECT_TRUE(tab_overlay_widget->IsVisible());
+  EXPECT_GT(tab_overlay_widget->GetWindowBoundsInScreen().height(), 0);
+
+  // Step 3: Exit fullscreen.
+  ui_test_utils::ToggleFullscreenModeAndWait(browser());
+  EXPECT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
+
+  // Step 4: Switch to vertical tabs.
+  tabs::VerticalTabStripStateController::From(browser())
+      ->SetVerticalTabsEnabled(true);
+  RunScheduledLayouts();
+  EXPECT_TRUE(browser_view->ShouldDrawVerticalTabStrip());
+
+  // Step 5: Re-enter fullscreen with vertical tabs.
+  ui_test_utils::ToggleFullscreenModeAndWait(browser());
+  EXPECT_TRUE(fullscreen_controller->IsFullscreenForBrowser());
+
+  // The tab overlay widget should NOT be visible with vertical tabs in
+  // fullscreen. Before the fix, stale tab_native_widget_id_ caused the
+  // ImmersiveModeTabbedControllerCocoa to be created, leaving the tab overlay
+  // visible and resulting in a stuck titlebar with a white gap.
+  EXPECT_FALSE(tab_overlay_widget->IsVisible());
 }

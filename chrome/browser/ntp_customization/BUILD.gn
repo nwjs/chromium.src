@@ -5,6 +5,29 @@
 import("//build/config/android/rules.gni")
 import("//third_party/jni_zero/jni_zero.gni")
 
+assert(is_android)
+
+source_set("ntp_customization") {
+  public = [
+    "ntp_synced_theme_bridge.h",
+    "ntp_theme_collection_bridge.h",
+  ]
+  sources = [
+    "ntp_synced_theme_bridge.cc",
+    "ntp_theme_collection_bridge.cc",
+  ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/search/background",
+    "//components/themes",
+  ]
+  deps = [
+    ":jni_headers",
+    "//url",
+  ]
+}
+
 android_library("public_java") {
   sources = [ "java/src/org/chromium/chrome/browser/ntp_customization/theme/NtpThemeStateProvider.java" ]
   deps = [
@@ -81,6 +104,13 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/upload_image/UploadImagePreviewCoordinator.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/upload_image/UploadImagePreviewLayout.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/upload_image/UploadImagePreviewLayoutViewBinder.java",
+    "java/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataBase.java",
+    "java/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataColor.java",
+    "java/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataCustomizedColor.java",
+    "java/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataManager.java",
+    "java/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataThemeCollection.java",
+    "java/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataUploadImage.java",
+    "java/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataUtils.java",
   ]
   deps = [
     ":java_resources",
@@ -178,6 +208,7 @@ android_resources("java_resources") {
     "java/res/drawable/ntp_customization_theme_collections_list_item_selected_foreground.xml",
     "java/res/drawable/ntp_customization_theme_preview_dialog_bottom_gradient_overlay.xml",
     "java/res/drawable/ntp_customized_background_image_gradient_overlay.xml",
+    "java/res/drawable/paint_icon.xml",
     "java/res/drawable/pinch_to_resize_hand.xml",
     "java/res/drawable/upload_an_image_icon_for_theme_bottom_sheet.xml",
     "java/res/layout/bottom_sheet_list_item_view.xml",
@@ -202,6 +233,7 @@ android_resources("java_resources") {
     "java/res/layout/ntp_customization_theme_list_theme_collections_item_layout.xml",
     "java/res/layout/ntp_customization_theme_list_upload_an_image_item_layout.xml",
     "java/res/layout/ntp_customization_theme_preview_dialog_layout.xml",
+    "java/res/layout/ntp_customization_theme_sync_data_container_layout.xml",
     "java/res/values-night/colors.xml",
     "java/res/values-sw600dp/dimens.xml",
     "java/res/values/colors.xml",
@@ -271,6 +303,12 @@ robolectric_library("junit") {
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme/upload_image/UploadImagePreviewCoordinatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme/upload_image/UploadImagePreviewLayoutUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme/upload_image/UploadImagePreviewLayoutViewBinderUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataColorUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataCustomizedColorUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataManagerUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataThemeCollectionUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataUploadImageUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataUtilsUnitTest.java",
   ]
   deps = [
     ":java",

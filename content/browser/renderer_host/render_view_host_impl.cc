@@ -266,14 +266,6 @@ void RenderViewHostImpl::GetPlatformSpecificPrefs(
   GetFontInfo(gfx::win::SystemFont::kStatus, &prefs->status_font_family_name,
               &prefs->status_font_height);
 
-  prefs->vertical_scroll_bar_width_in_dips =
-      display::win::GetScreenWin()->GetSystemMetricsInDIP(SM_CXVSCROLL);
-  prefs->horizontal_scroll_bar_height_in_dips =
-      display::win::GetScreenWin()->GetSystemMetricsInDIP(SM_CYHSCROLL);
-  prefs->arrow_bitmap_height_vertical_scroll_bar_in_dips =
-      display::win::GetScreenWin()->GetSystemMetricsInDIP(SM_CYVSCROLL);
-  prefs->arrow_bitmap_width_horizontal_scroll_bar_in_dips =
-      display::win::GetScreenWin()->GetSystemMetricsInDIP(SM_CXHSCROLL);
 #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kSystemFontFamily)) {
@@ -461,24 +453,16 @@ bool RenderViewHostImpl::CreateRenderView(
   DCHECK_EQ(&frame_tree_node->frame_tree(), frame_tree_);
   params->navigation_metrics_token = navigation_metrics_token;
 
-  if (frame_tree_->is_prerendering() ||
-      frame_tree_->page_delegate()->IsPageInPreviewMode()) {
+  if (frame_tree_->is_prerendering()) {
     auto prerender_param = blink::mojom::PrerenderParam::New();
-    if (frame_tree_->is_prerendering()) {
-      auto& prerender_host = PrerenderHost::GetFromFrameTree(frame_tree_);
-      prerender_param->page_metric_suffix = prerender_host.GetHistogramSuffix();
-      prerender_param->should_warm_up_compositor =
-          prerender_host.should_warm_up_compositor();
-      prerender_param->should_prepare_paint_tree =
-          prerender_host.should_prepare_paint_tree();
-      prerender_param->should_pause_javascript_execution =
-          prerender_host.should_pause_javascript_execution();
-    } else {
-      prerender_param->page_metric_suffix = ".Preview";
-      prerender_param->should_warm_up_compositor = false;
-      prerender_param->should_prepare_paint_tree = false;
-      prerender_param->should_pause_javascript_execution = false;
-    }
+    auto& prerender_host = PrerenderHost::GetFromFrameTree(frame_tree_);
+    prerender_param->page_metric_suffix = prerender_host.GetHistogramSuffix();
+    prerender_param->should_warm_up_compositor =
+        prerender_host.should_warm_up_compositor();
+    prerender_param->should_prepare_paint_tree =
+        prerender_host.should_prepare_paint_tree();
+    prerender_param->should_pause_javascript_execution =
+        prerender_host.should_pause_javascript_execution();
     params->prerender_param = std::move(prerender_param);
   }
 

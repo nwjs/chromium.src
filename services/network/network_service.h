@@ -25,6 +25,7 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
+#include "components/vrp_flags/buildflags.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -63,7 +64,6 @@
 #include "services/network/public/mojom/trust_tokens.mojom.h"
 #include "services/network/public/mojom/url_loader_network_service_observer.mojom.h"
 #include "services/network/restricted_cookie_manager.h"
-#include "services/network/tpcd/metadata/manager.h"
 #include "services/network/trust_tokens/trust_token_key_commitments.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 
@@ -197,7 +197,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
       mojom::NetworkService::GetNetworkListCallback callback) override;
   void OnTrustStoreChanged() override;
   void OnClientCertStoreChanged() override;
-  void SetEncryptionKey(const std::string& encryption_key) override;
   void OnPeerToPeerConnectionsCountChange(uint32_t count) override;
 #if BUILDFLAG(IS_ANDROID)
   void OnApplicationStateChange(base::android::ApplicationState state) override;
@@ -232,9 +231,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   void BindTestInterfaceForTesting(
       mojo::PendingReceiver<mojom::NetworkServiceTest> receiver) override;
   void SetFirstPartySets(net::GlobalFirstPartySets sets) override;
-
-  void SetTpcdMetadataGrants(
-      const std::vector<ContentSettingPatternSource>& settings) override;
 
   void SetExplicitlyAllowedPorts(const std::vector<uint16_t>& ports) override;
 #if BUILDFLAG(IS_LINUX)
@@ -277,6 +273,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
       const ResourceRequest& request,
       mojo::PendingReceiver<mojom::URLLoader> loader_receiver,
       mojo::PendingRemote<mojom::URLLoaderClient> client_remote) override;
+#endif
+
+#if BUILDFLAG(ENABLE_VRP_FLAGS)
+  void GetVrpFlags(GetVrpFlagsCallback callback) override;
 #endif
 
   void StartNetLogBounded(base::File file,
@@ -330,9 +330,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
     return first_party_sets_manager_.get();
   }
 
-  network::tpcd::metadata::Manager* tpcd_metadata_manager() const {
-    return tpcd_metadata_manager_.get();
-  }
 
   void set_host_resolver_factory_for_testing(
       std::unique_ptr<net::HostResolver::Factory> host_resolver_factory) {
@@ -579,7 +576,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   mojo::Remote<mojom::GssapiLibraryLoadObserver> gssapi_library_load_observer_;
 #endif  // BUILDFLAG(IS_LINUX)
 
-  std::unique_ptr<network::tpcd::metadata::Manager> tpcd_metadata_manager_;
 
   bool exclusive_cookie_database_locking_ = true;
 

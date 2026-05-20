@@ -73,6 +73,7 @@ import org.chromium.chrome.browser.share.ShareHelper;
 import org.chromium.chrome.browser.share.ShareUtils;
 import org.chromium.chrome.browser.share.link_to_text.LinkToTextHelper;
 import org.chromium.chrome.browser.tab.TabContextMenuItemDelegate;
+import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.ui.signin.ForcedSigninStatusProvider;
 import org.chromium.components.browser_ui.share.ShareParams;
 import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
@@ -86,7 +87,6 @@ import org.chromium.components.embedder_support.contextmenu.ContextMenuPopulator
 import org.chromium.components.embedder_support.contextmenu.ContextMenuUtils;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilities;
-import org.chromium.components.externalauth.ExternalAuthUtils;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.search_engines.TemplateUrlService;
@@ -324,8 +324,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                 assert histogramName.equals(
                         "ContextMenu.SelectedOptionAndroid.SharedHighlightingInteraction");
                 if (action != Action.SHARE_HIGHLIGHT
-                        || action != Action.REMOVE_HIGHLIGHT
-                        || action != Action.LEARN_MORE) {
+                        && action != Action.REMOVE_HIGHLIGHT
+                        && action != Action.LEARN_MORE) {
                     histogramName = "ContextMenu.SelectedOptionAndroid.Link";
                 }
             }
@@ -446,11 +446,13 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
 
     @VisibleForTesting
     boolean shouldShowEmptySpaceContextMenu() {
-        // Enable empty space context menu from mouse-right click on all device form factors, while
-        // long press (touch) should only work for large screen devices (crbug.com/429262357).
+        // Enable empty space context menu from mouse-right click on all device form factors.
+        // Limit long press (touch) as trigger only when desktop agent is used, because
+        //   * some phones always identify as having a touchpad (crbug.com/429262357), and
+        //   * known web compatibility issue on tablet devices (crbug.com/45188879).
         return (mParams.getSourceType() == MenuSourceType.MOUSE
-                     || (DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext)
-                         && mParams.getSourceType() == MenuSourceType.LONG_PRESS))
+                        || (TabUtils.isUsingDesktopUserAgent(mItemDelegate.getWebContents())
+                                && mParams.getSourceType() == MenuSourceType.LONG_PRESS))
                 && ChromeFeatureList.isEnabled(ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE);
     }
 
@@ -515,8 +517,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                 }
                 if (mParams.getOpenedFromInterestFor()) {
                     // This is a context menu for a link with `interestfor`. Add a context menu
-                    // item to show interest in the link. This item will only be created if the
-                    // HTMLInterestForAttribute runtime flag is enabled.
+                    // item to show interest in the link.
                     linkGroup.add(createListItem(Item.SHOW_INTEREST_IN_ELEMENT));
                     // Additionally record `interestfor` activations in a separate category,
                     // "LinkWithInterestFor", which only records activations from links that

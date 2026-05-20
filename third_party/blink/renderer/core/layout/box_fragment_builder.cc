@@ -391,11 +391,20 @@ EBreakBetween BoxFragmentBuilder::JoinedBreakBetweenValue(
   return JoinFragmentainerBreakValues(previous_break_after_, break_before);
 }
 
-void BoxFragmentBuilder::MoveChildrenInDirection(LayoutUnit offset,
-                                                 bool is_block_direction) {
+void BoxFragmentBuilder::MoveChildrenInDirection(
+    LayoutUnit offset,
+    bool is_block_direction,
+    std::optional<AdditionalOffsetAdjustment> additional_offset_adjustment) {
+  if (!offset && !additional_offset_adjustment) {
+    return;
+  }
   DCHECK(is_new_fc_);
-  DCHECK_NE(is_block_direction ? FragmentBlockSize() : FragmentInlineSize(),
-            kIndefiniteSize);
+  if (!additional_offset_adjustment) {
+    // Per-child adjustments can handle an indefinite container size.
+    // Otherwise, movement in this axis requires a definite fragment size.
+    DCHECK_NE(is_block_direction ? FragmentBlockSize() : FragmentInlineSize(),
+              kIndefiniteSize);
+  }
   DCHECK(oof_positioned_descendants_.empty());
 
   has_moved_children_ = true;
@@ -410,6 +419,7 @@ void BoxFragmentBuilder::MoveChildrenInDirection(LayoutUnit offset,
     }
   }
 
+  // TODO(celestepan): Handle fill-reverse for inflow bounds.
   if (inflow_bounds_) {
     if (is_block_direction) {
       inflow_bounds_->offset.block_offset += offset;
@@ -418,28 +428,31 @@ void BoxFragmentBuilder::MoveChildrenInDirection(LayoutUnit offset,
     }
   }
 
-  for (auto& child : children_) {
-    if (is_block_direction) {
-      child.offset.block_offset += offset;
-    } else {
-      child.offset.inline_offset += offset;
+  auto MoveChild = [&](LogicalFragmentLink& child) {
+    if (additional_offset_adjustment) {
+      additional_offset_adjustment->Run(child);
     }
+    LayoutUnit& child_offset = is_block_direction ? child.offset.block_offset
+                                                  : child.offset.inline_offset;
+    child_offset += offset;
+  };
+
+  for (auto& child : children_) {
+    MoveChild(child);
   }
 
   for (auto& child : children_with_size_dependent_propagation_) {
-    if (is_block_direction) {
-      child.offset.block_offset += offset;
-    } else {
-      child.offset.inline_offset += offset;
-    }
+    MoveChild(child);
   }
 
   for (auto& candidate : oof_positioned_candidates_) {
+    LogicalOffset increase;
     if (is_block_direction) {
-      candidate.static_position.offset.block_offset += offset;
+      increase.block_offset = offset;
     } else {
-      candidate.static_position.offset.inline_offset += offset;
+      increase.inline_offset = offset;
     }
+    candidate.IncreaseStaticPositionOffset(increase);
   }
 
   for (auto& descendant : oof_positioned_fragmentainer_descendants_) {
@@ -747,15 +760,15 @@ void BoxFragmentBuilder::AdjustFragmentainerDescendant(
       !descendant.containing_block.Fragment()) {
     descendant.containing_block.IncreaseBlockOffset(
         -previous_consumed_block_size);
-    descendant.static_position.offset.block_offset +=
-        previous_consumed_block_size;
+    descendant.IncreaseStaticPositionOffset(
+        LogicalOffset(LayoutUnit(), previous_consumed_block_size));
   }
 
   // If the fixedpos containing block is fragmented, adjust the offset to be
   // from the first containing block fragment to the fragmentation context root.
   if (!descendant.fixedpos_containing_block.Fragment() &&
       (node_.IsFixedContainer() ||
-       descendant.fixedpos_inline_container.container)) {
+       descendant.fixedpos_inline_container.Container())) {
     descendant.fixedpos_containing_block.IncreaseBlockOffset(
         -previous_consumed_block_size);
   }
@@ -788,7 +801,7 @@ void BoxFragmentBuilder::AdjustFixedposContainingBlockForInnerMulticols() {
     MulticolWithPendingOofs<LogicalOffset>& value = *multicol.value;
     if (!value.fixedpos_containing_block.Fragment() &&
         (node_.IsFixedContainer() ||
-         value.fixedpos_inline_container.container)) {
+         value.fixedpos_inline_container.Container())) {
       value.fixedpos_containing_block.IncreaseBlockOffset(
           -previous_consumed_block_size);
       value.multicol_offset.block_offset += previous_consumed_block_size;

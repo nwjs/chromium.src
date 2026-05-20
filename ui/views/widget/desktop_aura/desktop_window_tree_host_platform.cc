@@ -1065,8 +1065,35 @@ void DesktopWindowTreeHostPlatform::OnActivationChanged(bool active) {
   }
   is_active_ = active;
   aura::WindowTreeHostPlatform::OnActivationChanged(active);
+
+  // HandleActivationChanged() notifications can cause the widget to be
+  // synchronously closed.
+  auto weak_this = weak_factory_.GetWeakPtr();
   desktop_native_widget_aura_->HandleActivationChanged(active);
+  if (!weak_this) {
+    return;
+  }
+
   ScheduleRelayout();
+}
+
+void DesktopWindowTreeHostPlatform::OnPaintAsActiveChanged(
+    bool paint_as_active) {
+  if (WidgetActivationDelegate::Get()) {
+    return;
+  }
+
+  // Bridge the paint-as-active hint into the Widget by holding a
+  // PaintAsActiveLock, which forces the frame to render as active regardless
+  // of input activation.
+  if (paint_as_active) {
+    Widget* widget = GetWidget();
+    if (widget && !paint_as_active_lock_) {
+      paint_as_active_lock_ = widget->LockPaintAsActive();
+    }
+  } else {
+    paint_as_active_lock_.reset();
+  }
 }
 
 std::optional<gfx::Size>
@@ -1112,6 +1139,13 @@ gfx::Rect DesktopWindowTreeHostPlatform::ConvertRectToPixels(
 gfx::Rect DesktopWindowTreeHostPlatform::ConvertRectToDIP(
     const gfx::Rect& rect_in_pixels) const {
   return ToDIPRect(rect_in_pixels);
+}
+
+gfx::Point DesktopWindowTreeHostPlatform::ConvertPointToPixels(
+    const gfx::Point& point_in_dip) const {
+  gfx::Point point_in_pixels(point_in_dip);
+  ConvertDIPToPixels(&point_in_pixels);
+  return point_in_pixels;
 }
 
 gfx::PointF DesktopWindowTreeHostPlatform::ConvertScreenPointToLocalDIP(

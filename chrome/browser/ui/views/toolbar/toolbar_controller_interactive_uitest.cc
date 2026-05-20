@@ -78,7 +78,8 @@ class ToolbarControllerUiTest : public InteractiveFeaturePromoTest {
         << "Test needs modification to support WebUIPinnedToolbarActions";
     views::test::WaitForAnimatingLayoutManager(
         static_cast<PinnedToolbarActionsContainer*>(
-            browser_view_->toolbar()->pinned_toolbar_actions()));
+            browser_view_->toolbar_button_provider()
+                ->GetPinnedToolbarActions()));
     toolbar_controller_ = const_cast<ToolbarController*>(
         browser_view_->toolbar()->toolbar_controller());
     toolbar_container_view_ = const_cast<views::View*>(
@@ -569,7 +570,7 @@ IN_PROC_BROWSER_TEST_F(ToolbarControllerUiTest, ActivateActionElementFromMenu) {
                 "ResponsiveToolbar.OverflowMenuItemActivated.ForwardButton"));
 }
 
-// TODO(crbug/361296257): ActionItemsOverflowAndReappear is flaky on
+// TODO(crbug.com/361296257): ActionItemsOverflowAndReappear is flaky on
 // linux64-rel-ready.
 #if BUILDFLAG(IS_LINUX)
 #define MAYBE_ActionItemsOverflowAndReappear \

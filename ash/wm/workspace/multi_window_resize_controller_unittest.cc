@@ -22,11 +22,13 @@
 #include "ash/wm/workspace_controller_test_api.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/test/gtest_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "chromeos/ui/base/chromeos_ui_constants.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/test/test_window_delegate.h"
+#include "ui/aura/window_observer.h"
 #include "ui/base/class_property.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
@@ -40,6 +42,8 @@ using chromeos::WindowStateType;
 
 namespace ash {
 
+using chromeos::AppType;
+
 class MultiWindowResizeControllerTest : public AshTestBase {
  public:
   MultiWindowResizeControllerTest() = default;
@@ -49,41 +53,33 @@ class MultiWindowResizeControllerTest : public AshTestBase {
       const MultiWindowResizeControllerTest&) = delete;
   ~MultiWindowResizeControllerTest() override = default;
 
-  // AshTestBase:
-  void SetUp() override {
-    AshTestBase::SetUp();
-    WorkspaceController* wc = ShellTestApi().workspace_controller();
-    WorkspaceEventHandler* event_handler =
-        WorkspaceControllerTestApi(wc).GetEventHandler();
-    resize_controller_ = event_handler->multi_window_resize_controller();
-  }
-
  protected:
-  void ShowNow() { resize_controller_->ShowNow(); }
+  void ShowNow() { resize_controller()->ShowNow(); }
 
-  bool IsShowing() { return resize_controller_->IsShowing(); }
+  bool IsShowing() { return resize_controller()->IsShowing(); }
 
   bool HasTarget(aura::Window* window) {
-    if (!resize_controller_->windows_.is_valid())
+    if (!resize_controller()->windows_.is_valid()) {
       return false;
-    if (resize_controller_->windows_.window1 == window ||
-        resize_controller_->windows_.window2 == window) {
+    }
+    if (resize_controller()->windows_.window1 == window ||
+        resize_controller()->windows_.window2 == window) {
       return true;
     }
-    return std::ranges::contains(resize_controller_->windows_.other_windows,
+    return std::ranges::contains(resize_controller()->windows_.other_windows,
                                  window);
   }
 
   bool IsOverWindows(const gfx::Point& loc) {
-    return resize_controller_->IsOverWindows(loc);
+    return resize_controller()->IsOverWindows(loc);
   }
 
   views::Widget* resize_widget() {
-    return resize_controller_->resize_widget_.get();
+    return resize_controller()->resize_widget_.get();
   }
 
   base::OneShotTimer* GetShowTimer() {
-    return &(resize_controller_->show_timer_);
+    return &(resize_controller()->show_timer_);
   }
 
   bool IsShowTimerRunning() {
@@ -93,8 +89,12 @@ class MultiWindowResizeControllerTest : public AshTestBase {
                MultiWindowResizeController::kShowDelay;
   }
 
-  raw_ptr<MultiWindowResizeController, DanglingUntriaged> resize_controller_ =
-      nullptr;
+  MultiWindowResizeController* resize_controller() {
+    WorkspaceController* wc = ShellTestApi().workspace_controller();
+    WorkspaceEventHandler* event_handler =
+        WorkspaceControllerTestApi(wc).GetEventHandler();
+    return event_handler->multi_window_resize_controller();
+  }
 };
 
 // Assertions around moving mouse over 2 windows.
@@ -120,7 +120,7 @@ TEST_F(MultiWindowResizeControllerTest, BasicTests) {
   EXPECT_FALSE(IsOverWindows(gfx::Point(200, 200)));
 
   // Have to explicitly invoke this as MouseWatcher listens for native events.
-  resize_controller_->MouseMovedOutOfHost();
+  resize_controller()->MouseMovedOutOfHost();
   EXPECT_FALSE(IsShowTimerRunning());
   EXPECT_FALSE(IsShowing());
 }
@@ -349,6 +349,81 @@ TEST_F(MultiWindowResizeControllerTest, Three) {
   EXPECT_FALSE(WindowState::Get(w3.get())->is_dragged());
 
   generator->PressLeftButton();
+}
+
+TEST_F(MultiWindowResizeControllerTest, ReentrantResetDuringLayoutAttached) {
+  // WorkspaceWindowResizer::LayoutAttachedWindows() calls
+  // attached_windows_[i]->SetBounds() in a loop with no WeakPtr guard on
+  // |this|. MultiWindowResizeController observes every attached window and
+  // several of its observer callbacks (OnWindowVisibilityChanged,
+  // OnWindowDestroying, OnWindowPropertyChanged, OnPostWindowStateTypeChange)
+  // call ResetResizer(), which synchronously deletes the
+  // WorkspaceWindowResizer.
+  //
+  // This test installs an aura::WindowObserver that hides the third window
+  // (other_windows[0]) synchronously inside the second window's SetBounds()
+  // notification, simulating any code path that mutates an observed window
+  // during the LayoutAttachedWindows loop. Without a WeakPtr guard the next
+  // loop iteration dereferences |this| after free.
+
+  aura::test::TestWindowDelegate delegate1;
+  std::unique_ptr<aura::Window> w1(
+      CreateTestWindowInShell({.delegate = &delegate1, .bounds = {100, 100}}));
+  delegate1.set_window_component(HTRIGHT);
+  aura::test::TestWindowDelegate delegate2;
+  std::unique_ptr<aura::Window> w2(CreateTestWindowInShell(
+      {.delegate = &delegate2, .bounds = {100, 0, 100, 100}, .window_id = -2}));
+  delegate2.set_window_component(HTRIGHT);
+  aura::test::TestWindowDelegate delegate3;
+  std::unique_ptr<aura::Window> w3(CreateTestWindowInShell(
+      {.delegate = &delegate3, .bounds = {200, 0, 100, 100}, .window_id = -3}));
+  delegate3.set_window_component(HTRIGHT);
+
+  // Observer that hides |w3| the first time |w2|'s bounds change. This
+  // simulates any synchronous reaction to the attached-window SetBounds()
+  // (e.g. an exo surface destroying itself, a window-state transition, or a
+  // property change on a non-resizable other_window) that causes
+  // MultiWindowResizeController::ResetResizer() to run while
+  // LayoutAttachedWindows() is on the stack.
+  class HideOnBoundsChange : public aura::WindowObserver {
+   public:
+    explicit HideOnBoundsChange(aura::Window* victim) : victim_(victim) {}
+    void OnWindowBoundsChanged(aura::Window* window,
+                               const gfx::Rect& old_bounds,
+                               const gfx::Rect& new_bounds,
+                               ui::PropertyChangeReason reason) override {
+      if (fired_) {
+        return;
+      }
+      fired_ = true;
+      // Triggers MultiWindowResizeController::OnWindowVisibilityChanged ->
+      // ResetResizer() -> window_resizer_.reset() -> ~WorkspaceWindowResizer.
+      victim_->Hide();
+    }
+    bool fired_ = false;
+    raw_ptr<aura::Window> victim_;
+  };
+
+  HideOnBoundsChange hide_observer(w3.get());
+  w2->AddObserver(&hide_observer);
+
+  ui::test::EventGenerator* generator = GetEventGenerator();
+  generator->MoveMouseTo(w1->bounds().CenterPoint());
+  ShowNow();
+  ASSERT_TRUE(resize_widget());
+
+  // Start the drag. This constructs WorkspaceWindowResizer with
+  // attached_windows_ = {w2, w3} and makes the controller observe w3.
+  gfx::Rect bounds(resize_widget()->GetWindowBoundsInScreen());
+  generator->MoveMouseTo(bounds.x() + 1, bounds.y() + 1);
+  generator->PressLeftButton();
+  ASSERT_TRUE(HasTarget(w3.get()));
+
+  // Drag: Drag() -> LayoutAttachedWindows() -> w2->SetBounds() ->
+  // HideOnBoundsChange hides w3 -> ResetResizer() frees |this| mid-loop.
+  // The implemented CHECK should cause the process to crash here safely.
+  EXPECT_CHECK_DEATH(generator->MoveMouseTo(bounds.x() + 11, bounds.y() + 10));
+  w2->RemoveObserver(&hide_observer);
 }
 
 // Tests that clicking outside of the resize handle dismisses it.
@@ -632,8 +707,9 @@ TEST_F(MultiWindowResizeControllerTest, HiddenInOverview) {
   // Create two windows side by side, but not overlapping horizontally. Note
   // that when creating a window, the window is slightly larger than the given
   // bounds so position |window2| accordingly.
-  auto window1 = CreateAppWindow(gfx::Rect(0, 0, 100, 100));
-  auto window2 = CreateAppWindow(gfx::Rect(104, 0, 100, 100));
+  auto window1 = CreateWindowWithAppType(AppType::SYSTEM_APP, {100, 100});
+  auto window2 =
+      CreateWindowWithAppType(AppType::SYSTEM_APP, {104, 0, 100, 100});
 
   // Move the mouse to the middle of the two windows. The multi window resizer
   // should appear.

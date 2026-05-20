@@ -276,6 +276,10 @@ public class HistoryManager
                     this, R.string.history_manager_search, R.id.search_menu_id);
         } else {
             mToolbar.initializeInlineSearchView(this, R.id.search_menu_id);
+            ViewGroup searchBoxContainer =
+                    mToolbar.initializeSearchBoxContainer(
+                            mSelectableListLayout, R.string.history_manager_search);
+            mSelectableListLayout.addInlineSearchBox(searchBoxContainer);
         }
 
         mToolbar.setInfoMenuItem(R.id.info_menu_id);
@@ -305,7 +309,6 @@ public class HistoryManager
         mContentManager.maybeQueryApps();
 
         mContentManager.getAdapter().setIsLargeFormFactorDevice(mIsLargeFormFactorDevice);
-        mContentManager.getAdapter().setToolbar(mToolbar);
     }
 
     private void initializeEmptyView() {
@@ -576,7 +579,7 @@ public class HistoryManager
         // Before the RecyclerView binds its items, LinearLayoutManager#firstVisibleItemPosition()
         // returns {@link RecyclerView#NO_POSITION}. If #findVisibleItemPosition() returns
         // NO_POSITION, the current adapter position should not prevent the info button from being
-        // displayed if all of the other criteria is met. See crbug.com/756249#c3.
+        // displayed if all of the other criteria is met. See crbug.com/41339744#comment4.
         boolean firstAdapterItemScrolledOff =
                 assumeNonNull(layoutManager).findFirstVisibleItemPosition() > 0;
 

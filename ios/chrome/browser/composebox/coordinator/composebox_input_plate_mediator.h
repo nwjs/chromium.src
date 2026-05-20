@@ -11,16 +11,19 @@
 #include <vector>
 
 #import "components/contextual_search/internal/ios/composebox_context_upload_observer_bridge.h"
-#import "ios/chrome/browser/composebox/coordinator/composebox_entrypoint.h"
+#import "components/contextual_tasks/public/query_contextualizer.h"
+#import "ios/chrome/browser/composebox/coordinator/composebox_input_state_manager.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_mode_holder.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_omnibox_client_delegate.h"
-#import "ios/chrome/browser/composebox/coordinator/composebox_tab_picker_coordinator.h"
+#import "ios/chrome/browser/composebox/public/composebox_entrypoint.h"
 #import "ios/chrome/browser/composebox/ui/composebox_input_plate_consumer.h"
 #import "ios/chrome/browser/composebox/ui/composebox_input_plate_mutator.h"
 #import "ios/chrome/browser/omnibox/ui/text_field_view_containing.h"
+#import "ios/chrome/browser/tab_picker/coordinator/tab_picker_coordinator.h"
 #import "ios/public/provider/chrome/browser/voice_search/voice_search_controller.h"
 
 @protocol BrowserCoordinatorCommands;
+@class ComposeboxAttachmentSelection;
 @class CobrowseContext;
 class CobrowseBrowserAgent;
 @protocol ComposeboxDebuggerLogger;
@@ -32,6 +35,7 @@ class AimEligibilityService;
 class FaviconLoader;
 class PersistTabContextBrowserAgent;
 class PrefService;
+class ProfileIOS;
 class TemplateURLService;
 class WebStateList;
 
@@ -55,13 +59,16 @@ class ContextualSearchSessionHandle;
     : NSObject <ComposeboxOmniboxClientDelegate,
                 ComposeboxInputPlateMutator,
                 ComposeboxContextUploadObserver,
-                ComposeboxModeObserver,
-                ComposeboxTabPickerSelectionDelegate,
+                TabPickerSelectionDelegate,
                 TextFieldViewContainingHeightDelegate,
+                ComposeboxInputStateManagerDelegate,
                 VoiceSearchDelegate>
 
 // The composebox input plate consumer.
 @property(nonatomic, weak) id<ComposeboxInputPlateConsumer> consumer;
+// The current real-time attachment selection.
+@property(nonatomic, readonly)
+    ComposeboxAttachmentSelection* currentAttachmentSelection;
 // The composebox URL loader.
 @property(nonatomic, weak) id<ComposeboxURLLoader> URLLoader;
 // The delegate for this mediator.
@@ -85,6 +92,7 @@ class ContextualSearchSessionHandle;
               aimEligibilityService:
                   (AimEligibilityService*)aimEligibilityService
                         prefService:(PrefService*)prefService
+                            profile:(ProfileIOS*)profile
                cobrowseBrowserAgent:(CobrowseBrowserAgent*)cobrowseBrowserAgent
           browserCoordinatorHandler:
               (id<BrowserCoordinatorCommands>)browserCoordinatorHandler
@@ -108,6 +116,9 @@ class ContextualSearchSessionHandle;
 // and maps dynamically injected Tools and Models to metrics.
 - (void)recordPlusMenuOpenedWithVisibleInternalButtons:
     (const std::vector<FuseboxAttachmentButtonType>&)visibleInternalButtons;
+
+// Unpacks and attaches all items within the selection wrapper.
+- (void)updateAttachments:(ComposeboxAttachmentSelection*)attachments;
 
 @end
 

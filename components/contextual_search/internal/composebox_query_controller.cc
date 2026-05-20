@@ -469,10 +469,20 @@ void ComposeboxQueryController::SetIsBackgrounded(bool backgrounded) {
 }
 
 void ComposeboxQueryController::InitializeIfNeeded() {
-  if (query_controller_state_ == QueryControllerState::kOff) {
-    // The query controller state starts at kOff. If it is set to any other
-    // state by the call to FetchClusterInfo(), this indicates that the
-    // handshake has already been initialized.
+  if (!contextual_tasks::GetIsContextualTasksLazyFetchClusterInfoEnabled()) {
+    if (query_controller_state_ == QueryControllerState::kOff) {
+      // The query controller state starts at kOff. If it is set to any other
+      // state by the call to FetchClusterInfo(), this indicates that the
+      // handshake has already been initialized.
+      FetchClusterInfo();
+    }
+    return;
+  }
+}
+
+void ComposeboxQueryController::TriggerFetchClusterInfo() {
+  if (query_controller_state_ == QueryControllerState::kOff ||
+      query_controller_state_ == QueryControllerState::kClusterInfoInvalid) {
     FetchClusterInfo();
   }
 }
@@ -813,7 +823,6 @@ lens::ClientToAimMessage ComposeboxQueryController::CreateClientToAimRequest(
     bool is_region_interaction =
         create_client_to_aim_request_info
             ->force_include_latest_interaction_request_data &&
-        create_client_to_aim_request_info->file_tokens.size() == 1 &&
         latest_interaction_request_data_ &&
         latest_interaction_request_data_->has_image_crop();
 
@@ -835,8 +844,11 @@ lens::ClientToAimMessage ComposeboxQueryController::CreateClientToAimRequest(
           cluster_info_->search_session_id());
       lens_image_query_data->mutable_request_id()->CopyFrom(
           file_info->request_id.value());
+      bool is_overlay_token =
+          create_client_to_aim_request_info->overlay_token.has_value() &&
+          file_token == *create_client_to_aim_request_info->overlay_token;
       auto media_type =
-          is_region_interaction
+          (is_region_interaction && is_overlay_token)
               ? lens::LensOverlayRequestId::MEDIA_TYPE_DEFAULT_IMAGE
               : file_info->request_id->media_type();
       lens_image_query_data->mutable_request_id()->set_media_type(media_type);
@@ -845,6 +857,21 @@ lens::ClientToAimMessage ComposeboxQueryController::CreateClientToAimRequest(
       if (visual_input_type !=
           lens::LensOverlayVisualInputType::VISUAL_INPUT_TYPE_UNKNOWN) {
         lens_image_query_data->set_visual_input_type(visual_input_type);
+      }
+
+      // Only force interaction data for region searches when the overlay is
+      // open.
+      std::optional<lens::LensOverlayVisualSearchInteractionData>
+          visual_search_interaction_data = ConstructVisualSearchInteractionData(
+              static_cast<const FileInfo*>(file_info),
+              create_client_to_aim_request_info->query_text, std::nullopt,
+              is_overlay_token
+                  ? create_client_to_aim_request_info
+                        ->force_include_latest_interaction_request_data
+                  : false);
+      if (visual_search_interaction_data.has_value()) {
+        lens_image_query_data->mutable_visual_search_interaction_data()
+            ->CopyFrom(visual_search_interaction_data.value());
       }
     }
 
@@ -856,31 +883,6 @@ lens::ClientToAimMessage ComposeboxQueryController::CreateClientToAimRequest(
         added_inputs.turn_title_thumbnail_size() > 0) {
       submit_query->mutable_payload()->mutable_added_inputs()->CopyFrom(
           added_inputs);
-    }
-  }
-
-  // Add the latest visual search interaction data to the query if it exists.
-  // Only check the first file token since the interaction should be associated
-  // with the a single contextual input.
-  if (!create_client_to_aim_request_info->file_tokens.empty()) {
-    auto* file_info =
-        GetFileInfo(create_client_to_aim_request_info->file_tokens[0]);
-    if (file_info && IsValidContextUploadStatusForMultimodalRequest(
-                         file_info->upload_status)) {
-      std::optional<lens::LensOverlayVisualSearchInteractionData>
-          visual_search_interaction_data = ConstructVisualSearchInteractionData(
-              static_cast<const FileInfo*>(file_info),
-              create_client_to_aim_request_info->query_text, std::nullopt,
-              create_client_to_aim_request_info
-                  ->force_include_latest_interaction_request_data);
-      if (visual_search_interaction_data.has_value()) {
-        for (auto& lens_image_query_data :
-             *submit_query->mutable_payload()
-                  ->mutable_lens_image_query_data()) {
-          lens_image_query_data.mutable_visual_search_interaction_data()
-              ->CopyFrom(visual_search_interaction_data.value());
-        }
-      }
     }
   }
 
@@ -900,6 +902,12 @@ void ComposeboxQueryController::StartFileUploadFlow(
     const base::UnguessableToken& file_token,
     std::unique_ptr<lens::ContextualInputData> contextual_input_data,
     std::optional<lens::ImageEncodingOptions> image_options) {
+  // When the lazy fetch feature is enabled, the cluster info is fetched when a
+  // file upload is needed rather than on initialization.
+  if (contextual_tasks::GetIsContextualTasksLazyFetchClusterInfoEnabled() &&
+      query_controller_state_ == QueryControllerState::kOff) {
+    FetchClusterInfo();
+  }
   if (pending_search_url_request_) {
     // If there is a pending search url creation request, fail it immediately,
     // as the new file upload should take priority and the pending url creation
@@ -2233,18 +2241,6 @@ ComposeboxQueryController::GetFileInfoList() {
   return file_infos;
 }
 
-std::optional<base::UnguessableToken>
-ComposeboxQueryController::FindTokenForInjectedInput(const std::string& id) {
-  for (const auto& [token, info] : active_files_) {
-    if (info) {
-      auto injected_input_id = info->GetInjectedInputId();
-      if (injected_input_id.has_value() && injected_input_id.value() == id) {
-        return token;
-      }
-    }
-  }
-  return std::nullopt;
-}
 
 base::WeakPtr<contextual_search::ContextualSearchContextController>
 ComposeboxQueryController::AsWeakPtr() {

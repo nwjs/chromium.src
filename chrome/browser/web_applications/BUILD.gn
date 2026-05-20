@@ -61,6 +61,8 @@ source_set("web_applications") {
     "commands/internal/callback_command.h",
     "commands/internal/command_internal.cc",
     "commands/internal/command_internal.h",
+    "commands/launch_or_reparent_web_contents_into_app_command.cc",
+    "commands/launch_or_reparent_web_contents_into_app_command.h",
     "commands/launch_web_app_command.cc",
     "commands/launch_web_app_command.h",
     "commands/manifest_silent_update_command.cc",
@@ -245,10 +247,10 @@ source_set("web_applications") {
     "locks/with_shared_web_contents_resources.h",
     "manifest_update_manager.cc",
     "manifest_update_manager.h",
-    "manifest_update_utils.cc",
-    "manifest_update_utils.h",
     "model/app_installed_by.cc",
     "model/app_installed_by.h",
+    "model/dialog_image_info.cc",
+    "model/dialog_image_info.h",
     "model/display_override.cc",
     "model/display_override.h",
     "model/localized_text.cc",
@@ -261,6 +263,8 @@ source_set("web_applications") {
     "model/pending_migration_info.h",
     "model/web_app_comparison.cc",
     "model/web_app_comparison.h",
+    "model/web_app_icon_types.cc",
+    "model/web_app_icon_types.h",
     "navigation_capturing_log.cc",
     "navigation_capturing_log.h",
     "navigation_capturing_metrics.cc",
@@ -334,6 +338,8 @@ source_set("web_applications") {
     "scheduler/install_migrate_to_app_result.h",
     "scheduler/isolated_web_app_apply_update_result.cc",
     "scheduler/isolated_web_app_apply_update_result.h",
+    "scheduler/launch_or_reparent_result.cc",
+    "scheduler/launch_or_reparent_result.h",
     "scheduler/manifest_silent_update_result.cc",
     "scheduler/manifest_silent_update_result.h",
     "scheduler/navigate_and_trigger_install_dialog_result.cc",
@@ -549,7 +555,7 @@ source_set("web_applications") {
 
   # Enable the "exit_time_destructors" warning here to avoid accidentally
   # adding exit time destructors and because the flag is not enabled by default.
-  # TODO(http://crbug.com/101600):  Remove once exit_time_destructors is enabled
+  # TODO(http://crbug.com/40031409):  Remove once exit_time_destructors is enabled
   # by default.
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
@@ -571,6 +577,7 @@ source_set("web_applications") {
     "//chrome/browser:global_features",
     "//chrome/browser:shell_integration",
     "//chrome/browser/apps:user_type_filter",
+    "//chrome/browser/browsing_data",
     "//chrome/browser/browsing_data:constants",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/favicon",
@@ -579,6 +586,7 @@ source_set("web_applications") {
     "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/profiles/keep_alive",
     "//chrome/browser/shortcuts",
+    "//chrome/browser/ssl",
     "//chrome/browser/sync:factories",
     "//chrome/browser/task_manager",
     "//chrome/browser/ui/browser_window",
@@ -684,6 +692,7 @@ source_set("web_applications") {
     deps += [
       "//chrome/browser/profiles:profile_util",
       "//chrome/browser/web_applications/chrome_pwa_launcher:util",
+      "//chrome/browser/win",
       "//components/custom_handlers",
     ]
   }
@@ -810,14 +819,10 @@ source_set("web_applications_test_support") {
     "isolated_web_apps/test/iwa_test_server_configurator.h",
     "isolated_web_apps/test/key_distribution/test_utils.cc",
     "isolated_web_apps/test/key_distribution/test_utils.h",
-    "isolated_web_apps/test/mock_iwa_install_command_wrapper.cc",
-    "isolated_web_apps/test/mock_iwa_install_command_wrapper.h",
     "isolated_web_apps/test/policy_generator.cc",
     "isolated_web_apps/test/policy_generator.h",
     "isolated_web_apps/test/policy_test_utils.cc",
     "isolated_web_apps/test/policy_test_utils.h",
-    "isolated_web_apps/test/test_iwa_installer_factory.cc",
-    "isolated_web_apps/test/test_iwa_installer_factory.h",
     "test/command_metrics_test_helper.cc",
     "test/command_metrics_test_helper.h",
     "test/debug_info_printer.cc",
@@ -881,6 +886,7 @@ source_set("web_applications_test_support") {
     "//chrome/browser:shell_integration",
     "//chrome/browser/apps/app_service",
     "//chrome/browser/apps/app_service:app_registry_cache_waiter",
+    "//chrome/browser/component_updater",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui",
     "//chrome/browser/ui/web_applications",
@@ -975,6 +981,7 @@ source_set("web_applications_unit_tests") {
     "commands/install_app_locally_command_unittest.cc",
     "commands/install_from_sync_command_unittest.cc",
     "commands/install_migrate_to_app_command_unittest.cc",
+    "commands/launch_or_reparent_web_contents_into_app_command_unittest.cc",
     "commands/manifest_silent_update_command_unittest.cc",
     "commands/os_integration_synchronize_command_unittest.cc",
     "commands/resolve_web_app_pending_migration_info_command_unittest.cc",
@@ -1065,6 +1072,7 @@ source_set("web_applications_unit_tests") {
     "web_app_utils_unittest.cc",
     "web_contents/web_app_data_retriever_unittest.cc",
     "web_contents/web_app_icon_downloader_unittest.cc",
+    "web_install_service_impl_unittest.cc",
   ]
 
   if (is_win) {
@@ -1127,6 +1135,7 @@ source_set("web_applications_unit_tests") {
     "//chrome/browser/apps/app_service",
     "//chrome/browser/apps/app_service/publishers",
     "//chrome/browser/apps/link_capturing:test_support",
+    "//chrome/browser/component_updater",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/notifications:system_notification_helper",
     "//chrome/browser/profiles:profile",
@@ -1138,7 +1147,6 @@ source_set("web_applications_unit_tests") {
     "//chrome/common:chrome_features",
     "//chrome/test:test_support",
     "//components/component_updater:test_support",
-    "//components/os_crypt/sync:test_support",
     "//components/services/app_service",
     "//components/user_manager",
     "//components/web_package",
@@ -1234,6 +1242,7 @@ source_set("web_applications_browser_tests") {
     "commands/install_from_info_command_browsertest.cc",
     "commands/install_from_sync_command_browsertest.cc",
     "commands/install_migrate_to_app_command_browsertest.cc",
+    "commands/launch_or_reparent_web_contents_into_app_command_browsertest.cc",
     "commands/launch_web_app_command_browsertest.cc",
     "commands/manifest_silent_update_command_browsertest.cc",
     "commands/navigate_and_trigger_install_dialog_command_browsertest.cc",
@@ -1280,6 +1289,7 @@ source_set("web_applications_browser_tests") {
     "web_app_audio_focus_browsertest.cc",
     "web_app_automation_browsertest.cc",
     "web_app_browser_controller_browsertest.cc",
+    "web_app_database_recovery_browsertest.cc",
     "web_app_icon_manager_browsertest.cc",
     "web_app_install_migration_browsertest.cc",
     "web_app_link_capturing_parameterized_browsertest.cc",
@@ -1341,6 +1351,7 @@ source_set("web_applications_browser_tests") {
     "//chrome/browser/apps/link_capturing:test_support",
     "//chrome/browser/banners:test_support",
     "//chrome/browser/browsing_data:constants",
+    "//chrome/browser/component_updater",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/devtools:test_support",
     "//chrome/browser/gcm",
@@ -1348,7 +1359,10 @@ source_set("web_applications_browser_tests") {
     "//chrome/browser/permissions",
     "//chrome/browser/policy:policy_util",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui:browser_navigator_params_headers",
+    "//chrome/browser/push_messaging",
+    "//chrome/browser/push_messaging:service_impl_public",
+    "//chrome/browser/ui/navigator",
+    "//chrome/browser/ui/profiles",
     "//chrome/browser/ui/views/location_bar",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/browser/ui/web_applications",

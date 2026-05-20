@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/containers/heap_array.h"
@@ -34,8 +35,6 @@
 #include "third_party/re2/src/re2/re2.h"
 #include "ui/gl/gl_version_info.h"
 #include "ui/gl/progress_reporter.h"
-#include "base/check_op.h"
-#include "base/check.h"
 
 namespace gpu {
 namespace gles2 {
@@ -396,6 +395,7 @@ bool ProgramManager::HasBuiltInPrefix(const std::string& name) {
 Program::Program(ProgramManager* manager, GLuint service_id)
     : manager_(manager),
       use_count_(0),
+      active_transform_feedback_count_(0),
       max_attrib_name_length_(0),
       max_uniform_name_length_(0),
       service_id_(service_id),
@@ -526,6 +526,11 @@ void Program::UpdateUniformBlockSizeInfo() {
         service_id_, ii, GL_UNIFORM_BLOCK_DATA_SIZE, &size);
     uniform_block_size_info_[ii].data_size = static_cast<GLuint>(size);
   }
+}
+
+void Program::DecrementActiveTransformFeedbackCount() {
+  CHECK_GT(active_transform_feedback_count_, 0);
+  --active_transform_feedback_count_;
 }
 
 void Program::SetUniformBlockBinding(GLuint index, GLuint binding) {

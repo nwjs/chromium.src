@@ -561,6 +561,10 @@ void AddUninstallShortcutWorkItems(const InstallParams& install_params,
                                          KEY_WOW64_32KEY, L"InstallLocation",
                                          install_path.value(), true);
 
+    install_list->AddSetRegValueWorkItem(
+        reg_root, uninstall_reg, KEY_WOW64_32KEY, L"EstimatedSize",
+        static_cast<DWORD>(install_params.estimated_size), true);
+
     std::wstring chrome_icon = ShellUtil::FormatIconLocation(
         install_path.Append(kChromeExe),
         install_static::GetAppIconResourceIndex());
@@ -1184,7 +1188,7 @@ void AddActiveSetupWorkItems(const InstallerState& installer_state,
   list->AddSetRegValueWorkItem(root, active_setup_path, WorkItem::kWow64Default,
                                L"StubPath", cmd.GetCommandLineString(), true);
 
-  // TODO(grt): http://crbug.com/75152 Write a reference to a localized
+  // TODO(grt): http://crbug.com/41337274 Write a reference to a localized
   // resource.
   list->AddSetRegValueWorkItem(root, active_setup_path, WorkItem::kWow64Default,
                                L"Localized Name", InstallUtil::GetDisplayName(),
@@ -1235,8 +1239,9 @@ void AddOsUpgradeWorkItems(const InstallerState& installer_state,
     // Log everything for now.
     cmd_line.AppendSwitch(installer::switches::kVerboseLogging);
     // This will make the updater append
-    // <prev_windows_version>-<new_windows_version> to the upgrade commandline.
-    cmd_line.AppendArg("%1");
+    // --os-upgrade-versions=<prev_windows_version>-<new_windows_version> to the
+    // upgrade commandline.
+    cmd_line.AppendSwitchASCII(installer::switches::kOsUpgradeVersions, "%1");
 
     // `GetCommandLineStringWithUnsafeInsertSequences` should be safe to use
     // because the updater will do the substitution, not the Windows shell.

@@ -343,7 +343,9 @@ class ReadAloudAppModel {
       {"Accessibility.ReadAnything.ReadAloudNextButtonSessionCount", 0},
       {"Accessibility.ReadAnything.ReadAloudPauseSessionCount", 0},
       {"Accessibility.ReadAnything.ReadAloudPlaySessionCount", 0},
+      {"Accessibility.ReadAnything.ReadAloudPlayFromSelectionSessionCount", 0},
       {"Accessibility.ReadAnything.ReadAloudPreviousButtonSessionCount", 0},
+      {"Accessibility.ReadAnything.ReadAloud.VoiceLanguageChange", 0},
   };
   std::map<std::string, std::unique_ptr<base::SingleSampleMetric>>
       metric_to_single_sample_;

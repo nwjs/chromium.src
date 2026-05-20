@@ -32,11 +32,12 @@
 #include "base/time/default_tick_clock.h"
 #include "base/trace_event/trace_event.h"
 #include "base/uuid.h"
+#include "build/android_buildflags.h"
 #include "components/services/storage/public/mojom/cache_storage_control.mojom.h"
 #include "components/services/storage/public/mojom/service_worker_database.mojom-forward.h"
+#include "content/browser/back_forward_cache/back_forward_cache_can_store_document_result.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/child_process_security_policy_impl.h"
-#include "content/browser/renderer_host/back_forward_cache_can_store_document_result.h"
 #include "content/browser/renderer_host/local_network_access_util.h"
 #include "content/browser/service_worker/payment_handler_support.h"
 #include "content/browser/service_worker/service_worker_client.h"
@@ -440,12 +441,14 @@ void ServiceWorkerVersion::SetStatus(Status status) {
     // event handlers.
     context_->hid_delegate_observer()->UpdateHasEventHandlers(
         registration_id_, has_hid_event_handlers_);
+#endif  // !BUILDFLAG(IS_ANDROID)
 
+#if !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
     // Notify the usb delegate observer if the active service worker has any usb
-    // event handlers.
+    // event handlers. This is limited to platforms that support extensions.
     context_->usb_delegate_observer()->UpdateHasEventHandlers(
         registration_id_, has_usb_event_handlers_);
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
   } else if (status == REDUNDANT) {
     embedded_worker_->OnWorkerVersionDoomed();
 
@@ -529,10 +532,10 @@ void ServiceWorkerVersion::set_has_usb_event_handlers(
 
 void ServiceWorkerVersion::StartWorker(ServiceWorkerMetrics::EventType purpose,
                                        StatusCallback callback) {
-  TRACE_EVENT_INSTANT2(
-      "ServiceWorker", "ServiceWorkerVersion::StartWorker (instant)",
-      TRACE_EVENT_SCOPE_THREAD, "Script", script_url_.spec(), "Purpose",
-      ServiceWorkerMetrics::EventTypeToString(purpose));
+  TRACE_EVENT_INSTANT("ServiceWorker",
+                      "ServiceWorkerVersion::StartWorker (instant)", "Script",
+                      script_url_.spec(), "Purpose",
+                      ServiceWorkerMetrics::EventTypeToString(purpose));
 
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   const bool is_browser_startup_complete =
@@ -582,10 +585,9 @@ void ServiceWorkerVersion::StartWorker(ServiceWorkerMetrics::EventType purpose,
 }
 
 void ServiceWorkerVersion::StopWorker(base::OnceClosure callback) {
-  TRACE_EVENT_INSTANT2("ServiceWorker",
-                       "ServiceWorkerVersion::StopWorker (instant)",
-                       TRACE_EVENT_SCOPE_THREAD, "Script", script_url_.spec(),
-                       "Status", VersionStatusToString(status_));
+  TRACE_EVENT_INSTANT(
+      "ServiceWorker", "ServiceWorkerVersion::StopWorker (instant)", "Script",
+      script_url_.spec(), "Status", VersionStatusToString(status_));
 
   switch (running_status()) {
     case blink::EmbeddedWorkerStatus::kStarting:
@@ -838,8 +840,14 @@ bool ServiceWorkerVersion::FinishRequestWithFetchCount(int request_id,
   // ServiceWorkerVersion::Request
   TRACE_EVENT_END("ServiceWorker", perfetto::Track::FromPointer(request),
                   "Handled", was_handled);
-  if (request->timeout_iter.has_value()) {
-    request_timeouts_.erase(*request->timeout_iter);
+  if (base::FeatureList::IsEnabled(
+          features::kServiceWorkerOptionalTimeoutIterator)) {
+    if (request->timeout_iter.has_value()) {
+      request_timeouts_.erase(*request->timeout_iter);
+    }
+  } else {
+    // Equivalent to the previous, non-optional iterator behavior. Maybe unsafe.
+    request_timeouts_.erase(request->timeout_iter.value_or({}));
   }
   inflight_requests_.Remove(request_id);
   // TODO(crbug.com/40864997): remove the following DCHECK when the cause
@@ -1406,6 +1414,18 @@ void ServiceWorkerVersion::SetDevToolsAttached(bool attached) {
 
 void ServiceWorkerVersion::SetMainScriptResponse(
     std::unique_ptr<MainScriptResponse> response) {
+  if (base::FeatureList::IsEnabled(
+          features::kServiceWorkerStaticRouterConsolidateMainScriptResponse)) {
+    main_script_fetched_ = true;
+    if (!response) {
+      main_script_response_callbacks_.Notify();
+      return;
+    }
+  } else {
+    // In the old code path, this should never be called with a null response.
+    CHECK(response);
+  }
+
   script_response_time_for_devtools_ = response->response_time;
   main_script_response_ = std::move(response);
 
@@ -1423,6 +1443,37 @@ void ServiceWorkerVersion::SetMainScriptResponse(
   if (context_) {
     context_->OnMainScriptResponseSet(version_id(), *main_script_response_);
   }
+
+  if (base::FeatureList::IsEnabled(
+          features::kServiceWorkerStaticRouterConsolidateMainScriptResponse)) {
+    main_script_response_callbacks_.Notify();
+  }
+}
+
+bool ServiceWorkerVersion::main_script_fetched() const {
+  return main_script_fetched_;
+}
+
+void ServiceWorkerVersion::EnsureMainScriptResponseSet(
+    base::OnceClosure callback) {
+  if (!base::FeatureList::IsEnabled(
+          features::kServiceWorkerStaticRouterConsolidateMainScriptResponse)) {
+    return;
+  }
+  if (main_script_fetched_) {
+    std::move(callback).Run();
+    return;
+  }
+
+  main_script_response_callbacks_.AddUnsafe(std::move(callback));
+
+  if (installed_scripts_sender_) {
+    return;
+  }
+
+  installed_scripts_sender_ =
+      std::make_unique<ServiceWorkerInstalledScriptsSender>(this);
+  installed_scripts_sender_->Start();
 }
 
 void ServiceWorkerVersion::SimulatePingTimeoutForTesting() {
@@ -2556,12 +2607,24 @@ void ServiceWorkerVersion::StartWorkerInternal() {
   params->main_script_load_params = std::move(main_script_load_params_);
 
   if (IsInstalled(status())) {
-    DCHECK(!installed_scripts_sender_);
-    installed_scripts_sender_ =
-        std::make_unique<ServiceWorkerInstalledScriptsSender>(this);
-    params->installed_scripts_info =
-        installed_scripts_sender_->CreateInfoAndBind();
-    installed_scripts_sender_->Start();
+    if (base::FeatureList::IsEnabled(
+            features::
+                kServiceWorkerStaticRouterConsolidateMainScriptResponse)) {
+      if (!installed_scripts_sender_) {
+        installed_scripts_sender_ =
+            std::make_unique<ServiceWorkerInstalledScriptsSender>(this);
+        installed_scripts_sender_->Start();
+      }
+      params->installed_scripts_info =
+          installed_scripts_sender_->CreateInfoAndBind();
+    } else {
+      DCHECK(!installed_scripts_sender_);
+      installed_scripts_sender_ =
+          std::make_unique<ServiceWorkerInstalledScriptsSender>(this);
+      params->installed_scripts_info =
+          installed_scripts_sender_->CreateInfoAndBind();
+      installed_scripts_sender_->Start();
+    }
   }
 
   params->service_worker_receiver =
@@ -2728,9 +2791,12 @@ void ServiceWorkerVersion::OnTimeoutTimer() {
     timed_out_infos.push_back(*it);
     // Erase the entry from `request_timeouts_` and update `InflightRequest`
     // accordingly.
-    InflightRequest* request = inflight_requests_.Lookup(it->id);
-    CHECK(request);
-    request->timeout_iter = std::nullopt;
+    if (base::FeatureList::IsEnabled(
+            features::kServiceWorkerOptionalTimeoutIterator)) {
+      InflightRequest* request = inflight_requests_.Lookup(it->id);
+      CHECK(request);
+      request->timeout_iter = std::nullopt;
+    }
     it = request_timeouts_.erase(it);
   }
 

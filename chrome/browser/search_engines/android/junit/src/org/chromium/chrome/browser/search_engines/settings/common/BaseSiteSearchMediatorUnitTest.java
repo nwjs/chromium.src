@@ -7,11 +7,11 @@ package org.chromium.chrome.browser.search_engines.settings.common;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.withSettings;
 
@@ -43,8 +43,6 @@ import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
-
-import java.util.Map;
 
 /** Unit tests for {@link BaseSiteSearchMediator}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -127,21 +125,9 @@ public class BaseSiteSearchMediatorUnitTest {
     }
 
     @Test
-    public void testFetchFavicon_NullUrl_DoesNothing() {
-        doReturn(null).when(mTemplateUrl).getFaviconURL();
-        PropertyModel model = new PropertyModel(SiteSearchProperties.ALL_KEYS);
-
-        mMediator.fetchFavicon(mTemplateUrl, model);
-
-        verify(mTemplateUrl).getFaviconURL();
-        verify(mMediator, never())
-                .executeIconUpdate(any(), any(), any(), any(), any(), any(), any());
-    }
-
-    @Test
     public void testFetchFavicon_WithValidUrl() {
-        GURL faviconUrl = new GURL("test_url");
-        doReturn(faviconUrl).when(mTemplateUrl).getFaviconURL();
+        GURL templateUrlHost = new GURL("https://example.com");
+        doReturn(templateUrlHost.getSpec()).when(mTemplateUrl).getURL();
         PropertyModel model = new PropertyModel(SiteSearchProperties.ALL_KEYS);
         doNothing()
                 .when(mMediator)
@@ -149,16 +135,46 @@ public class BaseSiteSearchMediatorUnitTest {
 
         mMediator.fetchFavicon(mTemplateUrl, model);
 
-        verify(mTemplateUrl).getFaviconURL();
-
         verify(mMediator)
                 .executeIconUpdate(
                         any(Context.class),
                         eq(model),
                         eq(SiteSearchProperties.ICON),
                         eq(mTemplateUrl),
-                        eq(faviconUrl),
+                        eq(templateUrlHost),
                         any(LargeIconBridge.class),
-                        any(Map.class));
+                        anyMap());
+    }
+
+    @Test
+    public void testUpdatePositions() {
+        PropertyModel model1 = new PropertyModel(SiteSearchProperties.ALL_KEYS);
+        PropertyModel model2 = new PropertyModel(SiteSearchProperties.ALL_KEYS);
+        PropertyModel model3 = new PropertyModel(SiteSearchProperties.ALL_KEYS);
+
+        mModelList.add(new ListItem(SiteSearchProperties.ViewType.SEARCH_ENGINE, model1));
+        mMediator.updatePositions(mModelList);
+        assertEquals(
+                SiteSearchProperties.ItemPosition.SINGLE,
+                model1.get(SiteSearchProperties.POSITION));
+
+        mModelList.add(new ListItem(SiteSearchProperties.ViewType.SEARCH_ENGINE, model2));
+        mMediator.updatePositions(mModelList);
+        assertEquals(
+                SiteSearchProperties.ItemPosition.TOP, model1.get(SiteSearchProperties.POSITION));
+        assertEquals(
+                SiteSearchProperties.ItemPosition.BOTTOM,
+                model2.get(SiteSearchProperties.POSITION));
+
+        mModelList.add(new ListItem(SiteSearchProperties.ViewType.SEARCH_ENGINE, model3));
+        mMediator.updatePositions(mModelList);
+        assertEquals(
+                SiteSearchProperties.ItemPosition.TOP, model1.get(SiteSearchProperties.POSITION));
+        assertEquals(
+                SiteSearchProperties.ItemPosition.MIDDLE,
+                model2.get(SiteSearchProperties.POSITION));
+        assertEquals(
+                SiteSearchProperties.ItemPosition.BOTTOM,
+                model3.get(SiteSearchProperties.POSITION));
     }
 }

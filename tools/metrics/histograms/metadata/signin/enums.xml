@@ -395,6 +395,19 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/signin/internal/identity_manager/oauth_multilogin_helper.h:DeviceBoundSessionCreateSessionsResult) -->
 
+<!-- LINT.IfChange(DiceLinkedAccountsMetaHeaderStatus) -->
+
+<enum name="DiceLinkedAccountsMetaHeaderStatus">
+  <int value="0" label="HeaderMissing"/>
+  <int value="1" label="Valid"/>
+  <int value="2" label="MissingInitiatorId"/>
+  <int value="3" label="MissingPrimaryIsConnected"/>
+  <int value="4" label="MissingBothParams"/>
+  <int value="5" label="InitiatorMismatch"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/signin/core/browser/dice_header_helper.h:DiceLinkedAccountsMetaHeaderStatus) -->
+
 <!-- LINT.IfChange(DiceTokenBindingOutcome) -->
 
 <enum name="DiceTokenBindingOutcome">
@@ -642,6 +655,16 @@ chromium-metrics-reviews@google.com.
   <int value="9" label="kBrowserContextShutDown"/>
 </enum>
 
+<!-- LINT.IfChange(MirrorHeaderEvent) -->
+
+<enum name="MirrorHeaderEvent">
+  <int value="0" label="Account not on device"/>
+  <int value="1" label="Account in persistent error state"/>
+  <int value="2" label="Account recently added"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/signin/chrome_signin_helper.h:MirrorHeaderEvent) -->
+
 <enum name="OAuth2LoginAccountRevokedMigrationState">
   <int value="0" label="Account ID migration not started"/>
   <int value="1" label="Account ID migration in progress"/>
@@ -762,6 +785,10 @@ chromium-metrics-reviews@google.com.
   <int value="92" label="Actor Login Permission Service"/>
   <int value="93" label="Gapis Service"/>
   <int value="94" label="One Time Token Service"/>
+  <int value="95" label="Multistep Filter"/>
+  <int value="96" label="Indigo"/>
+  <int value="97" label="Glic Invoke API"/>
+  <int value="98" label="Secure Gateway Service"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/signin/public/base/oauth_consumer_id.h:OAuthConsumerId) -->
@@ -822,10 +849,14 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="[Error] Empty primary accountid, with sync consent"/>
 </enum>
 
+<!-- LINT.IfChange(PendingResolutionSource) -->
+
 <enum name="PendingResolutionSource">
   <int value="0" label="Sign in (reauth)"/>
   <int value="1" label="Sign out"/>
 </enum>
+
+<!-- LINT.ThenChange(//components/signin/core/browser/signin_metrics_service.cc:PendingResolutionSource) -->
 
 <!-- LINT.IfChange(ProfileMenuAvatarButtonPromoType) -->
 
@@ -909,8 +940,8 @@ chromium-metrics-reviews@google.com.
   <int value="29" label="Forced sign-in"/>
   <int value="30" label="(obsolete) Re-signin after an account rename"/>
   <int value="31"
-      label="Bottom sheet from web sign-in (Mobile). Implicit web sign-in
-             (Desktop, deprecated)"/>
+      label="Bottom sheet from web sign-in (Mobile). Web sign-in, not used
+             for Chrome sign-in (Desktop)"/>
   <int value="32" label="Safety check settings page"/>
   <int value="33" label="(obsolete) Kaleidoscope"/>
   <int value="34" label="(obsolete) Enterprise sign-out coordinator"/>
@@ -987,6 +1018,8 @@ chromium-metrics-reviews@google.com.
   <int value="98" label="Search AI Mode (Desktop only)"/>
   <int value="99" label="App Bar (iOS only)"/>
   <int value="100" label="Page Action Menu (iOS only)"/>
+  <int value="101"
+      label="Autofill and passwords settings page on iOS and Android"/>
 </enum>
 
 <enum name="SigninAccountReconcilorState">
@@ -1047,7 +1080,7 @@ chromium-metrics-reviews@google.com.
 
 <enum name="SigninDiceTokenFetchResult">
   <int value="0" label="Success"/>
-  <int value="1" label="Abort"/>
+  <int value="1" label="Abort (deprecated)"/>
   <int value="2" label="Failure">Failed with Gaia error.</int>
   <int value="3" label="Timeout"/>
 </enum>
@@ -1232,7 +1265,8 @@ chromium-metrics-reviews@google.com.
     Sign-out forced because the account was removed from the device after a
     device restore. iOS only.
   </int>
-  <int value="16" label="User clicked turn off sync">
+  <int value="16"
+      label="(Obsolete) User clicked turn off sync. Deprecated as of 04/2026.">
     User clicked the 'Turn off sync' option within settings. Android only.
   </int>
   <int value="17" label="User clicked signout From profile menu">
@@ -1490,6 +1524,11 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="The user has recently seen the mismatch notice"/>
   <int value="4" label="The user recently went through the FRE"/>
   <int value="5" label="The displayed CCT is off-the-record"/>
+  <int value="6"
+      label="The app is not allowlisted for the account mismatch notification"/>
+  <int value="7" label="Signin is not allowed"/>
+  <int value="8" label="The account mismatch type is not the right one"/>
+  <int value="9" label="The notification is not suppressed"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/customtabs/MismatchNotificationController.java:SuppressedReason) -->
@@ -1516,12 +1555,6 @@ chromium-metrics-reviews@google.com.
   <int value="7"
       label="Equal weighted buttons on history sync screen from capability
              (iOS and Android)"/>
-</enum>
-
-<enum name="SyncErrorPromptUIAction">
-  <int value="0" label="Shown"/>
-  <int value="1" label="Dismissed"/>
-  <int value="2" label="Button clicked"/>
 </enum>
 
 <!-- LINT.IfChange(TokenBindingBoundTokenPrevalence) -->
@@ -1558,6 +1591,16 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//google_apis/gaia/token_binding_response_encryption_error.h:TokenBindingResponseEncryptionError) -->
+
+<!-- LINT.IfChange(WebSigninLoadingDialogStatus) -->
+
+<enum name="WebSigninLoadingDialogStatus">
+  <int value="0" label="Not shown"/>
+  <int value="1" label="Shown"/>
+  <int value="2" label="Dismissed by user"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/signin/WebSigninRedirectCoordinator.java:DialogState) -->
 
 </enums>
 

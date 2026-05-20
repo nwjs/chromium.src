@@ -3,25 +3,25 @@
 // found in the LICENSE file.
 
 chrome.test.getConfig(function(config) {
-  var javaScriptURL = 'javascript:void(document.title=%22js-url-success%22)';
+  const javaScriptURL = 'javascript:void(document.title=%22js-url-success%22)';
 
-  var url = 'http://a.com:' + config.testServer.port +
-            '/extensions/test_file.html';
+  const url =
+      `http://a.com:${config.testServer.port}/extensions/test_file.html`;
 
-  chrome.tabs.create({ url: url }, function(tab) {
-    var tab_id = tab.id;
+  chrome.tabs.create({url: url}, function(tab) {
+    const tabId = tab.id;
 
     chrome.test.runTests([
       function javascript_encoded_url() {
         chrome.tabs.update(
-          tab_id,
-          {url: javaScriptURL},
-          function(tab) {
-            chrome.test.assertEq('js-url-success', tab.title);
-            chrome.test.succeed();
-          }
+            tabId,
+            {url: javaScriptURL},
+            function(tab) {
+              chrome.test.assertEq('js-url-success', tab.title);
+              chrome.test.succeed();
+            },
         );
-      }
+      },
     ]);
   });
 });

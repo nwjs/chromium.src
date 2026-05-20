@@ -246,6 +246,10 @@ class WebAppRegistrar {
   // e.g. it is not policy installed.
   bool CanUserUninstallWebApp(const webapps::AppId& app_id) const;
 
+  // Returns true if the app only has the WebAppManagement::kDefault source,
+  // denoting that it was only installed by default in Chrome.
+  bool IsPreinstalledOnly(const webapps::AppId& app_id) const;
+
   // Returns true if the prevent-close feature is enabled for the given app
   bool IsPreventCloseEnabled(const webapps::AppId& app_id) const;
 
@@ -307,7 +311,8 @@ class WebAppRegistrar {
   std::optional<SkColor> GetAppDarkModeBackgroundColor(
       const webapps::AppId& app_id) const;
   const GURL& GetAppStartUrl(const webapps::AppId& app_id) const;
-  webapps::ManifestId GetAppManifestId(const webapps::AppId& app_id) const;
+  std::optional<webapps::ManifestId> GetAppManifestId(
+      const webapps::AppId& app_id) const;
   const std::string* GetAppLaunchQueryParams(
       const webapps::AppId& app_id) const;
   const apps::ShareTarget* GetAppShareTarget(
@@ -366,7 +371,12 @@ class WebAppRegistrar {
   GURL GetAppManifestUrl(const webapps::AppId& app_id) const;
 
   base::Time GetAppLastBadgingTime(const webapps::AppId& app_id) const;
-  base::Time GetAppLastLaunchTime(const webapps::AppId& app_id) const;
+
+  // This returning `std::nullopt` signifies that the app was never launched,
+  // which is useful information in determining when the first launch of an app
+  // needs to happen.
+  std::optional<base::Time> GetAppLastLaunchTime(
+      const webapps::AppId& app_id) const;
   base::Time GetAppFirstInstallTime(const webapps::AppId& app_id) const;
   base::Time GetAppLatestInstallTime(const webapps::AppId& app_id) const;
 
@@ -466,6 +476,7 @@ class WebAppRegistrar {
 
   // Computes and returns the unhashed app id from entries in the web app
   // manifest.
+  // TODO(crbug.com/505088712): Return webapps::ManifestId instead of GURL.
   GURL GetComputedManifestId(const webapps::AppId& app_id) const;
 
   // Returns whether the app should be opened in tabbed window mode.
@@ -586,7 +597,7 @@ class WebAppRegistrar {
   void NotifyWebAppLastBadgingTimeChanged(const webapps::AppId& app_id,
                                           const base::Time& time);
   void NotifyWebAppLastLaunchTimeChanged(const webapps::AppId& app_id,
-                                         const base::Time& time);
+                                         const std::optional<base::Time>& time);
   void NotifyWebAppFirstInstallTimeChanged(const webapps::AppId& app_id,
                                            const base::Time& time);
   void NotifyWebAppUserDisplayModeChanged(

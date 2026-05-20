@@ -34,7 +34,6 @@
 #include "chrome/browser/ui/views/controls/rich_hover_button.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/passwords/manage_passwords_details_view.h"
-#include "chrome/browser/ui/views/passwords/manage_passwords_icon_views.h"
 #include "chrome/browser/ui/views/passwords/manage_passwords_list_view.h"
 #include "chrome/browser/ui/views/passwords/manage_passwords_view.h"
 #include "chrome/browser/ui/views/passwords/manage_passwords_view_ids.h"
@@ -161,6 +160,7 @@ class PasswordBubbleInteractiveUiTest : public ManagePasswordsTest,
     base::RunLoop loop;
     task->AddTab(
         browser()->tab_strip_model()->GetActiveTab()->GetHandle(),
+        /*stop_task_on_detach=*/true,
         base::BindLambdaForTesting(
             [&](actor::mojom::ActionResultPtr result) { loop.Quit(); }));
     loop.Run();
@@ -457,7 +457,7 @@ IN_PROC_BROWSER_TEST_P(PasswordBubbleInteractiveUiTest, DontCloseOnNavigation) {
   EXPECT_TRUE(IsBubbleShowing());
 }
 
-// crbug.com/1194950.
+// crbug.com/40175841.
 // Test that the automatic save bubble ignores the browser activation and
 // deactivation events.
 IN_PROC_BROWSER_TEST_P(PasswordBubbleInteractiveUiTest,
@@ -472,7 +472,7 @@ IN_PROC_BROWSER_TEST_P(PasswordBubbleInteractiveUiTest,
   EXPECT_TRUE(IsBubbleShowing());
 }
 
-// crbug.com/1194950.
+// crbug.com/40175841.
 // Test that the automatic save bubble ignores the focus lost event.
 IN_PROC_BROWSER_TEST_P(PasswordBubbleInteractiveUiTest, DontCloseOnLostFocus) {
   SetupPendingPassword();
@@ -613,7 +613,7 @@ IN_PROC_BROWSER_TEST_P(PasswordBubbleInteractiveUiTest, LeakPromptHidesBubble) {
   views::test::WidgetDestroyedWaiter(password_bubble).Wait();
 }
 
-// This is a regression test for crbug.com/1335418
+// This is a regression test for crbug.com/40228526
 IN_PROC_BROWSER_TEST_P(PasswordBubbleInteractiveUiTest, SaveUiDismissalReason) {
   base::HistogramTester histogram_tester;
 

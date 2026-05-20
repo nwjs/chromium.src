@@ -93,6 +93,7 @@
 #include "cc/tiles/raster_tile_priority_queue.h"
 #include "cc/tiles/software_image_decode_cache.h"
 #include "cc/tiles/tiles_with_resource_iterator.h"
+#include "cc/trees/client_layer_tree_host_impl.h"
 #include "cc/trees/compositor_commit_data.h"
 #include "cc/trees/damage_tracker.h"
 #include "cc/trees/debug_rect_history.h"
@@ -463,23 +464,6 @@ LayerTreeHostImpl::UIResourceData::UIResourceData(UIResourceData&&) noexcept =
 LayerTreeHostImpl::UIResourceData& LayerTreeHostImpl::UIResourceData::operator=(
     UIResourceData&&) = default;
 
-std::unique_ptr<LayerTreeHostImpl> LayerTreeHostImpl::Create(
-    const LayerTreeSettings& settings,
-    LayerTreeHostImplClient* client,
-    TaskRunnerProvider* task_runner_provider,
-    RenderingStatsInstrumentation* rendering_stats_instrumentation,
-    TaskGraphRunner* task_graph_runner,
-    std::unique_ptr<MutatorHost> mutator_host,
-    RasterDarkModeFilter* dark_mode_filter,
-    int id,
-    scoped_refptr<base::SequencedTaskRunner> image_worker_task_runner,
-    LayerTreeHostSchedulingClient* scheduling_client) {
-  return base::WrapUnique(new LayerTreeHostImpl(
-      settings, client, task_runner_provider, rendering_stats_instrumentation,
-      task_graph_runner, std::move(mutator_host), dark_mode_filter, id,
-      std::move(image_worker_task_runner), scheduling_client));
-}
-
 LayerTreeHostImpl::LayerTreeHostImpl(
     const LayerTreeSettings& settings,
     LayerTreeHostImplClient* client,
@@ -546,7 +530,7 @@ LayerTreeHostImpl::LayerTreeHostImpl(
     // TreesInViz server side usually has frame tokens set by the client.
     // Initialize a default value here, which is expected in many tree
     // tests.
-    set_next_frame_token_from_client(1u);
+    next_frame_token_from_client_ = 1u;
   } else {
     compositor_frame_reporting_controller_ =
         std::make_unique<CompositorFrameReportingController>(
@@ -585,8 +569,9 @@ LayerTreeHostImpl::LayerTreeHostImpl(
 
   viewport_ = Viewport::Create(this);
 
-  TRACE_EVENT_OBJECT_CREATED_WITH_ID(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
-                                     "cc::LayerTreeHostImpl", id_);
+  TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
+                      "LayerTreeHostImpl:created",
+                      perfetto::Flow::ProcessScoped(id_, "LayerTreeHostImpl"));
 
   browser_controls_offset_manager_ = BrowserControlsOffsetManager::Create(
       this, settings.top_controls_show_threshold,
@@ -619,8 +604,9 @@ LayerTreeHostImpl::LayerTreeHostImpl(
 LayerTreeHostImpl::~LayerTreeHostImpl() {
   DCHECK(task_runner_provider_->IsImplThread());
   TRACE_EVENT0("cc", "LayerTreeHostImpl::~LayerTreeHostImpl()");
-  TRACE_EVENT_OBJECT_DELETED_WITH_ID(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
-                                     "cc::LayerTreeHostImpl", id_);
+  TRACE_EVENT_INSTANT(
+      TRACE_DISABLED_BY_DEFAULT("cc.debug"), "LayerTreeHostImpl:deleted",
+      perfetto::TerminatingFlow::ProcessScoped(id_, "LayerTreeHostImpl"));
 
   // The frame sink is released before shutdown, which takes down
   // all the resource and raster structures.
@@ -675,349 +661,6 @@ const InputHandler& LayerTreeHostImpl::GetInputHandler() const {
   return static_cast<const InputHandler&>(*input_delegate_.get());
 }
 
-void LayerTreeHostImpl::BeginMainFrameAborted(
-    CommitEarlyOutReason reason,
-    std::vector<std::unique_ptr<SwapPromise>> swap_promises,
-    const viz::BeginFrameArgs& args,
-    bool next_bmf,
-    bool scroll_and_viewport_changes_synced) {
-  // If the begin frame data was handled, then scroll and scale set was applied
-  // by the main thread, so the active tree needs to be updated as if these sent
-  // values were applied and committed.
-  bool main_frame_applied_deltas = MainFrameAppliedDeltas(reason);
-  active_tree_->ApplySentScrollAndScaleDeltasFromAbortedCommit(
-      next_bmf, main_frame_applied_deltas);
-  if (main_frame_applied_deltas) {
-    if (pending_tree_) {
-      pending_tree_->AppendSwapPromises(std::move(swap_promises));
-    } else {
-      base::TimeTicks timestamp = base::TimeTicks::Now();
-      for (const auto& swap_promise : swap_promises) {
-        SwapPromise::DidNotSwapAction action =
-            swap_promise->DidNotSwap(SwapPromise::COMMIT_NO_UPDATE, timestamp);
-        DCHECK_EQ(action, SwapPromise::DidNotSwapAction::BREAK_PROMISE);
-      }
-    }
-  }
-
-  // Notify the browser controls manager that we have processed any
-  // controls constraint update.
-  if (scroll_and_viewport_changes_synced && browser_controls_manager()) {
-    browser_controls_manager()->NotifyConstraintSyncedToMainThread();
-  }
-}
-
-void LayerTreeHostImpl::ReadyToCommit(
-    bool scroll_and_viewport_changes_synced,
-    const BeginMainFrameMetrics* begin_main_frame_metrics,
-    bool commit_timeout) {
-  if (((begin_main_frame_metrics &&
-        begin_main_frame_metrics->should_measure_smoothness) ||
-       commit_timeout) &&
-      !frame_sorter_.first_contentful_paint_received()) {
-    frame_sorter_.OnFirstContentfulPaintReceived();
-  }
-
-  // Notify the browser controls manager that we have processed any
-  // controls constraint update.
-  if (scroll_and_viewport_changes_synced && browser_controls_manager()) {
-    browser_controls_manager()->NotifyConstraintSyncedToMainThread();
-  }
-
-  // If the scroll offsets were not synchronized, undo the sending of offsets
-  // similar to what's done when the commit is aborted.
-  if (!scroll_and_viewport_changes_synced) {
-    active_tree_->ApplySentScrollAndScaleDeltasFromAbortedCommit(
-        /*next_bmf=*/false, /*main_frame_applied_deltas=*/false);
-  }
-}
-
-void LayerTreeHostImpl::BeginCommit(int source_frame_number,
-                                    BeginMainFrameTraceId trace_id) {
-  TRACE_EVENT0("cc", "LayerTreeHostImpl::BeginCommit");
-
-  if (!CommitsToActiveTree()) {
-    CreatePendingTree();
-  }
-  sync_tree()->set_source_frame_number(source_frame_number);
-  sync_tree()->set_trace_id(trace_id);
-}
-
-// This function commits the LayerTreeHost, as represented by CommitState, to an
-// impl tree.  When modifying this function -- and all code that it calls into
-// -- care must be taken to avoid using LayerTreeHost directly (e.g., via
-// state.root_layer->layer_tree_host()) as that will likely introduce thread
-// safety violations.  Any information that is needed from LayerTreeHost should
-// instead be plumbed through CommitState (see
-// LayerTreeHost::ActivateCommitState() for reference).
-void LayerTreeHostImpl::FinishCommit(
-    CommitState& state,
-    const ThreadUnsafeCommitState& unsafe_state) {
-  TRACE_EVENT0("cc,benchmark", "LayerTreeHostImpl::FinishCommit");
-  LayerTreeImpl* tree = sync_tree();
-  {
-    // Instead of individual `Layer::PushPropertiesTo` triggering separate
-    // thread hops to the main-thread, to complete releasing resources. Batch
-    // all of them together for after `PullPropertiesFrom` completes.
-    viz::ClientResourceProvider::ScopedBatchResourcesRelease
-        scoped_resource_release =
-            resource_provider_->CreateScopedBatchResourcesRelease();
-    tree->PullPropertiesFrom(state, unsafe_state);
-  }
-
-  // Check whether the impl scroll animating nodes were removed by the commit.
-  mutator_host()->HandleRemovedScrollAnimatingElements(CommitsToActiveTree());
-
-  PullLayerTreeHostPropertiesFrom(state);
-
-  // Transfer image decode requests to the impl thread.
-  for (auto& entry : state.queued_image_decodes) {
-    QueueImageDecode(std::get<0>(entry), *std::get<1>(entry),
-                     std::get<2>(entry));
-  }
-
-  for (auto& benchmark : state.benchmarks) {
-    ScheduleMicroBenchmark(std::move(benchmark));
-  }
-
-  new_local_surface_id_expected_ = false;
-
-  // Dump property trees and layers if VerboseLogEnabled().
-  VERBOSE_LOG() << "After finishing commit on impl, the sync tree:"
-                << "\nproperty_trees:\n"
-                << tree->property_trees()->ToString() << "\n"
-                << "cc::LayerImpls:\n"
-                << tree->LayerListAsJson();
-}
-
-void LayerTreeHostImpl::PullLayerTreeHostPropertiesFrom(
-    const CommitState& commit_state) {
-  // TODO(bokan): The |external_pinch_gesture_active| should not be going
-  // through the LayerTreeHost but directly from InputHandler to InputHandler.
-  SetExternalPinchGestureActive(commit_state.is_external_pinch_gesture_active);
-  if (commit_state.needs_gpu_rasterization_histogram) {
-    RecordGpuRasterizationHistogram();
-  }
-  SetDebugState(commit_state.debug_state);
-  SetVisualDeviceViewportSize(commit_state.visual_device_viewport_size);
-  set_viewport_mobile_optimized(commit_state.is_viewport_mobile_optimized);
-  SetPrefersReducedMotion(commit_state.prefers_reduced_motion);
-  SetMayThrottleIfUndrawnFrames(commit_state.may_throttle_if_undrawn_frames);
-  prefer_efficient_scheduling_ = commit_state.prefer_efficient_scheduling;
-}
-
-void LayerTreeHostImpl::RecordGpuRasterizationHistogram() {
-  // Record how widely gpu rasterization is enabled.
-  // This number takes device/gpu allowlist/denylist into account.
-  // Note that we do not consider the forced gpu rasterization mode, which is
-  // mostly used for debugging purposes.
-  UMA_HISTOGRAM_BOOLEAN("Renderer4.GpuRasterizationEnabled",
-                        raster_caps().use_gpu_rasterization);
-}
-
-void LayerTreeHostImpl::CommitComplete() {
-  DCHECK(!settings_.trees_in_viz_in_viz_process);
-
-  TRACE_EVENT(
-      "cc,benchmark", "LayerTreeHostImpl::CommitComplete",
-      [&](perfetto::EventContext ctx) {
-        EmitMainFramePipelineStep(
-            ctx, sync_tree()->trace_id(),
-            perfetto::protos::pbzero::MainFramePipeline::Step::COMMIT_COMPLETE);
-      });
-
-  if (input_delegate_) {
-    input_delegate_->DidCommit();
-  }
-
-  if (CommitsToActiveTree()) {
-    active_tree_->HandleScrollbarShowRequests();
-
-    // We have to activate animations here or "IsActive()" is true on the layers
-    // but the animations aren't activated yet so they get ignored by
-    // UpdateDrawProperties.
-    ActivateAnimations();
-  }
-
-  // We clear the entries that were never mutated by CC animations from the last
-  // commit until now. Moreover, we reset the values of input properties and
-  // relies on the fact that CC animation will mutate those values when pending
-  // tree is animated below.
-  // With that, when CC finishes animating an input property, the value of that
-  // property stays at finish state until a commit kicks in, which is consistent
-  // with current composited animations.
-  base::flat_set<PaintWorkletInput::PropertyKey> used_properties;
-  for (auto* layer : sync_tree()->picture_layers_with_paint_worklets()) {
-    for (const auto& map_entry : layer->GetPaintWorkletRecords()) {
-      const auto& property_keys = map_entry.first->GetPropertyKeys();
-      used_properties.insert(property_keys.begin(), property_keys.end());
-    }
-  }
-  paint_worklet_tracker_.ClearUnusedInputProperties(std::move(used_properties));
-
-  // Start animations before UpdateDrawProperties and PrepareTiles, as they can
-  // change the results. When doing commit to the active tree, this must happen
-  // after ActivateAnimations() in order for this ticking to be propagated
-  // to layers on the active tree.
-  if (CommitsToActiveTree()) {
-    Animate();
-  } else {
-    AnimatePendingTreeAfterCommit();
-  }
-
-  UpdateSyncTreeAfterCommitOrImplSideInvalidation();
-
-  // Normally, we wait until tile tasks are updated (and draw images ref'ed)
-  // before incrementing DecodedImageTracker's frame number (which may evict
-  // decoded image data for un-ref'ed images). But if tile tasks are not dirty
-  // then we won't update them, so do it now.
-  if (!tile_priorities_dirty_) {
-    tile_manager_.decoded_image_tracker().SetSyncTreeFrameNumber(
-        sync_tree()->source_frame_number());
-  }
-
-  micro_benchmark_controller_.DidCompleteCommit();
-
-  if (mutator_host_->CurrentFrameHadRAF()) {
-    frame_trackers_.StartSequence(FrameSequenceTrackerType::kRAF);
-  }
-  if (mutator_host_->HasCanvasInvalidation()) {
-    frame_trackers_.StartSequence(FrameSequenceTrackerType::kCanvasAnimation);
-  }
-  if (mutator_host_->CurrentFrameHadRAF() || mutator_host_->HasJSAnimation()) {
-    frame_trackers_.StartSequence(FrameSequenceTrackerType::kJSAnimation);
-  }
-
-  if (mutator_host_->MainThreadAnimationsCount() > 0 ||
-      mutator_host_->HasSmilAnimation()) {
-    frame_trackers_.StartSequence(
-        FrameSequenceTrackerType::kMainThreadAnimation);
-    if (mutator_host_->HasViewTransition()) {
-      frame_trackers_.StartSequence(
-          FrameSequenceTrackerType::kSETMainThreadAnimation);
-    }
-  }
-
-  for (const auto& info :
-       mutator_host_->TakePendingCompositorMetricsTrackerInfos()) {
-    const MutatorHost::TrackedAnimationSequenceId sequence_id = info.id;
-    const bool start = info.start;
-    if (start) {
-      frame_trackers_.StartCustomSequence(sequence_id);
-    } else {
-      frame_trackers_.StopCustomSequence(sequence_id);
-    }
-  }
-}
-
-void LayerTreeHostImpl::UpdateSyncTreeAfterCommitOrImplSideInvalidation() {
-  DCHECK(!settings_.trees_in_viz_in_viz_process);
-
-  sync_tree()->set_needs_update_draw_properties();
-
-  // We need an update immediately post-commit to have the opportunity to create
-  // tilings.
-  // We can avoid updating the ImageAnimationController during this
-  // DrawProperties update since it will be done when we animate the controller
-  // below.
-  bool update_tiles = true;
-  bool update_image_animation_controller = false;
-  sync_tree()->UpdateDrawProperties(update_tiles,
-                                    update_image_animation_controller);
-
-  sync_tree()->InvalidateRasterInducingScrolls(
-      pending_invalidation_raster_inducing_scrolls_);
-  pending_invalidation_raster_inducing_scrolls_.clear();
-
-  // Defer invalidating images until UpdateDrawProperties and
-  // InvalidateRasterInducingScroll is performed since those update whether an
-  // image should be animated based on its visibility and the updated data for
-  // the image from the main frame.
-  PaintImageIdFlatSet images_to_invalidate =
-      tile_manager_.TakeImagesToInvalidateOnSyncTree();
-
-  CHECK(!settings_.trees_in_viz_in_viz_process);
-  CHECK(image_animation_controller_);
-  const auto& animated_images = image_animation_controller_->AnimateForSyncTree(
-      CurrentBeginFrameArgs(), GatherImageAnimationState());
-  images_to_invalidate.insert(animated_images.begin(), animated_images.end());
-
-  // Invalidate cached PaintRecords for worklets whose input properties were
-  // mutated since the last pending tree. We keep requesting invalidations until
-  // the animation is ticking on impl thread. Note that this works since the
-  // animation starts ticking on the pending tree
-  // (AnimatePendingTreeAfterCommit) which committed this animation timeline.
-  // After this the animation may only tick on the active tree for impl-side
-  // invalidations (since AnimatePendingTreeAfterCommit is not done for pending
-  // trees created by impl-side invalidations). But we ensure here that we
-  // request another invalidation if an input property was mutated on the active
-  // tree.
-  bool worklets_invalidated = false;
-  auto animated_properties =
-      paint_worklet_tracker_.TakeAndResetAnimatedProperties();
-  for (auto* layer : sync_tree()->picture_layers_with_paint_worklets()) {
-    for (const auto& map_entry : layer->GetPaintWorkletRecords()) {
-      for (const auto& property_key : map_entry.first->GetPropertyKeys()) {
-        const auto& it = animated_properties.find(property_key);
-        if (it != animated_properties.end()) {
-          worklets_invalidated = true;
-          layer->InvalidatePaintWorklets(property_key, it->second.first,
-                                         it->second.second);
-        }
-      }
-    }
-  }
-
-  if (worklets_invalidated) {
-    client_->SetNeedsImplSideInvalidation(
-        true /* needs_first_draw_on_activation */);
-    if (sync_tree()->property_change_forces_commit_criteria() ==
-        PropertyChangeForcesCommitCriteria::kAny) {
-      SetNeedsCommit();
-    }
-  }
-  PaintImageIdFlatSet dirty_paint_worklet_ids;
-  PaintWorkletJobMap dirty_paint_worklets =
-      GatherDirtyPaintWorklets(&dirty_paint_worklet_ids);
-  images_to_invalidate.insert(dirty_paint_worklet_ids.begin(),
-                              dirty_paint_worklet_ids.end());
-
-  sync_tree()->InvalidateRegionForImages(images_to_invalidate);
-
-  // Note that it is important to push the state for checkerboarded and animated
-  // images prior to PrepareTiles here when committing to the active tree. This
-  // is because new tiles on the active tree depend on tree specific state
-  // cached in these components, which must be pushed to active before preparing
-  // tiles for the updated active tree.
-  if (CommitsToActiveTree()) {
-    ActivateStateForImages();
-  }
-
-  sync_tree()->SetCreatedBeginFrameArgs(CurrentBeginFrameArgs());
-
-  if (!paint_worklet_painter_) {
-    // Blink should not send us any PaintWorklet inputs until we have a painter
-    // registered.
-    DCHECK(sync_tree()->picture_layers_with_paint_worklets().empty());
-    pending_tree_fully_painted_ = true;
-    NotifyPendingTreeFullyPainted();
-    return;
-  }
-
-  if (!dirty_paint_worklets.size()) {
-    pending_tree_fully_painted_ = true;
-    NotifyPendingTreeFullyPainted();
-    return;
-  }
-
-  client_->NotifyPaintWorkletStateChange(
-      Scheduler::PaintWorkletState::PROCESSING);
-  auto done_callback = base::BindOnce(
-      &LayerTreeHostImpl::OnPaintWorkletResultsReady, base::Unretained(this));
-  paint_worklet_painter_->DispatchWorklets(std::move(dirty_paint_worklets),
-                                           std::move(done_callback));
-}
-
 base::flat_map<PaintImage::Id, bool>
 LayerTreeHostImpl::GatherImageAnimationState() const {
   base::flat_map<PaintImage::Id, bool> animation_state;
@@ -1031,118 +674,6 @@ LayerTreeHostImpl::GatherImageAnimationState() const {
   return animation_state;
 }
 
-PaintWorkletJobMap LayerTreeHostImpl::GatherDirtyPaintWorklets(
-    PaintImageIdFlatSet* dirty_paint_worklet_ids) const {
-  PaintWorkletJobMap dirty_paint_worklets;
-  for (PictureLayerImpl* layer :
-       sync_tree()->picture_layers_with_paint_worklets()) {
-    for (const auto& entry : layer->GetPaintWorkletRecordMap()) {
-      const scoped_refptr<const PaintWorkletInput>& input = entry.first;
-      const PaintImage::Id& paint_image_id = entry.second.first;
-      const std::optional<PaintRecord>& record = entry.second.second;
-      // If we already have a record we can reuse it and so the
-      // PaintWorkletInput isn't dirty.
-      if (record) {
-        continue;
-      }
-
-      // Mark this PaintWorklet as needing invalidation.
-      dirty_paint_worklet_ids->insert(paint_image_id);
-
-      // Create an entry in the appropriate PaintWorkletJobVector for this dirty
-      // PaintWorklet.
-      int worklet_id = input->WorkletId();
-      auto& job_vector = dirty_paint_worklets[worklet_id];
-      if (!job_vector) {
-        job_vector = base::MakeRefCounted<PaintWorkletJobVector>();
-      }
-
-      PaintWorkletJob::AnimatedPropertyValues animated_property_values;
-      for (const auto& element : input->GetPropertyKeys()) {
-        DCHECK(!animated_property_values.contains(element));
-        const PaintWorkletInput::PropertyValue& animated_property_value =
-            paint_worklet_tracker_.GetPropertyAnimationValue(element);
-        // No value indicates that the input property was not mutated by CC
-        // animation.
-        if (animated_property_value.has_value()) {
-          animated_property_values.emplace(element, animated_property_value);
-        }
-      }
-
-      job_vector->data.emplace_back(layer->id(), input,
-                                    std::move(animated_property_values));
-    }
-  }
-  return dirty_paint_worklets;
-}
-
-void LayerTreeHostImpl::OnPaintWorkletResultsReady(PaintWorkletJobMap results) {
-#if DCHECK_IS_ON()
-  // Nothing else should have painted the PaintWorklets while we were waiting,
-  // and the results should have painted every PaintWorklet, so these should be
-  // the same.
-  PaintImageIdFlatSet dirty_paint_worklet_ids;
-  DCHECK_EQ(results.size(),
-            GatherDirtyPaintWorklets(&dirty_paint_worklet_ids).size());
-#endif
-
-  for (const auto& entry : results) {
-    for (const PaintWorkletJob& job : entry.second->data) {
-      LayerImpl* layer_impl =
-          pending_tree_->FindPendingTreeLayerById(job.layer_id());
-      // Painting the pending tree occurs asynchronously but stalls the pending
-      // tree pipeline, so nothing should have changed while we were doing that.
-      DCHECK(layer_impl);
-      static_cast<PictureLayerImpl*>(layer_impl)
-          ->SetPaintWorkletRecord(job.input(), job.output());
-    }
-  }
-
-  // While the pending tree is being painted by PaintWorklets, we restrict the
-  // tiles the TileManager is able to see. This may cause the TileManager to
-  // believe that it has finished rastering all the necessary tiles. When we
-  // finish painting the tree and release all the tiles, we need to mark the
-  // tile priorities as dirty so that the TileManager logic properly re-runs.
-  tile_priorities_dirty_ = true;
-
-  // Set the painted state before calling the scheduler, to ensure any callback
-  // running as a result sees the correct painted state.
-  pending_tree_fully_painted_ = true;
-  client_->NotifyPaintWorkletStateChange(Scheduler::PaintWorkletState::IDLE);
-
-  // The pending tree may have been force activated from the signal to the
-  // scheduler above, in which case there is no longer a tree to paint.
-  if (pending_tree_) {
-    NotifyPendingTreeFullyPainted();
-  }
-}
-
-void LayerTreeHostImpl::NotifyPendingTreeFullyPainted() {
-  // The pending tree must be fully painted at this point.
-  DCHECK(pending_tree_fully_painted_ && !settings_.trees_in_viz_in_viz_process);
-
-  // Nobody should claim the pending tree is fully painted if there is an
-  // ongoing dispatch.
-  DCHECK(!paint_worklet_painter_ ||
-         !paint_worklet_painter_->HasOngoingDispatch());
-
-  // Start working on newly created tiles immediately if needed.
-  // TODO(vmpstr): Investigate always having PrepareTiles issue
-  // NotifyReadyToActivate, instead of handling it here.
-  bool did_prepare_tiles = PrepareTiles();
-  if (!did_prepare_tiles) {
-    NotifyReadyToActivate();
-
-    // Ensure we get ReadyToDraw signal even when PrepareTiles not run. This
-    // is important for SingleThreadProxy and impl-side painting case. For
-    // STP, we commit to active tree and RequiresHighResToDraw, and set
-    // Scheduler to wait for ReadyToDraw signal to avoid Checkerboard.
-    if (CommitsToActiveTree() ||
-        settings_.wait_for_all_pipeline_stages_before_draw) {
-      NotifyReadyToDraw();
-    }
-  }
-}
 
 bool LayerTreeHostImpl::CanDraw() const {
   // Note: If you are changing this function or any other function that might
@@ -1151,17 +682,15 @@ bool LayerTreeHostImpl::CanDraw() const {
   // NotifyIfCanDrawChanged test.
 
   if (!layer_tree_frame_sink_) {
-    TRACE_EVENT_INSTANT0("cc",
-                         "LayerTreeHostImpl::CanDraw no LayerTreeFrameSink",
-                         TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT("cc",
+                        "LayerTreeHostImpl::CanDraw no LayerTreeFrameSink");
     return false;
   }
 
   // TODO(boliu): Make draws without layers work and move this below
   // |resourceless_software_draw_| check. Tracked in crbug.com/264967.
   if (active_tree_->LayerListIsEmpty()) {
-    TRACE_EVENT_INSTANT0("cc", "LayerTreeHostImpl::CanDraw no root layer",
-                         TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT("cc", "LayerTreeHostImpl::CanDraw no root layer");
     return false;
   }
 
@@ -1172,22 +701,19 @@ bool LayerTreeHostImpl::CanDraw() const {
   // Do not draw while evicted. Await the activation of a tree containing a
   // newer viz::Surface
   if (evicted_local_surface_id_.is_valid()) {
-    TRACE_EVENT_INSTANT0(
+    TRACE_EVENT_INSTANT(
         "cc",
-        "LayerTreeHostImpl::CanDraw viz::Surface evicted and not recreated",
-        TRACE_EVENT_SCOPE_THREAD);
+        "LayerTreeHostImpl::CanDraw viz::Surface evicted and not recreated");
     return false;
   }
 
   if (active_tree_->GetDeviceViewport().IsEmpty()) {
-    TRACE_EVENT_INSTANT0("cc", "LayerTreeHostImpl::CanDraw empty viewport",
-                         TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT("cc", "LayerTreeHostImpl::CanDraw empty viewport");
     return false;
   }
   if (EvictedUIResourcesExist()) {
-    TRACE_EVENT_INSTANT0(
-        "cc", "LayerTreeHostImpl::CanDraw UI resources evicted not recreated",
-        TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT(
+        "cc", "LayerTreeHostImpl::CanDraw UI resources evicted not recreated");
     return false;
   }
   return true;
@@ -1459,34 +985,69 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
   bool has_damage = HasDamage();
 
   if (expects_to_draw) {
+    SCOPED_CRASH_KEY_STRING64("cc", "client_damage",
+                              root_layer_damage_rect_.ToString());
     if (active_tree_->RootRenderSurface()) {
       gfx::Rect viz_damage_rect =
           active_tree_->RootRenderSurface()->GetDamageRect();
-      // Add a 1px margin to the viz damage rect to filter out precision issues
+      // Add a 2px margin to the viz damage rect to filter out precision issues
       // with transforms.  This will be re-added once the larger damage
       // discrepancies are fixed.
-      viz_damage_rect.Outset(1);
+      viz_damage_rect.Outset(2);
       // If Viz has MORE damage than the client expected, it's safe for
       // rendering (just potentially wasteful). If Viz has LESS damage, we might
       // miss redrawing some areas.
       if (!root_layer_damage_rect_.IsEmpty()) {
+        SCOPED_CRASH_KEY_STRING64("cc", "viz_damage",
+                                  viz_damage_rect.ToString());
+        SCOPED_CRASH_KEY_STRING64(
+            "cc", "viz_content",
+            active_tree_->RootRenderSurface()->content_rect().ToString());
+        SCOPED_CRASH_KEY_STRING64(
+            "cc", "insets",
+            viz_damage_rect.InsetsFrom(root_layer_damage_rect_).ToString());
+        SCOPED_CRASH_KEY_STRING32(
+            "cc", "dsf",
+            base::NumberToString(active_tree_->device_scale_factor()));
+        SCOPED_CRASH_KEY_STRING256(
+            "cc", "transform",
+            active_tree_->RootRenderSurface()->draw_transform().ToString());
+        SCOPED_CRASH_KEY_STRING64(
+            "cc", "damage_reasons",
+            base::NumberToString(frame->damage_reasons.ToEnumBitmask()));
+        SCOPED_CRASH_KEY_STRING64("cc", "viewport_damage",
+                                  viewport_damage_rect_.ToString());
+        SCOPED_CRASH_KEY_BOOL("cc", "has_view_transitions",
+                              active_tree_->HasViewTransitionRequests());
+        SCOPED_CRASH_KEY_STRING64(
+            "cc", "root_layer_bounds",
+            active_tree_->root_layer()
+                ? active_tree_->root_layer()->bounds().ToString()
+                : "null");
+        SCOPED_CRASH_KEY_NUMBER("cc", "surface_count",
+                                frame->render_surface_list->size());
+        SCOPED_CRASH_KEY_STRING32(
+            "cc", "top_controls",
+            base::NumberToString(active_tree_->CurrentTopControlsShownRatio()));
+        SCOPED_CRASH_KEY_STRING32(
+            "cc", "bottom_controls",
+            base::NumberToString(
+                active_tree_->CurrentBottomControlsShownRatio()));
+        SCOPED_CRASH_KEY_STRING32(
+            "cc", "page_scale",
+            base::NumberToString(active_tree_->page_scale_factor_for_scroll()));
+        SCOPED_CRASH_KEY_STRING64("cc", "device_viewport",
+                                  active_tree_->GetDeviceViewport().ToString());
+
         DUMP_WILL_BE_CHECK(viz_damage_rect.Contains(root_layer_damage_rect_))
             << "crbug.com/454680865: Viz damage does not contain client "
-               "damage! "
-            << "Client: " << root_layer_damage_rect_.ToString()
-            << " Viz: " << viz_damage_rect.ToString() << " Viz content rect: "
-            << active_tree_->RootRenderSurface()->content_rect().ToString()
-            << " Client-in-Viz Insets: "
-            << viz_damage_rect.InsetsFrom(root_layer_damage_rect_).ToString()
-            << " DSF: " << active_tree_->device_scale_factor() << " Transform: "
-            << active_tree_->RootRenderSurface()->draw_transform().ToString();
+               "damage!";
       }
     }
 
     // Force drawing, but assert in DCHECK builds.
     DUMP_WILL_BE_CHECK(has_damage)
-        << "crbug.com/454680865: Has no damage while expects_to_draw is set."
-        << " Client damage: " << root_layer_damage_rect_.ToString();
+        << "crbug.com/454680865: Has no damage while expects_to_draw is set.";
     has_damage = true;
   }
 
@@ -1862,39 +1423,7 @@ void LayerTreeHostImpl::SetRootLayerDamageRect(const gfx::Rect& damage_rect) {
   root_layer_damage_rect_.Union(damage_rect);
 }
 
-void LayerTreeHostImpl::InvalidateContentOnImplSide() {
-  DCHECK(!pending_tree_ && !settings_.trees_in_viz_in_viz_process);
-  // Invalidation should never be ran outside the impl frame for non
-  // synchronous compositor mode. For devices that use synchronous compositor,
-  // e.g. Android Webview, the assertion is not guaranteed because it may ask
-  // for a frame at any time.
-  DCHECK(impl_thread_phase_ == ImplThreadPhase::INSIDE_IMPL_FRAME ||
-         settings_.using_synchronous_renderer_compositor);
 
-  if (!CommitsToActiveTree()) {
-    CreatePendingTree();
-    if (frame_trackers_.GetScrollingThread() ==
-        FrameInfo::SmoothEffectDrivingThread::kRaster) {
-      // If scrolling via raster, take EventMetrics and associate
-      // them with newly-created pending tree.
-      pending_tree()->AppendEventMetricsFromRasterThread(
-          events_metrics_manager_.TakeSavedEventsMetrics());
-    }
-    AnimatePendingTreeAfterCommit();
-  }
-
-  if (input_delegate_) {
-    input_delegate_->DidImplSideInvalidate();
-  }
-
-  UpdateSyncTreeAfterCommitOrImplSideInvalidation();
-}
-
-void LayerTreeHostImpl::InvalidateLayerTreeFrameSink(bool needs_redraw) {
-  DCHECK(layer_tree_frame_sink());
-
-  layer_tree_frame_sink()->Invalidate(needs_redraw);
-}
 
 DrawResult LayerTreeHostImpl::PrepareToDraw(FrameData* frame,
                                             bool expects_to_draw) {
@@ -2703,6 +2232,10 @@ viz::TrackedElementRects LayerTreeHostImpl::CollectTrackedElementRects(
           continue;
         }
 
+        // TODO(http://crbug.com/441532128): Elements that are being added to
+        // the compositor frame metadata should be transformed to the coordinate
+        // space of the compositor frame.
+
         viz::TrackedElementRect transformed_rect = rect_data;
         gfx::Rect visible_layer_rect =
             layer->draw_properties().visible_layer_rect;
@@ -3065,7 +2598,7 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
 
   if (frame->has_no_damage) {
     DCHECK(!resourceless_software_draw_);
-    TRACE_EVENT_INSTANT0("cc", "EarlyOut_NoDamage", TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT("cc", "EarlyOut_NoDamage");
     active_tree()->BreakSwapPromises(SwapPromise::SWAP_FAILS);
 
     // Send updates to Viz even for no damage case when TreesInViz is enabled.
@@ -3279,8 +2812,12 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
     devtools_instrumentation::DidDrawFrame(
         id_, frame->begin_frame_ack.frame_id.sequence_number);
   }
-  benchmark_instrumentation::IssueImplThreadRenderingStatsEvent(
-      rendering_stats_instrumentation_->TakeImplThreadRenderingStats());
+  if (!GetSettings().TreesInVizInClientProcess()) {
+    // In TreesInViz mode, content area data only get recorded in viz side.
+    // Therefore, only issue trace event in viz.
+    benchmark_instrumentation::IssueImplThreadRenderingStatsEvent(
+        rendering_stats_instrumentation_->TakeImplThreadRenderingStats());
+  }
 
   if (settings_.enable_compositing_based_throttling &&
       throttle_decider_.HasThrottlingChanged()) {
@@ -3333,10 +2870,9 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
         debug_state_);
   }
 
-  TRACE_EVENT_INSTANT2("cc", "Scroll Delta This Frame",
-                       TRACE_EVENT_SCOPE_THREAD, "x",
-                       scroll_accumulated_this_frame_.x(), "y",
-                       scroll_accumulated_this_frame_.y());
+  TRACE_EVENT_INSTANT("cc", "Scroll Delta This Frame", "x",
+                      scroll_accumulated_this_frame_.x(), "y",
+                      scroll_accumulated_this_frame_.y());
   scroll_accumulated_this_frame_ = gfx::Vector2dF();
 
   bool is_new_trace;
@@ -3353,10 +2889,9 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
   }
 
   {
-    TRACE_EVENT0("cc", "DrawLayers.FrameViewerTracing");
-    TRACE_EVENT_OBJECT_SNAPSHOT_WITH_ID(
-        frame_viewer_instrumentation::CategoryLayerTree(),
-        "cc::LayerTreeHostImpl", id_, AsValueWithFrame(frame));
+    TRACE_EVENT("cc", "DrawLayers.FrameViewerTracing",
+                perfetto::Flow::ProcessScoped(id_, "LayerTreeHostImpl"),
+                "snapshot", AsValueWithFrame(frame));
   }
 
   const DrawMode draw_mode = GetDrawMode();
@@ -3660,14 +3195,59 @@ void LayerTreeHostImpl::DidDrawAllLayers(const FrameData& frame) {
 
 base::TimeTicks LayerTreeHostImpl::UpdateDisplayTree(
     FrameData& frame,
-    std::vector<ui::LatencyInfo> latency_info) {
+    std::vector<ui::LatencyInfo> latency_info,
+    bool is_flush) {
   DCHECK(settings_.TreesInVizInClientProcess());
   DCHECK(layer_context_);
 
+  // Propagate the is_flush flag to VizLayerContext to indicate whether this
+  // is a synchronization-only update.
   return layer_context_->UpdateDisplayTreeFrom(
       *active_tree(), *resource_provider(),
       layer_tree_frame_sink_->shared_image_interface().get(),
-      viewport_damage_rect_, !frame.has_no_damage, std::move(latency_info));
+      frame.origin_begin_main_frame_args, viewport_damage_rect_,
+      !frame.has_no_damage, is_flush, std::move(latency_info));
+}
+
+void LayerTreeHostImpl::FlushDisplayTree() {
+  CHECK(settings_.TreesInVizInClientProcess());
+  CHECK(layer_context_);
+
+  // When the renderer becomes invisible (e.g., backgrounded), it immediately
+  // evicts its tiles. In the TreesInViz architecture, we must explicitly sync
+  // this 'evicted' state to the Viz process. This ensures that Viz drops its
+  // references to the now-stale tiles and returns the underlying resources to
+  // the client. Without this immediate sync, resources would be held until the
+  // renderer next becomes visible and draws, which defeats the purpose of
+  // background memory reclamation.
+  //
+  // We use the 'is_flush' flag to signal to Viz that this is a
+  // synchronization-only update. This ensures Viz skips the full draw cycle and
+  // post-sync recomputations, preventing an unexpected FrameACK from being sent
+  // back to the Renderer's Scheduler while it is backgrounded.
+  FrameData frame;
+
+  // Empty args as 'flush' update won't trigger a draw in Viz.
+  frame.origin_begin_main_frame_args = viz::BeginFrameArgs();
+
+  // We increment the frame token to ensure this synchronization update is
+  // uniquely identified. This allows VizLayerContext to correctly track the
+  // activation of this specific update and ensures that subsequent metadata
+  // (like frame tokens in ACKs) remains consistent.
+  ++next_frame_token_;
+  UpdateDisplayTree(frame, {}, /*is_flush=*/true);
+
+  // A flush update synchronizes state (e.g. tile evictions) to Viz but does not
+  // result in a frame draw. We reset internal damage tracking and tree change
+  // tracking here so that when the renderer becomes visible again, the
+  // subsequent actual draw starts from a clean state. This prevents stale
+  // damage from being carried over and incorrectly impacting the next real
+  // frame.
+  if (active_tree_->RootRenderSurface()) {
+    viewport_damage_rect_ = gfx::Rect();
+    root_layer_damage_rect_ = gfx::Rect();
+  }
+  active_tree_->ResetAllChangeTracking();
 }
 
 int LayerTreeHostImpl::RequestedMSAASampleCount() const {
@@ -3765,11 +3345,6 @@ uint32_t LayerTreeHostImpl::next_frame_token() const {
     return next_frame_token_from_client_;
   }
   return *next_frame_token_;
-}
-
-void LayerTreeHostImpl::set_next_frame_token_from_client(uint32_t frame_token) {
-  DCHECK(settings().trees_in_viz_in_viz_process);
-  next_frame_token_from_client_ = frame_token;
 }
 
 void LayerTreeHostImpl::RegisterMainThreadPresentationTimeCallbackForTesting(
@@ -4138,6 +3713,12 @@ base::TimeDelta LayerTreeHostImpl::CurrentFrameInterval() const {
   return CurrentBeginFrameInterval();
 }
 
+float LayerTreeHostImpl::RenderedDeviceScaleFactor() const {
+  return settings().use_painted_device_scale_factor
+             ? active_tree_->painted_device_scale_factor()
+             : active_tree_->device_scale_factor();
+}
+
 ScrollNode* LayerTreeHostImpl::InnerViewportScrollNode() const {
   return active_tree_->InnerViewportScrollNode();
 }
@@ -4190,26 +3771,6 @@ void LayerTreeHostImpl::SetExternalPinchGestureActive(bool active) {
   if (input_delegate_) {
     GetInputHandler().set_external_pinch_gesture_active(active);
   }
-}
-
-void LayerTreeHostImpl::CreatePendingTree() {
-  CHECK(!CommitsToActiveTree());
-  CHECK(!pending_tree_);
-  if (recycle_tree_) {
-    recycle_tree_.swap(pending_tree_);
-  } else {
-    pending_tree_ = std::make_unique<LayerTreeImpl>(
-        *this, CurrentBeginFrameArgs(), active_tree()->page_scale_factor(),
-        active_tree()->top_controls_shown_ratio(),
-        active_tree()->bottom_controls_shown_ratio());
-  }
-  pending_tree_fully_painted_ = false;
-
-  client_->OnCanDrawStateChanged(CanDraw());
-  TRACE_EVENT_BEGIN("cc", "PendingTree:waiting",
-                    perfetto::Track::FromPointer(pending_tree_.get()),
-                    "active_lsid",
-                    active_tree()->local_surface_id_from_parent().ToString());
 }
 
 void LayerTreeHostImpl::PushScrollbarOpacitiesFromActiveToPending() {
@@ -4372,6 +3933,20 @@ void LayerTreeHostImpl::ActivateSyncTree() {
     input_delegate_->DidActivatePendingTree();
   }
 
+  // When a tab is backgrounded and SetVisible(false) is called, it triggers
+  // a FlushDisplayTree() at the end, which syncs the current state (e.g., tile
+  // evictions) and ensures should_batch_updated_tiles_ is false.
+  // When a new tree activates, it sets `should_batch_updated_tiles_` to true
+  // on the active tree's layers. Because tab is hidden and visible_ is already
+  // false, no new SetVisible(false) call will ever occur and hence no more
+  // FlushDisplayTree() will occur. As a result, all future background updates
+  // (like tile deletions) stay trapped in the renderer's local batch and never
+  // reach Viz. This flush ensures Viz stays in sync even when we aren't
+  // drawing.
+  if (layer_context_ && !visible_ && settings_.TreesInVizInClientProcess()) {
+    FlushDisplayTree();
+  }
+
   // Dump property trees and layers if VerboseLogEnabled().
   VERBOSE_LOG() << "After activating sync tree, the active tree:"
                 << "\nproperty_trees:\n"
@@ -4394,10 +3969,6 @@ void LayerTreeHostImpl::SetVisible(bool visible) {
     return;
   }
   visible_ = visible;
-
-  if (layer_context_) {
-    layer_context_->SetVisible(visible);
-  }
 
   if (!visible_) {
     frame_sorter_.Reset(/*reset_fcp=*/false);
@@ -4440,6 +4011,13 @@ void LayerTreeHostImpl::SetVisible(bool visible) {
     // Call PrepareTiles to evict tiles when we become invisible.
     PrepareTiles();
     tile_manager_.decoded_image_tracker().UnlockAllImages();
+  }
+
+  if (layer_context_) {
+    if (settings_.TreesInVizInClientProcess() && !visible) {
+      FlushDisplayTree();
+    }
+    layer_context_->SetVisible(visible);
   }
 
   active_tree_->SetVisible(visible);
@@ -4988,8 +4566,7 @@ bool LayerTreeHostImpl::ScrollAnimationCreate(const ScrollNode& scroll_node,
       std::abs(delta.x()) > kEpsilon || std::abs(delta.y()) > kEpsilon;
   if (!scroll_animated) {
     scroll_tree.ScrollBy(scroll_node, delta, active_tree());
-    TRACE_EVENT_INSTANT0("cc", "no scroll animation due to small delta",
-                         TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT("cc", "no scroll animation due to small delta");
     return false;
   }
 
@@ -5153,6 +4730,7 @@ void LayerTreeHostImpl::DidScrollContent(ElementId element_id,
 }
 
 float LayerTreeHostImpl::DeviceScaleFactor() const {
+  // TODO(crbug.com/505784117): Unify with RenderedDeviceScaleFactor()
   return active_tree_->device_scale_factor();
 }
 
@@ -5470,7 +5048,8 @@ bool LayerTreeHostImpl::AnimateBrowserControls(base::TimeTicks time) {
                       /*viewport_point=*/gfx::Point(),
                       /*is_direct_manipulation=*/false,
                       /*affect_browser_controls=*/false,
-                      /*scroll_outer_viewport=*/true);
+                      /*scroll_outer_viewport=*/true,
+                      /*is_inertial=*/false);
 
   // If the viewport has scroll snap styling, we may need to snap after
   // scrolling it. Browser controls animations may happen after scrollend, so
@@ -5547,9 +5126,9 @@ void LayerTreeHostImpl::UpdateAnimationState(bool start_ready_animations) {
 
   if (has_active_animations) {
     SetNeedsOneBeginImplFrame();
-    if (!mutator_events_->IsEmpty()) {
-      SetNeedsCommit();
-    }
+  }
+  if (!mutator_events_->IsEmpty()) {
+    SetNeedsCommit();
   }
 }
 
@@ -5563,9 +5142,9 @@ void LayerTreeHostImpl::ActivateAnimations() {
     active_tree()->set_needs_update_draw_properties();
     // Request another frame to run the next tick of the animation.
     SetNeedsOneBeginImplFrame();
-    if (!mutator_events_->IsEmpty()) {
-      SetNeedsCommit();
-    }
+  }
+  if (!mutator_events_->IsEmpty()) {
+    SetNeedsCommit();
   }
 }
 
@@ -5702,14 +5281,6 @@ void LayerTreeHostImpl::RemoveVideoFrameController(
   }
 }
 
-void LayerTreeHostImpl::SetTreePriority(TreePriority priority) {
-  if (global_tile_state_.tree_priority == priority) {
-    return;
-  }
-  global_tile_state_.tree_priority = priority;
-  DidModifyTilePriorities(/*pending_update_tiles=*/false);
-}
-
 TreePriority LayerTreeHostImpl::GetTreePriority() const {
   return global_tile_state_.tree_priority;
 }
@@ -5791,6 +5362,14 @@ void LayerTreeHostImpl::SetDebugState(
   }
 
   debug_state_ = new_debug_state;
+  // For renderer process, we don't need to set it in LayerTreeHostImpl
+  // because LayyerTreeHost sets it directly.
+  // In TreesInViz mode, we also don't need to set it in renderer process
+  // because all its recordings happen in viz.
+  if (GetSettings().trees_in_viz_in_viz_process) {
+    rendering_stats_instrumentation_->set_record_rendering_stats(
+        debug_state_.RecordRenderingStats());
+  }
   UpdateTileManagerMemoryPolicy(ActualManagedMemoryPolicy());
   SetFullViewportDamage();
 }
@@ -5983,46 +5562,6 @@ void LayerTreeHostImpl::CreateUIResource(UIResourceId uid,
   data.shared_image = std::move(client_shared_image);
   data.resource_id_for_export = id;
   data.size = upload_size;
-  ui_resource_map_[uid] = std::move(data);
-
-  MarkUIResourceNotEvicted(uid);
-
-  if (settings_.TreesInVizInClientProcess()) {
-    auto [change_it, success] =
-        ui_resource_changes_.try_emplace(uid, UIResourceChange());
-    // Mark that a resource was created in this change set.
-    change_it->second.resource_created = true;
-  }
-}
-
-void LayerTreeHostImpl::CreateUIResourceFromImportedResource(
-    UIResourceId uid,
-    viz::ResourceId resource_id,
-    const gfx::Size& size,
-    bool is_opaque) {
-  TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
-               "LayerTreeHostImpl::CreateUIResourceFromResource");
-  // We expect only CreateUIResource to be used for
-  // non-trees_in_viz_in_viz_process mode.
-  DCHECK(settings_.trees_in_viz_in_viz_process);
-  DCHECK_GT(uid, 0);
-
-  // Allow for multiple creation requests with the same UIResourceId.  The
-  // previous resource is simply deleted.
-  viz::ResourceId id = ResourceIdForUIResource(uid);
-  if (id) {
-    DeleteUIResource(uid);
-  }
-
-  if (!has_valid_layer_tree_frame_sink_) {
-    evicted_ui_resources_.insert(uid);
-    return;
-  }
-
-  UIResourceData data;
-  data.opaque = is_opaque;
-  data.resource_id_for_export = resource_id;
-  data.size = size;
   ui_resource_map_[uid] = std::move(data);
 
   MarkUIResourceNotEvicted(uid);
@@ -6441,19 +5980,6 @@ void LayerTreeHostImpl::ShowScrollbarsForImplScroll(ElementId element_id) {
           ScrollbarAnimationControllerForElementId(element_id)) {
     animation_controller->DidScrollUpdate();
   }
-}
-
-void LayerTreeHostImpl::SetActiveURL(const GURL& url, ukm::SourceId source_id) {
-  tile_manager_.set_active_url(url);
-  has_observed_first_scroll_delay_ = false;
-  // The active tree might still be from content for the previous page when the
-  // recorder is updated here, since new content will be pushed with the next
-  // main frame. But we should only get a few impl frames wrong here in that
-  // case. Also, since checkerboard stats are only recorded with user
-  // interaction, it must be in progress when the navigation commits for this
-  // case to occur.
-  // The source id has already been associated to the URL.
-  frame_sorter_.Reset(/*reset_fcp=*/true);
 }
 
 void LayerTreeHostImpl::NotifyDidPresentCompositorFrameOnImplThread(

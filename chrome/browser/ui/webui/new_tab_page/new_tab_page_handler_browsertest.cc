@@ -102,14 +102,7 @@ class NewTabPageHandlerBaseBrowserTest : public InProcessBrowserTest {
   void CloseSidePanel() {
     BrowserWindowInterface* const browser_window_interface =
         webui::GetBrowserWindowInterface(web_contents());
-    SidePanelRegistry* const side_panel_registry = SidePanelRegistry::From(
-        browser_window_interface->GetActiveTabInterface());
-    SidePanelEntry::PanelType panel_type =
-        side_panel_registry
-            ->GetEntryForKey(
-                SidePanelEntryKey(SidePanelEntryId::kCustomizeChrome))
-            ->type();
-    browser_window_interface->GetFeatures().side_panel_ui()->Close(panel_type);
+    browser_window_interface->GetFeatures().side_panel_ui()->Close();
   }
 
   MockPage* mock_page() { return &mock_page_; }
@@ -151,7 +144,7 @@ class NewTabPageHandlerWithCustomizeChromePromoBaseBrowserTest
 
   void OpenNewTabPageInForeground() {
     ui_test_utils::NavigateToURLWithDisposition(
-        browser(), GURL(chrome::kChromeUINewTabPageURL),
+        browser(), chrome::ChromeUINewTabPageURLAsGURL(),
         WindowOpenDisposition::NEW_FOREGROUND_TAB,
         ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   }
@@ -447,7 +440,7 @@ class NewTabPageHandlerManagedTest : public NewTabPageHandlerBaseBrowserTest,
 
   void NavigateToNewTabPage() {
     ui_test_utils::NavigateToURLWithDisposition(
-        browser(), GURL(chrome::kChromeUINewTabPageURL),
+        browser(), chrome::ChromeUINewTabPageURLAsGURL(),
         WindowOpenDisposition::CURRENT_TAB,
         ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   }

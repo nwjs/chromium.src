@@ -24,9 +24,11 @@ import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
 import android.content.ComponentCallbacks;
 import android.content.res.Configuration;
+import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup.MarginLayoutParams;
 
+import androidx.activity.BackEventCompat;
 import androidx.annotation.Nullable;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.core.app.ApplicationProvider;
@@ -50,14 +52,19 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.ImportantFormFactors;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.ui.KeyboardUtils;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
+import org.chromium.chrome.browser.back_press.BackPressManager;
+import org.chromium.chrome.browser.back_press.BackPressMetrics.PredictiveGestureNavPhase;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarSceneLayer;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarSceneLayerJni;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils;
@@ -79,7 +86,6 @@ import org.chromium.chrome.browser.toolbar.top.ToolbarPhone;
 import org.chromium.chrome.browser.toolbar.top.tab_strip.TabStripTransitionCoordinator;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ntp.IncognitoNewTabPageStation;
@@ -91,10 +97,12 @@ import org.chromium.chrome.test.util.NewTabPageTestUtils;
 import org.chromium.chrome.test.util.OmniboxTestUtils;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.embedder_support.util.UrlConstants;
+import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.net.NetworkChangeNotifier;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.base.UiAndroidFeatures;
 
 /** Tests for toolbar manager behavior. */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -232,6 +240,7 @@ public class ToolbarTest {
         ToolbarManager toolbarManager = mActivity.getToolbarManager();
         ScrimManager scrimManager = mActivity.getRootUiCoordinatorForTesting().getScrimManager();
         scrimManager.disableAnimationForTesting(true);
+        OmniboxFeatures.setHasDesktopExperienceForTesting(false);
 
         assertNull("The scrim should be null.", scrimManager.getViewForTesting());
         assertFalse(
@@ -260,7 +269,7 @@ public class ToolbarTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "https://crbug.com/1230091")
+    @DisabledTest(message = "https://crbug.com/40190191")
     public void testNtpNavigatesToErrorPageOnDisconnectedNetwork() {
         EmbeddedTestServer testServer =
                 EmbeddedTestServer.createAndStartServer(
@@ -298,6 +307,7 @@ public class ToolbarTest {
     @Test
     @MediumTest
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    @DisabledTest(message = "crbug.com/507245181")
     public void testNtpOmniboxFocusAndUnfocusWithHardwareKeyboardConnected() {
         // Simulate availability of a hardware keyboard.
         mActivity.getResources().getConfiguration().keyboard = Configuration.KEYBOARD_QWERTY;
@@ -676,6 +686,46 @@ public class ToolbarTest {
                                         .initFrom(incognitoWebPage)
                                         .build());
         incognitoNtp.homeButtonElement.checkPresent();
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({UiAndroidFeatures.MAXIMUM_WINDOW_FOR_GESTURE_NAV_DETECTION})
+    @DisableIf.Build(sdk_is_less_than = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void testBackPressCancelledOnTabNull() throws Exception {
+        EmbeddedTestServer testServer =
+                EmbeddedTestServer.createAndStartServer(
+                        ApplicationProvider.getApplicationContext());
+        String testUrl = testServer.getURL("/chrome/test/data/android/test.html");
+        mPage = mPage.loadWebPageProgrammatically(testUrl);
+
+        ToolbarManager toolbarManager = mActivity.getToolbarManager();
+        Assert.assertNotNull(toolbarManager);
+
+        // Start a gesture
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    BackPressManager manager = mActivity.getBackPressManagerForTesting();
+                    var backEvent = new BackEventCompat(0, 0, 0, BackEventCompat.EDGE_LEFT);
+                    manager.getCallback().handleOnBackStarted(backEvent);
+                });
+
+        HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.PredictiveGestureNavigation",
+                                PredictiveGestureNavPhase.CANCELLED)
+                        .build();
+
+        // Close all tabs to make current tab null
+        ChromeTabUtils.closeAllTabs(
+                InstrumentationRegistry.getInstrumentation(),
+                mActivity.getTabModelSelectorSupplier());
+
+        // Verify metric
+        watcher.assertExpected();
+
+        testServer.stopAndDestroyServer();
     }
 
     private void setAccessibilityEnabled(boolean enabled) {

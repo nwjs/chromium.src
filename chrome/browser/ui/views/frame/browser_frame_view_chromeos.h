@@ -141,8 +141,7 @@ class BrowserFrameViewChromeOS
 
  private:
   friend class BrowserFrameViewChromeOSTestApi;
-  FRIEND_TEST_ALL_PREFIXES(ImmersiveModeBrowserViewTestNoWebUiTabStrip,
-                           ImmersiveFullscreen);
+  FRIEND_TEST_ALL_PREFIXES(ImmersiveModeBrowserViewTest, ImmersiveFullscreen);
   class ProfileChangeObserver;
 
   // App is a PWA and has borderless in its manifest. This doesn't yet mean
@@ -215,10 +214,6 @@ class BrowserFrameViewChromeOS
 
   // Returns whether the associated window is currently snapped or not.
   bool IsSnapped() const;
-
-  // True if the the associated browser window should be using the WebUI tab
-  // strip.
-  bool UseWebUITabStrip() const;
 
   // Returns the top level aura::Window for this browser window.
   const aura::Window* GetFrameWindow() const;

@@ -11,6 +11,7 @@
 #include <map>
 #include <memory>
 #include <sstream>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -131,6 +132,17 @@ bool ValidateEglConfig(EGLDisplay display,
   return true;
 }
 
+bool IsAndroidEmulator() {
+#if BUILDFLAG(IS_ANDROID)
+  static bool is_emulator =
+      base::SysInfo::GetAndroidHardwareEGL() == "swiftshader" ||
+      base::SysInfo::GetAndroidHardwareEGL() == "emulation";
+  return is_emulator;
+#else
+  return false;
+#endif
+}
+
 EGLConfig ChooseConfig(EGLDisplay display,
                        GLSurfaceFormat format,
                        bool surfaceless,
@@ -168,7 +180,10 @@ EGLConfig ChooseConfig(EGLDisplay display,
         EGL_BLUE_SIZE,    8,           EGL_GREEN_SIZE,      8,
         EGL_RED_SIZE,     8,           EGL_RENDERABLE_TYPE, renderable_type,
         EGL_SURFACE_TYPE, surface_type};
-    if (video_encoder_input) {
+
+    // Android emulator's swiftshader doesn't support recordable, but its media
+    // codec is fine with it.
+    if (video_encoder_input && !IsAndroidEmulator()) {
       config_attribs_8888.push_back(EGL_RECORDABLE_ANDROID);
       config_attribs_8888.push_back(EGL_TRUE);
     }
@@ -213,7 +228,7 @@ EGLConfig ChooseConfig(EGLDisplay display,
       // through all of them (it'll put higher sum(R,G,B) bits
       // first with the above attribs).
       bool match_found = false;
-      for (int i = 0; i < num_configs; i++) {
+      for (int i = 0; i < num_configs; ++i) {
         EGLint red, green, blue, alpha;
         // Read the relevant attributes of the EGLConfig.
         if (eglGetConfigAttrib(display, matching_configs[i], EGL_RED_SIZE,
@@ -246,7 +261,7 @@ EGLConfig ChooseConfig(EGLDisplay display,
         }
       }
     } else if (visual_id >= 0) {
-      for (int i = 0; i < num_configs; i++) {
+      for (int i = 0; i < num_configs; ++i) {
         EGLint id;
         if (eglGetConfigAttrib(display, matching_configs[i],
                                EGL_NATIVE_VISUAL_ID, &id) &&
@@ -622,8 +637,7 @@ void NativeViewGLSurfaceEGL::TraceSwapEvents(EGLuint64KHR oldFrameId) {
           display_->GetDisplay(), surface_, oldFrameId,
           static_cast<EGLint>(supported_egl_timestamps_.size()),
           supported_egl_timestamps_.data(), egl_timestamps.data())) {
-    TRACE_EVENT_INSTANT0("gpu", "eglGetFrameTimestamps:Failed",
-                         TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT("gpu", "eglGetFrameTimestamps:Failed");
     return;
   }
 
@@ -635,7 +649,7 @@ void NativeViewGLSurfaceEGL::TraceSwapEvents(EGLuint64KHR oldFrameId) {
 
   std::vector<TimeNamePair> tracePairs;
   tracePairs.reserve(supported_egl_timestamps_.size());
-  for (size_t i = 0; i < egl_timestamps.size(); i++) {
+  for (size_t i = 0; i < egl_timestamps.size(); ++i) {
     // Although a timestamp of 0 is technically valid, we shouldn't expect to
     // see it in practice. 0's are more likely due to a known linux kernel bug
     // that inadvertently discards timestamp information when merging two
@@ -652,8 +666,7 @@ void NativeViewGLSurfaceEGL::TraceSwapEvents(EGLuint64KHR oldFrameId) {
          supported_event_names_[i]});
   }
   if (tracePairs.empty()) {
-    TRACE_EVENT_INSTANT0("gpu", "TraceSwapEvents:NoValidTimestamps",
-                         TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT("gpu", "TraceSwapEvents:NoValidTimestamps");
     return;
   }
 
@@ -686,15 +699,17 @@ void NativeViewGLSurfaceEGL::TraceSwapEvents(EGLuint64KHR oldFrameId) {
   //   1) when the order of events are different between frames and
   //   2) if multiple events occurred very close together.
   std::string valid_symbols(tracePairs.size(), '\0');
-  for (size_t i = 0; i < valid_symbols.size(); i++)
+  for (size_t i = 0; i < valid_symbols.size(); ++i) {
     valid_symbols[i] = tracePairs[i].name[0];
+  }
 
-  const char* pending_symbols = valid_symbols.c_str();
-  for (size_t i = 1; i < tracePairs.size(); i++) {
-    UNSAFE_TODO(pending_symbols++);
-    TRACE_EVENT_BEGIN(kSwapEventTraceCategories,
-                      perfetto::DynamicString(pending_symbols),
-                      perfetto::Track(trace_id), tracePairs[i - 1].time);
+  std::string_view pending_symbols(valid_symbols);
+  for (size_t i = 1; i < tracePairs.size(); ++i) {
+    pending_symbols.remove_prefix(1);
+    TRACE_EVENT_BEGIN(
+        kSwapEventTraceCategories,
+        perfetto::DynamicString(pending_symbols.data(), pending_symbols.size()),
+        perfetto::Track(trace_id), tracePairs[i - 1].time);
     TRACE_EVENT_END(kSwapEventTraceCategories, perfetto::Track(trace_id),
                     tracePairs[i].time);
     TRACE_EVENT_INSTANT(kSwapEventTraceCategories,

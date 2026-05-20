@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
+#include "chrome/browser/ui/fullscreen/browser_window_fullscreen_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/exclusive_access_bubble_views.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_window.h"
@@ -58,7 +59,7 @@ void WebUIBrowserExclusiveAccessContext::EnterFullscreen(
 }
 
 void WebUIBrowserExclusiveAccessContext::ExitFullscreen() {
-  if (browser_->GetBrowserForMigrationOnly()->window()->IsForceFullscreen()) {
+  if (BrowserWindowFullscreenController::From(browser_)->IsForceFullscreen()) {
     return;
   }
 
@@ -105,7 +106,7 @@ void WebUIBrowserExclusiveAccessContext::UpdateExclusiveAccessBubble(
 
     // Perform the destroy async. State updates in the exclusive access bubble
     // view may call back into this method. This otherwise results in
-    // premature deletion of the bubble view and UAFs. See crbug.com/1426521.
+    // premature deletion of the bubble view and UAFs. See crbug.com/40063714.
     exclusive_access_bubble_destruction_task_id_ =
         exclusive_access_bubble_cancelable_task_tracker_.PostTask(
             base::SingleThreadTaskRunner::GetCurrentDefault().get(), FROM_HERE,

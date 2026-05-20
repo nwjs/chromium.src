@@ -15,7 +15,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_run_loop_timeout.h"
-#include "base/test/trace_event_analyzer.h"
+#include "base/test/tracing/trace_event_analyzer.h"
 #include "build/build_config.h"
 #include "cc/base/switches.h"
 #include "chrome/browser/page_load_metrics/integration_tests/metric_integration_test.h"
@@ -359,18 +359,8 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_EQ(*loading_attr, "");
 }
 
-class PageViewportInLCPTest : public MetricIntegrationTest {
- public:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    feature_list_.InitWithFeatures(
-        {blink::features::kUsePageViewportInLCP} /*enabled*/, {} /*disabled*/);
-  }
-
-  base::test::ScopedFeatureList feature_list_;
-};
-
 // TODO(crbug.com/385580803): flaky on all platforms
-IN_PROC_BROWSER_TEST_F(PageViewportInLCPTest, DISABLED_FullSizeImageInIframe) {
+IN_PROC_BROWSER_TEST_F(MetricIntegrationTest, DISABLED_FullSizeImageInIframe) {
   auto waiter = std::make_unique<page_load_metrics::PageLoadMetricsTestWaiter>(
       web_contents());
   waiter->AddSubFrameExpectation(page_load_metrics::PageLoadMetricsTestWaiter::
@@ -456,7 +446,7 @@ IN_PROC_BROWSER_TEST_F(
                    /*expected=*/false);
 }
 
-// crbug.com/1373885: This test is unreliable on ChromeOS, Linux and Mac
+// crbug.com/40871999: This test is unreliable on ChromeOS, Linux and Mac
 IN_PROC_BROWSER_TEST_F(IsAnimatedLCPTest,
                        DISABLED_LargestContentfulPaint_IsVideo) {
   test_is_animated("/is_video.html", blink::LargestContentfulPaintType::kVideo,
@@ -709,7 +699,7 @@ IN_PROC_BROWSER_TEST_F(LargestContentfulPaintTypeTest,
   TestTextAndImage(ElementOrder::kImageFirst, text, imgSrc, flag_set);
 }
 
-// (https://crbug.com/1385713): Flaky on mac12-arm64-rel M1 Mac CQ.
+// (https://crbug.com/40246907): Flaky on mac12-arm64-rel M1 Mac CQ.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_DataURIType DISABLED_DataURIType
 #else
@@ -726,7 +716,7 @@ IN_PROC_BROWSER_TEST_F(LargestContentfulPaintTypeTest, MAYBE_DataURIType) {
   TestImage(imgSrc, flag_set);
 }
 
-// (https://crbug.com/1385713): Flaky on mac12-arm64-rel M1 Mac CQ.
+// (https://crbug.com/40246907): Flaky on mac12-arm64-rel M1 Mac CQ.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_DataURIType_SVG DISABLED_DataURIType_SVG
 #else
@@ -751,8 +741,8 @@ IN_PROC_BROWSER_TEST_F(LargestContentfulPaintTypeTest, MAYBE_DataURIType_SVG) {
   TestImage(imgSrc, flag_set);
 }
 
-// (https://crbug.com/1385713): Flaky on mac12-arm64-rel M1 Mac CQ.
-// (https://crbug.com/1405307): Flaky on ChromeOS, Linux, and Windows as well.
+// (https://crbug.com/40246907): Flaky on mac12-arm64-rel M1 Mac CQ.
+// (https://crbug.com/40886555): Flaky on ChromeOS, Linux, and Windows as well.
 IN_PROC_BROWSER_TEST_F(LargestContentfulPaintTypeTest,
                        DISABLED_DataURIType_Video) {
   auto flag_set = blink::LargestContentfulPaintType::kImage |

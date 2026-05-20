@@ -10,6 +10,7 @@
 
 #include "base/files/file_util.h"
 #include "components/subresource_filter/tools/rule_parser/rule_parser.h"
+#include "components/subresource_filter/tools/ruleset_converter/rule_stream.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace subresource_filter {
@@ -18,7 +19,7 @@ TestRulesetContents::TestRulesetContents() = default;
 TestRulesetContents::~TestRulesetContents() = default;
 
 TestRulesetContents::TestRulesetContents(const TestRulesetContents& other)
-    : url_rules(other.url_rules), css_rules(other.css_rules) {}
+    : url_rules(other.url_rules), style_rules(other.style_rules) {}
 
 void TestRulesetContents::AppendRules(
     const std::vector<std::string>& text_rules,
@@ -30,9 +31,13 @@ void TestRulesetContents::AppendRules(
       case url_pattern_index::proto::RULE_TYPE_URL:
         url_rules.push_back(parser.url_rule().ToProtobuf());
         break;
-      case url_pattern_index::proto::RULE_TYPE_CSS:
-        css_rules.push_back(parser.css_rule().ToProtobuf());
+      case url_pattern_index::proto::RULE_TYPE_STYLE: {
+        auto proto = parser.style_rule().ToProtobuf();
+        if (!DeleteStyleRuleOrAmend(&proto)) {
+          style_rules.push_back(proto);
+        }
         break;
+      }
       case url_pattern_index::proto::RULE_TYPE_UNSPECIFIED:
         ASSERT_TRUE(allow_errors);
         break;
@@ -45,13 +50,13 @@ void TestRulesetContents::AppendRules(
 void TestRulesetContents::AppendParsedRules(const TestRulesetContents& other) {
   url_rules.insert(url_rules.end(), other.url_rules.begin(),
                    other.url_rules.end());
-  css_rules.insert(css_rules.end(), other.css_rules.begin(),
-                   other.css_rules.end());
+  style_rules.insert(style_rules.end(), other.style_rules.begin(),
+                     other.style_rules.end());
 }
 
 bool TestRulesetContents::operator==(const TestRulesetContents& other) const {
   if (url_rules.size() != other.url_rules.size() ||
-      css_rules.size() != other.css_rules.size()) {
+      style_rules.size() != other.style_rules.size()) {
     return false;
   }
   for (size_t i = 0; i < url_rules.size(); ++i) {
@@ -59,8 +64,8 @@ bool TestRulesetContents::operator==(const TestRulesetContents& other) const {
       return false;
     }
   }
-  for (size_t i = 0; i < css_rules.size(); ++i) {
-    if (!AreCssRulesEqual(css_rules[i], other.css_rules[i])) {
+  for (size_t i = 0; i < style_rules.size(); ++i) {
+    if (!AreStyleRulesEqual(style_rules[i], other.style_rules[i])) {
       return false;
     }
   }
@@ -72,7 +77,7 @@ std::ostream& operator<<(std::ostream& out,
   for (const auto& rule : contents.url_rules) {
     out << ToString(rule) << "\n";
   }
-  for (const auto& rule : contents.css_rules) {
+  for (const auto& rule : contents.style_rules) {
     out << ToString(rule) << "\n";
   }
   return out;
@@ -111,8 +116,8 @@ void ScopedTempRulesetFile::WriteRuleset(
   for (const auto& rule : contents.url_rules) {
     EXPECT_TRUE(output->PutUrlRule(rule));
   }
-  for (const auto& rule : contents.css_rules) {
-    EXPECT_TRUE(output->PutCssRule(rule));
+  for (const auto& rule : contents.style_rules) {
+    EXPECT_TRUE(output->PutStyleRule(rule));
   }
   EXPECT_TRUE(output->Finish());
 }
@@ -127,8 +132,8 @@ TestRulesetContents ScopedTempRulesetFile::ReadContents() const {
     if (rule_type == url_pattern_index::proto::RULE_TYPE_URL) {
       contents.url_rules.push_back(input->GetUrlRule());
     } else {
-      CHECK_EQ(url_pattern_index::proto::RULE_TYPE_CSS, rule_type);
-      contents.css_rules.push_back(input->GetCssRule());
+      CHECK_EQ(url_pattern_index::proto::RULE_TYPE_STYLE, rule_type);
+      contents.style_rules.push_back(input->GetStyleRule());
     }
   }
   return contents;
@@ -139,9 +144,13 @@ bool AreUrlRulesEqual(const url_pattern_index::proto::UrlRule& first,
   return first.SerializeAsString() == second.SerializeAsString();
 }
 
-bool AreCssRulesEqual(const url_pattern_index::proto::CssRule& first,
-                      const url_pattern_index::proto::CssRule& second) {
-  return first.SerializeAsString() == second.SerializeAsString();
+bool AreStyleRulesEqual(const url_pattern_index::proto::StyleRule& first,
+                        const url_pattern_index::proto::StyleRule& second) {
+  url_pattern_index::proto::StyleRule first_copy = first;
+  url_pattern_index::proto::StyleRule second_copy = second;
+  DeleteStyleRuleOrAmend(&first_copy);
+  DeleteStyleRuleOrAmend(&second_copy);
+  return first_copy.SerializeAsString() == second_copy.SerializeAsString();
 }
 
 }  // namespace subresource_filter

@@ -81,6 +81,9 @@ class ExtensionActionViewModel
   std::u16string GetTooltip(content::WebContents* web_contents) const override;
   ToolbarActionViewModel::HoverCardState GetHoverCardState(
       content::WebContents* web_contents) const override;
+  ToolbarActionViewModel::HoverCardUiState GetHoverCardUiState(
+      const ToolbarActionViewModel::HoverCardState& state,
+      content::WebContents* web_contents) const override;
   extensions::SitePermissionsHelper::SiteInteraction GetSiteInteraction(
       content::WebContents* web_contents) const override;
   bool IsEnabled(content::WebContents* web_contents) const override;
@@ -152,6 +155,9 @@ class ExtensionActionViewModel
                     bool by_user,
                     ShowPopupCallback callback);
 
+  // Closes the extensions menu via the `delegate_`.
+  void CloseMenuTask();
+
   // Returns the image source for the icon.
   std::unique_ptr<IconWithBadgeImageSource> GetIconImageSource(
       content::WebContents* web_contents,
@@ -195,6 +201,8 @@ class ExtensionActionViewModel
   base::ScopedObservation<extensions::CommandService,
                           extensions::CommandService::Observer>
       command_service_observation_{this};
+
+  base::WeakPtrFactory<ExtensionActionViewModel> weak_ptr_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_EXTENSIONS_EXTENSION_ACTION_VIEW_MODEL_H_

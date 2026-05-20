@@ -9,6 +9,7 @@
 #include "base/check_deref.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/strings/string_util.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -69,15 +70,25 @@ const skills::Skill* SkillsDialogHandler::SaveOrUpdateSkill(
     RecordSkillsSaveResult(SkillsSaveResult::kServiceNotReady);
     return nullptr;
   }
+  std::string trimmed_name(
+      base::TrimWhitespaceASCII(skill.name, base::TRIM_ALL));
+  std::string trimmed_prompt(
+      base::TrimWhitespaceASCII(skill.prompt, base::TRIM_ALL));
+
+  if (trimmed_name.empty() || trimmed_prompt.empty()) {
+    RecordSkillsSaveResult(SkillsSaveResult::kInvalidRequest);
+    return nullptr;
+  }
+
   const Skill* result = nullptr;
   switch (dialog_type_) {
     case mojom::SkillsDialogType::kAdd:
-      result = skills_service->AddSkill(skill.source_skill_id, skill.name,
-                                        skill.icon, skill.prompt);
+      result = skills_service->AddSkill(skill.source_skill_id, trimmed_name,
+                                        skill.icon, trimmed_prompt);
       break;
     case mojom::SkillsDialogType::kEdit:
-      result = skills_service->UpdateSkill(skill.id, skill.name, skill.icon,
-                                           skill.prompt);
+      result = skills_service->UpdateSkill(skill.id, trimmed_name, skill.icon,
+                                           trimmed_prompt);
       break;
   }
   if (!result) {
@@ -107,8 +118,8 @@ void SkillsDialogHandler::SubmitSkill(
                            /*is_edit_mode=*/IsEditMode(&initial_skill_));
   // Triggers toast
   delegate_->OnSkillSaved(response->id);
-  delegate_->CloseDialog();
   RecordSkillsSaveResult(SkillsSaveResult::kSuccess);
+  delegate_->CloseDialog();
   std::move(wrapped_callback).Run(true);
 }
 
@@ -118,9 +129,9 @@ void SkillsDialogHandler::DeleteSkill(const std::string& skill_id) {
   }
   // Triggers toast
   delegate_->OnSkillDeleted(skill_id);
-  delegate_->CloseDialog();
   RecordSkillsDialogAction(SkillsDialogAction::kDeleted, entrypoint_,
                            /*is_edit_mode=*/true);
+  delegate_->CloseDialog();
 }
 
 void SkillsDialogHandler::CloseDialog() {
@@ -145,12 +156,14 @@ void SkillsDialogHandler::GetInitialState(GetInitialStateCallback callback) {
 
 void SkillsDialogHandler::OnRefineSkillResponse(
     DialogHandler::RefineSkillCallback callback,
+    base::TimeTicks start_time,
     OptimizationGuideModelExecutionResult result,
     std::unique_ptr<ModelQualityLogEntry> log_entry) {
   auto wrapped_callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
       std::move(callback), std::nullopt);
 
   if (!result.response.has_value()) {
+    RecordSkillsRefineLatency(base::TimeTicks::Now() - start_time);
     RecordSkillsRefineResult(SkillsRefineResult::kModelExecutionFailed);
     return;
   }
@@ -160,10 +173,12 @@ void SkillsDialogHandler::OnRefineSkillResponse(
       result.response.value());
 
   if (!response) {
+    RecordSkillsRefineLatency(base::TimeTicks::Now() - start_time);
     RecordSkillsRefineResult(SkillsRefineResult::kParseError);
     return;
   }
   if (response->suggestions_size() == 0) {
+    RecordSkillsRefineLatency(base::TimeTicks::Now() - start_time);
     RecordSkillsRefineResult(SkillsRefineResult::kNoSuggestions);
     return;
   }
@@ -177,6 +192,7 @@ void SkillsDialogHandler::OnRefineSkillResponse(
   refined_skill.name = suggestion.name();      // Suggested name
   refined_skill.icon = suggestion.icon();      // Suggested icon/emoji
 
+  RecordSkillsRefineLatency(base::TimeTicks::Now() - start_time);
   RecordSkillsRefineResult(SkillsRefineResult::kSuccess);
   std::move(wrapped_callback).Run(std::move(refined_skill));
 }
@@ -211,7 +227,7 @@ void SkillsDialogHandler::RefineSkill(
       ModelExecutionOptions(),
       base::BindOnce(&SkillsDialogHandler::OnRefineSkillResponse,
                      weak_ptr_factory_.GetWeakPtr(),
-                     std::move(wrapped_callback)));
+                     std::move(wrapped_callback), base::TimeTicks::Now()));
 }
 
 void SkillsDialogHandler::GenerateNameAndEmoji(

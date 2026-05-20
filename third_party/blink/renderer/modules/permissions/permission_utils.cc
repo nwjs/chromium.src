@@ -8,6 +8,8 @@
 
 #include "build/build_config.h"
 #include "third_party/blink/public/mojom/permissions/permission.mojom-blink.h"
+#include "third_party/blink/public/mojom/permissions/permission_status.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/permissions/permission_status.mojom-blink.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
@@ -69,6 +71,17 @@ void ConnectToPermissionService(
 
 V8PermissionState ToV8PermissionState(mojom::blink::PermissionStatus status) {
   return V8PermissionState(ToPermissionStateEnum(status));
+}
+
+V8AccuracyMode ToV8AccuracyMode(
+    mojom::blink::GeolocationAccuracy accuracy_mode) {
+  switch (accuracy_mode) {
+    case mojom::blink::GeolocationAccuracy::kPrecise:
+      return V8AccuracyMode(V8AccuracyMode::Enum::kPrecise);
+    case mojom::blink::GeolocationAccuracy::kApproximate:
+      return V8AccuracyMode(V8AccuracyMode::Enum::kApproximate);
+  }
+  NOTREACHED();
 }
 
 String PermissionNameToString(PermissionName name) {
@@ -237,6 +250,17 @@ PermissionDescriptorPtr ParsePermissionDescriptor(
   switch (name.AsEnum()) {
     case V8PermissionName::Enum::kGeolocation:
       return CreatePermissionDescriptor(PermissionName::GEOLOCATION);
+
+    case V8PermissionName::Enum::kGeolocationApproximate:
+      if (!RuntimeEnabledFeatures::ApproximateGeolocationPermissionAPIEnabled(
+              ExecutionContext::From(script_state))) {
+        exception_state.ThrowTypeError(
+            "Permission API support for approximate geolocation is not "
+            "enabled.");
+        return nullptr;
+      }
+      return CreatePermissionDescriptor(
+          PermissionName::GEOLOCATION_APPROXIMATE);
 
     case V8PermissionName::Enum::kNotifications:
       return CreatePermissionDescriptor(PermissionName::NOTIFICATIONS);
@@ -422,23 +446,23 @@ PermissionDescriptorPtr ParsePermissionDescriptor(
     }
 
     case V8PermissionName::Enum::kKeyboardLock: {
-#if !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
       return CreatePermissionDescriptor(PermissionName::KEYBOARD_LOCK);
 #else
       exception_state.ThrowTypeError(
-          "The Keyboard Lock permission isn't available on Android.");
+          "The Keyboard Lock permission isn't available on this platform.");
       return nullptr;
-#endif
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
     }
 
     case V8PermissionName::Enum::kPointerLock: {
-#if !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
       return CreatePermissionDescriptor(PermissionName::POINTER_LOCK);
 #else
       exception_state.ThrowTypeError(
-          "The Pointer Lock permission isn't available on Android.");
+          "The Pointer Lock permission isn't available on this platform.");
       return nullptr;
-#endif
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
     }
 
     case V8PermissionName::Enum::kFullscreen: {

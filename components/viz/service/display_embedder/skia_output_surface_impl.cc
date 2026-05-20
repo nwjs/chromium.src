@@ -496,6 +496,13 @@ void SkiaOutputSurfaceImpl::SetVSyncDisplayID(int64_t display_id) {
   gpu_task_scheduler_->ScheduleOrRetainGpuTask(std::move(task), {});
 }
 
+void SkiaOutputSurfaceImpl::RefreshRateChangedOnSameDisplay() {
+  auto task = base::BindOnce(
+      &SkiaOutputSurfaceImplOnGpu::RefreshRateChangedOnSameDisplay,
+      base::Unretained(impl_on_gpu_.get()));
+  gpu_task_scheduler_->ScheduleOrRetainGpuTask(std::move(task), {});
+}
+
 void SkiaOutputSurfaceImpl::SetDisplayTransformHint(
     gfx::OverlayTransform transform) {
   display_transform_ = transform;
@@ -1320,11 +1327,15 @@ void SkiaOutputSurfaceImpl::DidSwapBuffersComplete(
     damage_of_current_buffer_ = params.frame_buffer_damage_area;
   }
 
-  if (!params.ca_layer_params.is_empty)
-    client_->DidReceiveCALayerParams(params.ca_layer_params);
-  client_->DidReceiveSwapBuffersAck(params, std::move(release_fence));
-  if (!params.released_overlays.empty())
-    client_->DidReceiveReleasedOverlays(params.released_overlays);
+  if (!params.ca_layer_params.IsEmpty()) {
+    client_->DidReceiveCALayerParams(std::move(params.ca_layer_params));
+  }
+  auto released_overlays = std::move(params.released_overlays);
+  client_->DidReceiveSwapBuffersAck(std::move(params),
+                                    std::move(release_fence));
+  if (!released_overlays.empty()) {
+    client_->DidReceiveReleasedOverlays(released_overlays);
+  }
   if (needs_swap_size_notifications_)
     client_->DidSwapWithSize(pixel_size);
 }

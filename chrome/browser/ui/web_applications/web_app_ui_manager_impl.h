@@ -83,6 +83,11 @@ class WebAppUiManagerImpl : public BrowserCollectionObserver,
   bool CanAddAppToQuickLaunchBar() const override;
   void AddAppToQuickLaunchBar(const webapps::AppId& app_id) override;
   bool IsAppInQuickLaunchBar(const webapps::AppId& app_id) const override;
+
+  bool IsAppMigrationSuggested(BrowserWindowInterface* window) const override;
+  bool IsAppMigrationDialogShowing(
+      BrowserWindowInterface* window) const override;
+
   bool CanReparentAppTabToWindow(
       const webapps::AppId& app_id,
       bool shortcut_created,
@@ -169,6 +174,8 @@ class WebAppUiManagerImpl : public BrowserCollectionObserver,
       gfx::NativeWindow parent_window,
       UninstallCompleteCallback callback,
       UninstallScheduledCallback scheduled_callback) override;
+
+  void ShowProfileErrorDialogForCorruptDB() override;
 
   void ShowIntentPicker(const GURL& url,
                         content::WebContents* web_contents,

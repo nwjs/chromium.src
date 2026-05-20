@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.tab_bottom_sheet;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -11,19 +12,29 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.ComponentCallbacks;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.content.res.Resources;
+import android.graphics.Color;
+import android.graphics.Rect;
+import android.view.GestureDetector;
+import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
-import android.widget.FrameLayout;
+import android.view.ViewGroup;
+import android.view.Window;
 
-import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
 import org.junit.After;
 import org.junit.Before;
@@ -38,12 +49,21 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.context_sharing.R;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetCoordinator.SheetEventsCallback;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.HeightMode;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
+import org.chromium.components.browser_ui.widget.TouchEventObserver;
+import org.chromium.components.browser_ui.widget.TouchEventProvider;
 import org.chromium.ui.KeyboardVisibilityDelegate;
+import org.chromium.ui.base.TestActivity;
+import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -51,32 +71,96 @@ import org.chromium.ui.modelutil.PropertyModel;
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 public class TabBottomSheetCoordinatorTest {
+    private static final float FULL_HEIGHT_RATIO = 0.7f;
+    private static final float SMALL_SCREEN_HEIGHT_RATIO = 0.9f;
+    private static final int MAX_OFFSET = 1000;
+    private static final int CONTAINER_WIDTH = 500;
+    private static final int CONTAINER_HEIGHT = 500;
+    private static final int INSUFFICIENT_CONTAINER_HEIGHT = 100;
+    private static final int LARGE_SCROLL_DP = 120;
+    private static final int LARGE_FLING_DP = 60;
+    private static final int SMALL_SCROLL_DP = 40;
+    private static final int SMALL_FLING_DP = 5;
+    private static final float HALF_HEIGHT_FRACTION = 0.5f;
+    private static final float HALF_OFFSET_HEIGHT = 500f;
+    private static final float FULL_HEIGHT_FRACTION = 1.0f;
+    private static final float EPSILON = 0.001f;
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
+    @Rule
+    public ActivityScenarioRule<TestActivity> mActivityScenarioRule =
+            new ActivityScenarioRule<>(TestActivity.class);
+
+    private final SheetEventsCallback mSheetEventsCallback =
+            new SheetEventsCallback() {
+                @Override
+                public void onBottomSheetClosed() {}
+
+                @Override
+                public void onBottomSheetOpened(boolean isExpanded) {}
+            };
+
     @Mock private BottomSheetController mMockBottomSheetController;
-    @Mock private CoBrowseViews mCoBrowseViews;
+    @Mock private Window mMockWindow;
+    @Mock private View mMockDecorView;
+    @Mock private TouchEventProvider mMockTouchEventProvider;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private KeyboardVisibilityDelegate mKeyboardDelegate;
+    @Mock private TabBottomSheetWebUi mMockWebUi;
+
     @Captor private ArgumentCaptor<TabBottomSheetContent> mBottomSheetContentArgumentCaptor;
     @Captor private ArgumentCaptor<BottomSheetObserver> mBottomSheetObserverArgumentCaptor;
     @Captor private ArgumentCaptor<ComponentCallbacks> mComponentCallbacksArgumentCaptor;
+    @Captor private ArgumentCaptor<TouchEventObserver> mTouchEventObserverArgumentCaptor;
 
+    private CoBrowseViews mCoBrowseViews;
     private Context mContext;
     private View mView;
     private TabBottomSheetCoordinator mCoordinator;
     private PropertyModel mCoordinatorModel;
+    private WebViewResizingHelper mWebViewResizingHelper;
 
     @Before
     public void setUp() {
-        mContext = spy(ApplicationProvider.getApplicationContext());
-        mView = new FrameLayout(mContext);
-        when(mCoBrowseViews.getView()).thenReturn(mView);
+        mActivityScenarioRule.getScenario().onActivity(activity -> mContext = spy(activity));
+        View containerView = LayoutInflater.from(mContext).inflate(R.layout.tab_bottom_sheet, null);
+
+        mWebViewResizingHelper = new WebViewResizingHelper(containerView, Color.WHITE);
+        when(mMockWebUi.getWebViewResizingHelper()).thenReturn(mWebViewResizingHelper);
+        View webUiView = new View(mContext);
+        when(mMockWebUi.getWebUiView()).thenReturn(webUiView);
+
+        mCoBrowseViews =
+                new CoBrowseViews(
+                        containerView, TabBottomSheetClientType.UNKNOWN, mMockWebUi, null, 0);
+        mView = mCoBrowseViews.getView();
+        assertNotNull(
+                "actor_control_container should be found in CoBrowseViews",
+                mView.findViewById(R.id.actor_control_container));
         when(mWindowAndroid.getKeyboardDelegate()).thenReturn(mKeyboardDelegate);
+
+        when(mWindowAndroid.getWindow()).thenReturn(mMockWindow);
+        when(mMockWindow.getDecorView()).thenReturn(mMockDecorView);
+        when(mMockDecorView.getHeight()).thenReturn(MAX_OFFSET);
+        when(mMockBottomSheetController.getMaxOffset()).thenReturn(MAX_OFFSET);
+        doAnswer(
+                        invocation -> {
+                            Rect rect = invocation.getArgument(0);
+                            rect.set(0, 0, CONTAINER_WIDTH, MAX_OFFSET);
+                            return null;
+                        })
+                .when(mMockDecorView)
+                .getWindowVisibleDisplayFrame(any(Rect.class));
 
         mCoordinator =
                 new TabBottomSheetCoordinator(
-                        mContext, mWindowAndroid, mMockBottomSheetController, mCoBrowseViews, null);
+                        mContext,
+                        mWindowAndroid,
+                        mMockBottomSheetController,
+                        mMockTouchEventProvider,
+                        mCoBrowseViews,
+                        mSheetEventsCallback);
 
         mCoordinatorModel = mCoordinator.getModelForTesting();
     }
@@ -95,8 +179,16 @@ public class TabBottomSheetCoordinatorTest {
      */
     private BottomSheetObserver simulateShowSuccessAndGetObserver() {
         when(mMockBottomSheetController.requestShowContent(any(BottomSheetContent.class), eq(true)))
-                .thenReturn(true);
+                .thenAnswer(
+                        invocation -> {
+                            BottomSheetContent content = invocation.getArgument(0);
+                            when(mMockBottomSheetController.getCurrentSheetContent())
+                                    .thenReturn(content);
+                            return true;
+                        });
         mCoordinator.tryToShowBottomSheet(/* animate= */ true, /* startsExpanded= */ true);
+        when(mMockBottomSheetController.getCurrentSheetContent())
+                .thenReturn(mCoordinator.getSheetContentForTesting());
         verify(mMockBottomSheetController)
                 .addObserver(mBottomSheetObserverArgumentCaptor.capture());
         BottomSheetObserver coordinatorObserver = mBottomSheetObserverArgumentCaptor.getValue();
@@ -168,6 +260,50 @@ public class TabBottomSheetCoordinatorTest {
     }
 
     @Test
+    public void testTabBottomSheetContentDestroyClearsContainer() {
+        simulateShowSuccessAndGetObserver();
+        verify(mMockBottomSheetController)
+                .requestShowContent(mBottomSheetContentArgumentCaptor.capture(), eq(true));
+        TabBottomSheetContent content = mBottomSheetContentArgumentCaptor.getValue();
+        assertNotNull(content);
+
+        ViewGroup peekContainer = mView.findViewById(R.id.actor_control_container);
+        assertNotNull(peekContainer);
+
+        // Simulate a stale view.
+        View dummyView = new View(mContext);
+        peekContainer.addView(dummyView);
+        assertEquals(1, peekContainer.getChildCount());
+
+        content.destroy();
+
+        // Verify no children are left in the container.
+        assertEquals(0, peekContainer.getChildCount());
+    }
+
+    @Test
+    public void testCorrectFullHeightRatio_WithoutKeyboard() {
+        when(mKeyboardDelegate.isKeyboardShowing(eq(mView))).thenReturn(false);
+        simulateShowSuccessAndGetObserver();
+        verify(mMockBottomSheetController)
+                .requestShowContent(mBottomSheetContentArgumentCaptor.capture(), eq(true));
+        TabBottomSheetContent content = mBottomSheetContentArgumentCaptor.getValue();
+        assertNotNull(content);
+        assertEquals(HeightMode.WRAP_CONTENT, content.getFullHeightRatio(), EPSILON);
+    }
+
+    @Test
+    public void testCorrectFullHeightRatio_WithKeyboard() {
+        when(mKeyboardDelegate.isKeyboardShowing(eq(mView))).thenReturn(true);
+        simulateShowSuccessAndGetObserver();
+        verify(mMockBottomSheetController)
+                .requestShowContent(mBottomSheetContentArgumentCaptor.capture(), eq(true));
+        TabBottomSheetContent content = mBottomSheetContentArgumentCaptor.getValue();
+        assertNotNull(content);
+        assertEquals(HeightMode.WRAP_CONTENT, content.getFullHeightRatio(), EPSILON);
+    }
+
+    @Test
     public void testComponentCallbacksRegistration() {
         simulateShowSuccessAndGetObserver();
         verify(mContext).registerComponentCallbacks(any(ComponentCallbacks.class));
@@ -178,7 +314,8 @@ public class TabBottomSheetCoordinatorTest {
 
     @Test
     public void testDoNotExpandWhenInsufficientSpace() {
-        when(mMockBottomSheetController.getContainerHeight()).thenReturn(100);
+        when(mMockBottomSheetController.getContainerHeight())
+                .thenReturn(INSUFFICIENT_CONTAINER_HEIGHT);
         simulateShowSuccessAndGetObserver();
 
         verify(mMockBottomSheetController, never()).expandSheet();
@@ -197,10 +334,111 @@ public class TabBottomSheetCoordinatorTest {
         assertTrue(mCoordinator.isExpectingLayoutChangeForTesting());
 
         // Trigger the layout changed
-        observer.onContainerSizeChanged(500, 500);
+        observer.onContainerSizeChanged(CONTAINER_WIDTH, CONTAINER_HEIGHT);
 
         verify(mMockBottomSheetController).collapseSheet(true);
         assertFalse(mCoordinator.isExpectingLayoutChangeForTesting());
+    }
+
+    @Test
+    public void testTouchEventObserverRegistration() {
+        BottomSheetObserver observer = simulateShowSuccessAndGetObserver();
+
+        // State HALF should add observer
+        observer.onSheetStateChanged(SheetState.HALF, StateChangeReason.NONE);
+        verify(mMockTouchEventProvider)
+                .addTouchEventObserver(mTouchEventObserverArgumentCaptor.capture());
+        TouchEventObserver touchEventObserver = mTouchEventObserverArgumentCaptor.getValue();
+        assertNotNull(touchEventObserver);
+
+        // State HIDDEN should remove observer
+        observer.onSheetStateChanged(SheetState.HIDDEN, StateChangeReason.NONE);
+        verify(mMockTouchEventProvider, atLeastOnce())
+                .removeTouchEventObserver(eq(touchEventObserver));
+    }
+
+    @Test
+    public void testTouchEventObserver_OnInterceptTouchEvent() {
+        BottomSheetObserver observer = simulateShowSuccessAndGetObserver();
+
+        // State FULL should add observer
+        observer.onSheetStateChanged(SheetState.FULL, StateChangeReason.NONE);
+        verify(mMockTouchEventProvider)
+                .addTouchEventObserver(mTouchEventObserverArgumentCaptor.capture());
+        TouchEventObserver touchEventObserver = mTouchEventObserverArgumentCaptor.getValue();
+
+        // Passing event should not crash and should return false
+        MotionEvent event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
+        assertFalse(touchEventObserver.onInterceptTouchEvent(event));
+    }
+
+    @Test
+    public void testGestureListener_Scroll() {
+        simulateShowSuccessAndGetObserver();
+
+        GestureDetector.SimpleOnGestureListener listener =
+                mCoordinator.getGestureListenerForTesting();
+
+        MotionEvent e1 = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
+        MotionEvent e2Small =
+                MotionEvent.obtain(
+                        0,
+                        0,
+                        MotionEvent.ACTION_MOVE,
+                        0,
+                        ViewUtils.dpToPx(mContext, SMALL_SCROLL_DP),
+                        0);
+        MotionEvent e2Large =
+                MotionEvent.obtain(
+                        0,
+                        0,
+                        MotionEvent.ACTION_MOVE,
+                        0,
+                        ViewUtils.dpToPx(mContext, LARGE_SCROLL_DP),
+                        0);
+
+        // Small scroll should not collapse
+        listener.onScroll(e1, e2Small, 0, SMALL_SCROLL_DP);
+        verify(mMockBottomSheetController, never()).collapseSheet(true);
+
+        // Large scroll should collapse
+        listener.onScroll(e1, e2Large, 0, LARGE_SCROLL_DP);
+        verify(mMockBottomSheetController).collapseSheet(true);
+    }
+
+    @Test
+    public void testGestureListener_Fling() {
+        simulateShowSuccessAndGetObserver();
+
+        GestureDetector.SimpleOnGestureListener listener =
+                mCoordinator.getGestureListenerForTesting();
+
+        MotionEvent event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
+
+        // Small fling should not collapse
+        listener.onFling(event, event, 0, ViewUtils.dpToPx(mContext, SMALL_FLING_DP));
+        verify(mMockBottomSheetController, never()).collapseSheet(true);
+
+        // Large fling should collapse
+        listener.onFling(event, event, 0, ViewUtils.dpToPx(mContext, LARGE_FLING_DP));
+        verify(mMockBottomSheetController).collapseSheet(true);
+    }
+
+    @Test
+    public void testGestureListener_DoubleTapAndLongPress() {
+        simulateShowSuccessAndGetObserver();
+
+        GestureDetector.SimpleOnGestureListener listener =
+                mCoordinator.getGestureListenerForTesting();
+
+        MotionEvent event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
+
+        listener.onDoubleTap(event);
+        verify(mMockBottomSheetController).collapseSheet(true);
+
+        listener.onLongPress(event);
+        // Verify it was called twice now
+        verify(mMockBottomSheetController, times(2)).collapseSheet(true);
     }
 
     @Test
@@ -219,7 +457,7 @@ public class TabBottomSheetCoordinatorTest {
         assertFalse(mCoordinator.isExpectingLayoutChangeForTesting());
 
         // Try invoking layout change, nothing should happen
-        observer.onContainerSizeChanged(500, 500);
+        observer.onContainerSizeChanged(CONTAINER_WIDTH, CONTAINER_HEIGHT);
 
         // Collapse sheet should NOT be called after destruction (aside from the one in destroy())
         // In destroy(), hideContent is called, but collapseSheet is what the runnable does.
@@ -228,28 +466,92 @@ public class TabBottomSheetCoordinatorTest {
     }
 
     @Test
-    public void testOnContainerSizeChanged_withKeyboard() {
+    @EnableFeatures(ChromeFeatureList.TAB_BOTTOM_SHEET + ":resize_webview/true")
+    public void testOnContainerSizeChanged_resizingEnabled() {
         BottomSheetObserver observer = simulateShowSuccessAndGetObserver();
 
-        int containerHeight = 1000;
-        when(mKeyboardDelegate.isKeyboardShowing(eq(mView))).thenReturn(true);
+        observer.onContainerSizeChanged(CONTAINER_WIDTH, CONTAINER_HEIGHT);
+        // Resizing state is set to flexible height on the second call.
+        observer.onContainerSizeChanged(CONTAINER_WIDTH, CONTAINER_HEIGHT);
 
-        observer.onContainerSizeChanged(500, containerHeight);
-
-        int expectedHeight = Math.round(containerHeight * 0.9f);
-        assertTrue(expectedHeight == mCoordinatorModel.get(TabBottomSheetProperties.SHEET_HEIGHT));
+        View expandedContent = mView.findViewById(R.id.expanded_content_group);
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, expandedContent.getLayoutParams().height);
     }
 
     @Test
-    public void testOnContainerSizeChanged_withoutKeyboard() {
+    @EnableFeatures(ChromeFeatureList.TAB_BOTTOM_SHEET + ":resize_webview/false")
+    public void testOnContainerSizeChanged_resizingDisabled() {
         BottomSheetObserver observer = simulateShowSuccessAndGetObserver();
 
-        int containerHeight = 1000;
-        when(mKeyboardDelegate.isKeyboardShowing(eq(mView))).thenReturn(false);
+        observer.onContainerSizeChanged(CONTAINER_WIDTH, CONTAINER_HEIGHT);
 
-        observer.onContainerSizeChanged(500, containerHeight);
+        View expandedContent = mView.findViewById(R.id.expanded_content_group);
+        int expectedFixedHeight = (int) (MAX_OFFSET * FULL_HEIGHT_RATIO);
+        assertEquals(expectedFixedHeight, expandedContent.getLayoutParams().height);
+    }
 
-        int expectedHeight = Math.round(containerHeight * 0.7f);
-        assertTrue(expectedHeight == mCoordinatorModel.get(TabBottomSheetProperties.SHEET_HEIGHT));
+    @Test
+    @EnableFeatures(ChromeFeatureList.TAB_BOTTOM_SHEET + ":resize_webview/true")
+    public void testOnContainerSizeChanged_StartWithFixedHeight() {
+        BottomSheetObserver observer = simulateShowSuccessAndGetObserver();
+
+        int expectedFixedHeight = (int) (MAX_OFFSET * FULL_HEIGHT_RATIO);
+        when(mMockBottomSheetController.getContainerHeight()).thenReturn(expectedFixedHeight);
+
+        observer.onContainerSizeChanged(CONTAINER_WIDTH, expectedFixedHeight);
+
+        View expandedContent = mView.findViewById(R.id.expanded_content_group);
+
+        assertEquals(expectedFixedHeight, expandedContent.getLayoutParams().height);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TAB_BOTTOM_SHEET + ":resize_webview/true")
+    public void testOnContainerSizeChanged_FallbackToFlexible() {
+        BottomSheetObserver observer = simulateShowSuccessAndGetObserver();
+
+        int desiredFixedHeight = (int) (MAX_OFFSET * FULL_HEIGHT_RATIO);
+        when(mMockBottomSheetController.getContainerHeight()).thenReturn(desiredFixedHeight - 1);
+
+        observer.onContainerSizeChanged(CONTAINER_WIDTH, desiredFixedHeight);
+
+        View expandedContent = mView.findViewById(R.id.expanded_content_group);
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, expandedContent.getLayoutParams().height);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TAB_BOTTOM_SHEET + ":resize_webview/true")
+    public void testOnContainerSizeChanged_MultipleCalls() {
+        BottomSheetObserver observer = simulateShowSuccessAndGetObserver();
+        int expectedFixedHeight = (int) (MAX_OFFSET * FULL_HEIGHT_RATIO);
+        when(mMockBottomSheetController.getContainerHeight()).thenReturn(expectedFixedHeight);
+
+        observer.onContainerSizeChanged(CONTAINER_WIDTH, expectedFixedHeight);
+        observer.onContainerSizeChanged(CONTAINER_WIDTH, expectedFixedHeight);
+
+        View expandedContent = mView.findViewById(R.id.expanded_content_group);
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, expandedContent.getLayoutParams().height);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TAB_BOTTOM_SHEET + ":resize_webview/true")
+    public void testFixedHeightCalculation_UsesLandscapeRatio() {
+        Configuration landscapeConfig = new Configuration();
+        landscapeConfig.orientation = Configuration.ORIENTATION_LANDSCAPE;
+
+        Resources resources = mock();
+        when(mContext.getResources()).thenReturn(resources);
+        when(resources.getConfiguration()).thenReturn(landscapeConfig);
+
+        BottomSheetObserver observer = simulateShowSuccessAndGetObserver();
+
+        int expectedLandscapeHeight = (int) (MAX_OFFSET * SMALL_SCREEN_HEIGHT_RATIO);
+        when(mMockBottomSheetController.getContainerHeight()).thenReturn(expectedLandscapeHeight);
+
+        observer.onContainerSizeChanged(CONTAINER_WIDTH, expectedLandscapeHeight);
+
+        View expandedContent = mView.findViewById(R.id.expanded_content_group);
+
+        assertEquals(expectedLandscapeHeight, expandedContent.getLayoutParams().height);
     }
 }

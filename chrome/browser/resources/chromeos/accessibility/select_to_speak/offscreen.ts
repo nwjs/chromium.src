@@ -4,8 +4,6 @@
 
 type MessageSender = chrome.runtime.MessageSender;
 
-let AudioAndCopyHandlerObject;
-
 // Number of milliseconds to wait after requesting a clipboard read
 // before clipboard change and paste events are ignored.
 const kClipboardReadMaxDelayMs = 1000;
@@ -83,7 +81,7 @@ class AudioAndCopyHandler {
       this.lastReadClipboardDataTime_ = new Date(0);
       // Clear the clipboard data by copying nothing (the current document).
       // Do this in a timeout to avoid a recursive warning per
-      // https://crbug.com/363288.
+      // https://crbug.com/41101400.
       setTimeout(() => this.clearClipboard_(), 0);
 
       // @ts-ignore: TODO(crbug.com/270623046): clipboardData can be null.
@@ -114,5 +112,5 @@ class AudioAndCopyHandler {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  AudioAndCopyHandlerObject = new AudioAndCopyHandler();
+  Object.assign(window, {AudioAndCopyHandlerObject: new AudioAndCopyHandler()});
 });

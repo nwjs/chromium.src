@@ -13,7 +13,6 @@
 namespace blink {
 
 class ExceptionState;
-class ExecutionContext;
 class HTMLFormElement;
 class LabelsNodeList;
 
@@ -24,14 +23,20 @@ class CORE_EXPORT HTMLSubmitButtonBehavior final : public ElementBehavior {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
-  static HTMLSubmitButtonBehavior* Create(ExecutionContext*);
+  static HTMLSubmitButtonBehavior* Create();
 
   HTMLSubmitButtonBehavior();
   ~HTMLSubmitButtonBehavior() override;
 
   // ElementBehavior overrides:
-  const AtomicString& DefaultAriaRole() const override;
+  bool HandleActivation(Event& event) override;
+  ax::mojom::blink::Role DefaultAriaRole() const override;
   const char* BehaviorName() const override;
+
+  // Considers both the behavior's own disabled property and the element's
+  // disabled state (including fieldset inheritance). This allows submission to
+  // be blocked if either the behavior or the element is disabled.
+  bool IsEffectivelyDisabled() const;
 
   // Read-only properties that delegate to the custom element's internals.
   HTMLFormElement* form(ExceptionState& exception_state) const;
@@ -61,10 +66,20 @@ class CORE_EXPORT HTMLSubmitButtonBehavior final : public ElementBehavior {
   String value() const { return value_; }
   void setValue(const String& value) { value_ = value; }
 
+  // Set to true during ConstructEntryList so that
+  // ElementInternals::AppendToFormData() can append the submitter's name/value.
+  bool IsActivatedSubmit() const { return is_activated_submit_; }
+  void SetActivatedSubmit(bool flag) { is_activated_submit_ = flag; }
+
   void Trace(Visitor* visitor) const override;
 
  private:
+  // Returns the associated ElementInternals, or throws InvalidStateError
+  // and returns nullptr if the behavior is not attached to an element.
+  ElementInternals* GetInternalsOrThrow(ExceptionState& exception_state) const;
+
   bool disabled_ = false;
+  bool is_activated_submit_ = false;
   String form_action_;
   String form_enctype_;
   String form_method_;

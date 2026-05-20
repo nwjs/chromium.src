@@ -2,25 +2,25 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-var EVENT_MESSAGE_EXTENSION_STRING = 'Extension';
+const EVENT_MESSAGE_EXTENSION_STRING = 'Extension';
 
 const kExtensionPath = 'extensions/api_test/webrequest/fencedFrames';
 
 // Constants as functions, not to be called until after runTests.
 function getURLHttpSimpleLoad() {
-  return getServerURL(`${kExtensionPath}/main.html`, "a.test", "https");
+  return getServerURL(`${kExtensionPath}/main.html`, 'a.test', 'https');
 }
 
 function getURLFencedFrame() {
-  return getServerURL(`${kExtensionPath}/frame.html`, "a.test", "https");
+  return getServerURL(`${kExtensionPath}/frame.html`, 'a.test', 'https');
 }
 
 runTests([
   function testSendMessage() {
-    var expectedEvents = [
+    const expectedEvents = [
       'onBeforeRequest',
       'onBeforeSendHeaders',
-      'onHeadersReceived'
+      'onHeadersReceived',
     ];
 
     // We need to capture the frame IDs dynamically because they can vary
@@ -37,11 +37,11 @@ runTests([
       }
     };
     chrome.webRequest.onBeforeRequest.addListener(
-          getFrameIdsListener,{urls: ['<all_urls>']});
+        getFrameIdsListener, {urls: ['<all_urls>']});
 
     chrome.declarativeWebRequest.onMessage.addListener((details) => {
-      if (EVENT_MESSAGE_EXTENSION_STRING != details.message) {
-        chrome.test.fail('Invalid message: ' + details.message);
+      if (EVENT_MESSAGE_EXTENSION_STRING !== details.message) {
+        chrome.test.fail(`Invalid message: ${details.message}`);
       }
 
       // Ensure that we have captured the frame IDs before asserting.
@@ -65,13 +65,13 @@ runTests([
       chrome.test.assertFalse('documentId' in details);
       chrome.test.assertEq(getURLFencedFrame(), details.url);
       chrome.test.assertEq(details.stage, expectedEvents.shift());
-      if (expectedEvents.length == 0) {
+      if (expectedEvents.length === 0) {
         chrome.webRequest.onBeforeRequest.removeListener(getFrameIdsListener);
         chrome.test.succeed();
       }
     });
 
-    var rule = {
+    const rule = {
       conditions: [
         new chrome.declarativeWebRequest.RequestMatcher(
             {url: {urlEquals: getURLFencedFrame()}}),
@@ -84,5 +84,5 @@ runTests([
     chrome.declarativeWebRequest.onRequest.addRules([rule], function() {
       chrome.tabs.create({url: getURLHttpSimpleLoad()});
     });
-  }
+  },
 ]);

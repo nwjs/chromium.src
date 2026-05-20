@@ -13,16 +13,16 @@ let listenDoneCallback;
 // whenever a panel loses focus.
 function onFocusChanged(changedWinId) {
   if (waitingForFocus) {
-    if (chrome.windows.WINDOW_ID_NONE != changedWinId) {
+    if (chrome.windows.WINDOW_ID_NONE !== changedWinId) {
       focusedWinId = changedWinId;
       // Only minimize if the focused window is the panel created by
       // this test. Tests might be run in parallel so there might be
       // other focus events that we don't care about.
-      if (focusedWinId == panelWinId) {
-         minimizePanel();
+      if (focusedWinId === panelWinId) {
+        minimizePanel();
       }
     }
-  } else if (chrome.windows.WINDOW_ID_NONE == changedWinId) {
+  } else if (chrome.windows.WINDOW_ID_NONE === changedWinId) {
     listenDoneCallback();
   }
 }
@@ -31,17 +31,16 @@ function onFocusChanged(changedWinId) {
 function minimizePanel() {
   chrome.test.assertEq(focusedWinId, panelWinId);
   waitingForFocus = false;
-  chrome.windows.update(panelWinId, {state: 'minimized'},
-      chrome.test.callbackPass(function(win) {
-          chrome.test.assertEq('minimized', win.state);
+  chrome.windows.update(
+      panelWinId, {state: 'minimized'}, chrome.test.callbackPass(function(win) {
+        chrome.test.assertEq('minimized', win.state);
       }));
 }
 
 // Activate panel so we can minimize it.
 function activatePanel() {
-  chrome.windows.update(panelWinId, {focused: true},
-      chrome.test.callbackPass(function(win) {
-      }));
+  chrome.windows.update(
+      panelWinId, {focused: true}, chrome.test.callbackPass(function(win) {}));
 }
 
 chrome.test.runTests([
@@ -49,12 +48,12 @@ chrome.test.runTests([
     listenDoneCallback = chrome.test.listenForever(
         chrome.windows.onFocusChanged, onFocusChanged);
     chrome.windows.create(
-        {url: 'about:blank',type: 'panel'},
+        {url: 'about:blank', type: 'panel'},
         chrome.test.callbackPass(function(win) {
-            chrome.test.assertEq('panel', win.type);
-            chrome.test.assertEq(true, win.alwaysOnTop);
-            panelWinId = win.id;
-            activatePanel();
+          chrome.test.assertEq('panel', win.type);
+          chrome.test.assertEq(true, win.alwaysOnTop);
+          panelWinId = win.id;
+          activatePanel();
         }));
-  }
+  },
 ]);

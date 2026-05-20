@@ -86,6 +86,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/prerender_test_util.h"
+#include "content/public/test/service_worker_test_helpers.h"
 #include "content/public/test/simple_url_loader_test_helper.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/url_loader_interceptor.h"
@@ -142,6 +143,7 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
+#include "ui/webui/buildflags.h"
 #include "ui/webui/untrusted_web_ui_browsertest_util.h"  // nogncheck
 #include "url/origin.h"
 
@@ -154,20 +156,22 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/test_extension_action_dispatcher_observer.h"
-#include "chrome/browser/new_tab_page/one_google_bar/one_google_bar_loader.h"
-#include "chrome/browser/new_tab_page/one_google_bar/one_google_bar_service.h"
-#include "chrome/browser/new_tab_page/one_google_bar/one_google_bar_service_factory.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_navigator_params.h"  // nogncheck
-#include "chrome/browser/ui/login/login_handler.h"       // nogncheck
+#include "chrome/browser/ui/login/login_handler.h"                 // nogncheck
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"  // nogncheck
 #include "chrome/browser/ui/search/ntp_test_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "net/cert/x509_certificate.h"
 #include "ui/base/ui_base_features.h"
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+#include "chrome/browser/new_tab_page/one_google_bar/one_google_bar_loader.h"
+#include "chrome/browser/new_tab_page/one_google_bar/one_google_bar_service.h"
+#include "chrome/browser/new_tab_page/one_google_bar/one_google_bar_service_factory.h"
+#endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -545,7 +549,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
 
 // Tests registering webRequest events in multiple contexts in the same
 // extension (which will thus be in the same process). Regression test for
-// https://crbug.com/1297276.
+// https://crbug.com/40215092.
 IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
                        ListenersInMultipleContexts) {
   ASSERT_TRUE(StartEmbeddedTestServer());
@@ -658,7 +662,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
         const text = await res.text();
         const expected = 'p {\n  color: __MSG_text_color__;\n}\n';
         // "__MSG_text_color__" must not be replaced with "red".
-        if (text == expected) {
+        // We use `includes` because there's also a license in the file.
+        if (text.includes(expected)) {
           chrome.test.notifyPass();
         } else {
           chrome.test.notifyFail('Unexpected content :' + text);
@@ -1183,7 +1188,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, DISABLED_WebRequestTypes) {
 
 // Test that a request to an OpenSearch description document (OSDD) generates
 // an event with the expected details.
-// Flaky on Windows and Mac: https://crbug.com/1218893
+// Flaky on Windows and Mac: https://crbug.com/40771884
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 #define MAYBE_WebRequestTestOSDD DISABLED_WebRequestTestOSDD
 #else
@@ -1333,7 +1338,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiAuthRequiredTest,
 }
 
 // This is flaky on wide variety of platforms (beyond that tracked previously in
-// https://crbug.com/41478509). See https://crbug.com/1026001.
+// https://crbug.com/41478509). See https://crbug.com/40108056.
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiAuthRequiredTest,
                        DISABLED_WebRequestAuthRequiredParallel) {
   const bool incognito = GetEnableIncognito();
@@ -1556,7 +1561,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
   ASSERT_TRUE(RunExtensionTest("webrequest/test_extra_headers")) << message_;
 }
 
-// Flaky on all platforms: https://crbug.com/1003661
+// Flaky on all platforms: https://crbug.com/40098675
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
                        DISABLED_WebRequestExtraHeaders_Auth) {
   ASSERT_TRUE(StartEmbeddedTestServer());
@@ -1571,7 +1576,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
       << message_;
 }
 
-// TODO: crbug.com/1450976 - Re-enable tests on Mac and CrOS.
+// TODO: crbug.com/40915577 - Re-enable tests on Mac and CrOS.
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_WebRequestCORSWithExtraHeaders \
   DISABLED_WebRequestCORSWithExtraHeaders
@@ -3159,7 +3164,7 @@ IN_PROC_BROWSER_TEST_P(NTPInterceptionWebRequestAPITest,
   // Navigate to the NTP. The request for "fake_ntp_script.js" should not have
   // reached the extension, since it was made by the instant NTP renderer, which
   // is semi-privileged.
-  ASSERT_TRUE(NavigateToURL(web_contents, GURL(chrome::kChromeUINewTabURL)));
+  ASSERT_TRUE(NavigateToURL(web_contents, chrome::ChromeUINewTabURLAsGURL()));
   EXPECT_TRUE(was_ntp_script_loaded(web_contents));
   ASSERT_TRUE(search::IsInstantNTP(web_contents));
   EXPECT_FALSE(was_script_request_intercepted(extension->id()));
@@ -3173,6 +3178,7 @@ IN_PROC_BROWSER_TEST_P(NTPInterceptionWebRequestAPITest,
   EXPECT_TRUE(was_script_request_intercepted(extension->id()));
 }
 
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
 // Test fixture testing that requests made for the OneGoogleBar on behalf of
 // the WebUI NTP can't be intercepted by extensions.
 class WebUiNtpInterceptionWebRequestAPITest
@@ -3296,7 +3302,7 @@ IN_PROC_BROWSER_TEST_P(WebUiNtpInterceptionWebRequestAPITest,
 
   ASSERT_FALSE(GetAndResetOneGoogleBarRequestSeen());
   auto* web_contents = GetActiveWebContents();
-  ASSERT_TRUE(NavigateToURL(web_contents, GURL(chrome::kChromeUINewTabURL)));
+  ASSERT_TRUE(NavigateToURL(web_contents, chrome::ChromeUINewTabURLAsGURL()));
   ASSERT_EQ(ntp_test_utils::GetFinalNtpUrl(profile()),
             GetActiveWebContents()->GetLastCommittedURL());
   WaitForOneGoogleBarDataUpdate();
@@ -3311,6 +3317,7 @@ IN_PROC_BROWSER_TEST_P(WebUiNtpInterceptionWebRequestAPITest,
   EXPECT_TRUE(was_script_request_intercepted(extension->id()));
   ASSERT_TRUE(GetAndResetOneGoogleBarRequestSeen());
 }
+#endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 class WebRequestApiTestWithManagementPolicy
@@ -3660,7 +3667,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestMockedClockTest,
             redirect_successful_listener.extension_id_for_message());
 }
 
-// Regression test for http://crbug.com/1074282.
+// Regression test for http://crbug.com/40686766.
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
                        StaleHeadersAfterRedirect) {
   TestExtensionDir test_dir;
@@ -4438,7 +4445,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
 // Ensure we don't strip off initiator incorrectly in web request events when
 // both the normal and incognito contexts are active. Regression test for
 // crbug.com/40614965.
-// Flaky on Linux. See http://crbug.com/1423252
+// Flaky on Linux. See http://crbug.com/40897394
 #if BUILDFLAG(IS_LINUX)
 #define MAYBE_Initiator_SplitIncognito DISABLED_Initiator_SplitIncognito
 #else
@@ -4572,7 +4579,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
-// Regression test for https://crbug.com/1019614.
+// Regression test for https://crbug.com/40105411.
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
                        HSTSUpgradeAfterRedirect) {
   net::EmbeddedTestServer https_test_server(
@@ -5813,7 +5820,7 @@ IN_PROC_BROWSER_TEST_P(RedirectInfoWebRequestApiTest,
               net::IsolationInfo::FrameAncestorRelation::kSameOrigin)));
 }
 
-// Regression test for crbug.com/1510422 to validate that redirection to an
+// Regression test for crbug.com/41483019 to validate that redirection to an
 // invalid URL by extension does not crash the browser.
 IN_PROC_BROWSER_TEST_P(RedirectInfoWebRequestApiTest,
                        VerifyInvalidUrlRedirection) {
@@ -6040,7 +6047,7 @@ INSTANTIATE_TEST_SUITE_P(/* No prefix */,
                          ProxyCORSWebRequestApiTestWithContextTypeMv3,
                          ::testing::Values(ContextType::kFromManifest));
 
-// Regression test for crbug.com/1212625
+// Regression test for crbug.com/40183308
 // Test that CORS preflight request which requires proxy auth completes
 // successfully instead of being cancelled after proxy auth required response.
 // This case requires an extension with a webRequest extraHeaders listener that
@@ -6288,8 +6295,7 @@ class ExtensionWebRequestApiFencedFrameTest
         {{blink::features::kFencedFrames, {}},
          {blink::features::kFencedFramesAPIChanges, {}},
          {blink::features::kFencedFramesDefaultMode, {}},
-         {features::kPrivacySandboxAdsAPIsOverride, {}},
-         {blink::features::kFencedFramesLocalUnpartitionedDataAccess, {}}},
+         {features::kPrivacySandboxAdsAPIsOverride, {}}},
         {/* disabled_features */});
     // Fenced frames are only allowed in secure contexts.
     UseHttpsTestServer();
@@ -6312,15 +6318,6 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiFencedFrameTest,
   ASSERT_TRUE(StartEmbeddedTestServer());
   ASSERT_TRUE(RunExtensionTest(
       "webrequest", {.extension_url = "test_fenced_frames_send_message.html"}))
-      << message_;
-}
-
-IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiFencedFrameTest,
-                       NetworkRevocation) {
-  ASSERT_TRUE(StartEmbeddedTestServer());
-  ASSERT_TRUE(RunExtensionTest(
-      "webrequest",
-      {.extension_url = "test_fenced_frames_network_revocation.html"}))
       << message_;
 }
 
@@ -6744,7 +6741,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
 // Tests a service worker-based extension registering multiple webRequest events
 // in multiple contexts. This ensures the subevent name logic for service worker
 // extensions doesn't result in any collisions of listener IDs, similar to the
-// issue found in https://crbug.com/1297276.
+// issue found in https://crbug.com/40215092.
 IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
                        MultipleListenersAndContexts) {
   ASSERT_TRUE(StartEmbeddedTestServer());
@@ -7331,6 +7328,105 @@ IN_PROC_BROWSER_TEST_F(
   auto* web_contents = GetActiveWebContents();
   EXPECT_FALSE(NavigateToURL(web_contents, embedded_test_server()->GetURL(
                                                "example.com", "/simple.html")));
+}
+
+// Tests that removing a webRequest listener that exists in the in-memory
+// EventRouter but is absent from the persisted preferences (due to being
+// overwritten by a listener with a different filter in a previous run)
+// does not cause a crash. Regression test for crbug.com/508602546.
+IN_PROC_BROWSER_TEST_F(
+    ManifestV3WebRequestApiTestWithEventRouterPersistence,
+    ServiceWorkerWithWebRequest_RemoveStaleListenerDoesNotCrash) {
+  ASSERT_TRUE(StartEmbeddedTestServer());
+  static constexpr char kManifest[] =
+      R"({
+           "name": "MV3 WebRequest",
+           "version": "0.1",
+           "manifest_version": 3,
+           "permissions": ["webRequest", "storage"],
+           "host_permissions": ["*://*.filter1.com/*", "*://*.filter2.com/*"],
+           "background": {"service_worker": "background.js"}
+         })";
+
+  static constexpr char kBackgroundJs[] =
+      R"(function myListener(details) {}
+         const key = 'run';
+         chrome.storage.local.get([key], async (result) => {
+           const run = result[key] || 0;
+           if (run === 0) {
+             chrome.webRequest.onBeforeRequest.addListener(
+                 myListener,
+                 {urls: ['http://filter1.com/*']});
+             await chrome.storage.local.set({[key]: 1});
+             chrome.test.sendMessage('ready_1');
+           } else if (run === 1) {
+             chrome.webRequest.onBeforeRequest.addListener(
+                 myListener,
+                 {urls: ['http://filter2.com/*']});
+             await chrome.storage.local.set({[key]: 2});
+             chrome.test.sendMessage('ready_2');
+           } else if (run === 2) {
+             chrome.webRequest.onBeforeRequest.addListener(
+                 myListener,
+                 {urls: ['http://filter1.com/*']});
+             chrome.webRequest.onBeforeRequest.removeListener(myListener);
+             chrome.test.sendMessage('ready_3');
+           }
+         });)";
+
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(kManifest);
+  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"), kBackgroundJs);
+
+  ExtensionTestMessageListener ready_1("ready_1");
+  ExtensionTestMessageListener ready_2("ready_2");
+  ExtensionTestMessageListener ready_3("ready_3");
+
+  // ======= RUN 1 =======
+  const Extension* extension = LoadExtension(
+      test_dir.UnpackedPath(), {.wait_for_registration_stored = true});
+  ASSERT_TRUE(extension);
+  ASSERT_TRUE(ready_1.WaitUntilSatisfied());
+
+  std::optional<WorkerId> worker_id = GetWorkerIdForExtension(extension->id());
+  ASSERT_TRUE(worker_id);
+  int version_id = worker_id->version_id;
+
+  // Stop the service worker.
+  browsertest_util::StopServiceWorkerForExtensionGlobalScope(profile(),
+                                                             extension->id());
+  ASSERT_TRUE(content::CheckServiceWorkerIsStopped(GetServiceWorkerContext(),
+                                                   version_id));
+  // At this point, prefs and in-memory lazy listeners contain
+  // `webRequest.onBeforeRequest/s1` with filter1 details.
+
+  // ======= RUN 2 =======
+  // Wake up the worker by triggering the lazy event listener for filter1.
+  ASSERT_TRUE(NavigateToURL(
+      GetActiveWebContents(),
+      embedded_test_server()->GetURL("filter1.com", "/simple.html")));
+  ASSERT_TRUE(ready_2.WaitUntilSatisfied());
+
+  // Stop the service worker again.
+  browsertest_util::StopServiceWorkerForExtensionGlobalScope(profile(),
+                                                             extension->id());
+  ASSERT_TRUE(content::CheckServiceWorkerIsStopped(GetServiceWorkerContext(),
+                                                   version_id));
+  // At this point, prefs contains `webRequest.onBeforeRequest/s1` with filter2
+  // details. However, in-memory lazy listeners still contain filter1 details
+  // too.
+
+  // ======= RUN 3 =======
+  // Wake up the worker by triggering the lazy event listener for filter2.
+  ASSERT_TRUE(NavigateToURL(
+      GetActiveWebContents(),
+      embedded_test_server()->GetURL("filter2.com", "/simple.html")));
+  ASSERT_TRUE(ready_3.WaitUntilSatisfied());
+
+  // This run registers and removes filter1 again, but because it was already
+  // in the in-memory lazy listeners, it assumes it's also in the prefs and
+  // tries to remove it. That should be handled gracefully nad this test should
+  // NOT crash.
 }
 
 // Tests unloading an extension with lazy listeners while the worker is
@@ -8012,7 +8108,8 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerAuthTest,
 
 // Tests the behavior of an extension that registers an event listener
 // asynchronously.
-// Regression test for https://crbug.com/1397879 and https://crbug.com/1434212.
+// Regression test for https://crbug.com/40882914 and
+// https://crbug.com/40904083.
 IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest, AsyncListenerRegistration) {
   ASSERT_TRUE(StartEmbeddedTestServer());
   static constexpr char kManifest[] =
@@ -8045,7 +8142,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest, AsyncListenerRegistration) {
          });
          // Register an additional event properly so that the service worker
          // still has _a_ listener registered in the process.
-         // https://crbug.com/1434212.
+         // https://crbug.com/40904083.
          chrome.webRequest.onHeadersReceived.addListener(
              (details) => {},
              {urls: ['<all_urls>'], types: ['main_frame']},
@@ -8245,7 +8342,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
 // manually create and add a WebRequestEvent that specifies a webViewInstanceId.
 // TODO(tjudkins): It would be good to also stop this on the JS layer by not
 // allowing extensions to manually create and add WebRequestEvents.
-// Regression test for crbug.com/1472830
+// Regression test for crbug.com/40926777
 IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
                        TestWebviewIdSpecifiedOnEvent_NoPermission) {
   ASSERT_TRUE(StartEmbeddedTestServer());
@@ -8775,8 +8872,15 @@ INSTANTIATE_TEST_SUITE_P(/* no prefix */,
                          testing::Combine(testing::Bool(), testing::Bool()),
                          ExtensionWebRequestApiCoverageTest::DescribeParams);
 
+// TODO(crbug.com/502806827): Multiple worker threads creation fails silently on
+// Windows ASAN builds, causing this test to hang.
+#if BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER)
+#define MAYBE_RequestInterceptionCoverage DISABLED_RequestInterceptionCoverage
+#else
+#define MAYBE_RequestInterceptionCoverage RequestInterceptionCoverage
+#endif
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiCoverageTest,
-                       RequestInterceptionCoverage) {
+                       MAYBE_RequestInterceptionCoverage) {
   ASSERT_TRUE(StartWebSocketServer());
   ASSERT_TRUE(RunTest("test_interception_coverage.html")) << message_;
 }

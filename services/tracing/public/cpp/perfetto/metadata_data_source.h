@@ -9,10 +9,12 @@
 
 #include "base/component_export.h"
 #include "base/functional/callback.h"
+#include "base/gtest_prod_util.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "third_party/perfetto/include/perfetto/tracing/data_source.h"
+#include "third_party/perfetto/protos/perfetto/trace/chrome/chrome_metadata.pbzero.h"
 
 namespace tracing {
 
@@ -38,6 +40,8 @@ class COMPONENT_EXPORT(TRACING_CPP) MetadataDataSource
   using PacketRecorder =
       base::RepeatingCallback<void(perfetto::protos::pbzero::TracePacket*,
                                    bool /*privacy_filtering_enabled*/)>;
+  using ChromeMetadataRecorder = base::RepeatingCallback<void(
+      perfetto::protos::pbzero::ChromeMetadataPacket*)>;
   static void RecordDefaultBundleMetadata(
       perfetto::protos::pbzero::ChromeEventBundle* bundle);
 
@@ -45,11 +49,13 @@ class COMPONENT_EXPORT(TRACING_CPP) MetadataDataSource
 
   static void Register(scoped_refptr<base::SequencedTaskRunner> task_runner,
                        std::vector<BundleRecorder> bundle_recorders,
-                       std::vector<PacketRecorder> packet_recorders);
+                       std::vector<PacketRecorder> packet_recorders,
+                       ChromeMetadataRecorder chrome_metadata_recorder = {});
 
   MetadataDataSource(scoped_refptr<base::SequencedTaskRunner> task_runner,
                      std::vector<BundleRecorder> bundle_recorders,
-                     std::vector<PacketRecorder> packet_recorders);
+                     std::vector<PacketRecorder> packet_recorders,
+                     ChromeMetadataRecorder chrome_metadata_recorder);
   ~MetadataDataSource() override;
 
   void OnSetup(const SetupArgs&) override;
@@ -71,14 +77,26 @@ class COMPONENT_EXPORT(TRACING_CPP) MetadataDataSource
  protected:
   static void WriteMetadata(uintptr_t instance,
                             std::vector<BundleRecorder> bundle_recorders,
-                            std::vector<PacketRecorder> packet_recorders);
+                            std::vector<PacketRecorder> packet_recorders,
+                            ChromeMetadataRecorder chrome_metadata_recorder);
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(MetadataDataSourceTest, AndroidMetadata);
+
+#if BUILDFLAG(IS_ANDROID)
+  static void RecordAndroidMetadata(
+      perfetto::protos::pbzero::ChromeMetadataPacket* chrome_metadata,
+      bool is_system_app,
+      const std::string& installer_package_name,
+      const std::string& host_package_name);
+#endif
+
   bool privacy_filtering_enabled_ = false;
 
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
   std::vector<BundleRecorder> bundle_recorders_;
   std::vector<PacketRecorder> packet_recorders_;
+  ChromeMetadataRecorder chrome_metadata_recorder_;
 };
 
 }  // namespace tracing

@@ -22,7 +22,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/test_simple_task_runner.h"
-#include "base/test/trace_test_utils.h"
+#include "base/test/tracing/trace_test_utils.h"
 #include "base/threading/thread.h"
 #include "base/trace_event/trace_buffer.h"
 #include "base/trace_event/trace_event.h"
@@ -31,17 +31,17 @@
 #include "services/tracing/perfetto/perfetto_service.h"
 #include "services/tracing/perfetto/test_utils.h"
 #include "services/tracing/public/cpp/buildflags.h"
+#include "services/tracing/public/cpp/perfetto/perfetto_data_source_names.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_traced_process.h"
 #include "services/tracing/public/cpp/perfetto/producer_test_utils.h"
 #include "services/tracing/public/cpp/traced_process_impl.h"
-#include "services/tracing/public/mojom/traced_process.mojom.h"
 #include "services/tracing/tracing_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/perfetto/protos/perfetto/trace/trace_packet.pb.h"
 
 #if BUILDFLAG(ENABLE_LOADER_LOCK_SAMPLING)
-#include "base/test/trace_event_analyzer.h"
+#include "base/test/tracing/trace_event_analyzer.h"
 #include "services/tracing/public/cpp/stack_sampling/loader_lock_sampler_win.h"
 #include "services/tracing/public/cpp/stack_sampling/loader_lock_sampling_thread_win.h"
 #endif
@@ -132,7 +132,7 @@ class TracingSampleProfilerTest : public testing::Test {
     perfetto::TraceConfig trace_config;
     trace_config.add_buffers()->set_size_kb(1024);
     auto* ds_cfg = trace_config.add_data_sources()->mutable_config();
-    ds_cfg->set_name(mojom::kSamplerProfilerSourceName);
+    ds_cfg->set_name(kSamplerProfilerSourceName);
     ds_cfg = trace_config.add_data_sources()->mutable_config();
     ds_cfg->set_name("track_event");
 

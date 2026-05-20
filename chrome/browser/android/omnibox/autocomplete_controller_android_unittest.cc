@@ -10,12 +10,15 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "base/memory/raw_ptr.h"
+#include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
 #include "components/omnibox/browser/autocomplete_controller_config.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/fake_autocomplete_provider_client.h"
 #include "components/omnibox/common/omnibox_features.h"
+#include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/metrics_proto/omnibox_focus_type.pb.h"
@@ -81,48 +84,48 @@ TEST_F(AutocompleteControllerAndroidTest, OnOmniboxFocused_NTP) {
   using OEP = metrics::OmniboxEventProto;
   using OFT = metrics::OmniboxFocusType;
 
-  std::u16string url = u"chrome://newtab";
+  GURL url("chrome://newtab");
 
   JNIEnv* env = base::android::AttachCurrentThread();
-  auto j_omnibox_text = base::android::ConvertUTF16ToJavaString(env, u"");
-  auto j_current_url = base::android::ConvertUTF16ToJavaString(env, url);
-  auto j_current_title = base::android::ConvertUTF16ToJavaString(env, u"title");
   auto page_classification = OEP::NTP;
 
   EXPECT_CALL(
       *mock(),
       Start(AllOf(Property(&AutocompleteInput::text, IsEmpty()),
-                  Property(&AutocompleteInput::current_url, Eq(GURL(url))),
+                  Property(&AutocompleteInput::current_url, Eq(url)),
                   Property(&AutocompleteInput::current_title, Eq(u"title")),
                   Property(&AutocompleteInput::focus_type,
                            Eq(OFT::INTERACTION_FOCUS)))));
 
-  controller()->OnOmniboxFocused(
-      env, j_omnibox_text, j_current_url, page_classification,
-      omnibox::TOOL_MODE_UNSPECIFIED, j_current_title);
+  controller()->OnOmniboxFocused(env, nullptr, u"", url, page_classification,
+                                 omnibox::TOOL_MODE_UNSPECIFIED, u"title");
 }
 
 TEST_F(AutocompleteControllerAndroidTest, OnOmniboxFocused_OTHER) {
   using OEP = metrics::OmniboxEventProto;
   using OFT = metrics::OmniboxFocusType;
 
-  std::u16string url = u"https://site.biz/";
+  GURL url("https://site.biz/");
 
   JNIEnv* env = base::android::AttachCurrentThread();
-  auto j_omnibox_text = base::android::ConvertUTF16ToJavaString(env, u"text");
-  auto j_current_url = base::android::ConvertUTF16ToJavaString(env, url);
-  auto j_current_title = base::android::ConvertUTF16ToJavaString(env, u"title");
   auto page_classification = OEP::OTHER;
 
   EXPECT_CALL(
       *mock(),
       Start(AllOf(Property(&AutocompleteInput::text, IsEmpty()),
-                  Property(&AutocompleteInput::current_url, Eq(GURL(url))),
+                  Property(&AutocompleteInput::current_url, Eq(url)),
                   Property(&AutocompleteInput::current_title, Eq(u"title")),
                   Property(&AutocompleteInput::focus_type,
                            Eq(OFT::INTERACTION_FOCUS)))));
 
-  controller()->OnOmniboxFocused(
-      env, j_omnibox_text, j_current_url, page_classification,
-      omnibox::TOOL_MODE_UNSPECIFIED, j_current_title);
+  controller()->OnOmniboxFocused(env, nullptr, u"text", url,
+                                 page_classification,
+                                 omnibox::TOOL_MODE_UNSPECIFIED, u"title");
+}
+
+TEST_F(AutocompleteControllerAndroidTest, GetTemplateUrlForText_NotFound) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  auto result =
+      controller()->GetTemplateUrlForText(env, u"nonexistent_keyword");
+  EXPECT_TRUE(result.is_null());
 }

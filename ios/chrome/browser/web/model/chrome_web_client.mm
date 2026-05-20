@@ -41,6 +41,7 @@
 #import "components/webauthn/ios/passkey_java_script_feature.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_java_script_feature.h"
 #import "ios/chrome/browser/browser_content/model/edit_menu_tab_helper.h"
+#import "ios/chrome/browser/cobrowse/model/aim_cobrowse_java_script_feature.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
 #import "ios/chrome/browser/enterprise/connectors/ios_enterprise_interstitial.h"
 #import "ios/chrome/browser/enterprise/connectors/reporting/ios_reporting_event_router_factory.h"
@@ -49,6 +50,7 @@
 #import "ios/chrome/browser/intelligence/actor/tools/model/action_target_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/click_tool_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/scroll_tool_java_script_feature.h"
+#import "ios/chrome/browser/intelligence/actor/tools/model/select_tool_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/type_tool_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_extractor_java_script_feature.h"
@@ -439,6 +441,7 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
     features.push_back(actor::ActionTargetJavaScriptFeature::GetInstance());
     features.push_back(actor::ClickToolJavaScriptFeature::GetInstance());
     features.push_back(actor::ScrollToolJavaScriptFeature::GetInstance());
+    features.push_back(actor::SelectToolJavaScriptFeature::GetInstance());
     features.push_back(actor::TypeToolJavaScriptFeature::GetInstance());
   }
 
@@ -465,6 +468,10 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
     if (cobalt_feature) {
       features.push_back(cobalt_feature);
     }
+  }
+
+  if (base::FeatureList::IsEnabled(kAimCobrowse)) {
+    features.push_back(AimCobrowseJavaScriptFeature::GetInstance());
   }
 
   return features;
@@ -681,6 +688,15 @@ web::JSErrorReportLoggingLevel ChromeWebClient::GetJSErrorReportLoggingLevel(
   return web::JSErrorReportLoggingLevel::REPORT_WITHOUT_URL;
 }
 
+web::CobaltController* ChromeWebClient::GetCobaltController(
+    web::BrowserState* browser_state) const {
+  ProfileIOS* profile = ProfileIOS::FromBrowserState(browser_state);
+  return ios::provider::GetCobaltController(profile);
+}
+
 bool ChromeWebClient::IsSmoothScrollingSupported() const {
-  return ios::provider::IsFullscreenSmoothScrollingSupported();
+  // For the purpose of ChromeWebClient, FullscreenRefactoring can be
+  // considered the same as FullscreenSmoothScrolling.
+  return IsFullscreenRefactoringEnabled() ||
+         ios::provider::IsFullscreenSmoothScrollingSupported();
 }

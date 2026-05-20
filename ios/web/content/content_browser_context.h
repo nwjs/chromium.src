@@ -56,10 +56,6 @@ class ContentBrowserContext : public content::BrowserContext {
   content::ContentIndexProvider* GetContentIndexProvider() override;
   content::ClientHintsControllerDelegate* GetClientHintsControllerDelegate()
       override;
-  content::FederatedIdentityApiPermissionContextDelegate*
-  GetFederatedIdentityApiPermissionContext() override;
-  content::FederatedIdentityPermissionContextDelegate*
-  GetFederatedIdentityPermissionContext() override;
   content::ReduceAcceptLanguageControllerDelegate*
   GetReduceAcceptLanguageControllerDelegate() override;
   content::OriginTrialsControllerDelegate* GetOriginTrialsControllerDelegate()
@@ -69,9 +65,6 @@ class ContentBrowserContext : public content::BrowserContext {
   friend class BrowserContextHolder;
 
   bool ignore_certificate_errors() const { return false; }
-
-  // Remove when refactored to depend on browser_start_->GetStatePath()
-  base::FilePath browser_path_;
 
   // Performs initialization of the ContentBrowserContext while IO is still
   // allowed on the current thread.

@@ -402,6 +402,7 @@
 <translation id="2618015542787108131">wydmy</translation>
 <translation id="2619761439309613843">Codziennie nowa</translation>
 <translation id="2620436844016719705">System</translation>
+<translation id="2626848494898563581">Brak dostępu do usług Google</translation>
 <translation id="2637303424821734920">WYŁĄCZONA – aby wyświetlać lokalną pogodę, <ph name="BEGIN_LINK" />włącz dostęp do lokalizacji w systemie<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Obraz użytkownika</translation>
 <translation id="2640549051766135490">Wybrano album <ph name="TITLE" /> <ph name="DESC" /></translation>
@@ -1181,6 +1182,7 @@
 <translation id="6234024205316847054">Pokaż kontury</translation>
 <translation id="6243280677745499710">Obecnie ustawiona</translation>
 <translation id="6250316632541035980">bekon i jajka</translation>
+<translation id="6262413940100821797">nieznany odbiornik</translation>
 <translation id="6265268291107409527">Wybrany klawisz to <ph name="KEYS" />. <ph name="ASSIGN_INSTRUCTION" /></translation>
 <translation id="6275224645089671689">Strzałka w prawo</translation>
 <translation id="6278428485366576908">Motyw</translation>

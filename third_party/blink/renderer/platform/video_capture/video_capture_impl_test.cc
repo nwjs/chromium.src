@@ -208,6 +208,7 @@ class VideoCaptureImplTest : public ::testing::Test {
       info->pixel_format = pixel_format;
       info->coded_size = size;
       info->visible_rect = gfx::Rect(size);
+      info->natural_size = size;
       info->color_space = gfx::ColorSpace();
       info->metadata = metadata;
       return media::mojom::blink::ReadyBuffer::New(buffer_id, std::move(info));
@@ -971,6 +972,35 @@ TEST_F(VideoCaptureImplTest, WinCameraBusyErrorUpdatesCorrectState) {
           media::VideoCaptureError::kWinMediaFoundationCameraBusy));
 
   StartCapture(0, params_small_);
+  StopCapture(0);
+}
+
+TEST_F(VideoCaptureImplTest, LoggingErrorCodeForGetUserMediaRequestWorks) {
+  base::HistogramTester histogram_tester;
+  media::VideoCaptureParams camera_params = params_small_;
+  camera_params.request_type = media::CaptureSourceRequestType::kGetUserMedia;
+  StartCapture(0, camera_params);
+
+  histogram_tester.ExpectUniqueSample(
+      "Media.VideoCapture.StartErrorCode.GetUserMedia",
+      media::VideoCaptureError::kNone, 1);
+  histogram_tester.ExpectTotalCount(
+      "Media.VideoCapture.StartErrorCode.GetDisplayMedia", 0);
+  StopCapture(0);
+}
+
+TEST_F(VideoCaptureImplTest, LoggingErrorCodeForGetDisplayMediaRequestWorks) {
+  base::HistogramTester histogram_tester;
+  media::VideoCaptureParams screen_params = params_large_;
+  screen_params.request_type =
+      media::CaptureSourceRequestType::kGetDisplayMedia;
+  StartCapture(0, screen_params);
+
+  histogram_tester.ExpectUniqueSample(
+      "Media.VideoCapture.StartErrorCode.GetDisplayMedia",
+      media::VideoCaptureError::kNone, 1);
+  histogram_tester.ExpectTotalCount(
+      "Media.VideoCapture.StartErrorCode.GetUserMedia", 0);
   StopCapture(0);
 }
 

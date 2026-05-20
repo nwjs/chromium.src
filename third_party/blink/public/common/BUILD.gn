@@ -87,7 +87,6 @@ buildflag_header("buildflags") {
   header = "buildflags.h"
   flags = [
     "ENABLE_JXL_DECODER=$enable_jxl_decoder",
-    "RTC_USE_H264=$rtc_use_h264",
     "RTC_USE_H265=$rtc_use_h265",
   ]
 }
@@ -317,6 +316,8 @@ source_set("headers") {
     "webid/federated_auth_request_mojom_traits.h",
     "webid/login_status_account.h",
     "webid/login_status_options.h",
+    "webrtc/rtc_logging_mojom_traits.h",
+    "webrtc/rtc_logging_utils.h",
     "widget/constants.h",
     "widget/device_emulation_params.h",
     "widget/visual_properties.h",

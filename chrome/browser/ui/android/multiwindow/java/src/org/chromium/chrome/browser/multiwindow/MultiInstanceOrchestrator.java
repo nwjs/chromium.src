@@ -5,14 +5,16 @@
 package org.chromium.chrome.browser.multiwindow;
 
 import android.app.Activity;
-import android.content.Intent;
+import android.os.Bundle;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabGroupMetadata;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.content_public.browser.WebContents;
 
 import java.util.List;
 
@@ -33,16 +35,44 @@ public interface MultiInstanceOrchestrator {
     void onInitialize(Activity activity, MultiInstanceManager multiInstanceManager);
 
     /**
-     * Creates an {@link Intent} for a new ChromeTabbedActivity instance.
+     * Creates a new ChromeTabbedActivity instance.
      *
      * @param sourceActivity The activity used to launch the intent.
      * @param isIncognito Whether the new window should be in incognito mode.
+     * @param additionalIntentExtras An optional bundle specifying extras to add to the intent used
+     *     to create the new window.
+     * @param startActivityOptions An optional bundle that will be used to start the activity.
      * @param source The new window creation source used for metrics.
-     * @return The new {@link Intent} as described above, or {@code null} if the new window cannot
-     *     be created.
+     * @return true if the window was successfully created, false otherwise.
      */
-    @Nullable Intent createNewWindowIntent(
-            Activity sourceActivity, boolean isIncognito, @NewWindowAppSource int source);
+    boolean createNewWindow(
+            Activity sourceActivity,
+            boolean isIncognito,
+            @Nullable Bundle additionalIntentExtras,
+            @Nullable Bundle startActivityOptions,
+            @NewWindowAppSource int source);
+
+    /**
+     * Creates a new ChromeTabbedActivity instance from an existing {@link WebContents}.
+     *
+     * @param sourceActivity The activity used to launch the intent.
+     * @param profile The {@link Profile} associated with the web contents.
+     * @param webContents The {@link WebContents} to use in the new window.
+     * @param additionalIntentExtras An optional bundle specifying extras to add to the intent used
+     *     to create the new window.
+     * @param startActivityOptions An optional bundle that will be used to start the activity.
+     * @param source The new window creation source used for metrics.
+     * @return true if the window was successfully created, false otherwise.
+     *     <p>Note: Do not use the provided WebContents after calling this function. This function
+     *     will take ownership of the provided WebContents, potentially destroying it.
+     */
+    boolean createNewWindowFromWebContents(
+            Activity sourceActivity,
+            Profile profile,
+            WebContents webContents,
+            @Nullable Bundle additionalIntentExtras,
+            @Nullable Bundle startActivityOptions,
+            @NewWindowAppSource int source);
 
     /**
      * Moves the specified tabs to a new ChromeTabbedActivity instance.

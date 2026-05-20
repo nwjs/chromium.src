@@ -4,34 +4,88 @@
 
 #include "chrome/browser/contextual_cueing/contextual_cueing_service.h"
 
-#include "base/check.h"
+#include "chrome/browser/contextual_cueing/contextual_cueing_enums.h"
+#include "chrome/browser/contextual_cueing/features.h"
+#include "chrome/browser/contextual_cueing/nudge_cap_tracker.h"
 
 namespace contextual_cueing {
 
-ContextualCueingService::ContextualCueingService() = default;
+ContextualCueingService::ContextualCueingService()
+    : recent_nudge_tracker_(kCueCapCount.Get(), kCueCapTime.Get()),
+      recent_visited_origins_(kVisitedOriginsLimit.Get()) {}
 ContextualCueingService::~ContextualCueingService() = default;
 
-void ContextualCueingService::RegisterCueTarget(
-    CueTargetType type,
-    std::unique_ptr<CueTarget> target) {
-  cue_targets_.insert_or_assign(type, std::move(target));
+void ContextualCueingService::ReportPageLoad() {
+  if (remaining_quiet_loads_) {
+    remaining_quiet_loads_--;
+  }
 }
 
-void ContextualCueingService::OnClick(CueTargetType type, CueActionData data) {
+void ContextualCueingService::OnCueClicked(CueTargetType type) {
   // TODO(crbug.com/498985205): record the click
 
-  CueTarget* target = GetTarget(type);
-  CHECK(target);
-  target->OnClick(std::move(data));
+  dismiss_count_ = 0;
 }
 
-void ContextualCueingService::OnDismiss(CueTargetType type) {
+void ContextualCueingService::OnCueDismissed(CueTargetType type) {
   // TODO(crbug.com/498985205): record the dismissal
+
+  base::TimeDelta backoff_duration =
+      kBackoffTime.Get() * pow(kBackoffMultiplierBase.Get(), dismiss_count_);
+  dismiss_backoff_end_time_ = base::TimeTicks::Now() + backoff_duration;
+
+  ++dismiss_count_;
 }
 
-CueTarget* ContextualCueingService::GetTarget(CueTargetType type) {
-  auto iter = cue_targets_.find(type);
-  return iter != cue_targets_.end() ? iter->second.get() : nullptr;
+void ContextualCueingService::OnCueShown(const GURL& url) {
+  if (kMinPageCountBetweenNudges.Get()) {
+    // Let the cue logic be performed the next page after quiet count pages.
+    remaining_quiet_loads_ = kMinPageCountBetweenNudges.Get() + 1;
+  }
+  shown_backoff_end_time_ =
+      base::TimeTicks::Now() + kMinTimeBetweenNudges.Get();
+
+  recent_nudge_tracker_.CueingNudgeShown();
+
+  auto origin = url::Origin::Create(url);
+  auto origin_iter = recent_visited_origins_.Get(origin);
+  if (origin_iter == recent_visited_origins_.end()) {
+    origin_iter = recent_visited_origins_.Put(
+        origin, NudgeCapTracker(kCueCapCountPerOrigin.Get(),
+                                kCueCapTimePerOrigin.Get()));
+  }
+  origin_iter->second.CueingNudgeShown();
+}
+
+contextual_cueing::ContextualCueingDecision ContextualCueingService::CanShowCue(
+    const GURL& url) const {
+  if (kDisableCueBackoff.Get()) {
+    return ContextualCueingDecision::kSuccess;
+  }
+
+  if (remaining_quiet_loads_ > 0) {
+    return ContextualCueingDecision::kNotEnoughPageLoadsSinceLastCue;
+  }
+  if (shown_backoff_end_time_ &&
+      (base::TimeTicks::Now() < *shown_backoff_end_time_)) {
+    return ContextualCueingDecision::kNotEnoughTimeSinceLastCue;
+  }
+  if (dismiss_backoff_end_time_ &&
+      (base::TimeTicks::Now() < *dismiss_backoff_end_time_)) {
+    return ContextualCueingDecision::kNotEnoughTimeSinceLastDismissal;
+  }
+
+  if (!recent_nudge_tracker_.CanShowNudge()) {
+    return ContextualCueingDecision::kTooManyCuesShownToTheUser;
+  }
+
+  auto origin_iter = recent_visited_origins_.Peek(url::Origin::Create(url));
+  if (origin_iter != recent_visited_origins_.end() &&
+      !origin_iter->second.CanShowNudge()) {
+    return ContextualCueingDecision::kTooManyCuesShownToTheUserForOrigin;
+  }
+
+  return ContextualCueingDecision::kSuccess;
 }
 
 }  // namespace contextual_cueing

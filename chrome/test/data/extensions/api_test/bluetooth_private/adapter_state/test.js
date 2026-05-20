@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-var newAdapterName = 'Dome';
+const newAdapterName = 'Dome';
 
 function testSetAdapterState() {
   chrome.bluetooth.getAdapterState(function(state) {
@@ -16,26 +16,27 @@ function testSetAdapterState() {
 }
 
 function setAdapterState() {
-  var newState = {
+  const newState = {
     name: newAdapterName,
     powered: true,
-    discoverable: true
+    discoverable: true,
   };
 
   chrome.bluetoothPrivate.setAdapterState(newState, function() {
     chrome.test.assertNoLastError();
-    if (chrome.runtime.lastError)
+    if (chrome.runtime.lastError) {
       chrome.test.fail(chrome.runtime.lastError);
+    }
     checkFinalAdapterState();
   });
 }
 
-var adapterStateSet = false;
+let adapterStateSet = false;
 function checkFinalAdapterState() {
   chrome.bluetooth.getAdapterState(function(state) {
     chrome.test.assertNoLastError();
     chrome.test.assertTrue(state.powered);
-    chrome.test.assertTrue(state.name == newAdapterName);
+    chrome.test.assertTrue(state.name === newAdapterName);
     // TODO(tengs): Check if adapter is discoverable when the attribute is
     // exposed to the chrome.bluetooth API.
     if (!adapterStateSet) {
@@ -48,4 +49,4 @@ function checkFinalAdapterState() {
   });
 }
 
-chrome.test.runTests([ testSetAdapterState ]);
+chrome.test.runTests([testSetAdapterState]);

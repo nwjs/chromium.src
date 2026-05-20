@@ -6,7 +6,7 @@
 #define CHROME_BROWSER_GLIC_HOST_GLIC_INTERNALS_PAGE_HANDLER_H_
 
 #include "base/memory/raw_ptr.h"
-#include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic_internals.mojom.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 
 namespace content {
@@ -44,6 +44,8 @@ class GlicInternalsPageHandler : public glic::mojom::InternalsPageHandler {
 
   void SetWebContinuityOriginatingHostUrlPreset(
       const GURL& web_continuity_originating_host_url) override;
+
+  void SetShowErrorAllowed(bool allowed) override;
 
  private:
   GlicKeyedService* GetGlicService();

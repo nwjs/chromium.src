@@ -110,6 +110,11 @@ struct BLINK_EXPORT WebNavigationInfo {
   // Whether the navigation is a result of client redirect.
   bool is_client_redirect = false;
 
+  // If the navigation was triggered by a script tool, this contains the
+  // ID of the tool invocation. This helps the browser to associate the
+  // navigation with the tool that caused it.
+  std::optional<base::UnguessableToken> script_tool_invocation_id;
+
   // Whether the navigation initiator frame has the
   // |network::mojom::blink::WebSandboxFlags::kDownloads| bit set in its sandbox
   // flags set.
@@ -206,10 +211,6 @@ struct BLINK_EXPORT WebNavigationInfo {
   // NavigationStateKeepAlive alive until we create the NavigationRequest.
   CrossVariantMojoRemote<mojom::NavigationStateKeepAliveHandleInterfaceBase>
       initiator_navigation_state_keep_alive_handle;
-
-  // The initiator frame's LocalDOMWindow's Storage Access API status.
-  net::StorageAccessApiStatus storage_access_api_status =
-      net::StorageAccessApiStatus::kNone;
 
   // Whether this navigation was initiated by the container, e.g. iframe changed
   // src. Only container-initiated navigation report resource timing to the
@@ -375,6 +376,7 @@ struct BLINK_EXPORT WebNavigationParams {
   WebHistoryItem history_item;
   // Whether this navigation is a result of client redirect.
   bool is_client_redirect = false;
+
   // Cache mode to be used for subresources, instead of the one determined
   // by |frame_load_type|.
   std::optional<blink::mojom::FetchCacheMode> force_fetch_cache_mode;
@@ -407,6 +409,11 @@ struct BLINK_EXPORT WebNavigationParams {
   // has the `kOrigin` sandbox flag, null for regular cross-document navigation
   // commit, which use `DocumentLoader::origin_to_commit_` instead.
   std::unique_ptr<base::UnguessableToken> sandbox_origin_token;
+
+  // If the navigation was triggered by a script tool, this contains the
+  // ID of the tool invocation. This helps the browser to associate the
+  // navigation with the tool that caused it.
+  std::optional<base::UnguessableToken> script_tool_invocation_id;
 
   // Seed for all PAAPI Auction Nonces generated in this document.
   base::Uuid base_auction_nonce;

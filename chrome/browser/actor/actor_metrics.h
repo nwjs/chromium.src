@@ -11,6 +11,7 @@
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/common/actor.mojom.h"
+#include "components/actor/public/mojom/actor_types.mojom-forward.h"
 
 namespace optimization_guide::proto {
 class ActionsResult;
@@ -74,11 +75,6 @@ void RecordDirectDownloadTriggered(bool success);
 
 // Recorded when a 'save as' download dialog is triggered by an ActorTask.
 void RecordDownloadSaveAsDialogTriggered(bool success);
-
-// Records the the size of the allow list and confirmed list (blocklist) of
-// origins for navigation gating.
-void RecordActorNavigationGatingListSize(size_t allow_list_size,
-                                         size_t confirmed_list_size);
 
 // Records script tool specific metrics.
 void RecordScriptToolActionResultCode(

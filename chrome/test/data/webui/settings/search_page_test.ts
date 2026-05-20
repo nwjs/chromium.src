@@ -9,7 +9,7 @@ import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {CategorizedTemplateUrls, SearchEnginesInfo, SettingsSearchPageElement} from 'chrome://settings/settings.js';
 import type {CrCheckboxElement} from 'chrome://settings/lazy_load.js';
-import {SearchEnginesBrowserProxyImpl, loadTimeData} from 'chrome://settings/settings.js';
+import {resetRouterForTesting, SearchEnginesBrowserProxyImpl, loadTimeData} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertNotReached, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
@@ -54,12 +54,14 @@ suite('SearchPageTests', function() {
   let metrics: MetricsTracker;
 
   setup(function() {
+    loadTimeData.overrideValues({searchSettingsUpdate: false});
+    resetRouterForTesting();
+
     metrics = fakeMetricsPrivate();
     browserProxy = new TestSearchEnginesBrowserProxy();
     browserProxy.setSearchEnginesInfo(generateSearchEngineInfo());
     SearchEnginesBrowserProxyImpl.setInstance(browserProxy);
-    loadTimeData.overrideValues(
-        {searchSettingsUpdate: false, isEeaChoiceCountry: false});
+
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     page = document.createElement('settings-search-page');
     page.prefs = {
@@ -158,6 +160,10 @@ suite('SearchPageTests', function() {
     assertTrue(
         !!page.shadowRoot!.querySelector('extension-controlled-indicator'));
     assertFalse(!!page.shadowRoot!.querySelector('cr-policy-pref-indicator'));
+
+    // The extension controlled message is not shown.
+    assertFalse(
+        !!page.shadowRoot!.querySelector('extension-controlled-message'));
   });
 
   test('ControlledByPolicy', async function() {
@@ -232,15 +238,15 @@ suite('SearchPageWithSearchSettingsUpdateEnabledTests', function() {
   let metrics: MetricsTracker;
 
   setup(async function() {
-    metrics = fakeMetricsPrivate();
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    loadTimeData.overrideValues(
-        {searchSettingsUpdate: true, isEeaChoiceCountry: false});
+    loadTimeData.overrideValues({searchSettingsUpdate: true});
+    resetRouterForTesting();
 
+    metrics = fakeMetricsPrivate();
     browserProxy = new TestSearchEnginesBrowserProxy();
     browserProxy.setCategorizedTemplateUrls(generateCategorizedTemplateUrls());
     SearchEnginesBrowserProxyImpl.setInstance(browserProxy);
 
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
     page = document.createElement('settings-search-page');
     page.prefs = {
       default_search_provider_data: {
@@ -285,4 +291,31 @@ suite('SearchPageWithSearchSettingsUpdateEnabledTests', function() {
             categorizedTemplateUrls.activeSiteShortcuts[1]!.id,
             searchEngineListDialog.searchEngines[1]!.id);
       });
+
+  test('ControlledByExtension', function() {
+    const openSearchEngineListButton =
+        page.shadowRoot!.querySelector<HTMLButtonElement>('#openDialogButton')!;
+    assertFalse(openSearchEngineListButton.disabled);
+    assertFalse(
+        !!page.shadowRoot!.querySelector('extension-controlled-message'));
+
+    page.set('prefs.default_search_provider_data.template_url_data', {
+      controlledBy: chrome.settingsPrivate.ControlledBy.EXTENSION,
+      controlledByName: 'fake extension name',
+      enforcement: chrome.settingsPrivate.Enforcement.ENFORCED,
+      extensionId: 'fake extension id',
+      extensionCanBeDisabled: true,
+      value: {},
+    });
+    flush();
+
+    assertTrue(openSearchEngineListButton['disabled']);
+    assertTrue(
+        !!page.shadowRoot!.querySelector('extension-controlled-message'));
+    assertFalse(!!page.shadowRoot!.querySelector('cr-policy-pref-indicator'));
+
+    // The extension controlled indicator is not shown.
+    assertFalse(
+        !!page.shadowRoot!.querySelector('extension-controlled-indicator'));
+  });
 });

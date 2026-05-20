@@ -32,6 +32,7 @@
 
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/inline_box_position.h"
+#include "third_party/blink/renderer/core/editing/ng_flat_tree_shorthands.h"
 #include "third_party/blink/renderer/core/editing/visible_position.h"
 #include "third_party/blink/renderer/core/editing/visible_units.h"
 #include "third_party/blink/renderer/core/layout/geometry/logical_rect.h"
@@ -87,7 +88,11 @@ class AbstractLineBox {
     InlineCursor previous_line = cursor_;
     do {
       previous_line.MoveToPreviousIncludingFragmentainer();
-    } while (previous_line && !previous_line.Current().IsLineBox());
+    } while (
+        previous_line &&
+        (!previous_line.Current().IsLineBox() ||
+         (RuntimeEnabledFeatures::EditingLineMovementWithRubyFixEnabled() &&
+          previous_line.Current().IsRubyAnnotationLine())));
     if (!previous_line || previous_line.Current()->IsBlockInInline())
       return AbstractLineBox();
     return AbstractLineBox(previous_line);
@@ -98,7 +103,11 @@ class AbstractLineBox {
     InlineCursor next_line = cursor_;
     do {
       next_line.MoveToNextIncludingFragmentainer();
-    } while (next_line && !next_line.Current().IsLineBox());
+    } while (
+        next_line &&
+        (!next_line.Current().IsLineBox() ||
+         (RuntimeEnabledFeatures::EditingLineMovementWithRubyFixEnabled() &&
+          next_line.Current().IsRubyAnnotationLine())));
     if (!next_line || next_line.Current()->IsBlockInInline())
       return AbstractLineBox();
     return AbstractLineBox(next_line);
@@ -222,6 +231,45 @@ class AbstractLineBox {
   InlineCursor cursor_;
   Type type_ = Type::kNull;
 };
+
+// When the cursor is inside an atomic inline element (e.g., inline-block),
+// escapes to the outer formatting context to find the adjacent line.
+// Returns the previous or next line (based on |direction|) in the outer
+// context, or a null AbstractLineBox if not inside an atomic inline or no line
+// found.
+AbstractLineBox EscapeAtomicInlineAndFindLine(
+    const PositionInFlatTree& position,
+    SelectionModifyVerticalDirection direction) {
+  // Check if position is inside an atomic inline formatting context.
+  const LayoutBlockFlow* context = NGInlineFormattingContextOf(position);
+  if (!context || !context->IsInline()) {
+    return AbstractLineBox();
+  }
+
+  Node* atomic_inline_node = context->NonPseudoNode();
+  if (!atomic_inline_node) {
+    return AbstractLineBox();
+  }
+
+  const bool is_down = direction == SelectionModifyVerticalDirection::kDown;
+
+  // Position just outside the atomic inline element.
+  PositionInFlatTreeWithAffinity outer_pos(
+      is_down ? PositionInFlatTree::AfterNode(*atomic_inline_node)
+              : PositionInFlatTree::BeforeNode(*atomic_inline_node));
+
+  AbstractLineBox line = AbstractLineBox::CreateFor(outer_pos);
+  if (!line) {
+    return AbstractLineBox();
+  }
+
+  line = is_down ? line.NextLine() : line.PreviousLine();
+  if (!line || !line.CanBeCaretContainer()) {
+    return AbstractLineBox();
+  }
+
+  return line;
+}
 
 // static
 AbstractLineBox AbstractLineBox::CreateFor(
@@ -410,6 +458,14 @@ PositionInFlatTreeWithAffinity SelectionModifier::PreviousLinePosition(
     }
   }
 
+  // When cursor is inside an inline-block element, pressing up arrow
+  // should escape to the outer formatting context to find the previous
+  // line, rather than getting stuck at the inline-block boundary.
+  if (!line && RuntimeEnabledFeatures::InlineBlockLineNavigationEnabled()) {
+    line =
+        EscapeAtomicInlineAndFindLine(p, SelectionModifyVerticalDirection::kUp);
+  }
+
   if (!line) {
     PositionInFlatTree candidate =
         PreviousRootInlineBoxCandidatePosition(node, position);
@@ -476,6 +532,14 @@ PositionInFlatTreeWithAffinity SelectionModifier::NextLinePosition(
     line = line.NextLine();
     if (!line || !line.CanBeCaretContainer())
       line = AbstractLineBox();
+  }
+
+  // When cursor is inside an inline-block element, pressing down arrow
+  // should escape to the outer formatting context to find the next line,
+  // rather than getting stuck at the inline-block boundary.
+  if (!line && RuntimeEnabledFeatures::InlineBlockLineNavigationEnabled()) {
+    line = EscapeAtomicInlineAndFindLine(
+        p, SelectionModifyVerticalDirection::kDown);
   }
 
   if (!line) {

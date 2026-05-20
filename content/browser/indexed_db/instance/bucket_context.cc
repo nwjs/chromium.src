@@ -109,7 +109,7 @@ BASE_FEATURE_ENUM_PARAM(SqliteRolloutStage,
 constexpr base::TimeDelta kBackingStoreGracePeriod = base::Seconds(2);
 
 // Duration of inactivity after which idle tasks are run.
-constexpr base::TimeDelta kIdleTimeout = base::Seconds(5);
+constexpr base::TimeDelta kIdleTimeout = base::Seconds(15);
 
 std::optional<bool> g_should_use_sqlite_for_testing;
 
@@ -130,9 +130,6 @@ base::OnceClosure& GetTeardownExtraStepForTesting() {
 // * It times out the request if the quota manager is taking too long.
 struct GetBucketSpaceRequestWrapper {
   static constexpr base::TimeDelta kTimeoutDuration = base::Seconds(45);
-  // The timeout is split into 3 steps. See similar logic in
-  // Transaction::kMaxTimeoutStrikes for reasoning.
-  static constexpr int kTimeoutFraction = 3;
 
   explicit GetBucketSpaceRequestWrapper(
       base::OnceCallback<void(storage::QuotaErrorOr<int64_t>)> callback)
@@ -140,9 +137,9 @@ struct GetBucketSpaceRequestWrapper {
     StartTimer();
   }
 
-  GetBucketSpaceRequestWrapper(GetBucketSpaceRequestWrapper&& other) {
-    wrapped_callback = std::move(other.wrapped_callback);
-    start_time = other.start_time;
+  GetBucketSpaceRequestWrapper(GetBucketSpaceRequestWrapper&& other)
+      : wrapped_callback(std::move(other.wrapped_callback)),
+        start_time(other.start_time) {
     StartTimer();
   }
 
@@ -150,19 +147,9 @@ struct GetBucketSpaceRequestWrapper {
 
   void StartTimer() {
     timeout.Start(
-        FROM_HERE,
-        (timeouts_observed + 1) * (kTimeoutDuration / kTimeoutFraction) -
-            (base::TimeTicks::Now() - start_time),
-        base::BindOnce(&GetBucketSpaceRequestWrapper::TimeOut,
-                       base::Unretained(this)));
-  }
-
-  void TimeOut() {
-    if (++timeouts_observed == kTimeoutFraction) {
-      InvokeCallback();
-    } else {
-      StartTimer();
-    }
+        FROM_HERE, kTimeoutDuration - (base::TimeTicks::Now() - start_time),
+        base::BindRepeating(&GetBucketSpaceRequestWrapper::InvokeCallback,
+                            base::Unretained(this)));
   }
 
   void InvokeCallback() {
@@ -186,8 +173,7 @@ struct GetBucketSpaceRequestWrapper {
             base::unexpected(storage::QuotaError::kUnknownError)));
   }
 
-  int timeouts_observed = 0;
-  base::OneShotTimer timeout;
+  InactivityTimer timeout;
   base::OnceCallback<void(storage::QuotaErrorOr<int64_t>)> wrapped_callback;
   std::optional<storage::QuotaErrorOr<int64_t>> result_value;
   base::TimeTicks start_time = base::TimeTicks::Now();
@@ -301,7 +287,13 @@ BucketContext::BucketContext(
       idle_timer_(FROM_HERE,
                   kIdleTimeout,
                   base::BindRepeating(&BucketContext::RunIdleTasks,
-                                      base::Unretained(this))),
+                                      base::Unretained(this),
+                                      /*long_idle=*/false)),
+      long_idle_timer_(FROM_HERE,
+                       kIdleTimeout * 3,
+                       base::BindRepeating(&BucketContext::RunIdleTasks,
+                                           base::Unretained(this),
+                                           /*long_idle=*/true)),
       quota_manager_proxy_(std::move(quota_manager_proxy)),
       blob_storage_context_(std::move(blob_storage_context)),
       file_system_access_context_(std::move(file_system_access_context)),
@@ -462,10 +454,6 @@ uint64_t BucketContext::GetUsage(bool write_in_progress) {
                         : ReadUsageFromDisk(bucket_locator(), data_path_);
 }
 
-void BucketContext::ReportOutstandingBlobs(bool blobs_outstanding) {
-  has_blobs_outstanding_ = blobs_outstanding;
-  MaybeStartClosing();
-}
 
 void BucketContext::CheckCanUseDiskSpace(
     int64_t space_requested,
@@ -648,9 +636,10 @@ void BucketContext::OnActivity() {
     last_idle_tasks_completion_time_.reset();
   }
   idle_timer_.Reset();
+  long_idle_timer_.Reset();
 }
 
-void BucketContext::RunIdleTasks() {
+void BucketContext::RunIdleTasks(bool long_idle) {
   // Though the idle timer is stopped before resetting the backing store, an
   // already posted task may run after the backing store has been reset.
   if (!backing_store_) {
@@ -661,9 +650,11 @@ void BucketContext::RunIdleTasks() {
     return;
   }
   base::TimeTicks start = base::TimeTicks::Now();
-  backing_store()->RunIdleTasks();
+  backing_store()->RunIdleTasks(long_idle);
   base::TimeTicks end = base::TimeTicks::Now();
-  LogDuration(end - start, "IndexedDB.BackendDuration.RunIdleTasks",
+  LogDuration(end - start,
+              long_idle ? "IndexedDB.BackendDuration.RunLongIdleTasks"
+                        : "IndexedDB.BackendDuration.RunIdleTasks",
               GetHistogramSuffix());
   last_idle_tasks_completion_time_ = end;
 }
@@ -750,16 +741,14 @@ void BucketContext::Open(
     return;
   }
 
-  std::string_view fallback_suffix = DetermineHistogramSuffix(
-      sqlite_rollout_stage_, bucket_locator(), data_path_);
-  Log(DatabaseConnectionOpenResult::kReceivedRequest,
-      backing_store_ ? GetHistogramSuffix() : fallback_suffix);
-
   // TODO(dgrogan): Don't let a non-existing database be opened (and therefore
   // created) if this origin is already over quota.
   mojo::AssociatedRemote<blink::mojom::IDBFactoryClient> factory_client(
       std::move(pending_factory_client));
 
+  // Compute this beforehand as `InitBackingStore` may change files on disk.
+  std::string_view fallback_suffix = DetermineHistogramSuffix(
+      sqlite_rollout_stage_, bucket_locator(), data_path_);
   IndexedDBDataLossInfo data_loss_info;
   if (!backing_store_) {
     Status s;
@@ -769,6 +758,7 @@ void BucketContext::Open(
     LogStatus(s, "IndexedDB.BackingStore.CreateIfMissing",
               s.ok() ? GetHistogramSuffix() : fallback_suffix);
     if (!s.ok()) {
+      Log(DatabaseConnectionOpenResult::kReceivedRequest, fallback_suffix);
       Log(DatabaseConnectionOpenResult::kErrorBackingStoreInitFailed,
           fallback_suffix);
       std::move(factory_client)->Error(error.code(), error.message());
@@ -779,6 +769,7 @@ void BucketContext::Open(
     }
   }
 
+  Log(DatabaseConnectionOpenResult::kReceivedRequest, GetHistogramSuffix());
   auto connection = std::make_unique<PendingConnection>(
       std::move(factory_client),
       std::make_unique<DatabaseCallbacks>(std::move(database_callbacks_remote)),
@@ -930,8 +921,7 @@ bool BucketContext::CanClose() {
     return false;
   }
 
-  return !has_blobs_outstanding_ && (!backing_store() || !in_memory()) &&
-         databases_.empty();
+  return (!backing_store() || !in_memory()) && databases_.empty();
 }
 
 void BucketContext::MaybeStartClosing() {
@@ -1253,6 +1243,9 @@ BucketContext::InitBackingStore(bool create_if_missing) {
                 std::ref(*lock_manager)),
             /*on_blob_activity=*/
             base::BindRepeating(&BucketContext::OnSqliteBlobActivity,
+                                base::Unretained(this)),
+            /*on_can_close=*/
+            base::BindRepeating(&BucketContext::MaybeStartClosing,
                                 base::Unretained(this))),
         /*is_sqlite=*/true, histogram_suffix);
   } else {
@@ -1268,7 +1261,9 @@ BucketContext::InitBackingStore(bool create_if_missing) {
       std::tie(backing_store, status, data_loss_info, disk_full) =
           level_db::BackingStore::OpenAndVerify(
               *this, data_path_, database_path, blob_path, lock_manager.get(),
-              is_first_attempt, create_if_missing, skip_create_on_data_loss);
+              is_first_attempt, create_if_missing, skip_create_on_data_loss,
+              base::BindRepeating(&BucketContext::MaybeStartClosing,
+                                  base::Unretained(this)));
       CHECK_EQ(status.ok(), !!backing_store);
       if (is_first_attempt) [[likely]] {
         first_try_status = status;
@@ -1338,6 +1333,7 @@ void BucketContext::ResetBackingStore() {
   file_reader_map_.clear();
   weak_factory_.InvalidateWeakPtrs();
   idle_timer_.Stop();
+  long_idle_timer_.Stop();
   close_timer_.Stop();
 
   if (backing_store_) {
@@ -1359,7 +1355,6 @@ void BucketContext::ResetBackingStore() {
   databases_.clear();
   lock_manager_.reset();
   closing_stage_ = ClosingState::kNotClosing;
-  has_blobs_outstanding_ = false;
   running_tasks_ = false;
 
   if (receivers_.empty() && delegate().on_ready_for_destruction) {

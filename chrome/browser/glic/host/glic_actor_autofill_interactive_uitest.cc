@@ -5,6 +5,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/glic/host/glic_actor_interactive_uitest_common.h"
 #include "chrome/common/chrome_features.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "content/public/test/browser_test.h"
 
@@ -25,7 +26,7 @@ class GlicActorAutofillDisabledUiTest : public GlicActorUiTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// Tests that that actions are rejected when the kGlicActorAutofill feature is
+// Tests that actions are rejected when the kGlicActorAutofill feature is
 // disabled and a form filling action was included.
 IN_PROC_BROWSER_TEST_F(GlicActorAutofillDisabledUiTest,
                        AttemptFormFillingActionDisabledByFlag) {

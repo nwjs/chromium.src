@@ -43,10 +43,18 @@ public class ScrollingBottomViewResourceFrameLayout extends ViewResourceFrameLay
     private @Nullable ConstraintsChecker mConstraintsChecker;
 
     private View mShadow;
+    private boolean mShowShadow = true;
 
     public ScrollingBottomViewResourceFrameLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
         mTopShadowHeightPx = getResources().getDimensionPixelOffset(R.dimen.toolbar_shadow_height);
+    }
+
+    /**
+     * @param show Whether the shadow should be visible.
+     */
+    public void setShowShadow(boolean show) {
+        mShowShadow = show;
     }
 
     @Override
@@ -77,8 +85,7 @@ public class ScrollingBottomViewResourceFrameLayout extends ViewResourceFrameLay
             }
 
             @Override
-            @SuppressWarnings("NullAway")
-            public void onCaptureStart(Canvas canvas, @Nullable Rect dirtyRect) {
+            public void onCaptureStart(Canvas canvas, Rect dirtyRect) {
                 // The android and composited views both have a shadow. The default state is to
                 // to show only the android shadow. When the bottom controls begin to scroll off,
                 // the android view is hidden, and the composited shadow is made visible. However,
@@ -86,7 +93,7 @@ public class ScrollingBottomViewResourceFrameLayout extends ViewResourceFrameLay
                 // with BCIV, so we change the default state to only show the composited shadow.
                 // Since the shadow is a UIResourceLayer, we need to make the android shadow
                 // visible for the capture so that the layer gets the correct resource.
-                mShadow.setVisibility(View.VISIBLE);
+                if (mShowShadow) mShadow.setVisibility(View.VISIBLE);
 
                 RecordHistogram.recordEnumeratedHistogram(
                         "Android.Toolbar.BitmapCapture",
@@ -107,7 +114,6 @@ public class ScrollingBottomViewResourceFrameLayout extends ViewResourceFrameLay
                     canvas.restore();
                 }
 
-                super.onCaptureStart(canvas, dirtyRect);
                 mLastCaptureSnapshotToken = mCurrentSnapshotToken;
             }
 

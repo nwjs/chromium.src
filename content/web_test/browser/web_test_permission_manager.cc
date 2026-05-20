@@ -99,12 +99,9 @@ bool WebTestPermissionManager::PermissionDescription::operator==(
   }
 
   if (permission_type == blink::PermissionType::STORAGE_ACCESS_GRANT) {
-    const net::SchemefulSite requesting_site(origin);
-    const net::SchemefulSite other_requesting_site(other.origin);
-    const net::SchemefulSite embedding_site(embedding_origin);
-    const net::SchemefulSite other_embedding_site(other.embedding_origin);
-    return requesting_site == other_requesting_site &&
-           embedding_site == other_embedding_site;
+    return net::SchemefulSite::IsSameSite(origin, other.origin) &&
+           net::SchemefulSite::IsSameSite(embedding_origin,
+                                          other.embedding_origin);
   }
 
   return origin == other.origin && embedding_origin == other.embedding_origin;
@@ -118,13 +115,10 @@ bool WebTestPermissionManager::PermissionDescription::operator==(
 
   if (blink::PermissionDescriptorToPermissionType(permission_descriptor) ==
       blink::PermissionType::STORAGE_ACCESS_GRANT) {
-    const net::SchemefulSite requesting_site(origin);
-    const net::SchemefulSite other_requesting_site(
-        other->requesting_origin_delegation);
-    const net::SchemefulSite embedding_site(embedding_origin);
-    const net::SchemefulSite other_embedding_site(other->embedding_origin);
-    return requesting_site == other_requesting_site &&
-           embedding_site == other_embedding_site;
+    return net::SchemefulSite::IsSameSite(
+               origin, other->requesting_origin_delegation) &&
+           net::SchemefulSite::IsSameSite(embedding_origin,
+                                          other->embedding_origin);
   }
 
   return origin == other->requesting_origin_delegation &&
@@ -213,9 +207,7 @@ WebTestPermissionManager::GetPermissionStatusForRequestPermission(
   // TODO(crbug.com/40278136): maybe it should also work when querying
   // permissions.
   if (permission_type == blink::PermissionType::STORAGE_ACCESS_GRANT &&
-      (requesting_origin == embedding_origin ||
-       net::SchemefulSite(requesting_origin) ==
-           net::SchemefulSite(embedding_origin))) {
+      net::SchemefulSite::IsSameSite(requesting_origin, embedding_origin)) {
     return blink::mojom::PermissionStatus::GRANTED;
   }
 
@@ -481,49 +473,9 @@ void WebTestPermissionManager::OnPermissionChanged(
                   permission_result.status),
               base::BindOnce(std::move(permission_callback), /*success=*/true));
       break;
-    case blink::PermissionType::TOP_LEVEL_STORAGE_ACCESS: {
-      // We dual-write `TOP_LEVEL_STORAGE_ACCESS` and `STORAGE_ACCESS_GRANT` due
-      // to the former granting a superset of the latter. Accordingly, we wait
-      // until both permissions have been written, including the notification to
-      // the network service, to run the permission callback. This could happen
-      // in either order without issue, so a barrier callback is used to ensure
-      // whichever finishes last then runs the callback. The asynchronicity
-      // comes in the form of the updates to the network service.
-      auto barrier_callback = base::BarrierCallback<bool>(
-          /*num_callbacks=*/3,
-          base::BindOnce(
-              [](blink::test::mojom::PermissionAutomation::SetPermissionCallback
-                     permission_callback,
-                 const std::vector<bool>& successes) {
-                std::move(permission_callback)
-                    .Run(std::ranges::all_of(successes, std::identity()));
-              },
-              std::move(permission_callback)));
-      SetPermission(blink::PermissionType::STORAGE_ACCESS_GRANT,
-                    blink::mojom::PermissionStatus::GRANTED, permission.origin,
-                    permission.embedding_origin, barrier_callback);
-
-      auto* cookie_manager = browser_context_->GetDefaultStoragePartition()
-                                 ->GetCookieManagerForBrowserProcess();
-
-      cookie_manager->SetContentSettings(
-          ContentSettingsType::STORAGE_ACCESS,
-          GetContentSettings(
-              ContentSettingsPattern::FromURL(permission.origin),
-              ContentSettingsPattern::FromURL(permission.embedding_origin),
-              permission_result.status),
-          base::BindOnce(barrier_callback, true));
-
-      cookie_manager->SetContentSettings(
-          ContentSettingsType::TOP_LEVEL_STORAGE_ACCESS,
-          GetContentSettings(
-              ContentSettingsPattern::FromURL(permission.origin),
-              ContentSettingsPattern::FromURL(permission.embedding_origin),
-              permission_result.status),
-          base::BindOnce(barrier_callback, true));
-
-      break;
-    }
+    case blink::PermissionType::TOP_LEVEL_STORAGE_ACCESS:
+      // Tested via `chrome`, not `content_shell`.
+      NOTREACHED();
     default:
       std::move(permission_callback).Run(true);
       break;

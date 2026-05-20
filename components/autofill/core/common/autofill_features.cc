@@ -68,7 +68,7 @@ BASE_FEATURE(kAutofillAddOtherDatatypesPref, base::FEATURE_DISABLED_BY_DEFAULT);
 // Controls whether to improve the building number regex.
 // TODO(crbug.com/376084078): Cleanup when launched.
 BASE_FEATURE(kAutofillAddressImproveBuildingNumberRegex,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Kill switch: If enabled, NameFieldParser will parse 'Last name, First name'
 // sequence.
@@ -161,7 +161,9 @@ BASE_FEATURE(kAutofillAiAlwaysTriggerServerModel,
 // If enabled Autofill AI becomes available by default and the previous enable
 // toggle controls whether online model runs and MQLS logging are allowed.
 // TODO(crbug.com/440488776): Remove once clean up happens.
-BASE_FEATURE(kAutofillAiAvailableByDefault, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAutofillAiAvailableByDefault,
+             IS_AUTOFILL_AI_PLATFORM ? base::FEATURE_ENABLED_BY_DEFAULT
+                                     : base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Kill switch. If enabled, the EntityDataManager is created irrespective of
 // whether other features are enabled. This is necessary so that cleaning up the
@@ -221,7 +223,9 @@ BASE_FEATURE(kAutofillAiOrder, base::FEATURE_DISABLED_BY_DEFAULT);
 // fields. As part of this feature sensitive fields are also obfuscated during
 // suggestion generation time.
 // TODO(crbug.com/468236932): Remove once feature is launched.
-BASE_FEATURE(kAutofillAiReauthRequired, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAutofillAiReauthRequired,
+             IS_AUTOFILL_AI_PLATFORM ? base::FEATURE_ENABLED_BY_DEFAULT
+                                     : base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, a HaTS survey is shown after the save prompt for a walletable
 // entity was interacted with.
@@ -379,13 +383,13 @@ BASE_FEATURE(kAutofillAndroidFormDataCompareFieldGlobalId,
 BASE_FEATURE(kAutofillAndroidKeyboardAccessoryDynamicPositioning,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If @memory is enabled, typing "@@" in an input field triggers search popup,
-// allowing to recall and insert the info anywhere using plain language.
+// Feature flag for kAutofillAtMemory.
 BASE_FEATURE(kAutofillAtMemory, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether the Autosuggest nudging logic is used. If enabled, user are
 // encouraged to use the AtMemory feature.
-BASE_FEATURE(kAutofillAutosuggestNudge, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAutofillAtMemoryInactivityNudge,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, the placeholder is not considered a label fallback on the
 // renderer side anymore. Instead, local heuristic will match regexes against
@@ -399,7 +403,7 @@ BASE_FEATURE(kAutofillBetterLocalHeuristicPlaceholderSupport,
 // If enabled, our `FormEventLogger` will start emitting events for fields
 // annotated with an unrecognized HTML "autocomplete" attribute.
 BASE_FEATURE(kAutofillConsiderAutocompleteUnrecognizedFieldsInMetrics,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Same as `kAutofillAddressUserPerceptionSurvey` but for credit card forms.
 BASE_FEATURE(kAutofillCreditCardUserPerceptionSurvey,
@@ -433,17 +437,6 @@ BASE_FEATURE(kAutofillDisableFilling, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kAutofillDisallowMoreHyphenLikeLabels,
              base::FEATURE_DISABLED_BY_DEFAULT);
 // LINT.ThenChange(//components/autofill/ios/form_util/resources/autofill_form_features.ts:autofill_disallow_more_hyphen_like_labels)
-
-// If enabled, new heuristics are applied for disambiguating multiple possible
-// types in a form field. Otherwise, only the already established heuristic for
-// disambiguating address and credit card names is used.
-BASE_FEATURE(kAutofillDisambiguateContradictingFieldTypes,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, AndroidAutofillProvider::OnTextFieldDidScroll() will not fire
-// FormFieldData::OnFormFieldDidChange().
-BASE_FEATURE(kAutofillDoNotFireFormFieldChangedOnWebviewScrollEvents,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls an ablation study in which autofill for addresses and payment data
 // can be suppressed.
@@ -530,6 +523,12 @@ BASE_FEATURE_PARAM(int,
                    "cache_size",
                    1000);
 
+// Controls whether the deduplication process for Autofill profiles is run on a
+// background thread to avoid blocking the UI thread.
+// TODO(crbug.com/496889243): Remove when launched.
+BASE_FEATURE(kAutofillEnableDeduplicationOnBackgroundThread,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables a couple of improvements to credit card expiration date handling:
 // - The autocomplete attribute values are rationalized with format strings
 //   like MM/YY from placeholders and labels in mind.
@@ -537,14 +536,6 @@ BASE_FEATURE_PARAM(int,
 // TODO(crbug.com/40266396): Remove once launched.
 BASE_FEATURE(kAutofillEnableExpirationDateImprovements,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Improves the selection of phone country codes by also considering address
-// country codes / names.
-// See GetStreetAddressForInput() in field_filling_address_util.cc for a details
-// description.
-// TODO(crbug.com/40249065). Clean up when launched.
-BASE_FEATURE(kAutofillEnableFillingPhoneCountryCodesByAddressCountryCodes,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Control if Autofill supports German transliteration.
 // TODO(crbug.com/328968064): Remove when/if launched.
@@ -563,24 +554,13 @@ BASE_FEATURE(kAutofillEnableImportOfUnchangedValuesForCountryAndState,
 BASE_FEATURE(kAutofillEnableImportWhenMultiplePhoneNumbers,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_ANDROID)
-// Controls if Chrome Keyboard Accessory on Android displays 2 line chips.
-// TODO: crbug.com/385172647 - Clean up after the feature is launched.
-BASE_FEATURE(kAutofillEnableKeyboardAccessoryChipRedesign,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(IS_ANDROID)
-// Controls if Chrome Keyboard Accessory limits the width of the first chip or
-// the first 2 chips to display a part of the next one on the screen.
-// TODO: crbug.com/385172647 - Clean up after the feature is launched.
-BASE_FEATURE(kAutofillEnableKeyboardAccessoryChipWidthAdjustment,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
-
 // When enabled, Autofill will help users fill in non-affiliated loyalty cards
 // on loyalty card only fields.
 BASE_FEATURE(kAutofillEnableNonAffiliatedLoyaltyCardsFilling,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, Autofill will use heuristics to identify OTP fields.
+BASE_FEATURE(kAutofillEnableOneTimeCodeHeuristics,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Kill switch for saving entities to wallet from settings.
@@ -631,11 +611,6 @@ BASE_FEATURE_PARAM(std::string,
                    &kAutofillEnableSupportForNameAndEmail,
                    "nickname_regex",
                    R"(\s+\([^)]*\)|\s+\"[^\"]*\")");
-
-// Controls if the heuristic field parsing utilizes shared labels.
-// TODO(crbug.com/40741721): Remove once shared labels are launched.
-BASE_FEATURE(kAutofillEnableSupportForParsingWithSharedLabels,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables extended zip code validation.
 // TODO(crbug.com/434140055): Clean up when launched.
@@ -901,10 +876,15 @@ BASE_FEATURE(kAutofillReplaceCachedWebElementsByRendererIds,
 BASE_FEATURE(kAutofillReplaceFormElementObserver,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Restricts OTP fields detection and fetching to forms that are in a frame
+// with the same TLD+1 as the main frame.
+BASE_FEATURE(kAutofillRestrictOtpToSameTldPlusOne,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // TODO(crbug.com/435646513) - Clean-up after feature lands at 100% Stable.
 // Enables the new experimental server-side signatures for evaluation purposes.
 BASE_FEATURE(kAutofillServerExperimentalSignatures,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // TODO(crbug.com/470949499) - Clean-up after feature lands at 100% Stable.
 // Enables querying the server for predictions before the form has been parsed
@@ -920,7 +900,7 @@ BASE_FEATURE(kAutofillServerUploadMoreData, base::FEATURE_ENABLED_BY_DEFAULT);
 // the priorities of the bubbles.
 // TODO(crbug.com/432429605): Remove when launched.
 BASE_FEATURE(kAutofillShowBubblesBasedOnPriorities,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, a pre-filled field will not be filled.
 BASE_FEATURE(kAutofillSkipPreFilledFields, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -951,12 +931,10 @@ BASE_FEATURE(kAutofillStructuredFieldsDisableAddressLines,
 BASE_FEATURE(kAutofillSupportCombinedZipAndCityFR,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables using custom name model with last name prefixes support.
-BASE_FEATURE(kAutofillSupportLastNamePrefix, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables using a custom address model for Japan, overriding the legacy one.
+// TODO(crbug.com/359768803): Remove in M151.
 BASE_FEATURE(kAutofillSupportPhoneticNameForJP,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables splitting two-part zip codes into two fields while filling and
 // importing split zip codes from two adjacent fields.
@@ -1069,47 +1047,10 @@ BASE_FEATURE(kManageTravelPerceptionSurvey, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kManageYourSavedInfoPerceptionSurvey,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, a HaTS survey is shown after the successful first time creation
-// flow.
-// TODO: crbug.com/348139343 - Move back to components/plus_addresses.
-BASE_FEATURE(kPlusAddressAcceptedFirstTimeCreateSurvey,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, a HaTS survey is shown after the declined the first plus
-// address creation flow.
-// TODO: crbug.com/348139343 - Move back to components/plus_addresses.
-BASE_FEATURE(kPlusAddressDeclinedFirstTimeCreateSurvey,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, a HaTS survey is shown after the user fills a plus address
-// after triggering autofill manually.
-// TODO: crbug.com/348139343 - Move back to components/plus_addresses.
-BASE_FEATURE(kPlusAddressFilledPlusAddressViaManualFallbackSurvey,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, a HaTS survey is shown after the user creates a 3rd+ plus
-// address.
-// TODO: crbug.com/348139343 - Move back to components/plus_addresses.
-BASE_FEATURE(kPlusAddressUserCreatedMultiplePlusAddressesSurvey,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, a HaTS survey is shown after the user creates a plus address
-// triggering the popup via the Chrome context menu on Desktop or via the
-// Keyboard Accessory on Android.
-// TODO: crbug.com/348139343 - Move back to components/plus_addresses.
-BASE_FEATURE(kPlusAddressUserCreatedPlusAddressViaManualFallbackSurvey,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, a HaTS survey is shown after the user chooses to fill an email
-// when a plus address suggestion is also offered in the Autofill popup.
-// TODO: crbug.com/348139343 - Move back to components/plus_addresses.
-BASE_FEATURE(kPlusAddressUserDidChooseEmailOverPlusAddressSurvey,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, a HaTS survey is shown after the user chooses to fill a plus
-// address when an email suggestion is also offered in the Autofill popup.
-// TODO: crbug.com/348139343 - Move back to components/plus_addresses.
-BASE_FEATURE(kPlusAddressUserDidChoosePlusAddressOverEmailSurvey,
+// If enabled, an entry point to AtMemory will be shown at the bottom of the
+// Autocomplete dialogs.
+BASE_FEATURE(kShowAutocompleteAtMemoryButton,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Kill switch: if enabled, suggestions are shown for fields with unrecognized

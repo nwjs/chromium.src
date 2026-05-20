@@ -403,6 +403,7 @@
 <translation id="2618015542787108131">peščena sipina</translation>
 <translation id="2619761439309613843">Dnevno osveževanje</translation>
 <translation id="2620436844016719705">Sistem</translation>
+<translation id="2626848494898563581">Googlovih storitev ni mogoče doseči</translation>
 <translation id="2637303424821734920">IZKLOPLJENO – Za prikaz lokalnega vremena <ph name="BEGIN_LINK" />vklopite dostop do lokacije sistema<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Slika za prijavo</translation>
 <translation id="2640549051766135490">Album <ph name="TITLE" /> <ph name="DESC" /> je bil izbran</translation>
@@ -1183,6 +1184,7 @@
 <translation id="6234024205316847054">Prikaži oris</translation>
 <translation id="6243280677745499710">Trenutno nastavljeno</translation>
 <translation id="6250316632541035980">slanina in jajca</translation>
+<translation id="6262413940100821797">neznan prejemnik</translation>
 <translation id="6265268291107409527">Izbrani ključ je <ph name="KEYS" />. <ph name="ASSIGN_INSTRUCTION" /></translation>
 <translation id="6275224645089671689">Puščica desno</translation>
 <translation id="6278428485366576908">Tema</translation>

@@ -53,6 +53,7 @@
 #include "cc/resources/ui_resource_bitmap.h"
 #include "cc/resources/ui_resource_manager.h"
 #include "cc/test/animation_test_common.h"
+#include "cc/test/event_metrics_test_creator.h"
 #include "cc/test/fake_frame_info.h"
 #include "cc/test/fake_impl_task_runner_provider.h"
 #include "cc/test/fake_layer_tree_frame_sink.h"
@@ -68,6 +69,7 @@
 #include "cc/test/test_layer_tree_frame_sink.h"
 #include "cc/test/test_paint_worklet_layer_painter.h"
 #include "cc/test/test_task_graph_runner.h"
+#include "cc/trees/client_layer_tree_host_impl.h"
 #include "cc/trees/clip_node.h"
 #include "cc/trees/compositor_commit_data.h"
 #include "cc/trees/draw_property_utils.h"
@@ -96,6 +98,7 @@
 #include "components/viz/common/surfaces/frame_sink_id.h"
 #include "components/viz/common/surfaces/region_capture_bounds.h"
 #include "components/viz/service/display/skia_output_surface.h"
+#include "components/viz/service/layers/viz_layer_tree_host_impl.h"
 #include "components/viz/test/begin_frame_args_test.h"
 #include "components/viz/test/fake_output_surface.h"
 #include "components/viz/test/fake_skia_output_surface.h"
@@ -1917,6 +1920,105 @@ TEST_P(LayerTreeHostImplTest, ScrollUpdateReturnsCorrectValue) {
           .did_scroll);
 }
 
+// TODO(crbug.com/487287578): Re-enable on Android once it's non-flaky.
+#if BUILDFLAG(IS_ANDROID)
+#define DISABLED_ON_ANDROID(test_name) DISABLED_##test_name
+#else
+#define DISABLED_ON_ANDROID(test_name) test_name
+#endif
+
+TEST_P(LayerTreeHostImplTest,
+       DISABLED_ON_ANDROID(
+           ScrollEndMainThreadRepaintFastPathScrollFeatureDisabled)) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      ::features::kScrollEndRepaintFollowsScrollUpdate);
+
+  SetupViewportLayersInnerScrolls(gfx::Size(100, 100), gfx::Size(200, 200));
+  DrawFrame();
+
+  host_impl_->OuterViewportScrollNode()->main_thread_repaint_reasons =
+      MainThreadScrollingReason::kNotScrollingOnMain;
+
+  GetInputHandler().ScrollBegin(BeginState(gfx::Point(), gfx::Vector2d(0, 10),
+                                           ui::ScrollInputType::kTouchscreen)
+                                    .get(),
+                                ui::ScrollInputType::kTouchscreen);
+  EXPECT_FALSE(GetInputHandler()
+                   .ScrollEnd(/*should_snap=*/false,
+                              /*compensated_scroll_delta=*/std::nullopt)
+                   .updates_need_main_thread_repaint);
+}
+
+TEST_P(LayerTreeHostImplTest,
+       DISABLED_ON_ANDROID(
+           ScrollEndMainThreadRepaintFastPathScrollFeatureEnabled)) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      ::features::kScrollEndRepaintFollowsScrollUpdate);
+
+  SetupViewportLayersInnerScrolls(gfx::Size(100, 100), gfx::Size(200, 200));
+  DrawFrame();
+
+  host_impl_->OuterViewportScrollNode()->main_thread_repaint_reasons =
+      MainThreadScrollingReason::kNotScrollingOnMain;
+
+  GetInputHandler().ScrollBegin(BeginState(gfx::Point(), gfx::Vector2d(0, 10),
+                                           ui::ScrollInputType::kTouchscreen)
+                                    .get(),
+                                ui::ScrollInputType::kTouchscreen);
+  EXPECT_FALSE(GetInputHandler()
+                   .ScrollEnd(/*should_snap=*/false,
+                              /*compensated_scroll_delta=*/std::nullopt)
+                   .updates_need_main_thread_repaint);
+}
+
+TEST_P(LayerTreeHostImplTest,
+       DISABLED_ON_ANDROID(
+           ScrollEndMainThreadRepaintSlowPathScrollFeatureDisabled)) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      ::features::kScrollEndRepaintFollowsScrollUpdate);
+
+  SetupViewportLayersInnerScrolls(gfx::Size(100, 100), gfx::Size(200, 200));
+  DrawFrame();
+
+  host_impl_->OuterViewportScrollNode()->main_thread_repaint_reasons =
+      MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects;
+
+  GetInputHandler().ScrollBegin(BeginState(gfx::Point(), gfx::Vector2d(0, 10),
+                                           ui::ScrollInputType::kTouchscreen)
+                                    .get(),
+                                ui::ScrollInputType::kTouchscreen);
+  EXPECT_FALSE(GetInputHandler()
+                   .ScrollEnd(/*should_snap=*/false,
+                              /*compensated_scroll_delta=*/std::nullopt)
+                   .updates_need_main_thread_repaint);
+}
+
+TEST_P(LayerTreeHostImplTest,
+       DISABLED_ON_ANDROID(
+           ScrollEndMainThreadRepaintSlowPathScrollFeatureEnabled)) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      ::features::kScrollEndRepaintFollowsScrollUpdate);
+
+  SetupViewportLayersInnerScrolls(gfx::Size(100, 100), gfx::Size(200, 200));
+  DrawFrame();
+
+  host_impl_->OuterViewportScrollNode()->main_thread_repaint_reasons =
+      MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects;
+
+  GetInputHandler().ScrollBegin(BeginState(gfx::Point(), gfx::Vector2d(0, 10),
+                                           ui::ScrollInputType::kTouchscreen)
+                                    .get(),
+                                ui::ScrollInputType::kTouchscreen);
+  EXPECT_TRUE(GetInputHandler()
+                  .ScrollEnd(/*should_snap=*/false,
+                             /*compensated_scroll_delta=*/std::nullopt)
+                  .updates_need_main_thread_repaint);
+}
+
 // TODO(sunyunjia): Move scroll snap tests to a separate file.
 // https://crbug.com/851690
 TEST_P(LayerTreeHostImplTest, ScrollSnapOnX) {
@@ -2582,6 +2684,58 @@ TEST_P(LayerTreeHostImplTest, OverscrollBehaviorPreventsPropagation) {
   EXPECT_POINTF_EQ(gfx::PointF(10, 10), CurrentScrollOffset(overflow));
 }
 
+TEST_P(LayerTreeHostImplTest, OverscrollBehaviorChainPropagatesScroll) {
+  const gfx::Size kViewportSize(100, 100);
+  const gfx::Size kContentSize(200, 200);
+  SetupViewportLayersOuterScrolls(kViewportSize, kContentSize);
+
+  LayerImpl* scroll_layer = OuterViewportScrollLayer();
+
+  gfx::Size overflow_size(400, 400);
+  LayerImpl* overflow = AddScrollableLayer(OuterViewportScrollLayer(),
+                                           gfx::Size(100, 100), overflow_size);
+  SetScrollOffset(scroll_layer, gfx::PointF(30, 30));
+
+  DrawFrame();
+  gfx::Point pointer_position(50, 50);
+  gfx::Vector2dF x_delta(-10, 0);
+  gfx::Vector2dF y_delta(0, -10);
+
+  // OverscrollBehaviorChain should allow scroll propagation.
+  GetScrollNode(overflow)->overscroll_behavior =
+      OverscrollBehavior(OverscrollBehavior::Type::kChain);
+
+  DrawFrame();
+
+  // Propagation on x.
+  EXPECT_EQ(ScrollThread::kScrollOnImplThread,
+            GetInputHandler()
+                .ScrollBegin(BeginState(pointer_position, x_delta,
+                                        ui::ScrollInputType::kWheel)
+                                 .get(),
+                             ui::ScrollInputType::kWheel)
+                .thread);
+  GetInputHandler().ScrollUpdate(
+      UpdateState(pointer_position, x_delta, ui::ScrollInputType::kWheel));
+  GetInputHandler().ScrollEnd(/*should_snap=*/false, std::nullopt);
+  EXPECT_POINTF_EQ(gfx::PointF(20, 30), CurrentScrollOffset(scroll_layer));
+  EXPECT_POINTF_EQ(gfx::PointF(0, 0), CurrentScrollOffset(overflow));
+
+  // Propagation on y.
+  EXPECT_EQ(ScrollThread::kScrollOnImplThread,
+            GetInputHandler()
+                .ScrollBegin(BeginState(pointer_position, y_delta,
+                                        ui::ScrollInputType::kWheel)
+                                 .get(),
+                             ui::ScrollInputType::kWheel)
+                .thread);
+  GetInputHandler().ScrollUpdate(
+      UpdateState(pointer_position, y_delta, ui::ScrollInputType::kWheel));
+  GetInputHandler().ScrollEnd(/*should_snap=*/false, std::nullopt);
+  EXPECT_POINTF_EQ(gfx::PointF(20, 20), CurrentScrollOffset(scroll_layer));
+  EXPECT_POINTF_EQ(gfx::PointF(0, 0), CurrentScrollOffset(overflow));
+}
+
 TEST_P(LayerTreeHostImplTest, ScrollWithUserUnscrollableLayers) {
   const gfx::Size kViewportSize(100, 100);
   const gfx::Size kContentSize(200, 200);
@@ -2812,7 +2966,10 @@ TEST_F(CommitToActiveTreeLayerTreeHostImplTest,
   EXPECT_FALSE(did_request_redraw_);
   EXPECT_FALSE(did_request_commit_);
 
-  host_impl_->CommitComplete();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())->CommitComplete();
+  }
 
   // Animations on the active tree should be started and ticked, and a new frame
   // should be requested to continue ticking them.
@@ -10586,13 +10743,15 @@ TEST_P(CompositorFrameProducingLayerTreeHostImplTest,
   // that we can force partial swap enabled.
   LayerTreeSettings settings = DefaultSettings();
   std::unique_ptr<LayerTreeHostImpl> layer_tree_host_impl =
-      LayerTreeHostImpl::Create(
+      CreateLayerTreeHostImplForTesting(
           settings, this, &task_runner_provider_, &stats_instrumentation_,
           &task_graph_runner_,
           AnimationHost::CreateForTesting(ThreadInstance::kImpl), nullptr, 0,
           nullptr, nullptr);
   if (layer_tree_host_impl->settings().trees_in_viz_in_viz_process) {
-    layer_tree_host_impl->set_next_frame_token_from_client(1u);
+    // TODO(496580137): Move this to VizLayerTreeHostImpl specific tests.
+    static_cast<TestVizLayerTreeHostImpl*>(layer_tree_host_impl.get())
+        ->set_next_frame_token_from_client(1u);
   }
   layer_tree_host_impl->SetVisible(true);
   layer_tree_host_impl->InitializeFrameSink(layer_tree_frame_sink.get());
@@ -10991,7 +11150,7 @@ TEST_P(ClientModeLayerTreeHostImplTest, MemoryLimits) {
   LayerTreeSettings settings = DefaultSettings();
   settings.memory_policy =
       ManagedMemoryPolicy(kGpuByteLimit, kGpuCutoff, kGpuResourceLimit);
-  host_impl_ = LayerTreeHostImpl::Create(
+  host_impl_ = CreateLayerTreeHostImplForTesting(
       settings, this, &task_runner_provider_, &stats_instrumentation_,
       &task_graph_runner_,
       AnimationHost::CreateForTesting(ThreadInstance::kImpl), nullptr, 0,
@@ -13663,6 +13822,7 @@ TEST_P(LayerTreeHostImplTest,
   SetupViewportLayersOuterScrolls(viewport_size, content_size);
   DrawFrame();
 
+  base::TimeTicks scroll_begin_arrival_timestamp = base::TimeTicks::Now();
   GetInputHandler().ScrollBegin(
       BeginState(gfx::Point(250, 250), gfx::Vector2dF(),
                  ui::ScrollInputType::kTouchscreen)
@@ -13680,14 +13840,17 @@ TEST_P(LayerTreeHostImplTest,
     // Add an `EventMetrics` object that will be accepted by
     // `AverageLagTrackingManager::CollectScrollEventsFromFrame()`.
     EventMetrics::List events_metrics;
+    base::TimeTicks now = base::TimeTicks::Now();
     events_metrics.push_back(ScrollUpdateEventMetrics::Create(
         ui::EventType::kGestureScrollUpdate, ui::ScrollInputType::kTouchscreen,
         /*is_inertial=*/false,
         i == 0 ? ScrollUpdateEventMetrics::ScrollUpdateType::kStarted
                : ScrollUpdateEventMetrics::ScrollUpdateType::kContinued,
-        /*delta=*/10.0f, base::TimeTicks::Now(),
-        base::TimeTicks::Now() + base::Milliseconds(1), base::TimeTicks(),
-        /*trace_id*/ base::IdType64<class ui::LatencyInfo>(123)));
+        /*delta=*/10.0f, /*timestamp=*/now,
+        /*arrived_in_browser_main_timestamp=*/now + base::Milliseconds(1),
+        /*blocking_touch_dispatched_to_renderer=*/base::TimeTicks(),
+        /*trace_id=*/base::IdType64<class ui::LatencyInfo>(123),
+        scroll_begin_arrival_timestamp));
     host_impl_->active_tree()->AppendEventsMetricsFromMainThread(
         std::move(events_metrics));
 
@@ -13704,6 +13867,9 @@ TEST_P(LayerTreeHostImplTest,
 
 // Test that TotalFrameCounter resets itself under certain conditions
 TEST_P(LayerTreeHostImplTest, FrameCounterReset) {
+  if (host_impl_->settings().trees_in_viz_in_viz_process) {
+    return;
+  }
   FrameSorter* frame_sorter = host_impl_->frame_sorter_for_testing();
   EXPECT_EQ(frame_sorter->total_frames(), 0u);
   FrameInfo frame_info;
@@ -13727,20 +13893,31 @@ TEST_P(LayerTreeHostImplTest, FrameCounterReset) {
 
   BeginMainFrameMetrics begin_frame_metrics;
   begin_frame_metrics.should_measure_smoothness = true;
-  host_impl_->ReadyToCommit(/*scroll_and_viewport_changes_synced=*/true,
-                            &begin_frame_metrics, /*commit_timeout=*/false);
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->ReadyToCommit(/*scroll_and_viewport_changes_synced=*/true,
+                        &begin_frame_metrics, /*commit_timeout=*/false);
+  }
   frame_sorter->AddNewFrame(args);
   // Delegates to DFC::AddSortedFrame, which calls DFC::OnEndFrame.
   frame_sorter->AddFrameResult(
       args, CreateFakeFrameInfo(FrameInfo::FrameFinalState::kDropped));
   frame_sorter->AddFrameInfoToBuffer(frame_info);
-  host_impl_->SetActiveURL(GURL(), 1u);
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->SetActiveURL(GURL(), 1u);
+  }
   EXPECT_EQ(frame_sorter->total_frames(), 0u);
   EXPECT_EQ(frame_sorter->total_dropped(), 0u);
 }
 
 // Test that TotalFrameCounter does not reset itself under certain conditions
 TEST_P(LayerTreeHostImplTest, FrameCounterNotReset) {
+  if (host_impl_->settings().trees_in_viz_in_viz_process) {
+    return;
+  }
   FrameSorter* frame_sorter = host_impl_->frame_sorter_for_testing();
   EXPECT_EQ(frame_sorter->total_frames(), 0u);
 
@@ -13752,8 +13929,12 @@ TEST_P(LayerTreeHostImplTest, FrameCounterNotReset) {
       deadline, interval, viz::BeginFrameArgs::NORMAL);
   BeginMainFrameMetrics begin_frame_metrics;
   begin_frame_metrics.should_measure_smoothness = true;
-  host_impl_->ReadyToCommit(/*scroll_and_viewport_changes_synced=*/true,
-                            &begin_frame_metrics, /*commit_timeout=*/false);
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->ReadyToCommit(/*scroll_and_viewport_changes_synced=*/true,
+                        &begin_frame_metrics, /*commit_timeout=*/false);
+  }
   EXPECT_EQ(frame_sorter->total_frames(), 0u);
   FrameInfo frame_info;
   frame_info.final_state = FrameInfo::FrameFinalState::kPresentedAll;
@@ -13767,8 +13948,12 @@ TEST_P(LayerTreeHostImplTest, FrameCounterNotReset) {
       deadline, interval, viz::BeginFrameArgs::NORMAL);
   // Consecutive BeginFrameMetrics with the same |should_measure_smoothness|
   // flag should not reset the counter.
-  host_impl_->ReadyToCommit(/*scroll_and_viewport_changes_synced=*/true,
-                            &begin_frame_metrics, /*commit_timeout=*/false);
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->ReadyToCommit(/*scroll_and_viewport_changes_synced=*/true,
+                        &begin_frame_metrics, /*commit_timeout=*/false);
+  }
   EXPECT_EQ(frame_sorter->total_frames(), 1u);
 }
 
@@ -15435,7 +15620,10 @@ TEST_F(MsaaIsSlowLayerTreeHostImplTest, GpuRasterizationStatusMsaaIsSlow) {
   // Ensure that without the msaa_is_slow or avoid_stencil_buffers caps
   // we raster slow paths with msaa.
   CreateHostImplWithCaps(false, false);
-  host_impl_->CommitComplete();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())->CommitComplete();
+  }
   EXPECT_TRUE(host_impl_->use_gpu_rasterization());
   EXPECT_TRUE(host_impl_->can_use_msaa());
 
@@ -15443,19 +15631,28 @@ TEST_F(MsaaIsSlowLayerTreeHostImplTest, GpuRasterizationStatusMsaaIsSlow) {
   // we don't raster slow paths with msaa (we'll still use GPU raster, though).
   // msaa_is_slow = true, avoid_stencil_buffers = false
   CreateHostImplWithCaps(true, false);
-  host_impl_->CommitComplete();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())->CommitComplete();
+  }
   EXPECT_TRUE(host_impl_->use_gpu_rasterization());
   EXPECT_FALSE(host_impl_->can_use_msaa());
 
   // msaa_is_slow = false, avoid_stencil_buffers = true
   CreateHostImplWithCaps(false, true);
-  host_impl_->CommitComplete();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())->CommitComplete();
+  }
   EXPECT_TRUE(host_impl_->use_gpu_rasterization());
   EXPECT_FALSE(host_impl_->can_use_msaa());
 
   // msaa_is_slow = true, avoid_stencil_buffers = true
   CreateHostImplWithCaps(true, true);
-  host_impl_->CommitComplete();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())->CommitComplete();
+  }
   EXPECT_TRUE(host_impl_->use_gpu_rasterization());
   EXPECT_FALSE(host_impl_->can_use_msaa());
 }
@@ -15547,7 +15744,7 @@ TEST_P(LayerTreeHostImplTest, RecomputeGpuRasterOnLayerTreeFrameSinkChange) {
   host_impl_->ReleaseLayerTreeFrameSink();
   host_impl_ = nullptr;
 
-  host_impl_ = LayerTreeHostImpl::Create(
+  host_impl_ = CreateLayerTreeHostImplForTesting(
       DefaultSettings(), this, &task_runner_provider_, &stats_instrumentation_,
       &task_graph_runner_,
       AnimationHost::CreateForTesting(ThreadInstance::kImpl), nullptr, 0,
@@ -15612,7 +15809,11 @@ TEST_P(PendingTreeLayerTreeHostImplTest, CheckerImagingTileInvalidation) {
   host_impl_->WillBeginImplFrame(begin_frame_args);
 
   // Create the pending tree.
-  host_impl_->BeginCommit(0, BeginMainFrameTraceId{1});
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->BeginCommit(0, BeginMainFrameTraceId{1});
+  }
   LayerTreeImpl* pending_tree = host_impl_->pending_tree();
   auto* root = SetupRootLayer<FakePictureLayerImpl>(pending_tree, layer_size,
                                                     raster_source);
@@ -15621,7 +15822,10 @@ TEST_P(PendingTreeLayerTreeHostImplTest, CheckerImagingTileInvalidation) {
 
   // CompleteCommit which should perform a PrepareTiles, adding tilings for the
   // root layer, each one having a raster task.
-  host_impl_->CommitComplete();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())->CommitComplete();
+  }
   EXPECT_EQ(root->num_tilings(), 1U);
   const PictureLayerTiling* tiling = root->tilings()->tiling_at(0);
   EXPECT_EQ(tiling->AllTilesForTesting().size(), 9U);
@@ -15641,7 +15845,11 @@ TEST_P(PendingTreeLayerTreeHostImplTest, CheckerImagingTileInvalidation) {
 
   // Invalidate content on impl-side and ensure that the correct tiles are
   // invalidated on the pending tree.
-  host_impl_->InvalidateContentOnImplSide();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->InvalidateContentOnImplSide();
+  }
   pending_tree = host_impl_->pending_tree();
   root = static_cast<FakePictureLayerImpl*>(pending_tree->root_layer());
   for (auto* tile : root->tilings()->tiling_at(0)->AllTilesForTesting()) {
@@ -16544,7 +16752,11 @@ TEST_P(ClientModeLayerTreeHostImplTest,
   auto args = viz::CreateBeginFrameArgsForTesting(BEGINFRAME_FROM_HERE, 0, 1);
   host_impl_->WillBeginImplFrame(args);
   // Expect no crash because the operation is within an impl frame.
-  host_impl_->InvalidateContentOnImplSide();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->InvalidateContentOnImplSide();
+  }
 
   // Once the impl frame is finished the impl thread phase is set to IDLE.
   host_impl_->DidFinishImplFrame(args);
@@ -16553,7 +16765,11 @@ TEST_P(ClientModeLayerTreeHostImplTest,
   CreateHostImpl(settings, CreateLayerTreeFrameSink());
   // Expect no crash when using synchronous renderer compositor regardless the
   // impl thread phase.
-  host_impl_->InvalidateContentOnImplSide();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->InvalidateContentOnImplSide();
+  }
 
   // Test passes when there is no crash.
 }
@@ -16619,24 +16835,38 @@ TEST_P(LayerTreeHostImplTest, TouchScrollOnAndroidScrollbar) {
 
 TEST_P(PendingTreeLayerTreeHostImplTest, CommitWithNoPaintWorkletLayerPainter) {
   ASSERT_FALSE(host_impl_->GetPaintWorkletLayerPainterForTesting());
-  host_impl_->CreatePendingTree();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->CreatePendingTree();
+  }
 
   // When there is no PaintWorkletLayerPainter registered, commits should finish
   // immediately and move onto preparing tiles.
   ASSERT_FALSE(did_prepare_tiles_);
-  host_impl_->CommitComplete();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())->CommitComplete();
+  }
   EXPECT_TRUE(did_prepare_tiles_);
 }
 
 TEST_P(PendingTreeLayerTreeHostImplTest, CommitWithNoPaintWorklets) {
   host_impl_->SetPaintWorkletLayerPainter(
       std::make_unique<TestPaintWorkletLayerPainter>());
-  host_impl_->CreatePendingTree();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->CreatePendingTree();
+  }
 
   // When there are no PaintWorklets in the committed display lists, commits
   // should finish immediately and move onto preparing tiles.
   ASSERT_FALSE(did_prepare_tiles_);
-  host_impl_->CommitComplete();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())->CommitComplete();
+  }
   EXPECT_TRUE(did_prepare_tiles_);
 }
 
@@ -16647,7 +16877,11 @@ TEST_P(PendingTreeLayerTreeHostImplTest, CommitWithDirtyPaintWorklets) {
 
   // Setup the pending tree with a PictureLayerImpl that will contain
   // PaintWorklets.
-  host_impl_->CreatePendingTree();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->CreatePendingTree();
+  }
   auto* root = SetupRootLayer<PictureLayerImpl>(host_impl_->pending_tree(),
                                                 gfx::Size(100, 100));
   root->SetNeedsPushProperties();
@@ -16662,7 +16896,10 @@ TEST_P(PendingTreeLayerTreeHostImplTest, CommitWithDirtyPaintWorklets) {
   // preparation to happen. Instead, it will be delayed until the callback
   // passed to the PaintWorkletLayerPainter is called.
   did_prepare_tiles_ = false;
-  host_impl_->CommitComplete();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())->CommitComplete();
+  }
   EXPECT_FALSE(did_prepare_tiles_);
 
   // Set up a result to have been 'painted'.
@@ -16693,7 +16930,11 @@ TEST_P(PendingTreeLayerTreeHostImplTest, CommitWithNoDirtyPaintWorklets) {
   host_impl_->SetPaintWorkletLayerPainter(
       std::make_unique<TestPaintWorkletLayerPainter>());
 
-  host_impl_->CreatePendingTree();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->CreatePendingTree();
+  }
   auto* root = SetupRootLayer<PictureLayerImpl>(host_impl_->pending_tree(),
                                                 gfx::Size(100, 100));
   root->SetNeedsPushProperties();
@@ -16713,7 +16954,10 @@ TEST_P(PendingTreeLayerTreeHostImplTest, CommitWithNoDirtyPaintWorklets) {
   // Since there are no dirty PaintWorklets, the commit should immediately
   // prepare tiles.
   ASSERT_FALSE(did_prepare_tiles_);
-  host_impl_->CommitComplete();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())->CommitComplete();
+  }
   EXPECT_TRUE(did_prepare_tiles_);
 }
 
@@ -16741,7 +16985,11 @@ TEST_P(ForceActivateAfterPaintWorkletPaintLayerTreeHostImplTest,
 
   // Setup the pending tree with a PictureLayerImpl that will contain
   // PaintWorklets.
-  host_impl_->CreatePendingTree();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->CreatePendingTree();
+  }
   auto* root = SetupRootLayer<PictureLayerImpl>(host_impl_->pending_tree(),
                                                 gfx::Size(100, 100));
   root->SetNeedsPushProperties();
@@ -16757,7 +17005,10 @@ TEST_P(ForceActivateAfterPaintWorkletPaintLayerTreeHostImplTest,
   // preparation to happen. Instead, it will be delayed until the callback
   // passed to the PaintWorkletLayerPainter is called.
   did_prepare_tiles_ = false;
-  host_impl_->CommitComplete();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())->CommitComplete();
+  }
   EXPECT_FALSE(did_prepare_tiles_);
 
   // Set up a result to have been 'painted'.
@@ -17022,7 +17273,7 @@ class UnifiedScrollingTest : public LayerTreeHostImplTest {
     return GetInputHandler().ScrollUpdate(scroll_state);
   }
 
-  void ScrollEnd() {
+  InputHandlerScrollEndResult ScrollEnd() {
     return GetInputHandler().ScrollEnd(/*should_snap=*/false, std::nullopt);
   }
 
@@ -17642,7 +17893,11 @@ TEST_P(ClientModeLayerTreeHostImplTest, NonCompositedScrollUsesRaster) {
     EXPECT_EQ(DrawResult::kSuccess, host_impl_->PrepareToDraw(&frame));
 
     // This call sets the invalidate_raster_scroll bit.
-    host_impl_->InvalidateContentOnImplSide();
+    // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+    if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+      static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+          ->InvalidateContentOnImplSide();
+    }
     if (!CommitsToActiveTree()) {
       // Activate the pending tree before drawing layers.
       host_impl_->ActivateSyncTree();
@@ -17692,6 +17947,7 @@ TEST_P(PendingTreeLayerTreeHostImplTest,
       scroll_state.get(), ui::ScrollInputType::kTouchscreen);
   EXPECT_EQ(true, status.raster_inducing);
 
+  base::TimeTicks scroll_begin_arrival_timestamp = base::TimeTicks::Now();
   GetInputHandler().RecordScrollBegin(
       ui::ScrollInputType::kTouchscreen,
       ScrollBeginThreadState::kRasterInducingScroll);
@@ -17700,13 +17956,16 @@ TEST_P(PendingTreeLayerTreeHostImplTest,
     GetInputHandler().ScrollUpdate(UpdateState(
         gfx::Point(), gfx::Vector2d(0, 10), ui::ScrollInputType::kTouchscreen));
 
+    base::TimeTicks now = base::TimeTicks::Now();
     std::unique_ptr<EventMetrics> metrics = ScrollUpdateEventMetrics::Create(
         ui::EventType::kGestureScrollUpdate, ui::ScrollInputType::kTouchscreen,
         /*is_inertial=*/false,
         ScrollUpdateEventMetrics::ScrollUpdateType::kContinued,
-        /*delta=*/10.0f, base::TimeTicks::Now(),
-        base::TimeTicks::Now() + base::Milliseconds(1), base::TimeTicks(),
-        /*trace_id*/ base::IdType64<class ui::LatencyInfo>(123));
+        /*delta=*/10.0f, /*timestamp=*/now,
+        /*arrived_in_browser_main_timestamp=*/now + base::Milliseconds(1),
+        /*blocking_touch_dispatched_to_renderer=*/base::TimeTicks(),
+        /*trace_id=*/base::IdType64<class ui::LatencyInfo>(123),
+        scroll_begin_arrival_timestamp);
 
     // Associate metrics with the scoped metrics monitor by registering a done
     // callback.
@@ -17729,7 +17988,11 @@ TEST_P(PendingTreeLayerTreeHostImplTest,
     EXPECT_EQ(DrawResult::kSuccess, host_impl_->PrepareToDraw(&frame));
   }
   // This call creates a new pending tree.
-  host_impl_->InvalidateContentOnImplSide();
+  // TODO(496580137): Move this to ClientLayerTreeHostImpl specific tests.
+  if (!host_impl_->settings().trees_in_viz_in_viz_process) {
+    static_cast<ClientLayerTreeHostImpl*>(host_impl_.get())
+        ->InvalidateContentOnImplSide();
+  }
   if (!CommitsToActiveTree()) {
     // If a pending tree exists, we expect to see that there are metrics
     // associated with the raster frame associated with it.
@@ -18046,7 +18309,7 @@ TEST_P(LayerTreeHostImplTest, RecomputeRasterCapsOnLayerTreeFrameSinkUpdate) {
   host_impl_->ReleaseLayerTreeFrameSink();
   host_impl_ = nullptr;
 
-  host_impl_ = LayerTreeHostImpl::Create(
+  host_impl_ = CreateLayerTreeHostImplForTesting(
       DefaultSettings(), this, &task_runner_provider_, &stats_instrumentation_,
       &task_graph_runner_,
       AnimationHost::CreateForTesting(ThreadInstance::kImpl), nullptr, 0,
@@ -18405,6 +18668,7 @@ TEST_P(LayerTreeHostImplEventMetricPreservationTest, PreserveMetrics) {
     host_impl_->WillBeginImplFrame(args);
 
     base::SimpleTestTickClock tick_clock;
+    tick_clock.Advance(base::Milliseconds(18));
     auto metrics_array = std::to_array<std::unique_ptr<EventMetrics>>(
         {EventMetrics::CreateForTesting(
              ui::EventType::kTouchMoved,
@@ -18422,7 +18686,9 @@ TEST_P(LayerTreeHostImplEventMetricPreservationTest, PreserveMetrics) {
              /* arrived_in_browser_main_timestamp= */ base::TimeTicks() +
                  base::Milliseconds(14),
              &tick_clock,
-             /* trace_id= */ std::nullopt),
+             /* trace_id= */ std::nullopt,
+             /* scroll_begin_arrival_timestamp= */ base::TimeTicks() +
+                 base::Milliseconds(10)),
          EventMetrics::CreateForTesting(
              ui::EventType::kTouchReleased,
              /* timestamp= */ base::TimeTicks() + base::Milliseconds(15),
@@ -18437,7 +18703,9 @@ TEST_P(LayerTreeHostImplEventMetricPreservationTest, PreserveMetrics) {
              /* timestamp= */ base::TimeTicks() + base::Milliseconds(17),
              /* arrived_in_browser_main_timestamp= */ base::TimeTicks() +
                  base::Milliseconds(18),
-             &tick_clock)});
+             &tick_clock,
+             /* scroll_begin_arrival_timestamp= */ base::TimeTicks() +
+                 base::Milliseconds(10))});
     switch (GetParam().should_preserve) {
       case PreservationTestCase::Preserve::kAllMetrics:
         std::transform(metrics_array.cbegin(), metrics_array.cend(),
@@ -19079,6 +19347,15 @@ class OverscrollEffectTest : public LayerTreeHostImplTest {
     EXPECT_VECTOR2DF_EQ(expected_mixed, run_scroll(OverscrollBehavior(
                                             OverscrollBehavior::Type::kNone,
                                             OverscrollBehavior::Type::kAuto)));
+
+    // Case 4: Chain
+    // Expectation: Unused delta is clamped to zero (no local border effects)
+    // but bubbling is allowed (tested separately).
+    gfx::Vector2dF expected_chain =
+        is_root_scroller ? delta : gfx::Vector2dF(0, 0);
+    EXPECT_VECTOR2DF_EQ(
+        expected_chain,
+        run_scroll(OverscrollBehavior(OverscrollBehavior::Type::kChain)));
   }
 
  private:

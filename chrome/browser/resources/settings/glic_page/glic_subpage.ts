@@ -240,6 +240,26 @@ export class SettingsGlicSubpageElement extends SettingsGlicSubpageElementBase {
         value: false,
       },
 
+      webActuationEnabledPref_: {
+        type: Object,
+        value() {
+          return {
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: false,
+          };
+        },
+      },
+
+      experimentalTriggeringEnabledPref_: {
+        type: Object,
+        value() {
+          return {
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: true,
+          };
+        },
+      },
+
       isWebActuationDisabledForEnterprise_: {
         type: Boolean,
         value: () => {
@@ -293,10 +313,7 @@ export class SettingsGlicSubpageElement extends SettingsGlicSubpageElementBase {
           `prefs.${
               SettingsGlicPageFeaturePrefName
                   .DEFAULT_TAB_CONTEXT_ENABLED}.value)`,
-      'onWebActuationEnabledChanged_(' +
-          `prefs.${
-              SettingsGlicPageFeaturePrefName.WEB_ACTUATION_ENABLED}.value)`,
-
+      'onWebActuationEnabledChanged_(webActuationEnabledPref_.value)',
     ];
   }
 
@@ -336,6 +353,10 @@ export class SettingsGlicSubpageElement extends SettingsGlicSubpageElementBase {
   declare private webActuationSubLabel_: string;
   declare private webActuationLearnMoreUrl_: string;
   declare private webActuationFeatureEnabled_: boolean;
+  declare private webActuationEnabledPref_:
+      chrome.settingsPrivate.PrefObject<boolean>;
+  declare private experimentalTriggeringEnabledPref_:
+      chrome.settingsPrivate.PrefObject<boolean>;
   declare private isWebActuationDisabledForEnterprise_: boolean;
   declare private webActuationDisabledForEnterprisePref_:
       chrome.settingsPrivate.PrefObject<boolean>;
@@ -357,10 +378,27 @@ export class SettingsGlicSubpageElement extends SettingsGlicSubpageElementBase {
         'glic-web-actuation-toggle-visibility-changed',
         (visible: boolean) =>
             this.onWebActuationToggleVisibilityChanged_(visible));
+    this.addWebUiListener(
+        'glic-web-actuation-enabled-changed', (enabled: boolean) => {
+          this.set('webActuationEnabledPref_.value', enabled);
+        });
+    this.addWebUiListener(
+        'glic-experimental-triggering-enabled-changed', (enabled: boolean) => {
+          this.set('experimentalTriggeringEnabledPref_.value', enabled);
+        });
 
     this.browserProxy_.getWebActuationToggleVisibility().then(
         (visible: boolean) => {
             this.onWebActuationToggleVisibilityChanged_(visible);
+        });
+
+    this.browserProxy_.getWebActuationEnabled().then((enabled: boolean) => {
+      this.set('webActuationEnabledPref_.value', enabled);
+    });
+
+    this.browserProxy_.getExperimentalTriggeringEnabled().then(
+        (enabled: boolean) => {
+          this.set('experimentalTriggeringEnabledPref_.value', enabled);
         });
 
     this.registeredShortcut_ = await this.browserProxy_.getGlicShortcut();
@@ -670,8 +708,20 @@ export class SettingsGlicSubpageElement extends SettingsGlicSubpageElementBase {
   private onWebActuationToggleChange_(event: CustomEvent) {
     const target = event.target as SettingsToggleButtonElement;
     const enabled = target.checked;
+    this.browserProxy_.setWebActuationEnabled(enabled);
+    this.set('webActuationEnabledPref_.value', enabled);
     this.metricsBrowserProxy_.recordAction(
         'Glic.Settings.WebActuation' + (enabled ? '.Enabled' : '.Disabled'));
+  }
+
+  private onExperimentalTriggeringToggleChange_(event: CustomEvent) {
+    const target = event.target as SettingsToggleButtonElement;
+    const enabled = target.checked;
+    this.browserProxy_.setExperimentalTriggeringEnabled(enabled);
+    this.set('experimentalTriggeringEnabledPref_.value', enabled);
+    this.metricsBrowserProxy_.recordAction(
+        'Glic.Settings.ExperimentalTriggering' +
+        (enabled ? '.Enabled' : '.Disabled'));
   }
 
   private onWebActuationExpand_() {

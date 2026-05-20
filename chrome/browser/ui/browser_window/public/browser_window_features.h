@@ -12,6 +12,10 @@
 #include "extensions/buildflags/buildflags.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
 
+namespace content_settings {
+class CookieControlsController;
+}  // namespace content_settings
+
 namespace glic {
 class GlicButtonController;
 class GlicIphController;
@@ -41,8 +45,11 @@ class BrowserLocationBarModelDelegate;
 class BrowserSyncedWindowDelegate;
 class BrowserUserEducationInterface;
 class BrowserView;
+class BrowserWindowFullscreenController;
 class BrowserWindowInterface;
+class BrowserWindowModalDialogDelegate;
 class BrowserWindowThemeObserver;
+class BrowserWindowZoomObserver;
 class CallToActionLock;
 class ChromeLabsCoordinator;
 class ColorProviderBrowserHelper;
@@ -94,10 +101,12 @@ class ToastController;
 class ToastService;
 class TranslateBubbleController;
 class UpgradeNotificationController;
+class UnloadController;
 class VerticalTabIphController;
 class WebUIBrowserExclusiveAccessContext;
 class WebUIBrowserSidePanelUI;
 class ZoomBubbleCoordinator;
+class ZoomBubbleManager;
 
 #if BUILDFLAG(IS_WIN)
 class WindowsTaskbarIconUpdater;
@@ -145,6 +154,10 @@ class ExtensionBrowserWindowHelper;
 class ExtensionSidePanelManager;
 class Mv2DisabledDialogController;
 }  // namespace extensions
+
+namespace tabs_api {
+class TabStripUIControllerImpl;
+}
 
 namespace tabs {
 class VerticalTabStripStateController;
@@ -194,6 +207,16 @@ class SessionServiceTabGroupSyncObserver;
 class SharedTabGroupFeedbackController;
 class MostRecentSharedTabUpdateStore;
 }  // namespace tab_groups
+
+namespace qrcode_generator {
+class QRCodeWindowController;
+}  // namespace qrcode_generator
+
+class SharingWindowController;
+
+namespace sharing_hub {
+class SharingHubWindowController;
+}  // namespace sharing_hub
 
 namespace send_tab_to_self {
 class SendTabToSelfToolbarBubbleController;
@@ -270,10 +293,6 @@ class BrowserWindowFeatures {
     return mv2_disabled_dialog_controller_.get();
   }
 
-  ChromeLabsCoordinator* chrome_labs_coordinator() {
-    return chrome_labs_coordinator_.get();
-  }
-
   ImmersiveModeController* immersive_mode_controller() {
     return immersive_mode_controller_.get();
   }
@@ -302,10 +321,6 @@ class BrowserWindowFeatures {
   // implementation is not inlined.
   SidePanelUI* side_panel_ui();
 
-  lens::LensOverlayEntryPointController* lens_overlay_entry_point_controller() {
-    return lens_overlay_entry_point_controller_.get();
-  }
-
   lens::LensRegionSearchController* lens_region_search_controller() {
     return lens_region_search_controller_.get();
   }
@@ -326,11 +341,6 @@ class BrowserWindowFeatures {
   // supported for those cases.
   ToastService* toast_service() { return toast_service_.get(); }
 
-  send_tab_to_self::SendTabToSelfToolbarBubbleController*
-  send_tab_to_self_toolbar_bubble_controller() {
-    return send_tab_to_self_toolbar_bubble_controller_.get();
-  }
-
   extensions::ExtensionSidePanelManager* extension_side_panel_manager() {
     return extension_side_panel_manager_.get();
   }
@@ -338,12 +348,6 @@ class BrowserWindowFeatures {
   ExtensionKeybindingRegistryViews* extension_keybinding_registry() {
     return extension_keybinding_registry_.get();
   }
-
-#if !BUILDFLAG(IS_CHROMEOS)
-  DownloadToolbarUIController* download_toolbar_ui_controller() {
-    return download_toolbar_ui_controller_.get();
-  }
-#endif
 
   tab_groups::MostRecentSharedTabUpdateStore*
   most_recent_shared_tab_update_store() {
@@ -357,10 +361,6 @@ class BrowserWindowFeatures {
   tab_groups::SharedTabGroupFeedbackController*
   shared_tab_group_feedback_controller() {
     return shared_tab_group_feedback_controller_.get();
-  }
-
-  TabSearchToolbarButtonController* tab_search_toolbar_button_controller() {
-    return tab_search_toolbar_button_controller_.get();
   }
 
   BrowserSyncedWindowDelegate* synced_window_delegate() {
@@ -382,6 +382,10 @@ class BrowserWindowFeatures {
   // Only fetch the tab_strip_service to register a pending receiver.
   TabStripServiceFeature* tab_strip_service_feature() {
     return tab_strip_service_feature_.get();
+  }
+
+  tabs_api::TabStripUIControllerImpl* tab_strip_ui_controller() {
+    return tab_strip_ui_controller_.get();
   }
 
   LocationBarModel* location_bar_model() { return location_bar_model_.get(); }
@@ -499,6 +503,10 @@ class BrowserWindowFeatures {
     return contextual_cueing_controller_.get();
   }
 
+  content_settings::CookieControlsController* cookie_controls_controller() {
+    return cookie_controls_controller_.get();
+  }
+
   static ui::UserDataFactoryWithOwner<BrowserWindowInterface>&
   GetUserDataFactoryForTesting();
 
@@ -518,6 +526,8 @@ class BrowserWindowFeatures {
   // set of commands are enabled.
   std::unique_ptr<web_app::AppBrowserController> app_browser_controller_;
 
+  std::unique_ptr<BrowserWindowFullscreenController> fullscreen_controller_;
+
   std::unique_ptr<BrowserActions> browser_actions_;
 
   std::unique_ptr<chrome::BrowserCommandController> browser_command_controller_;
@@ -530,10 +540,13 @@ class BrowserWindowFeatures {
   std::unique_ptr<TabListBridge> tab_list_bridge_;
 
   std::unique_ptr<BrowserInstantController> instant_controller_;
-
   std::unique_ptr<send_tab_to_self::SendTabToSelfToolbarBubbleController>
       send_tab_to_self_toolbar_bubble_controller_;
-
+  std::unique_ptr<SharingWindowController> sharing_window_controller_;
+  std::unique_ptr<sharing_hub::SharingHubWindowController>
+      sharing_hub_window_controller_;
+  std::unique_ptr<qrcode_generator::QRCodeWindowController>
+      qrcode_window_controller_;
   std::unique_ptr<ChromeLabsCoordinator> chrome_labs_coordinator_;
 
   std::unique_ptr<ImmersiveModeController> immersive_mode_controller_;
@@ -619,6 +632,8 @@ class BrowserWindowFeatures {
   std::unique_ptr<DownloadToolbarUIController> download_toolbar_ui_controller_;
 #endif
 
+  std::unique_ptr<ZoomBubbleManager> zoom_bubble_manager_;
+
   std::unique_ptr<ZoomBubbleCoordinator> zoom_bubble_coordinator_;
 
   std::unique_ptr<ActorUiWindowController> actor_ui_window_controller_;
@@ -677,6 +692,9 @@ class BrowserWindowFeatures {
   std::unique_ptr<TabSearchToolbarButtonController>
       tab_search_toolbar_button_controller_;
 
+  std::unique_ptr<content_settings::CookieControlsController>
+      cookie_controls_controller_;
+
   std::unique_ptr<CookieControlsBubbleCoordinator>
       cookie_controls_bubble_coordinator_;
 
@@ -723,6 +741,9 @@ class BrowserWindowFeatures {
   // This is an experimental API that interacts with the TabStripModel.
   std::unique_ptr<TabStripServiceFeature> tab_strip_service_feature_;
 
+  // Controller for managing TabStrip UI decoupled TabStrip platform.
+  std::unique_ptr<tabs_api::TabStripUIControllerImpl> tab_strip_ui_controller_;
+
   // The Find Bar. This may be NULL if there is no Find Bar, and if it is
   // non-NULL, it may or may not be visible.
   std::unique_ptr<FindBarController> find_bar_controller_;
@@ -738,6 +759,8 @@ class BrowserWindowFeatures {
 
   std::unique_ptr<UpgradeNotificationController>
       upgrade_notification_controller_;
+
+  std::unique_ptr<UnloadController> unload_controller_;
 
   // Helper which implements the ContentSettingBubbleModel interface.
   std::unique_ptr<BrowserContentSettingBubbleModelDelegate>
@@ -809,6 +832,11 @@ class BrowserWindowFeatures {
       contextual_cueing_controller_;
 
   std::unique_ptr<BrowserWindowThemeObserver> browser_window_theme_observer_;
+
+  std::unique_ptr<BrowserWindowZoomObserver> browser_window_zoom_observer_;
+
+  std::unique_ptr<BrowserWindowModalDialogDelegate>
+      browser_window_modal_dialog_delegate_;
 
   // Keep this member last to ensure embedder features are torn down first, in
   // reverse order of initialization.

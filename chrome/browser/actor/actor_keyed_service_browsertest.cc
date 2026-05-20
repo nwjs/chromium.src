@@ -10,7 +10,6 @@
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
-#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_proto_conversion.h"
 #include "chrome/browser/actor/actor_task_metadata.h"
@@ -23,6 +22,8 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/platform_browser_test.h"
+#include "components/actor/core/actor_features.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/core/filters/optimization_hints_component_update_listener.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
@@ -109,7 +110,8 @@ class ActorKeyedServiceBrowserTest : public PlatformBrowserTest {
 
   void AddTabToTask(tabs::TabHandle tab_handle, ActorTask* actor_task) {
     TestFuture<mojom::ActionResultPtr> add_tab_future;
-    actor_task->AddTab(tab_handle, add_tab_future.GetCallback());
+    actor_task->AddTab(tab_handle, /*stop_task_on_detach=*/true,
+                       add_tab_future.GetCallback());
     auto add_tab_result = add_tab_future.Take();
     ASSERT_TRUE(add_tab_result);
   }

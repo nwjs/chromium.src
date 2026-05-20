@@ -71,6 +71,9 @@ BASE_DECLARE_FEATURE(kContextualTasksRoundedClipPath);
 // panel. The menu is still shown for lens flows.
 BASE_DECLARE_FEATURE(kContextualTasksHideMenuOnAiPage);
 
+// Enables hiding the close button when in vertical tabs or immersive mode.
+BASE_DECLARE_FEATURE(kContextualTasksHideCloseButtonInVerticalTabs);
+
 // Enables updating the model from URL parameters on every inner navigation.
 BASE_DECLARE_FEATURE(kContextualTasksUpdateModelOnNavigation);
 
@@ -82,9 +85,17 @@ BASE_DECLARE_FEATURE(kContextualTasksVideoCitations);
 // navigating.
 BASE_DECLARE_FEATURE(kContextualTasksPdfCitations);
 
+// When enabled, the back button can expand the side panel.
+BASE_DECLARE_FEATURE(kContextualTasksBackButtonExpandsSidePanel);
+
+// Enables lazy fetching of cluster info for multimodal queries.
+BASE_DECLARE_FEATURE(kContextualTasksLazyFetchClusterInfo);
+
 bool GetIsContextualTasksUpdateModeOnNavigationEnabled();
 
 bool GetIsContextualTasksPdfCitationsEnabled();
+
+bool GetIsContextualTasksLazyFetchClusterInfoEnabled();
 
 // Enum denoting which entry point can show when enabled.
 enum class EntryPointOption {
@@ -308,6 +319,8 @@ extern const char kContextualTasksContextName[];
 extern const char kContextualTasksContextDescription[];
 extern const char kContextualTasksSuggestionsEnabledName[];
 extern const char kContextualTasksSuggestionsEnabledDescription[];
+extern const char kContextualTasksBackButtonExpandsSidePanelName[];
+extern const char kContextualTasksBackButtonExpandsSidePanelDescription[];
 
 }  // namespace flag_descriptions
 

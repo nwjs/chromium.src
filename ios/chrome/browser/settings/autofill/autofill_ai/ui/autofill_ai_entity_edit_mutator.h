@@ -23,15 +23,13 @@
 // Notifies the mutator that the date for `item` has changed to `date`.
 - (void)didChangeDate:(NSDate*)date forItem:(AutofillAIEntityEditDateItem*)item;
 
-// Returns the list of required fields that are missing based on the present
-// attributes.
-- (autofill::DenseSet<autofill::AttributeType>)getMissingRequiredFieldsFor:
+// Returns the list of fields that are missing based on the present attributes.
+- (autofill::DenseSet<autofill::AttributeType>)getMissingImportConstraintsFor:
     (const autofill::DenseSet<autofill::AttributeType>&)presentAttributes;
 
 // Requests authentication before entering edit mode.
 // `completion` is called with the result of the authentication attempt.
-- (void)requestEditingWithCompletion:
-    (void (^)(ReauthenticationResult result))completion;
+- (void)requestEditingWithCompletion:(ReauthenticationResultBlock)completion;
 
 @end
 

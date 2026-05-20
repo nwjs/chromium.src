@@ -9,12 +9,24 @@
 
 #import "base/memory/weak_ptr.h"
 #import "base/observer_list.h"
+#import "base/time/time.h"
 #import "base/types/pass_key.h"
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent_observer.h"
 #import "ios/chrome/browser/shared/model/browser/browser_user_data.h"
 
 class FullscreenBrowserAgentTest;
 class FullscreenMediatorPassKeyProvider;
+enum class FullscreenModeTransitionTrigger;
+
+// Enum representing the current state of the fullscreen UI.
+enum class FullscreenState {
+  // The toolbars are fully expanded and visible.
+  kUIExpanded,
+  // The toolbars are in the process of expanding or collapsing.
+  kInProgress,
+  // The toolbars are fully collapsed and hidden (fullscreen).
+  kUICollapsed,
+};
 
 // A class that holds the fullscreen state for a browser.
 class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
@@ -53,12 +65,21 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
   CGFloat top_progress() const { return top_progress_; }
   CGFloat bottom_progress() const { return bottom_progress_; }
 
+  // Returns the duration of the current animation, if this is called inside of
+  // an animation block while animating in or out of Fullscreen. Otherwise
+  // returns zero.
+  base::TimeDelta animation_duration() const { return animation_duration_; }
+
   // Incrementally changes the fullscreen progress based on a drag or scroll.
   void IncrementalScroll(CGFloat amount, PassKey);
 
   // Enters or exits fullscreen mode.
-  void EnterFullscreen(PassKey, bool animated);
-  void ExitFullscreen(PassKey, bool animated);
+  void EnterFullscreen(PassKey,
+                       FullscreenModeTransitionTrigger trigger,
+                       bool animated);
+  void ExitFullscreen(PassKey,
+                      FullscreenModeTransitionTrigger trigger,
+                      bool animated);
 
   // Increments the disabled counter. If the counter becomes 1, it exits
   // fullscreen mode.
@@ -70,9 +91,18 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
   // Returns the disabled counter.
   size_t disabled_count() const { return disabled_count_; }
 
+  // Returns whether fullscreen is enabled.
+  bool IsEnabled() const;
+
+  // Returns the current fullscreen state.
+  FullscreenState State() const;
+
   // Invalidates the current inset ranges and recalculates them by notifying
   // observers.
-  void InvalidateInsetRange(PassKey);
+  void InvalidateInsetRange();
+
+  // True while InvalidateInsetRange() is running.
+  bool invalidating_inset_range() const { return invalidating_inset_range_; }
 
  private:
   friend class BrowserUserData<FullscreenBrowserAgent>;
@@ -80,12 +110,18 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
   explicit FullscreenBrowserAgent(Browser* browser);
 
   // Updates the progress and broadcasts the change to observers.
-  void UpdateProgressAndBroadcast(CGFloat top_progress,
-                                  CGFloat bottom_progress,
+  void UpdateProgressAndBroadcast(FullscreenTransition transition,
                                   bool animated);
 
   // Notifies all observers of an updated state.
-  void NotifyObserversOfUpdatedState();
+  void NotifyObserversOfUpdatedState(
+      base::TimeDelta duration = base::TimeDelta());
+
+  // Handles animation completion.
+  void AnimationDidComplete(FullscreenTransition transition, bool finished);
+
+  // Notifies observers of transition completion.
+  void NotifyFullscreenDidTransition(FullscreenTransition transition);
 
   base::ObserverList<FullscreenBrowserAgentObserver, true> observers_;
 
@@ -96,6 +132,9 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
   UIEdgeInsets insets_ = UIEdgeInsetsZero;
   UIEdgeInsets min_insets_ = UIEdgeInsetsZero;
   UIEdgeInsets max_insets_ = UIEdgeInsetsZero;
+
+  // True while InvalidateInsetRange() is running.
+  bool invalidating_inset_range_ = false;
 
   // The progress in entering or exiting fullscreen. 1.0 indicates browser UI is
   // fully visible, 0.0 indicates browser UI is fully hidden (in fullscreen
@@ -110,6 +149,9 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
   // True if the agent is currently broadcasting WillUpdateState. Used to
   // ensure AddObscuredInset() is only called a the correct time.
   bool updating_insets_ = false;
+
+  // The animation duration for the current transition.
+  base::TimeDelta animation_duration_ = base::TimeDelta();
 
   base::WeakPtrFactory<FullscreenBrowserAgent> weak_ptr_factory_{this};
 };

@@ -197,12 +197,9 @@ class CapturedSitesPasswordManagerBrowserTest
                                  const std::string& password) override {
     scoped_refptr<password_manager::TestPasswordStore> password_store =
         GetDefaultPasswordStore(browser()->profile());
-    password_manager::FakePasswordStoreBackend* fake_backend =
-        static_cast<password_manager::FakePasswordStoreBackend*>(
-            password_store->GetBackendForTesting());
-
-    auto found = fake_backend->stored_passwords().find(origin);
-    if (fake_backend->stored_passwords().end() == found) {
+    auto passwords_map = GetAllLoginsSync(password_store.get());
+    auto found = passwords_map.find(origin);
+    if (passwords_map.end() == found) {
       return false;
     }
 
@@ -346,7 +343,7 @@ IN_PROC_BROWSER_TEST_P(CapturedSitesPasswordManagerBrowserTest, Recipe) {
 
 // This test is called with a dynamic list and may be empty during the Autofill
 // run instance, so adding GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST a la
-// crbug/1192206
+// crbug.com/40174793
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
     CapturedSitesPasswordManagerBrowserTest);
 INSTANTIATE_TEST_SUITE_P(All,
@@ -473,7 +470,7 @@ IN_PROC_BROWSER_TEST_P(CapturedSitesAutomatedPasswordChangeBrowserTest,
 
 // This test is instantiated with a dynamic list and will be empty during the
 // Password run instance, so adding
-// GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST a la crbug.com/1192206
+// GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST a la crbug.com/40174793
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
     CapturedSitesAutomatedPasswordChangeBrowserTest);
 INSTANTIATE_TEST_SUITE_P(All,

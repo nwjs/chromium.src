@@ -16,7 +16,6 @@
 #include "remoting/base/logging.h"
 #include "remoting/base/username.h"
 #include "remoting/host/pam_utils.h"
-#include "remoting/protocol/channel_authenticator.h"
 
 namespace remoting {
 
@@ -38,8 +37,6 @@ class PamAuthorizer : public protocol::Authenticator {
   JingleAuthentication GetNextMessage() override;
   const std::string& GetAuthKey() const override;
   const SessionPolicies* GetSessionPolicies() const override;
-  std::unique_ptr<protocol::ChannelAuthenticator> CreateChannelAuthenticator()
-      const override;
 
  private:
   void MaybeCheckLocalLogin();
@@ -47,6 +44,8 @@ class PamAuthorizer : public protocol::Authenticator {
 
   std::unique_ptr<protocol::Authenticator> underlying_;
   enum { NOT_CHECKED, ALLOWED, DISALLOWED } local_login_status_;
+
+  base::WeakPtrFactory<PamAuthorizer> weak_factory_{this};
 };
 
 }  // namespace
@@ -101,11 +100,12 @@ void PamAuthorizer::ProcessMessage(const JingleAuthentication& message,
                                    base::OnceClosure resume_callback) {
   // Always delegate to the underlying authenticator and let it manage its own
   // state machine.
-  // |underlying_| is owned, so Unretained() is safe here.
+  // Note: We use a WeakPtr here because the underlying authenticator may
+  // synchronously destroy this object.
   underlying_->ProcessMessage(
       message,
-      base::BindOnce(&PamAuthorizer::OnMessageProcessed, base::Unretained(this),
-                     std::move(resume_callback)));
+      base::BindOnce(&PamAuthorizer::OnMessageProcessed,
+                     weak_factory_.GetWeakPtr(), std::move(resume_callback)));
 }
 
 void PamAuthorizer::OnMessageProcessed(base::OnceClosure resume_callback) {
@@ -114,9 +114,13 @@ void PamAuthorizer::OnMessageProcessed(base::OnceClosure resume_callback) {
 }
 
 JingleAuthentication PamAuthorizer::GetNextMessage() {
+  base::WeakPtr<PamAuthorizer> self = weak_factory_.GetWeakPtr();
   JingleAuthentication result = underlying_->GetNextMessage();
-  // PAM check may be performed once the state has transitioned to ACCEPTED.
-  MaybeCheckLocalLogin();
+  // Verify this object is still valid after calling GetNextMessage().
+  if (self) {
+    // PAM check may be performed once the state has transitioned to ACCEPTED.
+    MaybeCheckLocalLogin();
+  }
   return result;
 }
 
@@ -126,11 +130,6 @@ const std::string& PamAuthorizer::GetAuthKey() const {
 
 const SessionPolicies* PamAuthorizer::GetSessionPolicies() const {
   return underlying_->GetSessionPolicies();
-}
-
-std::unique_ptr<protocol::ChannelAuthenticator>
-PamAuthorizer::CreateChannelAuthenticator() const {
-  return underlying_->CreateChannelAuthenticator();
 }
 
 void PamAuthorizer::MaybeCheckLocalLogin() {

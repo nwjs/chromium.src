@@ -77,7 +77,7 @@ TEST_F(ModelDownloaderAndroidTest, DefaultDownloader) {
       future;
   auto downloader = std::make_unique<ModelDownloaderAndroid>(
       kFeature, MakeDownloaderParams(/*require_persistent_mode=*/false));
-  downloader->StartDownload(future.GetCallback());
+  downloader->StartDownload(future.GetCallback(), base::DoNothing());
   EXPECT_EQ(future.Get(),
             base::unexpected(DownloadFailureReason::kApiNotAvailable));
 
@@ -91,7 +91,7 @@ TEST_F(ModelDownloaderAndroidTest, DownloadAvailable) {
       future;
   auto downloader = std::make_unique<ModelDownloaderAndroid>(
       kFeature, MakeDownloaderParams(/*require_persistent_mode=*/true));
-  downloader->StartDownload(future.GetCallback());
+  downloader->StartDownload(future.GetCallback(), base::DoNothing());
   java_helper_.VerifyDownloaderParams(kFeature,
                                       /*require_persistent_mode=*/true);
   java_helper_.TriggerDownloaderOnAvailable("test_model", "123");
@@ -110,7 +110,7 @@ TEST_F(ModelDownloaderAndroidTest, DownloadUnavailable) {
       future;
   auto downloader = std::make_unique<ModelDownloaderAndroid>(
       kFeature, MakeDownloaderParams(/*require_persistent_mode=*/false));
-  downloader->StartDownload(future.GetCallback());
+  downloader->StartDownload(future.GetCallback(), base::DoNothing());
   java_helper_.TriggerDownloaderOnUnavailable(
       DownloadFailureReason::kUnknownError);
   EXPECT_EQ(future.Get(),
@@ -126,9 +126,9 @@ TEST_F(ModelDownloaderAndroidTest, DownloadAvailableOnDifferentThread) {
       future;
   auto downloader = std::make_unique<ModelDownloaderAndroid>(
       kFeature, MakeDownloaderParams(/*require_persistent_mode=*/false));
-  java_helper_.SetDownloaderCallbackOnDifferentThread();
+  java_helper_.settings().SetDownloaderCallbackOnDifferentThread(true);
 
-  downloader->StartDownload(future.GetCallback());
+  downloader->StartDownload(future.GetCallback(), base::DoNothing());
   java_helper_.TriggerDownloaderOnAvailable("test_model", "123");
 
   auto result = future.Get();
@@ -146,9 +146,9 @@ TEST_F(ModelDownloaderAndroidTest, DownloadUnavailableOnDifferentThread) {
       future;
   auto downloader = std::make_unique<ModelDownloaderAndroid>(
       kFeature, MakeDownloaderParams(/*require_persistent_mode=*/false));
-  java_helper_.SetDownloaderCallbackOnDifferentThread();
+  java_helper_.settings().SetDownloaderCallbackOnDifferentThread(true);
 
-  downloader->StartDownload(future.GetCallback());
+  downloader->StartDownload(future.GetCallback(), base::DoNothing());
   java_helper_.TriggerDownloaderOnUnavailable(
       DownloadFailureReason::kUnknownError);
 
@@ -163,11 +163,53 @@ TEST_F(ModelDownloaderAndroidTest, NativeDownloaderDeletionIsSafe) {
 
   auto downloader = std::make_unique<ModelDownloaderAndroid>(
       kFeature, MakeDownloaderParams(/*require_persistent_mode=*/false));
-  downloader->StartDownload(base::DoNothing());
+  downloader->StartDownload(base::DoNothing(), base::DoNothing());
   // Delete the native session manually and ensure async completion doesn't
   // cause a crash.
   downloader.reset();
   java_helper_.TriggerDownloaderOnAvailable("test_model", "123");
+}
+
+TEST_F(ModelDownloaderAndroidTest, DownloadProgress) {
+  java_helper_.SetMockAiCoreFactory();
+
+  auto downloader = std::make_unique<ModelDownloaderAndroid>(
+      kFeature, MakeDownloaderParams(/*require_persistent_mode=*/false));
+
+  int64_t received_downloaded = 0;
+  int64_t received_total = 0;
+  downloader->StartDownload(
+      base::DoNothing(), base::BindRepeating(
+                             [](int64_t* out_downloaded, int64_t* out_total,
+                                int64_t downloaded_bytes, int64_t total_bytes) {
+                               *out_downloaded = downloaded_bytes;
+                               *out_total = total_bytes;
+                             },
+                             &received_downloaded, &received_total));
+  java_helper_.TriggerDownloaderOnDownloadProgress(500, 1000);
+  EXPECT_EQ(received_downloaded, 500);
+  EXPECT_EQ(received_total, 1000);
+}
+
+TEST_F(ModelDownloaderAndroidTest, DownloadProgressOnDifferentThread) {
+  java_helper_.SetMockAiCoreFactory();
+
+  auto downloader = std::make_unique<ModelDownloaderAndroid>(
+      kFeature, MakeDownloaderParams(/*require_persistent_mode=*/false));
+  java_helper_.settings().SetDownloaderCallbackOnDifferentThread(true);
+
+  base::test::TestFuture<int64_t, int64_t> progress_future;
+  downloader->StartDownload(
+      base::DoNothing(),
+      base::BindRepeating(
+          [](base::test::TestFuture<int64_t, int64_t>* future,
+             int64_t downloaded_bytes, int64_t total_bytes) {
+            future->SetValue(downloaded_bytes, total_bytes);
+          },
+          &progress_future));
+  java_helper_.TriggerDownloaderOnDownloadProgress(500, 1000);
+  EXPECT_EQ(progress_future.Get<0>(), 500);
+  EXPECT_EQ(progress_future.Get<1>(), 1000);
 }
 
 // Test CheckStatus with all ModelStatus enum values.
@@ -180,11 +222,11 @@ TEST_F(ModelDownloaderAndroidTest, CheckStatusAllModelStatusEnums) {
       ModelStatus::kAvailable};
 
   for (ModelStatus expected_status_enum : model_status_enums) {
+    java_helper_.settings().SetDefaultStatusCheckResult(expected_status_enum);
     base::test::TestFuture<ModelStatus> future;
     auto downloader = std::make_unique<ModelDownloaderAndroid>(
         kFeature, MakeDownloaderParams(/*require_persistent_mode=*/false));
     downloader->CheckStatus(future.GetCallback());
-    java_helper_.TriggerDownloaderOnStatusCheckResult(expected_status_enum);
     EXPECT_EQ(future.Get(), expected_status_enum);
   }
 }
@@ -196,7 +238,7 @@ TEST_F(ModelDownloaderAndroidTest, CheckStatusOnDifferentThread) {
   base::test::TestFuture<ModelStatus> future;
   auto downloader = std::make_unique<ModelDownloaderAndroid>(
       kFeature, MakeDownloaderParams(/*require_persistent_mode=*/false));
-  java_helper_.SetDownloaderCallbackOnDifferentThread();
+  java_helper_.settings().SetDownloaderCallbackOnDifferentThread(true);
 
   downloader->CheckStatus(future.GetCallback());
   java_helper_.TriggerDownloaderOnStatusCheckResult(ModelStatus::kAvailable);
@@ -219,7 +261,7 @@ TEST_F(ModelDownloaderAndroidTest, CheckStatusDoesNotAffectStartDownload) {
   // Call StartDownload on the same instance.
   base::test::TestFuture<base::expected<BaseModelSpec, DownloadFailureReason>>
       download_future;
-  downloader->StartDownload(download_future.GetCallback());
+  downloader->StartDownload(download_future.GetCallback(), base::DoNothing());
 
   // Trigger both callbacks and verify both complete with their expected
   // results without interfering with each other.

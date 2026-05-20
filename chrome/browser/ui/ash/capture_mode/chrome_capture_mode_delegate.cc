@@ -454,7 +454,7 @@ base::FilePath ChromeCaptureModeDelegate::GetUserDefaultDownloadsFolder()
   // location, which the browser handles by prompting the user to select
   // another one when accessed, but Capture Mode doesn't have this capability.
   // We also decided that this browser setting should not affect where the OS
-  // saves the captured files. https://crbug.com/1192406.
+  // saves the captured files. https://crbug.com/40757227.
   return download_prefs->GetDefaultDownloadDirectoryForProfile();
 }
 
@@ -651,9 +651,14 @@ void ChromeCaptureModeDelegate::GetDriveFsFreeSpaceBytes(
 }
 
 bool ChromeCaptureModeDelegate::IsCameraDisabledByPolicy() const {
-  return policy::SystemFeaturesDisableListPolicyHandler::
-      IsSystemFeatureDisabled(policy::SystemFeature::kCamera,
-                              &local_state_.get());
+  if (policy::SystemFeaturesDisableListPolicyHandler::IsSystemFeatureDisabled(
+          policy::SystemFeature::kCamera, &local_state_.get())) {
+    return true;
+  }
+
+  auto* profile = ProfileManager::GetActiveUserProfile();
+  return profile &&
+         !profile->GetPrefs()->GetBoolean(prefs::kVideoCaptureAllowed);
 }
 
 bool ChromeCaptureModeDelegate::IsAudioCaptureDisabledByPolicy() const {

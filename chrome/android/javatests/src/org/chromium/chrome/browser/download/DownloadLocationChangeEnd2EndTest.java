@@ -33,11 +33,11 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.download.settings.DownloadDirectoryAdapter;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.components.policy.test.annotations.Policies;
@@ -81,7 +81,7 @@ public class DownloadLocationChangeEnd2EndTest {
     @Test
     @MediumTest
     @Feature({"Downloads"})
-    @DisabledTest(message = "crbug.com/1415500")
+    @DisabledTest(message = "crbug.com/40892752")
     public void testDefaultDialogPositiveButtonClickThrough() {
         startDownload(/* hasSDCard= */ true);
 
@@ -127,7 +127,7 @@ public class DownloadLocationChangeEnd2EndTest {
     @Test
     @MediumTest
     @Feature({"Downloads"})
-    @DisabledTest(message = "https://crbug.com/1381286")
+    @DisabledTest(message = "https://crbug.com/40876707")
     public void testDefaultDialogShowSpinner() {
         startDownload(/* hasSDCard= */ true);
 

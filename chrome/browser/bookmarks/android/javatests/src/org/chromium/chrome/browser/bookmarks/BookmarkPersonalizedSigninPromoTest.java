@@ -33,13 +33,13 @@ import org.mockito.quality.Strictness;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.signin.services.SigninPreferencesManager;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.util.BookmarkTestRule;
@@ -153,7 +153,7 @@ public class BookmarkPersonalizedSigninPromoTest {
         var shownHistogram = HistogramWatcher.newSingleRecordWatcher(SHOWN_HISTOGRAM_NAME, 1);
         mBookmarkTestRule.showBookmarkManager(mActivityTestRule.getActivity());
 
-        // TODO(https://crbug.com/1383638): If this stops the flakes, consider removing
+        // TODO(https://crbug.com/40877951): If this stops the flakes, consider removing
         // activeInRecyclerView.
         RecyclerView recyclerView =
                 getBookmarkHostActivity().findViewById(R.id.selectable_list_recycler_view);

@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/download/model/download_manager_tab_helper.h"
 
+#import <optional>
+
 #import "base/check_op.h"
 #import "base/feature_list.h"
 #import "base/files/file_path.h"
@@ -12,6 +14,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "components/enterprise/common/proto/connectors.pb.h"
 #import "components/enterprise/connectors/core/analysis_settings.h"
+#import "components/enterprise/connectors/core/cloud_content_scanning/files_request_handler_base.h"
 #import "components/enterprise/connectors/core/common.h"
 #import "components/policy/core/common/policy_pref_names.h"
 #import "components/prefs/pref_service.h"
@@ -25,7 +28,9 @@
 #import "ios/chrome/browser/drive/model/drive_service_factory.h"
 #import "ios/chrome/browser/drive/model/drive_tab_helper.h"
 #import "ios/chrome/browser/drive/model/upload_task.h"
-#import "ios/chrome/browser/enterprise/cloud_content_scanning/model/ios_analysis_request_handler.h"
+#import "ios/chrome/browser/enterprise/cloud_content_scanning/model/files_request_handler_ios.h"
+#import "ios/chrome/browser/enterprise/cloud_content_scanning/model/ios_cloud_binary_upload_service.h"
+#import "ios/chrome/browser/enterprise/cloud_content_scanning/model/ios_cloud_binary_upload_service_factory.h"
 #import "ios/chrome/browser/enterprise/cloud_content_scanning/model/scan_decision_helper.h"
 #import "ios/chrome/browser/enterprise/connectors/analysis/content_analysis_info.h"
 #import "ios/chrome/browser/enterprise/connectors/connectors_service_factory.h"
@@ -58,11 +63,7 @@ DownloadManagerTabHelper::~DownloadManagerTabHelper() {
     web_state_ = nullptr;
   }
 
-  if (task_) {
-    task_->RemoveObserver(this);
-    task_ = nullptr;
-    task_final_file_path_.clear();
-  }
+  CleanupCurrentDownload();
 }
 
 #pragma mark - Public methods
@@ -114,9 +115,7 @@ void DownloadManagerTabHelper::SetCurrentDownload(
   // If there is no new task and an existing task is present, remove the
   // observer and reset the task.
   if (!task) {
-    task_->RemoveObserver(this);
-    task_ = nullptr;
-    task_final_file_path_.clear();
+    CleanupCurrentDownload();
     return;
   }
 
@@ -168,17 +167,17 @@ web::DownloadTask* DownloadManagerTabHelper::GetActiveDownloadTask() {
 }
 
 void DownloadManagerTabHelper::CleanupCurrentDownload() {
-  if (delegate_ && delegate_started_) {
-    delegate_started_ = false;
-    [delegate_ downloadManagerTabHelper:this didCleanupDownload:task_.get()];
-  }
-
   if (task_) {
+    if (delegate_ && delegate_started_) {
+      delegate_started_ = false;
+      [delegate_ downloadManagerTabHelper:this didCleanupDownload:task_.get()];
+    }
     task_->RemoveObserver(this);
-    // Defer task destruction to avoid clearing ObserverList during iteration.
-    ScheduleTaskDestruction();
+    task_.reset();
     task_final_file_path_.clear();
   }
+  files_request_handler_.reset();
+  content_analysis_info_.reset();
 }
 
 void DownloadManagerTabHelper::AdaptToFullscreen(bool adapt_to_fullscreen) {
@@ -225,11 +224,7 @@ void DownloadManagerTabHelper::WebStateDestroyed(web::WebState* web_state) {
   DCHECK_EQ(web_state_, web_state);
   web_state_->RemoveObserver(this);
   web_state_ = nullptr;
-  if (task_) {
-    task_->RemoveObserver(this);
-    task_ = nullptr;
-    task_final_file_path_.clear();
-  }
+  CleanupCurrentDownload();
 }
 
 #pragma mark - web::DownloadTaskObserver
@@ -238,7 +233,10 @@ void DownloadManagerTabHelper::OnDownloadUpdated(web::DownloadTask* task) {
   DCHECK_EQ(task, task_.get());
   switch (task->GetState()) {
     case web::DownloadTask::State::kCancelled:
-      CleanupCurrentDownload();
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE,
+          base::BindOnce(&DownloadManagerTabHelper::CleanupCurrentDownload,
+                         weak_ptr_factory_.GetWeakPtr()));
       break;
     case web::DownloadTask::State::kInProgress:
       break;
@@ -258,11 +256,7 @@ void DownloadManagerTabHelper::OnDownloadUpdated(web::DownloadTask* task) {
 
 void DownloadManagerTabHelper::DidCreateDownload(
     std::unique_ptr<web::DownloadTask> task) {
-  if (task_) {
-    task_->RemoveObserver(this);
-    task_ = nullptr;
-    task_final_file_path_.clear();
-  }
+  CleanupCurrentDownload();
   task_ = std::move(task);
   task_->AddObserver(this);
   if (web_state_->IsVisible() && delegate_) {
@@ -363,16 +357,6 @@ void DownloadManagerTabHelper::MaybeSetDownloadPathForAutoDeletion() {
   service->SetDownloadPath(GetDownloadTaskFinalFilePath());
 }
 
-void DownloadManagerTabHelper::ScheduleTaskDestruction() {
-  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(&DownloadManagerTabHelper::DestroyTask,
-                                weak_ptr_factory_.GetWeakPtr()));
-}
-
-void DownloadManagerTabHelper::DestroyTask() {
-  task_.reset();
-}
-
 DownloadFileService* DownloadManagerTabHelper::GetDownloadFileService() {
   CHECK(web_state_);
 
@@ -387,16 +371,14 @@ DownloadFileService* DownloadManagerTabHelper::GetDownloadFileService() {
 
 void DownloadManagerTabHelper::MaybeMoveDownloadToDownloadsDirectory(
     bool shouldProceed) {
-  // Ensure the handler is destroyed as soon as it is no longer necessary.
-  base::ScopedClosureRunner cleanup(base::BindOnce(
-      [](std::unique_ptr<enterprise_connectors::IOSAnalysisRequestHandler>
-             handler) {},
-      std::move(analysis_request_handler_)));
-
   if (!shouldProceed) {
     CleanupCurrentDownload();
     return;
   }
+
+  // This will only report when scan result is WARNING and bypassed.
+  files_request_handler_->ReportWarningBypass(
+      /* user_justification */ std::nullopt);
 
   base::FilePath user_download_path;
   GetDownloadsDirectory(&user_download_path);
@@ -406,6 +388,11 @@ void DownloadManagerTabHelper::MaybeMoveDownloadToDownloadsDirectory(
       user_download_path, base_file_name,
       base::BindOnce(&DownloadManagerTabHelper::UseAvailableUserDocumentsPath,
                      weak_ptr_factory_.GetWeakPtr()));
+
+  // Ensure the handler and content_analysis_info_ are destroyed as soon as they
+  // are no longer necessary.
+  files_request_handler_.reset();
+  content_analysis_info_.reset();
 }
 
 void DownloadManagerTabHelper::ProcessCompleteDownloadTask() {
@@ -428,25 +415,30 @@ void DownloadManagerTabHelper::ProcessCompleteDownloadTask() {
         url, enterprise_connectors::AnalysisConnector::FILE_DOWNLOADED);
   }
 
-  auto content_analysis_info =
+  content_analysis_info_ =
       std::make_unique<enterprise_connectors::ContentAnalysisInfo>(
           url,
           settings.has_value() ? std::move(settings.value())
                                : enterprise_connectors::AnalysisSettings(),
           enterprise_connectors::ContentAnalysisRequest::NORMAL_DOWNLOAD,
-          web_state_->GetWeakPtr());
-
-  // Send the download file for enterprise DLP download content scanning.
-  analysis_request_handler_ = std::make_unique<
-      enterprise_connectors::IOSAnalysisRequestHandler>(
-      std::move(content_analysis_info), profile, "",
-      enterprise_connectors::DeepScanAccessPoint::DOWNLOAD,
-      task_->GetResponsePath(),
+          *web_state_);
+  auto files_request_handler_delegate = std::make_unique<
+      enterprise_connectors::FilesRequestHandlerIOS>(
+      profile, task_->GetResponsePath(),
       base::BindOnce(
           &enterprise_connectors::HandleScanDecision, web_state_->GetWeakPtr(),
           enterprise_connectors::TriggerType::kSavePrompt,
           base::BindOnce(
               &DownloadManagerTabHelper::MaybeMoveDownloadToDownloadsDirectory,
               weak_ptr_factory_.GetWeakPtr())));
-  analysis_request_handler_->PrepareContentAnalysisRequest();
+
+  // Send the download file for enterprise DLP download content scanning.
+  files_request_handler_ = std::make_unique<
+      enterprise_connectors::FilesRequestHandlerBase>(
+      content_analysis_info_.get(),
+      enterprise_connectors::IOSCloudBinaryUploadServiceFactory::GetForProfile(
+          profile),
+      url, "", enterprise_connectors::DeepScanAccessPoint::DOWNLOAD,
+      std::move(files_request_handler_delegate));
+  files_request_handler_->UploadData();
 }

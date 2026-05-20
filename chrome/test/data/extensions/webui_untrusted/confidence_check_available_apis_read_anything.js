@@ -11,7 +11,8 @@
 //
 // NOTE: Of course, update this list if/when more APIs are made available.
 
-var expected = [
+(function() {
+const expected = [
   // Deprecated proprietary Chrome APIs unrelated to Extensions.
   'csi',
   'loadTimes',
@@ -25,17 +26,20 @@ var expected = [
   'runtime',
 ];
 
-var actual = Object.keys(chrome).sort();
+const actual = Object.keys(chrome).sort();
 
-var isEqual = expected.length == actual.length;
-for (var i = 0; i < expected.length && isEqual; i++) {
-  if (expected[i] != actual[i])
+let isEqual = expected.length === actual.length;
+for (let i = 0; i < expected.length && isEqual; i++) {
+  if (expected[i] !== actual[i]) {
     isEqual = false;
+  }
 }
 
 if (!isEqual) {
-  console.error(window.location.href + ': ' +
-                'Expected: ' + JSON.stringify(expected) + ', ' +
-                'Actual: ' + JSON.stringify(actual));
+  console.error(
+      window.location.href + ': ' +
+      'Expected: ' + JSON.stringify(expected) + ', ' +
+      'Actual: ' + JSON.stringify(actual));
 }
 return isEqual;
+})();

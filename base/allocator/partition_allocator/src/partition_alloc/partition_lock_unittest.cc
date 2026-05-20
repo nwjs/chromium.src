@@ -580,6 +580,18 @@ class FutexMigrationTestThread : public TestThreadBase {
   std::atomic<int>* num_threads_started_;
   int thread_id_;
 };
+
+// FUTEX_LOCK_PI2 was introduced in kernel 5.14.
+bool FutexLockPI2Supported() {
+  struct utsname info;
+  if (uname(&info) != 0) {
+    return false;
+  }
+  int32_t major = 0, minor = 0;
+  PA_UNSAFE_TODO(sscanf(info.release, "%d.%d", &major, &minor));
+  return major > 5 || (major == 5 && minor >= 14);
+}
+
 }  // namespace
 
 // The |PartitionAllocUsePriorityInheritanceLocks| feature is enabled after the
@@ -588,6 +600,10 @@ class FutexMigrationTestThread : public TestThreadBase {
 // the migration works correctly by enabling the feature with multiple threads
 // contending for the same lock.
 TEST(PartitionAllocLockTest, FutexMigration) {
+  if (!FutexLockPI2Supported()) {
+    GTEST_SKIP() << "FUTEX_LOCK_PI2 requires kernel >= 5.14";
+  }
+
   Lock lock;
   std::atomic<int> num_threads_started{0};
 

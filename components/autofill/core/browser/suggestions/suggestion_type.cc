@@ -31,8 +31,6 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kManageCreditCard";
     case SuggestionType::kManageIban:
       return "kManageIban";
-    case SuggestionType::kManagePlusAddress:
-      return "kManagePlusAddress";
     case SuggestionType::kManageLoyaltyCard:
       return "kManageLoyaltyCard";
     case SuggestionType::kComposeResumeNudge:
@@ -83,8 +81,6 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kIbanEntry";
     case SuggestionType::kBnplEntry:
       return "kBnplEntry";
-    case SuggestionType::kFillExistingPlusAddress:
-      return "kFillExistingPlusAddress";
     case SuggestionType::kMerchantPromoCodeEntry:
       return "kMerchantPromoCodeEntry";
     case SuggestionType::kSeePromoCodeDetails:
@@ -115,6 +111,8 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kPendingStateSignin";
     case SuggestionType::kAtMemorySearchResult:
       return "kAtMemorySearchResult";
+    case SuggestionType::kAtMemoryInactivityNudge:
+      return "kAtMemoryInactivityNudge";
     case SuggestionType::kLoyaltyCardEntry:
       return "kLoyaltyCardEntry";
     case SuggestionType::kAllLoyaltyCardsEntry:
@@ -125,6 +123,8 @@ std::string_view SuggestionTypeToStringView(SuggestionType type) {
       return "kLoadingThrobber";
     case SuggestionType::kBnplFootnote:
       return "kBnplFootnote";
+    case SuggestionType::kAutocompleteAtMemoryButton:
+      return "kAutocompleteAtMemoryButton";
   }
   NOTREACHED();
 }

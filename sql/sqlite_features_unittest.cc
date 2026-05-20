@@ -21,6 +21,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "sql/database.h"
+#include "sql/internal_api_token.h"
 #include "sql/statement.h"
 #include "sql/statement_id.h"
 #include "sql/test/scoped_error_expecter.h"
@@ -661,9 +662,9 @@ TEST_F(SQLiteFeaturesTest, WALNoClose) {
   ASSERT_TRUE(Reopen());
   ASSERT_TRUE(db_.Execute("PRAGMA journal_mode = WAL"));
   ASSERT_TRUE(db_.Execute("ALTER TABLE foo ADD COLUMN c"));
-  ASSERT_EQ(
-      SQLITE_OK,
-      sqlite3_db_config(db_.db_, SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, 1, nullptr));
+  ASSERT_EQ(SQLITE_OK,
+            sqlite3_db_config(db_.db(InternalApiToken()),
+                              SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, 1, nullptr));
   ASSERT_TRUE(base::PathExists(wal_path));
   db_.Close();
   ASSERT_TRUE(base::PathExists(wal_path));

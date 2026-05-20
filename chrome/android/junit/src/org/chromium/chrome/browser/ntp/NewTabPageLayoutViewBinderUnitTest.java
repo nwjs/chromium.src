@@ -4,13 +4,17 @@
 
 package org.chromium.chrome.browser.ntp;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.ntp.NewTabPageLayoutProperties.DELEGATE;
 import static org.chromium.chrome.browser.ntp.NewTabPageLayoutProperties.ON_LAYOUT_CHANGE_LISTENER;
+import static org.chromium.chrome.browser.ntp.NewTabPageLayoutProperties.SEARCH_BOX_VIEW;
 import static org.chromium.chrome.browser.ntp.NewTabPageLayoutProperties.TOP_INSET_PX;
 import static org.chromium.chrome.browser.ntp.NewTabPageLayoutProperties.TRANSITION_Y;
 
@@ -25,6 +29,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.R;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
@@ -62,6 +67,13 @@ public class NewTabPageLayoutViewBinderUnitTest {
     }
 
     @Test
+    public void testSearchBoxView() {
+        View searchBoxView = mock(View.class);
+        mModel.set(SEARCH_BOX_VIEW, searchBoxView);
+        verify(mView).setSearchBoxView(eq(searchBoxView));
+    }
+
+    @Test
     public void testTransitionY() {
         float transitionY = 100.1f;
         mModel.set(TRANSITION_Y, transitionY);
@@ -74,7 +86,10 @@ public class NewTabPageLayoutViewBinderUnitTest {
         mModel.set(ON_LAYOUT_CHANGE_LISTENER, listener);
         verify(mView).addOnLayoutChangeListener(eq(listener));
 
+        when(mView.getTag(R.id.ntp_view_layout_change_listener_tag)).thenReturn(listener);
+        clearInvocations(mView);
         mModel.set(ON_LAYOUT_CHANGE_LISTENER, null);
-        verify(mView).removeOnLayoutChangeListener(eq(null));
+        verify(mView).removeOnLayoutChangeListener(eq(listener));
+        verify(mView, never()).addOnLayoutChangeListener(any(View.OnLayoutChangeListener.class));
     }
 }

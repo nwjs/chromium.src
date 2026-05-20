@@ -35,8 +35,11 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.ChromeAutocompleteSchemeClassifier;
 import org.chromium.chrome.browser.omnibox.ChromeAutocompleteSchemeClassifierJni;
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
@@ -50,10 +53,14 @@ import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.omnibox.OmniboxUrlEmphasizerJni;
 import org.chromium.components.security_state.ConnectionMaliciousContentStatus;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
+import org.chromium.components.security_state.SecurityStateModel;
+import org.chromium.components.security_state.SecurityStateModelJni;
+import org.chromium.content_public.browser.WebContents;
 import org.chromium.url.GURL;
 
 /** Unit tests for the LocationBarModel. */
 @RunWith(BaseRobolectricTestRunner.class)
+@DisableFeatures({ChromeFeatureList.HTTPS_FIRST_DIALOG_UI})
 public class LocationBarModelUnitTest {
     private static final LocationBarModel.OfflineStatus OFFLINE_STATUS =
             new LocationBarModel.OfflineStatus() {
@@ -82,6 +89,9 @@ public class LocationBarModelUnitTest {
     @Mock private LocationBarModel.Natives mLocationBarModelJni;
     @Mock private ChromeAutocompleteSchemeClassifier.Natives mChromeAutocompleteSchemeClassifierJni;
     @Mock private OmniboxUrlEmphasizerJni mOmniboxUrlEmphasizerJni;
+
+    @Mock private SecurityStateModel.Natives mSecurityStateModelJni;
+
     @Mock private TabbedPaintPreview mTabbedPaintPreview;
 
     private final UserDataHost mUserDataHost = new UserDataHost();
@@ -123,6 +133,7 @@ public class LocationBarModelUnitTest {
                 mChromeAutocompleteSchemeClassifierJni);
         LocationBarModelJni.setInstanceForTesting(mLocationBarModelJni);
         OmniboxUrlEmphasizerJni.setInstanceForTesting(mOmniboxUrlEmphasizerJni);
+        SecurityStateModelJni.setInstanceForTesting(mSecurityStateModelJni);
 
         when(mPrimaryOtrProfileMock.isOffTheRecord()).thenReturn(true);
         when(mNonPrimaryOtrProfileMock.isOffTheRecord()).thenReturn(true);
@@ -138,6 +149,7 @@ public class LocationBarModelUnitTest {
         when(mIncognitoNonPrimaryTabMock.getProfile()).thenReturn(mNonPrimaryOtrProfileMock);
 
         when(mLocationBarModelJni.init(any())).thenReturn(123L);
+        when(mSecurityStateModelJni.isHttpsOnlyModeUpgradedForWebContents(any())).thenReturn(false);
 
         // Bypass OmniboxUrlEmphasizer testing - this code always returns the displayText.
         doReturn(false).when(mLocationBarModel).shouldEmphasizeUrl();
@@ -472,6 +484,27 @@ public class LocationBarModelUnitTest {
     }
 
     @Test
+    @EnableFeatures({ChromeFeatureList.HTTPS_FIRST_DIALOG_UI})
+    public void getSecurityIconResource_connectionWarning_httpsFirstWarning_returnsNoEncryption() {
+        mLocationBarModel.initializeWithNative();
+
+        WebContents webContentsMock = Mockito.mock(WebContents.class);
+        when(mRegularTabMock.getWebContents()).thenReturn(webContentsMock);
+        doReturn(true).when(mRegularTabMock).isInitialized();
+        doReturn(mExampleGurl)
+                .when(mLocationBarModelJni)
+                .getUrlOfVisibleNavigationEntry(Mockito.anyLong());
+        mLocationBarModel.setTab(mRegularTabMock, mRegularProfileMock);
+        when(mSecurityStateModelJni.isHttpsOnlyModeUpgradedForWebContents(webContentsMock))
+                .thenReturn(true);
+
+        assertResourceIdIs(
+                R.drawable.omnibox_no_encryption,
+                ConnectionSecurityLevel.WARNING,
+                ConnectionMaliciousContentStatus.NONE);
+    }
+
+    @Test
     public void getSecurityIconResource_connectionDangerous_returnsOmniboxDangerous() {
         mLocationBarModel.initializeWithNative();
         assertResourceIdIs(
@@ -588,6 +621,75 @@ public class LocationBarModelUnitTest {
             doReturn(true).when(mRegularTabMock).isInitialized();
             GURL bookmarksGurl = new GURL(UrlConstants.BOOKMARKS_NATIVE_URL);
             doReturn(bookmarksGurl)
+                    .when(mLocationBarModelJni)
+                    .getUrlOfVisibleNavigationEntry(Mockito.anyLong());
+
+            model.setTab(mRegularTabMock, mRegularProfileMock);
+            model.updateVisibleGurl();
+
+            UrlBarData data = model.getUrlBarData();
+            assertEquals(UrlBarData.EMPTY, data);
+        } finally {
+            model.destroy();
+        }
+    }
+
+    @Test
+    public void getUrlBarData_ChromeSchemeInternalUrlOnTablet() {
+        Context context =
+                new ContextThemeWrapper(
+                        ContextUtils.getApplicationContext(), R.style.Theme_BrowserUI_DayNight);
+
+        LocationBarModel model =
+                new LocationBarModel(
+                        context,
+                        NewTabPageDelegate.EMPTY,
+                        url -> url.getSpec(),
+                        OFFLINE_STATUS,
+                        ObservableSuppliers.createNonNull(ControlsPosition.TOP));
+        model = Mockito.spy(model);
+        doReturn(true).when(model).isNonMultiDisplayContextOnTablet();
+        model.initializeWithNative();
+
+        try {
+            doReturn(true).when(mRegularTabMock).isInitialized();
+            GURL historyGurl = new GURL("chrome://history");
+            doReturn(historyGurl)
+                    .when(mLocationBarModelJni)
+                    .getUrlOfVisibleNavigationEntry(Mockito.anyLong());
+
+            model.setTab(mRegularTabMock, mRegularProfileMock);
+            model.updateVisibleGurl();
+
+            UrlBarData data = model.getUrlBarData();
+            assertEquals("chrome://history/", data.displayText.toString());
+            assertEquals(historyGurl, data.url);
+        } finally {
+            model.destroy();
+        }
+    }
+
+    @Test
+    public void getUrlBarData_ChromeSchemeInternalUrlOnPhone() {
+        Context context =
+                new ContextThemeWrapper(
+                        ContextUtils.getApplicationContext(), R.style.Theme_BrowserUI_DayNight);
+
+        LocationBarModel model =
+                new LocationBarModel(
+                        context,
+                        NewTabPageDelegate.EMPTY,
+                        url -> url.getSpec(),
+                        OFFLINE_STATUS,
+                        ObservableSuppliers.createNonNull(ControlsPosition.TOP));
+        model = Mockito.spy(model);
+        doReturn(false).when(model).isNonMultiDisplayContextOnTablet();
+        model.initializeWithNative();
+
+        try {
+            doReturn(true).when(mRegularTabMock).isInitialized();
+            GURL historyGurl = new GURL("chrome://history");
+            doReturn(historyGurl)
                     .when(mLocationBarModelJni)
                     .getUrlOfVisibleNavigationEntry(Mockito.anyLong());
 

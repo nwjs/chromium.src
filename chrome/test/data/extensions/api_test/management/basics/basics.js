@@ -6,7 +6,7 @@ function checkIcon(item, size, path) {
   const icons = item.icons;
   for (let i = 0; i < icons.length; i++) {
     const icon = icons[i];
-    if (icon.size == size) {
+    if (icon.size === size) {
       const expectedUrl = `chrome://extension-icon/${item.id}/${size}/0`;
       assertEq(expectedUrl, icon.url);
       return;
@@ -17,11 +17,11 @@ function checkIcon(item, size, path) {
 
 function checkPermission(item, perm) {
   const permissions = item.permissions;
-  console.log(`permissions for ${item.name}`);
+  console.info(`permissions for ${item.name}`);
   for (let i = 0; i < permissions.length; i++) {
     const permission = permissions[i];
-    console.log(` ${permission}`);
-    if (permission == perm) {
+    console.info(` ${permission}`);
+    if (permission === perm) {
       assertEq(perm, permission);
       return;
     }
@@ -33,7 +33,7 @@ function checkHostPermission(item, perm) {
   const permissions = item.hostPermissions;
   for (let i = 0; i < permissions.length; i++) {
     const permission = permissions[i];
-    if (permission == perm) {
+    if (permission === perm) {
       assertEq(perm, permission);
       return;
     }
@@ -56,7 +56,7 @@ const tests = [
       checkItemInList(items, 'enabled_app', true, 'hosted_app', {
         appLaunchUrl: 'http://www.google.com/',
         offlineEnabled: true,
-        updateUrl: 'http://example.com/update.xml'
+        updateUrl: 'http://example.com/update.xml',
       });
       checkItemInList(
           items, 'disabled_app', false, 'hosted_app',
@@ -66,7 +66,7 @@ const tests = [
           {homepageUrl: 'http://example.com/'});
       checkItemInList(items, 'disabled_extension', false, 'extension', {
         optionsUrl: 'chrome-extension://<ID>/pages/options.html',
-        disabledReason: 'unknown'
+        disabledReason: 'unknown',
       });
       checkItemInList(
           items, 'description', true, 'extension',
@@ -110,7 +110,7 @@ const tests = [
   },
 
   function permissionWarnings() {
-    let manifestStr = `{
+    const manifestStr = `{
            "name": "Hello World!",
            "manifest_version": 2,
            "version": "1.0",
@@ -128,31 +128,30 @@ const tests = [
           chrome.test.assertTrue(
               warnings.indexOf(
                   'Read and change your data on all flickr.com sites ' +
-                  'and api.flickr.com') !=
-              -1);
+                  'and api.flickr.com') !== -1);
           chrome.test.assertTrue(
-              warnings.indexOf('Read and change your bookmarks') != -1);
+              warnings.indexOf('Read and change your bookmarks') !== -1);
           chrome.test.assertTrue(
-              warnings.indexOf('Detect your physical location') != -1);
+              warnings.indexOf('Detect your physical location') !== -1);
           chrome.test.assertTrue(
               warnings.indexOf(
                   'Read and change your browsing history on all your ' +
-                  'signed-in devices') != -1);
+                  'signed-in devices') !== -1);
         }));
 
     chrome.management.getAll(callback(function(items) {
-      let extension = getItemNamed(items, 'Extension Management API Test');
-      chrome.management.getPermissionWarningsById(extension.id,
-                                                  callback(function(warnings) {
-        chrome.test.assertEq(1, warnings.length);
-        chrome.test.assertEq(
-            'Manage your apps, extensions, and themes', warnings[0]);
-      }));
+      const extension = getItemNamed(items, 'Extension Management API Test');
+      chrome.management.getPermissionWarningsById(
+          extension.id, callback(function(warnings) {
+            chrome.test.assertEq(1, warnings.length);
+            chrome.test.assertEq(
+                'Manage your apps, extensions, and themes', warnings[0]);
+          }));
     }));
   },
 
   function permissionWarningsClipboardReadApi() {
-    let manifestStr = `{
+    const manifestStr = `{
            "name": "Clipboard!",
            "version": "1.0",
            "manifest_version": 2,
@@ -195,18 +194,18 @@ const tests = [
       checkItem(disabled, 'disabled_extension', false, 'extension');
       chrome.management.setEnabled(
           disabled.id, true, callback(function() {
-            chrome.management.get(
-                disabled.id, callback(function(nowEnabled) {
-                  checkItem(
-                      nowEnabled, 'disabled_extension', true, 'extension');
-                }));
+            chrome.management.get(disabled.id, callback(function(nowEnabled) {
+                                    checkItem(
+                                        nowEnabled, 'disabled_extension', true,
+                                        'extension');
+                                  }));
           }));
     }));
-  }
+  },
 ];
 
-const scriptUrl = '_test_resources/api_test/management/common.js';
-const loadScript = chrome.test.loadScript(scriptUrl);
+const SCRIPT_URL = '_test_resources/api_test/management/common.js';
+const loadScript = chrome.test.loadScript(SCRIPT_URL);
 
 loadScript.then(async function() {
   chrome.test.runTests(tests);

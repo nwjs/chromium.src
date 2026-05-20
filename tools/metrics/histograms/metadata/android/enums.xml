@@ -32,6 +32,8 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Activity not found"/>
 </enum>
 
+<!-- LINT.IfChange(AdaptiveToolbarRadioButtonState) -->
+
 <enum name="AdaptiveToolbarRadioButtonState">
   <int value="0" label="Unknown"/>
   <int value="1" label="Auto with new tab"/>
@@ -46,13 +48,15 @@ chromium-metrics-reviews@google.com.
   <int value="10" label="Auto with add to bookmarks"/>
   <int value="11" label="Read Aloud (Listen to this page)"/>
   <int value="12" label="Auto with Read Aloud (Listen to this page)"/>
-  <int value="13" label="Page summary"/>
-  <int value="14" label="Auto with Page summary"/>
+  <int value="13" label="Page summary (deprecated)"/>
+  <int value="14" label="Auto with Page summary (deprecated)"/>
   <int value="15" label="Open in browser"/>
   <int value="16" label="Auto with Open in browser"/>
   <int value="17" label="Glic"/>
   <int value="18" label="Auto with Glic"/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/browser/toolbar/adaptive/AdaptiveToolbarStats.java:AdaptiveToolbarRadioButtonState) -->
 
 <enum name="AgsaProcessName">
   <int value="0" label=":googleapp"/>
@@ -301,14 +305,6 @@ chromium-metrics-reviews@google.com.
   <summary>See Android.DarkTheme.ThemeSettingsEntry.</summary>
   <int value="0" label="Settings"/>
   <int value="1" label="Auto dark mode message"/>
-</enum>
-
-<enum name="AndroidToolbarDropType">
-  <int value="0" label="Invalid"/>
-  <int value="1" label="Chrome Text"/>
-  <int value="2" label="Text"/>
-  <int value="3" label="Chrome Link"/>
-  <int value="4" label="Chrome Image"/>
 </enum>
 
 <!-- LINT.IfChange(AndroidUidType) -->
@@ -760,41 +756,23 @@ chromium-metrics-reviews@google.com.
 
 </enum>
 
-<enum name="ArmCpuPart">
-  <summary>
-    Defines a subset of ARM CPU (implementer, part-number) pairs composed as a
-    20-bit number. This is a non-exhaustive enumeration. See
-    https://goto.google.com/cyqss for details.
-  </summary>
-  <int value="269319" label="ARM Cortex-A7"/>
-  <int value="269320" label="ARM Cortex-A8 *"/>
-  <int value="269321" label="ARM Cortex-A9 *"/>
-  <int value="269326" label="ARM Cortex-A17 *"/>
-  <int value="269327" label="ARM Cortex-A15 *"/>
-  <int value="269335" label="ARM Cortex-R7 *"/>
-  <int value="269336" label="ARM Cortex-R8 *"/>
-  <int value="269571" label="ARM Cortex-A53"/>
-  <int value="269573" label="ARM Cortex-A55"/>
-  <int value="269575" label="ARM Cortex-A57 *"/>
-  <int value="269576" label="ARM Cortex-A72 *"/>
-  <int value="269577" label="ARM Cortex-A73 *"/>
-  <int value="269578" label="ARM Cortex-A75 *"/>
-  <int value="269579" label="ARM Cortex-A76 *"/>
-  <int value="269580" label="ARM Neoverse N1 *"/>
-  <int value="269581" label="ARM Cortex-A77 *"/>
-  <int value="269633" label="ARM Cortex-A78 *"/>
-  <int value="269638" label="ARM Cortex-A510"/>
-  <int value="332305" label="Qualcomm Snapdragon 820 **"/>
-  <int value="333825" label="Qualcomm Kyro 260/280 Silver *"/>
-  <int value="333827" label="Qualcomm Kryo 385 Silver *"/>
-  <int value="333829" label="Qualcomm Kryo 485 Silver *"/>
-</enum>
-
 <enum name="AsyncTaskStatus">
   <int value="0" label="PENDING">AsyncTask was not started when waited on.</int>
   <int value="1" label="RUNNING">AsyncTask was running when waited on.</int>
   <int value="2" label="FINISHED">AsyncTask is done.</int>
 </enum>
+
+<!-- LINT.IfChange(AwPrefetchApiCallResult) -->
+
+<enum name="AwPrefetchApiCallResult">
+  <int value="0" label="UI_THREAD_SUCCESS"/>
+  <int value="1" label="UI_THREAD_FAILURE"/>
+  <int value="2" label="WORKER_THREAD_PRE_PREFETCH_SUCCESS"/>
+  <int value="3" label="WORKER_THREAD_PREFETCH_SUCCESS"/>
+  <int value="4" label="WORKER_THREAD_PREFETCH_FAILURE"/>
+</enum>
+
+<!-- LINT.ThenChange(/android_webview/java/src/org/chromium/android_webview/AwPrefetchManager.java:ApiCallResult) -->
 
 <enum name="BackgroundTaskId">
   <int value="-1" label="Not found"/>
@@ -874,6 +852,7 @@ chromium-metrics-reviews@google.com.
   <int value="23" label="(20) NATIVE_PAGE"/>
   <int value="24" label="(12) CANCEL_TAB_STRIP_DRAG"/>
   <int value="25" label="(04) CANCEL_TAB_SWITCHER_DRAG"/>
+  <int value="26" label="(05) ACTOR_OVERLAY"/>
 </enum>
 
 <!-- LINT.IfChange(BackPressTabCloseType) -->
@@ -893,6 +872,25 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Filtered explicitly disabled"/>
   <int value="4" label="Filtered weaker signals"/>
 </enum>
+
+<!-- LINT.IfChange(BringTabToFrontResult) -->
+
+<enum name="BringTabToFrontResult">
+  <int value="0" label="Success">
+    The intent was successfully dispatched to the target instance via
+    MultiWindowUtils.launchIntentInInstance.
+  </int>
+  <int value="1" label="Failed: Window Info Not Found">
+    The feature was enabled, but TabWindowInfo could not be found for the given
+    tabId.
+  </int>
+  <int value="2" label="Failed: Launch In Instance Failed">
+    The feature was enabled, windowInfo was found, but
+    MultiWindowUtils.launchIntentInInstance failed (returned false).
+  </int>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/document/ChromeLauncherActivity.java:BringTabToFrontResult) -->
 
 <enum name="BrowserControlsLockReason">
   <summary>The reason why browser controls were locked.</summary>
@@ -1037,6 +1035,9 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Messages Promo"/>
   <int value="1" label="Setting Card Promo"/>
   <int value="2" label="Educational Tip Promo"/>
+  <int value="3" label="FRE Promo"/>
+  <int value="4" label="App Menu Deep-link"/>
+  <int value="5" label="Settings Row Deep-link"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/android/default_browser_promo/java/src/org/chromium/chrome/browser/ui/default_browser_promo/DefaultBrowserPromoMetrics.java:DefaultBrowserPromoSourceType) -->
@@ -1271,6 +1272,28 @@ chromium-metrics-reviews@google.com.
   <int value="9" label="SpeculativeTransferStateReplaced"/>
 </enum>
 
+<!-- LINT.IfChange(LauncherShortcutUpdateFailure) -->
+
+<enum name="LauncherShortcutUpdateFailure">
+  <int value="0" label="Rate Limited"/>
+  <int value="1" label="Limit Exceeded"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/LauncherShortcutActivity.java:UpdateFailure) -->
+
+<!-- LINT.IfChange(LaunchInInstanceEarlyFailureReason) -->
+
+<enum name="LaunchInInstanceEarlyFailureReason">
+  <int value="0" label="Activity Not Found Or Wrong Type">
+    Activity from instanceId is not found or not a ChromeTabbedActivity.
+  </int>
+  <int value="1" label="Invalid Task ID">
+    The activity has an invalid task ID.
+  </int>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/multiwindow/MultiWindowUtils.java:LaunchInInstanceEarlyFailureReason) -->
+
 <enum name="LightTheme">
   <int value="0" label="undefined"/>
   <int value="1" label="no"/>
@@ -1388,6 +1411,7 @@ chromium-metrics-reviews@google.com.
   <int value="66" label="PermissionPromptLoud"/>
   <int value="67" label="SaveUpdateEntity"/>
   <int value="68" label="SigninSurvey"/>
+  <int value="69" label="ExtensionsRequestAccess"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/messages/android/message_enums.h:MessageIdentifier) -->
@@ -1519,6 +1543,7 @@ chromium-metrics-reviews@google.com.
   <int value="17" label="Focus restored on activity recreation."/>
   <int value="18" label="Location bar state restoration on tab change"/>
   <int value="19" label="NTP AI Mode button."/>
+  <int value="20" label="NTP plus button."/>
 </enum>
 
 <!-- LINT.ThenChange(//components/omnibox/browser/android/java/src/org/chromium/components/omnibox/OmniboxFocusReason.java:OmniboxFocusReason) -->
@@ -1691,6 +1716,7 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="HISTORY_ACTIVITY"/>
   <int value="6" label="SETTINGS_ACTIVITY"/>
   <int value="7" label="BOOKMARK_ACTIVITY"/>
+  <int value="8" label="FUSEBOX_POPUP"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/browser_ui/widget/android/java/src/org/chromium/components/browser_ui/widget/scrim/ScrimManager.java:ScrimClient) -->
@@ -1881,6 +1907,7 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="First time user"/>
   <int value="9" label="User prompted survey"/>
   <int value="10" label="Other survey displayed recently"/>
+  <int value="11" label="Profile too new"/>
 </enum>
 
 <enum name="SurveyPresentationStatusCode">
@@ -2623,21 +2650,6 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="OS yes, WebView on"/>
 </enum>
 
-<enum name="WebViewForceDarkMode2">
-  <int value="0" label="off"/>
-  <int value="1" label="auto"/>
-  <int value="2" label="on"/>
-</enum>
-
-<enum name="WebViewInDarkModeVsLightTheme">
-  <int value="0" label="WebView dark, light theme undefined"/>
-  <int value="1" label="WebView dark, light theme no"/>
-  <int value="2" label="WebView dark, light theme yes"/>
-  <int value="3" label="WebView light, light theme undefined"/>
-  <int value="4" label="WebView light, light theme no"/>
-  <int value="5" label="WebView light, light theme yes"/>
-</enum>
-
 <enum name="WebViewInDarkModeVsNightMode">
   <int value="0" label="WebView dark, night mode undefined"/>
   <int value="1" label="WebView dark, night mode on"/>
@@ -2658,6 +2670,15 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Always allow"/>
   <int value="1" label="Never allow"/>
   <int value="2" label="Compatibility Mode"/>
+</enum>
+
+<enum name="WebViewNavigationType">
+  <int value="0" label="Initial"/>
+  <int value="1" label="Same-document"/>
+  <int value="2" label="Browser-initiated same-origin"/>
+  <int value="3" label="Browser-initiated cross-origin"/>
+  <int value="4" label="Renderer-initiated same-origin"/>
+  <int value="5" label="Renderer-initiated cross-origin"/>
 </enum>
 
 <enum name="WebViewNightModeVsLightTheme">
@@ -2840,6 +2861,7 @@ chromium-metrics-reviews@google.com.
   <int value="106" label="staticGetRendererLibraryPrefetchMode"/>
   <int value="107" label="getDefaultCookieManager"/>
   <int value="108" label="getProfileStore"/>
+  <int value="109" label="webViewInstanceGetSettings"/>
 </enum>
 
 <!-- LINT.ThenChange(//base/tracing/protos/chrome_track_event.proto:WebViewStartup) -->
@@ -2880,6 +2902,12 @@ chromium-metrics-reviews@google.com.
   <int value="4"
       label="The app is running in a multi-windowing mode not equivalent to
              any of the other modes."/>
+</enum>
+
+<enum name="WindowOcclusionCalculateResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Root view unavailable"/>
+  <int value="2" label="Visible rect empty"/>
 </enum>
 
 </enums>

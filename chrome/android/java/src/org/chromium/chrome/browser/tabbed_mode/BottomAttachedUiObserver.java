@@ -30,6 +30,7 @@ import org.chromium.chrome.browser.keyboard_accessory.KeyboardAccessoryVisualSta
 import org.chromium.chrome.browser.keyboard_accessory.ManualFillingComponent;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsVisualState;
+import org.chromium.chrome.browser.ui.BottomSheetUtils;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
@@ -38,6 +39,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
 import org.chromium.ui.insets.InsetObserver;
 
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * An observer class that listens for changes in UI components that are attached to the bottom of
@@ -386,11 +388,16 @@ public class BottomAttachedUiObserver
     private boolean shouldMatchBottomSheetColor() {
         if (!mBottomSheetVisible) return false;
 
+        if (BottomSheetUtils.isContentActingAsBrowserControls(mBottomSheetController)) {
+            return false;
+        }
+
         if (mIsSheetAnchoredToBottomControls) {
             // As long as the bottom sheet is anchored to the browser controls, match the sheet's
             // color when there's no other browser controls layer other than the bottom chin.
             // Bottom sheet's width setting does not matter in this case.
-            return !mBottomControlsStacker.hasVisibleLayersOtherThan(LayerType.BOTTOM_CHIN);
+            return !mBottomControlsStacker.hasVisibleLayersOtherThan(
+                    Set.of(LayerType.BOTTOM_CHIN, LayerType.BOTTOM_SHEET));
         } else {
             // When using bottom chin, the chin is covered by the sheet so sheet color could should
             // not be used in partial width. When sheet is in full width, it covers the chin. So the

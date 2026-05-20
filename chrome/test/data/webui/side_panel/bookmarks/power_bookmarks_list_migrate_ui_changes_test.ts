@@ -12,7 +12,7 @@ import {PriceTrackingBrowserProxyImpl} from 'chrome://resources/cr_components/co
 import {PageImageServiceBrowserProxy} from 'chrome://resources/cr_components/page_image_service/browser_proxy.js';
 import {PageImageServiceHandlerRemote} from 'chrome://resources/cr_components/page_image_service/page_image_service.mojom-webui.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {assertEquals} from 'chrome://webui-test/chai_assert.js';
+import {assertEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks, waitAfterNextRender} from 'chrome://webui-test/polymer_test_util.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {eventToPromise} from 'chrome://webui-test/test_util.js';
@@ -84,12 +84,10 @@ suite('MigrateUiChangesUseBrowserEditDialog', () => {
     await waitAfterNextRender(contextMenu);
 
     // Get the edit option in the menu.
-    const menuItems =
-        contextMenu.shadowRoot!.querySelectorAll('.dropdown-item');
-    assertEquals(
-        menuItems[4]!.textContent.includes(loadTimeData.getString('menuEdit')),
-        true);
-    const editItem = contextMenu.shadowRoot!.querySelectorAll<HTMLElement>(
+    const menuItems = contextMenu.shadowRoot.querySelectorAll('.dropdown-item');
+    assertTrue(
+        menuItems[4]!.textContent.includes(loadTimeData.getString('menuEdit')));
+    const editItem = contextMenu.shadowRoot.querySelectorAll<HTMLElement>(
         '.dropdown-item')[4]!;
 
     // Click on edit and wait for the call to propagate.
@@ -120,13 +118,11 @@ suite('MigrateUiChangesUseBrowserEditDialog', () => {
     await waitAfterNextRender(contextMenu);
 
     // Get the move option in the menu.
-    const menuItems =
-        contextMenu.shadowRoot!.querySelectorAll('.dropdown-item');
-    assertEquals(
+    const menuItems = contextMenu.shadowRoot.querySelectorAll('.dropdown-item');
+    assertTrue(
         menuItems[4]!.textContent.includes(
-            loadTimeData.getString('tooltipMove')),
-        true);
-    const moveItem = contextMenu.shadowRoot!.querySelectorAll<HTMLElement>(
+            loadTimeData.getString('tooltipMove')));
+    const moveItem = contextMenu.shadowRoot.querySelectorAll<HTMLElement>(
         '.dropdown-item')[4]!;
 
     // Click on move and wait for the call to propagate.

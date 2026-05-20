@@ -10,6 +10,7 @@
 
 #include "base/base64url.h"
 #include "base/functional/callback.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "components/one_time_tokens/core/browser/fetch_email_one_time_token_request.pb.h"
@@ -90,7 +91,9 @@ class EmailOneTimeTokenFetcherTest : public testing::Test {
         .spec();
   }
 
-  base::test::TaskEnvironment task_environment_;
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
+  base::HistogramTester histogram_tester_;
   std::unique_ptr<network::TestURLLoaderFactory> test_url_loader_factory_;
   std::unique_ptr<signin::IdentityTestEnvironment> identity_test_env_;
 };
@@ -103,6 +106,7 @@ TEST_F(EmailOneTimeTokenFetcherTest, Success) {
       future;
 
   fetcher->Start(future.GetCallback());
+  task_environment_.FastForwardBy(base::Milliseconds(123));
   WaitForAccessTokenRequestAndRespondWithSuccess();
 
   const network::ResourceRequest* pending_request =
@@ -114,6 +118,12 @@ TEST_F(EmailOneTimeTokenFetcherTest, Success) {
   ASSERT_TRUE(header_value.has_value());
   EXPECT_EQ(*header_value, "Bearer access_token");
 
+  const std::optional<std::string> qos_header =
+      pending_request->headers.GetHeader(
+          kOneTimeTokenServiceCriticalityHeaderName);
+  ASSERT_TRUE(qos_header.has_value());
+  EXPECT_EQ(*qos_header, kOneTimeTokenServiceCriticalityHeaderValue);
+
   EXPECT_EQ(pending_request->url.spec(), GetExpectedUrl());
 
   test_url_loader_factory_->AddResponse(pending_request->url.spec(),
@@ -124,6 +134,9 @@ TEST_F(EmailOneTimeTokenFetcherTest, Success) {
   ASSERT_TRUE(result.has_value());
   EXPECT_EQ(result->value(), kOneTimeToken);
   EXPECT_EQ(result->type(), OneTimeTokenType::kGmail);
+  histogram_tester_.ExpectUniqueTimeSample(
+      "Autofill.OneTimeTokens.Backend.Gmail.AuthLatency",
+      base::Milliseconds(123), 1);
 }
 
 // Tests that an error is returned when user authentication fails.
@@ -134,6 +147,7 @@ TEST_F(EmailOneTimeTokenFetcherTest, AccessTokenError) {
       future;
 
   fetcher->Start(future.GetCallback());
+  task_environment_.FastForwardBy(base::Milliseconds(456));
   WaitForAccessTokenRequestAndRespondWithError();
 
   const base::expected<OneTimeToken, OneTimeTokenRetrievalError>& result =
@@ -141,6 +155,9 @@ TEST_F(EmailOneTimeTokenFetcherTest, AccessTokenError) {
   ASSERT_FALSE(result.has_value());
   EXPECT_EQ(result.error(),
             OneTimeTokenRetrievalError::kGmailOtpBackendAuthError);
+  histogram_tester_.ExpectUniqueTimeSample(
+      "Autofill.OneTimeTokens.Backend.Gmail.AuthLatency",
+      base::Milliseconds(456), 1);
 }
 
 // Tests that an error is returned when the network request to the Gmail OTP
@@ -163,6 +180,8 @@ TEST_F(EmailOneTimeTokenFetcherTest, NetworkError) {
   ASSERT_FALSE(result.has_value());
   EXPECT_EQ(result.error(),
             OneTimeTokenRetrievalError::kGmailOtpBackendNetworkError);
+  histogram_tester_.ExpectTotalCount(
+      "Autofill.OneTimeTokens.Backend.Gmail.NetworkLatency", 1);
 }
 
 // Tests that an error is returned when the response proto is invalid.
@@ -207,6 +226,37 @@ TEST_F(EmailOneTimeTokenFetcherTest, ResponseWithoutToken) {
   EXPECT_EQ(result.error(),
             OneTimeTokenRetrievalError::kGmailOtpBackendInvalidResponse);
   auto unused = future.Get();
+}
+
+// Tests that the fetcher retries on transient errors (like HTTP 500) and
+// eventually succeeds if a subsequent attempt is successful.
+TEST_F(EmailOneTimeTokenFetcherTest, RetriesOnTransientError) {
+  std::unique_ptr<EmailOneTimeTokenFetcher> fetcher = CreateFetcher();
+  base::test::TestFuture<
+      base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
+      future;
+
+  fetcher->Start(future.GetCallback());
+  WaitForAccessTokenRequestAndRespondWithSuccess();
+
+  ASSERT_TRUE(test_url_loader_factory_->IsPending(GetExpectedUrl()));
+
+  // Add a 500 error response first.
+  test_url_loader_factory_->AddResponse(GetExpectedUrl(), "",
+                                        net::HTTP_INTERNAL_SERVER_ERROR);
+
+  // SimpleURLLoader should automatically retry.
+  // TestURLLoaderFactory will consume the first response and wait for the next
+  // request for the same URL.
+  // We provide a successful response for the retry attempt.
+  test_url_loader_factory_->AddResponse(GetExpectedUrl(),
+                                        CreateValidResponseString());
+
+  const base::expected<OneTimeToken, OneTimeTokenRetrievalError>& result =
+      future.Get();
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->value(), kOneTimeToken);
+  EXPECT_EQ(test_url_loader_factory_->total_requests(), 2u);
 }
 
 }  // namespace one_time_tokens

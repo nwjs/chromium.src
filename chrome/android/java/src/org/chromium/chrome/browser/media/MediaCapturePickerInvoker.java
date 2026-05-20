@@ -8,6 +8,7 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 
 import androidx.activity.result.ActivityResult;
 import androidx.fragment.app.FragmentActivity;
@@ -18,7 +19,6 @@ import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.media.MediaCapturePickerHeadlessFragment.CaptureAction;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabLoadIfNeededCaller;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.media.capture.ScreenCapture;
 
@@ -41,8 +41,7 @@ public class MediaCapturePickerInvoker {
         MediaCapturePickerDelegate impl =
                 ServiceLoaderUtil.maybeCreate(MediaCapturePickerDelegate.class);
         if (impl != null) {
-            android.content.Intent intent =
-                    impl.createScreenCaptureIntent(context, params, delegate);
+            Intent intent = impl.createScreenCaptureIntent(context, params, delegate);
             if (intent != null) {
                 Activity activity = ContextUtils.activityFromContext(context);
                 // We should always get a non-null ChromeActivity which is a FragmentActivity.
@@ -92,7 +91,7 @@ public class MediaCapturePickerInvoker {
                         "PickerInvoker: Tab %d with title '%s' was picked",
                         tab.getId(),
                         tab.getTitle());
-                tab.loadIfNeeded(TabLoadIfNeededCaller.MEDIA_CAPTURE_PICKER);
+                tab.loadIfNeeded(/* forceBackingSize= */ true);
                 WebContents pickedTabwebContents = tab.getWebContents();
                 assert pickedTabwebContents != null;
 

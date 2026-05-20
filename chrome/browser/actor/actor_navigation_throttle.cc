@@ -8,7 +8,6 @@
 
 #include "base/containers/fixed_flat_set.h"
 #include "base/types/pass_key.h"
-#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/execution_engine.h"
@@ -17,6 +16,8 @@
 #include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/actor_webui.mojom.h"
 #include "chrome/common/chrome_features.h"
+#include "components/actor/core/actor_features.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_throttle.h"
@@ -188,28 +189,14 @@ void ActorNavigationThrottle::OnNavigationConfirmationDecision(
 content::NavigationThrottle::ThrottleCheckResult
 ActorNavigationThrottle::WillStartOrRedirectRequest(bool is_redirection) {
   const GURL& navigation_url = navigation_handle()->GetURL();
-  const std::optional<url::Origin>& initiator_origin =
-      navigation_handle()->GetInitiatorOrigin();
 
   AggregatedJournal& journal = GetJournal();
 
-  if (!is_redirection && !initiator_origin) {
+  if (!is_redirection && !navigation_handle()->IsRendererInitiated()) {
     journal.Log(navigation_url, task_id_, "NavThrottle",
                 JournalDetailsBuilder()
                     .Add("navigate", "Not triggered by page")
                     .Build());
-    return content::NavigationThrottle::PROCEED;
-  }
-
-  if (initiator_origin && initiator_origin->IsSameOriginWith(navigation_url)) {
-    journal.Log(navigation_url, task_id_, "NavThrottle",
-                JournalDetailsBuilder()
-                    .Add("navigate", is_redirection ? "Same origin redirect"
-                                                    : "Same origin navigation")
-                    .Build());
-    // This isn't needed for correctness. We know that if the actor triggered a
-    // same origin navigation, the destination URL will be allowed. So we
-    // avoid an unnecessary defer.
     return content::NavigationThrottle::PROCEED;
   }
 

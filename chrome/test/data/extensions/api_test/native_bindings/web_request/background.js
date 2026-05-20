@@ -27,9 +27,10 @@ chrome.test.assertTrue(caught);
 chrome.webRequest.onBeforeRequest.addListener(function(details) {
   const url = new URL(details.url);
   // Ignore favicon requests, and don't redirect simple2.html.
-  if (url.pathname == '/native_bindings/simple2.html' ||
-      url.pathname == '/favicon.ico')
+  if (url.pathname === '/native_bindings/simple2.html' ||
+      url.pathname === '/favicon.ico') {
     return {};
+  }
 
   chrome.test.assertEq('/native_bindings/simple.html', url.pathname);
   chrome.test.assertNe('', url.port);

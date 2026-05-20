@@ -8,6 +8,7 @@ import static org.chromium.chrome.browser.multiwindow.MultiInstanceManager.INVAL
 
 import android.app.Activity;
 import android.content.Intent;
+import android.os.Bundle;
 
 import androidx.annotation.StringRes;
 
@@ -26,6 +27,7 @@ import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingTabsTask;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabUtils;
@@ -34,6 +36,7 @@ import org.chromium.chrome.browser.tabmodel.TabGroupMetadata;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.util.AndroidTaskUtils;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.content_public.browser.WebContents;
 
 import java.util.HashMap;
 import java.util.List;
@@ -76,50 +79,53 @@ import java.util.Set;
     }
 
     @Override
-    public @Nullable Intent createNewWindowIntent(
-            Activity sourceActivity, boolean isIncognito, @NewWindowAppSource int source) {
-        boolean isInMultiWindowMode =
-                MultiWindowUtils.getInstance().isInMultiWindowMode(sourceActivity);
-        boolean isInMultiDisplayMode =
-                MultiWindowUtils.getInstance().isInMultiDisplayMode(sourceActivity);
+    public boolean createNewWindow(
+            Activity sourceActivity,
+            boolean isIncognito,
+            @Nullable Bundle additionalIntentExtras,
+            @Nullable Bundle startActivityOptions,
+            @NewWindowAppSource int source) {
+        Intent intent = MultiWindowUtils.createNewWindowIntent(sourceActivity, isIncognito, source);
+        if (intent == null) return false;
 
-        if (MultiWindowUtils.isMultiInstanceApi31Enabled()) {
-            boolean openAdjacently =
-                    (MultiWindowUtils.canEnterMultiWindowMode()
-                                    || isInMultiWindowMode
-                                    || isInMultiDisplayMode)
-                            && MultiWindowUtils.shouldOpenInAdjacentWindow(sourceActivity);
-
-            Intent intent =
-                    MultiWindowUtils.createNewWindowIntent(
-                            sourceActivity,
-                            MultiInstanceManager.INVALID_WINDOW_ID,
-                            /* preferNew= */ true,
-                            openAdjacently,
-                            source);
-            intent.putExtra(IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_WINDOW, isIncognito);
-            return intent;
+        if (additionalIntentExtras != null) {
+            intent.putExtras(additionalIntentExtras);
         }
 
-        assert !isIncognito : "Opening an incognito window isn't supported";
-        assert isInMultiWindowMode || isInMultiDisplayMode
-                : "Current windowing mode doesn't support opening a new window";
+        MultiInstanceManager.onMultiInstanceModeStarted();
+        try {
+            sourceActivity.startActivity(intent, startActivityOptions);
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
 
-        Class<? extends Activity> targetActivity =
-                MultiWindowUtils.getInstance().getOpenInOtherWindowActivity(sourceActivity);
-        if (targetActivity == null) return null;
+    @Override
+    public boolean createNewWindowFromWebContents(
+            Activity sourceActivity,
+            Profile profile,
+            WebContents webContents,
+            @Nullable Bundle additionalIntentExtras,
+            @Nullable Bundle startActivityOptions,
+            @NewWindowAppSource int source) {
+        if (!MultiWindowUtils.isMultiInstanceApi31Enabled()) return false;
 
-        Intent intent = new Intent(sourceActivity, targetActivity);
-        MultiWindowUtils.setOpenInOtherWindowIntentExtras(intent, sourceActivity, targetActivity);
-
-        intent.putExtra(IntentHandler.EXTRA_NEW_WINDOW_APP_SOURCE, source);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        if (MultiWindowUtils.shouldOpenInAdjacentWindow(sourceActivity)) {
-            intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
+        if (!MultiWindowUtils.isWithinInstanceLimit()) {
+            var multiInstanceManager = getMultiInstanceManager(sourceActivity);
+            if (multiInstanceManager != null) {
+                multiInstanceManager.showInstanceCreationLimitMessage();
+            }
+            return false;
         }
 
-        return intent;
+        return mTabReparentingDelegate.createNewWindowFromWebContents(
+                sourceActivity,
+                profile,
+                webContents,
+                additionalIntentExtras,
+                startActivityOptions,
+                source);
     }
 
     @Override
@@ -138,7 +144,7 @@ import java.util.Set;
             return;
         }
 
-        boolean openAdjacently = MultiWindowUtils.shouldOpenInAdjacentWindow(sourceActivity);
+        boolean openAdjacently = shouldMoveTabsInAdjacentWindow(sourceActivity, tabs.size());
         mTabReparentingDelegate.reparentTabsToNewWindow(
                 tabs, INVALID_WINDOW_ID, openAdjacently, finalizeCallback, source);
     }
@@ -180,7 +186,7 @@ import java.util.Set;
             Activity sourceActivity = TabUtils.getActivity(tabs.get(0));
             boolean openAdjacently =
                     sourceActivity != null
-                            && MultiWindowUtils.shouldOpenInAdjacentWindow(sourceActivity);
+                            && shouldMoveTabsInAdjacentWindow(sourceActivity, tabs.size());
             mTabReparentingDelegate.reparentTabsToNewWindow(
                     tabs,
                     destWindowId,
@@ -253,7 +259,9 @@ import java.util.Set;
                 multiInstanceManager.showInstanceCreationLimitMessage();
             }
         } else {
-            boolean openAdjacently = MultiWindowUtils.shouldOpenInAdjacentWindow(sourceActivity);
+            boolean openAdjacently =
+                    shouldMoveTabsInAdjacentWindow(
+                            sourceActivity, tabGroupMetadata.tabIdsToUrls.size());
             mTabReparentingDelegate.reparentTabGroupToNewWindow(
                     tabGroupMetadata, INVALID_WINDOW_ID, openAdjacently, source);
         }
@@ -278,7 +286,8 @@ import java.util.Set;
         } else {
             boolean openAdjacently =
                     sourceActivity != null
-                            && MultiWindowUtils.shouldOpenInAdjacentWindow(sourceActivity);
+                            && shouldMoveTabsInAdjacentWindow(
+                                    sourceActivity, tabGroupMetadata.tabIdsToUrls.size());
             mTabReparentingDelegate.reparentTabGroupToNewWindow(
                     tabGroupMetadata,
                     destWindowId,
@@ -531,6 +540,26 @@ import java.util.Set;
             intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
             intent.putExtra(IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_WINDOW, isIncognitoWindow);
         }
+    }
+
+    /**
+     * Helps determine whether FLAG_ACTIVITY_LAUNCH_ADJACENT needs to be set in the intent to create
+     * a new window when tabs are moved.
+     */
+    private static boolean shouldMoveTabsInAdjacentWindow(
+            Activity sourceActivity, int moveTabCount) {
+        if (sourceActivity.isInMultiWindowMode()) return true;
+        if (sourceActivity instanceof ChromeTabbedActivity tabbedActivity) {
+            int totalTabCount = tabbedActivity.getTabModelSelector().getTotalTabCount();
+            if (totalTabCount == moveTabCount) {
+                // It is likely that some features will finish the source window's activity when the
+                // last set of tabs from a fullscreen window are moved. To avoid unexpected system
+                // UX to launch the new window adjacently while the source window is getting closed,
+                // we will generally avoid setting the flag in this scenario.
+                return false;
+            }
+        }
+        return MultiWindowUtils.shouldOpenInAdjacentWindow(sourceActivity);
     }
 
     private void onActivityStateChange(Activity activity, @ActivityState int newState) {

@@ -4,6 +4,7 @@
 
 module webnn.mojom;
 
+import "mojo/public/mojom/base/file.mojom";
 import "services/webnn/public/mojom/features.mojom";
 import "services/webnn/public/mojom/webnn_context.mojom";
 import "services/webnn/public/mojom/webnn_context_properties.mojom";
@@ -42,6 +43,9 @@ struct CreateContextSuccess {
   // and the GPU process.
   handle<data_pipe_producer>? write_tensor_producer;
   handle<data_pipe_consumer>? read_tensor_consumer;
+  // The command buffer ID of the context, which is used to create a sync token
+  // for synchronizing access to resources between WebNN and WebGPU.
+  uint64 command_buffer_id;
 };
 
 // Represents the return value of `WebNNContextProvider::CreateWebNNContext()`.
@@ -63,4 +67,15 @@ interface WebNNContextProvider {
   // configuration of options isn't supported.
   CreateWebNNContext(CreateContextOptions options)
       => (CreateContextResult result);
+};
+
+// Interface for creating temporary weights files in the browser process.
+// Used by the in-renderer TFLite backend which cannot create files directly
+// due to the renderer process sandbox.
+// TODO(crbug.com/507502295): Use file manager for TFLite weights files.
+[RuntimeFeature=webnn.mojom.features.kWebMachineLearningNeuralNetwork]
+interface WebNNWeightsFileCreator {
+  // Creates a temporary file for storing model weights. Returns null on
+  // failure.
+  CreateWeightsFile() => (mojo_base.mojom.File? file);
 };

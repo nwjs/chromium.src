@@ -99,8 +99,6 @@ class TestReliabilityLoggingBridge : public ReliabilityLoggingBridge {
                                     base::TimeTicks timestamp) override;
   void LogWebFeedRequestStart(NetworkRequestId id,
                               base::TimeTicks timestamp) override;
-  void LogSingleWebFeedRequestStart(NetworkRequestId id,
-                                    base::TimeTicks timestamp) override;
   void LogRequestSent(NetworkRequestId id, base::TimeTicks timestamp) override;
   void LogResponseReceived(NetworkRequestId id,
                            int64_t server_receive_timestamp_ns,
@@ -133,17 +131,12 @@ class TestSurfaceBase : public feed::SurfaceRenderer {
  public:
   // Provide some helper functionality to attach/detach the surface.
   // This way we can auto-detach in the destructor.
-  explicit TestSurfaceBase(
-      const StreamType& stream_type,
-      FeedStream* stream = nullptr,
-      SingleWebFeedEntryPoint entry_point = SingleWebFeedEntryPoint::kOther);
+  explicit TestSurfaceBase(const StreamType& stream_type,
+                           FeedStream* stream = nullptr);
   ~TestSurfaceBase() override;
 
   SurfaceId GetSurfaceId() const;
   const StreamType GetStreamType() const { return stream_type_; }
-  SingleWebFeedEntryPoint GetSingleWebFeedEntryPoint() const {
-    return entry_point_;
-  }
 
   // Create the surface with FeedApi::CreateSurface, but don't attach it.
   void CreateWithoutAttach(FeedStream* stream);
@@ -193,7 +186,6 @@ class TestSurfaceBase : public feed::SurfaceRenderer {
   bool IsInitialLoadSpinnerUpdate(const feedui::StreamUpdate& stream_update);
 
   const StreamType stream_type_;
-  SingleWebFeedEntryPoint entry_point_;
   SurfaceId surface_id_ = {};
 
   // The stream if this surface was attached at least once.
@@ -213,13 +205,6 @@ class TestForYouSurface : public TestSurfaceBase {
 class TestWebFeedSurface : public TestSurfaceBase {
  public:
   explicit TestWebFeedSurface(FeedStream* stream = nullptr);
-};
-class TestSingleWebFeedSurface : public TestSurfaceBase {
- public:
-  explicit TestSingleWebFeedSurface(
-      FeedStream* stream = nullptr,
-      std::string = "",
-      SingleWebFeedEntryPoint entry_point = SingleWebFeedEntryPoint::kOther);
 };
 
 class TestImageFetcher : public ImageFetcher {
@@ -316,12 +301,6 @@ class TestFeedNetwork : public FeedNetwork {
   }
   void InjectResponse(feedwire::webfeed::ListWebFeedsResponse response) {
     InjectApiResponse<ListWebFeedsDiscoverApi>(std::move(response));
-  }
-  void InjectResponse(const feedwire::webfeed::QueryWebFeedResponse& response) {
-    InjectApiResponse<QueryWebFeedDiscoverApi>(response);
-  }
-  void InjectQueryResponse(const FeedNetwork::RawResponse& response) {
-    InjectApiRawResponse<QueryWebFeedDiscoverApi>(response);
   }
 
   void InjectListWebFeedsResponse(
@@ -534,7 +513,6 @@ class FeedApiTest : public testing::Test, public FeedStream::Delegate {
   bool IsSigninAllowed() override;
   void PrefetchImage(const GURL& url) override;
   void RegisterExperiments(const Experiments& experiments) override {}
-  void RegisterFollowingFeedFollowCountFieldTrial(size_t follow_count) override;
   void RegisterFeedUserSettingsFieldTrial(std::string_view group) override;
   std::string GetCountry() override;
   void SetFeedLaunchCuiMetadata(const std::string& metadata) override;
@@ -598,7 +576,6 @@ class FeedApiTest : public testing::Test, public FeedStream::Delegate {
   int prefetch_image_call_count_ = 0;
   std::vector<GURL> prefetched_images_;
   base::RepeatingClosure on_clear_all_;
-  std::vector<size_t> register_following_feed_follow_count_field_trial_calls_;
   std::vector<std::string> register_feed_user_settings_field_trial_calls_;
   std::string country_ = "US";
   std::string feed_launch_cui_metadata_;

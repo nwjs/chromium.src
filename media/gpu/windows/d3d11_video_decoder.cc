@@ -787,18 +787,11 @@ void D3D11VideoDecoder::CreatePictureBuffers() {
       base::FeatureList::IsEnabled(
           kSetDefaultColorSpaceForVideoFrameAndSharedImage)) {
     auto output_si_format = texture_selector_->OutputSharedImageFormat();
-    // Always set color space for `kWebRTCColorAccuracy` feature if it is
-    // invalid. Use BT709 as the default color space.
-    // TODO(crbug.com/425634684): Perform fallback regardless of feature check
-    // as it is better to have a default color space when creating
-    // SharedImage/VideoFrame rather than invalid.
-    if (base::FeatureList::IsEnabled(media::kWebRTCColorAccuracy) &&
-        output_si_format.is_multi_plane()) {
-      color_space = gfx::ColorSpace::CreateREC709();
-    }
-    if (output_si_format.is_single_plane()) {
-      color_space = gfx::ColorSpace::CreateSRGB();
-    }
+    // Use BT709 as the default color space for multi-planar formats and SRGB
+    // for single-planar.
+    color_space = output_si_format.is_multi_plane()
+                      ? gfx::ColorSpace::CreateREC709()
+                      : gfx::ColorSpace::CreateSRGB();
   }
 
   // Since we are about to allocate new picture buffers, record whatever usage
@@ -933,7 +926,7 @@ bool D3D11VideoDecoder::OutputResult(const CodecPicture* picture,
   scoped_refptr<VideoFrame> frame = VideoFrame::WrapSharedImage(
       texture_selector_->PixelFormat(), shared_image,
       shared_image->creation_sync_token(), VideoFrame::ReleaseMailboxCB(),
-      picture_buffer->size(), visible_rect, natural_size, timestamp);
+      visible_rect, natural_size, timestamp);
 
   if (!frame) {
     // This can happen if, somehow, we get an unsupported combination of

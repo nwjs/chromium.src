@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "base/auto_reset.h"
 #include "base/containers/flat_map.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
@@ -17,6 +18,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/sequence_checker.h"
 #include "base/time/time.h"
+#include "build/branding_buildflags.h"
 #include "components/component_updater/configurator_impl.h"
 #include "components/update_client/configurator.h"
 #include "extensions/buildflags/buildflags.h"
@@ -47,11 +49,9 @@ class ChromeUpdateClientConfig : public update_client::Configurator {
           content::BrowserContext* context)>;
 
   static scoped_refptr<ChromeUpdateClientConfig> Create(
-      content::BrowserContext* context,
-      std::optional<GURL> url_override);
+      content::BrowserContext* context);
 
-  ChromeUpdateClientConfig(content::BrowserContext* context,
-                           std::optional<GURL> url_override);
+  explicit ChromeUpdateClientConfig(content::BrowserContext* context);
 
   ChromeUpdateClientConfig(const ChromeUpdateClientConfig&) = delete;
   ChromeUpdateClientConfig& operator=(const ChromeUpdateClientConfig&) = delete;
@@ -85,7 +85,14 @@ class ChromeUpdateClientConfig : public update_client::Configurator {
   std::optional<bool> IsMachineExternallyManaged() const override;
   update_client::UpdaterStateProvider GetUpdaterStateProvider() const override;
   scoped_refptr<update_client::CrxCache> GetCrxCache() const override;
+#if BUILDFLAG(CHROME_FOR_TESTING)
+  std::vector<std::string> GetRequiredComponents() const override;
+#endif
   bool IsConnectionMetered() const override;
+
+  // Disables CUP signing for all instances of ChromeUpdateClientConfig
+  // while the returned object is in scope.
+  [[nodiscard]] static base::AutoReset<bool> ScopedDisableCupSigningForTests();
 
  protected:
   friend class base::RefCountedThreadSafe<ChromeUpdateClientConfig>;
@@ -93,7 +100,7 @@ class ChromeUpdateClientConfig : public update_client::Configurator {
 
   ~ChromeUpdateClientConfig() override;
 
-  // Injects a new client config by changing the creation factory.
+  // Injects a new client config by changing the factory.
   // Should be used for tests only.
   static void SetChromeUpdateClientConfigFactoryForTesting(
       FactoryCallback factory);
@@ -108,7 +115,6 @@ class ChromeUpdateClientConfig : public update_client::Configurator {
   scoped_refptr<update_client::CrxDownloaderFactory> crx_downloader_factory_;
   scoped_refptr<update_client::UnzipperFactory> unzip_factory_;
   scoped_refptr<update_client::PatcherFactory> patch_factory_;
-  std::optional<GURL> url_override_;
   scoped_refptr<update_client::CrxCache> crx_cache_;
 };
 

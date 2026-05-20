@@ -8,10 +8,11 @@
 #import "base/functional/bind.h"
 #import "base/functional/callback_helpers.h"
 #import "base/memory/weak_ptr.h"
+#import "base/no_destructor.h"
 #import "base/values.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
-#import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_error.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_java_script_feature_util.h"
+#import "ios/chrome/browser/intelligence/actor/tools/public/actor_tool_types.h"
 #import "ios/web/public/js_messaging/web_frame.h"
 
 namespace {
@@ -19,6 +20,29 @@ const char kScriptName[] = "scroll_tool";
 }  // namespace
 
 namespace actor {
+
+namespace {
+
+mojom::ActionResultCode ToActionResultCode(int code) {
+  auto result_code = static_cast<ScrollToolResultCode>(code);
+  switch (result_code) {
+    case ScrollToolResultCode::kOk:
+      return mojom::ActionResultCode::kOk;
+    case ScrollToolResultCode::kCoordinatesOutOfBounds:
+      return mojom::ActionResultCode::kCoordinatesOutOfBounds;
+    case ScrollToolResultCode::kInvalidDomNodeId:
+      return mojom::ActionResultCode::kInvalidDomNodeId;
+    case ScrollToolResultCode::kArgumentsInvalid:
+      return mojom::ActionResultCode::kArgumentsInvalid;
+    case ScrollToolResultCode::kScrollTargetNotUserScrollable:
+      return mojom::ActionResultCode::kScrollTargetNotUserScrollable;
+    case ScrollToolResultCode::kScrollOffsetDidNotChange:
+      return mojom::ActionResultCode::kScrollOffsetDidNotChange;
+  }
+  NOTREACHED();
+}
+
+}  // namespace
 
 // static
 ScrollToolJavaScriptFeature* ScrollToolJavaScriptFeature::GetInstance() {
@@ -40,9 +64,7 @@ ScrollToolJavaScriptFeature::~ScrollToolJavaScriptFeature() = default;
 void ScrollToolJavaScriptFeature::Scroll(
     base::WeakPtr<web::WebFrame> target_frame,
     const optimization_guide::proto::ScrollAction& action,
-    ActorTool::ToolExecutionCallback callback) {
-  // TODO: crbug.com/472289079 - Add support for ScrollAction with the target
-  // field unset.
+    ToolExecutionCallback callback) {
   CHECK(action.has_target());
   CHECK(action.has_direction() && action.has_distance());
   ExecuteScrollAction(target_frame, action.target(),
@@ -54,7 +76,7 @@ void ScrollToolJavaScriptFeature::Scroll(
 void ScrollToolJavaScriptFeature::ScrollTo(
     base::WeakPtr<web::WebFrame> target_frame,
     const optimization_guide::proto::ScrollToAction& action,
-    ActorTool::ToolExecutionCallback callback) {
+    ToolExecutionCallback callback) {
   CHECK(action.has_target());
   ExecuteScrollAction(target_frame, action.target(),
                       /*direction_and_distance=*/std::nullopt,
@@ -67,15 +89,13 @@ void ScrollToolJavaScriptFeature::ExecuteScrollAction(
     std::optional<
         std::pair<optimization_guide::proto::ScrollAction_ScrollDirection, int>>
         direction_and_distance,
-    ActorTool::ToolExecutionCallback callback) {
-  // TODO: crbug.com/472289079 - Add support for ActionTarget with the target
-  // field unset.
+    ToolExecutionCallback callback) {
   CHECK(target.has_coordinate() ||
         (target.has_content_node_id() && target.has_document_identifier()));
 
   if (!web_frame) {
-    std::move(callback).Run(base::unexpected(
-        ActorToolError{ActorToolErrorCode::kActorTargetWebFrameInvalidated}));
+    std::move(callback).Run(
+        ToolExecutionResult(mojom::ActionResultCode::kFrameWentAway));
     return;
   }
 
@@ -100,14 +120,19 @@ void ScrollToolJavaScriptFeature::ExecuteScrollAction(
   auto [cb_for_js, cb_for_error] = base::SplitOnceCallback(std::move(callback));
   bool sent = CallJavaScriptFunction(
       web_frame.get(), function_name, parameters,
-      base::BindOnce(&ParseJavaScriptResult, std::move(cb_for_js)),
+      base::BindOnce(
+          [](ToolExecutionCallback callback, const base::Value* result) {
+            std::move(callback).Run(ParseJavaScriptResultWithResultCode(
+                &ToActionResultCode, result));
+          },
+          std::move(cb_for_js)),
       base::Milliseconds(web::kJavaScriptFunctionCallDefaultTimeout));
 
   if (!sent) {
     std::move(cb_for_error)
-        .Run(base::unexpected(ActorToolError{
-            ActorToolErrorCode::
-                kJavascriptFeatureFailedToCallJavaScriptFunction}));
+        .Run(ToolExecutionResult(
+            InternalToolErrorCode::
+                kJavascriptFeatureFailedToCallJavaScriptFunction));
   }
 }
 

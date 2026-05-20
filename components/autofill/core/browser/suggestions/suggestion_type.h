@@ -47,7 +47,7 @@ enum class SuggestionType {
   kManageAutofillAiTravel = 76,
   kManageCreditCard = 11,
   kManageIban = 12,
-  kManagePlusAddress = 13,
+  // kManagePlusAddress = 13, // DEPRECATED
   kManageLoyaltyCard = 68,
 
   // Compose popup suggestion shown when no Compose session exists.
@@ -116,7 +116,7 @@ enum class SuggestionType {
   // Plus address suggestions.
   // kCreateNewPlusAddress = 39, // DEPRECATED
   // kCreateNewPlusAddressInline = 52, // DEPRECATED
-  kFillExistingPlusAddress = 40,
+  // kFillExistingPlusAddress = 40, // DEPRECATED
   // kPlusAddressError = 57, // DEPRECATED
 
   // Promotion suggestions.
@@ -183,8 +183,15 @@ enum class SuggestionType {
   // bold and link text.
   kBnplFootnote = 79,
 
-  // Next ID: 80
-  kMaxValue = kBnplFootnote
+  // Shows a suggestion after a period of inactivity to encourage the user to
+  // use AtMemory (opens AtMemory UI when clicked).
+  kAtMemoryInactivityNudge = 80,
+
+  // Static button in Autocomplete menu prompting use of AtMemory.
+  kAutocompleteAtMemoryButton = 81,
+
+  // Next ID: 82
+  kMaxValue = kAutocompleteAtMemoryButton
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:SuggestionType)
 

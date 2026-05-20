@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "base/test/metrics/histogram_tester.h"
+#include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_tester.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
@@ -15,6 +16,7 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/frame/frame_test_helpers.h"
+#include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/testing/mock_function_scope.h"
 #include "third_party/blink/renderer/core/view_transition/dom_view_transition.h"
@@ -29,6 +31,10 @@
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/gfx/geometry/rect.h"
+
+#if BUILDFLAG(IS_WIN)
+#include "third_party/blink/public/web/win/web_font_rendering.h"
+#endif
 
 namespace blink {
 
@@ -521,56 +527,6 @@ class AccessibilityEnabledLaterTest : public AccessibilityTest {
   }
 };
 
-TEST_F(AccessibilityEnabledLaterTest, CSSAnchorPositioning) {
-  if (RuntimeEnabledFeatures::NoAriaDetailsForAnchorPosEnabled()) {
-    // This test can be removed when this flag is removed.
-    return;
-  }
-  SetHtmlInnerHTML(R"HTML(
-    <style>
-      .anchor {
-        anchor-name: --anchor-el;
-       }
-      .anchored-notice {
-        position: absolute;
-        position-anchor: --anchor-el;
-        bottom: anchor(top);
-        right: anchor(right);
-      }
-    </style>
-    <body>
-      <button id="1" class="anchor">
-        <p>anchor</p>
-      </button>
-      <div id="2" class="anchored-notice">
-        <p>positioned element tethered to the top-right of the anchor at bottom-right</p>
-      </div>
-    </body>
-  )HTML");
-
-  // Turning on a11y later should still set anchor relationships correctly.
-  UpdateAllLifecyclePhasesForTest();
-  DCHECK(!GetDocument().ExistingAXObjectCache());
-  DCHECK(GetElementById("1")
-             ->GetComputedStyle()
-             ->AnchorName()
-             ->GetNames()[0]
-             ->GetName() == "--anchor-el");
-  DCHECK(GetElementById("2")
-             ->GetComputedStyle()
-             ->PositionAnchor()
-             .GetName()
-             .GetName() == "--anchor-el");
-
-  EnableAccessibility();
-  AXObject* anchor = GetAXObjectByElementId("1");
-  AXObject* positioned_object = GetAXObjectByElementId("2");
-  EXPECT_EQ(GetAXObjectCache().GetPositionedObjectForAnchor(anchor),
-            positioned_object);
-  EXPECT_EQ(GetAXObjectCache().GetAnchorForPositionedObject(positioned_object),
-            anchor);
-}
-
 TEST_F(AccessibilityTest, CanvasWithContentVisibilityAutoShouldNotCrash) {
   // Test that canvas fallback content with content-visibility: auto
   // doesn't cause display lock crashes when accessibility is enabled.
@@ -579,6 +535,27 @@ TEST_F(AccessibilityTest, CanvasWithContentVisibilityAutoShouldNotCrash) {
       <div>Canvas fallback content</div>
     </canvas>
   )HTML");
+}
+
+TEST_F(AccessibilityTest, ValidationMessageIncludedInRootChildren) {
+#if BUILDFLAG(IS_WIN)
+  blink::WebFontRendering::SetMenuFontMetrics(
+      blink::WebString::FromAscii("Arial"), 12);
+#endif
+  SetBodyInnerHTML(R"HTML(<input id="input">)HTML");
+
+  AXObject* root = GetAXRootObject();
+  ASSERT_TRUE(root);
+
+  auto* input = To<HTMLInputElement>(GetElementById("input"));
+  ASSERT_TRUE(input);
+  input->setCustomValidity("Error");
+  input->reportValidity();
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+
+  AXObject* message = GetAXObjectCache().ValidationMessageObjectIfInvalid();
+  ASSERT_TRUE(message);
+  EXPECT_TRUE(root->CachedChildrenIncludingIgnored().Contains(message));
 }
 
 }  // namespace blink

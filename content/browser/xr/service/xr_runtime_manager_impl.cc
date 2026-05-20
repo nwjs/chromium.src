@@ -522,6 +522,11 @@ XRRuntimeManagerImpl::~XRRuntimeManagerImpl() {
     base::CommandLine::ForCurrentProcess()->RemoveSwitch(
         switches::kUseAdapterLuid);
 
+    // Ensure this object is no longer registered as a GpuDataManager observer,
+    // which may happen if MakeXrCompatible is called and the page is navigated
+    // before the GPU process restarts.
+    content::GpuDataManager::GetInstance()->RemoveObserver(this);
+
 #if BUILDFLAG(IS_WIN)
     // If we changed the GPU, revert it back to the default GPU. This is
     // separate from xr_compatible_restarted_gpu_ because the GPU process may
@@ -606,7 +611,7 @@ void XRRuntimeManagerImpl::AddRuntime(
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(runtimes_.find(id) == runtimes_.end());
 
-  TRACE_EVENT_INSTANT1("xr", "AddRuntime", TRACE_EVENT_SCOPE_THREAD, "id", id);
+  TRACE_EVENT_INSTANT("xr", "AddRuntime", "id", id);
 
   webxr::mojom::RuntimeInfoPtr runtime_added_record =
       webxr::mojom::RuntimeInfo::New();
@@ -632,8 +637,7 @@ void XRRuntimeManagerImpl::AddRuntime(
 
 void XRRuntimeManagerImpl::RemoveRuntime(device::mojom::XRDeviceId id) {
   DVLOG(1) << __func__ << " id: " << id;
-  TRACE_EVENT_INSTANT1("xr", "RemoveRuntime", TRACE_EVENT_SCOPE_THREAD, "id",
-                       id);
+  TRACE_EVENT_INSTANT("xr", "RemoveRuntime", "id", id);
 
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   auto it = runtimes_.find(id);

@@ -66,7 +66,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.DeveloperResourceLoaded"
-    enum="DevToolsDeveloperResourceLoaded" expires_after="2026-08-09">
+    enum="DevToolsDeveloperResourceLoaded" expires_after="2026-10-11">
   <owner>bmeurer@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <summary>
@@ -101,7 +101,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.DeveloperResourceScheme"
-    enum="DevToolsDeveloperResourceScheme" expires_after="2026-08-09">
+    enum="DevToolsDeveloperResourceScheme" expires_after="2026-10-11">
   <owner>bmeurer@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <summary>
@@ -277,23 +277,12 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="DevTools.InspectElement" units="ms" expires_after="2026-08-23">
+<histogram name="DevTools.InspectElement" units="ms" expires_after="2026-10-25">
   <owner>yangguo@google.com</owner>
   <owner>bmeurer@google.com</owner>
   <summary>
     Time to load Developer Tools when user clicks Inspect Element in the context
     menu.
-  </summary>
-</histogram>
-
-<histogram name="DevTools.IsSameOriginDebuggerAttachedInAnotherRenderer"
-    enum="Boolean" expires_after="2025-04-13">
-  <owner>bashi@google.com</owner>
-  <owner>blink-network-stack@google.com</owner>
-  <summary>
-    Records whether a DevTools debugger is already attached in another outermost
-    renderer. Recorded at the first pause of a DevTools debugger after the
-    debugger is associated with a particular renderer channel.
   </summary>
 </histogram>
 
@@ -309,7 +298,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.IssueCreated" enum="DevToolsIssueCreated"
-    expires_after="2026-08-23">
+    expires_after="M160">
   <owner>yangguo@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <component>1519296</component>
@@ -319,7 +308,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.IssuesPanelIssueExpanded"
-    enum="DevToolsIssuesPanelIssueExpanded" expires_after="M150">
+    enum="DevToolsIssuesPanelIssueExpanded" expires_after="M160">
   <owner>bmeurer@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <component>1519296</component>
@@ -329,7 +318,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.IssuesPanelOpenedFrom"
-    enum="DevToolsIssuesPanelOpenedFrom" expires_after="M150">
+    enum="DevToolsIssuesPanelOpenedFrom" expires_after="M160">
   <owner>bmeurer@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <component>1519296</component>
@@ -339,7 +328,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.IssuesPanelResourceOpened"
-    enum="DevToolsIssuesPanelResourceOpened" expires_after="M150">
+    enum="DevToolsIssuesPanelResourceOpened" expires_after="M160">
   <owner>bmeurer@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <component>1519296</component>
@@ -350,7 +339,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.KeybindSetSettingChanged" enum="DevToolsKeybindSets"
-    expires_after="M150">
+    expires_after="M160">
   <owner>bmeurer@google.com</owner>
   <owner>jalyn@microsoft.com</owner>
   <owner>leo.lee@microsoft.com</owner>
@@ -361,7 +350,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.KeyboardShortcutFired"
-    enum="DevToolsKeyboardShortcutAction" expires_after="2026-09-06">
+    enum="DevToolsKeyboardShortcutAction" expires_after="M160">
   <owner>bmeurer@google.com</owner>
   <owner>jalyn@microsoft.com</owner>
   <owner>leo.lee@microsoft.com</owner>
@@ -372,7 +361,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Language" enum="DevToolsLanguage"
-    expires_after="M150">
+    expires_after="M160">
   <owner>bmeurer@google.com</owner>
   <owner>szuend@google.com</owner>
   <owner>yangguo@google.com</owner>
@@ -383,7 +372,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Launch{DevToolsLaunchPanels}" units="ms"
-    expires_after="2026-09-06">
+    expires_after="M160">
   <owner>yangguo@google.com</owner>
   <owner>bmeurer@google.com</owner>
   <summary>
@@ -408,7 +397,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.NetworkPanelResponsePreviewOpened"
-    enum="DevToolsMediaType" expires_after="2026-08-16">
+    enum="DevToolsMediaType" expires_after="2026-10-18">
   <owner>bmeurer@google.com</owner>
   <owner>szuend@google.com</owner>
   <summary>
@@ -513,7 +502,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.SourcesPanelFileDebugged" enum="DevToolsMediaType"
-    expires_after="M150">
+    expires_after="M160">
   <owner>bmeurer@google.com</owner>
   <owner>szuend@google.com</owner>
   <component>1456920</component>
@@ -525,7 +514,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.SourcesPanelFileOpened" enum="DevToolsMediaType"
-    expires_after="M150">
+    expires_after="M160">
   <owner>bmeurer@google.com</owner>
   <owner>szuend@google.com</owner>
   <component>1456920</component>
@@ -535,16 +524,14 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.SwatchActivated" enum="DevToolsSwatchActivated"
-    expires_after="2026-06-21">
-  <owner>ergunsh@google.com</owner>
-  <owner>changhaohan@google.com</owner>
+    expires_after="M160">
+  <owner>pfaffe@google.com</owner>
   <owner>bmeurer@google.com</owner>
   <summary>Records the swatch usages in the Styles pane.</summary>
 </histogram>
 
 <histogram name="DevTools.SyncSetting" enum="DevToolsSyncSetting"
-    expires_after="M150">
-  <owner>bmeurer@google.com</owner>
+    expires_after="M160">
   <owner>szuend@google.com</owner>
   <owner>yangguo@google.com</owner>
   <summary>
@@ -553,17 +540,20 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="DevTools.TraceLoad" units="ms" expires_after="2026-03-01">
+<histogram name="DevTools.TraceLoad" units="ms" expires_after="2027-05-01">
   <owner>paulirish@google.com</owner>
   <owner>jacktfranklin@google.com</owner>
   <owner>victorporof@google.com</owner>
   <summary>
     Measures the time a trace is loading. Starts when recording is stopped or
     file/url load was started. Stops after the first render of the flamechart.
+
+    Warning: this histogram was expired from 2026-03-01 to M149 (2026-06-02);
+    data may be missing.
   </summary>
 </histogram>
 
-<histogram name="DevTools.TraceLoad2" units="ms" expires_after="2025-07-18">
+<histogram name="DevTools.TraceLoad2" units="ms" expires_after="2027-05-01">
   <owner>paulirish@google.com</owner>
   <owner>jacktfranklin@google.com</owner>
   <owner>victorporof@google.com</owner>
@@ -571,6 +561,9 @@ chromium-metrics-reviews@google.com.
     Measures the time a trace is loading. Starts when recording is stopped or
     file/url load was started. Stops after the first render of the flamechart.
     Supports values over 10s.
+
+    Warning: this histogram was expired from 2025-07-18 to M149 (2026-06-02);
+    data may be missing.
   </summary>
 </histogram>
 
@@ -585,7 +578,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Workspaces.NumberOfDirectoriesTraversed"
-    units="count" expires_after="M150">
+    units="count" expires_after="M160">
   <owner>bmeurer@google.com</owner>
   <owner>hablich@google.com</owner>
   <component>1456920</component>
@@ -596,7 +589,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Workspaces.NumberOfFilesLoaded" units="count"
-    expires_after="M150">
+    expires_after="M160">
   <owner>bmeurer@google.com</owner>
   <owner>hablich@google.com</owner>
   <component>1456920</component>
@@ -607,7 +600,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.Workspaces.PopulateWallClockTime" units="ms"
-    expires_after="M150">
+    expires_after="M160">
   <owner>bmeurer@google.com</owner>
   <owner>hablich@google.com</owner>
   <component>1456920</component>

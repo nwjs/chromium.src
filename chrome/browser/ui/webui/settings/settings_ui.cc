@@ -20,10 +20,12 @@
 #include "base/values.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
+#include "chrome/browser/accessibility_annotator/accessibility_annotator_enablement_service_factory.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/compose/compose_enabling.h"
+#include "chrome/browser/contextual_cueing/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/history_embeddings/history_embeddings_utils.h"
@@ -42,7 +44,6 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ssl/https_upgrades_util.h"
-#include "chrome/browser/subscription_eligibility/subscription_eligibility_service.h"
 #include "chrome/browser/subscription_eligibility/subscription_eligibility_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -99,6 +100,8 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/settings_resources.h"
 #include "chrome/grit/settings_resources_map.h"
+#include "components/accessibility_annotator/core/accessibility_annotator_enablement_service.h"
+#include "components/accessibility_annotator/core/accessibility_annotator_types.h"
 #include "components/account_manager_core/account_manager_facade.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
@@ -115,6 +118,7 @@
 #include "components/contextual_tasks/public/features.h"
 #include "components/favicon_base/favicon_url_parser.h"
 #include "components/history/core/browser/features.h"
+#include "components/metrics/metrics_reporting_choice_service.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/performance_manager/public/features.h"
@@ -128,6 +132,7 @@
 #include "components/search_engines/template_url_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/subscription_eligibility/subscription_eligibility_service.h"
 #include "components/sync/base/features.h"
 #include "content/public/browser/isolated_web_apps_policy.h"
 #include "content/public/browser/url_data_source.h"
@@ -167,7 +172,6 @@
 #include "chrome/browser/ui/webui/ash/settings/pages/multidevice/multidevice_handler.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/people/account_manager_ui_handler.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/grit/browser_resources.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "chromeos/ash/components/login/auth/password_visibility_utils.h"
 #include "chromeos/ash/components/phonehub/phone_hub_manager.h"
@@ -302,6 +306,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean("signinAllowed", !profile->IsGuestSession() &&
                                                profile->GetPrefs()->GetBoolean(
                                                    prefs::kSigninAllowed));
+
+  html_source->AddBoolean(
+      "shouldUseMetricsConsentRestructure",
+      metrics::MetricsReportingChoiceService::
+          ShouldUseMetricsConsentRestructure(g_browser_process->local_state()));
+
   ProfileAttributesEntry* entry =
       g_browser_process->profile_manager()
           ->GetProfileAttributesStorage()
@@ -429,6 +439,11 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(
           autofill::features::
               kYourSavedInfoPolicyAndExtentionToggleIndicators));
+
+  html_source->AddBoolean(
+      "enableYourSavedInfoShoppingPage",
+      base::FeatureList::IsEnabled(
+          autofill::features::kYourSavedInfoSettingsPageShoppingIntegration));
 
   AddSettingsPageUIHandler(std::make_unique<AboutHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<ResetSettingsHandler>(profile));
@@ -626,7 +641,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
        PasswordChangeServiceFactory::GetForProfile(profile) &&
            PasswordChangeServiceFactory::GetForProfile(profile)
                ->UserIsActivePasswordChangeUser()},
+      {"showAiSuggestionsControl",
+       base::FeatureList::IsEnabled(contextual_cueing::kContextualCueingV2)},
   };
+
+  html_source->AddString("aiSuggestionsHelpCenterArticleLink",
+                         contextual_cueing::kHelpCenterArticleLink.Get());
 
   const bool enable_ai_mode_search =
       contextual_tasks::GetIsSmartTabSharingEnabled();
@@ -642,13 +662,13 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
     html_source->AddBoolean(name, visible || show_ai_settings_for_testing);
     show_ai_features_section |= visible;
   }
-  show_ai_features_section |= enable_ai_mode_search;
 
   // Within the AI subpage are separate sections for Glic and for all other AI
   // features, the visibility of these are separately controlled but we want to
   // show the subpage if any of the AI features or Glic are enabled.
-  html_source->AddBoolean("showAiPage",
-                          show_glic_section || show_ai_features_section);
+  html_source->AddBoolean("showAiPage", show_glic_section ||
+                                            show_ai_features_section ||
+                                            enable_ai_mode_search);
   html_source->AddBoolean("showAiPageAiFeatureSection",
                           show_ai_features_section);
 #endif //nwjs
@@ -679,8 +699,15 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "searchSettingsUpdate",
       base::FeatureList::IsEnabled(switches::kSearchSettingsUpdate));
 
-  // TODO(b/493907185): Connect to accessibility annotator visibility.
-  html_source->AddBoolean("showAccessibilityAnnotatorSettingsLink", false);
+  accessibility_annotator::AccessibilityAnnotatorEnablementService*
+      enablement_service =
+          AccessibilityAnnotatorEnablementServiceFactory::GetForProfile(
+              profile);
+  html_source->AddBoolean(
+      "showAccessibilityAnnotatorSettingsLink",
+      enablement_service && enablement_service->GetEnablementState() ==
+                                accessibility_annotator::
+                                    RemoteAnnotatorEnablementState::kEnabled);
 
   TryShowHatsSurveyWithTimeout();
 }

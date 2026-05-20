@@ -21,6 +21,8 @@
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/rand_util.h"
+#include "base/task/single_thread_task_runner.h"
+#include "chrome/browser/actor/actor_util.h"
 #include "chrome/browser/android/customtabs/client_data_header_web_contents_observer.h"
 #include "chrome/browser/android/framebust_intervention/framebust_blocked_delegate_android.h"
 #include "chrome/browser/android/tab_android.h"
@@ -41,7 +43,7 @@
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/browser/ui/blocked_content/chrome_popup_navigation_delegate.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
 #include "chrome/browser/ui/tab_helpers.h"
 #include "chrome/browser/vr/vr_tab_helper.h"
@@ -53,7 +55,6 @@
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/blocked_content/popup_blocker.h"
 #include "components/blocked_content/popup_tracker.h"
-#include "components/browser_ui/sms/android/sms_infobar.h"
 #include "components/browser_ui/util/android/url_constants.h"
 #include "components/external_intents/android/external_intents_features.h"
 #include "components/find_in_page/find_notification_details.h"
@@ -182,22 +183,6 @@ void TabWebContentsDelegateAndroid::RunFileChooser(
                                    params);
 }
 
-void TabWebContentsDelegateAndroid::CreateSmsPrompt(
-    content::RenderFrameHost* host,
-    const std::vector<url::Origin>& origin_list,
-    const std::string& one_time_code,
-    base::OnceClosure on_confirm,
-    base::OnceClosure on_cancel) {
-  DCHECK_EQ(host->GetLifecycleState(),
-            content::RenderFrameHost::LifecycleState::kActive);
-
-  auto* web_contents = content::WebContents::FromRenderFrameHost(host);
-  sms::SmsInfoBar::Create(
-      web_contents,
-      infobars::ContentInfoBarManager::FromWebContents(web_contents),
-      origin_list, one_time_code, std::move(on_confirm), std::move(on_cancel));
-}
-
 bool TabWebContentsDelegateAndroid::ShouldFocusLocationBarByDefault(
     WebContents* source) {
   content::NavigationEntry* entry = source->GetController().GetActiveEntry();
@@ -212,6 +197,27 @@ bool TabWebContentsDelegateAndroid::ShouldFocusLocationBarByDefault(
     }
   }
   return false;
+}
+
+void TabWebContentsDelegateAndroid::NavigationStateChanged(
+    WebContents* source,
+    content::InvalidateTypes changed_flags) {
+  if (base::FeatureList::IsEnabled(
+          chrome::android::kDeferNavigationStateChanged)) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            &TabWebContentsDelegateAndroid::NavigationStateChangedDeferred,
+            weak_ptr_factory_.GetWeakPtr(), source, changed_flags));
+    return;
+  }
+  NavigationStateChangedDeferred(source, changed_flags);
+}
+
+void TabWebContentsDelegateAndroid::NavigationStateChangedDeferred(
+    WebContents* source,
+    content::InvalidateTypes changed_flags) {
+  WebContentsDelegateAndroid::NavigationStateChanged(source, changed_flags);
 }
 
 void TabWebContentsDelegateAndroid::FindReply(
@@ -256,6 +262,65 @@ void TabWebContentsDelegateAndroid::FindMatchRectsReply(
 
   Java_TabWebContentsDelegateAndroidImpl_onFindMatchRectsAvailable(
       env, obj, details_object);
+}
+
+// TODO(b/420669167): Remove this once actor tasks don't need to suppress new
+// tabs on Android.
+bool TabWebContentsDelegateAndroid::IsWebContentsCreationOverridden(
+    content::RenderFrameHost* opener,
+    content::SiteInstance* source_site_instance,
+    content::mojom::WindowContainerType window_container_type,
+    const GURL& opener_url,
+    const std::string& frame_name,
+    const GURL& target_url) {
+  if (actor::HasActorTaskPreventingNewWebContents(opener)) {
+    // If an ExecutionEngine is acting on the opener, prevent it from creating a
+    // new WebContents. We'll instead force the navigation to happen in the same
+    // tab. Note, we do this even if the task isn't active (e.g. paused) so that
+    // a user action on behalf of the actor has the same behavior since the
+    // resumed task will still be fixed to the tab.
+    return true;
+  }
+
+  return WebContentsDelegateAndroid::IsWebContentsCreationOverridden(
+      opener, source_site_instance, window_container_type, opener_url,
+      frame_name, target_url);
+}
+
+// TODO(b/420669167): Remove this once actor tasks don't need to suppress new
+// tabs on Android.
+content::WebContents* TabWebContentsDelegateAndroid::CreateCustomWebContents(
+    content::RenderFrameHost* opener,
+    content::SiteInstance* source_site_instance,
+    bool is_new_browsing_instance,
+    const GURL& opener_url,
+    const std::string& frame_name,
+    const GURL& target_url,
+    WindowOpenDisposition disposition,
+    const blink::mojom::WindowFeatures& window_features,
+    const content::StoragePartitionConfig& partition_config,
+    content::SessionStorageNamespace* session_storage_namespace) {
+  if (actor::HasActorTaskPreventingNewWebContents(opener)) {
+    // If an ExecutionEngine is acting on the opener, we force the navigation
+    // to happen in the same tab.
+    content::NavigationController::LoadURLParams params(target_url);
+    params.initiator_frame_token = opener->GetFrameToken();
+    params.initiator_process_id = opener->GetProcess()->GetDeprecatedID();
+    params.initiator_origin = opener->GetLastCommittedOrigin();
+    params.source_site_instance = source_site_instance;
+    params.transition_type = ui::PAGE_TRANSITION_LINK;
+    params.is_renderer_initiated = true;
+    auto* opener_contents = content::WebContents::FromRenderFrameHost(opener);
+    opener_contents->GetController().LoadURLWithParams(params);
+    VLOG(1) << "Actor treated window open as same tab navigation. "
+            << target_url;
+    return nullptr;
+  }
+
+  return WebContentsDelegateAndroid::CreateCustomWebContents(
+      opener, source_site_instance, is_new_browsing_instance, opener_url,
+      frame_name, target_url, disposition, window_features, partition_config,
+      session_storage_namespace);
 }
 
 content::JavaScriptDialogManager*
@@ -305,17 +370,6 @@ WebContents* TabWebContentsDelegateAndroid::OpenURLFromTab(
     // We can't handle this here.  Give the parent a chance.
     return WebContentsDelegateAndroid::OpenURLFromTab(
         source, params, std::move(navigation_handle_callback));
-  }
-
-  if (base::FeatureList::IsEnabled(
-          external_intents::kNavigationCaptureRefactorAndroid)) {
-    if (IsCustomTab() &&
-        disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB) {
-      if (OpenInAppOrChromeFromCct(params.url)) {
-        // Navigation handled, stop here. Otherwise proceed normally.
-        return nullptr;
-      }
-    }
   }
 
   Profile* profile = Profile::FromBrowserContext(source->GetBrowserContext());
@@ -457,9 +511,6 @@ void TabWebContentsDelegateAndroid::UpdateUserGestureCarryoverInfo(
 content::PictureInPictureResult
 TabWebContentsDelegateAndroid::EnterPictureInPicture(
     content::WebContents* web_contents) {
-  if (!IsPictureInPictureEnabled()) {
-    return content::PictureInPictureResult::kNotSupported;
-  }
   return PictureInPictureWindowManager::GetInstance()
       ->EnterVideoPictureInPicture(web_contents);
 }
@@ -575,6 +626,18 @@ bool TabWebContentsDelegateAndroid::ShouldEnableEmbeddedMediaExperience()
       env, obj);
 }
 
+bool TabWebContentsDelegateAndroid::IsDocumentPictureInPictureBlockedBySystem()
+    const {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
+  if (obj.is_null()) {
+    return false;
+  }
+
+  return Java_TabWebContentsDelegateAndroidImpl_isDocumentPictureInPictureBlockedBySystem(
+      env, obj);
+}
+
 bool TabWebContentsDelegateAndroid::IsPictureInPictureEnabled() const {
   JNIEnv* env = base::android::AttachCurrentThread();
   ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
@@ -582,23 +645,6 @@ bool TabWebContentsDelegateAndroid::IsPictureInPictureEnabled() const {
     return false;
   return Java_TabWebContentsDelegateAndroidImpl_isPictureInPictureEnabled(env,
                                                                           obj);
-}
-
-bool TabWebContentsDelegateAndroid::IsNightModeEnabled() const {
-  JNIEnv* env = base::android::AttachCurrentThread();
-  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
-  if (obj.is_null())
-    return false;
-  return Java_TabWebContentsDelegateAndroidImpl_isNightModeEnabled(env, obj);
-}
-
-bool TabWebContentsDelegateAndroid::IsForceDarkWebContentEnabled() const {
-  JNIEnv* env = base::android::AttachCurrentThread();
-  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
-  if (obj.is_null())
-    return false;
-  return Java_TabWebContentsDelegateAndroidImpl_isForceDarkWebContentEnabled(
-      env, obj);
 }
 
 bool TabWebContentsDelegateAndroid::CanShowAppBanners() const {
@@ -654,18 +700,6 @@ bool TabWebContentsDelegateAndroid::IsDynamicSafeAreaInsetsEnabled() const {
   }
   return Java_TabWebContentsDelegateAndroidImpl_isDynamicSafeAreaInsetsEnabled(
       env, obj);
-}
-
-bool TabWebContentsDelegateAndroid::OpenInAppOrChromeFromCct(GURL url) {
-  JNIEnv* env = base::android::AttachCurrentThread();
-  ScopedJavaLocalRef<jobject> obj = GetJavaDelegate(env);
-  if (obj.is_null()) {
-    return false;
-  }
-  ScopedJavaLocalRef<jobject> jurl = url::GURLAndroid::FromNativeGURL(env, url);
-
-  return Java_TabWebContentsDelegateAndroidImpl_openInAppOrChromeFromCct(
-      env, obj, jurl);
 }
 
 content::KeyboardEventProcessingResult

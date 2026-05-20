@@ -41,6 +41,7 @@
 #include "chrome/browser/ui/bookmarks/bookmark_stats.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
@@ -59,6 +60,7 @@
 #include "chrome/browser/ui/views/frame/app_menu_button.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
+#include "chrome/browser/ui/views/toolbar/app_menu_control.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
@@ -112,6 +114,7 @@
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/menu/menu_scroll_view_container.h"
 #include "ui/views/controls/menu/submenu_view.h"
+#include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/layout/layout_provider.h"
 #include "ui/views/metadata/view_factory.h"
 #include "ui/views/style/typography.h"
@@ -581,7 +584,7 @@ class FullscreenButton : public ImageButton {
         // mode on most ChromeOS devices which cannot be specified in the
         // standard way here, so omit the accelerator to avoid providing
         // misleading or confusing information to screen reader users.
-        // See crbug.com/1110468 for more context.
+        // See crbug.com/40708624 for more context.
         /*add_accelerator_text=*/false
 #else
         /*add_accelerator_text=*/true
@@ -1036,8 +1039,14 @@ class AppMenu::RecentTabsMenuModelDelegate : public ui::MenuModelDelegate {
 
 // AppMenu ------------------------------------------------------------------
 
-AppMenu::AppMenu(Browser* browser, ui::MenuModel* model, int run_types)
-    : browser_(browser), model_(model), run_types_(run_types) {
+AppMenu::AppMenu(Browser* browser,
+                 ui::MenuModel* model,
+                 int run_types,
+                 base::RepeatingClosure on_menu_closed_callback)
+    : browser_(browser),
+      model_(model),
+      run_types_(run_types),
+      on_menu_closed_callback_(std::move(on_menu_closed_callback)) {
   global_error_observation_.Observe(
       GlobalErrorServiceFactory::GetForProfile(browser->profile()));
 
@@ -1119,7 +1128,7 @@ std::optional<SkColor> AppMenu::GetLabelColor(int command_id) const {
   // the content view for the menu's widget. The root MenuItemView itself is not
   // a member of a Widget hierarchy and thus does not have the necessary context
   // to correctly determine the label color as this requires querying the View's
-  // hosting widget (crbug.com/1233392).
+  // hosting widget (crbug.com/40780847).
   return GetLabelFontList(command_id)
              ? std::make_optional(
                    root_->GetSubmenu()->GetColorProvider()->GetColor(
@@ -1422,12 +1431,7 @@ void AppMenu::OnMenuClosed(views::MenuItemView* menu) {
     }
   }
 
-  // This can be called if the app menu was open during browser destruction, at
-  // which point BrowserView may be in the process of being torn down.
-  // Null-check BrowserView to guard against such cases.
-  if (auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser_)) {
-    browser_view->toolbar_button_provider()->GetAppMenuButton()->OnMenuClosed();
-  }
+  on_menu_closed_callback_.Run();
 
   if (bookmark_menu_delegate_.get()) {
     BookmarkMergedSurfaceService* service =

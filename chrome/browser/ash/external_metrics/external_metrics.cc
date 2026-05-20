@@ -17,6 +17,7 @@
 #include "base/functional/bind.h"
 #include "base/metrics/histogram.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/metrics/metrics_hashes.h"
 #include "base/metrics/sparse_histogram.h"
 #include "base/metrics/statistics_recorder.h"
 #include "base/metrics/user_metrics.h"
@@ -37,12 +38,14 @@ bool CheckValues(const std::string& name,
                  int minimum,
                  int maximum,
                  size_t bucket_count) {
-  if (base::Histogram::InspectConstructionArguments(
-          name, &minimum, &maximum, &bucket_count) != base::Histogram::kOK) {
+  uint64_t name_hash = base::HashMetricName(name);
+  if (base::Histogram::InspectConstructionArguments(name, name_hash, &minimum,
+                                                    &maximum, &bucket_count) !=
+      base::Histogram::kOK) {
     return false;
   }
   base::HistogramBase* histogram =
-      base::StatisticsRecorder::FindHistogram(name);
+      base::StatisticsRecorder::FindHistogram(name_hash, name);
   if (!histogram) {
     return true;
   }
@@ -168,12 +171,12 @@ void ExternalMetrics::RecordSparseHistogram(
     const metrics::MetricSample& sample) {
   CHECK_EQ(metrics::MetricSample::SPARSE_HISTOGRAM, sample.type());
   // We suspect a chromeos process reports a metric as regular and then later as
-  // a sparse enum histogram. See https://crbug.com/1173221
+  // a sparse enum histogram. See https://crbug.com/40746047
   {
     base::HistogramBase* histogram =
         base::StatisticsRecorder::FindHistogram(sample.name());
     if (histogram && histogram->GetHistogramType() != base::SPARSE_HISTOGRAM) {
-      LOG(FATAL) << "crbug.com/1173221 name " << sample.name() << " "
+      LOG(FATAL) << "crbug.com/40746047 name " << sample.name() << " "
                  << sample.ToString();
     }
   }

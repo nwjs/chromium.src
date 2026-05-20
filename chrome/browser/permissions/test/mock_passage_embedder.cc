@@ -7,6 +7,9 @@
 #include <string>
 #include <vector>
 
+#include "base/functional/bind.h"
+#include "base/task/sequenced_task_runner.h"
+
 namespace test {
 
 using passage_embeddings::ComputeEmbeddingsStatus;
@@ -36,8 +39,19 @@ TaskId PassageEmbedderMock::ComputePassagesEmbeddings(
     ComputePassagesEmbeddingsCallback callback) {
   last_passages_ = passages;
   if (status_ == ComputeEmbeddingsStatus::kSuccess) {
-    TestEmbedder::ComputePassagesEmbeddings(priority, std::move(passages),
-                                            std::move(callback));
+    std::vector<passage_embeddings::Embedding> embeddings;
+    for (size_t i = 0; i < passages.size(); ++i) {
+      // The AIv4 test TFLite models are built with a fixed input tensor size
+      // of 768. We must provide embeddings of this exact size to avoid a
+      // dimension mismatch in the model executor.
+      std::vector<float> data(768, 0.0f);
+      data[0] = 1.0f;
+      embeddings.emplace_back(std::move(data));
+    }
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(std::move(callback), passages, std::move(embeddings),
+                       /*task_id=*/0, status_));
     return 0;
   }
 

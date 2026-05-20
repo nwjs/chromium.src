@@ -10,6 +10,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/child_process_id.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
@@ -179,7 +180,7 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest, CrossOriginIsolation) {
 }
 
 // Tests the interaction of Cross-Origin-Embedder-Policy with extension host
-// permissions. See crbug.com/1246109.
+// permissions. See crbug.com/40789023.
 IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest,
                        CrossOriginEmbedderPolicy_HostPermissions) {
   TestExtensionDir test_dir_1;
@@ -345,22 +346,19 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest, WebAccessibleFrame) {
     ASSERT_TRUE(process_map);
     EXPECT_TRUE(process_map->Contains(
         coi_extension->id(),
-        coi_background_render_frame_host->GetProcess()->GetDeprecatedID()));
-    EXPECT_TRUE(process_map->Contains(
-        coi_extension->id(),
-        extension_iframe->GetProcess()->GetDeprecatedID()));
+        coi_background_render_frame_host->GetProcess()->GetID()));
+    EXPECT_TRUE(process_map->Contains(coi_extension->id(),
+                                      extension_iframe->GetProcess()->GetID()));
 
     GURL* url = nullptr;
     EXPECT_EQ(
         mojom::ContextType::kPrivilegedExtension,
         process_map->GetMostLikelyContextType(
             coi_extension,
-            coi_background_render_frame_host->GetProcess()->GetDeprecatedID(),
-            url));
+            coi_background_render_frame_host->GetProcess()->GetID(), url));
     EXPECT_EQ(mojom::ContextType::kPrivilegedExtension,
               process_map->GetMostLikelyContextType(
-                  coi_extension,
-                  extension_iframe->GetProcess()->GetDeprecatedID(), url));
+                  coi_extension, extension_iframe->GetProcess()->GetID(), url));
   }
 
   // Ensure both cross-origin-isolated and non-cross-origin-isolated extension
@@ -418,7 +416,7 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest, WebAccessibleFrame) {
 }
 
 // Test that an extension service worker for a cross origin isolated extension
-// is not cross origin isolated. See crbug.com/1131404.
+// is not cross origin isolated. See crbug.com/40150182.
 IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest, ServiceWorker) {
   RestrictProcessCount();
 
@@ -463,19 +461,18 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest, ServiceWorker) {
   // extension has multiple processes for the same profile.
   ProcessMap* process_map = ProcessMap::Get(profile());
   ASSERT_TRUE(process_map);
-  EXPECT_TRUE(process_map->Contains(
-      coi_extension->id(), extension_tab->GetProcess()->GetDeprecatedID()));
   EXPECT_TRUE(process_map->Contains(coi_extension->id(),
-                                    service_worker_process->GetDeprecatedID()));
+                                    extension_tab->GetProcess()->GetID()));
+  EXPECT_TRUE(process_map->Contains(coi_extension->id(),
+                                    service_worker_process->GetID()));
 
   GURL* url = nullptr;
-  EXPECT_EQ(
-      mojom::ContextType::kPrivilegedExtension,
-      process_map->GetMostLikelyContextType(
-          coi_extension, extension_tab->GetProcess()->GetDeprecatedID(), url));
   EXPECT_EQ(mojom::ContextType::kPrivilegedExtension,
             process_map->GetMostLikelyContextType(
-                coi_extension, service_worker_process->GetDeprecatedID(), url));
+                coi_extension, extension_tab->GetProcess()->GetID(), url));
+  EXPECT_EQ(mojom::ContextType::kPrivilegedExtension,
+            process_map->GetMostLikelyContextType(
+                coi_extension, service_worker_process->GetID(), url));
 }
 
 // Tests certain extension APIs which retrieve in-process extension windows.
@@ -718,7 +715,7 @@ IN_PROC_BROWSER_TEST_F(CrossOriginIsolationTest,
 }
 
 // Verify extension resource access if it's in an iframe. Regression test for
-// crbug.com/1343610.
+// crbug.com/40060244.
 IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, ExtensionResourceInIframe) {
   EXPECT_TRUE(embedded_test_server()->Start());
 

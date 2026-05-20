@@ -15,10 +15,9 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/types/optional_ref.h"
-#include "components/accessibility_annotator/content/content_annotator/content_annotation_validator.h"
-#include "components/accessibility_annotator/content/content_annotator/content_classifier.h"
-#include "components/accessibility_annotator/content/content_annotator/content_classifier_types.h"
 #include "components/accessibility_annotator/core/accessibility_annotator_features.h"
+#include "components/accessibility_annotator/core/content_annotator/content_classifier.h"
+#include "components/accessibility_annotator/core/content_annotator/content_classifier_types.h"
 #include "components/accessibility_annotator/core/storage/accessibility_annotator_backend_impl.h"
 #include "components/history/core/browser/history_database_params.h"
 #include "components/history/core/browser/history_service.h"
@@ -30,6 +29,7 @@
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/optimization_guide/proto/features/content_annotation.pb.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
+#include "components/page_content_annotations/content/mock_page_content_services.h"
 #include "components/page_content_annotations/content/page_content_extraction_service.h"
 #include "components/page_content_annotations/content/page_embeddings_service.h"
 #include "components/page_content_annotations/core/page_content_annotations_common.h"
@@ -48,10 +48,18 @@
 
 namespace accessibility_annotator {
 
+using ::page_content_annotations::MockPageEmbeddingsService;
 using ::testing::_;
+using ::testing::ElementsAreArray;
+using ::testing::ExplainMatchResult;
 using ::testing::Field;
 using ::testing::Optional;
 using ::testing::Return;
+
+MATCHER_P(EmbeddingDataEq, expected_data, "") {
+  return ExplainMatchResult(ElementsAreArray(expected_data), arg.GetData(),
+                            result_listener);
+}
 
 class ContentAnnotatorFeatureList {
  public:
@@ -76,33 +84,6 @@ class MockContentClassifier : public ContentClassifier {
               (const, override));
 };
 
-class MockContentAnnotationValidator : public ContentAnnotationValidator {
- public:
-  MockContentAnnotationValidator()
-      : ContentAnnotationValidator(base::DictValue()) {}
-  ~MockContentAnnotationValidator() override = default;
-
-  MOCK_METHOD(std::optional<base::DictValue>,
-              Validate,
-              (std::string),
-              (const, override));
-};
-
-class MockPageEmbeddingsService
-    : public page_content_annotations::PageEmbeddingsService {
- public:
-  explicit MockPageEmbeddingsService(
-      page_content_annotations::PageContentExtractionService*
-          page_content_extraction_service)
-      : PageEmbeddingsService(page_content_extraction_service) {}
-  ~MockPageEmbeddingsService() override = default;
-
-  MOCK_METHOD(std::vector<page_content_annotations::PassageEmbedding>,
-              GetEmbeddings,
-              (content::Page&),
-              (const, override));
-};
-
 // Inherit from RenderViewHostTestHarness to provide WebContents and Page
 // objects.
 class ContentAnnotatorServiceTest : public content::RenderViewHostTestHarness {
@@ -120,20 +101,20 @@ class ContentAnnotatorServiceTest : public content::RenderViewHostTestHarness {
         page_content_annotations::PageEmbeddingsService&
             page_embeddings_service,
         AccessibilityAnnotatorBackend& accessibility_annotator_backend,
+        history::HistoryService* history_service,
         passage_embeddings::Embedder* embedder,
         passage_embeddings::EmbedderMetadataProvider*
             embedder_metadata_provider,
-        std::unique_ptr<ContentClassifier> content_classifier,
-        std::unique_ptr<ContentAnnotationValidator> validator)
+        std::unique_ptr<ContentClassifier> content_classifier)
         : ContentAnnotatorService(page_content_annotations_service,
                                   page_content_extraction_service,
                                   optimization_guide_remote_model_executor,
                                   page_embeddings_service,
                                   accessibility_annotator_backend,
+                                  history_service,
                                   embedder,
                                   embedder_metadata_provider,
-                                  std::move(content_classifier),
-                                  std::move(validator)) {}
+                                  std::move(content_classifier)) {}
   };
 
   ContentAnnotatorServiceTest() = default;
@@ -167,6 +148,7 @@ class ContentAnnotatorServiceTest : public content::RenderViewHostTestHarness {
     accessibility_annotator_backend_ =
         std::make_unique<AccessibilityAnnotatorBackendImpl>(
             /*history_service=*/nullptr,
+            /*os_crypt_async=*/nullptr,
             syncer::DataTypeStoreTestUtil::FactoryForInMemoryStoreForTest(),
             temp_dir_.GetPath().Append(
                 FILE_PATH_LITERAL("AccessibilityAnnotatorDatabase")));
@@ -180,23 +162,18 @@ class ContentAnnotatorServiceTest : public content::RenderViewHostTestHarness {
         std::make_unique<testing::StrictMock<MockContentClassifier>>();
     mock_classifier_ = mock_classifier.get();
 
-    auto mock_validator =
-        std::make_unique<testing::StrictMock<MockContentAnnotationValidator>>();
-    mock_validator_ = mock_validator.get();
-
     service_ = std::make_unique<TestContentAnnotatorService>(
         *page_content_annotations_service_, *page_content_extraction_service_,
         *mock_remote_model_executor_, *mock_page_embeddings_service_,
-        *accessibility_annotator_backend_, mock_embedder_.get(),
-        mock_embedder_metadata_provider_.get(), std::move(mock_classifier),
-        std::move(mock_validator));
+        *accessibility_annotator_backend_, history_service_.get(),
+        mock_embedder_.get(), mock_embedder_metadata_provider_.get(),
+        std::move(mock_classifier));
   }
 
   void TearDown() override {
     // Explicitly destroy services before the TestHarness tears down the
     // environment.
     mock_classifier_ = nullptr;
-    mock_validator_ = nullptr;
     service_.reset();
     mock_embedder_.reset();
     mock_embedder_metadata_provider_.reset();
@@ -216,6 +193,14 @@ class ContentAnnotatorServiceTest : public content::RenderViewHostTestHarness {
  protected:
   // Helper to trigger all necessary inputs for MaybeAnnotate.
   void TriggerClassification(const GURL& url, base::Time base_time) {
+    // 0. Send URLVisited
+    history::URLRow url_row(url);
+    history::VisitRow visit_row;
+    visit_row.visit_id = 1;
+    visit_row.visit_time = base_time;
+    history::VisitedURLInfo visited_url_info(url_row, visit_row);
+    service_->OnURLVisited(nullptr, visited_url_info);
+
     // 1. Send PageContentAnnotated
     service_->OnPageContentAnnotated(
         page_content_annotations::HistoryVisit(base_time, url),
@@ -248,7 +233,7 @@ class ContentAnnotatorServiceTest : public content::RenderViewHostTestHarness {
             Return(std::vector<page_content_annotations::PassageEmbedding>{
                 {{"Test Title",
                   page_content_annotations::EmbeddingPassageType::kTitle},
-                 passage_embeddings::Embedding({1.0f, 2.0f, 3.0f})}}));
+                 passage_embeddings::Embedding({1.0f, 0.0f, 0.0f})}}));
     service_->OnPageEmbeddingsAvailable(web_contents->GetPrimaryPage());
   }
 
@@ -273,7 +258,6 @@ class ContentAnnotatorServiceTest : public content::RenderViewHostTestHarness {
       mock_embedder_metadata_provider_;
   std::unique_ptr<TestContentAnnotatorService> service_;
   raw_ptr<testing::StrictMock<MockContentClassifier>> mock_classifier_;
-  raw_ptr<testing::StrictMock<MockContentAnnotationValidator>> mock_validator_;
 };
 
 TEST_F(ContentAnnotatorServiceTest, TestMaybeAnnotate_ClassificationTriggered) {
@@ -298,22 +282,25 @@ TEST_F(ContentAnnotatorServiceTest, TestMaybeAnnotate_TwoUrlsOnlyOneCompletes) {
   apc2->data.mutable_main_frame_data()->set_title("Title 2");
 
   // Expect Classify to be called only for URL 2 with correct data
-  EXPECT_CALL(
-      *mock_classifier_,
-      Classify(testing::AllOf(
-          Field(&ContentClassificationInput::url, url2),
-          Field(&ContentClassificationInput::sensitivity_score,
-                Optional(testing::FloatEq(0.7f))),
-          Field(&ContentClassificationInput::navigation_timestamp,
-                Optional(nav_time2)),
-          Field(&ContentClassificationInput::adopted_language,
-                Optional(std::string("fr"))),
-          Field(&ContentClassificationInput::page_title,
-                Optional(std::string("Title 2"))),
-          Field(&ContentClassificationInput::annotated_page_content,
-                testing::Eq(apc2)),
-          Field(&ContentClassificationInput::page_title_embedding,
-                Optional(passage_embeddings::Embedding({1.0f, 2.0f, 3.0f}))))))
+  EXPECT_CALL(*mock_classifier_,
+              Classify(testing::AllOf(
+                  Field(&ContentClassificationInput::url, url2),
+                  Field(&ContentClassificationInput::visit_id,
+                        Optional(static_cast<history::VisitID>(2))),
+                  Field(&ContentClassificationInput::sensitivity_score,
+                        Optional(testing::FloatEq(0.7f))),
+                  Field(&ContentClassificationInput::navigation_timestamp,
+                        Optional(nav_time2)),
+                  Field(&ContentClassificationInput::adopted_language,
+                        Optional(std::string("fr"))),
+                  Field(&ContentClassificationInput::page_title,
+                        Optional(std::string("Title 2"))),
+                  Field(&ContentClassificationInput::annotated_page_content,
+                        testing::Eq(apc2)),
+                  Field(&ContentClassificationInput::page_title_embedding,
+                        Optional(EmbeddingDataEq(
+                            std::vector<float>{1.0f, 0.0f, 0.0f}))))))
+
       .WillOnce(Return(ContentClassificationResult()));
 
   // URL 1 shouldn't trigger classification because it's incomplete.
@@ -322,12 +309,26 @@ TEST_F(ContentAnnotatorServiceTest, TestMaybeAnnotate_TwoUrlsOnlyOneCompletes) {
       .Times(0);
 
   // 1. Send partial data for URL 1.
+  history::URLRow url_row1(url1);
+  history::VisitRow visit_row1;
+  visit_row1.visit_id = 1;
+  visit_row1.visit_time = base_time;
+  history::VisitedURLInfo visited_url_info1(url_row1, visit_row1);
+  service_->OnURLVisited(nullptr, visited_url_info1);
+
   service_->OnPageContentAnnotated(
       page_content_annotations::HistoryVisit(base_time, url1),
       page_content_annotations::PageContentAnnotationsResult::
           CreateContentVisibilityScoreResult(0.5f));
 
   // 2. Send all data for URL 2.
+  history::URLRow url_row2(url2);
+  history::VisitRow visit_row2;
+  visit_row2.visit_id = 2;
+  visit_row2.visit_time = nav_time2;
+  history::VisitedURLInfo visited_url_info2(url_row2, visit_row2);
+  service_->OnURLVisited(nullptr, visited_url_info2);
+
   service_->OnPageContentAnnotated(
       page_content_annotations::HistoryVisit(nav_time2, url2),
       page_content_annotations::PageContentAnnotationsResult::
@@ -348,7 +349,7 @@ TEST_F(ContentAnnotatorServiceTest, TestMaybeAnnotate_TwoUrlsOnlyOneCompletes) {
               GetEmbeddings(testing::Ref(web_contents2->GetPrimaryPage())))
       .WillOnce(Return(std::vector<page_content_annotations::PassageEmbedding>{
           {{"Title 2", page_content_annotations::EmbeddingPassageType::kTitle},
-           passage_embeddings::Embedding({1.0f, 2.0f, 3.0f})}}));
+           passage_embeddings::Embedding({1.0f, 0.0f, 0.0f})}}));
   service_->OnPageEmbeddingsAvailable(web_contents2->GetPrimaryPage());
 }
 
@@ -359,6 +360,14 @@ TEST_F(ContentAnnotatorServiceTest,
 
   // Expect Classify NOT to be called because PageContentExtracted is missing.
   EXPECT_CALL(*mock_classifier_, Classify(testing::_)).Times(0);
+
+  // 0. Send URLVisited
+  history::URLRow url_row(url);
+  history::VisitRow visit_row;
+  visit_row.visit_id = 1;
+  visit_row.visit_time = base_time;
+  history::VisitedURLInfo visited_url_info(url_row, visit_row);
+  service_->OnURLVisited(nullptr, visited_url_info);
 
   // 1. Send PageContentAnnotated
   auto result = page_content_annotations::PageContentAnnotationsResult::
@@ -478,6 +487,9 @@ TEST_F(ContentAnnotatorServiceTest,
   // URL1 is missing everything except adopted_language.
   histogram_tester.ExpectBucketCount(
       "AccessibilityAnnotator.ContentAnnotator.DependentInformationMissing",
+      ContentAnnotatorMissingDependentInformation::kVisitIdMissing, 1);
+  histogram_tester.ExpectBucketCount(
+      "AccessibilityAnnotator.ContentAnnotator.DependentInformationMissing",
       ContentAnnotatorMissingDependentInformation::kSensitivityScoreMissing, 1);
   histogram_tester.ExpectBucketCount(
       "AccessibilityAnnotator.ContentAnnotator.DependentInformationMissing",
@@ -498,106 +510,10 @@ TEST_F(ContentAnnotatorServiceTest,
       ContentAnnotatorMissingDependentInformation::kPageTitleEmbeddingMissing,
       1);
   histogram_tester.ExpectTotalCount(
-      "AccessibilityAnnotator.ContentAnnotator.DependentInformationMissing", 5);
+      "AccessibilityAnnotator.ContentAnnotator.DependentInformationMissing", 6);
 }
 
 TEST_F(ContentAnnotatorServiceTest, TestMaybeAnnotate_FullAnnotationReached) {
-  // 1. Enable features::kContentAnnotatorEnableFullAnnotation flag.
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kContentAnnotator,
-      {{"content_annotator_enable_full_annotation", "true"}});
-
-  GURL url("https://example.com/full");
-  base::Time base_time = base::Time::Now();
-  std::string data = R"({"key": "value"})";
-
-  // 2. Mock Classify to return a result that satisfies the `reached_annotation`
-  // condition.
-  ContentClassificationResult classifier_result;
-  classifier_result.title_keyword_result =
-      ContentClassificationResult::Result();
-  classifier_result.title_keyword_result->category = "test category";
-  classifier_result.is_sensitive = false;
-  classifier_result.is_in_target_language = true;
-
-  EXPECT_CALL(*mock_classifier_, Classify(_))
-      .WillOnce(Return(classifier_result));
-
-  // 3. Capture the callback passed to ExecuteModel.
-  base::OnceCallback<void(
-      optimization_guide::OptimizationGuideModelExecutionResult,
-      std::unique_ptr<optimization_guide::ModelQualityLogEntry>)>
-      captured_callback;
-
-  EXPECT_CALL(
-      *mock_remote_model_executor_,
-      ExecuteModel(
-          optimization_guide::ModelBasedCapabilityKey::kContentAnnotation,
-          /*request_metadata=*/_,
-          /*options=*/_,
-          /*callback=*/_))
-      .Times(1)
-      .WillOnce([&captured_callback, url](
-                    auto feature,
-                    const google::protobuf::MessageLite& request_metadata,
-                    const auto& options, auto callback) {
-        captured_callback = std::move(callback);
-
-        const auto* request = static_cast<
-            const optimization_guide::proto::ContentAnnotationRequest*>(
-            &request_metadata);
-        EXPECT_EQ(request->page_context().url(), url.spec());
-        EXPECT_EQ(request->page_context().title(), "Test Title");
-        EXPECT_TRUE(request->page_context().has_annotated_page_content());
-        EXPECT_EQ(request->page_context()
-                      .annotated_page_content()
-                      .main_frame_data()
-                      .title(),
-                  "Test Title");
-      });
-
-  TriggerClassification(url, base_time);
-
-  // 4. Simulate the model execution by running the captured callback.
-  ASSERT_TRUE(captured_callback);
-  optimization_guide::proto::ContentAnnotationResponse mock_response_proto;
-  mock_response_proto.set_extracted_data(data);
-
-  optimization_guide::proto::Any any_proto;
-  any_proto.set_type_url(base::StrCat(
-      {"type.googleapis.com/", mock_response_proto.GetTypeName()}));
-  any_proto.set_value(mock_response_proto.SerializeAsString());
-
-  optimization_guide::OptimizationGuideModelExecutionResult mock_result(
-      base::ok(any_proto), /*execution_info=*/nullptr);
-
-  // 5. Validator is always called. Mock it to return the parsed value.
-  EXPECT_CALL(*mock_validator_, Validate(data))
-      .WillOnce(Return(std::move(
-          base::JSONReader::Read(data, base::JSON_PARSE_RFC)->GetDict())));
-
-  ASSERT_NO_FATAL_FAILURE(std::move(captured_callback)
-                              .Run(std::move(mock_result),
-                                   /*log_entry=*/nullptr));
-
-  // 6. Verify that the data is cached in the backend.
-  base::optional_ref<
-      const AccessibilityAnnotatorBackend::ContentAnnotationsData>
-      cached_data =
-          accessibility_annotator_backend_->GetContentAnnotationsCacheData(url);
-  ASSERT_TRUE(cached_data.has_value());
-  EXPECT_EQ(cached_data->annotations,
-            base::JSONReader::Read(data, base::JSON_PARSE_RFC)->GetDict());
-  EXPECT_EQ(cached_data->page_title, "Test Title");
-
-  base::DictValue expected_classifier_results;
-  expected_classifier_results.Set("title_keyword_result", "test category");
-  EXPECT_EQ(cached_data->classifier_results, expected_classifier_results);
-}
-
-TEST_F(ContentAnnotatorServiceTest,
-       TestMaybeAnnotate_FullAnnotationReachedWithProto) {
   // 1. Enable features::kContentAnnotatorEnableFullAnnotation flag.
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
@@ -662,10 +578,6 @@ TEST_F(ContentAnnotatorServiceTest,
   optimization_guide::OptimizationGuideModelExecutionResult mock_result(
       base::ok(any_proto), /*execution_info=*/nullptr);
 
-  // 5. Validator should NOT be called in this case because proto is validated
-  // server-side.
-  EXPECT_CALL(*mock_validator_, Validate(_)).Times(0);
-
   ASSERT_NO_FATAL_FAILURE(std::move(captured_callback)
                               .Run(std::move(mock_result),
                                    /*log_entry=*/nullptr));
@@ -674,17 +586,18 @@ TEST_F(ContentAnnotatorServiceTest,
   base::optional_ref<
       const AccessibilityAnnotatorBackend::ContentAnnotationsData>
       cached_data =
-          accessibility_annotator_backend_->GetContentAnnotationsCacheData(url);
+          accessibility_annotator_backend_->GetContentAnnotationsCacheData(
+              static_cast<history::VisitID>(1));
   ASSERT_TRUE(cached_data.has_value());
-  ASSERT_TRUE(cached_data->content_annotation.has_value());
-  EXPECT_EQ(cached_data->content_annotation->description(), "Test description");
-  EXPECT_EQ(cached_data->content_annotation->status(),
+  EXPECT_EQ(cached_data->content_annotation.description(), "Test description");
+  EXPECT_EQ(cached_data->content_annotation.status(),
             optimization_guide::proto::ContentAnnotation::CONFIRMED);
-  ASSERT_EQ(cached_data->content_annotation->structured_data().orders_size(),
-            1);
-  EXPECT_EQ(cached_data->content_annotation->structured_data().orders(0).id(),
+  ASSERT_EQ(cached_data->content_annotation.structured_data().orders_size(), 1);
+  EXPECT_EQ(cached_data->content_annotation.structured_data().orders(0).id(),
             "order_123");
   EXPECT_EQ(cached_data->page_title, "Test Title");
+  EXPECT_EQ(cached_data->url, url);
+  EXPECT_EQ(cached_data->navigation_timestamp, base_time);
 
   base::DictValue expected_classifier_results;
   expected_classifier_results.Set("title_keyword_result", "test category");
@@ -798,19 +711,17 @@ TEST_F(ContentAnnotatorServiceTest,
       "AccessibilityAnnotator.FullAnnotationReached", true, 1);
 }
 
-// Tests that annotations are not saved when their validation fails.
-TEST_F(ContentAnnotatorServiceTest,
-       TestMaybeAnnotate_FullAnnotationReachedValidationFails) {
+TEST_F(ContentAnnotatorServiceTest, TestOnVisitsDeleted_CancelsInProgressWork) {
+  // 1. Enable features::kContentAnnotatorEnableFullAnnotation flag.
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
       features::kContentAnnotator,
       {{"content_annotator_enable_full_annotation", "true"}});
 
-  GURL url("https://example.com/validation_failed");
+  GURL url("https://example.com/proto");
   base::Time base_time = base::Time::Now();
-  std::string data = "invalid data";
 
-  // 1. Mock Classify to return a result that triggers full annotation.
+  // 2. Mock Classify to return a result that triggers full annotation.
   ContentClassificationResult classifier_result;
   classifier_result.title_keyword_result =
       ContentClassificationResult::Result();
@@ -821,94 +732,46 @@ TEST_F(ContentAnnotatorServiceTest,
   EXPECT_CALL(*mock_classifier_, Classify(_))
       .WillOnce(Return(classifier_result));
 
-  // 2. Capture the callback.
-  base::OnceCallback<void(
-      optimization_guide::OptimizationGuideModelExecutionResult,
-      std::unique_ptr<optimization_guide::ModelQualityLogEntry>)>
-      captured_callback;
-
-  EXPECT_CALL(*mock_remote_model_executor_, ExecuteModel)
-      .WillOnce(
-          [&captured_callback](
-              optimization_guide::ModelBasedCapabilityKey feature,
-              const google::protobuf::MessageLite& request,
-              const optimization_guide::ModelExecutionOptions& options,
-              optimization_guide::OptimizationGuideModelExecutionResultCallback
-                  callback) { captured_callback = std::move(callback); });
-
-  TriggerClassification(url, base_time);
-
-  // 3. Simulate model output.
-  ASSERT_TRUE(captured_callback);
-  optimization_guide::proto::ContentAnnotationResponse mock_response_proto;
-  mock_response_proto.set_extracted_data(data);
-
-  optimization_guide::proto::Any any_proto;
-  any_proto.set_type_url(base::StrCat(
-      {"type.googleapis.com/", mock_response_proto.GetTypeName()}));
-  any_proto.set_value(mock_response_proto.SerializeAsString());
-
-  optimization_guide::OptimizationGuideModelExecutionResult mock_result(
-      base::ok(any_proto), /*execution_info=*/nullptr);
-
-  // 4. Mock validator to return nullopt (validation failed).
-  EXPECT_CALL(*mock_validator_, Validate(data)).WillOnce(Return(std::nullopt));
-
-  std::move(captured_callback)
-      .Run(std::move(mock_result), /*log_entry=*/nullptr);
-
-  // 5. Verify that NO data is cached in the backend.
-  base::optional_ref<
-      const AccessibilityAnnotatorBackend::ContentAnnotationsData>
-      cached_data =
-          accessibility_annotator_backend_->GetContentAnnotationsCacheData(url);
-  EXPECT_FALSE(cached_data.has_value());
-}
-
-TEST_F(ContentAnnotatorServiceTest,
-       TestHandleModelExecutionResult_StripsMarkdown) {
-  // 1. Enable features::kContentAnnotatorEnableFullAnnotation flag.
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      features::kContentAnnotator,
-      {{"content_annotator_enable_full_annotation", "true"}});
-
-  GURL url("https://example.com/markdown");
-  base::Time base_time = base::Time::Now();
-  std::string data = "{\n  \"key\": \"value\"\n}";
-  std::string data_with_markdown = base::StrCat({"```json\n", data, "\n```"});
-
-  // 2. Mock Classify to return a result that triggers full annotation.
-  ContentClassificationResult classifier_result;
-  classifier_result.title_keyword_result =
-      ContentClassificationResult::Result();
-  classifier_result.title_keyword_result->category = "test category";
-  classifier_result.is_sensitive = false;
-  classifier_result.is_in_target_language = true;
-
-  EXPECT_CALL(*mock_classifier_, Classify).WillOnce(Return(classifier_result));
-
   // 3. Capture the callback passed to ExecuteModel.
   base::OnceCallback<void(
       optimization_guide::OptimizationGuideModelExecutionResult,
       std::unique_ptr<optimization_guide::ModelQualityLogEntry>)>
       captured_callback;
 
-  EXPECT_CALL(*mock_remote_model_executor_, ExecuteModel)
-      .WillOnce(
-          [&captured_callback](
-              optimization_guide::ModelBasedCapabilityKey feature,
-              const google::protobuf::MessageLite& request,
-              const optimization_guide::ModelExecutionOptions& options,
-              optimization_guide::OptimizationGuideModelExecutionResultCallback
-                  callback) { captured_callback = std::move(callback); });
+  EXPECT_CALL(
+      *mock_remote_model_executor_,
+      ExecuteModel(
+          optimization_guide::ModelBasedCapabilityKey::kContentAnnotation,
+          /*request_metadata=*/_,
+          /*options=*/_,
+          /*callback=*/_))
+      .Times(1)
+      .WillOnce([&captured_callback](
+                    auto feature,
+                    const google::protobuf::MessageLite& request_metadata,
+                    const auto& options, auto callback) {
+        captured_callback = std::move(callback);
+      });
 
   TriggerClassification(url, base_time);
 
-  // 4. Simulate the model execution by running the captured callback.
   ASSERT_TRUE(captured_callback);
+
+  // 4. Simulate history deletion for visit_id 1.
+  history::DeletionInfo deletion_info(
+      history::DeletionTimeRange::Invalid(), /*is_from_expiration=*/false,
+      history::DeletionInfo::Reason::kOther, history::URLRows(),
+      /*deleted_visit_ids=*/{1}, /*favicon_urls=*/{},
+      /*restrict_urls=*/std::nullopt);
+  service_->OnHistoryDeletions(nullptr, deletion_info);
+
+  // 5. Simulate the model execution by running the captured callback.
   optimization_guide::proto::ContentAnnotationResponse mock_response_proto;
-  mock_response_proto.set_extracted_data(data_with_markdown);
+  optimization_guide::proto::ContentAnnotation* content_annotation =
+      mock_response_proto.mutable_content_annotation();
+  content_annotation->set_description("Test description");
+  content_annotation->set_status(
+      optimization_guide::proto::ContentAnnotation::CONFIRMED);
 
   optimization_guide::proto::Any any_proto;
   any_proto.set_type_url(base::StrCat(
@@ -918,23 +781,111 @@ TEST_F(ContentAnnotatorServiceTest,
   optimization_guide::OptimizationGuideModelExecutionResult mock_result(
       base::ok(any_proto), /*execution_info=*/nullptr);
 
-  // 5. Mock validator to return the stripped data as a DictValue.
-  EXPECT_CALL(*mock_validator_, Validate(data))
-      .WillOnce(Return(std::move(
-          base::JSONReader::Read(data, base::JSON_PARSE_RFC)->GetDict())));
-
   ASSERT_NO_FATAL_FAILURE(std::move(captured_callback)
                               .Run(std::move(mock_result),
                                    /*log_entry=*/nullptr));
 
-  // 6. Verify that the stripped data is cached in the backend.
+  // 6. Verify that the data is NOT cached in the backend.
   base::optional_ref<
       const AccessibilityAnnotatorBackend::ContentAnnotationsData>
       cached_data =
-          accessibility_annotator_backend_->GetContentAnnotationsCacheData(url);
-  ASSERT_TRUE(cached_data.has_value());
-  EXPECT_EQ(cached_data->annotations,
-            base::JSONReader::Read(data, base::JSON_PARSE_RFC)->GetDict());
+          accessibility_annotator_backend_->GetContentAnnotationsCacheData(
+              static_cast<history::VisitID>(1));
+  EXPECT_FALSE(cached_data.has_value());
+}
+
+TEST_F(ContentAnnotatorServiceTest, TestOnURLVisited_PopulatesVisitId) {
+  base::HistogramTester histogram_tester;
+  GURL url1("https://example1.com/");
+  GURL url2("https://example2.com/");
+  GURL url3("https://example3.com/");
+  base::Time base_time = base::Time::Now();
+
+  // 1. Call OnURLVisited for URL1
+  history::URLRow url_row1(url1);
+  history::VisitRow visit_row1;
+  visit_row1.visit_id = 101;
+  visit_row1.visit_time = base_time;
+  history::VisitedURLInfo visited_url_info1(url_row1, visit_row1);
+  service_->OnURLVisited(nullptr, visited_url_info1);
+
+  // 2. Add URL2 to cache
+  translate::LanguageDetectionDetails details2;
+  details2.url = url2;
+  details2.adopted_language = "en";
+  service_->OnLanguageDetermined(details2);
+
+  // 3. Add URL3 to cache. This should trigger overflow and evict URL1.
+  translate::LanguageDetectionDetails details3;
+  details3.url = url3;
+  details3.adopted_language = "en";
+  service_->OnLanguageDetermined(details3);
+
+  // URL1 should be evicted. It should have visit_id and navigation_timestamp.
+  // So those should NOT be reported as missing.
+  histogram_tester.ExpectBucketCount(
+      "AccessibilityAnnotator.ContentAnnotator.DependentInformationMissing",
+      ContentAnnotatorMissingDependentInformation::kVisitIdMissing, 0);
+  histogram_tester.ExpectBucketCount(
+      "AccessibilityAnnotator.ContentAnnotator.DependentInformationMissing",
+      ContentAnnotatorMissingDependentInformation::kNavigationTimestampMissing,
+      0);
+
+  // It should report other missing fields.
+  histogram_tester.ExpectBucketCount(
+      "AccessibilityAnnotator.ContentAnnotator.DependentInformationMissing",
+      ContentAnnotatorMissingDependentInformation::kSensitivityScoreMissing, 1);
+}
+
+TEST_F(ContentAnnotatorServiceTest, TestOnURLVisited_IgnoresSyncedVisits) {
+  base::HistogramTester histogram_tester;
+  GURL url1("https://example1.com/");
+  GURL url2("https://example2.com/");
+  GURL url3("https://example3.com/");
+  GURL url4("https://example4.com/");
+  base::Time base_time = base::Time::Now();
+
+  // 1. Call OnURLVisited for URL1 with originator_cache_guid (synced visit)
+  history::URLRow url_row1(url1);
+  history::VisitRow visit_row1;
+  visit_row1.visit_id = 101;
+  visit_row1.visit_time = base_time;
+  visit_row1.originator_cache_guid = "remote_device";
+  history::VisitedURLInfo visited_url_info1(url_row1, visit_row1);
+  service_->OnURLVisited(nullptr, visited_url_info1);
+
+  // 2. Add URL2 to cache
+  translate::LanguageDetectionDetails details2;
+  details2.url = url2;
+  details2.adopted_language = "en";
+  service_->OnLanguageDetermined(details2);
+
+  // 3. Add URL3 to cache. If URL1 was ignored, cache now has {URL2, URL3}.
+  translate::LanguageDetectionDetails details3;
+  details3.url = url3;
+  details3.adopted_language = "en";
+  service_->OnLanguageDetermined(details3);
+
+  // 4. Add URL4 to cache. This should trigger overflow.
+  // If URL1 was ignored, URL2 is evicted (lacks visit_id).
+  // If URL1 was NOT ignored, URL1 was evicted earlier (has visit_id).
+  translate::LanguageDetectionDetails details4;
+  details4.url = url4;
+  details4.adopted_language = "en";
+  service_->OnLanguageDetermined(details4);
+
+  // If URL1 was ignored, URL2 was evicted, and it lacks visit_id.
+  // So kVisitIdMissing should be logged.
+  histogram_tester.ExpectBucketCount(
+      "AccessibilityAnnotator.ContentAnnotator.DependentInformationMissing",
+      ContentAnnotatorMissingDependentInformation::kVisitIdMissing, 1);
+
+  // Confirm URL1 was not evicted as it shouldn't be added to cache in the
+  // first place. If it was evicted, it would log kAdoptedLanguageMissing since
+  // it only had visit_id and timestamp.
+  histogram_tester.ExpectBucketCount(
+      "AccessibilityAnnotator.ContentAnnotator.DependentInformationMissing",
+      ContentAnnotatorMissingDependentInformation::kAdoptedLanguageMissing, 0);
 }
 
 }  // namespace accessibility_annotator

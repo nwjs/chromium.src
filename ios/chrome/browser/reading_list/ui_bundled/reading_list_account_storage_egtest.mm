@@ -5,7 +5,6 @@
 #import "base/ios/ios_util.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
-#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_pref_names.h"
 #import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
 #import "ios/chrome/browser/authentication/test/signin_earl_grey_ui_test_util.h"
@@ -341,7 +340,7 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   // Add last syncing account to mimic signing out without clearing data.
   [ChromeEarlGrey
       setStringValue:[FakeSystemIdentity fakeIdentity1].gaiaId.ToNSString()
-         forUserPref:prefs::kGoogleServicesLastSyncingGaiaId];
+         forUserPref:prefs::kGoogleServicesSyncingGaiaIdMigratedToSignedIn];
 
   OpenReadingList();
   [SigninEarlGreyUI
@@ -608,7 +607,8 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 // entries are added, then the first item is marked as unread, the read and
 // unread items sections should be shown correctly and remain so after a
 // sign-out & sign-in with the same account.
-- (void)testMoveItemThenRefreshSignIn {
+// TODO(crbug.com/507565141): Re-enable test.
+- (void)DISABLED_testMoveItemThenRefreshSignIn {
   // Sign-in with the Reading List Promo.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];

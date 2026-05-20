@@ -69,7 +69,7 @@
 #if BUILDFLAG(IS_WIN)
 #include "base/win/windows_version.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
-#include "chrome/grit/chrome_unscaled_resources.h"  // nogncheck crbug.com/1125897
+#include "chrome/grit/chrome_unscaled_resources.h"  // nogncheck crbug.com/40147906
 #include "ui/gfx/win/icon_util.h"  // For Iconutil::kLargeIconSize.
 #endif
 
@@ -868,6 +868,14 @@ int GetDefaultAvatarLabelResourceIDAtIndex(size_t index) {
 
 bool IsDefaultAvatarIconIndex(size_t index) {
   return index < kDefaultAvatarIconsCount;
+}
+
+size_t GetSanitizedAvatarIndex(int icon_index) {
+  if (icon_index < 0 ||
+      !IsDefaultAvatarIconIndex(static_cast<size_t>(icon_index))) {
+    return GetPlaceholderAvatarIndex();
+  }
+  return static_cast<size_t>(icon_index);
 }
 
 bool IsDefaultAvatarIconUrl(std::string_view url, size_t* icon_index) {

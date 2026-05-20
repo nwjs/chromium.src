@@ -10,7 +10,7 @@
 #include "components/policy/core/common/management/management_service.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
+#include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"  // nogncheck crbug.com/40147906
 #endif
 
 using EnterpriseManagementAuthority = policy::EnterpriseManagementAuthority;
@@ -19,7 +19,7 @@ using ManagementAuthorityTrustworthiness =
 
 class Profile;
 
-// TODO (crbug/1238355): Add unit tests for this file.
+// TODO (crbug.com/40193436): Add unit tests for this file.
 
 class BrowserCloudManagementStatusProvider final
     : public policy::ManagementStatusProvider {

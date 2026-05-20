@@ -28,10 +28,10 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
 #include "chrome/browser/ui/tabs/tab_muted_utils.h"
 #include "chrome/common/webui_url_constants.h"
@@ -73,7 +73,7 @@
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
 #include "chrome/browser/ui/browser.h"                             // nogncheck
 #include "chrome/browser/ui/browser_finder.h"                      // nogncheck
-#include "chrome/browser/ui/browser_navigator_params.h"            // nogncheck
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"  // nogncheck
 #include "chrome/browser/ui/recently_audible_helper.h"             // nogncheck
 #include "chrome/browser/ui/tabs/tab_enums.h"                      // nogncheck
 #include "chrome/browser/ui/tabs/tab_group_model.h"                // nogncheck
@@ -407,7 +407,7 @@ api::tabs::Tab ExtensionTabUtil::CreateTabObject(
 
 #if BUILDFLAG(IS_ANDROID)
   tab_object.discarded = contents->WasDiscarded();
-  // TODO(crbug.com/371432155): Determine auto-discardable and frozen states on
+  // TODO(crbug.com/505306735): Determine auto-discardable and frozen states on
   // desktop Android where the TabLifecycleUnit is not available.
 #else
   auto* tab_lifecycle_unit_external =
@@ -672,8 +672,11 @@ bool ExtensionTabUtil::GetTabById(int tab_id,
   }
 
   for (WindowController* window : *WindowControllerList::GetInstance()) {
-    if (window->profile() != profile &&
-        window->profile() != incognito_profile) {
+    bool is_alive = window->GetBrowserWindowInterface() &&
+                    !window->GetBrowserWindowInterface()->IsDeleteScheduled();
+    bool profile_matches =
+        window->profile() == profile || window->profile() == incognito_profile;
+    if (!is_alive || !profile_matches) {
       continue;
     }
     for (int i = 0; i < window->GetTabCount(); ++i) {
@@ -1106,7 +1109,7 @@ base::expected<GURL, std::string> ExtensionTabUtil::PrepareURLForNavigation(
   // Ideally, the URL would only be "fixed" for user input (e.g. for URLs
   // entered into the Omnibox), but some extensions rely on the legacy behavior
   // where all navigations were subject to the "fixing".  See also
-  // https://crbug.com/1145381.
+  // https://crbug.com/40155847.
   url = url_formatter::FixupURL(url.spec());
 
   // Reject invalid URLs.

@@ -45,11 +45,10 @@ function announceElementAriaLabel(element: HTMLElement) {
     // Note: ariaNotify is more efficient and appears to work more reliably, but
     // support is not guaranteed in all browsers. Fall back on a11y announcer if
     // the ariaNotify function is unavailable.
-    const ariaNotify = (element as any).ariaNotify;
-    if (ariaNotify) {
-      ariaNotify.call(element, message);
+    if (element.ariaNotify) {
+      element.ariaNotify(message);
     } else {
-      getA11yAnnouncer(element)?.announce(message);
+      getA11yAnnouncer(element).announce(message);
     }
   }
 }
@@ -295,7 +294,7 @@ export class OmniboxPopupAppElement extends I18nMixinLit
     return this.shadowRoot.querySelector('cr-searchbox-dropdown')!;
   }
 
-  protected get shouldHideEntrypointButton_(): boolean {
+  protected shouldHideEntrypointButton_(): boolean {
     return this.searchboxLayoutMode_ === 'Compact';
   }
 
@@ -354,7 +353,7 @@ export class OmniboxPopupAppElement extends I18nMixinLit
 
   private getContextualEntrypointButton_(): ContextualEntrypointButtonElement|
       null {
-    if (this.showContextEntrypoint_ && !this.shouldHideEntrypointButton_) {
+    if (this.showContextEntrypoint_ && !this.shouldHideEntrypointButton_()) {
       return this.shadowRoot.querySelector<ContextualEntrypointButtonElement>(
           '#context');
     }
@@ -515,7 +514,7 @@ export class OmniboxPopupAppElement extends I18nMixinLit
     }
     // TODO(crbug.com/462775253): Ideally everything available for selection
     // comes from the AutocompleteResult.
-    if (this.showContextEntrypoint_ && !this.shouldHideEntrypointButton_) {
+    if (this.showContextEntrypoint_ && !this.shouldHideEntrypointButton_()) {
       available.push({
         line: -1,
         state: SelectionLineState.kFocusedButtonContextEntrypoint,

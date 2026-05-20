@@ -4,8 +4,9 @@
 
 import("//mojo/public/tools/bindings/mojom.gni")
 import("//ui/webui/resources/tools/build_webui.gni")
+import("//ui/webui/webui_features.gni")
 
-assert(!is_android && !is_ios)
+assert((!is_android && !is_ios) || enable_webui_ntp)
 
 build_webui("build") {
   grd_prefix = "cr_components_searchbox"
@@ -27,7 +28,6 @@ build_webui("build") {
     "searchbox_match.html.ts",
     "searchbox_match.ts",
     "searchbox_mixin.ts",
-    "searchbox_searchbox_dropdown.html.ts",
     "searchbox_thumbnail.html.ts",
     "searchbox_thumbnail.ts",
     "utils.ts",

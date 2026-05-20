@@ -512,8 +512,6 @@ void NetworkQualityEstimator::NotifyHeadersReceivedInternal(
                                    NETWORK_QUALITY_OBSERVATION_SOURCE_HTTP);
   AddAndNotifyObserversOfRTT(http_rtt_observation);
   throughput_analyzer_->NotifyBytesRead(request, time);
-  throughput_analyzer_->NotifyExpectedResponseContentSize(
-      request, request.GetExpectedContentSize());
 }
 
 void NetworkQualityEstimator::NotifyBytesRead(const URLRequest& request) {
@@ -635,8 +633,7 @@ bool NetworkQualityEstimator::RequestProvidesRTTObservation(
     const URLRequest& request) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  bool private_network_request =
-      nqe::internal::IsRequestForPrivateHost(request, net_log_);
+  bool private_network_request = IsPrivateHost(request);
 
   return (use_localhost_requests_ || !private_network_request) &&
          // Verify that response headers are received, so it can be ensured that
@@ -664,6 +661,7 @@ void NetworkQualityEstimator::OnConnectionTypeChanged(
                                network_quality_, effective_connection_type_));
 
   // Clear the local state.
+  is_private_host_cache_.Clear();
   last_connection_change_ = tick_clock_->NowTicks();
   http_downstream_throughput_kbps_observations_.Clear();
   for (auto& rtt_ms_observation : rtt_ms_observations_)
@@ -1666,6 +1664,31 @@ void NetworkQualityEstimator::OnPeerToPeerConnectionsCountChange(
 uint32_t NetworkQualityEstimator::GetPeerToPeerConnectionsCountChange() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return p2p_connections_count_;
+}
+
+bool NetworkQualityEstimator::IsPrivateHost(const URLRequest& request) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  SCOPED_UMA_HISTOGRAM_TIMER("NQE.IsPrivateHost.Duration");
+  std::string host(request.url().host());
+
+  if (base::FeatureList::IsEnabled(
+          features::kNetworkQualityEstimatorIsPrivateHostCache)) {
+    auto it = is_private_host_cache_.Get(host);
+    if (it != is_private_host_cache_.end()) {
+      base::UmaHistogramBoolean("NQE.IsPrivateHost.CacheHit", true);
+      return it->second;
+    }
+    base::UmaHistogramBoolean("NQE.IsPrivateHost.CacheHit", false);
+  }
+
+  bool is_private = nqe::internal::IsRequestForPrivateHost(request, net_log_);
+
+  if (base::FeatureList::IsEnabled(
+          features::kNetworkQualityEstimatorIsPrivateHostCache)) {
+    is_private_host_cache_.Put(host, is_private);
+  }
+
+  return is_private;
 }
 
 }  // namespace net

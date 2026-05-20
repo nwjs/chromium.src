@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.tabbed_mode;
 import static org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType.APP;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarCoordinator;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
@@ -30,16 +31,15 @@ import java.util.function.Supplier;
 /* package */ class KeyboardFocusRowManager {
 
     // Alphabetical order by field name
-    private final Supplier</* @Nullable */ BookmarkBarCoordinator> mBookmarkBarCoordinatorSupplier;
+    private final Supplier<@Nullable BookmarkBarCoordinator> mBookmarkBarCoordinatorSupplier;
 
     @SuppressWarnings("unused")
-    private final Supplier<CompositorViewHolder> mCompositorViewHolderSupplier;
+    private final Supplier<@Nullable CompositorViewHolder> mCompositorViewHolderSupplier;
 
-    private final Supplier<ModalDialogManager> mModalDialogManagerSupplier;
-    private final Supplier</* Nullable */ StripLayoutHelperManager>
-            mStripLayoutHelperManagerSupplier;
+    private final Supplier<@Nullable ModalDialogManager> mModalDialogManagerSupplier;
+    private final Supplier<@Nullable StripLayoutHelperManager> mStripLayoutHelperManagerSupplier;
     private final TabObscuringHandler mTabObscuringHandler;
-    private final Supplier</* Nullable */ ToolbarManager> mToolbarManagerSupplier;
+    private final Supplier<@Nullable ToolbarManager> mToolbarManagerSupplier;
 
     /**
      * Constructs a {@link KeyboardFocusRowManager}, which controls the keyboard focus location for
@@ -64,12 +64,12 @@ import java.util.function.Supplier;
      *     not visible) that will be used to get/set keyboard focus on the toolbar.
      */
     KeyboardFocusRowManager(
-            Supplier</* @Nullable */ BookmarkBarCoordinator> bookmarkBarCoordinatorSupplier,
-            Supplier<CompositorViewHolder> compositorViewHolderSupplier,
-            Supplier<ModalDialogManager> modalDialogManagerSupplier,
-            Supplier</* @Nullable */ StripLayoutHelperManager> stripLayoutHelperManagerSupplier,
+            Supplier<@Nullable BookmarkBarCoordinator> bookmarkBarCoordinatorSupplier,
+            Supplier<@Nullable CompositorViewHolder> compositorViewHolderSupplier,
+            Supplier<@Nullable ModalDialogManager> modalDialogManagerSupplier,
+            Supplier<@Nullable StripLayoutHelperManager> stripLayoutHelperManagerSupplier,
             TabObscuringHandler tabObscuringHandler,
-            Supplier</* @Nullable */ ToolbarManager> toolbarManagerSupplier) {
+            Supplier<@Nullable ToolbarManager> toolbarManagerSupplier) {
         mBookmarkBarCoordinatorSupplier = bookmarkBarCoordinatorSupplier;
         mCompositorViewHolderSupplier = compositorViewHolderSupplier;
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
@@ -83,7 +83,9 @@ import java.util.function.Supplier;
         // If the toolbar is obscured, return early.
         var modalDialogManager = mModalDialogManagerSupplier.get();
         if (mTabObscuringHandler.isToolbarObscured()
-                || (modalDialogManager.isShowing() && modalDialogManager.getCurrentType() == APP)) {
+                || (modalDialogManager != null
+                        && modalDialogManager.isShowing()
+                        && modalDialogManager.getCurrentType() == APP)) {
             return;
         }
 
@@ -91,7 +93,10 @@ import java.util.function.Supplier;
         @KeyboardFocusRow int newKeyboardFocusRow = getNewKeyboardFocusRow(oldKeyboardFocusRow);
         switch (newKeyboardFocusRow) {
             case KeyboardFocusRow.NONE -> {
-                mCompositorViewHolderSupplier.get().setFocusOnFirstContentViewItem();
+                var compositorViewHolder = mCompositorViewHolderSupplier.get();
+                if (compositorViewHolder != null) {
+                    compositorViewHolder.setFocusOnFirstContentViewItem();
+                }
             }
             case KeyboardFocusRow.TAB_STRIP -> {
                 var stripLayoutHelperManager = mStripLayoutHelperManagerSupplier.get();

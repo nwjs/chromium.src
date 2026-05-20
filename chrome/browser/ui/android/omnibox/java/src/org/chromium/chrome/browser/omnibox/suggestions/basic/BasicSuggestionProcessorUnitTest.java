@@ -4,6 +4,12 @@
 
 package org.chromium.chrome.browser.omnibox.suggestions.basic;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -17,7 +23,6 @@ import androidx.annotation.DrawableRes;
 import androidx.test.filters.SmallTest;
 
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -32,27 +37,32 @@ import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
+import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxDrawableState;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxImageSupplier;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteUIContext;
+import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonProperties;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionHost;
 import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionInSuggest;
 import org.chromium.chrome.browser.omnibox.suggestions.base.BaseSuggestionViewProperties;
-import org.chromium.chrome.browser.omnibox.test.R;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteMatch;
 import org.chromium.components.omnibox.AutocompleteMatchBuilder;
+import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.omnibox.OmniboxSuggestionType;
 import org.chromium.components.omnibox.SuggestTemplateInfoProto.SuggestTemplateInfo;
 import org.chromium.components.omnibox.action.ActionPresentationMode;
 import org.chromium.components.omnibox.action.OmniboxActionDelegate;
+import org.chromium.components.search_engines.StarterPackId;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.test.util.MockitoHelper;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
@@ -216,7 +226,7 @@ public class BasicSuggestionProcessorUnitTest {
             @OmniboxSuggestionType int expectedType, @DrawableRes int expectedIconRes) {
         OmniboxDrawableState sds = mModel.get(BaseSuggestionViewProperties.ICON);
         @DrawableRes int actualIconRes = shadowOf(sds.drawable).getCreatedFromResId();
-        Assert.assertEquals(
+        assertEquals(
                 String.format(
                         "%s: Want Icon %s, Got %s",
                         SUGGESTION_TYPE_NAMES.get(expectedType),
@@ -252,7 +262,7 @@ public class BasicSuggestionProcessorUnitTest {
         mProcessor.onNativeInitialized();
         for (int[] testCase : testCases) {
             createSearchSuggestion(testCase[0], "");
-            Assert.assertTrue(mModel.get(SuggestionViewProperties.IS_SEARCH_SUGGESTION));
+            assertTrue(mModel.get(SuggestionViewProperties.IS_SEARCH_SUGGESTION));
             assertSuggestionTypeAndIcon(testCase[0], testCase[1]);
         }
     }
@@ -283,7 +293,7 @@ public class BasicSuggestionProcessorUnitTest {
         mProcessor.onNativeInitialized();
         for (int[] testCase : testCases) {
             createUrlSuggestion(testCase[0], "");
-            Assert.assertFalse(mModel.get(SuggestionViewProperties.IS_SEARCH_SUGGESTION));
+            assertFalse(mModel.get(SuggestionViewProperties.IS_SEARCH_SUGGESTION));
             assertSuggestionTypeAndIcon(testCase[0], testCase[1]);
         }
     }
@@ -316,7 +326,7 @@ public class BasicSuggestionProcessorUnitTest {
         mProcessor.onNativeInitialized();
         for (int[] testCase : testCases) {
             createUrlSuggestion(testCase[0], "");
-            Assert.assertFalse(mModel.get(SuggestionViewProperties.IS_SEARCH_SUGGESTION));
+            assertFalse(mModel.get(SuggestionViewProperties.IS_SEARCH_SUGGESTION));
             assertSuggestionTypeAndIcon(testCase[0], testCase[1]);
         }
     }
@@ -338,7 +348,7 @@ public class BasicSuggestionProcessorUnitTest {
             mSuggestion = createSuggestionBuilder(testCase[0], "").addSubtype(143).build();
             mModel = mProcessor.createModel();
             mProcessor.populateModel(mInput, mSuggestion, mModel, 0);
-            Assert.assertTrue(mModel.get(SuggestionViewProperties.IS_SEARCH_SUGGESTION));
+            assertTrue(mModel.get(SuggestionViewProperties.IS_SEARCH_SUGGESTION));
             assertSuggestionTypeAndIcon(testCase[0], testCase[1]);
         }
     }
@@ -347,11 +357,9 @@ public class BasicSuggestionProcessorUnitTest {
     public void getFallbackIconFromIconType_validIconForEachType() {
         for (var iconType : SuggestTemplateInfo.IconType.values()) {
             if (iconType == SuggestTemplateInfo.IconType.ICON_TYPE_UNSPECIFIED) {
-                Assert.assertEquals(
-                        0, mProcessor.getFallbackIconFromIconType(iconType.getNumber()));
+                assertEquals(0, mProcessor.getFallbackIconFromIconType(iconType.getNumber()));
             } else {
-                Assert.assertNotEquals(
-                        0, mProcessor.getFallbackIconFromIconType(iconType.getNumber()));
+                assertNotEquals(0, mProcessor.getFallbackIconFromIconType(iconType.getNumber()));
             }
         }
     }
@@ -363,11 +371,11 @@ public class BasicSuggestionProcessorUnitTest {
         createSearchSuggestion(OmniboxSuggestionType.URL_WHAT_YOU_TYPED, typed);
         PropertyModel model = mProcessor.createModel();
         mProcessor.populateModel(mInput, mSuggestion, model, 0);
-        Assert.assertNull(mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
+        assertNull(mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
 
         createUrlSuggestion(OmniboxSuggestionType.URL_WHAT_YOU_TYPED, typed);
         mProcessor.populateModel(mInput, mSuggestion, model, 0);
-        Assert.assertNull(mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
+        assertNull(mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
     }
 
     @Test
@@ -377,17 +385,17 @@ public class BasicSuggestionProcessorUnitTest {
         createSearchSuggestion(OmniboxSuggestionType.SEARCH_SUGGEST, typed);
         PropertyModel model = mProcessor.createModel();
         mProcessor.populateModel(mInput, mSuggestion, model, 0);
-        Assert.assertNotNull(mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
+        assertNotNull(mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
 
         createUrlSuggestion(OmniboxSuggestionType.HISTORY_URL, typed);
         mProcessor.populateModel(mInput, mSuggestion, model, 0);
-        Assert.assertNotNull(mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
+        assertNotNull(mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
 
         final List<BaseSuggestionViewProperties.Action> actions =
                 mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
-        Assert.assertEquals(1, actions.size());
+        assertEquals(1, actions.size());
         final OmniboxDrawableState iconState = actions.get(0).icon;
-        Assert.assertEquals(
+        assertEquals(
                 R.drawable.btn_suggestion_refine_up,
                 shadowOf(iconState.drawable).getCreatedFromResId());
     }
@@ -398,7 +406,7 @@ public class BasicSuggestionProcessorUnitTest {
         createSearchSuggestion(OmniboxSuggestionType.TILE_SUGGESTION, "Music");
         PropertyModel model = mProcessor.createModel();
         mProcessor.populateModel(mInput, mSuggestion, model, 0);
-        Assert.assertNull(mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
+        assertNull(mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
     }
 
     @Test
@@ -411,32 +419,31 @@ public class BasicSuggestionProcessorUnitTest {
         PropertyModel model = mProcessor.createModel();
 
         mProcessor.populateModel(mInput, mSuggestion, model, 0);
-        Assert.assertNotNull(mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
+        assertNotNull(mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
 
         final List<BaseSuggestionViewProperties.Action> actions =
                 mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
-        Assert.assertEquals(1, actions.size());
+        assertEquals(1, actions.size());
         final OmniboxDrawableState iconState = actions.get(0).icon;
-        Assert.assertEquals(
-                R.drawable.switch_to_tab, shadowOf(iconState.drawable).getCreatedFromResId());
+        assertEquals(R.drawable.switch_to_tab, shadowOf(iconState.drawable).getCreatedFromResId());
     }
 
     @Test
     @SmallTest
     public void suggestionFavicons_showFaviconWhenAvailable() {
-        final ArgumentCaptor<Callback<Bitmap>> callback = ArgumentCaptor.forClass(Callback.class);
+        final ArgumentCaptor<Callback<Bitmap>> callback = MockitoHelper.callbackCaptor();
         mProcessor.onNativeInitialized();
         createUrlSuggestion(OmniboxSuggestionType.URL_WHAT_YOU_TYPED, "");
         OmniboxDrawableState icon1 = mModel.get(BaseSuggestionViewProperties.ICON);
-        Assert.assertNotNull(icon1);
+        assertNotNull(icon1);
 
         verify(mImageSupplier).fetchFavicon(eq(mSuggestion.getUrl()), callback.capture());
         callback.getValue().onResult(mBitmap);
         OmniboxDrawableState icon2 = mModel.get(BaseSuggestionViewProperties.ICON);
-        Assert.assertNotNull(icon2);
+        assertNotNull(icon2);
 
-        Assert.assertNotEquals(icon1, icon2);
-        Assert.assertEquals(mBitmap, ((BitmapDrawable) icon2.drawable).getBitmap());
+        assertNotEquals(icon1, icon2);
+        assertEquals(mBitmap, ((BitmapDrawable) icon2.drawable).getBitmap());
     }
 
     @Test
@@ -461,18 +468,18 @@ public class BasicSuggestionProcessorUnitTest {
     @Test
     @SmallTest
     public void suggestionFavicons_doNotReplaceFallbackIconWhenNoFaviconIsAvailable() {
-        final ArgumentCaptor<Callback<Bitmap>> callback = ArgumentCaptor.forClass(Callback.class);
+        final ArgumentCaptor<Callback<Bitmap>> callback = MockitoHelper.callbackCaptor();
         mProcessor.onNativeInitialized();
         createUrlSuggestion(OmniboxSuggestionType.URL_WHAT_YOU_TYPED, "");
         OmniboxDrawableState icon1 = mModel.get(BaseSuggestionViewProperties.ICON);
-        Assert.assertNotNull(icon1);
+        assertNotNull(icon1);
 
         verify(mImageSupplier).fetchFavicon(eq(mSuggestion.getUrl()), callback.capture());
         callback.getValue().onResult(null);
         OmniboxDrawableState icon2 = mModel.get(BaseSuggestionViewProperties.ICON);
-        Assert.assertNotNull(icon2);
+        assertNotNull(icon2);
 
-        Assert.assertEquals(icon1, icon2);
+        assertEquals(icon1, icon2);
     }
 
     @Test
@@ -480,10 +487,10 @@ public class BasicSuggestionProcessorUnitTest {
     public void searchSuggestions_searchQueriesCanWrapAroundWithFeatureEnabled() {
         mProcessor.onNativeInitialized();
         createSearchSuggestion(OmniboxSuggestionType.SEARCH_WHAT_YOU_TYPED, "");
-        Assert.assertEquals(true, mModel.get(SuggestionViewProperties.ALLOW_WRAP_AROUND));
+        assertEquals(true, mModel.get(SuggestionViewProperties.ALLOW_WRAP_AROUND));
 
         createUrlSuggestion(OmniboxSuggestionType.URL_WHAT_YOU_TYPED, "");
-        Assert.assertEquals(false, mModel.get(SuggestionViewProperties.ALLOW_WRAP_AROUND));
+        assertEquals(false, mModel.get(SuggestionViewProperties.ALLOW_WRAP_AROUND));
     }
 
     @Test
@@ -493,13 +500,84 @@ public class BasicSuggestionProcessorUnitTest {
         // URLs that are rejected by UrlBarData should not be presented to the User.
         UrlBarData.setShouldShowUrlForTesting(false);
         createUrlSuggestion(OmniboxSuggestionType.URL_WHAT_YOU_TYPED, "", JUnitTestGURLs.URL_1);
-        Assert.assertNull(mModel.get(SuggestionViewProperties.TEXT_LINE_2_TEXT));
+        assertNull(mModel.get(SuggestionViewProperties.TEXT_LINE_2_TEXT));
+    }
+
+    @Test
+    @SmallTest
+    public void starterPackSuggestions_fallbackIcons() {
+        mProcessor.onNativeInitialized();
+
+        mSuggestion =
+                createSuggestionBuilder(OmniboxSuggestionType.STARTER_PACK, "")
+                        .setIsSearch(false)
+                        .setStarterPackId(StarterPackId.BOOKMARKS)
+                        .build();
+        mModel = mProcessor.createModel();
+        mProcessor.populateModel(mInput, mSuggestion, mModel, 0);
+        OmniboxDrawableState icon1 = mModel.get(BaseSuggestionViewProperties.ICON);
+        assertEquals(R.drawable.ic_star_24dp, shadowOf(icon1.drawable).getCreatedFromResId());
+
+        mSuggestion =
+                createSuggestionBuilder(OmniboxSuggestionType.STARTER_PACK, "")
+                        .setIsSearch(false)
+                        .setStarterPackId(StarterPackId.HISTORY)
+                        .build();
+        mModel = mProcessor.createModel();
+        mProcessor.populateModel(mInput, mSuggestion, mModel, 0);
+        OmniboxDrawableState icon2 = mModel.get(BaseSuggestionViewProperties.ICON);
+        assertEquals(R.drawable.ic_history_24dp, shadowOf(icon2.drawable).getCreatedFromResId());
+
+        mSuggestion =
+                createSuggestionBuilder(OmniboxSuggestionType.STARTER_PACK, "")
+                        .setIsSearch(false)
+                        .setStarterPackId(StarterPackId.TABS)
+                        .build();
+        mModel = mProcessor.createModel();
+        mProcessor.populateModel(mInput, mSuggestion, mModel, 0);
+        OmniboxDrawableState icon3 = mModel.get(BaseSuggestionViewProperties.ICON);
+        assertEquals(R.drawable.switch_to_tab, shadowOf(icon3.drawable).getCreatedFromResId());
+
+        mSuggestion =
+                createSuggestionBuilder(OmniboxSuggestionType.STARTER_PACK, "")
+                        .setIsSearch(false)
+                        .setStarterPackId(StarterPackId.GEMINI)
+                        .build();
+        mModel = mProcessor.createModel();
+        mProcessor.populateModel(mInput, mSuggestion, mModel, 0);
+        OmniboxDrawableState icon4 = mModel.get(BaseSuggestionViewProperties.ICON);
+        assertEquals(R.drawable.ic_spark_4c_16dp, shadowOf(icon4.drawable).getCreatedFromResId());
     }
 
     @Test
     @SmallTest
     public void topPaddingDefaultZero() {
         createUrlSuggestion(OmniboxSuggestionType.URL_WHAT_YOU_TYPED, "");
-        Assert.assertEquals(0, mModel.get(BaseSuggestionViewProperties.TOP_PADDING));
+        assertEquals(0, mModel.get(BaseSuggestionViewProperties.TOP_PADDING));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_ITEM_DECORATION)
+    public void accessibilityAnnouncements_groupedSuggestions() {
+        mProcessor.onNativeInitialized();
+        mSuggestion =
+                createSuggestionBuilder(OmniboxSuggestionType.SEARCH_SUGGEST, "Google")
+                        .setIsSearch(true)
+                        .setDescription("Technology corporation")
+                        .build();
+        mModel = mProcessor.createModel();
+        mProcessor.populateModel(mInput, mSuggestion, mModel, 0);
+
+        mModel.set(SuggestionCommonProperties.HEADER_TITLE, "Trending Searches");
+        mModel.set(SuggestionCommonProperties.INDEX_IN_GROUP, 1);
+        mModel.set(SuggestionCommonProperties.TOTAL_IN_GROUP, 5);
+
+        mProcessor.populateModel(mInput, mSuggestion, mModel, 0);
+
+        String expectedAnnouncement =
+                "Google, Technology corporation, 2 of 5 in the group Trending Searches.";
+        assertEquals(
+                expectedAnnouncement, mModel.get(SuggestionViewProperties.CONTENT_DESCRIPTION));
     }
 }

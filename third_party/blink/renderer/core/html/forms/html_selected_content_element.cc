@@ -4,8 +4,11 @@
 
 #include "third_party/blink/renderer/core/html/forms/html_selected_content_element.h"
 
+#include "third_party/blink/renderer/core/dom/events/event_dispatch_forbidden_scope.h"
 #include "third_party/blink/renderer/core/html/forms/html_option_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
+#include "third_party/blink/renderer/core/html/html_collection.h"
+#include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
 
 namespace blink {
 
@@ -18,12 +21,48 @@ void HTMLSelectedContentElement::CloneContentsFromOptionElement(
     return;
   }
 
+  if (RuntimeEnabledFeatures::SelectedcontentSpecEnabled()) {
+    DCHECK(!ScriptForbiddenScope::IsScriptForbidden());
+#if DCHECK_IS_ON()
+    DCHECK(!EventDispatchForbiddenScope::IsEventDispatchForbidden());
+#endif
+  }
+
   VectorOf<Node> nodes;
   if (option) {
+    CHECK(!option->OwnerSelectElement()->IsMultiple());
     for (Node& child : NodeTraversal::ChildrenOf(*option)) {
       nodes.push_back(child.cloneNode(/*deep=*/true));
     }
   }
+
+  // `ASSERT_NO_EXCEPTION` is safe here because `ReplaceChildren()` only
+  // throws exceptions when encountering DOM hierarchy errors, which
+  // shouldn't happen here.
+  ReplaceChildren(nodes, ASSERT_NO_EXCEPTION);
+}
+
+void HTMLSelectedContentElement::CloneMultipleOptionsFromSelectElement(
+    HTMLSelectElement& select) {
+  CHECK(RuntimeEnabledFeatures::SelectedcontentMultipleEnabled());
+  CHECK(select.IsMultiple());
+  // TODO(crbug.com/458113204): This disabled check does not exist in the spec.
+  // It should be added to the spec or removed.
+  if (disabled_) {
+    return;
+  }
+
+  VectorOf<Node> nodes;
+
+  for (Element* option : *select.selectedOptions()) {
+    HTMLDivElement* container =
+        MakeGarbageCollected<HTMLDivElement>(GetDocument());
+    for (Node& child : NodeTraversal::ChildrenOf(*option)) {
+      container->appendChild(child.cloneNode(/*deep=*/true));
+    }
+    nodes.push_back(container);
+  }
+
   // `ASSERT_NO_EXCEPTION` is safe here because `ReplaceChildren()` only
   // throws exceptions when encountering DOM hierarchy errors, which
   // shouldn't happen here.
@@ -85,10 +124,8 @@ void HTMLSelectedContentElement::DidNotifySubtreeInsertionsToDocument() {
   if (RuntimeEnabledFeatures::SelectedcontentSpecEnabled()) {
     DCHECK_EQ(nearest_ancestor_select_, Traversal<HTMLSelectElement>::FirstAncestor(*this));
 
-    if (!disabled_ && nearest_ancestor_select_ &&
-        !nearest_ancestor_select_->IsMultiple()) {
-      CloneContentsFromOptionElement(
-          nearest_ancestor_select_->SelectedOption());
+    if (!disabled_ && nearest_ancestor_select_) {
+      nearest_ancestor_select_->UpdateIndividualSelectedcontent(*this);
     }
   } else {
     disabled_ = false;

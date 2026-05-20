@@ -1,7 +1,7 @@
 Name: zip
 URL: https://crates.io/crates/zip
-Version: 8.2.0
-Revision: ff001c6f2a630580399ad8044a7925801ca16a98
+Version: 8.6.0
+Revision: 771dfc534d2614158af5497ea3dff4d4208d7db1
 Update Mechanism: Manual (https://crbug.com/449898466)
 License: MIT
 License File: //third_party/rust/chromium_crates_io/vendor/zip-v8/LICENSE
@@ -9,4 +9,3 @@ Shipped: yes
 Security Critical: yes
 
 Description: Library to support the reading and writing of zip files.
-

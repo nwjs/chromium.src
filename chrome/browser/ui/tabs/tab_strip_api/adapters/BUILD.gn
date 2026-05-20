@@ -11,16 +11,15 @@
 source_set("adapters") {
   sources = [
     "browser_adapter.h",
+    "context_menu_adapter.h",
     "platform_adapters_provider.h",
     "tab_strip_model_adapter.h",
     "translation_adapter.h",
   ]
 
   public_deps = [
-    "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/tabs/tab_strip_api/types",
     "//components/browser_apis/tab_strip:mojom",
     "//components/tabs:public",
-    "//content/public/browser",
   ]
 }

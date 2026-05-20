@@ -13,11 +13,9 @@
 #include "base/test/test_future.h"
 #include "base/version.h"
 #include "base/version_info/version_info.h"
-#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_test_util.h"
-#include "chrome/browser/actor/actor_util.h"
-#include "chrome/browser/actor/enterprise_policy_url_checker.h"
+#include "chrome/browser/actor/enterprise_policy_checker.h"
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/browser/actor/site_policy.h"
 #include "chrome/browser/actor/tools/tool_request.h"
@@ -38,10 +36,12 @@
 #include "chrome/browser/signin/chrome_signin_client_test_util.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
-#include "chrome/browser/subscription_eligibility/subscription_eligibility_prefs.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "components/actor/core/actor_features.h"
+#include "components/actor/core/actor_util.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/enterprise/buildflags/buildflags.h"
 #include "components/enterprise/connectors/core/features.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
@@ -52,6 +52,7 @@
 #include "components/signin/public/base/gaia_id_hash.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/account_managed_status_finder.h"
+#include "components/subscription_eligibility/subscription_eligibility_prefs.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/variations/service/variations_service.h"
 #include "content/public/test/browser_test.h"
@@ -233,6 +234,22 @@ class GlicActorPolicyCheckerBrowserTestBase : public NonInteractiveGlicTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
+IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestBase,
+                       IsEnterpriseAccountCheck_NonEnterprise) {
+  // Signed in with a non-enterprise account.
+  SimulatePrimaryAccountChangedSignIn(&kNonEnterpriseAccount);
+  EXPECT_FALSE(GlicActorPolicyChecker::IsEnterpriseAccount(
+      *GetProfile(), GetActorService().GetJournal()));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestBase,
+                       IsEnterpriseAccountCheck_Enterprise) {
+  // Signed in with an enterprise account.
+  SimulatePrimaryAccountChangedSignIn(&kEnterpriseAccount);
+  EXPECT_TRUE(GlicActorPolicyChecker::IsEnterpriseAccount(
+      *GetProfile(), GetActorService().GetJournal()));
+}
+
 // Tests that exercise the policy checker for non managed browser
 // (!browser_management_service->IsManaged()).
 class GlicActorPolicyCheckerBrowserTestNonManagedBrowser
@@ -320,6 +337,11 @@ IN_PROC_BROWSER_TEST_P(GlicActorPolicyCheckerBrowserTestNonManagedBrowser,
               TestHasChromeBenefits()
                   ? CannotActReason::kAccountMissingChromeBenefits
                   : CannotActReason::kNone);
+}
+
+IN_PROC_BROWSER_TEST_P(GlicActorPolicyCheckerBrowserTestNonManagedBrowser,
+                       IsBrowserManagedCheck) {
+  EXPECT_FALSE(GlicActorPolicyChecker::IsBrowserManaged(*GetProfile()));
 }
 
 INSTANTIATE_TEST_SUITE_P(/* no prefix */,
@@ -465,6 +487,11 @@ class GlicActorPolicyCheckerBrowserTestManagedBrowser
 };
 
 IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
+                       IsBrowserManagedCheck) {
+  EXPECT_TRUE(GlicActorPolicyChecker::IsBrowserManaged(*GetProfile()));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
                        TasksDroppedWhenActuationCapabilityIsDisabled) {
   base::HistogramTester histogram_tester;
   UpdateGeminiActOnWebPolicy(
@@ -576,14 +603,14 @@ IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
   {
     SCOPED_TRACE("In allowlist");
     TestPolicyCombination(glic::prefs::GlicActuationOnWebPolicyState::kDisabled,
-                            /*url_allowlist=*/{"example.com"},
-                            /*url_blocklist=*/{}, GURL("https://example.com"),
-                            {
-                                .may_act_on_url_block_reason =
-                                    actor::MayActOnUrlBlockReason::kAllowed,
-                                .can_act_on_web = true,
-                            });
-    }
+                          /*url_allowlist=*/{"example.com"},
+                          /*url_blocklist=*/{}, GURL("https://example.com"),
+                          {
+                              .may_act_on_url_block_reason =
+                                  actor::MayActOnUrlBlockReason::kAllowed,
+                              .can_act_on_web = true,
+                          });
+  }
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
@@ -748,7 +775,8 @@ IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
   ASSERT_TRUE(task);
 
   base::test::TestFuture<actor::mojom::ActionResultPtr> future;
-  task->AddTab(active_tab().GetHandle(), future.GetCallback());
+  task->AddTab(active_tab().GetHandle(), /*stop_task_on_detach=*/true,
+               future.GetCallback());
   ASSERT_THAT(future.Get(), testing::Pointee(testing::Field(
                                 &actor::mojom::ActionResult::code,
                                 actor::mojom::ActionResultCode::kOk)));
@@ -782,11 +810,13 @@ IN_PROC_BROWSER_TEST_F(
     GlicActorPolicyCheckerBrowserTestManagedWithBulkDataSupport,
     ValidateContentAllowedWhenPolicyDisabled) {
   // Disabled by default since no enterprise connector policy is set.
-  base::test::TestFuture<GlicActorPolicyChecker::ValidationReason> future;
+  base::test::TestFuture<GlicActorPolicyChecker::ContentValidationReason>
+      future;
   GetPolicyChecker().ValidateContentSentToRenderer(
       web_contents()->GetPrimaryMainFrame(), "test content",
       future.GetCallback());
-  EXPECT_EQ(future.Get(), GlicActorPolicyChecker::ValidationReason::kAllowed);
+  EXPECT_EQ(future.Get(),
+            GlicActorPolicyChecker::ContentValidationReason::kAllowed);
 }
 
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
@@ -828,7 +858,8 @@ IN_PROC_BROWSER_TEST_F(
           &enterprise_connectors::test::FakeContentAnalysisDelegate::Create,
           base::DoNothing(), status_callback, "fake_dm_token"));
 
-  base::test::TestFuture<GlicActorPolicyChecker::ValidationReason> future;
+  base::test::TestFuture<GlicActorPolicyChecker::ContentValidationReason>
+      future;
 
   // Content size set to be above minimum scan data size threshold.
   GetPolicyChecker().ValidateContentSentToRenderer(
@@ -836,7 +867,8 @@ IN_PROC_BROWSER_TEST_F(
       future.GetCallback());
 
   // Block rule on all urls triggered.
-  EXPECT_EQ(future.Get(), GlicActorPolicyChecker::ValidationReason::kBlocked);
+  EXPECT_EQ(future.Get(),
+            GlicActorPolicyChecker::ContentValidationReason::kBlocked);
 }
 #endif
 

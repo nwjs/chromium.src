@@ -60,13 +60,13 @@ BASE_FEATURE(kAppShimRemoteCocoa, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This is used to control the new app close behavior on macOS wherein closing
 // all windows for an app leaves the app running.
-// https://crbug.com/1080729
+// https://crbug.com/40130206
 BASE_FEATURE(kAppShimNewCloseBehavior, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, app shims try to launch chrome silently if chrome isn't already
 // running, rather than have chrome launch visibly with a new tab/profile
 // selector.
-// https://crbug.com/1205537
+// https://crbug.com/40180521
 BASE_FEATURE(kAppShimLaunchChromeSilently, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, notifications coming from PWAs will be displayed via their app
@@ -179,7 +179,7 @@ BASE_FEATURE(kEnableFullscreenToAnyScreenAndroid,
 BASE_FEATURE(kShowResetProfileBannerV2, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-// Controls whether Chrome Apps are supported. See https://crbug.com/1221251.
+// Controls whether Chrome Apps are supported. See https://crbug.com/40186761.
 // If the feature is disabled, Chrome Apps continue to work. If enabled, Chrome
 // Apps will not launch and will be marked in the UI as deprecated.
 BASE_FEATURE(kChromeAppsDeprecation, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -435,13 +435,8 @@ BASE_FEATURE(kGlicLocaleFiltering, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicUseMainPartitionForUnifiedFre,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Controls the Glic Trust First Onboarding experience.
-BASE_FEATURE(kGlicTrustFirstOnboarding, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kGlicMessageFirstFre, base::FEATURE_DISABLED_BY_DEFAULT);
 
-const base::FeatureParam<int> kGlicTrustFirstOnboardingArmParam{
-    &kGlicTrustFirstOnboarding, "arm", 2 /* kWelcomeScreen */};
 // Controls whether the Glic feature is enabled.
 // IMPORTANT: this feature should never be expired! It is used as the main
 // kill-switch for Glic and can be used in the future to handle unsupported
@@ -460,7 +455,8 @@ BASE_FEATURE(kGlicDetached, base::FEATURE_ENABLED_BY_DEFAULT);
 // Controls whether the Glic feature uses multiple instances or not.
 BASE_FEATURE(kGlicMultiInstance, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Controls whether Glic warms up WebContents instead of a full instance.
+// Glic WebContentsWarming is now always enabled. This feature is kept around
+// for now to allow configuring params.
 BASE_FEATURE(kGlicWebContentsWarming, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls the delay before the WebContents is warmed. A large delay will
@@ -505,15 +501,12 @@ BASE_FEATURE(kGlicForceSimplifiedBorder, base::FEATURE_DISABLED_BY_DEFAULT);
 // cc::PaintShader::MakeSkSLCommand.
 BASE_FEATURE(kGlicForceNonSkSLBorder, base::FEATURE_DISABLED_BY_DEFAULT);
 
+
+
 const base::FeatureParam<int> kGlicInitialWidth{&kGlic, "glic-initial-width",
                                                 352};
 const base::FeatureParam<int> kGlicInitialHeight{&kGlic, "glic-initial-height",
                                                  86};
-
-const base::FeatureParam<int> kGlicFreInitialWidth{
-    &kGlic, "glic-fre-initial-width", 512};
-const base::FeatureParam<int> kGlicFreInitialHeight{
-    &kGlic, "glic-fre-initial-height", 512};
 
 // Quality value in the range [0, 100]. For use with gfx::JPEGCodec::Encode().
 const base::FeatureParam<int> kGlicScreenshotEncodeQuality{
@@ -713,7 +706,6 @@ BASE_FEATURE(kGlicScrollTo, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicCaptureRegion, base::FEATURE_DISABLED_BY_DEFAULT);
 
-
 // Controls whether we enforce that documentId (an optional parameter) is set
 // when trying to scroll all documents except PDFs (and fail the request if
 // it's not set).
@@ -751,10 +743,6 @@ const base::FeatureParam<int> kGlicWarmingJitterMs{
 BASE_FEATURE(kGlicTieredRollout, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicRollout, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kGlicIntro, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kGlicLearnMore, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicUserStatusCheck, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -810,6 +798,8 @@ BASE_FEATURE(kGlicRecordMemoryFootprintMetrics,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicRegionSelectionNew, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicRegionSelectionLine, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicWebClientUnresponsiveMetrics,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -867,15 +857,6 @@ extern const base::FeatureParam<std::string> kGlicCaaGuestRedirectPatterns{
     &kGlicCaaGuestError, "glic-caa-redirect-patterns",
     "https://access.workspace.google.com https://admin.google.com "
     "https://accounts.google.com/info/servicerestricted"};
-
-BASE_FEATURE(kGlicEntrypointVariations, base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<bool> kGlicEntrypointVariationsShowLabel{
-    &kGlicEntrypointVariations, "glic-entrypoint-variations-show-label", true};
-const base::FeatureParam<bool> kGlicEntrypointVariationsAltIcon{
-    &kGlicEntrypointVariations, "glic-entrypoint-variations-alt-icon", true};
-const base::FeatureParam<bool> kGlicEntrypointVariationsHighlightNudge{
-    &kGlicEntrypointVariations, "glic-entrypoint-variations-highlight-nudge",
-    false};
 
 BASE_FEATURE(kGlicButtonAltLabel, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<int> kGlicButtonAltLabelVariant{
@@ -973,6 +954,11 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    &kGlicActorAutofill,
                    "glic-actor-autofill-maximum-timeout",
                    base::Minutes(1));
+
+// Whether to enable OneTimePassword filling in Glic.
+// TODO(b/500683394): Clean up after launch.
+BASE_FEATURE(kGlicActorAutofillOneTimePassword,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicDisableUnderlineAnimations,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1147,7 +1133,7 @@ BASE_FEATURE(kHttpsFirstBalancedMode, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kHttpsFirstBalancedModeAutoEnable,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Kill switch for crbug.com/1414633.
+// Kill switch for crbug.com/40892208.
 BASE_FEATURE(kHttpsFirstModeForAdvancedProtectionUsers,
              "HttpsOnlyModeForAdvancedProtectionUsers",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1170,12 +1156,15 @@ BASE_FEATURE(kHttpsFirstModeIncognito, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Experimental image replacement feature. b/482792874
 BASE_FEATURE(kIndigo, base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<std::string> kIndigoAlphaGenerateUrl{
-    &kIndigo, "indigo_alpha_generate_url", ""};
-const base::FeatureParam<std::string> kIndigoAlphaStatusUrl{
-    &kIndigo, "indigo_alpha_status_url", ""};
 const base::FeatureParam<base::TimeDelta> kIndigoAnchoredMessageResetDuration{
     &kIndigo, "indigo_anchored_message_reset_duration", base::Hours(24)};
+const base::FeatureParam<std::string> kIndigoGenerateUrl{
+    &kIndigo, "indigo_generate_url", ""};
+const base::FeatureParam<std::string> kIndigoStatusUrl{&kIndigo,
+                                                       "indigo_status_url", ""};
+const base::FeatureParam<std::string> kIndigoScopes{
+    &kIndigo, "indigo_scopes",
+    "https://www.googleapis.com/auth/userinfo.email"};
 
 #if !BUILDFLAG(IS_ANDROID)
 // A feature that controls whether Instant uses a spare renderer.
@@ -1265,10 +1254,6 @@ BASE_FEATURE(kPluginVm, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kPrerenderFallbackToPreconnect, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_CHROMEOS)
-// Enable the ChromeOS print preview to be opened instead of the browser print
-// preview.
-BASE_FEATURE(kPrintPreviewCrosPrimary, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // If enabled, use managed per-printer print job options set via
 // DevicePrinters/PrinterBulkConfiguration policy in print preview.
 BASE_FEATURE(kUseManagedPrintJobOptionsInPrintPreview,
@@ -1704,6 +1689,8 @@ BASE_FEATURE(kInitialWebUIMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
 // chrome://webui-toolbar.top-chrome will be loaded as the content.
 // crbug.com/444358999
 BASE_FEATURE(kWebUIReloadButton, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebUIToolbarProcessOverheadExperiment,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 // Switches location bar over to a WebUI implementation.
 // See crbug.com/470042732
 BASE_FEATURE(kWebUILocationBar, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1748,6 +1735,10 @@ const base::FeatureParam<bool> kWebUIReloadButtonRestartUnresponsive{
 // has finished loading.
 const base::FeatureParam<bool> kWebUIReloadButtonDeferBrowserViewShow{
     &kWebUIReloadButton, "WebUIReloadButtonDeferBrowserViewShow", true};
+// When this is enabled, the WebUI toolbar will be pre-warmed during browser
+// initialization.
+const base::FeatureParam<bool> kWebUIReloadButtonPrewarmWebUI{
+    &kWebUIReloadButton, "WebUIReloadButtonPrewarmWebUI", false};
 // When this is enabled, the reload button will be marked as visible until its
 // first non-empty paint.
 const base::FeatureParam<bool> kWebUIReloadButtonKeepVisibleUntilPaint{
@@ -1765,6 +1756,10 @@ BASE_FEATURE(kWebUISplitTabsButton, base::FEATURE_DISABLED_BY_DEFAULT);
 // chrome://webui-toolbar.top-chrome.
 // crbug.com/470039765
 BASE_FEATURE(kWebUIHomeButton, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, the app menu button will be replaced with WebUI loaded from
+// chrome://webui-toolbar.top-chrome.
+BASE_FEATURE(kWebUIAppMenuButton, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, the back/forward buttons will be replaced with WebUI loaded
 // from chrome://webui-toolbar.top-chrome.
@@ -1816,6 +1811,11 @@ BASE_FEATURE(kClassManagementEnabledMetricsProvider,
 // will be used to make informed decisions about the future of the smart restart
 // feature.
 BASE_FEATURE(kSmartRestartMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSmartRestart, base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<base::TimeDelta> kSmartRestartDelay{
+    &kSmartRestart, "restart_delay", base::Minutes(5)};
 #endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace features

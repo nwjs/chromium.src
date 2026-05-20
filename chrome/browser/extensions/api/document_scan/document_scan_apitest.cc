@@ -10,12 +10,10 @@
 #include "base/files/file_util.h"
 #include "base/notreached.h"
 #include "base/path_service.h"
-#include "chrome/browser/ash/crosapi/document_scan_ash_type_converters.h"
 #include "chrome/browser/ash/scanning/fake_lorgnette_scanner_manager.h"
 #include "chrome/browser/ash/scanning/lorgnette_scanner_manager_factory.h"
 #include "chrome/browser/extensions/api/document_scan/document_scan_api_handler.h"
 #include "chrome/browser/extensions/api/document_scan/document_scan_test_utils.h"
-#include "chrome/browser/extensions/api/document_scan/fake_document_scan_ash.h"
 #include "chrome/browser/extensions/api/document_scan/scanner_discovery_runner.h"
 #include "chrome/browser/extensions/api/document_scan/start_scan_runner.h"
 #include "chrome/browser/extensions/extension_apitest.h"
@@ -23,7 +21,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
-#include "chromeos/crosapi/mojom/document_scan.mojom.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "content/public/test/browser_test.h"
 #include "extensions/browser/extension_registry_observer.h"
@@ -34,8 +31,6 @@
 namespace extensions {
 
 namespace {
-
-constexpr size_t kRealBackendMinimumReadSize = 32768;
 
 // Enum used to initialize the parameterized test with different types of
 // extensions.
@@ -112,22 +107,13 @@ class DocumentScanApiTest : public ExtensionApiTest,
   void SetUpOnMainThread() override {
     ExtensionApiTest::SetUpOnMainThread();
 
-    DocumentScanAPIHandler::Get(profile())->SetDocumentScanForTesting(
-        &document_scan_ash_);
-
-    document_scan()->SetSmallestMaxReadSize(kRealBackendMinimumReadSize);
-
     auto* lorgnette_manager = static_cast<ash::FakeLorgnetteScannerManager*>(
         ash::LorgnetteScannerManagerFactory::GetForBrowserContext(profile()));
 
     // Set up Lorgnette's CancelScan response.
-    lorgnette_manager->SetCancelScanCallback(base::BindRepeating(
-        &FakeDocumentScanAsh::CancelScan, base::Unretained(document_scan())));
     lorgnette_manager->SetCancelScanResult(lorgnette::OPERATION_RESULT_SUCCESS);
 
     // Set up Lorgnette's CloseScanner response.
-    lorgnette_manager->SetCloseScannerCallback(base::BindRepeating(
-        &FakeDocumentScanAsh::CloseScanner, base::Unretained(document_scan())));
     lorgnette_manager->SetCloseScannerResult(
         lorgnette::OPERATION_RESULT_SUCCESS);
 
@@ -139,6 +125,10 @@ class DocumentScanApiTest : public ExtensionApiTest,
     group->add_members("item2");
     lorgnette_manager->ConfigureGetCurrentConfigResponse(
         lorgnette::OPERATION_RESULT_SUCCESS, std::move(config));
+
+    // Set up Lorgnette's StartPreparedScan response.
+    lorgnette_manager->SetStartPreparedScanResult(
+        lorgnette::OPERATION_RESULT_SUCCESS);
   }
 
   void SetUpBrowserContextKeyedServices(
@@ -152,25 +142,18 @@ class DocumentScanApiTest : public ExtensionApiTest,
   }
 
   void SetScannerInfoList(std::vector<lorgnette::ScannerInfo> scanners) {
-    auto* scanner_manager = static_cast<ash::FakeLorgnetteScannerManager*>(
-        ash::LorgnetteScannerManagerFactory::GetForBrowserContext(profile()));
-
     lorgnette::ListScannersResponse response;
     response.set_result(lorgnette::OPERATION_RESULT_SUCCESS);
-    for (auto& scanner : scanners) {
-      auto open_response = crosapi::mojom::OpenScannerResponse::New();
-      open_response->result = crosapi::mojom::ScannerOperationResult::kSuccess;
-      open_response->scanner_id = scanner.name();
-      open_response->scanner_handle = scanner.name() + "-handle";
-      open_response->options.emplace();
-      open_response->options.value()["option1"] =
-          mojo::ConvertForTesting(CreateTestScannerOption("option1", 5));
-      document_scan()->SetOpenScannerResponse(scanner.name(),
-                                              std::move(open_response));
 
+    lorgnette::ScannerConfig config_template;
+    (*config_template.mutable_options())["option1"] =
+        CreateTestScannerOption("option1", 5);
+
+    for (auto& scanner : scanners) {
+      lorgnette_manager()->AddScanner(scanner, config_template);
       response.mutable_scanners()->Add(std::move(scanner));
     }
-    scanner_manager->SetGetScannerInfoListResponse(response);
+    lorgnette_manager()->SetGetScannerInfoListResponse(response);
   }
 
  protected:
@@ -185,10 +168,10 @@ class DocumentScanApiTest : public ExtensionApiTest,
     ASSERT_TRUE(RunExtensionTest(dir->UnpackedPath(), run_options, {}));
   }
 
-  FakeDocumentScanAsh* document_scan() { return &document_scan_ash_; }
-
- private:
-  FakeDocumentScanAsh document_scan_ash_;
+  ash::FakeLorgnetteScannerManager* lorgnette_manager() {
+    return static_cast<ash::FakeLorgnetteScannerManager*>(
+        ash::LorgnetteScannerManagerFactory::GetForBrowserContext(profile()));
+  }
 };
 
 IN_PROC_BROWSER_TEST_P(DocumentScanApiTest, TestLoadPermissions) {
@@ -220,8 +203,8 @@ IN_PROC_BROWSER_TEST_P(DocumentScanApiTest, PerformScan_PermissionAllowed) {
       StartScanRunner::SetStartScanConfirmationResultForTesting(true);
   SetScannerInfoList({CreateTestScannerInfo()});
   const std::vector<std::string> scan_data = {"img", "data", "img", "data", ""};
-  document_scan()->SetReadScanDataResponses(
-      scan_data, crosapi::mojom::ScannerOperationResult::kEndOfData);
+  lorgnette_manager()->ConfigureReadScanDataResponse(
+      lorgnette::OPERATION_RESULT_EOF, scan_data);
   RunTest("perform_scan.html");
   // TODO(b/313494616): Load a second extension to verify (lack of)
   // cross-extension handle sharing.
@@ -236,8 +219,8 @@ IN_PROC_BROWSER_TEST_P(DocumentScanApiTest, PerformScan_ExtensionTrusted) {
       StartScanRunner::SetStartScanConfirmationResultForTesting(false);
   SetScannerInfoList({CreateTestScannerInfo()});
   const std::vector<std::string> scan_data = {"img", "data", "img", "data", ""};
-  document_scan()->SetReadScanDataResponses(
-      scan_data, crosapi::mojom::ScannerOperationResult::kEndOfData);
+  lorgnette_manager()->ConfigureReadScanDataResponse(
+      lorgnette::OPERATION_RESULT_EOF, scan_data);
   RunTest("perform_scan.html");
 }
 

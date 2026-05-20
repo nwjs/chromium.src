@@ -31,7 +31,6 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
 namespace blink {
@@ -51,6 +50,13 @@ bool ValidateMulticastOptions(ExecutionContext* execution_context,
 
   if (!hasMulticastOptions) {
     return true;
+  }
+
+  if (!execution_context->IsIsolatedContext()) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kNotAllowedError,
+        "Multicast options can only be used in Isolated Web Apps.");
+    return false;
   }
 
   if (execution_context->IsWindow() ||
@@ -75,6 +81,10 @@ bool ValidateMulticastOptions(ExecutionContext* execution_context,
 }
 
 bool IsMulticastAllowed(ExecutionContext* execution_context) {
+  if (!execution_context->IsIsolatedContext()) {
+    return false;
+  }
+
   if (execution_context->IsWindow() ||
       execution_context->IsDedicatedWorkerGlobalScope()) {
     if (!execution_context->IsFeatureEnabled(

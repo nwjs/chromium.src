@@ -606,7 +606,7 @@ TEST_F(HttpsFirstModeSettingsTrackerSiteEngagementHeuristicTest,
 
 // Tests the Typically Secure User heuristic to ensure that it respects the
 // finch flag. See TypicallySecureUserPref for more details.
-// Regression test for crbug.com/1475747.
+// Regression test for crbug.com/40070502.
 TEST_F(HttpsFirstModeSettingsTrackerSiteEngagementHeuristicTest,
        TypicallySecureUser_DisabledByDefault) {
   base::test::ScopedFeatureList feature_list;
@@ -697,7 +697,8 @@ TEST_F(HttpsFirstModeSettingsTrackerTest, TypicallySecureUser_NewProfile) {
 // Chrome should be handled properly by new versions.
 // This can't be a TypicallySecureUserTest because we need to write the prefs
 // before creating the service.
-TEST_F(HttpsFirstModeSettingsTrackerTest, TypicallySecureUser_OldVersion) {
+TEST_F(HttpsFirstModeSettingsTrackerTest,
+       DISABLED_TypicallySecureUser_OldVersion) {
   // Write an empty pref without the "start_heuristic_timestamp" key.
   base::DictValue new_base_pref;
   profile()->GetPrefs()->SetDict(prefs::kHttpsUpgradeFallbacks,
@@ -795,7 +796,8 @@ class HttpsFirstModeSettingsTrackerTypicallySecureUserTest
 
 // An old profile should initialize the prefs related to Typically Secure User
 // heuristic.
-TEST_F(HttpsFirstModeSettingsTrackerTypicallySecureUserTest, ProfileOldEnough) {
+TEST_F(HttpsFirstModeSettingsTrackerTypicallySecureUserTest,
+       DISABLED_ProfileOldEnough) {
   SetSiteEngagementScoreForTypicallySecureUserHeuristic();
 
   EXPECT_TRUE(

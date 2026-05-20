@@ -23,12 +23,15 @@ using ::tflite::task::core::PopulateTensor;
 
 // The default size of the text input tensor for the model. This is
 // necessary if the model metadata does not provide this value.
+// Note: This 768 dimension is tied to the current production passage
+// embedding models and is mirrored in the AIv4 test models.
 constexpr int kDefaultTextInputSize = 768;
 
 PermissionsAiv4ExecutorInput::PermissionsAiv4ExecutorInput(
     SkBitmap snapshot,
-    Embedding inner_text_embedding)
-    : snapshot(snapshot), inner_text_embedding(inner_text_embedding) {}
+    std::vector<float> inner_text_embedding)
+    : snapshot(snapshot),
+      inner_text_embedding(std::move(inner_text_embedding)) {}
 
 PermissionsAiv4ExecutorInput::~PermissionsAiv4ExecutorInput() = default;
 PermissionsAiv4ExecutorInput::PermissionsAiv4ExecutorInput(
@@ -47,14 +50,14 @@ bool PermissionsAiv4Executor::Preprocess(
     expected_input_size = input.metadata.value().text_embeddings_input_size();
   }
 
-  const auto& embedding = input.inner_text_embedding;
-  if (static_cast<int>(embedding.Dimensions()) != expected_input_size) {
+  const auto& embedding_data = input.inner_text_embedding;
+  if (static_cast<int>(embedding_data.size()) != expected_input_size) {
     VLOG(1)
         << "[PermissionsAiv4Executor]: Input Size does not match expectations: "
-        << embedding.Dimensions() << " vs (expected) " << expected_input_size;
+        << embedding_data.size() << " vs (expected) " << expected_input_size;
     return false;
   }
-  if (!PopulateTensor<float>(embedding.GetData().data(), expected_input_size,
+  if (!PopulateTensor<float>(embedding_data.data(), expected_input_size,
                              input_tensors[0])
            .ok()) {
     VLOG(1) << "[PermissionsAiv4Executor]: Failed to copy passage "

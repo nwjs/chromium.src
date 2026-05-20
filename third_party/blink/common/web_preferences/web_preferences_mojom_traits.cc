@@ -106,6 +106,7 @@ bool StructTraits<blink::mojom::WebPreferencesDataView,
   out->strictly_block_blockable_mixed_content =
       data.strictly_block_blockable_mixed_content();
   out->block_mixed_plugin_content = data.block_mixed_plugin_content();
+  out->highlight_ads = data.highlight_ads();
   out->password_echo_enabled_physical = data.password_echo_enabled_physical();
   out->password_echo_enabled_touch = data.password_echo_enabled_touch();
   out->disable_reading_from_canvas = data.disable_reading_from_canvas();
@@ -157,14 +158,15 @@ bool StructTraits<blink::mojom::WebPreferencesDataView,
   out->text_tracks_enabled = data.text_tracks_enabled();
   out->text_track_margin_percentage = data.text_track_margin_percentage();
   out->immersive_mode_enabled = data.immersive_mode_enabled();
+  out->immersive_video_playback_enabled =
+      data.immersive_video_playback_enabled();
   out->double_tap_to_zoom_enabled = data.double_tap_to_zoom_enabled();
   out->fullscreen_supported = data.fullscreen_supported();
-  out->text_autosizing_enabled = data.text_autosizing_enabled();
+  out->is_initial_profile = data.is_initial_profile();
 #if BUILDFLAG(IS_ANDROID)
   out->font_scale_factor = data.font_scale_factor();
   out->font_weight_adjustment = data.font_weight_adjustment();
   out->text_size_contrast_factor = data.text_size_contrast_factor();
-  out->device_scale_adjustment = data.device_scale_adjustment();
   out->force_enable_zoom = data.force_enable_zoom();
   out->support_deprecated_target_density_dpi =
       data.support_deprecated_target_density_dpi();
@@ -252,6 +254,8 @@ bool StructTraits<blink::mojom::WebPreferencesDataView,
   out->should_screenshot_on_mainframe_same_doc_navigation =
       data.should_screenshot_on_mainframe_same_doc_navigation();
 #endif  // BUILDFLAG(IS_ANDROID)
+
+  out->is_indigo_onboarding = data.is_indigo_onboarding();
 
   return true;
 }

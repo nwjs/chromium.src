@@ -56,9 +56,6 @@ class LoadStreamTask : public offline_pages::Task {
     // Abort the background refresh if there's already unread content.
     bool abort_if_unread_content = false;
     bool refresh_even_when_not_stale = false;
-    // The Entry point for a singlewebfeed stream
-    SingleWebFeedEntryPoint single_feed_entry_point =
-        SingleWebFeedEntryPoint::kOther;
   };
 
   struct Result {
@@ -98,10 +95,6 @@ class LoadStreamTask : public offline_pages::Task {
     // Reliability logging feed launch result: CARDS_UNSPECIFIED if loading is
     // successful.
     feedwire::DiscoverLaunchResult launch_result;
-
-    // The entry point for a Single Web Feed.
-    SingleWebFeedEntryPoint single_feed_entry_point =
-        SingleWebFeedEntryPoint::kOther;
   };
 
   LoadStreamTask(const Options& options,
@@ -116,8 +109,6 @@ class LoadStreamTask : public offline_pages::Task {
   base::WeakPtr<LoadStreamTask> GetWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
   }
-  void CheckIfSubscriberComplete(bool is_web_feed_subscriber);
-  void ResumeAtStart();
   bool CheckPreconditions();
   void PassedPreconditions();
 
@@ -172,7 +163,6 @@ class LoadStreamTask : public offline_pages::Task {
   std::unique_ptr<UploadActionsTask::Result> upload_actions_result_;
   int64_t server_receive_timestamp_ns_ = 0l;
   int64_t server_send_timestamp_ns_ = 0l;
-  bool is_web_feed_subscriber_ = false;
   base::WeakPtrFactory<LoadStreamTask> weak_ptr_factory_{this};
 };
 

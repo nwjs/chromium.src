@@ -37,7 +37,6 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.omnibox.R;
@@ -56,7 +55,6 @@ import org.chromium.components.dom_distiller.core.DomDistillerUrlUtilsJni;
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteMatch;
 import org.chromium.components.omnibox.AutocompleteMatchBuilder;
-import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.OmniboxSuggestionType;
 import org.chromium.components.omnibox.action.OmniboxActionDelegate;
@@ -190,7 +188,6 @@ public final class EditUrlSuggestionProcessorUnitTest {
     }
 
     @Test
-    @DisableFeatures(OmniboxFeatureList.REMOVE_SEARCH_READY_OMNIBOX)
     public void doesProcessSuggestion_acceptMatchingUrlWhatYouTyped() {
         // URL_WHAT_YOU_TYPED
         assertTrue(mProcessor.doesProcessSuggestion(mMatch, 0));
@@ -206,10 +203,9 @@ public final class EditUrlSuggestionProcessorUnitTest {
     }
 
     @Test
-    @DisableFeatures(OmniboxFeatureList.REMOVE_SEARCH_READY_OMNIBOX)
-    public void doesProcessSuggestion_acceptMatchingWhatYouTypedWhenRetainOmniboxOnFocusDisabled() {
+    public void doesProcessSuggestion_acceptMatchingWhatYouTypedWhenDesktopModeDisabled() {
         // URL_WHAT_YOU_TYPED
-        OmniboxFeatures.setShouldRetainOmniboxOnFocusForTesting(false);
+        OmniboxFeatures.setHasDesktopExperienceForTesting(false);
         assertTrue(mProcessor.doesProcessSuggestion(mMatch, 0));
 
         // SEARCH_WHAT_YOU_TYPED
@@ -271,8 +267,8 @@ public final class EditUrlSuggestionProcessorUnitTest {
     }
 
     @Test
-    public void doesProcessSuggestion_rejectMatchWhenRetainOmniboxOnFocusEnabled() {
-        OmniboxFeatures.setShouldRetainOmniboxOnFocusForTesting(true);
+    public void doesProcessSuggestion_rejectMatchWhenDesktopModeEnabled() {
+        OmniboxFeatures.setHasDesktopExperienceForTesting(true);
         assertFalse(mProcessor.doesProcessSuggestion(mMatch, 0));
         verifyNoMoreInteractions(mSuggestionHost, mShareDelegate, mClipboardManager);
     }

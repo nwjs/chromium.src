@@ -49,6 +49,7 @@ import static org.chromium.chrome.browser.tab.TabSelectionType.FROM_NEW;
 import static org.chromium.chrome.browser.tab.TabSelectionType.FROM_USER;
 
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.RectF;
 import android.view.Surface;
 import android.view.View;
@@ -128,7 +129,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @Features.EnableFeatures({
     ChromeFeatureList.AUTOFILL_ANDROID_DESKTOP_SUPPRESS_ACCESSORY_ON_EMPTY,
     ChromeFeatureList.AUTOFILL_ANDROID_DESKTOP_KEYBOARD_ACCESSORY_REVAMP,
-    ChromeFeatureList.AUTOFILL_ENABLE_KEYBOARD_ACCESSORY_CHIP_REDESIGN,
     ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING
 })
 public class ManualFillingControllerTest {
@@ -148,7 +148,7 @@ public class ManualFillingControllerTest {
     @Mock private Profile.Natives mProfileJniMock;
     @Mock private ContentView mMockContentView;
     @Mock private TabModelSelector mMockTabModelSelector;
-    @Mock private android.content.res.Resources mMockResources;
+    @Mock private Resources mMockResources;
     @Mock private KeyboardAccessoryCoordinator mMockKeyboardAccessory;
     @Mock private AccessorySheetCoordinator mMockAccessorySheet;
     @Mock private CompositorViewHolder mMockCompositorViewHolder;
@@ -160,6 +160,7 @@ public class ManualFillingControllerTest {
     @Mock private EdgeToEdgeController mMockEdgeToEdgeController;
     @Mock private MultiWindowModeStateDispatcher mMockMultiWindowModeStateDispatcher;
     @Mock private BrowserControlsManager mMockBrowserControlsManager;
+    @Mock private Runnable mMockAtMemoryCallback;
 
     private final ManualFillingCoordinator mController = new ManualFillingCoordinator();
     private final ManualFillingMediator mMediator = mController.getMediatorForTesting();
@@ -376,6 +377,12 @@ public class ManualFillingControllerTest {
                 mMockEdgeToEdgeControllerSupplier,
                 mMockSoftKeyboardDelegate,
                 mMockBrowserControlsManager);
+    }
+
+    @Test
+    public void testSetsAtMemoryCallback() {
+        mController.setAtMemoryCallback(mMockAtMemoryCallback);
+        verify(mMockKeyboardAccessory).setAtMemoryCallback(mMockAtMemoryCallback);
     }
 
     @Test

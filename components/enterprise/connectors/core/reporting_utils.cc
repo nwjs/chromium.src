@@ -82,6 +82,8 @@ ProtoEventResult GetEventResult(EventResult event_result) {
       return proto::EventResult::EVENT_RESULT_BYPASSED;
     case EventResult::FORCED_SAVE_TO_CLOUD:
       return proto::EventResult::EVENT_RESULT_FORCED_SAVE_TO_CLOUD;
+    case EventResult::CANCELLED:
+      return proto::EventResult::EVENT_RESULT_CANCELLED_BY_USER;
   }
 }
 
@@ -160,6 +162,9 @@ proto::UnscannedFileEvent::UnscannedReason ToProtoUnscannedReason(
   }
   if (unscanned_reason == kTimeoutUnscannedReason) {
     return proto::UnscannedFileEvent::TIMEOUT;
+  }
+  if (unscanned_reason == kUserCancelledUnscannedReason) {
+    return proto::UnscannedFileEvent::USER_CANCELLED;
   }
   if (unscanned_reason.empty()) {
     return proto::UnscannedFileEvent::UNSCANNED_REASON_UNKNOWN;

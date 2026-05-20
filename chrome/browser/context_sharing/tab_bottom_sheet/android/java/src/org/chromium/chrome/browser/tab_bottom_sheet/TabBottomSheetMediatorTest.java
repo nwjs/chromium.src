@@ -7,12 +7,12 @@ package org.chromium.chrome.browser.tab_bottom_sheet;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.view.MotionEvent;
-import android.view.View;
 import android.view.ViewParent;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -29,14 +29,21 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.context_sharing.R;
+import org.chromium.chrome.browser.tab_bottom_sheet.WebViewResizingHelper.ResizeLock;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
+import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
 
 /** Unit tests for {@link TabBottomSheetMediator}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 public class TabBottomSheetMediatorTest {
+    private static final float DEFAULT_HEIGHT_RATIO = 0.5f;
+    private static final int MAX_OFFSET = 1000;
+    private static final float EPSILON = 0.001f;
+
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     private Context mContext;
@@ -46,6 +53,8 @@ public class TabBottomSheetMediatorTest {
     @Mock private CoBrowseViews mCoBrowseViews;
     @Mock private TabBottomSheetWebUiContainer mView;
     @Mock private ViewParent mParent;
+    @Mock private WebViewResizingHelper mWebViewResizingHelper;
+    @Mock private ResizeLock mResizeLock;
 
     @Before
     public void setUp() {
@@ -54,100 +63,119 @@ public class TabBottomSheetMediatorTest {
         when(mCoBrowseViews.getView()).thenReturn(mView);
         when(mView.getContext()).thenReturn(mContext);
         when(mView.getParent()).thenReturn(mParent);
+        when(mCoBrowseViews.getWebViewResizingHelper()).thenReturn(mWebViewResizingHelper);
+        when(mWebViewResizingHelper.requestResize()).thenReturn(mResizeLock);
 
         mModel = TabBottomSheetProperties.createDefaultModel(mCoBrowseViews);
-        mMediator = new TabBottomSheetMediator(mContext, mModel, mCoBrowseViews);
-    }
-
-    @Test
-    @SmallTest
-    public void testSetMaxSheetHeight_setsSheetHeight() {
-        int maxHeight = 1000;
-        int expectedHeight = Math.round(maxHeight * mMediator.getFullHeightRatioForTesting());
-        mMediator.setMaxSheetHeight(maxHeight, /* isKeyboardShowing= */ false);
-        assertEquals(expectedHeight, mModel.get(TabBottomSheetProperties.SHEET_HEIGHT));
-    }
-
-    @Test
-    @SmallTest
-    public void testSetMaxSheetHeight_keyboardShowing() {
-        int maxHeight = 1000;
-        int expectedHeight =
-                Math.round(maxHeight * mMediator.getKeyboardShowingHeightRatioForTesting());
-        mMediator.setMaxSheetHeight(maxHeight, /* isKeyboardShowing= */ true);
-        assertEquals(expectedHeight, mModel.get(TabBottomSheetProperties.SHEET_HEIGHT));
+        mMediator = new TabBottomSheetMediator(mContext, mModel, mCoBrowseViews, 0.7f, 0.9f);
     }
 
     @Test
     @SmallTest
     public void testOnSheetStateChanged_Full() {
-        mMediator.onSheetStateChanged(
-                BottomSheetController.SheetState.FULL, /* hasPeekView= */ true);
+        mMediator.onSheetStateChanged(BottomSheetController.SheetState.FULL);
         assertEquals(BottomSheetController.SheetState.FULL, mMediator.getSheetStateForTesting());
-        assertEquals(
-                0.0f, mModel.get(TabBottomSheetProperties.PEEK_VIEW_AND_EXPANDED_CONTENT_ALPHA), 0);
-        assertEquals(
-                View.GONE,
-                (int)
-                        mModel.get(
-                                TabBottomSheetProperties
-                                        .PEEK_VIEW_AND_EXPANDED_CONTENT_VISIBILITY));
+        assertEquals(0.0f, mModel.get(TabBottomSheetProperties.PEEK_STATE_ALPHA), EPSILON);
     }
 
     @Test
     @SmallTest
     public void testOnSheetStateChanged_Peek() {
-        mMediator.onSheetStateChanged(
-                BottomSheetController.SheetState.PEEK, /* hasPeekView= */ true);
-
+        mMediator.onSheetStateChanged(BottomSheetController.SheetState.PEEK);
         assertEquals(BottomSheetController.SheetState.PEEK, mMediator.getSheetStateForTesting());
-        assertEquals(
-                1.0f, mModel.get(TabBottomSheetProperties.PEEK_VIEW_AND_EXPANDED_CONTENT_ALPHA), 0);
-        assertEquals(
-                View.VISIBLE,
-                (int)
-                        mModel.get(
-                                TabBottomSheetProperties
-                                        .PEEK_VIEW_AND_EXPANDED_CONTENT_VISIBILITY));
+        assertEquals(1.0f, mModel.get(TabBottomSheetProperties.PEEK_STATE_ALPHA), EPSILON);
     }
-
-    @Test
-    @SmallTest
-    public void testOnSheetStateChanged_Peek_NoPeekView() {
-        mMediator.onSheetStateChanged(
-                BottomSheetController.SheetState.FULL, /* hasPeekView= */ true);
-        mMediator.onSheetStateChanged(
-                BottomSheetController.SheetState.PEEK, /* hasPeekView= */ false);
-
-        assertEquals(BottomSheetController.SheetState.PEEK, mMediator.getSheetStateForTesting());
-        assertEquals(
-                0.0f, mModel.get(TabBottomSheetProperties.PEEK_VIEW_AND_EXPANDED_CONTENT_ALPHA), 0);
-        assertEquals(
-                View.GONE,
-                (int)
-                        mModel.get(
-                                TabBottomSheetProperties
-                                        .PEEK_VIEW_AND_EXPANDED_CONTENT_VISIBILITY));
-    }
-
 
     @Test
     @SmallTest
     public void testOnSheetStateChanged_Half() {
-        mMediator.onSheetStateChanged(
-                BottomSheetController.SheetState.FULL, /* hasPeekView= */ true);
-        mMediator.onSheetStateChanged(
-                BottomSheetController.SheetState.HALF, /* hasPeekView= */ true);
-
+        mMediator.onSheetStateChanged(BottomSheetController.SheetState.HALF);
         assertEquals(BottomSheetController.SheetState.HALF, mMediator.getSheetStateForTesting());
-        assertEquals(
-                0.0f, mModel.get(TabBottomSheetProperties.PEEK_VIEW_AND_EXPANDED_CONTENT_ALPHA), 0);
-        assertEquals(
-                View.GONE,
-                (int)
-                        mModel.get(
-                                TabBottomSheetProperties
-                                        .PEEK_VIEW_AND_EXPANDED_CONTENT_VISIBILITY));
+        assertEquals(0.0f, mModel.get(TabBottomSheetProperties.PEEK_STATE_ALPHA), EPSILON);
+    }
+
+    @Test
+    @SmallTest
+    public void testUpdateCrossFadeAlpha_AtPeek() {
+        int peekHeight = 100;
+
+        mMediator.setPeekHeight(peekHeight);
+        mMediator.updateCrossFadeAlpha(peekHeight);
+
+        assertEquals(1.0f, mModel.get(TabBottomSheetProperties.PEEK_STATE_ALPHA), EPSILON);
+    }
+
+    @Test
+    @SmallTest
+    public void testUpdateCrossFadeAlpha_Transition() {
+        int peekHeight = 100;
+        float offsetPx = 150f;
+
+        mMediator.setPeekHeight(peekHeight);
+        mMediator.updateCrossFadeAlpha(offsetPx);
+
+        assertEquals(0.5f, mModel.get(TabBottomSheetProperties.PEEK_STATE_ALPHA), EPSILON);
+    }
+
+    @Test
+    @SmallTest
+    public void testUpdateCrossFadeAlpha_AtDoublePeek() {
+        int peekHeight = 100;
+        float offsetPx = 200f;
+
+        mMediator.setPeekHeight(peekHeight);
+        mMediator.updateCrossFadeAlpha(offsetPx);
+
+        assertEquals(0.0f, mModel.get(TabBottomSheetProperties.PEEK_STATE_ALPHA), EPSILON);
+    }
+
+    @Test
+    @SmallTest
+    public void testUpdateCrossFadeAlpha_PeekHeightZero() {
+        mMediator.setPeekHeight(0);
+        mMediator.updateCrossFadeAlpha(100);
+
+        assertEquals(0.0f, mModel.get(TabBottomSheetProperties.PEEK_STATE_ALPHA), EPSILON);
+    }
+
+    @Test
+    @SmallTest
+    public void testUpdateCrossFadeAlpha_BelowPeek() {
+        int peekHeight = 100;
+        float offsetPx = 50f;
+
+        mMediator.setPeekHeight(peekHeight);
+        mMediator.updateCrossFadeAlpha(offsetPx);
+
+        assertEquals(1.0f, mModel.get(TabBottomSheetProperties.PEEK_STATE_ALPHA), EPSILON);
+    }
+
+    @Test
+    @SmallTest
+    public void testUpdateCrossFadeAlpha_AboveDoublePeek() {
+        int peekHeight = 100;
+        float offsetPx = 250f;
+
+        mMediator.setPeekHeight(peekHeight);
+        mMediator.updateCrossFadeAlpha(offsetPx);
+
+        assertEquals(0.0f, mModel.get(TabBottomSheetProperties.PEEK_STATE_ALPHA), EPSILON);
+    }
+
+    @Test
+    @SmallTest
+    public void testIsSheetHeightSufficient_Sufficient() {
+        float density = DisplayAndroid.getNonMultiDisplay(mContext).getDipScale();
+        int sufficientPx = (int) Math.ceil(240 * density);
+        Assert.assertTrue(mMediator.isSheetHeightSufficient(sufficientPx));
+    }
+
+    @Test
+    @SmallTest
+    public void testIsSheetHeightSufficient_Insufficient() {
+        float density = DisplayAndroid.getNonMultiDisplay(mContext).getDipScale();
+        int insufficientPx = (int) (239 * density);
+        Assert.assertFalse(mMediator.isSheetHeightSufficient(insufficientPx));
     }
 
     @Test
@@ -157,7 +185,7 @@ public class TabBottomSheetMediatorTest {
 
     @Test
     public void testDispatchToContent() {
-        mMediator.onSheetStateChanged(SheetState.FULL, false);
+        mMediator.onSheetStateChanged(SheetState.FULL);
         mMediator.setPeekHeight(100); // Gesture zone max(100, 48) = 100
         MotionEvent down = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 100, 200, 0);
         boolean handled = mMediator.getWebUiTouchHandler().handleTouchEvent(mView, down);
@@ -170,7 +198,7 @@ public class TabBottomSheetMediatorTest {
 
     @Test
     public void testInterceptBySheetWhenNotMaximized() {
-        mMediator.onSheetStateChanged(SheetState.PEEK, false);
+        mMediator.onSheetStateChanged(SheetState.PEEK);
         mMediator.setPeekHeight(100); // Gesture zone max(100, 48) = 100
         MotionEvent down =
                 MotionEvent.obtain(
@@ -183,7 +211,7 @@ public class TabBottomSheetMediatorTest {
 
     @Test
     public void testInterceptBySheetInGestureZone() {
-        mMediator.onSheetStateChanged(SheetState.FULL, false);
+        mMediator.onSheetStateChanged(SheetState.FULL);
         mMediator.setPeekHeight(100); // Gesture zone max(100, 48) = 100
 
         // 1. ACTION_DOWN inside the gesture zone (Y = 50)
@@ -195,11 +223,73 @@ public class TabBottomSheetMediatorTest {
     }
 
     @Test
+    public void testTouchArbitrator_SheetHidden() {
+        mMediator.onSheetStateChanged(SheetState.HIDDEN);
+        MotionEvent down = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 100, 50, 0);
+        boolean handled = mMediator.getWebUiTouchHandler().handleTouchEvent(mView, down);
+
+        Assert.assertFalse("Should return false immediately when sheet is hidden", handled);
+    }
+
+    @Test
+    public void testTouchArbitrator_SmallPeekHeight() {
+        mMediator.onSheetStateChanged(SheetState.FULL);
+        mMediator.setPeekHeight(10); // Small peek height
+
+        int minTouchTargetPx =
+                mContext.getResources().getDimensionPixelSize(R.dimen.min_touch_target_size);
+        // Gesture zone should be minTouchTargetPx (since 10 < minTouchTargetPx)
+
+        // Touch inside gesture zone
+        MotionEvent downInside =
+                MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 100, minTouchTargetPx - 1, 0);
+        boolean handledInside =
+                mMediator.getWebUiTouchHandler().handleTouchEvent(mView, downInside);
+        Assert.assertFalse("Should fallback to sheet inside gesture zone", handledInside);
+
+        // Touch outside gesture zone
+        MotionEvent downOutside =
+                MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 100, minTouchTargetPx + 1, 0);
+        boolean handledOutside =
+                mMediator.getWebUiTouchHandler().handleTouchEvent(mView, downOutside);
+        Assert.assertTrue("Should be dispatched to content outside gesture zone", handledOutside);
+    }
+
+    @Test
     public void testIsMaximized() {
-        mMediator.onSheetStateChanged(SheetState.PEEK, false);
+        mMediator.onSheetStateChanged(SheetState.PEEK);
         Assert.assertFalse(mMediator.isMaximized());
 
-        mMediator.onSheetStateChanged(SheetState.FULL, false);
+        mMediator.onSheetStateChanged(SheetState.FULL);
         Assert.assertTrue(mMediator.isMaximized());
+    }
+
+    @Test
+    @SmallTest
+    public void testSetToFlexibleHeight() {
+        mMediator.setToFlexibleHeight();
+        verify(mWebViewResizingHelper).setToFlexibleHeight();
+    }
+
+    @Test
+    @SmallTest
+    public void testSetToFixedHeight() {
+        mMediator.setToFixedHeight(MAX_OFFSET);
+        verify(mWebViewResizingHelper).setToFixedHeight(MAX_OFFSET);
+    }
+
+    @Test
+    @SmallTest
+    public void testOnSheetResizingStatusChanged() {
+        mMediator.onSheetResizingStatusChanged(true);
+        verify(mWebViewResizingHelper).requestResize();
+        verify(mResizeLock, never()).unlock();
+
+        mMediator.onSheetResizingStatusChanged(true);
+        verify(mWebViewResizingHelper).requestResize();
+        verify(mResizeLock, never()).unlock();
+
+        mMediator.onSheetResizingStatusChanged(false);
+        verify(mResizeLock).unlock();
     }
 }

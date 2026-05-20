@@ -28,18 +28,20 @@ class MockUnexportableKeyService : public UnexportableKeyService {
       (base::span<const crypto::SignatureVerifier::SignatureAlgorithm>
            acceptable_algorithms,
        BackgroundTaskPriority priority,
-       base::OnceCallback<void(ServiceErrorOr<UnexportableKeyId>)> callback),
+       base::OnceCallback<void(ServiceErrorOr<UnexportableSigningKeyId>)>
+           callback),
       (override));
   MOCK_METHOD(
       void,
       FromWrappedSigningKeySlowlyAsync,
       (base::span<const uint8_t> wrapped_key,
        BackgroundTaskPriority priority,
-       base::OnceCallback<void(ServiceErrorOr<UnexportableKeyId>)> callback),
+       base::OnceCallback<void(ServiceErrorOr<UnexportableSigningKeyId>)>
+           callback),
       (override));
   MOCK_METHOD(
       void,
-      GetAllSigningKeysForGarbageCollectionSlowlyAsync,
+      GetAllKeysForGarbageCollectionSlowlyAsync,
       (BackgroundTaskPriority priority,
        base::OnceCallback<void(ServiceErrorOr<std::vector<UnexportableKeyId>>)>
            callback),
@@ -47,7 +49,7 @@ class MockUnexportableKeyService : public UnexportableKeyService {
   MOCK_METHOD(
       void,
       SignSlowlyAsync,
-      (UnexportableKeyId key_id,
+      (UnexportableSigningKeyId key_id,
        base::span<const uint8_t> data,
        BackgroundTaskPriority priority,
        base::OnceCallback<void(ServiceErrorOr<std::vector<uint8_t>>)> callback),

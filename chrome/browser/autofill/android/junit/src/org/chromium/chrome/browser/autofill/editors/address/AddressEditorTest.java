@@ -40,6 +40,7 @@ import static org.chromium.chrome.browser.autofill.editors.common.EditorComponen
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NonEditableTextProperties.PRIMARY_TEXT;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NonEditableTextProperties.SECONDARY_TEXT;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.NOTICE_TEXT;
+import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.NOTICE_VISIBLE;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.SHOW_BACKGROUND;
 import static org.chromium.chrome.browser.autofill.editors.common.dropdown_field.DropdownFieldProperties.setDropdownKey;
 import static org.chromium.chrome.browser.autofill.editors.common.field.FieldProperties.ERROR_MESSAGE;
@@ -68,6 +69,7 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.autofill.AutofillAddress;
@@ -81,6 +83,7 @@ import org.chromium.chrome.browser.autofill.SaveUpdateAddressProfilePromptMode;
 import org.chromium.chrome.browser.autofill.editors.address.AddressEditorCoordinator.Delegate;
 import org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties;
 import org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.EditorItem;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
@@ -113,6 +116,7 @@ import java.util.stream.StreamSupport;
 /** Unit tests for autofill address editor. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
+@EnableFeatures(ChromeFeatureList.AUTOFILL_AI_WITH_DATA_SCHEMA)
 public class AddressEditorTest {
     private static final String USER_EMAIL = "example@gmail.com";
     private static final Locale DEFAULT_LOCALE = Locale.getDefault();
@@ -240,9 +244,9 @@ public class AddressEditorTest {
 
         IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
         when(mIdentityServicesProvider.getIdentityManager(mProfile)).thenReturn(mIdentityManager);
-        when(mIdentityManager.getPrimaryAccountInfo(anyInt())).thenReturn(mAccountInfo);
+        when(mIdentityManager.getPrimaryAccountInfo()).thenReturn(mAccountInfo);
 
-        when(mSyncService.getSelectedTypes()).thenReturn(new HashSet());
+        when(mSyncService.getSelectedTypes()).thenReturn(new HashSet<>());
         SyncServiceFactory.setInstanceForTesting(mSyncService);
 
         when(mPersonalDataManager.getDefaultCountryCodeForNewAddress()).thenReturn("US");
@@ -338,6 +342,7 @@ public class AddressEditorTest {
         for (EditorItem item : editorFields) {
             if (item.type == NOTICE && expectedNoticeText.equals(item.model.get(NOTICE_TEXT))) {
                 assertFalse(item.model.get(SHOW_BACKGROUND));
+                assertTrue(item.model.get(NOTICE_VISIBLE));
                 return true;
             }
         }
@@ -456,6 +461,8 @@ public class AddressEditorTest {
                 /* isFullLine= */ true);
     }
 
+    // Hamcrest's anyOf(Matcher...) triggers unchecked generic array creation for the varargs.
+    @SuppressWarnings("unchecked")
     private void validateErrorMessages(PropertyModel editorModel, boolean errorsPresent) {
         assertNotNull(editorModel);
         ListModel<EditorItem> editorFields = editorModel.get(EDITOR_FIELDS);
@@ -484,7 +491,7 @@ public class AddressEditorTest {
     @Test
     @SmallTest
     public void validateCustomDoneButtonText() {
-        setUpAddressUiComponents(new ArrayList());
+        setUpAddressUiComponents(new ArrayList<>());
         setupEditorForNewProfile();
         mAddressEditor.setCustomDoneButtonText("Custom done");
         mAddressEditor.showEditorDialog();
@@ -498,7 +505,7 @@ public class AddressEditorTest {
     @Test
     @SmallTest
     public void validateUiStrings_NewAddressProfile() {
-        setUpAddressUiComponents(new ArrayList());
+        setUpAddressUiComponents(new ArrayList<>());
         setupEditorForNewProfile();
         mAddressEditor.showEditorDialog();
 
@@ -518,7 +525,7 @@ public class AddressEditorTest {
     @Test
     @SmallTest
     public void validateUiStrings_NewAddressProfile_EligibleForAddressAccountStorage() {
-        setUpAddressUiComponents(new ArrayList());
+        setUpAddressUiComponents(new ArrayList<>());
         when(mPersonalDataManager.isEligibleForAddressAccountStorage()).thenReturn(true);
         setupEditorForNewProfile();
         mAddressEditor.showEditorDialog();
@@ -541,7 +548,7 @@ public class AddressEditorTest {
     @Test
     @SmallTest
     public void validateUiStrings_LocalOrSyncAddressProfile_AddressSyncDisabled() {
-        setUpAddressUiComponents(new ArrayList());
+        setUpAddressUiComponents(new ArrayList<>());
         setupEditorForExistingProfile(
                 sLocalProfile, SaveUpdateAddressProfilePromptMode.SAVE_NEW_PROFILE);
         mAddressEditor.showEditorDialog();
@@ -562,7 +569,7 @@ public class AddressEditorTest {
     @Test
     @SmallTest
     public void validateUiStrings_LocalOrSyncAddressProfile_AddressSyncEnabled() {
-        setUpAddressUiComponents(new ArrayList());
+        setUpAddressUiComponents(new ArrayList<>());
         when(mSyncService.getSelectedTypes())
                 .thenReturn(Collections.singleton(UserSelectableType.AUTOFILL));
         setupEditorForExistingProfile(
@@ -586,7 +593,7 @@ public class AddressEditorTest {
     @Test
     @SmallTest
     public void validateUiStrings_UpdateLocalOrSyncAddressProfile_AddressSyncDisabled() {
-        setUpAddressUiComponents(new ArrayList());
+        setUpAddressUiComponents(new ArrayList<>());
         mAddressEditor =
                 new AddressEditorCoordinator(
                         mActivity,
@@ -614,7 +621,7 @@ public class AddressEditorTest {
     @Test
     @SmallTest
     public void validateUiStrings_UpdateLocalOrSyncAddressProfile_AddressSyncEnabled() {
-        setUpAddressUiComponents(new ArrayList());
+        setUpAddressUiComponents(new ArrayList<>());
         when(mSyncService.getSelectedTypes())
                 .thenReturn(Collections.singleton(UserSelectableType.AUTOFILL));
         mAddressEditor =
@@ -645,7 +652,7 @@ public class AddressEditorTest {
     @Test
     @SmallTest
     public void validateUiStrings_LocalAddressProfile_MigrationToAccount() {
-        setUpAddressUiComponents(new ArrayList());
+        setUpAddressUiComponents(new ArrayList<>());
         setupEditorForExistingProfile(
                 sLocalProfile, SaveUpdateAddressProfilePromptMode.MIGRATE_PROFILE);
         mAddressEditor.showEditorDialog();
@@ -668,7 +675,7 @@ public class AddressEditorTest {
     @Test
     @SmallTest
     public void validateUiStrings_SyncAddressProfile_MigrationToAccount() {
-        setUpAddressUiComponents(new ArrayList());
+        setUpAddressUiComponents(new ArrayList<>());
         when(mSyncService.getSelectedTypes())
                 .thenReturn(Collections.singleton(UserSelectableType.AUTOFILL));
         setupEditorForExistingProfile(
@@ -693,7 +700,7 @@ public class AddressEditorTest {
     @Test
     @SmallTest
     public void validateUiStrings_AccountAddressProfile_SaveInAccountFlow() {
-        setUpAddressUiComponents(new ArrayList());
+        setUpAddressUiComponents(new ArrayList<>());
         setupEditorForExistingProfile(
                 sAccountProfile, SaveUpdateAddressProfilePromptMode.SAVE_NEW_PROFILE);
         mAddressEditor.showEditorDialog();
@@ -716,7 +723,7 @@ public class AddressEditorTest {
     @Test
     @SmallTest
     public void validateUiStrings_AccountAddressProfile_UpdateAccountProfileFlow() {
-        setUpAddressUiComponents(new ArrayList());
+        setUpAddressUiComponents(new ArrayList<>());
         setupEditorForExistingProfile(
                 sAccountProfile, SaveUpdateAddressProfilePromptMode.UPDATE_PROFILE);
         mAddressEditor.showEditorDialog();
@@ -739,7 +746,7 @@ public class AddressEditorTest {
     @Test
     @SmallTest
     public void validateDefaultFields() {
-        setUpAddressUiComponents(new ArrayList());
+        setUpAddressUiComponents(new ArrayList<>());
         setupEditorForExistingProfile(
                 sLocalProfile, SaveUpdateAddressProfilePromptMode.SAVE_NEW_PROFILE);
         mAddressEditor.showEditorDialog();

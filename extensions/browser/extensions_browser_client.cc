@@ -50,8 +50,9 @@ void ExtensionsBrowserClient::Set(ExtensionsBrowserClient* client) {
 
 void ExtensionsBrowserClient::RegisterExtensionFunctions(
     ExtensionFunctionRegistry* registry) {
-  for (const auto& provider : providers_)
+  for (const auto& provider : providers_) {
     provider->RegisterExtensionFunctions(registry);
+  }
 }
 
 void ExtensionsBrowserClient::AddAPIProvider(
@@ -134,6 +135,13 @@ void ExtensionsBrowserClient::SignalContentScriptsLoaded(
 
 bool ExtensionsBrowserClient::ShouldSchemeBypassNavigationChecks(
     const std::string& scheme) const {
+  return false;
+}
+
+bool ExtensionsBrowserClient::IsDefaultSearchEngineRedirect(
+    content::BrowserContext* context,
+    const GURL& request_url,
+    const GURL& redirect_url) const {
   return false;
 }
 
@@ -365,6 +373,16 @@ base::FilePath ExtensionsBrowserClient::GetUserDataDir() {
   base::FilePath temp_dir;
   base::PathService::Get(base::DIR_TEMP, &temp_dir);
   return temp_dir;
+}
+
+std::unique_ptr<image_fetcher::ImageDecoder>
+ExtensionsBrowserClient::CreateImageDecoder() {
+  return nullptr;
+}
+
+bool ExtensionsBrowserClient::CanUseNonComponentExtensions(
+    content::BrowserContext* context) {
+  return true;
 }
 
 }  // namespace extensions

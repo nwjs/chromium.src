@@ -7,6 +7,7 @@
 
 #include "base/observer_list.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/adapters/browser_adapter.h"
+#include "chrome/browser/ui/tabs/tab_strip_api/adapters/context_menu_adapter.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/adapters/tab_strip_model_adapter.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/adapters/translation_adapter.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/events/event.h"
@@ -14,6 +15,8 @@
 #include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_service.h"
 #include "components/browser_apis/tab_strip/tab_strip_api.mojom.h"
 #include "components/browser_apis/tab_strip/tab_strip_experiment_api.mojom.h"
+#include "mojo/public/cpp/bindings/receiver_set.h"
+#include "mojo/public/cpp/bindings/remote_set.h"
 #include "ui/gfx/geometry/point.h"
 
 namespace tabs_api {
@@ -29,15 +32,25 @@ class PlatformAdaptersProvider;
 // clients of the observed events before returning the result of the method
 // invocation. This behaviour is important for the mojo layer. See the tab
 // strip api mojo handler for more details.
-class TabStripServiceImpl : public TabStripService {
+class TabStripServiceImpl
+    : public TabStripService,
+      public tabs_api::observation::TabStripApiBatchedObserver {
  public:
-  TabStripServiceImpl(
+  explicit TabStripServiceImpl(
       std::unique_ptr<PlatformAdaptersProvider> adapters_provider);
   TabStripServiceImpl(const TabStripServiceImpl&) = delete;
   TabStripServiceImpl operator=(const TabStripServiceImpl&&) = delete;
   ~TabStripServiceImpl() override;
 
-  TabStripService::GetTabsResult GetTabs() override;
+  TabStripService::GetTabsResult GetTabsWithoutObservation() override;
+  void Accept(
+      mojo::PendingReceiver<tabs_api::mojom::TabStripService> client) override;
+  void AcceptExperimental(
+      mojo::PendingReceiver<tabs_api::mojom::TabStripExperimentService> client)
+      override;
+
+  // TabStripServiceDirectReturnStub:
+  mojom::TabStripService::GetTabsResult GetTabs() override;
   mojom::TabStripService::GetTabResult GetTab(
       const tabs_api::NodeId& id) override;
   mojom::TabStripService::CreateTabAtResult CreateTabAt(
@@ -53,30 +66,29 @@ class TabStripServiceImpl : public TabStripService {
   mojom::TabStripService::MoveNodeResult MoveNode(
       const tabs_api::NodeId& id,
       const tabs_api::Position& position) override;
-  mojom::TabStripService::UpdateResult Update(mojom::DataPtr data) override;
+  mojom::TabStripService::UpdateResult Update(
+      mojom::DataPtr data,
+      const std::optional<std::vector<std::string>>& update_mask) override;
 
   // tabs_api::mojom::TabStripExperimentalService overrides
   //
   // TabStripExperimentalService is intended for quick prototyping for
   // experimental apis that may not necessarily fit in the standard
   // TabStripService.
-  mojom::TabStripExperimentService::UpdateTabGroupVisualResult
-  UpdateTabGroupVisual(
-      const tabs_api::NodeId& id,
-      const tab_groups::TabGroupVisualData& visual_data) override;
   mojom::TabStripExperimentService::ReplaceTabInSplitResult ReplaceTabInSplit(
       const tabs_api::NodeId& tab_to_replace,
       const tabs_api::NodeId& tab_to_insert) override;
 
-  mojom::TabStripExperimentService::ShowTabContextMenuResult ShowTabContextMenu(
-      const tabs_api::NodeId& tab_id,
-      const gfx::Point& location) override;
   mojom::TabStripExperimentService::GetAllTabsForProfileResult
   GetAllTabsForProfile() override;
 
   void AddObserver(observation::TabStripApiBatchedObserver* observer) override;
   void RemoveObserver(
       observation::TabStripApiBatchedObserver* observer) override;
+
+  // tabs_api::observation::TabStripApiBatchedObserver overrides
+  void OnTabEvents(
+      const std::vector<tabs_api::mojom::TabsEventPtr>& events) override;
 
   // Used internally by the tab strip service to control API invocation rules.
   // A session represents an ongoing API invocation.
@@ -93,6 +105,9 @@ class TabStripServiceImpl : public TabStripService {
   };
 
  private:
+  mojom::TabStripServiceBridge bridge_{this};
+  mojom::TabStripExperimentServiceBridge experimental_bridge_{this};
+
   TabStripModelAdapter& tab_strip_model_adapter();
   TranslationAdapter& translation_adapter();
   BrowserAdapter& browser_adapter();
@@ -104,11 +119,20 @@ class TabStripServiceImpl : public TabStripService {
       const NodeId& id);
   void CloseTabs(const std::vector<tabs::TabHandle>& tab_targets);
 
+  mojom::TabStripService::UpdateResult UpdateTabGroup(
+      mojom::TabGroupPtr tab_group,
+      const std::optional<std::vector<std::string>>& update_mask);
+
   std::unique_ptr<PlatformAdaptersProvider> adapters_provider_;
   std::unique_ptr<events::TabStripEventRecorder> recorder_;
 
   std::unique_ptr<SessionController> session_controller_;
   base::ObserverList<observation::TabStripApiBatchedObserver> observers_;
+
+  mojo::ReceiverSet<tabs_api::mojom::TabStripService> mojo_clients_;
+  mojo::ReceiverSet<tabs_api::mojom::TabStripExperimentService>
+      mojo_experiment_clients_;
+  mojo::AssociatedRemoteSet<tabs_api::mojom::TabsObserver> mojo_observers_;
 };
 
 }  // namespace tabs_api

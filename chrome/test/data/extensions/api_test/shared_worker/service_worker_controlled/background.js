@@ -16,7 +16,7 @@ async function getMessageFromWorker(worker) {
   return new Promise(resolve => {
     worker.port.onmessage = evt => {
       resolve(evt.data);
-    }
+    };
   });
 }
 
@@ -24,7 +24,7 @@ async function getMessageFromServiceWorker() {
   return new Promise(resolve => {
     navigator.serviceWorker.onmessage = evt => {
       resolve(evt.data);
-    }
+    };
   });
 }
 
@@ -43,15 +43,16 @@ async function start() {
   const kExpectedMessage = [
     'CONNECTED',
     'SCRIPT_IMPORTED',
-    'FETCHED'
+    'FETCHED',
   ];
   const data = await getMessageFromWorker(sharedWorker);
-  if (data.length != kExpectedMessage.length) {
-    throw new Error('bad message length: ' +
+  if (data.length !== kExpectedMessage.length) {
+    throw new Error(
+        'bad message length: ' +
         `expected ${kExpectedMessage.length}, got ${data.length}`);
   }
   for (let i = 0; i < data.length; i++) {
-    if (data[i] != kExpectedMessage[i]) {
+    if (data[i] !== kExpectedMessage[i]) {
       throw new Error(
           `bad message: expected ${kExpectedMessage[i]}, got ${data[i]}`);
     }
@@ -65,22 +66,23 @@ async function start() {
     'background.js',
     'shared_worker.js',
     'shared_worker_import.js',
-    'data_for_fetch'
+    'data_for_fetch',
   ];
-  if (urls.length != kExpectedUrls.length) {
+  if (urls.length !== kExpectedUrls.length) {
     throw new Error(
         `bad urls: expected ${kExpectedUrls.length}, got ${urls.length}`);
   }
   for (let i = 0; i < urls.length; i++) {
     const expected = new URL(kExpectedUrls[i], self.location).toString();
-    if (urls[i] != expected)
+    if (urls[i] !== expected) {
       throw new Error(`bad url: expected ${expected}, got ${urls[i]}`);
+    }
   }
 
   chrome.test.sendMessage('PASS');
 }
 
 start().catch(err => {
-     console.error(err.name + ': ' + err.message);
-     chrome.test.sendMessage('FAIL');
-  });
+  console.error(err.name + ': ' + err.message);
+  chrome.test.sendMessage('FAIL');
+});

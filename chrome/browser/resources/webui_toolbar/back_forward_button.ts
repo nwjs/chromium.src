@@ -39,7 +39,7 @@ export class BackForwardButtonElement extends CrLitElement {
   accessor direction: 'back'|'forward' = 'back';
   accessor state: BackForwardButtonState = {
     enabled: false,
-    visible: true,
+    shouldBeShown: true,
     isContextMenuVisible: false,
   };
   accessor leadingMargin: number = 0;
@@ -67,13 +67,13 @@ export class BackForwardButtonElement extends CrLitElement {
     }
   }
 
-  protected get ariaLabel_(): string {
+  protected getAriaLabel_(): string {
     return this.direction === 'back' ?
         loadTimeData.getString('backButtonAccName') :
         loadTimeData.getString('forwardButtonAccName');
   }
 
-  protected get tooltip_(): string {
+  protected getTooltip_(): string {
     return this.direction === 'back' ?
         loadTimeData.getString('backButtonTooltip') :
         loadTimeData.getString('forwardButtonTooltip');

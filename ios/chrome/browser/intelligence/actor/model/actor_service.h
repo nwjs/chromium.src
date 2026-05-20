@@ -15,15 +15,19 @@
 #import "components/keyed_service/core/keyed_service.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
-#import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool.h"
+#import "ios/web/public/web_state_id.h"
 
+@class PageContextWrapper;
 class ProfileIOS;
 
-@protocol ActorTaskUIDelegate;
+namespace web {
+class WebState;
+}
 
 namespace actor {
 
 class ActorTask;
+class ActorTool;
 class ActorToolFactory;
 class AggregatedJournal;
 
@@ -40,23 +44,31 @@ class ActorService : public KeyedService {
   // KeyedService:
   void Shutdown() override;
 
-  // Executes the given action.
-  // TODO(crbug.com/498191921): This is legacy/deprecated. Use `CreateTask` and
-  // `ExecuteTools` instead. It will be cleaned up soon.
-  void ExecuteAction(const optimization_guide::proto::Action& action,
-                     ActorTool::ToolExecutionCallback callback);
-
   // Creates a new task.
   ActorTaskId CreateTask(const std::string& title,
-                         id<ActorTaskUIDelegate> delegate,
                          bool allow_incognito_web_states);
 
-  // Submits tools to an active task with a task update string (a short blurb
+  // Creates a vector of ActorTools from a vector of Action protos. On failure,
+  // returns the error encountered by the factory.
+  CreateActorToolsResult CreateActorTools(
+      const std::vector<optimization_guide::proto::Action>& actions,
+      ActorTaskId task_id);
+
+  // Submits actions to an active task with a task update string (a short blurb
   // which tells the user what the Actor is currently doing in plain language).
-  void ExecuteTools(ActorTaskId task_id,
-                    std::vector<std::unique_ptr<ActorTool>> tools,
-                    const std::string& task_update,
-                    ExecuteToolsCallback callback);
+  void PerformActions(ActorTaskId task_id,
+                      std::vector<std::unique_ptr<ActorTool>> actions,
+                      const std::string& task_update,
+                      PerformActionsCallback callback);
+
+  // Requests a "tab observation" (nomenclature aligned with
+  // `chrome/browser/actor`). Tab is equivalent to WebState and "observation" is
+  // equivalent to a PageContext extraction. Not an "observing" pattern. In
+  // practice, this is equivalent to requesting a rich actionable mode
+  // extraction on `PageContextWrapper`, with a completion callback.
+  void RequestTabObservation(ActorTaskId task_id,
+                             web::WebState* web_state,
+                             TabObservationCallback callback);
 
   // Pauses a task.
   void PauseTask(ActorTaskId task_id, bool from_actor);
@@ -71,6 +83,12 @@ class ActorService : public KeyedService {
   // Returns the aggregated journal for this service.
   AggregatedJournal* GetJournal() { return journal_.get(); }
 
+  // Returns the WebState associated with the given ActorTask by its ID, or
+  // nullptr if not found or is not in the set of the task's controlled
+  // WebStates.
+  web::WebState* GetWebStateForID(web::WebStateID web_state_id,
+                                  ActorTaskId task_id);
+
  private:
   // The profile associated with this service instance.
   raw_ptr<ProfileIOS> profile_;
@@ -83,6 +101,24 @@ class ActorService : public KeyedService {
 
   // Map of active tasks, keyed by their task ID.
   std::map<ActorTaskId, std::unique_ptr<ActorTask>> active_tasks_;
+
+  // Map of pending PageContext extractions ("observations"). Used to keep the
+  // wrapper alive while the extraction is in progress.
+  std::map<web::WebStateID, PageContextWrapper*> pending_observations_;
+
+  // Callback for when PageContext extraction completes.
+  void OnPageContextExtractionComplete(
+      web::WebStateID web_state_id,
+      TabObservationCallback callback,
+      PageContextWrapperCallbackResponse response);
+
+  // Callback for when actions execution completes.
+  void OnActCompleted(ActorTaskId task_id,
+                      PerformActionsCallback callback,
+                      std::vector<ActionResult> results);
+
+  // Generator for unique task IDs.
+  ActorTaskId::Generator next_task_id_;
 
   // Weak pointer factory.
   base::WeakPtrFactory<ActorService> weak_ptr_factory_{this};

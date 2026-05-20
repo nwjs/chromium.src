@@ -4,20 +4,29 @@
 
 package org.chromium.chrome.browser.ui.side_panel;
 
+import static org.chromium.chrome.browser.ui.side_panel.SidePanelUtils.log;
+
+import android.graphics.Rect;
 import android.view.View;
 
 import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ui.side_panel_container.SidePanelContainerCoordinator;
 import org.chromium.chrome.browser.ui.side_panel_container.SidePanelContent;
 
 /** Implements {@code SidePanelCoordinatorAndroid}. */
 @NullMarked
 public final class SidePanelCoordinatorAndroidImpl implements SidePanelCoordinatorAndroid {
+    private static final String TAG = "SidePanelCoordinatorAndroidImpl";
+
+    /** Sentinel value for invalid or unset coordinates. */
+    private static final int INVALID_COORDINATE = -1;
 
     private final SidePanelContainerCoordinator mSidePanelContainerCoordinator;
 
@@ -26,21 +35,25 @@ public final class SidePanelCoordinatorAndroidImpl implements SidePanelCoordinat
 
     public SidePanelCoordinatorAndroidImpl(
             SidePanelContainerCoordinator sidePanelContainerCoordinator) {
+        log(TAG, "constructor", sidePanelContainerCoordinator);
         mSidePanelContainerCoordinator = sidePanelContainerCoordinator;
     }
 
     @Override
     public void onAddedToTask(long nativeBrowserWindowPtr) {
+        log(TAG, "onAddedToTask", nativeBrowserWindowPtr);
         createNativePtr(nativeBrowserWindowPtr);
     }
 
     @Override
     public void onFeatureRemoved() {
+        log(TAG, "onFeatureRemoved");
         destroyNativePtr();
     }
 
     @VisibleForTesting
     void createNativePtr(long nativeBrowserWindowPtr) {
+        log(TAG, "createNativePtr", nativeBrowserWindowPtr);
         assert nativeBrowserWindowPtr != 0
                 : "Native BrowserWindowInterface pointer shouldn't be null. Is the"
                         + " ChromeAndroidTaskFeatureKey correct?";
@@ -52,6 +65,7 @@ public final class SidePanelCoordinatorAndroidImpl implements SidePanelCoordinat
 
     @VisibleForTesting
     void destroyNativePtr() {
+        log(TAG, "destroyNativePtr");
         if (mNativeSidePanelCoordinatorAndroid != 0) {
             SidePanelCoordinatorAndroidImplJni.get().destroy(mNativeSidePanelCoordinatorAndroid);
         }
@@ -63,17 +77,69 @@ public final class SidePanelCoordinatorAndroidImpl implements SidePanelCoordinat
 
     @CalledByNative
     private void clearNativePtr() {
+        log(TAG, "clearNativePtr");
         mNativeSidePanelCoordinatorAndroid = 0;
     }
 
+    /**
+     * Populates the side panel with content.
+     *
+     * @param sidePanelNativeView The view to show.
+     * @param x The x coordinate of the starting bounds, or -1 if none.
+     * @param y The y coordinate of the starting bounds, or -1 if none.
+     * @param width The width of the starting bounds, or -1 if none.
+     * @param height The height of the starting bounds, or -1 if none.
+     */
     @CalledByNative
-    private void populateSidePanel(View sidePanelNativeView) {
-        mSidePanelContainerCoordinator.populateContent(new SidePanelContent(sidePanelNativeView));
+    private void populateSidePanel(
+            View sidePanelNativeView,
+            int x,
+            int y,
+            int width,
+            int height,
+            boolean suppressAnimations) {
+        log(TAG, "populateSidePanel", sidePanelNativeView, x, y, width, height);
+        mSidePanelContainerCoordinator.populateContent(
+                new SidePanelContent(sidePanelNativeView),
+                result -> notifyOpenAnimationFinished(null),
+                createRectFromCoordinates(x, y, width, height),
+                suppressAnimations);
     }
 
     @CalledByNative
-    private void removeContent() {
-        mSidePanelContainerCoordinator.removeContent();
+    private void removeContentAndClose(boolean suppressAnimations) {
+        @SidePanelType int type = mSidePanelContainerCoordinator.getPanelType();
+        log(TAG, "removeContentAndClose", type, suppressAnimations);
+        mSidePanelContainerCoordinator.removeContentAndClose(
+                result -> notifyCloseAnimationFinished(null), suppressAnimations);
+    }
+
+    private @Nullable Rect createRectFromCoordinates(int x, int y, int width, int height) {
+        if (x == INVALID_COORDINATE
+                && y == INVALID_COORDINATE
+                && width == INVALID_COORDINATE
+                && height == INVALID_COORDINATE) {
+            return null;
+        }
+        return new Rect(x, y, x + width, y + height);
+    }
+
+    private void notifyOpenAnimationFinished(@Nullable Void unused) {
+        @SidePanelType int type = mSidePanelContainerCoordinator.getPanelType();
+        log(TAG, "notifyOpenAnimationFinished", type);
+        if (mNativeSidePanelCoordinatorAndroid != 0) {
+            SidePanelCoordinatorAndroidImplJni.get()
+                    .notifyOpenAnimationFinished(mNativeSidePanelCoordinatorAndroid, type);
+        }
+    }
+
+    private void notifyCloseAnimationFinished(@Nullable Void unused) {
+        @SidePanelType int type = mSidePanelContainerCoordinator.getPanelType();
+        log(TAG, "notifyCloseAnimationFinished", type);
+        if (mNativeSidePanelCoordinatorAndroid != 0) {
+            SidePanelCoordinatorAndroidImplJni.get()
+                    .notifyCloseAnimationFinished(mNativeSidePanelCoordinatorAndroid, type);
+        }
     }
 
     @NativeMethods
@@ -94,5 +160,25 @@ public final class SidePanelCoordinatorAndroidImpl implements SidePanelCoordinat
          *     SidePanelCoordinatorAndroid}.
          */
         void destroy(long nativeSidePanelCoordinatorAndroid);
+
+        /**
+         * Notifies the underlying native object that animations for closing have finished.
+         *
+         * @param nativeSidePanelCoordinatorAndroid The address of the native {@code
+         *     SidePanelCoordinatorAndroid}.
+         * @param panelType SidePanelType of the current UI coordinator.
+         */
+        void notifyCloseAnimationFinished(
+                long nativeSidePanelCoordinatorAndroid, @JniType("SidePanelType") int panelType);
+
+        /**
+         * Notifies the underlying native object that animations for opening have finished.
+         *
+         * @param nativeSidePanelCoordinatorAndroid The address of the native {@code
+         *     SidePanelCoordinatorAndroid}.
+         * @param panelType SidePanelType of the current UI coordinator.
+         */
+        void notifyOpenAnimationFinished(
+                long nativeSidePanelCoordinatorAndroid, @JniType("SidePanelType") int panelType);
     }
 }

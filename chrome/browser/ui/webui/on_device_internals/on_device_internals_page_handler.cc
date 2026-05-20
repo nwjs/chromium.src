@@ -66,6 +66,8 @@ on_device_model::ModelAssets LoadModelAssets(const base::FilePath& model_path) {
     model_paths.weights = model_path;
   }
 
+  // TODO(crbug.com/461547475): Determine whether weight caches should be used
+  // for GPU or just CPU only.
   if (base::FeatureList::IsEnabled(
           on_device_model::features::kOnDeviceModelForceCpuBackend)) {
     model_paths.cache =
@@ -251,7 +253,7 @@ PageHandler::PlatformService& PageHandler::GetPlatformService() {
 #endif
 
 #if BUILDFLAG(USE_ON_DEVICE_MODEL_SERVICE)
-optimization_guide::ModelBrokerState& PageHandler::GetModelBrokerState() {
+optimization_guide::ModelBrokerState* PageHandler::GetModelBrokerState() {
   return optimization_guide_keyed_service_->GetGlobalState()
       .model_broker_state();
 }
@@ -307,8 +309,13 @@ void PageHandler::GetDeviceAndPerformanceInfo(
 
 void PageHandler::GetDefaultModelPath(GetDefaultModelPathCallback callback) {
 #if BUILDFLAG(USE_ON_DEVICE_MODEL_SERVICE)
+  auto* model_broker_state = GetModelBrokerState();
+  if (!model_broker_state) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
   auto debug_state =
-      GetModelBrokerState().component_state_manager().GetDebugState(
+      model_broker_state->component_state_manager().GetDebugState(
           base::PassKey<PageHandler>());
 
   if (!debug_state.state_) {
@@ -324,7 +331,10 @@ void PageHandler::GetDefaultModelPath(GetDefaultModelPathCallback callback) {
 
 void PageHandler::UninstallDefaultModel() {
 #if BUILDFLAG(USE_ON_DEVICE_MODEL_SERVICE)
-  GetModelBrokerState().component_state_manager().ForceUninstall();
+  auto* model_broker_state = GetModelBrokerState();
+  if (model_broker_state) {
+    model_broker_state->component_state_manager().ForceUninstall();
+  }
 #endif  // BUILDFLAG(USE_ON_DEVICE_MODEL_SERVICE)
 }
 
@@ -345,9 +355,15 @@ void PageHandler::GetPageData(PageHandler::GetPageDataCallback callback) {
   data->base_model = mojom::BaseModelState::New();
 
 #if BUILDFLAG(USE_ON_DEVICE_MODEL_SERVICE)
-  auto& model_broker_state = GetModelBrokerState();
-  auto debug_state = model_broker_state.component_state_manager().GetDebugState(
-      base::PassKey<PageHandler>());
+  auto* model_broker_state = GetModelBrokerState();
+  if (!model_broker_state) {
+    OnReceivedModelInfoForPageData(std::move(callback), std::move(data),
+                                   /*model_info=*/nullptr);
+    return;
+  }
+  auto debug_state =
+      model_broker_state->component_state_manager().GetDebugState(
+          base::PassKey<PageHandler>());
 
   data->base_model->state =
       base::StrCat({base::ToString(debug_state.status_),
@@ -377,10 +393,10 @@ void PageHandler::GetPageData(PageHandler::GetPageDataCallback callback) {
     feature_adaptation_info->feature_name = base::ToString(feature);
     feature_adaptation_info->feature_key = static_cast<int32_t>(feature);
     feature_adaptation_info->is_recently_used =
-        model_broker_state.usage_tracker()
+        model_broker_state->usage_tracker()
             .WasOnDeviceEligibleFeatureRecentlyUsed(feature);
     feature_adaptation_info->version =
-        model_broker_state.base_model_controller()
+        model_broker_state->base_model_controller()
             .GetFeatureMetadata(feature)
             .transform(
                 &optimization_guide::OnDeviceModelAdaptationMetadata::version)
@@ -391,7 +407,7 @@ void PageHandler::GetPageData(PageHandler::GetPageDataCallback callback) {
 
   if (debug_state.state_) {
     auto performance_hint =
-        model_broker_state.base_model_controller().GetPerformanceHint();
+        model_broker_state->base_model_controller().GetPerformanceHint();
     base::ThreadPool::PostTaskAndReplyWithResult(
         FROM_HERE, {base::MayBlock()},
         base::BindOnce(&GetBaseModelInfo, *debug_state.state_,
@@ -455,6 +471,16 @@ void PageHandler::DecodeBitmap(mojo_base::BigBuffer image_buffer,
 void PageHandler::ResetModelCrashCount() {
   PrefService* prefs = g_browser_process->local_state();
   prefs->SetInteger(kOnDeviceModelCrashCount, 0);
+}
+
+void PageHandler::BindModelBrokerDebug(
+    mojo::PendingReceiver<optimization_guide::mojom::ModelBrokerDebug>
+        receiver) {
+#if BUILDFLAG(USE_ON_DEVICE_MODEL_SERVICE)
+  optimization_guide_keyed_service_->GetGlobalState()
+      .on_device_capability()
+      .BindModelBrokerDebug(base::PassKey<PageHandler>(), std::move(receiver));
+#endif
 }
 
 void PageHandler::SendDownloadProgress(int64_t downloaded_bytes,

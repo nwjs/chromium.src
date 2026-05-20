@@ -233,7 +233,6 @@ class CORE_EXPORT RemoteFrame final : public Frame,
       Vector<mojom::blink::CreateRemoteChildParamsPtr> params,
       const std::optional<base::UnguessableToken>& navigation_metrics_token)
       override;
-  void ForwardFencedFrameEventToEmbedder(const String& event_type) override;
 
   // Called only when this frame has a local frame owner.
   gfx::Size GetOutermostMainFrameSize() const override;
@@ -243,11 +242,6 @@ class CORE_EXPORT RemoteFrame final : public Frame,
 
   // blink::mojom::RemoteMainFrame overrides:
   //
-  // Use to transfer TextAutosizer state from the local main frame renderer to
-  // remote main frame renderers.
-  void UpdateTextAutosizerPageInfo(
-      mojom::blink::TextAutosizerPageInfoPtr page_info) override;
-
   // Indicate that this frame was attached as a MainFrame.
   void WasAttachedAsRemoteMainFrame(
       mojo::PendingAssociatedReceiver<mojom::blink::RemoteMainFrame>

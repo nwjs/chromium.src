@@ -14,6 +14,7 @@
 #include "chrome/browser/glic/host/glic_features.mojom-features.h"
 #include "chrome/browser/glic/host/glic_features.mojom.h"
 #include "chrome/browser/glic/public/features.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -97,21 +98,21 @@ class GlicEnablingTest : public testing::Test {
 
 // Test
 TEST_F(GlicEnablingTest, GlicFeatureEnabledTest) {
-  EXPECT_EQ(GlicGlobalEnabling(delegate_).IsEnabledByFlags(), true);
+  EXPECT_EQ(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria(), true);
 }
 
 TEST_F(GlicEnablingTest, GlicFeatureNotEnabledTest) {
   // Turn feature flag off
   scoped_feature_list_.Reset();
   scoped_feature_list_.InitWithFeatures({}, {features::kGlic});
-  EXPECT_EQ(GlicGlobalEnabling(delegate_).IsEnabledByFlags(), false);
+  EXPECT_EQ(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria(), false);
 }
 
 TEST_F(GlicEnablingTest, CountryFilteringNotEnabled) {
   base::test::ScopedFeatureList features;
   features.InitAndDisableFeature(features::kGlicCountryFiltering);
   delegate_.SetBothCountryCodes("zz");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   histogram_tester_->ExpectUniqueSample(
       "Glic.CountryFilteringResult",
       GlicFilteringResult::kAllowedFilteringDisabled, 1);
@@ -124,11 +125,11 @@ TEST_F(GlicEnablingTest,
                                               {});
   delegate_.SetSessionCountryCode("");
   delegate_.SetPermanentCountryCode("us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetPermanentCountryCode("US");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetPermanentCountryCode("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   histogram_tester_->ExpectBucketCount(
       "Glic.CountryFilteringResult",
@@ -146,11 +147,11 @@ TEST_F(GlicEnablingTest,
                                               {});
   delegate_.SetPermanentCountryCode("");
   delegate_.SetSessionCountryCode("us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetSessionCountryCode("US");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetSessionCountryCode("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   histogram_tester_->ExpectBucketCount(
       "Glic.CountryFilteringResult",
@@ -170,13 +171,13 @@ TEST_F(GlicEnablingTest,
 
   delegate_.SetSessionCountryCode("");
   delegate_.SetPermanentCountryCode("us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetPermanentCountryCode("UK");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetPermanentCountryCode("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetPermanentCountryCode("qq");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   histogram_tester_->ExpectBucketCount(
       "Glic.CountryFilteringResult",
@@ -198,13 +199,13 @@ TEST_F(GlicEnablingTest, CountryFilteringEnabledWithLists_SessionCountryCode) {
 
   delegate_.SetPermanentCountryCode("");
   delegate_.SetSessionCountryCode("us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetSessionCountryCode("UK");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetSessionCountryCode("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetSessionCountryCode("qq");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   histogram_tester_->ExpectBucketCount(
       "Glic.CountryFilteringResult",
@@ -227,22 +228,22 @@ TEST_F(GlicEnablingTest,
 
   delegate_.SetPermanentCountryCode("zz");
   delegate_.SetSessionCountryCode("us");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   delegate_.SetPermanentCountryCode("us");
   delegate_.SetSessionCountryCode("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   delegate_.SetPermanentCountryCode("qq");
   delegate_.SetSessionCountryCode("us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   delegate_.SetPermanentCountryCode("us");
   delegate_.SetSessionCountryCode("qq");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   delegate_.SetBothCountryCodes("qq");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   histogram_tester_->ExpectBucketCount(
       "Glic.CountryFilteringResult",
@@ -266,22 +267,22 @@ TEST_F(GlicEnablingTest,
 
   delegate_.SetPermanentCountryCode("zz");
   delegate_.SetSessionCountryCode("us");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   delegate_.SetPermanentCountryCode("us");
   delegate_.SetSessionCountryCode("zz");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   delegate_.SetPermanentCountryCode("qq");
   delegate_.SetSessionCountryCode("us");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   delegate_.SetPermanentCountryCode("us");
   delegate_.SetSessionCountryCode("qq");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   delegate_.SetBothCountryCodes("qq");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   histogram_tester_->ExpectBucketCount(
       "Glic.CountryFilteringResult",
@@ -302,19 +303,19 @@ TEST_F(GlicEnablingTest, CountryFilteringEnabledWithStar) {
       {{"disabled_countries", "zz"}, {"enabled_countries", "*"}});
 
   delegate_.SetBothCountryCodes("us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetBothCountryCodes("ru");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetBothCountryCodes("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   delegate_.SetPermanentCountryCode("zz");
   delegate_.SetSessionCountryCode("us");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   delegate_.SetPermanentCountryCode("us");
   delegate_.SetSessionCountryCode("zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   histogram_tester_->ExpectBucketCount(
       "Glic.CountryFilteringResult",
@@ -329,7 +330,7 @@ TEST_F(GlicEnablingTest, LocaleFilteringNotEnabled) {
   base::test::ScopedFeatureList features;
   features.InitAndDisableFeature(features::kGlicLocaleFiltering);
   delegate_.SetLocale("foobar");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   histogram_tester_->ExpectUniqueSample(
       "Glic.LocaleFilteringResult",
       GlicFilteringResult::kAllowedFilteringDisabled, 1);
@@ -340,11 +341,11 @@ TEST_F(GlicEnablingTest, LocaleFilteringEnabledWithDefaults) {
   features.InitAndEnableFeature(features::kGlicLocaleFiltering);
 
   delegate_.SetLocale("en-us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-uk");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetLocale("");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   histogram_tester_->ExpectBucketCount(
       "Glic.LocaleFilteringResult",
@@ -363,17 +364,17 @@ TEST_F(GlicEnablingTest, LocaleFilteringEnabledWithLists) {
        {"enabled_locales", "en-us,en-ru,en-zz"}});
 
   delegate_.SetLocale("en-us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-US");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetLocale("EN_us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-ru");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-ot");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   histogram_tester_->ExpectBucketCount(
       "Glic.LocaleFilteringResult",
@@ -394,11 +395,11 @@ TEST_F(GlicEnablingTest, LocaleFilteringEnabledStar) {
       {{"disabled_locales", "en-zz"}, {"enabled_locales", "*"}});
 
   delegate_.SetLocale("en-us");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-ru");
-  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_TRUE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
   delegate_.SetLocale("en-zz");
-  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByFlags());
+  EXPECT_FALSE(GlicGlobalEnabling(delegate_).IsEnabledByGlobalCriteria());
 
   histogram_tester_->ExpectBucketCount(
       "Glic.LocaleFilteringResult",
@@ -498,101 +499,28 @@ class GlicEnablingProfileReadyStateTestBase
 
 class GlicEnablingTrustFirstOnboardingTest
     : public GlicEnablingProfileReadyStateTestBase {
- public:
-  void SetUp() override {
-    GlicEnablingProfileReadyStateTestBase::SetUp();
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/
-        {features::kGlicTrustFirstOnboarding, features::kGlicMultiInstance,
-         mojom::features::kGlicMultiTab, features::kGlicMultitabUnderlines},
-        /*disabled_features=*/{});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-class GlicEnablingStandardFreTest
-    : public GlicEnablingProfileReadyStateTestBase {
- public:
-  void SetUp() override {
-    GlicEnablingProfileReadyStateTestBase::SetUp();
-    scoped_feature_list_.InitAndDisableFeature(
-        features::kGlicTrustFirstOnboarding);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 TEST_F(GlicEnablingTrustFirstOnboardingTest, NotConsented_ReturnsReady) {
-  profile()->GetPrefs()->SetInteger(
-      prefs::kGlicCompletedFre,
-      static_cast<int>(prefs::FreStatus::kIncomplete));
+  glic::GlicKeyedService::Get(profile())->enabling().SetCompletedFre(
+      prefs::FreStatus::kIncomplete);
 
   EXPECT_EQ(GlicEnabling::GetProfileReadyState(profile()),
             mojom::ProfileReadyState::kReady);
 }
 
-TEST_F(GlicEnablingTrustFirstOnboardingTest, Consented_ReturnsFalse) {
-  profile()->GetPrefs()->SetInteger(
-      prefs::kGlicCompletedFre, static_cast<int>(prefs::FreStatus::kCompleted));
-
-  EXPECT_FALSE(
-      GlicEnabling::IsTrustFirstOnboardingEnabledForProfile(profile()));
-}
-
-TEST_F(GlicEnablingTrustFirstOnboardingTest, NotConsented_ReturnsTrue) {
-  profile()->GetPrefs()->SetInteger(
-      prefs::kGlicCompletedFre,
-      static_cast<int>(prefs::FreStatus::kIncomplete));
-
-  EXPECT_TRUE(GlicEnabling::IsTrustFirstOnboardingEnabledForProfile(profile()));
-}
-
-TEST_F(GlicEnablingStandardFreTest, NotConsented_ReturnsIneligible) {
-  profile()->GetPrefs()->SetInteger(
-      prefs::kGlicCompletedFre,
-      static_cast<int>(prefs::FreStatus::kIncomplete));
-
-  EXPECT_EQ(GlicEnabling::GetProfileReadyState(profile()),
-            mojom::ProfileReadyState::kIneligible);
-}
-
-class GlicEnablingAnyFreModeTest : public GlicEnablingProfileReadyStateTestBase,
-                                   public testing::WithParamInterface<bool> {
- public:
-  void SetUp() override {
-    GlicEnablingProfileReadyStateTestBase::SetUp();
-    if (GetParam()) {
-      scoped_feature_list_.InitWithFeatures(
-          /*enabled_features=*/
-          {features::kGlicTrustFirstOnboarding, features::kGlicMultiInstance,
-           mojom::features::kGlicMultiTab, features::kGlicMultitabUnderlines},
-          /*disabled_features=*/{});
-    } else {
-      scoped_feature_list_.InitAndDisableFeature(
-          features::kGlicTrustFirstOnboarding);
-    }
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-TEST_P(GlicEnablingAnyFreModeTest, Consented_ReturnsReady) {
-  profile()->GetPrefs()->SetInteger(
-      prefs::kGlicCompletedFre, static_cast<int>(prefs::FreStatus::kCompleted));
+TEST_F(GlicEnablingTrustFirstOnboardingTest, Consented_ReturnsReady) {
+  glic::GlicKeyedService::Get(profile())->enabling().SetCompletedFre(
+      prefs::FreStatus::kCompleted);
 
   EXPECT_EQ(GlicEnabling::GetProfileReadyState(profile()),
             mojom::ProfileReadyState::kReady);
 }
 
 #if !BUILDFLAG(IS_CHROMEOS)
-TEST_P(GlicEnablingAnyFreModeTest, NotSignedIn_ReturnsIneligible) {
-  profile()->GetPrefs()->SetInteger(
-      prefs::kGlicCompletedFre,
-      static_cast<int>(prefs::FreStatus::kIncomplete));
+TEST_F(GlicEnablingTrustFirstOnboardingTest, NotSignedIn_ReturnsIneligible) {
+  glic::GlicKeyedService::Get(profile())->enabling().SetCompletedFre(
+      prefs::FreStatus::kIncomplete);
 
   // Simulate "Not signed in" by removing the primary account.
   signin::IdentityManager* identity_manager =
@@ -604,31 +532,28 @@ TEST_P(GlicEnablingAnyFreModeTest, NotSignedIn_ReturnsIneligible) {
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
-TEST_P(GlicEnablingAnyFreModeTest,
+TEST_F(GlicEnablingTrustFirstOnboardingTest,
        IsEnabledAndConsentForProfile_NotConsented_ReturnsFalse) {
-  profile()->GetPrefs()->SetInteger(
-      prefs::kGlicCompletedFre,
-      static_cast<int>(prefs::FreStatus::kIncomplete));
+  glic::GlicKeyedService::Get(profile())->enabling().SetCompletedFre(
+      prefs::FreStatus::kIncomplete);
 
   EXPECT_FALSE(GlicEnabling::IsEnabledAndConsentForProfile(profile()));
 }
 
-TEST_P(GlicEnablingAnyFreModeTest,
+TEST_F(GlicEnablingTrustFirstOnboardingTest,
        IsEnabledAndConsentForProfile_Consented_ReturnsTrue) {
-  profile()->GetPrefs()->SetInteger(
-      prefs::kGlicCompletedFre, static_cast<int>(prefs::FreStatus::kCompleted));
+  glic::GlicKeyedService::Get(profile())->enabling().SetCompletedFre(
+      prefs::FreStatus::kCompleted);
 
   EXPECT_TRUE(GlicEnabling::IsEnabledAndConsentForProfile(profile()));
 }
-
-INSTANTIATE_TEST_SUITE_P(All, GlicEnablingAnyFreModeTest, testing::Bool());
 
 struct GatedFeatureParams {
   std::string name;
   bool is_feature_enabled = false;
   bool is_onboarding_param_enabled = false;
   bool has_user_consented = false;
-  bool is_trust_first_enabled = false;
+
   bool expected_result = false;
 };
 
@@ -659,12 +584,6 @@ class GlicEnablingGatedFeatureTest
       disabled_features.push_back(feature);
     }
 
-    if (GetParam().is_trust_first_enabled) {
-      enabled_features.push_back({features::kGlicTrustFirstOnboarding, {}});
-    } else {
-      disabled_features.push_back(features::kGlicTrustFirstOnboarding);
-    }
-
     scoped_feature_list_.InitWithFeaturesAndParameters(enabled_features,
                                                        disabled_features);
   }
@@ -673,8 +592,8 @@ class GlicEnablingGatedFeatureTest
   void SetConsent(bool has_consent) {
     const auto fre_status = has_consent ? prefs::FreStatus::kCompleted
                                         : prefs::FreStatus::kIncomplete;
-    profile()->GetPrefs()->SetInteger(prefs::kGlicCompletedFre,
-                                      static_cast<int>(fre_status));
+    glic::GlicKeyedService::Get(profile())->enabling().SetCompletedFre(
+        fre_status);
   }
 
  private:
@@ -705,7 +624,6 @@ INSTANTIATE_TEST_SUITE_P(
         GatedFeatureParams{.name = "Default (All Off)",
                            .expected_result = false},
         GatedFeatureParams{.name = "TrustFirstOnly (Not Enough)",
-                           .is_trust_first_enabled = true,
                            .expected_result = false},
         GatedFeatureParams{.name = "Consented (Pure)",
                            .is_feature_enabled = true,
@@ -714,27 +632,20 @@ INSTANTIATE_TEST_SUITE_P(
         GatedFeatureParams{.name = "ConsentedWithTrustFirst",
                            .is_feature_enabled = true,
                            .has_user_consented = true,
-                           .is_trust_first_enabled = true,
                            .expected_result = true},
         GatedFeatureParams{.name = "FeatureEnabledWithTrustFirst (No Gate)",
                            .is_feature_enabled = true,
-                           .is_trust_first_enabled = true,
-                           .expected_result = false},
-        GatedFeatureParams{.name = "OnboardingGatedOnly (No TrustFirst)",
-                           .is_feature_enabled = true,
-                           .is_onboarding_param_enabled = true,
                            .expected_result = false},
         GatedFeatureParams{.name = "OnboardingGatedWithTrustFirst (Success)",
                            .is_feature_enabled = true,
                            .is_onboarding_param_enabled = true,
-                           .is_trust_first_enabled = true,
                            .expected_result = true}));
 
 struct ContextMenuFeatureParams {
   std::string name;
   bool is_feature_enabled = false;
   bool has_user_consented = false;
-  bool is_trust_first_enabled = false;
+
   bool expected_result = false;
 };
 
@@ -759,12 +670,6 @@ class GlicEnablingContextMenuTest
       disabled_features.push_back(features::kGlicContextMenu);
     }
 
-    if (GetParam().is_trust_first_enabled) {
-      enabled_features.push_back({features::kGlicTrustFirstOnboarding, {}});
-    } else {
-      disabled_features.push_back(features::kGlicTrustFirstOnboarding);
-    }
-
     scoped_feature_list_.InitWithFeaturesAndParameters(enabled_features,
                                                        disabled_features);
   }
@@ -773,8 +678,8 @@ class GlicEnablingContextMenuTest
   void SetConsent(bool has_consent) {
     const auto fre_status = has_consent ? prefs::FreStatus::kCompleted
                                         : prefs::FreStatus::kIncomplete;
-    profile()->GetPrefs()->SetInteger(prefs::kGlicCompletedFre,
-                                      static_cast<int>(fre_status));
+    glic::GlicKeyedService::Get(profile())->enabling().SetCompletedFre(
+        fre_status);
   }
 
  private:
@@ -795,26 +700,74 @@ INSTANTIATE_TEST_SUITE_P(
     All,
     GlicEnablingContextMenuTest,
     testing::Values(
-        ContextMenuFeatureParams{.name = "Default (All Off)",
-                                 .expected_result = false},
         ContextMenuFeatureParams{.name = "TrustFirstOnly (Not Enough)",
-                                 .is_trust_first_enabled = true,
                                  .expected_result = false},
-        ContextMenuFeatureParams{.name = "Consented (Pure)",
-                                 .is_feature_enabled = true,
-                                 .has_user_consented = true,
-                                 .expected_result = true},
         ContextMenuFeatureParams{.name = "ConsentedWithTrustFirst",
                                  .is_feature_enabled = true,
                                  .has_user_consented = true,
-                                 .is_trust_first_enabled = true,
                                  .expected_result = true},
         ContextMenuFeatureParams{.name = "FeatureEnabledWithTrustFirst",
                                  .is_feature_enabled = true,
-                                 .is_trust_first_enabled = true,
-                                 .expected_result = true},
-        ContextMenuFeatureParams{.name = "FeatureEnabledNoTrustFirstNoConsent",
-                                 .is_feature_enabled = true,
-                                 .expected_result = false}));
+                                 .expected_result = true}));
+
+TEST_F(GlicEnablingProfileEligibilityTest,
+       UserEnabledActuationOnWebChangedCallback) {
+  bool callback_called = false;
+  auto subscription =
+      glic::GlicKeyedService::Get(profile())
+          ->enabling()
+          .RegisterOnUserEnabledActuationOnWebChanged(
+              base::BindLambdaForTesting([&]() { callback_called = true; }));
+
+  glic::GlicKeyedService::Get(profile())
+      ->enabling()
+      .SetUserEnabledActuationOnWeb(true);
+  EXPECT_TRUE(callback_called);
+
+  callback_called = false;
+  glic::GlicKeyedService::Get(profile())
+      ->enabling()
+      .SetUserEnabledActuationOnWeb(false);
+  EXPECT_TRUE(callback_called);
+}
+
+TEST_F(GlicEnablingProfileEligibilityTest,
+       ExperimentalTriggeringEnabledChangedCallback) {
+  bool callback_called = false;
+  auto subscription =
+      glic::GlicKeyedService::Get(profile())
+          ->enabling()
+          .RegisterOnExperimentalTriggeringEnabledChanged(
+              base::BindLambdaForTesting([&]() { callback_called = true; }));
+
+  glic::GlicKeyedService::Get(profile())
+      ->enabling()
+      .SetExperimentalTriggeringEnabled(false);
+  EXPECT_TRUE(callback_called);
+
+  callback_called = false;
+  glic::GlicKeyedService::Get(profile())
+      ->enabling()
+      .SetExperimentalTriggeringEnabled(true);
+  EXPECT_TRUE(callback_called);
+}
+
+TEST_F(GlicEnablingProfileEligibilityTest, ConsentChangedCallback) {
+  bool callback_called = false;
+  auto subscription = glic::GlicKeyedService::Get(profile())
+                          ->enabling()
+                          .RegisterOnConsentChanged(base::BindLambdaForTesting(
+                              [&]() { callback_called = true; }));
+
+  glic::GlicKeyedService::Get(profile())->enabling().SetCompletedFre(
+      prefs::FreStatus::kCompleted);
+  EXPECT_TRUE(callback_called);
+
+  callback_called = false;
+  glic::GlicKeyedService::Get(profile())->enabling().SetCompletedFre(
+      prefs::FreStatus::kIncomplete);
+  EXPECT_TRUE(callback_called);
+}
+
 }  // namespace
 }  // namespace glic

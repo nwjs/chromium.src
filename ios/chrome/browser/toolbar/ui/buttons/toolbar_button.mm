@@ -4,7 +4,7 @@
 
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button.h"
 
-#import "ios/chrome/browser/toolbar/ui/buttons/highlight_button_util.h"
+#import "ios/chrome/browser/location_bar/ui_bundled/highlight_utils.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button_constants.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_buttons_utils.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -12,10 +12,17 @@
 #import "ios/chrome/common/ui/util/ui_util.h"
 
 namespace {
+
 constexpr CGFloat kDisabledOpacity = 0.4;
 constexpr CGFloat kBlueDotRadius = 3;
 constexpr CGFloat kBlueDotMargin = 1;
 constexpr CGFloat kBlueDotWhiteBorderThickness = 2;
+
+// Returns the tint color to be used in the normal mode.
+UIColor* NormalTintColor() {
+  return [UIColor colorNamed:kSolidBlackColor];
+}
+
 }  // namespace
 
 @interface ToolbarButton ()
@@ -34,9 +41,10 @@ constexpr CGFloat kBlueDotWhiteBorderThickness = 2;
 
 @synthesize image = _image;
 
-- (instancetype)initWithImageLoader:(ToolbarButtonImageLoader)imageLoader {
-  self = [super initWithFrame:CGRectZero];
-  if (self) {
+- (instancetype)initWithImageLoader:(ToolbarButtonImageLoader)imageLoader
+                          incognito:(BOOL)incognito {
+  if ((self = [super initWithFrame:CGRectMake(0, 0, kToolbarButtonSize,
+                                              kToolbarButtonSize)])) {
     _imageLoader = [imageLoader copy];
 
     [NSLayoutConstraint activateConstraints:@[
@@ -46,7 +54,7 @@ constexpr CGFloat kBlueDotWhiteBorderThickness = 2;
 
     _backgroundView = [[UIView alloc] initWithFrame:CGRectZero];
     _backgroundView.translatesAutoresizingMaskIntoConstraints = NO;
-    _backgroundView.backgroundColor = ToolbarButtonColor();
+    _backgroundView.backgroundColor = ToolbarElementBackgroundColor(incognito);
     _backgroundView.userInteractionEnabled = NO;
     _backgroundView.clipsToBounds = YES;
     [self insertSubview:_backgroundView belowSubview:self.imageView];
@@ -55,9 +63,9 @@ constexpr CGFloat kBlueDotWhiteBorderThickness = 2;
     ConfigureCornerRadiusForToolbarButtonContainer(_backgroundView,
                                                    self.traitCollection);
 
-    ConfigureShadowForToolbarButton(self);
+    ConfigureShadowForToolbarElement(self);
 
-    self.tintColor = [UIColor colorNamed:kSolidBlackColor];
+    self.tintColor = NormalTintColor();
 
     [self registerForTraitChanges:@[
       UITraitVerticalSizeClass.class, UITraitHorizontalSizeClass.class
@@ -67,9 +75,30 @@ constexpr CGFloat kBlueDotWhiteBorderThickness = 2;
   return self;
 }
 
+#pragma mark - HighlightButton
+
+- (NSArray<UIView*>*)highlightableViews {
+  return @[ self.imageView ];
+}
+
+#pragma mark - UIView
+
 - (void)layoutSubviews {
   [super layoutSubviews];
   [self updateMask];
+}
+
+#pragma mark - UIControl
+
+- (void)setEnabled:(BOOL)enabled {
+  [super setEnabled:enabled];
+  if (enabled) {
+    self.imageView.tintColor = NormalTintColor();
+  } else {
+    self.imageView.tintColor =
+        [NormalTintColor() colorWithAlphaComponent:kDisabledOpacity];
+  }
+  [self updateAppearance];
 }
 
 #pragma mark - Properties
@@ -83,17 +112,6 @@ constexpr CGFloat kBlueDotWhiteBorderThickness = 2;
 
 - (void)setForceHidden:(BOOL)forceHidden {
   _forceHidden = forceHidden;
-  [self updateAppearance];
-}
-
-- (void)setEnabled:(BOOL)enabled {
-  [super setEnabled:enabled];
-  if (enabled) {
-    self.tintColor = [UIColor colorNamed:kSolidBlackColor];
-  } else {
-    self.tintColor = [[UIColor colorNamed:kSolidBlackColor]
-        colorWithAlphaComponent:kDisabledOpacity];
-  }
   [self updateAppearance];
 }
 
@@ -118,6 +136,7 @@ constexpr CGFloat kBlueDotWhiteBorderThickness = 2;
   if (hasBlueDot && !_blueDotView) {
     _blueDotView = [[UIView alloc] initWithFrame:CGRectZero];
     _blueDotView.translatesAutoresizingMaskIntoConstraints = NO;
+    _blueDotView.isAccessibilityElement = NO;
     _blueDotView.backgroundColor = [UIColor colorNamed:kBlueColor];
     _blueDotView.layer.cornerRadius = kBlueDotRadius;
     // Do not add the blue dot to the background as the background will be
@@ -135,6 +154,11 @@ constexpr CGFloat kBlueDotWhiteBorderThickness = 2;
     ]];
   }
   _blueDotView.hidden = !hasBlueDot;
+  if (hasBlueDot) {
+    self.accessibilityValue = self.blueDotAccessibilityLabel;
+  } else {
+    self.accessibilityValue = nil;
+  }
   [self updateMask];
   [self updateHighlight];
 }
@@ -154,6 +178,7 @@ constexpr CGFloat kBlueDotWhiteBorderThickness = 2;
   } else {
     _gradientView.hidden = YES;
     RemoveIPHImageStyleFromImageView(self.imageView);
+    self.imageView.tintColor = NormalTintColor();
   }
 }
 

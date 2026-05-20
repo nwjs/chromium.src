@@ -18,6 +18,8 @@
 #include "ui/aura/window.h"
 
 namespace ash {
+
+using chromeos::AppType;
 namespace {
 
 int FindIndex(
@@ -45,7 +47,7 @@ class TestClientControlledStateDelegate
 using ScreenPinningControllerTest = AshTestBase;
 
 TEST_F(ScreenPinningControllerTest, IsPinned) {
-  aura::Window* w1 = CreateTestWindowInShell({.window_id = 0});
+  aura::Window* w1 = CreateTestWindowInShell({.window_id = 0}).release();
   wm::ActivateWindow(w1);
 
   window_util::PinWindow(w1, /* trusted */ false);
@@ -53,8 +55,8 @@ TEST_F(ScreenPinningControllerTest, IsPinned) {
 }
 
 TEST_F(ScreenPinningControllerTest, OnlyOnePinnedWindow) {
-  aura::Window* w1 = CreateTestWindowInShell({.window_id = 0});
-  aura::Window* w2 = CreateTestWindowInShell({.window_id = 1});
+  aura::Window* w1 = CreateTestWindowInShell({.window_id = 0}).release();
+  aura::Window* w2 = CreateTestWindowInShell({.window_id = 1}).release();
   wm::ActivateWindow(w1);
 
   window_util::PinWindow(w1, /* trusted */ false);
@@ -68,8 +70,8 @@ TEST_F(ScreenPinningControllerTest, OnlyOnePinnedWindow) {
 }
 
 TEST_F(ScreenPinningControllerTest, FullscreenInPinnedMode) {
-  aura::Window* w1 = CreateTestWindowInShell({.window_id = 0});
-  aura::Window* w2 = CreateTestWindowInShell({.window_id = 1});
+  aura::Window* w1 = CreateTestWindowInShell({.window_id = 0}).release();
+  aura::Window* w2 = CreateTestWindowInShell({.window_id = 1}).release();
   wm::ActivateWindow(w1);
 
   window_util::PinWindow(w1, /* trusted */ false);
@@ -174,7 +176,7 @@ TEST_F(ScreenPinningControllerTest, FullscreenInPinnedMode) {
 }
 
 TEST_F(ScreenPinningControllerTest, TrustedPinnedWithAccelerator) {
-  aura::Window* w1 = CreateTestWindowInShell({.window_id = 0});
+  aura::Window* w1 = CreateTestWindowInShell({.window_id = 0}).release();
   wm::ActivateWindow(w1);
 
   window_util::PinWindow(w1, /* trusted */ true);
@@ -192,7 +194,7 @@ TEST_F(ScreenPinningControllerTest, ExitUnifiedDisplay) {
 
   UpdateDisplay("400x300, 500x400");
 
-  aura::Window* w1 = CreateTestWindowInShell({.window_id = 0});
+  aura::Window* w1 = CreateTestWindowInShell({.window_id = 0}).release();
   wm::ActivateWindow(w1);
   auto* window_state = WindowState::Get(w1);
 
@@ -209,7 +211,7 @@ TEST_F(ScreenPinningControllerTest, ExitUnifiedDisplay) {
 
 TEST_F(ScreenPinningControllerTest, CleanUpObserversAndDimmer) {
   // Create a window with ClientControlledState.
-  auto w = CreateAppWindow(gfx::Rect(), chromeos::AppType::CHROME_APP, 0);
+  auto w = CreateWindowWithAppType(AppType::CHROME_APP, {}, 0);
   ash::WindowState* ws = ash::WindowState::Get(w.get());
   auto delegate = std::make_unique<TestClientControlledStateDelegate>();
   auto state = std::make_unique<ClientControlledState>(std::move(delegate));
@@ -233,12 +235,12 @@ TEST_F(ScreenPinningControllerTest, CleanUpObserversAndDimmer) {
   EXPECT_EQ(container->children().size(), 0u);
 
   // Add a sibling window. It should not crash.
-  CreateTestWindowInShell({.window_id = 2});
+  auto window = CreateTestWindowInShell({.window_id = 2});
 }
 
 TEST_F(ScreenPinningControllerTest, AllowWindowOnTopOfPinnedWindowForOnTask) {
-  aura::Window* const w1 = CreateTestWindowInShell({.window_id = 0});
-  aura::Window* const w2 = CreateTestWindowInShell({.window_id = 1});
+  aura::Window* const w1 = CreateTestWindowInShell({.window_id = 0}).release();
+  aura::Window* const w2 = CreateTestWindowInShell({.window_id = 1}).release();
   wm::ActivateWindow(w1);
 
   window_util::PinWindow(w1, /*trusted=*/false);

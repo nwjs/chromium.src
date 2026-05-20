@@ -7,9 +7,11 @@
 
 #include "base/gtest_prod_util.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_sanitizer_presets.h"
+#include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/dom/qualified_name.h"
 #include "third_party/blink/renderer/core/sanitizer/sanitizer_names.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
 
@@ -25,6 +27,7 @@ class V8UnionSanitizerConfigOrSanitizerPresets;
 class V8UnionSanitizerAttributeNamespaceOrString;
 class V8UnionSanitizerElementNamespaceWithAttributesOrString;
 class V8UnionSanitizerElementNamespaceOrString;
+class V8UnionSanitizerProcessingInstructionOrString;
 
 class CORE_EXPORT Sanitizer final : public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
@@ -70,6 +73,10 @@ class CORE_EXPORT Sanitizer final : public ScriptWrappable {
   bool removeElement(const V8UnionSanitizerElementNamespaceOrString*);
   bool replaceElementWithChildren(
       const V8UnionSanitizerElementNamespaceOrString*);
+  bool allowProcessingInstruction(
+      const V8UnionSanitizerProcessingInstructionOrString*);
+  bool removeProcessingInstruction(
+      const V8UnionSanitizerProcessingInstructionOrString*);
   bool allowAttribute(const V8UnionSanitizerAttributeNamespaceOrString*);
   bool removeAttribute(const V8UnionSanitizerAttributeNamespaceOrString*);
   void setComments(bool);
@@ -85,6 +92,8 @@ class CORE_EXPORT Sanitizer final : public ScriptWrappable {
   bool ReplaceElement(const QualifiedName&);
   bool AllowAttribute(const QualifiedName&);
   bool RemoveAttribute(const QualifiedName&);
+  bool AllowProcessingInstruction(const AtomicString& target);
+  bool RemoveProcessingInstruction(const AtomicString& target);
 
   // The core methods (not directly exposed to the API): Recursively sanitize
   // the node according to the current config.
@@ -121,9 +130,9 @@ class CORE_EXPORT Sanitizer final : public ScriptWrappable {
   // the insertion target, or discard the element. Returns the adjusted
   // insertion target, or null if the element is to be discarded.
   // This is used for streaming.
-  bool SanitizeSingleNode(Node* node, Mode safe) const;
-
+  Action SanitizeSingleNode(Node* node, Mode safe) const;
   bool ShouldReplaceNodeWithChildren(Node* node) const;
+  void ProcessElement(Element* element, Mode safe) const;
 
   // Helper for Create: Convert from IDL representation to internal.
   bool setFrom(const SanitizerConfig*, bool allowCommentsAndDataAttributes);
@@ -134,8 +143,6 @@ class CORE_EXPORT Sanitizer final : public ScriptWrappable {
 
  private:
   enum class SanitizerBoolWithAbsence { kAbsent, kTrue, kFalse };
-
-  void ProcessElement(Element* element, Mode safe) const;
 
   // Helper methods for SanitizeSafe/Unsafe:
   void Sanitize(Node* node, Mode safe) const;
@@ -173,6 +180,8 @@ class CORE_EXPORT Sanitizer final : public ScriptWrappable {
   std::unique_ptr<SanitizerNameSet> remove_attrs_;
   SanitizerNameMap allow_attrs_per_element_;
   SanitizerNameMap remove_attrs_per_element_;
+  std::unique_ptr<HashSet<AtomicString>> allow_processing_instructions_;
+  std::unique_ptr<HashSet<AtomicString>> remove_processing_instructions_;
   SanitizerBoolWithAbsence data_attrs_;
   SanitizerBoolWithAbsence comments_;
 };
@@ -181,13 +190,16 @@ class StreamingSanitizer : public GarbageCollected<StreamingSanitizer> {
  public:
   StreamingSanitizer(Sanitizer* sanitizer, Sanitizer::Mode mode)
       : sanitizer_(sanitizer), mode_(mode) {}
+
   bool Sanitize(Node* node) {
-    return sanitizer_->SanitizeSingleNode(node, mode_);
+    return sanitizer_->SanitizeSingleNode(node, mode_) ==
+           Sanitizer::Action::kKeep;
   }
+
   bool ShouldReplaceWithChildren(Node* node) const {
     return sanitizer_->ShouldReplaceNodeWithChildren(node);
   }
-
+  void DidParseDocument(Document* document);
   void Trace(Visitor* visitor) const { visitor->Trace(sanitizer_); }
 
  private:

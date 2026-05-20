@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.hardware_acceleration;
 
-import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
-
 import android.content.Context;
 import android.view.View;
 
@@ -29,13 +27,12 @@ import org.chromium.base.task.TaskTraits;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisabledTest;
-import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.download.DownloadTestRule;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.util.browser.contextmenu.ContextMenuUtils;
@@ -89,7 +86,7 @@ public class ToastHWATest {
     @Test
     @SmallTest
     @CommandLineFlags.Add(BaseSwitches.ENABLE_LOW_END_DEVICE_MODE)
-    @DisabledTest(message = "crbug.com/668217")
+    @DisabledTest(message = "crbug.com/41287849")
     public void testNoRenderThread() {
         Utils.assertNoRenderThread();
     }
@@ -97,7 +94,7 @@ public class ToastHWATest {
     @Test
     @MediumTest
     @CommandLineFlags.Add(BaseSwitches.ENABLE_LOW_END_DEVICE_MODE)
-    @DisabledTest(message = "crbug.com/668217")
+    @DisabledTest(message = "crbug.com/41287849")
     public void testDownloadingToast() throws Exception {
         mActivityTestRule.loadUrl(mTestServer.getURL(URL_PATH));
         mActivityTestRule.assertWaitForPageScaleFactorMatch(0.5f);
@@ -125,7 +122,7 @@ public class ToastHWATest {
     @Test
     @SmallTest
     @CommandLineFlags.Add(BaseSwitches.ENABLE_LOW_END_DEVICE_MODE)
-    @DisabledTest(message = "crbug.com/668217")
+    @DisabledTest(message = "crbug.com/41287849")
     public void testOpenedInBackgroundToast() throws Exception {
         mActivityTestRule.loadUrl(mTestServer.getURL(URL_PATH));
         mActivityTestRule.assertWaitForPageScaleFactorMatch(0.5f);
@@ -148,7 +145,7 @@ public class ToastHWATest {
     @Test
     @SmallTest
     @CommandLineFlags.Add(BaseSwitches.ENABLE_LOW_END_DEVICE_MODE)
-    @DisabledTest(message = "crbug.com/668217")
+    @DisabledTest(message = "crbug.com/41287849")
     public void testToastNoAcceleration() throws Exception {
         // Toasts created on low-end devices shouldn't be HW accelerated.
         Assert.assertFalse(isToastAcceleratedWithContext(mActivityTestRule.getActivity()));
@@ -159,7 +156,6 @@ public class ToastHWATest {
 
     @Test
     @SmallTest
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testToastAcceleration() throws Exception {
         // Toasts created on high-end devices should be HW accelerated.
         Assert.assertTrue(isToastAcceleratedWithContext(mActivityTestRule.getActivity()));

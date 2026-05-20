@@ -74,6 +74,11 @@ namespace on_device_translation {
 class OnDeviceTranslationInstaller;
 }
 
+namespace smart_restart {
+class SmartRestartManager;
+class SmartRestartMetricsObserver;
+}  // namespace smart_restart
+
 // This class owns the core controllers for features that are globally
 // scoped on desktop and Android. It can be subclassed by tests to perform
 // dependency injection.
@@ -90,25 +95,24 @@ class GlobalFeatures {
       base::RepeatingCallback<std::unique_ptr<GlobalFeatures>()>;
   static void ReplaceGlobalFeaturesForTesting(GlobalFeaturesFactory factory);
 
-  // Each of these is called exactly once to initialize features.
-  // `PreBrowserProcessInit()` happens very early in
-  // `BrowserProcessImpl::Init()` - in particular, it must happen before a
-  // `ProfileManager` is created. `PostBrowserProcessInit()` happens further
-  // down near the very end of `BrowserProcessImpl::Init()` after a
-  // `ProfileManager` is allowed to exist. As with anything in
-  // `BrowserProcessImpl::Init()`, both of these functions are called before
+  // `PostBrowserProcessInit()` happens near the very end of
+  // `BrowserProcessImpl::Init()` after a `ProfileManager` is allowed to exist.
+  // As with anything in `BrowserProcessImpl::Init()`, this is called before
   // threads are created.
-  void PreBrowserProcessInit();
   void PostBrowserProcessInit();
 
   // Only initializes core features. Used in unittests to create partial
   // features for TestingBrowserProcess.
   //
   // TODO(crbug.com/463444220) Merge implementation back into
-  // PreBrowserProcessInit() and PostBrowserProcessInit() once unit tests stop
-  // creating TestingBrowserProcess.
-  void PreBrowserProcessInitCore();
+  // PostBrowserProcessInit() once unit tests stop creating
+  // TestingBrowserProcess.
   void PostBrowserProcessInitCore();
+
+  // Initializes features that must come before core features. This is
+  // called immediately after construction, before any other
+  // initialization.
+  void Init();
 
   // Each of these is called exactly once when the browser starts to shutdown,
   // in the named browser shutdown lifecycle phases. Importantly,
@@ -204,12 +208,16 @@ class GlobalFeatures {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   virtual std::unique_ptr<whats_new::WhatsNewRegistry> CreateWhatsNewRegistry();
 #endif
+  virtual std::unique_ptr<GlobalBrowserCollection>
+  CreateGlobalBrowserCollection();
 
  private:
   static ui::UserDataFactoryWithOwner<BrowserProcess>& GetUserDataFactory();
 
   // Features will each have a controller. e.g.
   // std::unique_ptr<FooFeature> foo_feature_;
+
+  std::unique_ptr<GlobalBrowserCollection> global_browser_collection_;
 
   std::unique_ptr<system_permission_settings::PlatformHandle>
       system_permissions_platform_handle_;
@@ -248,8 +256,6 @@ class GlobalFeatures {
   std::unique_ptr<local_network_access::IPAddressSpaceOverridesPrefsObserver>
       ip_address_space_overrides_prefs_observer_;
 
-  std::unique_ptr<GlobalBrowserCollection> global_browser_collection_;
-
 #if BUILDFLAG(IS_WIN)
   std::unique_ptr<StartupLaunchManager> startup_launch_manager_;
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -265,6 +271,11 @@ class GlobalFeatures {
       on_device_translation_installer_;
 
   std::unique_ptr<ProfileLaunchObserver> profile_launch_observer_;
+
+  std::unique_ptr<smart_restart::SmartRestartMetricsObserver>
+      smart_restart_metrics_observer_;
+
+  std::unique_ptr<smart_restart::SmartRestartManager> smart_restart_manager_;
 #endif  // !BUILDFLAG(IS_ANDROID)
 };
 

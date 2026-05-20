@@ -6,19 +6,32 @@
 #define CHROME_BROWSER_GLIC_PUBLIC_GLIC_PASSKEYS_H_
 
 #include "base/types/pass_key.h"
+#include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/public/glic_context_menu_invocation_helper.h"
 
-class RenderViewContextMenu;
+class GlicExperimentalTriggeringMessageHandler;
 class TabStripActionContainer;
+namespace tabs {
+class TabInterface;
+}
 
 namespace extensions {
+class GlicPrivateInvokeFunction;
 class PdfViewerPrivateGlicSummarizeFunction;
 }
 
 class PasswordChangeFromCheckupDelegate;
 
+namespace ttc {
+class AiOverlayTools;
+}
+
 namespace glic {
 
 class GlicInternalsPageHandler;
+
+template <mojom::InvocationSource Source>
+class AndroidAutoSubmitPasskeyHelper;
 
 // Passkey for invoking glic with auto submit. Reach out to OWNERS before
 // adding new callers.
@@ -32,14 +45,21 @@ class InvokeWithAutoSubmitPasskeyProvider {
   // Example of how to add new friends:
   // friend class SomeClassThatNeedsAutoSubmit;
   // friend void SomeClass::SomeFunctionThatNeedsAutoSubmit();
-  friend class ::RenderViewContextMenu;
   friend class ::TabStripActionContainer;
+  friend void GlicContextMenuInvocationHelper::HandleContextualMenuClick(
+      tabs::TabInterface* tab);
+  friend class extensions::GlicPrivateInvokeFunction;
   friend class extensions::PdfViewerPrivateGlicSummarizeFunction;
   friend class ::PasswordChangeFromCheckupDelegate;
   friend class GlicInternalsPageHandler;
   friend class GlicInstanceCoordinatorBrowserTest;
   friend class GlicInstanceCoordinatorTrustFirstOnboardingArm1BrowserTest;
   friend class GlicApiTestPasskeys;
+  friend class ::GlicExperimentalTriggeringMessageHandler;
+  friend class GlicCueTarget;
+  friend class ::ttc::AiOverlayTools;
+  friend class AndroidAutoSubmitPasskeyHelper<
+      mojom::InvocationSource::kUniversalCart>;
 };
 
 using InvokeWithAutoSubmitPasskey =

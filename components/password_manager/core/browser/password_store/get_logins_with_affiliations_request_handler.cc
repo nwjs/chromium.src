@@ -20,8 +20,11 @@
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_consumer.h"
+#include "components/password_manager/core/browser/password_store/password_store_util.h"
 #include "components/password_manager/core/browser/password_store/psl_matching_helper.h"
+#include "components/password_manager/core/browser/password_store/stored_credential.h"
 #include "url/origin.h"
 
 namespace password_manager {
@@ -33,7 +36,7 @@ bool FormSupportsPSL(const PasswordFormDigest& digest) {
          !GetRegistryControlledDomain(GURL(digest.signon_realm)).empty();
 }
 
-bool IsExtendedPSLMatch(const PasswordForm& form,
+bool IsExtendedPSLMatch(const StoredCredential& form,
                         const PasswordFormDigest& digest,
                         const base::flat_set<std::string>& psl_extensions) {
   DCHECK_NE(GetMatchResult(form, digest), MatchResult::NO_MATCH);
@@ -94,15 +97,15 @@ void InjectAffiliationAndBrandingInformation(
 
 // Removes username-only credentials from |credentials|.
 // Transforms federated credentials into non zero-click ones.
-void TrimUsernameOnlyCredentials(std::vector<PasswordForm>& credentials) {
+void TrimUsernameOnlyCredentials(std::vector<StoredCredential>& credentials) {
   // Remove username-only credentials which are not federated.
-  std::erase_if(credentials, [](const PasswordForm& form) {
+  std::erase_if(credentials, [](const StoredCredential& form) {
     return form.scheme == PasswordForm::Scheme::kUsernameOnly &&
-           !form.IsFederatedCredential();
+           !form.federation_origin.IsValid();
   });
 
   // Set "skip_zero_click" on federated credentials.
-  std::ranges::for_each(credentials, [](PasswordForm& form) {
+  std::ranges::for_each(credentials, [](StoredCredential& form) {
     if (form.scheme == PasswordForm::Scheme::kUsernameOnly) {
       form.skip_zero_click = true;
     }
@@ -240,7 +243,7 @@ void GetLoginsHelper::HandleAffiliationsAndGroupsReceived(
                                       GURL(realm));
     }
   }
-  backend_->FillMatchingLoginsAsync(std::move(forms_received_callback),
+  backend_->FillMatchingLoginsAsync(forms_received_callback,
                                     /*include_psl=*/false, digests_to_request);
 }
 
@@ -270,7 +273,7 @@ LoginsResultOrError GetLoginsHelper::MergeResults(
         std::string signon_realm = form.signon_realm;
         // For web federated credentials the signon_realm has a different
         // style. Extract the origin from URL instead for the lookup.
-        if (form.IsFederatedCredential() &&
+        if (form.federation_origin.IsValid() &&
             !affiliations::IsValidAndroidFacetURI(form.signon_realm)) {
           signon_realm = url::Origin::Create(form.url).GetURL().spec();
         }

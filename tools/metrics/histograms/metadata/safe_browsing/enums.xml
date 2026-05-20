@@ -171,12 +171,6 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="kFailedWriteFile"/>
 </enum>
 
-<enum name="ClientReportSendDownloadReportResult">
-  <int value="0" label="SUCCESS"/>
-  <int value="1" label="SERIALIZATION_ERROR"/>
-  <int value="2" label="EMPTY_REPORT"/>
-</enum>
-
 <!-- LINT.IfChange(ClientSafeBrowsingReportType) -->
 
 <enum name="ClientSafeBrowsingReportType">
@@ -327,6 +321,7 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="Unsupported file type"/>
   <int value="9" label="Too many requests"/>
   <int value="10" label="Incomplete response"/>
+  <int value="11" label="Cancelled"/>
 </enum>
 
 <enum name="SafeBrowsingCheckUrlAction">
@@ -383,7 +378,7 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="DuringHashRealTimeLookup"/>
   <int value="1" label="AsyncFetch"/>
   <int value="2" label="KeyRelatedHttpErrorCode"/>
-  <int value="3" label="KeyRotatedHeader"/>
+  <int value="3" label="(Obsolete) KeyRotatedHeader"/>
 </enum>
 
 <enum name="SafeBrowsingPageLoadTokenClearReason">
@@ -597,6 +592,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="HASH_PREFIX_INFO_MISSING_FAILURE"/>
   <int value="8" label="HASH_PREFIX_MAP_GENERATION_FAILURE"/>
   <int value="9" label="MIGRATION_FAILURE"/>
+  <int value="10" label="PRE_MMAP_MIGRATION_FILE_FORMAT_FAILURE"/>
 </enum>
 
 <enum name="SafeBrowsingV4StoreWriteResult">

@@ -136,7 +136,8 @@ AutofillAiSaveUpdateEntityFlowManager::CreateMessageModel(
       web_contents_,
       entity.record_type() == EntityInstance::RecordType::kServerWallet));
   message->SetDescriptionMaxLines(kDescriptionMaxLines);
-  message->SetPrimaryButtonText(GetPrimaryButtonText(!old_entity));
+  message->SetPrimaryButtonText(
+      l10n_util::GetStringUTF16(GetPrimaryButtonTextId(!old_entity)));
   message->SetPrimaryButtonTextMaxLines(1);
   message->SetIconResourceId(
       ResourceMapper::MapToJavaDrawableId(GetMessageIconResourceId(entity)));
@@ -189,7 +190,6 @@ void AutofillAiSaveUpdateEntityFlowManager::OnMessageDismissed(
 void AutofillAiSaveUpdateEntityFlowManager::RunPromptClosedCallback(
     AutofillClient::AutofillAiBubbleResult result) {
   if (prompt_result_callback_) {
-    // TODO(crbug.com/489354073): Pass the correct UI context.
     std::move(prompt_result_callback_).Run(result, {});
   }
 }

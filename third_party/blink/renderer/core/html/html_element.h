@@ -234,9 +234,11 @@ class CORE_EXPORT HTMLElement : public Element {
 
   bool IsDisabledFormControl() const override;
   bool MatchesEnabledPseudoClass() const override;
+  bool MatchesDisabledPseudoClass() const override;
   bool MatchesReadOnlyPseudoClass() const override;
   bool MatchesReadWritePseudoClass() const override;
   bool MatchesValidityPseudoClasses() const override;
+  bool MatchesDefaultPseudoClass() const override;
   bool willValidate() const override;
   bool IsValidElement() override;
 
@@ -285,7 +287,9 @@ class CORE_EXPORT HTMLElement : public Element {
   // state in |action|. |include_event_handler_text| adds some additional text
   // to the exception if an exception is thrown. When |expected_document| is
   // set, it will be compared to the current document and return false if they
-  // do not match.
+  // do not match. Passing a non-null |expected_document| also signifies that
+  // this is an internal re-validation check (e.g. after a beforetoggle event),
+  // which will bypass the re-entrancy check for show operations.
   bool IsPopoverReady(PopoverTriggerAction action,
                       ExceptionState* exception_state,
                       bool include_event_handler_text,
@@ -312,12 +316,11 @@ class CORE_EXPORT HTMLElement : public Element {
       HidePopoverTransitionBehavior event_firing,
       ExceptionState* exception_state);
   void PopoverHideFinishIfNeeded(bool immediate);
-  static const HTMLElement* FindTopmostPopoverAncestor(
+  static HTMLElement* FindTopmostPopoverAncestor(
       Element& new_popover_or_top_layer_element,
-      HeapVector<Member<HTMLElement>>& stack_to_check,
+      HeapVector<Member<HTMLElement>>* stack_to_check,
       Element* new_popovers_invoker,
-      TopLayerElementType top_layer_element_type =
-          TopLayerElementType::kPopover);
+      TopLayerElementType top_layer_element_type);
   static const HTMLElement* TopLayerElementPopoverAncestor(
       Element& top_layer_element,
       TopLayerElementType top_layer_element_type);
@@ -332,6 +335,8 @@ class CORE_EXPORT HTMLElement : public Element {
   // pointerup events.
   static void HandlePopoverLightDismiss(const PointerEvent& event,
                                         const Node& node);
+  static void HidePopoversForLightDismiss(const HTMLElement* target_popover,
+                                          Document& document);
   static void HandlePopoverLightDismissForClick(const Node& pointer_down_target,
                                                 const Node& pointer_up_target);
   void InvokePopover(Element& invoker);
@@ -399,6 +404,7 @@ class CORE_EXPORT HTMLElement : public Element {
 
  protected:
   FocusableState SupportsFocus(UpdateBehavior update_behavior) const override;
+  int DefaultTabIndex() const override;
 
   enum AllowPercentage { kDontAllowPercentageValues, kAllowPercentageValues };
   enum AllowZero { kDontAllowZeroValues, kAllowZeroValues };

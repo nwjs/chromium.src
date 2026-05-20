@@ -128,7 +128,7 @@ bool StructTraits<network::mojom::DeviceBoundSessionParamsDataView,
   *out = net::device_bound_sessions::SessionParams(
       std::move(session_id), std::move(fetcher_url), std::move(refresh_url),
       std::move(scope), std::move(credentials),
-      unexportable_keys::UnexportableKeyId(),
+      unexportable_keys::UnexportableSigningKeyId(),
       std::move(allowed_refresh_initiators));
 
   return true;
@@ -372,6 +372,8 @@ EnumTraits<network::mojom::DeviceBoundSessionRefreshResult,
   switch (input) {
     case RefreshResult::kRefreshed:
       return MojomRefreshResult::kRefreshed;
+    case RefreshResult::kRefreshedAsWaiter:
+      return MojomRefreshResult::kRefreshedAsWaiter;
     case RefreshResult::kInitializedService:
       return MojomRefreshResult::kInitializedService;
     case RefreshResult::kUnreachable:
@@ -398,6 +400,8 @@ EnumTraits<network::mojom::DeviceBoundSessionRefreshResult,
   switch (input) {
     case MojomRefreshResult::kRefreshed:
       return RefreshResult::kRefreshed;
+    case MojomRefreshResult::kRefreshedAsWaiter:
+      return RefreshResult::kRefreshedAsWaiter;
     case MojomRefreshResult::kInitializedService:
       return RefreshResult::kInitializedService;
     case MojomRefreshResult::kUnreachable:

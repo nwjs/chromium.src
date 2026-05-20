@@ -20,7 +20,6 @@
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/plus_addresses/core/browser/grit/plus_addresses_strings.h"
 #include "components/plus_addresses/core/browser/mock_plus_address_http_client.h"
-#include "components/plus_addresses/core/browser/plus_address_hats_utils.h"
 #include "components/plus_addresses/core/browser/plus_address_test_utils.h"
 #include "components/plus_addresses/core/browser/plus_address_types.h"
 #include "components/plus_addresses/core/common/features.h"
@@ -47,39 +46,6 @@ void FakePlusAddressService::RemoveObserver(PlusAddressService::Observer* o) {
   NOTIMPLEMENTED();
 }
 
-std::vector<autofill::Suggestion>
-FakePlusAddressService::GetSuggestionsFromPlusAddresses(
-    const std::vector<std::string>& plus_addresses) {
-  Suggestion suggestion = Suggestion(plus_addresses::test::kFakePlusAddressU16,
-                                     SuggestionType::kFillExistingPlusAddress);
-  if constexpr (!BUILDFLAG(IS_ANDROID)) {
-    suggestion.labels = {{Suggestion::Text(l10n_util::GetStringUTF16(
-        IDS_PLUS_ADDRESS_FILL_SUGGESTION_SECONDARY_TEXT))}};
-  }
-  suggestion.icon = Suggestion::Icon::kPlusAddress;
-  return {suggestion};
-}
-
-autofill::Suggestion FakePlusAddressService::GetManagePlusAddressSuggestion()
-    const {
-  return Suggestion(autofill::SuggestionType::kManagePlusAddress);
-}
-
-void FakePlusAddressService::RecordAutofillSuggestionEvent(
-    SuggestionEvent suggestion_event) {
-  NOTIMPLEMENTED();
-}
-
-void FakePlusAddressService::OnPlusAddressSuggestionShown(
-    autofill::AutofillManager& manager,
-    autofill::FormGlobalId form,
-    autofill::FieldGlobalId field,
-    SuggestionContext suggestion_context,
-    autofill::PasswordFormClassification::Type form_type,
-    autofill::SuggestionType suggestion_type) {
-  NOTIMPLEMENTED();
-}
-
 void FakePlusAddressService::DidFillPlusAddress() {
   did_fill_plus_address_suggestion_ = true;
 }
@@ -88,12 +54,6 @@ size_t FakePlusAddressService::GetPlusAddressesCount() {
   return plus_profiles_.size();
 }
 
-std::map<std::string, std::string>
-FakePlusAddressService::GetPlusAddressHatsData() const {
-  return {{hats::kPlusAddressesCount, base::ToString(GetPlusProfiles().size())},
-          {hats::kFirstPlusAddressCreationTime, "-1"},
-          {hats::kLastPlusAddressFillingTime, "-1"}};
-}
 
 bool FakePlusAddressService::IsPlusAddressFillingEnabled(
     const url::Origin& origin) const {

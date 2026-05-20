@@ -33,6 +33,11 @@
 #include "ui/accessibility/ax_mode.h"
 #include "ui/base/cocoa/accessibility_focus_overrider.h"
 
+// When enabled, causes sendEvent: to manually forward KeyUp events that have
+// the command modifier to the application's key window instead of to |super|.
+// Used as a killswitch if this has unintended consequences.
+BASE_FEATURE(kForwardCmdKeyUpEventsToWindow, base::FEATURE_ENABLED_BY_DEFAULT);
+
 namespace chrome_browser_application_mac {
 
 void RegisterBrowserCrApp() {
@@ -59,7 +64,7 @@ namespace {
 // Calling -[NSEvent description] is rather slow to build up the event
 // description. The description is stored in a crash key to aid debugging, so
 // this helper function constructs a shorter, but still useful, description.
-// See <https://crbug.com/770405>.
+// See <https://crbug.com/40542574>.
 std::string DescriptionForNSEvent(NSEvent* event) {
   std::string desc = base::StringPrintf(
       "NSEvent type=%ld modifierFlags=0x%lx locationInWindow=(%g,%g)",
@@ -69,7 +74,7 @@ std::string DescriptionForNSEvent(NSEvent* event) {
     case NSEventTypeKeyDown:
     case NSEventTypeKeyUp: {
       // Some NSEvents return a string with NUL in event.characters, see
-      // <https://crbug.com/826908>. To make matters worse, in rare cases,
+      // <https://crbug.com/41379586>. To make matters worse, in rare cases,
       // NSEvent.characters or NSEvent.charactersIgnoringModifiers can throw an
       // NSException complaining that "TSMProcessRawKeyCode failed". Since we're
       // trying to gather a crash key here, if that exception happens, just
@@ -417,9 +422,9 @@ std::string DescriptionForNSEvent(NSEvent* event) {
 - (void)sendEvent:(NSEvent*)event {
   TRACE_EVENT0("toplevel", "BrowserCrApplication::sendEvent");
 
-  // TODO(bokan): Tracing added temporarily to diagnose crbug.com/1039833.
-  TRACE_EVENT_INSTANT1("toplevel", "KeyWindow", TRACE_EVENT_SCOPE_THREAD,
-                       "KeyWin", [[NSApp keyWindow] windowNumber]);
+  // TODO(bokan): Tracing added temporarily to diagnose crbug.com/40113768.
+  TRACE_EVENT_INSTANT("toplevel", "KeyWindow", "KeyWin",
+                      [[NSApp keyWindow] windowNumber]);
 
   static crash_reporter::CrashKeyString<256> nseventKey("nsevent");
   crash_reporter::ScopedCrashKeyString scopedKey(&nseventKey,
@@ -442,11 +447,25 @@ std::string DescriptionForNSEvent(NSEvent* event) {
     base::mac::ScopedSendingEvent sendingEventScoper;
     content::ScopedNotifyNativeEventProcessorObserver scopedObserverNotifier(
         &self->_observers, event);
-    // Mac Eisu and Kana keydown events are by default swallowed by sendEvent
-    // and sent directly to IME, which prevents ui keydown events from firing.
-    // These events need to be sent to [NSApp keyWindow] for handling.
+
+    BOOL sendEventToKeyWindow = NO;
     if (event.type == NSEventTypeKeyDown &&
         (event.keyCode == kVK_JIS_Eisu || event.keyCode == kVK_JIS_Kana)) {
+      // Mac Eisu and Kana keydown events are by default swallowed by sendEvent
+      // and sent directly to IME, which prevents ui keydown events from firing.
+      // These events need to be sent to [NSApp keyWindow] for handling.
+      sendEventToKeyWindow = YES;
+    } else if (event.type == NSEventTypeKeyUp &&
+               event.modifierFlags & NSEventModifierFlagCommand &&
+               base::FeatureList::IsEnabled(kForwardCmdKeyUpEventsToWindow)) {
+      // The base NSApplication implementation of sendEvent: swallows keyUp
+      // events if the command modifier is present. We work around this by
+      // forwarding them to [NSApp keyWindow] to ensure all keyUp events are
+      // reported and handled (crbug.com/407598429, crbug.com/438807261).
+      sendEventToKeyWindow = YES;
+    }
+
+    if (sendEventToKeyWindow) {
       [NSApp.keyWindow sendEvent:event];
     } else {
       [super sendEvent:event];

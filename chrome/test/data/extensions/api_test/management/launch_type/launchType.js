@@ -2,35 +2,42 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-let enabledApp, disabledApp, enabledExtension, packagedApp;
+let enabledApp;
+let disabledApp;
+let enabledExtension;
+let packagedApp;
 const allLaunchTypes = [
-  'OPEN_AS_REGULAR_TAB', 'OPEN_AS_PINNED_TAB', 'OPEN_AS_WINDOW',
-  'OPEN_FULL_SCREEN'
+  'OPEN_AS_REGULAR_TAB',
+  'OPEN_AS_PINNED_TAB',
+  'OPEN_AS_WINDOW',
+  'OPEN_FULL_SCREEN',
 ];
 
 function testSetLaunchType(id, type, error, listener) {
   const callListener = function() {
-    if (listener)
+    if (listener) {
       listener();
+    }
   };
 
   chrome.test.runWithUserGesture(function() {
-    if (!error)
+    if (!error) {
       chrome.management.setLaunchType(id, type, callback(callListener));
-    else
+    } else {
       chrome.management.setLaunchType(id, type, callback(callListener, error));
+    }
   });
 }
 
 function getAvailableLaunchTypes(app) {
-  const types = Array();
-  if (app.type == 'packaged_app') {
+  const types = [];
+  if (app.type === 'packaged_app') {
     types.push('OPEN_AS_WINDOW');
     return types;
   }
 
   types.push('OPEN_AS_REGULAR_TAB');
-  if (navigator.userAgent.indexOf('Mac') == -1) {
+  if (navigator.userAgent.indexOf('Mac') === -1) {
     types.push('OPEN_AS_WINDOW');
   } else {
     types.push('OPEN_AS_PINNED_TAB');
@@ -42,8 +49,9 @@ function getAvailableLaunchTypes(app) {
 
 function verifyAvailableLaunchTypes(expected, actual) {
   assertEq(expected.length, actual.length);
-  for (let i = 0; i < expected.length; i++)
-    assertTrue(actual.indexOf(expected[i]) != -1);
+  for (let i = 0; i < expected.length; i++) {
+    assertTrue(actual.indexOf(expected[i]) !== -1);
+  }
 }
 
 function testSetAllLaunchTypes(app) {
@@ -51,8 +59,9 @@ function testSetAllLaunchTypes(app) {
 
   const setLaunchType = function(i) {
     const setNextLaunchType = function() {
-      if (i + 1 < allLaunchTypes.length)
+      if (i + 1 < allLaunchTypes.length) {
         setLaunchType(i + 1);
+      }
     };
 
     let type = allLaunchTypes[i];
@@ -63,12 +72,13 @@ function testSetAllLaunchTypes(app) {
     } else {
       testSetLaunchType(app.id, type, null, function() {
         chrome.management.get(app.id, function(item) {
-          if (navigator.userAgent.indexOf('Mac') != -1) {
+          if (navigator.userAgent.indexOf('Mac') !== -1) {
             // In the current configuration, with the new bookmark app flow
             // disabled, hosted apps set to open in a window on Mac will open
             // instead in a tab.
-            if (item.type != 'packaged_app' && type == 'OPEN_AS_WINDOW')
+            if (item.type !== 'packaged_app' && type === 'OPEN_AS_WINDOW') {
               type = 'OPEN_AS_REGULAR_TAB';
+            }
           }
           assertEq(type, item.launchType);
           setNextLaunchType();
@@ -77,23 +87,26 @@ function testSetAllLaunchTypes(app) {
     }
   };
 
-  if (allLaunchTypes.length > 0)
+  if (allLaunchTypes.length > 0) {
     setLaunchType(0);
+  }
 }
 
 const tests = [
   function verifyLaunchType() {
-    assertTrue(enabledApp.availableLaunchTypes != undefined);
+    assertTrue(enabledApp.availableLaunchTypes !== undefined);
     assertTrue(
-        enabledApp.availableLaunchTypes.indexOf(enabledApp.launchType) != -1);
+        enabledApp.availableLaunchTypes.indexOf(enabledApp.launchType) !== -1);
 
-    assertTrue(disabledApp.availableLaunchTypes != undefined);
+    assertTrue(disabledApp.availableLaunchTypes !== undefined);
     assertTrue(
-        disabledApp.availableLaunchTypes.indexOf(disabledApp.launchType) != -1);
+        disabledApp.availableLaunchTypes.indexOf(disabledApp.launchType) !==
+        -1);
 
-    assertTrue(packagedApp.availableLaunchTypes != undefined);
+    assertTrue(packagedApp.availableLaunchTypes !== undefined);
     assertTrue(
-        packagedApp.availableLaunchTypes.indexOf(packagedApp.launchType) != -1);
+        packagedApp.availableLaunchTypes.indexOf(packagedApp.launchType) !==
+        -1);
 
     assertEq(undefined, enabledExtension.launchType);
     assertEq(undefined, enabledExtension.availableLaunchTypes);
@@ -137,11 +150,11 @@ const tests = [
     testSetLaunchType(
         'abcd', 'OPEN_AS_REGULAR_TAB',
         'Failed to find extension with id abcd.');
-  }
+  },
 ];
 
-const scriptUrl = '_test_resources/api_test/management/common.js';
-const loadScript = chrome.test.loadScript(scriptUrl);
+const SCRIPT_URL = '_test_resources/api_test/management/common.js';
+const loadScript = chrome.test.loadScript(SCRIPT_URL);
 
 loadScript.then(async function() {
   chrome.management.getAll(callback(function(items) {

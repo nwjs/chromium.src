@@ -48,11 +48,11 @@ class FullscreenControllerTestWindow : public TestBrowserWindow,
   ~FullscreenControllerTestWindow() override = default;
 
   // BrowserWindow Interface:
-  bool ShouldHideUIForFullscreen() const override;
   bool IsFullscreen() const override;
   static const char* GetWindowStateString(WindowState state);
   WindowState state() const { return state_; }
   void set_browser(Browser* browser) { browser_ = browser; }
+  void set_reentrant(bool reentrant) { reentrant_ = reentrant; }
   ExclusiveAccessContext* GetExclusiveAccessContext() override;
 
   // ExclusiveAccessContext Interface:
@@ -82,6 +82,8 @@ class FullscreenControllerTestWindow : public TestBrowserWindow,
 
   WindowState state_ = kNormal;
   raw_ptr<Browser, DanglingUntriaged> browser_;
+  bool reentrant_ =
+      FullscreenControllerStateTest::IsWindowFullscreenStateChangedReentrant();
 };
 
 FullscreenControllerTestWindow::FullscreenControllerTestWindow()
@@ -102,10 +104,6 @@ void FullscreenControllerTestWindow::ExitFullscreen() {
       ChangeWindowFullscreenState();
     }
   }
-}
-
-bool FullscreenControllerTestWindow::ShouldHideUIForFullscreen() const {
-  return IsFullscreen();
 }
 
 bool FullscreenControllerTestWindow::IsFullscreen() const {
@@ -164,8 +162,7 @@ bool FullscreenControllerTestWindow::IsTransitionReentrant(
     return false;
   }
 
-  if (FullscreenControllerStateTest::
-          IsWindowFullscreenStateChangedReentrant()) {
+  if (reentrant_) {
     return true;
   }
 
@@ -298,7 +295,7 @@ bool FullscreenControllerStateUnitTest::ShouldSkipStateAndEventPair(
   // test *.STATE_TO_NORMAL__TOGGLE_FULLSCREEN runs interactively and exits to
   // Normal. This doesn't appear to be the desired result, and would add
   // too much complexity to mimic in our simple FullscreenControllerTestWindow.
-  // http://crbug.com/156968
+  // http://crbug.com/40952626
   if ((state == STATE_TO_BROWSER_FULLSCREEN ||
        state == STATE_TO_TAB_FULLSCREEN) &&
       event == TOGGLE_FULLSCREEN) {
@@ -347,7 +344,7 @@ TEST_F(FullscreenControllerStateUnitTest, TransitionsForEachState) {
 // Specific one-off tests for known issues -------------------------------------
 
 // TODO(scheib) Toggling Tab fullscreen while pending Tab or
-// Browser fullscreen is broken currently http://crbug.com/154196
+// Browser fullscreen is broken currently http://crbug.com/40951066
 TEST_F(FullscreenControllerStateUnitTest,
        DISABLED_ToggleTabWhenPendingBrowser) {
   // Only possible without reentrancy.
@@ -365,7 +362,7 @@ TEST_F(FullscreenControllerStateUnitTest,
 }
 
 // TODO(scheib) Toggling Tab fullscreen while pending Tab or
-// Browser fullscreen is broken currently http://crbug.com/154196
+// Browser fullscreen is broken currently http://crbug.com/40951066
 TEST_F(FullscreenControllerStateUnitTest, DISABLED_ToggleTabWhenPendingTab) {
   // Only possible without reentrancy.
   if (FullscreenControllerStateTest::
@@ -448,13 +445,14 @@ TEST_F(FullscreenControllerStateUnitTest,
 TEST_F(FullscreenControllerStateUnitTest,
        RunOrDeferUntilTransitionIsCompleteDefer) {
   AddTab(browser(), GURL(url::kAboutBlankURL));
+  window_->set_reentrant(false);
   GetFullscreenController()->ToggleBrowserFullscreenMode(
       /*user_initiated=*/false);
   bool lambda_called = false;
   GetFullscreenController()->RunOrDeferUntilTransitionIsComplete(
       base::BindLambdaForTesting([&lambda_called]() { lambda_called = true; }));
   EXPECT_FALSE(lambda_called);
-  GetFullscreenController()->FullscreenTransitionCompleted();
+  GetFullscreenController()->WindowFullscreenStateChanged();
   EXPECT_TRUE(lambda_called);
 }
 
@@ -789,7 +787,7 @@ class FullscreenChangeObserver : public content::WebContentsObserver {
 // WasResized to be called on ExitFullscreen while going from tab fullscreen ->
 // Normal does not. This ensures that the Resize message we get in the renderer
 // will have both the fullscreen change and size change in the same message.
-// crbug.com/142427.
+// crbug.com/40260339.
 TEST_F(FullscreenControllerStateUnitTest, TabToBrowserFullscreenCausesResize) {
   AddTab(browser(), GURL(url::kAboutBlankURL));
   content::WebContents* const tab =

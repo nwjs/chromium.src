@@ -28,6 +28,7 @@
 #include "chrome/browser/actor/ui/ui_event_debugstring.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/action_result.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_context.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
@@ -98,6 +99,7 @@ constexpr absl::Overload PreToolEventsFn{
     NoUiEvents<WaitToolRequest>,
     NoUiEvents<AttemptLoginToolRequest>,
     NoUiEvents<AttemptFormFillingToolRequest>,
+    NoUiEvents<AttemptOtpFillingToolRequest>,
     NoUiEvents<ScriptToolRequest>,
     NoUiEvents<ScrollToToolRequest>};
 
@@ -125,6 +127,7 @@ constexpr absl::Overload PostToolEventsFn{
     NoUiEvents<WaitToolRequest>,
     NoUiEvents<AttemptLoginToolRequest>,
     NoUiEvents<AttemptFormFillingToolRequest>,
+    NoUiEvents<AttemptOtpFillingToolRequest>,
     NoUiEvents<ScriptToolRequest>,
     NoUiEvents<ScrollToToolRequest>};
 
@@ -146,8 +149,9 @@ constexpr absl::Overload ActorTaskSyncChangeFn{
       return seq;
     },
     [](const UiEventDispatcher::StopTask& c) {
-      return EventSequence<SyncUiEvent>{StopTask(
-          c.task_id, c.final_state, c.title, c.last_acted_on_tab_handle)};
+      return EventSequence<SyncUiEvent>{
+          StopTask(c.task_id, c.final_state, c.title,
+                   c.last_acted_on_tab_handle, c.duration)};
     },
     [](const UiEventDispatcher::RemoveTab& c) {
       return EventSequence<SyncUiEvent>{StoppedActingOnTab(c.handle)};

@@ -6,23 +6,55 @@ module toolbar_ui_api.mojom;
 
 import "components/content_settings/core/common/content_settings_types.mojom";
 import "mojo/public/mojom/base/string16.mojom";
+import "mojo/public/mojom/base/time.mojom";
 import "ui/gfx/range/mojom/range.mojom";
 
 // The context menu types that can be opened with ToolbarUIService's
 // ShowContextMenu.
 enum ContextMenuType {
   kUnspecified,
+  // Navigation control buttons
   kReload,
   kSplitTabsAction,
   kSplitTabsContext,
   kBack,
   kForward,
   kHome,
+
+  // Pinned toolbar action buttons
+  kPinnedActionNewIncognitoWindow,
+  kPinnedActionShowPasswordsBubbleOrPage,
+  kPinnedActionShowPaymentsBubbleOrPage,
+  kPinnedActionShowAddressesBubbleOrPage,
+  kPinnedActionSidePanelShowBookmarks,
+  kPinnedActionSidePanelShowReadingList,
+  kPinnedActionSidePanelShowHistoryCluster,
+  kPinnedActionShowDownloads,
+  kPinnedActionClearBrowsingData,
+  kPinnedActionPrint,
+  kPinnedActionSidePanelShowLensOverlayResults,
+  kPinnedActionShowTranslate,
+  kPinnedActionQrCodeGenerator,
+  kPinnedActionRouteMedia,
+  kPinnedActionSidePanelShowReadAnything,
+  kPinnedActionCopyUrl,
+  kPinnedActionSendTabToSelf,
+  kPinnedActionTaskManager,
+  kPinnedActionDevTools,
+  kPinnedActionTabSearch,
+  kPinnedActionSidePanelShowContextualTasks,
+  kPinnedActionSidePanelShowLens,
+  kPinnedActionSidePanelShowAboutThisSite,
+  kPinnedActionSidePanelShowCustomizeChrome,
+  kPinnedActionSidePanelShowShoppingInsights,
+  kPinnedActionSidePanelShowMerchantTrust,
+  kPinnedActionSendSharedTabGroupFeedback,
+  kPinnedActionSidePanelShowComments,
 };
 
 struct BackForwardButtonState {
   bool enabled;
-  bool visible;
+  bool should_be_shown;
   bool is_context_menu_visible;
 };
 
@@ -40,10 +72,55 @@ enum ToolbarButtonType {
   kHome,
 };
 
+struct OmniboxActionFocusChange {
+  bool has_focus = false;
+  gfx.mojom.Range selection;
+};
+
+struct OmniboxActionTextInput {
+  // The entire user-entered text (not including any displayed inline
+  // autocompletion). Should be considered untrusted.
+  mojo_base.mojom.String16 text;
+
+  // The unaccepted portion of inline autocompletion. (May be a suffix of
+  // what the model suggested if the user typed some of the expected
+  // characters).
+  mojo_base.mojom.String16 inline_autocompletion;
+
+  gfx.mojom.Range selection;
+};
+
+struct OmniboxActionKey {
+  // For now this is just key down, but will likely be more in the future.
+
+  // KeyboardEvent.key of the event; nothing else should be stored in this
+  // field.
+  string key;
+  gfx.mojom.Range selection;
+};
+
+union OmniboxAction {
+  OmniboxActionFocusChange focus_change;
+  OmniboxActionTextInput text_input;
+  OmniboxActionKey key;
+};
+
 struct ReloadControlState {
+  // The maximum delay for a double click. If there's a longer delay than this,
+  // it should be treated as two separate clicks.
+  mojo_base.mojom.TimeDelta double_click_interval;
+
   bool can_show_menu;
   bool is_navigation_loading;
   bool is_context_menu_visible;
+
+  // This changes whenever the state should be reset, typically due to a change
+  // in context (i.e., a switch between tabs). When a `state_token` is received
+  // that has different from the most recently recently received token, the
+  // reload button icon changes immediately to the state corresponding to the
+  // value of `is_navigation_loading`, ignoring all debouncing logic and double
+  // click delays, and any timers are stopped.
+  int32 state_token;
 };
 
 struct SplitTabsControlState {
@@ -60,7 +137,7 @@ struct BackForwardControlState {
 };
 
 struct HomeControlState {
-  bool is_pinned;
+  bool should_be_shown;
   bool is_context_menu_visible;
 };
 
@@ -123,18 +200,7 @@ struct ContentSettingImageState {
   // accessibility technologies.
   bool should_notify_accessibility;
 
-  // If true, the bubble should open on its own, without requiring a click from
-  // the user. This round-trips through WebUI so that the bubble never opens
-  // before the icon is ready.
-  //
-  // If set, `is_bubble_visible` should also be set. Technically, the bubble
-  // only displays after requested by the WebUI, but this prevents a flicker
-  // where the icon appears non-highlighted initially before immediately
-  // transitioning to highlighted.
-  bool should_auto_open_bubble;
-
-  // If true, the bubble is visible, so the icon should be highlighted. Should
-  // always be set to true if `should_auto_open_bubble` is true.
+  // If true, the bubble is visible, so the icon should be highlighted.
   bool is_bubble_visible;
 
   // If true, when `explanitory_string` is displayed, it should appear via an
@@ -172,6 +238,10 @@ struct OmniboxViewState {
   // Text to display in the omnibox view.
   array<OmniboxTextPortion> text_pieces;
 
+  // Inline autocompletion to display. If not empty, this may override
+  // `selection`.
+  mojo_base.mojom.String16 inline_autocompletion;
+
   // Selection or caret (if start == end) to set on the omnibox view, if any.
   gfx.mojom.Range? selection;
 
@@ -186,8 +256,8 @@ struct LocationBarFlags {
   // changes.
   bool user_input_in_progress = false;
 
-  // Whether to render as if we have focus, due to omnibox popup taking it over.
-  bool render_focused = false;
+  // Whether the omnibox popup is open
+  bool popup_open = false;
 };
 
 // Enum of all supported pinned toolbar actions.
@@ -207,6 +277,10 @@ enum PinnedToolbarAction {
  kShowTranslate,
  kQrCodeGenerator,
  kRouteMedia,
+ kRouteMediaIdle,
+ kRouteMediaWarning,
+ kRouteMediaPaused,
+ kRouteMediaActive,
  kSidePanelShowReadAnything,
  kCopyUrl,
  kSendTabToSelf,
@@ -248,8 +322,59 @@ struct PinnedToolbarActionState {
 struct LocationBarState {
   OmniboxViewState omnibox_view_state;
   LocationBarFlags location_bar_flags;
-  // The set of content setting icon state for each visible LHS icon.
+  // The set of content setting icon state for each visible RHS icon.
   array<ContentSettingImageState> content_setting_image_states;
+  // LHS location bar chips states.
+  LhsChipsState lhs_chips_state;
+};
+
+enum LhsChipIdentifier {
+  kUnspecified,
+  kLocationIcon,
+};
+
+enum SecurityChipIcon {
+  kUnspecified,
+  kHttp,
+  kSecurePageInfo,
+  kNotSecureWarning,
+  kDangerous,
+  kGoogleSuperG,
+  kGoogleGMonochrome,
+  kAddContext,
+};
+
+// Represents the security state of the current page.
+// This strictly maps to native security_state::SecurityLevel values.
+enum SecurityLevel {
+  kUnspecified,
+  kNone,
+  kSecure,
+  kDangerous,
+  kWarning,
+};
+
+struct SecurityChipState {
+  SecurityChipIcon icon;
+  SecurityLevel security_level;
+  mojo_base.mojom.String16 text;
+  bool is_clickable;
+  // True specifically when the text is exactly "Dangerous" (e.g. Malware). This
+  // represents a higher alert state than the standard kDangerous security
+  // level, and generally receives a more prominent visual treatment.
+  bool is_text_dangerous;
+};
+
+// Note: The security chip and permission chips are visually mutually exclusive.
+// When active permission indicators exist, they override and hide the security
+// chip. The WebUI frontend is responsible for this logic.
+struct LhsChipsState {
+  // The data payload for the location icon. This is referred to as the
+  // "security chip" because its primary role is displaying the page's security
+  // status (e.g., tune icon, "Not Secure" warning, G logo).
+  SecurityChipState security_chip;
+  // Multiple indicators can be active (e.g., Camera + Mic).
+  array<ContentSettingImageState> activity_indicators;
 };
 
 struct NavigationControlsState {

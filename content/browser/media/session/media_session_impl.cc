@@ -16,14 +16,14 @@
 #include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "components/url_formatter/url_formatter.h"
+#include "content/browser/back_forward_cache/back_forward_cache_disable.h"
+#include "content/browser/back_forward_cache/back_forward_cache_impl.h"
 #include "content/browser/media/session/audio_focus_delegate.h"
 #include "content/browser/media/session/media_players_callback_aggregator.h"
 #include "content/browser/media/session/media_session_controller.h"
 #include "content/browser/media/session/media_session_player_observer.h"
 #include "content/browser/media/session/media_session_service_impl.h"
 #include "content/browser/picture_in_picture/video_picture_in_picture_window_controller_impl.h"
-#include "content/browser/renderer_host/back_forward_cache_disable.h"
-#include "content/browser/renderer_host/back_forward_cache_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/media_session.h"
@@ -1433,9 +1433,21 @@ void MediaSessionImpl::GetMediaImageBitmap(
     }
   }
 
+  // If we're downloading an image that isn't the favicon, then we should
+  // download it from the frame which set the artwork URL. We download favicon
+  // images from the main frame.
+  GlobalRenderFrameHostId frame_for_download;
+  if (!source_icon) {
+    if (!routed_service_) {
+      std::move(callback).Run(SkBitmap());
+      return;
+    }
+    frame_for_download = routed_service_->GetRenderFrameHostId();
+  }
+
   const gfx::Size preferred_size(desired_size_px, desired_size_px);
-  web_contents()->DownloadImage(
-      image.src, false /* is_favicon */, preferred_size,
+  web_contents()->DownloadImageInFrame(
+      frame_for_download, image.src, false /* is_favicon */, preferred_size,
       desired_size_px /* max_bitmap_size */, false /* bypass_cache */,
       base::BindOnce(&MediaSessionImpl::OnImageDownloadComplete,
                      base::Unretained(this),

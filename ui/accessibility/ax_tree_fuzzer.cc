@@ -5,26 +5,23 @@
 #include "ui/accessibility/ax_tree.h"
 
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/logging.h"
+#include "testing/libfuzzer/libfuzzer_base_wrappers.h"
 #include "ui/accessibility/ax_tree_observer.h"
 
-class EmptyAXTreeObserver : public ui::AXTreeObserver {
- public:
-  EmptyAXTreeObserver() = default;
-  ~EmptyAXTreeObserver() override = default;
-};
-
 // Entry point for LibFuzzer.
-extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size) {
+DEFINE_LLVM_FUZZER_TEST_ONE_INPUT_SPAN(base::span<const uint8_t> data) {
   ui::AXTreeUpdate initial_state;
   size_t i = 0;
-  while (i < size) {
+  while (i < data.size()) {
     ui::AXNodeData node;
-    node.id = UNSAFE_TODO(data[i++]);
-    if (i < size) {
-      size_t child_count = UNSAFE_TODO(data[i++]);
-      for (size_t j = 0; j < child_count && i < size; j++)
-        node.child_ids.push_back(UNSAFE_TODO(data[i++]));
+    node.id = data[i++];
+    if (i < data.size()) {
+      size_t child_count = data[i++];
+      for (size_t j = 0; j < child_count && i < data.size(); j++) {
+        node.child_ids.push_back(data[i++]);
+      }
     }
     initial_state.nodes.push_back(node);
   }
@@ -43,7 +40,7 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size) {
   // Run with --v=1 to aid in debugging a specific crash.
   VLOG(1) << "Input accessibility tree:\n" << initial_state.ToString();
 
-  EmptyAXTreeObserver observer;
+  ui::AXTreeObserver observer;
   ui::AXTree tree;
   tree.AddObserver(&observer);
   tree.Unserialize(initial_state);

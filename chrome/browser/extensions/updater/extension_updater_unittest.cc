@@ -82,7 +82,7 @@
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/extensions_client.h"
 #include "extensions/common/manifest_constants.h"
-#include "extensions/common/manifest_url_handlers.h"
+#include "extensions/common/manifest_handlers/manifest_url_handlers.h"
 #include "extensions/common/mojom/manifest.mojom-shared.h"
 #include "extensions/common/verifier_formats.h"
 #include "net/base/backoff_entry.h"
@@ -2598,7 +2598,7 @@ TEST_F(ExtensionUpdaterTest, TestUpdatingDisabledExtensions) {
   updater.CheckNow(ExtensionUpdater::CheckParams());
 }
 
-// crbug.com/1098540: Tests that removely disabled extensions that are part of
+// crbug.com/40137079: Tests that removely disabled extensions that are part of
 // the blocklisted extensions are still receive updates.
 TEST_F(ExtensionUpdaterTest, TestUpdatingRemotelyDisabledExtensions) {
   ExtensionDownloaderTestHelper helper;
@@ -3050,7 +3050,7 @@ TEST_F(UpdateServiceCanUpdateFeatureEnabledNonDefaultUpdateUrl,
   EXPECT_FALSE(CanUseUpdateService(updater(), nullptr));
 }
 
-// TODO(asargent) - (http://crbug.com/12780) add tests for:
+// TODO(asargent) - (http://crbug.com/40809955) add tests for:
 // -prodversionmin (shouldn't update if browser version too old)
 // -manifests & updates arriving out of order / interleaved
 // -malformed update url (empty, file://, has query, has a # fragment, etc.)

@@ -69,7 +69,7 @@ class GLTextureImageRepresentationImpl : public GLTextureImageRepresentation {
 
  private:
   // GLTextureImageRepresentation:
-  gles2::Texture* GetTexture(int plane_index) override {
+  gles2::Texture* GetTexture(size_t plane_index) override {
     DCHECK(format().IsValidPlaneIndex(plane_index));
     return textures_[plane_index];
   }
@@ -98,7 +98,7 @@ class GLTexturePassthroughImageRepresentationImpl
  private:
   // GLTexturePassthroughImageRepresentation:
   const scoped_refptr<gles2::TexturePassthrough>& GetTexturePassthrough(
-      int plane_index) override {
+      size_t plane_index) override {
     DCHECK(format().IsValidPlaneIndex(plane_index));
     return textures_[plane_index];
   }
@@ -353,7 +353,6 @@ bool GLTextureImageBacking::UploadFromMemory(
     const std::vector<SkPixmap>& pixmaps) {
   DCHECK_EQ(pixmaps.size(), textures_.size());
   DCHECK(SupportsPixelUploadWithFormat(format()));
-  DCHECK(gl::GLContext::GetCurrent());
 
   for (size_t i = 0; i < textures_.size(); ++i) {
     if (!textures_[i].UploadFromMemory(pixmaps[i])) {
@@ -366,7 +365,6 @@ bool GLTextureImageBacking::UploadFromMemory(
 bool GLTextureImageBacking::ReadbackToMemory(
     const std::vector<SkPixmap>& pixmaps) {
   DCHECK_EQ(pixmaps.size(), textures_.size());
-  DCHECK(gl::GLContext::GetCurrent());
 
   // TODO(kylechar): Ideally there would be a usage that stated readback was
   // required so support could be verified at creation time and then asserted

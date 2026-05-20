@@ -20,7 +20,7 @@ function makeBuffer() {
   const ab = new ArrayBuffer(bufferSize);
   const view = new Uint8Array(ab);
   for (let i = 0; i < bufferSize; i++) {
-    view[i] = i+3;
+    view[i] = i + 3;
   }
   return view;
 }
@@ -48,15 +48,15 @@ const tests = [
 
   function getBuffer() {
     chrome.idltest.getArrayBuffer(callbackPass(function(buffer) {
-      assertTrue(buffer.__proto__ == (new ArrayBuffer()).__proto__);
+      assertTrue(buffer.__proto__ === (new ArrayBuffer()).__proto__);
       const view = new Uint8Array(buffer);
       const expected = 'hello world';
       assertEq(view.byteLength, expected.length);
       for (let i = 0; i < view.byteLength; i++) {
-        assertTrue(expected[i] == String.fromCharCode(view[i]));
+        assertTrue(expected[i] === String.fromCharCode(view[i]));
       }
     }));
-  }
+  },
 ];
 
 chrome.test.runTests(tests);

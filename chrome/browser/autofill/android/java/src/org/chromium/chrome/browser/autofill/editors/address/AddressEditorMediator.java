@@ -32,16 +32,17 @@ import static org.chromium.chrome.browser.autofill.editors.common.EditorComponen
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.IMPORTANT_FOR_ACCESSIBILITY;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.NOTICE_ALL_KEYS;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.NOTICE_TEXT;
+import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.NOTICE_VISIBLE;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.SHOW_BACKGROUND;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.validateForm;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsUtil.scrollToFieldWithErrorMessage;
 import static org.chromium.chrome.browser.autofill.editors.common.dropdown_field.DropdownFieldProperties.DROPDOWN_ALL_KEYS;
-import static org.chromium.chrome.browser.autofill.editors.common.dropdown_field.DropdownFieldProperties.DROPDOWN_CALLBACK;
 import static org.chromium.chrome.browser.autofill.editors.common.dropdown_field.DropdownFieldProperties.DROPDOWN_KEY_VALUE_LIST;
 import static org.chromium.chrome.browser.autofill.editors.common.field.FieldProperties.IS_REQUIRED;
 import static org.chromium.chrome.browser.autofill.editors.common.field.FieldProperties.LABEL;
 import static org.chromium.chrome.browser.autofill.editors.common.field.FieldProperties.VALIDATOR;
 import static org.chromium.chrome.browser.autofill.editors.common.field.FieldProperties.VALUE;
+import static org.chromium.chrome.browser.autofill.editors.common.field.FieldProperties.VALUE_CHANGED_CALLBACK;
 import static org.chromium.chrome.browser.autofill.editors.common.text_field.TextFieldProperties.TEXT_ALL_KEYS;
 import static org.chromium.chrome.browser.autofill.editors.common.text_field.TextFieldProperties.TEXT_FIELD_TYPE;
 import static org.chromium.chrome.browser.autofill.editors.common.text_field.TextFieldProperties.TEXT_FORMATTER;
@@ -55,7 +56,6 @@ import android.view.View;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -78,7 +78,6 @@ import org.chromium.components.autofill.AutofillProfile;
 import org.chromium.components.autofill.FieldType;
 import org.chromium.components.autofill.RecordType;
 import org.chromium.components.signin.base.CoreAccountInfo;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserSelectableType;
@@ -175,6 +174,18 @@ public class AddressEditorMediator {
                                 VALUE,
                                 AutofillAddress.getCountryCode(
                                         mProfileToEdit, mPersonalDataManager))
+                        .with(
+                                VALUE_CHANGED_CALLBACK,
+                                (countryCode) -> {
+                                    assumeNonNull(mEditorModel)
+                                            .set(
+                                                    EDITOR_FIELDS,
+                                                    buildEditorFieldList(
+                                                            countryCode,
+                                                            Locale.getDefault().getLanguage()));
+
+                                    mPhoneFormatter.setCountryCode(countryCode);
+                                })
                         .build();
 
         // Phone number is present for all countries.
@@ -252,22 +263,6 @@ public class AddressEditorMediator {
                                         != SaveUpdateAddressProfilePromptMode.CREATE_NEW_PROFILE)
                         .with(SHOW_BUTTONS, !isNonEditableProfile())
                         .build();
-
-        mCountryField.set(
-                DROPDOWN_CALLBACK,
-                new Callback<>() {
-                    /** Update the list of fields according to the selected country. */
-                    @Override
-                    public void onResult(String countryCode) {
-                        assumeNonNull(mEditorModel)
-                                .set(
-                                        EDITOR_FIELDS,
-                                        buildEditorFieldList(
-                                                countryCode, Locale.getDefault().getLanguage()));
-
-                        mPhoneFormatter.setCountryCode(countryCode);
-                    }
-                });
 
         return mEditorModel;
     }
@@ -372,6 +367,7 @@ public class AddressEditorMediator {
                                         // announced separately by screen readers. Don't announce
                                         // the message itself.
                                         .with(IMPORTANT_FOR_ACCESSIBILITY, false)
+                                        .with(NOTICE_VISIBLE, true)
                                         .build(),
                                 /* isFullLine= */ true));
                 break;
@@ -440,6 +436,7 @@ public class AddressEditorMediator {
                                     .with(NOTICE_TEXT, recordTypeNoticeText)
                                     .with(SHOW_BACKGROUND, false)
                                     .with(IMPORTANT_FOR_ACCESSIBILITY, true)
+                                    .with(NOTICE_VISIBLE, true)
                                     .build(),
                             /* isFullLine= */ true));
         }
@@ -558,7 +555,7 @@ public class AddressEditorMediator {
     }
 
     private @Nullable String getUserEmail() {
-        CoreAccountInfo accountInfo = mIdentityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN);
+        CoreAccountInfo accountInfo = mIdentityManager.getPrimaryAccountInfo();
         return CoreAccountInfo.getEmailFrom(accountInfo);
     }
 

@@ -35,7 +35,6 @@
 #include "components/user_education/common/help_bubble/help_bubble.h"
 #include "components/user_education/common/help_bubble/help_bubble_factory_registry.h"
 #include "components/user_education/common/help_bubble/help_bubble_params.h"
-#include "components/user_education/common/user_education_events.h"
 #include "components/user_education/views/help_bubble_view.h"
 #include "components/user_education/webui/help_bubble_handler.h"
 #include "components/user_education/webui/tracked_element_help_bubble_webui_anchor.h"
@@ -44,6 +43,7 @@
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/views/interaction/element_tracker_views.h"
+#include "ui/views/interaction/view_subregion_anchor.h"
 #include "ui/views/test/widget_test.h"
 
 namespace {
@@ -315,7 +315,7 @@ IN_PROC_BROWSER_TEST_F(HelpBubbleFactoryWebUIInteractiveUiTest,
       Cleanup());
 }
 
-// Regression test for item (1) in crbug.com/1422875.
+// Regression test for item (1) in crbug.com/40897167.
 // TODO(https://crbug.com/463379523): This test is flaky on CI on Mac.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_FloatingHelpBubbleHiddenOnWebUiHidden \
@@ -357,7 +357,7 @@ class HelpBubbleFactoryRtlWebUIInteractiveUiTest
 
 // This verifies that the "element bounds updated" event gets sent when the side
 // panel is resized, even if none of the elements in the side panel are resized.
-// This is a regression test for crbug.com/1425487.
+// This is a regression test for crbug.com/40898739.
 // TODO(https://crbug.com/463379523): This test is flaky on CI on Mac.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_ResizeSidePanelSendsUpdate DISABLED_ResizeSidePanelSendsUpdate
@@ -380,6 +380,6 @@ IN_PROC_BROWSER_TEST_F(HelpBubbleFactoryRtlWebUIInteractiveUiTest,
                  side_panel->GetWidget()->LayoutRootViewIfNecessary();
                }),
       WaitForEvent(kSidePanelElementName,
-                   user_education::kHelpBubbleAnchorBoundsChangedEvent),
+                   views::ViewSubregionAnchor::kAnchorBoundsChangedEvent),
       Cleanup());
 }

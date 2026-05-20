@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/feature_list.h"
 #include "base/test/test_timeouts.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_drop_target_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
@@ -19,6 +19,7 @@
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/prefs/pref_service.h"
+#include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/test/ui_controls.h"
@@ -94,9 +95,14 @@ void Poll(base::RepeatingCallback<bool()> condition,
 class QuitTabDraggingObserver {
  public:
   explicit QuitTabDraggingObserver(TabStripRegionView* tab_strip_view) {
-    tab_strip_view->GetDragContext()->SetDragControllerCallbackForTesting(
-        base::BindOnce(&QuitTabDraggingObserver::OnDragControllerSet,
-                       weak_ptr_factory_.GetWeakPtr()));
+    TabDragContext* context = tab_strip_view->GetDragContext();
+    if (auto* controller = context->GetDragController()) {
+      OnDragControllerSet(controller);
+    } else {
+      context->SetDragControllerCallbackForTesting(
+          base::BindOnce(&QuitTabDraggingObserver::OnDragControllerSet,
+                         weak_ptr_factory_.GetWeakPtr()));
+    }
   }
 
   QuitTabDraggingObserver(const QuitTabDraggingObserver&) = delete;
@@ -172,8 +178,9 @@ class MultiContentsViewTabDragEntrypointsUiTest
   // Waits for two browser windows to exist, then runs a callback.
   DragStep WaitForDetachedWindow() {
     return base::BindOnce([](base::OnceClosure callback) {
-      Poll(base::BindRepeating(
-               []() { return chrome::GetTotalBrowserCount() == 2u; }),
+      Poll(base::BindRepeating([]() {
+             return GlobalBrowserCollection::GetInstance()->GetSize() == 2u;
+           }),
            std::move(callback));
     });
   }
@@ -203,8 +210,8 @@ class MultiContentsViewTabDragEntrypointsUiTest
   // Returns a `DragStep` that releases the left mouse button.
   DragStep ReleaseMouse() {
     return base::BindOnce([](base::OnceClosure callback) {
-      ui_controls::SendMouseEvents(ui_controls::LEFT, ui_controls::UP);
-      std::move(callback).Run();
+      ui_controls::SendMouseEventsNotifyWhenDone(
+          ui_controls::LEFT, ui_controls::UP, std::move(callback));
     });
   }
 
@@ -277,8 +284,8 @@ IN_PROC_BROWSER_TEST_P(MultiContentsViewTabDragEntrypointsUiParamTest,
 
   QuitTabDraggingObserver observer(browser_view.tab_strip_view());
   RunTestSequence(
-      AddInstrumentedTab(kNewTab, GURL(chrome::kChromeUINewTabURL), 1),
-      AddInstrumentedTab(kSecondTab, GURL(chrome::kChromeUINewTabURL), 2),
+      AddInstrumentedTab(kNewTab, chrome::ChromeUINewTabURLAsGURL(), 1),
+      AddInstrumentedTab(kSecondTab, chrome::ChromeUINewTabURLAsGURL(), 2),
       WaitForActiveTabChange(2), Do([&]() {
         SelectTabAt(1);
         DragSequence(
@@ -297,7 +304,7 @@ IN_PROC_BROWSER_TEST_P(MultiContentsViewTabDragEntrypointsUiParamTest,
 }
 
 // TODO(crbug.com/500937645): Re-enable the test
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) && defined(ARCH_CPU_ARM64))
 #define MAYBE_ShowAndHideDropTarget DISABLED_ShowAndHideDropTarget
 #else
 #define MAYBE_ShowAndHideDropTarget ShowAndHideDropTarget
@@ -317,8 +324,8 @@ IN_PROC_BROWSER_TEST_P(MultiContentsViewTabDragEntrypointsUiParamTest,
 
   QuitTabDraggingObserver observer(browser_view.tab_strip_view());
   RunTestSequence(
-      AddInstrumentedTab(kNewTab, GURL(chrome::kChromeUINewTabURL), 1),
-      AddInstrumentedTab(kSecondTab, GURL(chrome::kChromeUINewTabURL), 2),
+      AddInstrumentedTab(kNewTab, chrome::ChromeUINewTabURLAsGURL(), 1),
+      AddInstrumentedTab(kSecondTab, chrome::ChromeUINewTabURLAsGURL(), 2),
       WaitForActiveTabChange(2), Do([&]() {
         SelectTabAt(1);
         DragSequence(
@@ -334,7 +341,7 @@ IN_PROC_BROWSER_TEST_P(MultiContentsViewTabDragEntrypointsUiParamTest,
 }
 
 // TODO(crbug.com/500937645): Re-enable the test
-#if BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) && defined(ARCH_CPU_ARM64))
 #define MAYBE_DragAndDropDisabledForChromePage \
   DISABLED_DragAndDropDisabledForChromePage
 #else
@@ -373,8 +380,30 @@ IN_PROC_BROWSER_TEST_P(MultiContentsViewTabDragEntrypointsUiParamTest,
           false));
 }
 
+// TODO(crbug.com/500937645): Re-enable the test
+#if (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)) && \
+    defined(ARCH_CPU_ARM64)
+#define MAYBE_DragAndDropDisabled DISABLED_DragAndDropDisabled
+#else
+#define MAYBE_DragAndDropDisabled DragAndDropDisabled
+#endif
 IN_PROC_BROWSER_TEST_F(MultiContentsViewTabDragEntrypointsUiTest,
-                       DragAndDropDisabled) {
+                       MAYBE_DragAndDropDisabled) {
+  // TODO(crbug.com/448651072): Remove when Weston support is added.
+#if BUILDFLAG(IS_LINUX)
+  if (views::test::InteractionTestUtilSimulatorViews::IsWayland()) {
+    GTEST_SKIP() << "Weston's implementation of tab dragging is incompatible "
+                    "with creating a split view.";
+  }
+#endif
+
+#if BUILDFLAG(IS_LINUX)
+  if (base::FeatureList::IsEnabled(features::kInitialWebUI)) {
+    GTEST_SKIP() << "Skipping test because it fails with InitialWebUI enabled. "
+                    "See crbug.com/477426026.";
+  }
+#endif
+
   BrowserView& browser_view = GetBrowserView();
 
   // Disable drag and drop.
@@ -383,8 +412,8 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewTabDragEntrypointsUiTest,
 
   QuitTabDraggingObserver observer(browser_view.tab_strip_view());
   RunTestSequence(
-      AddInstrumentedTab(kNewTab, GURL(chrome::kChromeUINewTabURL), 1),
-      AddInstrumentedTab(kSecondTab, GURL(chrome::kChromeUINewTabURL), 2),
+      AddInstrumentedTab(kNewTab, chrome::ChromeUINewTabURLAsGURL(), 1),
+      AddInstrumentedTab(kSecondTab, chrome::ChromeUINewTabURLAsGURL(), 2),
       WaitForActiveTabChange(2), Do([&]() {
         SelectTabAt(1);
         DragSequence(MoveMouse(ui_test_utils::GetCenterInScreenCoordinates(

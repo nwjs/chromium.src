@@ -38,10 +38,6 @@ TEST(WebstoreInstallerTest, PlatformParams) {
   EXPECT_TRUE(
       Contains(query, StringPrintf("arch=%s", UpdateQueryParams::GetArch())));
   EXPECT_TRUE(Contains(
-      query,
-      StringPrintf("os_arch=%s",
-                   base::SysInfo().OperatingSystemArchitecture().c_str())));
-  EXPECT_TRUE(Contains(
       query, base::EscapeQueryParamValue(
                  StringPrintf("installsource=%s", source.c_str()), true)));
   EXPECT_TRUE(Contains(
@@ -49,6 +45,38 @@ TEST(WebstoreInstallerTest, PlatformParams) {
       StringPrintf("lang=%s", ChromeUpdateQueryParamsDelegate::GetLang())));
   // Information about NaCl architecture is omitted following NaCl removal
   EXPECT_FALSE(Contains(query, "nacl_arch"));
+  EXPECT_FALSE(Contains(query, "os_arch"));
+}
+
+TEST(WebstoreInstallerTest, AuthUserParameterEncoding) {
+  {
+    // Regression test for crbug.com/500569738.
+    // A malicious authuser string that attempts to inject another parameter.
+    GURL url("https://example.com/download");
+    std::string malicious_authuser = "0&prodversion=50.0.0.0";
+    WebstoreInstaller::MaybeAppendAuthUserParameter(malicious_authuser, url);
+    std::string query = url.GetQuery();
+    // The malicious string should now be correctly encoded.
+    EXPECT_TRUE(Contains(query, "authuser=0%26prodversion%3D50.0.0.0"));
+    EXPECT_FALSE(Contains(query, "prodversion=50.0.0.0"));
+  }
+
+  {
+    // If authuser is empty, the URL should not be modified.
+    GURL url("https://example.com/download?a=b");
+    WebstoreInstaller::MaybeAppendAuthUserParameter("", url);
+    EXPECT_EQ("https://example.com/download?a=b", url.spec());
+  }
+
+  {
+    // If authuser is already present, it should NOT be replaced.
+    GURL url("https://example.com/download?authuser=1&a=b");
+    WebstoreInstaller::MaybeAppendAuthUserParameter("2", url);
+    std::string query = url.GetQuery();
+    EXPECT_TRUE(Contains(query, "authuser=1"));
+    EXPECT_FALSE(Contains(query, "authuser=2"));
+    EXPECT_TRUE(Contains(query, "a=b"));
+  }
 }
 
 }  // namespace extensions

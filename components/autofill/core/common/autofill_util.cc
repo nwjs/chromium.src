@@ -189,12 +189,8 @@ IsPasswordRequestManuallyTriggered IsPasswordsAutofillManuallyTriggered(
       AutofillSuggestionTriggerSource::kManualFallbackPasswords);
 }
 
-bool IsPlusAddressesManuallyTriggered(
-    AutofillSuggestionTriggerSource trigger_source) {
-  return trigger_source ==
-         AutofillSuggestionTriggerSource::kManualFallbackPlusAddresses;
-}
-
+// If any new @memory trigger source is added, all callers need to be reviewed.
+// Many assume that there are only two possible values.
 bool IsAtMemoryTriggerSource(AutofillSuggestionTriggerSource trigger_source) {
   switch (trigger_source) {
     case AutofillSuggestionTriggerSource::kAtMemory:
@@ -210,13 +206,13 @@ bool IsAtMemoryTriggerSource(AutofillSuggestionTriggerSource trigger_source) {
     case AutofillSuggestionTriggerSource::kPasswordManager:
     case AutofillSuggestionTriggerSource::kiOS:
     case AutofillSuggestionTriggerSource::kManualFallbackPasswords:
-    case AutofillSuggestionTriggerSource::kManualFallbackPlusAddresses:
     case AutofillSuggestionTriggerSource::kComposeDialogLostFocus:
     case AutofillSuggestionTriggerSource::kComposeDelayedProactiveNudge:
     case AutofillSuggestionTriggerSource::kPasswordManagerProcessedFocusedField:
     case AutofillSuggestionTriggerSource::kPlusAddressUpdatedInBrowserProcess:
     case AutofillSuggestionTriggerSource::kProactivePasswordRecovery:
     case AutofillSuggestionTriggerSource::kGlic:
+    case AutofillSuggestionTriggerSource::kAtMemoryInactivityNudge:
       return false;
   }
 }

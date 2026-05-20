@@ -1271,7 +1271,7 @@ void ServiceWorkerContextCore::OnRunningStateChanged(
       // token, and the second call crashes when it tries to access it.
       // See https://crbug.com/496389117.
       if (start_worker_token.has_value()) {
-        for (auto& observer : sync_observer_list_->observers) {
+        for (auto& observer : safe_sync_observer_list->observers) {
           observer.OnStoppedSync(version->version_id(), version->scope(),
                                  *start_worker_token);
         }
@@ -1294,7 +1294,7 @@ void ServiceWorkerContextCore::OnRunningStateChanged(
                              &ServiceWorkerContextCoreObserver::OnStopping,
                              version->version_id());
       if (start_worker_token.has_value()) {
-        for (auto& observer : sync_observer_list_->observers) {
+        for (auto& observer : safe_sync_observer_list->observers) {
           observer.OnStoppingSync(version->version_id(), version->scope(),
                                   *start_worker_token);
         }
@@ -1489,7 +1489,9 @@ void ServiceWorkerContextCore::SetServiceWorkerHidDelegateObserverForTesting(
     std::unique_ptr<ServiceWorkerHidDelegateObserver> hid_delegate_observer) {
   hid_delegate_observer_ = std::move(hid_delegate_observer);
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
+#if !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
 ServiceWorkerUsbDelegateObserver*
 ServiceWorkerContextCore::usb_delegate_observer() {
   if (!usb_delegate_observer_) {
@@ -1503,5 +1505,6 @@ void ServiceWorkerContextCore::SetServiceWorkerUsbDelegateObserverForTesting(
     std::unique_ptr<ServiceWorkerUsbDelegateObserver> usb_delegate_observer) {
   usb_delegate_observer_ = std::move(usb_delegate_observer);
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
+
 }  // namespace content

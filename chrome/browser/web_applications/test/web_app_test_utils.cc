@@ -677,7 +677,7 @@ std::vector<MigrationSource> CreateRandomMigrationSources(
       install_url = GURL("https://example.com/install_url_" +
                          base::NumberToString(random.next_uint()));
     }
-    sources.emplace_back(std::move(manifest_id), behavior,
+    sources.emplace_back(webapps::ManifestId(std::move(manifest_id)), behavior,
                          std::move(install_url));
   }
   return sources;
@@ -719,8 +719,12 @@ std::unique_ptr<WebApp> CreateWebApp(const GURL& start_url,
 }
 
 std::unique_ptr<WebApp> CreateWebAppFromSyncProto(
-    const sync_pb::WebAppSpecifics& sync_proto) {
+    sync_pb::WebAppSpecifics& sync_proto) {
   CHECK(sync_proto.has_start_url() && GURL(sync_proto.start_url()).is_valid());
+  if (!sync_proto.has_scope()) {
+    sync_proto.set_scope(
+        GURL(sync_proto.start_url()).GetWithoutFilename().spec());
+  }
   auto web_app = std::make_unique<WebApp>(sync_proto);
   web_app->AddSource(WebAppManagement::kSync);
   return web_app;
@@ -914,7 +918,9 @@ std::unique_ptr<WebApp> CreateRandomWebApp(
   }
 
   app->SetLastBadgingTime(random.next_time());
-  app->SetLastLaunchTime(random.next_time());
+  if (random.next_bool()) {
+    app->SetLastLaunchTime(random.next_time());
+  }
   app->SetFirstInstallTime(random.next_time());
 
   const std::array<DisplayMode, 4> display_modes = {
@@ -1355,8 +1361,16 @@ void TestAcceptDialogCallback(
     std::unique_ptr<WebAppInstallInfo> web_app_info,
     WebAppInstallationAcceptanceCallback acceptance_callback) {
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(std::move(acceptance_callback), true /*accept*/,
-                                std::move(web_app_info)));
+      FROM_HERE,
+      base::BindOnce(
+          std::move(acceptance_callback), true /*accept*/,
+          std::move(web_app_info),
+          base::BindOnce(
+              [](bool success, base::OnceClosure reparent_or_launch_app) {
+                if (success && reparent_or_launch_app) {
+                  std::move(reparent_or_launch_app).Run();
+                }
+              })));
 }
 
 void TestDeclineDialogCallback(
@@ -1365,8 +1379,9 @@ void TestDeclineDialogCallback(
     std::unique_ptr<WebAppInstallInfo> web_app_info,
     WebAppInstallationAcceptanceCallback acceptance_callback) {
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(std::move(acceptance_callback),
-                                false /*accept*/, std::move(web_app_info)));
+      FROM_HERE,
+      base::BindOnce(std::move(acceptance_callback), false /*accept*/,
+                     std::move(web_app_info), base::DoNothing()));
 }
 
 // TODO(b/329703817): Make this smarter by waiting for a specific dialog, and

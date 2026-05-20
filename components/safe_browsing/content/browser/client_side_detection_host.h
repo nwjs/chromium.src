@@ -40,6 +40,7 @@
 #include "net/http/http_status_code.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "components/safe_browsing/core/browser/referring_app_info.h"  // nogncheck
@@ -208,6 +209,10 @@ class ClientSideDetectionHost
   void OnAfterFocusOnFormField(autofill::AutofillManager& manager,
                                autofill::FormGlobalId form_id,
                                autofill::FieldGlobalId field_id) override;
+  void OnFieldTypesDetermined(autofill::AutofillManager& manager,
+                              autofill::FormGlobalId form,
+                              FieldTypeSource source,
+                              bool small_forms_were_parsed) override;
 
   // history::HistoryServiceObserver method:
   void HistoryServiceBeingDeleted(
@@ -217,7 +222,11 @@ class ClientSideDetectionHost
 
   // User requests to report a site as unsafe. The screenshot values come from
   // the report dialog view.
-  void ReportUnsafeSite(SkBitmap screenshot);
+  void ReportUnsafeSite(SkBitmap screenshot, base::OnceClosure callback);
+
+  // Called when an unfamiliar login page is detected (e.g. via password field
+  // focus).
+  void OnUnfamiliarLoginPageDetected();
 
   // Sets a callback to be notified when preclassification is started.
   void set_preclassification_started_callback_for_testing(
@@ -247,6 +256,7 @@ class ClientSideDetectionHost
   friend class ClientSideDetectionHostCreditCardFormTest;
   friend class ClientSideDetectionHostClipboardDataTest;
   friend class ClientSideDetectionHostGeminiAntiscamProtectionTest;
+  friend class ClientSideDetectionHostPriorityTest;
   friend class ClientSideDetectionHostPrerenderBrowserTest_Screenshot;
   class ShouldClassifyUrlRequest;
   friend class ShouldClassifyUrlRequest;
@@ -327,6 +337,8 @@ class ClientSideDetectionHost
   FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostCreditCardFormTest,
                            DoesNotStartPreclassificationOnRepeatSiteVisit);
   FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostCreditCardFormTest,
+                           IgnoresVisitsInPastTenMinutes);
+  FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostCreditCardFormTest,
                            DoesNotStartPreclassificationOnServerHeuristic);
   FRIEND_TEST_ALL_PREFIXES(
       ClientSideDetectionHostCreditCardFormReferringAppTest,
@@ -341,6 +353,22 @@ class ClientSideDetectionHost
                            NavigateTo404PageLogsErrorDocument);
   FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostGeminiAntiscamProtectionTest,
                            GeminiAntiscamProtectionServiceCalledWithInnerText);
+  FRIEND_TEST_ALL_PREFIXES(
+      ClientSideDetectionHostCreditCardFormTriggerDisabledTest,
+      InteractionTriggerDisabledDoesNotTrigger);
+  FRIEND_TEST_ALL_PREFIXES(
+      ClientSideDetectionHostCreditCardFormDetectionOnlyTest,
+      CreditCardFormTriggersDetectionCheckWithoutInteraction);
+  FRIEND_TEST_ALL_PREFIXES(
+      ClientSideDetectionHostCreditCardFormDetectionTriggerDisabledTest,
+      DetectionTriggerDisabledDoesNotTrigger);
+  FRIEND_TEST_ALL_PREFIXES(
+      ClientSideDetectionHostCreditCardFormDetectionAndInteractionTest,
+      DetectionAndInteractionTriggersOnlyTriggerOnce);
+  FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostNewObserversForceRequestTest,
+                           TestTriggerModelsConvertedToForceRequestAtLoad);
+  FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostNewObserversForceRequestTest,
+                           TestTriggerModelsConvertedToForceRequestAtRequest);
 
   // Extracts suspicious tokens from a copied clipboard payload into a
   // structured object.
@@ -546,6 +574,13 @@ class ClientSideDetectionHost
       ClientSideDetectionType client_side_detection_type,
       std::optional<std::string> credit_card_form_event);
 
+  // Returns true if the new request type has a higher or same priority tier
+  // than the last request type.
+  bool NewRequestTypeTierHigher(ClientSideDetectionType new_request_type);
+
+  // Returns the tier value for the given request type.
+  int GetTierValue(ClientSideDetectionType request_type);
+
   // OnCreditCardFormVisitCount is a callback that is called when site
   // visit count on a credit card form event is complete, at which point
   // it determines whether a credit card from event should trigger a CSD
@@ -553,11 +588,33 @@ class ClientSideDetectionHost
   void OnCreditCardFormVisitCount(
       std::optional<base::TimeTicks> start_time,
       credit_card_form::FieldDetectionHeuristic field_heuristic,
-      history::VisibleVisitCountToHostResult history_result);
+      std::string event_name,
+      bool should_trigger,
+      history::DailyVisitsResult history_result);
+
+  // MaybeTriggerCreditCardFormPing is a helper that determines whether
+  // a credit card form event should trigger a CSD ping. It takes
+  // an optional field_id to specify whether it is an interaction
+  // or a detection trigger.
+  void MaybeTriggerCreditCardFormPing(
+      autofill::AutofillManager& manager,
+      autofill::FormGlobalId form_id,
+      std::optional<autofill::FieldGlobalId> field_id,
+      std::string event_name,
+      bool should_trigger);
 
   // Fills in the screenshot data for the given `request`. Only fill if the
   // report type is USER_REPORT.
   void MaybeFillScreenshotData(ClientPhishingRequest* request);
+
+  // Helper method to run the callback.
+  void MaybeRunUserReportCallback();
+
+  // The callback for the report a scam dialog.
+  base::OnceClosure user_report_callback_;
+
+  // Timer to call the user report callback.
+  base::OneShotTimer user_report_timeout_timer_;
 
   // This pointer may be nullptr if client-side phishing detection is
   // disabled.
@@ -615,7 +672,7 @@ class ClientSideDetectionHost
   // Cached result of calling HistoryService.GetVisibleVisitCountToHost
   // for some URL.
   std::optional<GURL> last_history_url_;
-  std::optional<history::VisibleVisitCountToHostResult> last_history_result_;
+  std::optional<history::DailyVisitsResult> last_history_result_;
 
   // The token fetcher used for getting access token.
   std::unique_ptr<SafeBrowsingTokenFetcher> token_fetcher_;
@@ -643,6 +700,11 @@ class ClientSideDetectionHost
   // FORCE_REQUEST. This is used to decide whether async check is allowed to
   // trigger FORCE_REQUEST.
   bool trigger_model_request_sent_as_force_request_ = false;
+
+  // A boolean that indicates whether all TRIGGER_MODELS request should be
+  // converted to FORCE_REQUEST. This is set true whenever the verdict cache
+  // manager is checked to see if we should send as a FORCE_REQUEST.
+  bool should_send_as_force_request_ = false;
 
   // Modified through tests only. Initial value is set to the const
   // kProbabilityForAcceptingHCAllowlistTrigger.
@@ -679,10 +741,11 @@ class ClientSideDetectionHost
   // when a user reports a site as unsafe.
   std::optional<SkBitmap> screenshot_;
 
-  // Tracks the state of the process running and the currently running
+  // Track the states of the processes running and the currently running
   // ClientSideDetectionType. This begins at the CLASSIFY bucket in
   // PreClassificationCheck until just prior to the network request being sent.
   bool is_csd_running_ = false;
+  bool is_classifying_ = false;
   ClientSideDetectionType last_request_type_ =
       ClientSideDetectionType::CLIENT_SIDE_DETECTION_TYPE_UNSPECIFIED;
 

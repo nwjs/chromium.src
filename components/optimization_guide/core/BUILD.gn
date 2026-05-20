@@ -370,6 +370,7 @@ source_set("ondevice") {
         "model_execution/android/model_broker_android.h",
       ]
       deps += [
+        "//build:branding_buildflags",
         "//services/on_device_model:on_device_model_service",
         "//services/on_device_model/android",
         "//services/on_device_model/android:mojom",
@@ -391,6 +392,10 @@ if (build_with_model_execution) {
       "model_execution/manifest_broker/manifest_monitor.h",
       "model_execution/manifest_broker/manifest_solution_factory.cc",
       "model_execution/manifest_broker/manifest_solution_factory.h",
+      "model_execution/manifest_broker/manifest_validation.cc",
+      "model_execution/manifest_broker/manifest_validation.h",
+      "model_execution/manifest_broker/override_manifest_asset_manager_delegate.cc",
+      "model_execution/manifest_broker/override_manifest_asset_manager_delegate.h",
     ]
     deps = [
       ":features",
@@ -422,6 +427,10 @@ if (build_with_model_execution) {
   static_library("manifest_broker_test_support") {
     testonly = true
     sources = [
+      "model_execution/manifest_broker/test/fake_manifest_broker.cc",
+      "model_execution/manifest_broker/test/fake_manifest_broker.h",
+      "model_execution/manifest_broker/test/scenario_builder.cc",
+      "model_execution/manifest_broker/test/scenario_builder.h",
       "model_execution/manifest_broker/test/test_manifest_asset_manager_component_state.cc",
       "model_execution/manifest_broker/test/test_manifest_asset_manager_component_state.h",
     ]
@@ -429,8 +438,12 @@ if (build_with_model_execution) {
       ":manifest_broker",
       ":manifest_broker_dev_support",
       ":model_execution_test_support",
+      ":ondevice",
       "//base",
       "//base/test:test_support",
+      "//components/optimization_guide/proto:optimization_guide_proto",
+      "//components/optimization_guide/public/mojom",
+      "//services/on_device_model/public/cpp/test_support",
       "//testing/gmock",
     ]
   }
@@ -800,7 +813,12 @@ source_set("model_execution_unit_tests") {
       "model_execution/fieldwise_response_parser_unittest.cc",
       "model_execution/json_response_parser_unittest.cc",
       "model_execution/manifest_broker/manifest_asset_manager_unittest.cc",
+      "model_execution/manifest_broker/manifest_broker_service_crash_unittest.cc",
+      "model_execution/manifest_broker/manifest_broker_state_unittest.cc",
+      "model_execution/manifest_broker/manifest_solution_factory_unittest.cc",
       "model_execution/manifest_broker/manifest_unittest.cc",
+      "model_execution/manifest_broker/manifest_validation_unittest.cc",
+      "model_execution/manifest_broker/override_manifest_asset_manager_delegate_unittest.cc",
       "model_execution/model_broker_client_unittest.cc",
       "model_execution/model_execution_features_controller_unittest.cc",
       "model_execution/model_execution_features_unittest.cc",

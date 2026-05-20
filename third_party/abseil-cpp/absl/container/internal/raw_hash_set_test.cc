@@ -2384,7 +2384,7 @@ template <template <typename> class C, class Table, class = void>
 struct VerifyResultOf : std::false_type {};
 
 template <template <typename> class C, class Table>
-struct VerifyResultOf<C, Table, absl::void_t<C<Table>>> : std::true_type {};
+struct VerifyResultOf<C, Table, std::void_t<C<Table>>> : std::true_type {};
 
 TEST(Table, HeterogeneousLookupOverloads) {
   using NonTransparentTable =
@@ -2602,7 +2602,7 @@ std::vector<int> OrderOfIteration(const T& t) {
 // in seed.
 void GenerateIrrelevantSeeds(int cnt) {
   for (int i = cnt % 17; i > 0; --i) {
-    HashtableSize::NextSeed();
+    HashtableInlineData::NextSeed();
   }
 }
 
@@ -2878,8 +2878,9 @@ TYPED_TEST(RawHashSamplerTest, Sample) {
   }
 }
 
-std::vector<const HashtablezInfo*> SampleSooMutation(
-    absl::FunctionRef<void(SooInt32Table&)> mutate_table) {
+template <typename IntTableType>
+std::vector<const HashtablezInfo*> SampleTableMutation(
+    absl::FunctionRef<void(IntTableType&)> mutate_table) {
   // Enable the feature even if the prod default is off.
   SetSamplingRateTo1Percent();
 
@@ -2892,7 +2893,7 @@ std::vector<const HashtablezInfo*> SampleSooMutation(
     ++start_size;
   });
 
-  std::vector<SooInt32Table> tables;
+  std::vector<IntTableType> tables;
   for (int i = 0; i < 1000000; ++i) {
     tables.emplace_back();
     mutate_table(tables.back());
@@ -2909,6 +2910,16 @@ std::vector<const HashtablezInfo*> SampleSooMutation(
   EXPECT_NEAR((end_size - start_size) / static_cast<double>(tables.size()),
               0.01, 0.005);
   return infos;
+}
+
+std::vector<const HashtablezInfo*> SampleSooMutation(
+    absl::FunctionRef<void(SooInt32Table&)> mutate_table) {
+  return SampleTableMutation<SooInt32Table>(mutate_table);
+}
+
+std::vector<const HashtablezInfo*> SampleNonSooMutation(
+    absl::FunctionRef<void(NonSooIntTable&)> mutate_table) {
+  return SampleTableMutation<NonSooIntTable>(mutate_table);
 }
 
 TEST(RawHashSamplerTest, SooTableInsertToEmpty) {
@@ -2954,6 +2965,22 @@ TEST(RawHashSamplerTest, SooTableRepeatedInsertEraseDoesNotOversample) {
   // 0.99^10), which is enough to cause this test to fail. By passing, this test
   // verifies that the sampling decision is evaluated exactly once per SOO table
   // instance.
+}
+
+TEST(RawHashSamplerTest, NonSooTableRepeatedInsertEraseCountSizeRight) {
+  ASSERT_EQ(NonSooIntTable().capacity(), 0);
+  std::vector<const HashtablezInfo*> infos =
+      SampleNonSooMutation([](NonSooIntTable& t) {
+        for (int i = 0; i < 10; ++i) {
+          t.insert(1);
+          t.erase(1);
+        }
+      });
+  for (const HashtablezInfo* info : infos) {
+    EXPECT_EQ(info->soo_capacity, 0);
+    ASSERT_EQ(info->capacity, 1);
+    ASSERT_EQ(info->size, 0);
+  }
 }
 
 // Verifies that copy-constructing or copy-assigning an SOO table does not
@@ -4101,7 +4128,7 @@ TEST(Table, MovedFromCallsFail) {
 TEST(HashtableSize, GenerateNewSeedDoesntChangeSize) {
   size_t size = 1;
   do {
-    HashtableSize hs(no_seed_empty_tag_t{});
+    HashtableInlineData hs(HashtableCapacity(15), no_seed_empty_tag_t{});
     hs.increment_size(size);
     EXPECT_EQ(hs.size(), size);
     hs.generate_new_seed();
@@ -4128,7 +4155,7 @@ TEST(Table, MaxValidSize) {
       } else if (i <= 21) {
         ASSERT_GE(max_size, uint64_t{1} << 40);
       }
-      ASSERT_LE(max_size, uint64_t{1} << HashtableSize::kSizeBitCount);
+      ASSERT_LE(max_size, uint64_t{1} << HashtableInlineData::kSizeBitCount);
       ASSERT_LT(absl::uint128(max_size) * slot_size, uint64_t{1} << 63);
     }
   }

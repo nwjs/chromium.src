@@ -7,7 +7,9 @@
 #include <memory>
 #include <optional>
 
+#include "base/check_is_test.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_forward.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
@@ -18,8 +20,11 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/signin/signin_promo_util.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/search_ai_mode/signin_promo_controller.h"
 #include "chrome/common/webui_url_constants.h"
@@ -173,12 +178,28 @@ SearchAiModePromoTabHelper::SearchAiModePromoTabHelper(
 
 SearchAiModePromoTabHelper::~SearchAiModePromoTabHelper() = default;
 
+void SearchAiModePromoTabHelper::FireTimeoutReachedForTesting() {
+  CHECK_IS_TEST();
+  CHECK(promo_timer_.IsRunning());
+  promo_timer_.FireNow();
+}
+
+void SearchAiModePromoTabHelper::SetSigninPromoControllerFactoryForTesting(
+    base::RepeatingCallback<std::unique_ptr<SearchAIModeSignInPromoController>(
+        content::WebContents* web_contents)> factory_callback) {
+  signin_promo_controller_factory_for_testing_ = std::move(factory_callback);
+}
+
+SearchAIModeSignInPromoController*
+SearchAiModePromoTabHelper::GetSigninPromoControllerForTesting() {
+  CHECK_IS_TEST();
+  return signin_promo_controller_.get();
+}
+
 void SearchAiModePromoTabHelper::TriggerCoBrowsePostSignIn() {
   if (!aim_search_web_contents_ || aim_search_web_contents_.WasInvalidated() ||
-      !IsAIModeSearch(aim_search_web_contents_.get())) {
-    return;
-  }
-  if (!target_url_.is_valid()) {
+      !IsAIModeSearch(aim_search_web_contents_.get()) ||
+      !target_url_.is_valid()) {
     SelfDestruct();
     return;
   }
@@ -209,7 +230,7 @@ void SearchAiModePromoTabHelper::TriggerCoBrowsePostSignIn() {
                                         original_entry->GetReferrer().policy);
     params.extra_headers = original_entry->GetExtraHeaders();
   }
-
+  has_triggered_cobrowse_flow_ = true;
   web_contents()->GetController().LoadURLWithParams(params);
 
   // Wait for the contextual task to be ready, then trigger the navigation to
@@ -225,6 +246,12 @@ void SearchAiModePromoTabHelper::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
   // We only care about the first navigation in this tab.
   if (has_checked_initial_navigation_) {
+    // Handle navigations that happen after the initial one that opened this tab.
+    if (navigation_handle->IsInPrimaryMainFrame() &&
+        navigation_handle->HasCommitted() &&
+        !navigation_handle->IsSameDocument() && !has_triggered_cobrowse_flow_) {
+      SelfDestruct();
+    }
     return;
   }
   if (!navigation_handle->IsInPrimaryMainFrame() ||
@@ -277,8 +304,14 @@ void SearchAiModePromoTabHelper::MaybeShowPromo() {
     return;
   }
 
-  signin_promo_controller_ =
-      std::make_unique<SearchAIModeSignInPromoController>(web_contents());
+  if (signin_promo_controller_factory_for_testing_) {
+    signin_promo_controller_ =
+        signin_promo_controller_factory_for_testing_.Run(web_contents());
+  } else {
+    signin_promo_controller_ =
+        std::make_unique<SearchAIModeSignInPromoController>(web_contents());
+  }
+  signin_promo_controller_observation_.Observe(signin_promo_controller_.get());
 
   tabs::TabInterface* tab =
       tabs::TabInterface::MaybeGetFromContents(web_contents());
@@ -286,15 +319,19 @@ void SearchAiModePromoTabHelper::MaybeShowPromo() {
     BrowserView* browser_view =
         BrowserView::GetBrowserViewForBrowser(tab->GetBrowserWindowInterface());
     if (browser_view && identity_manager_) {
-      identity_manager_scoped_observation_.Observe(identity_manager_);
-      signin_promo_controller_->ShowPromo(browser_view);
+      bool promo_triggered =
+          signin_promo_controller_->MaybeShowPromo(browser_view);
+      if (promo_triggered) {
+        identity_manager_scoped_observation_.Observe(identity_manager_);
+      }
+      // If the promo is not triggered then `this` object is already destructed
+      // as `OnFlowAborted` is invoked.
     }
   }
+}
 
-  // If we do not await a sign-in event, remove this observer.
-  if (!identity_manager_scoped_observation_.IsObserving()) {
-    SelfDestruct();
-  }
+void SearchAiModePromoTabHelper::OnFlowAborted() {
+  SelfDestruct();
 }
 
 void SearchAiModePromoTabHelper::OnPrimaryAccountChanged(
@@ -371,6 +408,7 @@ bool SearchAiModePromoTabHelper::IsAIModeSearch(
 void SearchAiModePromoTabHelper::SelfDestruct() {
   contextual_task_observer_.reset();
   identity_manager_scoped_observation_.Reset();
+  signin_promo_controller_observation_.Reset();
   if (web_contents()) {
     web_contents()->RemoveUserData(SearchAiModePromoTabHelper::UserDataKey());
   }

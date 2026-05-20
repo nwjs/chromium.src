@@ -21,14 +21,15 @@
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_change.h"
+#include "components/password_manager/core/browser/password_store/stored_credential.h"
 #include "components/password_manager/core/browser/sync/password_proto_utils.h"
 #include "components/password_manager/core/browser/sync/password_store_sync.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/sync/base/data_type_histogram.h"
 #include "components/sync/base/deletion_origin.h"
 #include "components/sync/model/data_type_local_change_processor.h"
-#include "components/sync/model/in_memory_metadata_change_list.h"
 #include "components/sync/model/metadata_batch.h"
 #include "components/sync/model/metadata_change_list.h"
 #include "components/sync/model/model_error.h"
@@ -93,19 +94,19 @@ sync_pb::PasswordSpecificsData PasswordFromEntityChange(
   return entity_change.data().specifics.password().client_only_encrypted_data();
 }
 
-// Returns syncer::EntityData based on given `form`.
+// Returns syncer::EntityData based on given `cred`.
 // `base_password_data` is intended for carrying over unknown and unsupported
-// fields when there is a local modification to an existing sync entity. `form`
+// fields when there is a local modification to an existing sync entity. `cred`
 // and `base_password_data` are combined such that all supported proto fields
-// are read from `form` while unsupported field are read from
+// are read from `cred` while unsupported field are read from
 // `base_password_data`.
 std::unique_ptr<syncer::EntityData> CreateEntityData(
-    const PasswordForm& form,
+    const StoredCredential& cred,
     const sync_pb::PasswordSpecificsData& base_password_data) {
   auto entity_data = std::make_unique<syncer::EntityData>();
   *entity_data->specifics.mutable_password() =
-      SpecificsFromPassword(form, base_password_data);
-  entity_data->name = form.signon_realm;
+      SpecificsFromStoredCredential(cred, base_password_data);
+  entity_data->name = cred.signon_realm;
   return entity_data;
 }
 
@@ -114,7 +115,7 @@ std::unique_ptr<syncer::EntityData> CreateEntityData(
 std::unique_ptr<syncer::EntityData> CreateEntityData(
     const sync_pb::PasswordSpecificsData& password_data,
     const sync_pb::PasswordSpecificsData& base_password_data) {
-  return CreateEntityData(PasswordFromSpecifics(password_data),
+  return CreateEntityData(StoredCredentialFromSpecifics(password_data),
                           base_password_data);
 }
 
@@ -389,16 +390,16 @@ void PasswordSyncBridge::ActOnPasswordStoreChanges(
                           change_processor()->GetWeakPtr()));
 
   for (const PasswordStoreChange& change : local_changes) {
-    DCHECK(change.form().primary_key.has_value());
+    DCHECK(change.credential().primary_key.has_value());
     const std::string storage_key =
-        base::NumberToString(change.form().primary_key.value().value());
+        base::NumberToString(change.credential().primary_key.value().value());
     switch (change.type()) {
       case PasswordStoreChange::ADD:
       case PasswordStoreChange::UPDATE: {
         change_processor()->Put(
             storage_key,
             CreateEntityData(
-                change.form(),
+                change.credential(),
                 GetPossiblyTrimmedPasswordSpecificsData(storage_key)),
             &metadata_change_list);
 
@@ -414,13 +415,6 @@ void PasswordSyncBridge::ActOnPasswordStoreChanges(
   }
 }
 
-std::unique_ptr<syncer::MetadataChangeList>
-PasswordSyncBridge::CreateMetadataChangeList() {
-  // Note: This creates an InMemoryMetadataChangeList (rather than
-  // SyncMetadataStoreChangeList) to ensure that metadata changes are always
-  // persisted as part of a transaction.
-  return std::make_unique<syncer::InMemoryMetadataChangeList>();
-}
 
 std::optional<syncer::ModelError> PasswordSyncBridge::MergeFullSyncData(
     std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
@@ -577,8 +571,8 @@ std::optional<syncer::ModelError> PasswordSyncBridge::MergeFullSyncData(
           return syncer::ModelError(
               FROM_HERE, syncer::ModelError::Type::kPasswordMergeUpdateFailed);
         }
-        DCHECK(changes[0].form().primary_key.has_value());
-        DCHECK_EQ(changes[0].form().primary_key.value(), primary_key);
+        DCHECK(changes[0].credential().primary_key.has_value());
+        DCHECK_EQ(changes[0].credential().primary_key.value(), primary_key);
         password_store_changes.push_back(changes[0]);
       }
     }
@@ -640,12 +634,12 @@ std::optional<syncer::ModelError> PasswordSyncBridge::MergeFullSyncData(
         DCHECK_EQ(changes[0].type(), PasswordStoreChange::REMOVE);
         DCHECK_EQ(changes[1].type(), PasswordStoreChange::ADD);
       }
-      DCHECK(changes.back().form().primary_key.has_value());
+      DCHECK(changes.back().credential().primary_key.has_value());
       change_processor()->UpdateStorageKey(
           entity_change->data(),
           /*storage_key=*/
           base::NumberToString(
-              changes.back().form().primary_key.value().value()),
+              changes.back().credential().primary_key.value().value()),
           metadata_change_list.get());
 
       password_store_changes.insert(password_store_changes.end(),
@@ -747,12 +741,12 @@ PasswordSyncBridge::ApplyIncrementalSyncChanges(
             DCHECK_EQ(changes[0].type(), PasswordStoreChange::REMOVE);
             DCHECK_EQ(changes[1].type(), PasswordStoreChange::ADD);
           }
-          DCHECK(changes.back().form().primary_key.has_value());
+          DCHECK(changes.back().credential().primary_key.has_value());
           change_processor()->UpdateStorageKey(
               entity_change->data(),
               /*storage_key=*/
               base::NumberToString(
-                  changes.back().form().primary_key.value().value()),
+                  changes.back().credential().primary_key.value().value()),
               metadata_change_list.get());
           break;
         case syncer::EntityChange::ACTION_UPDATE: {
@@ -788,8 +782,8 @@ PasswordSyncBridge::ApplyIncrementalSyncChanges(
                 syncer::ModelError::Type::kPasswordIncrementalUpdateFailed);
           }
           DCHECK_EQ(1U, changes.size());
-          DCHECK(changes[0].form().primary_key.has_value());
-          DCHECK(changes[0].form().primary_key.value() == primary_key);
+          DCHECK(changes[0].credential().primary_key.has_value());
+          DCHECK(changes[0].credential().primary_key.value() == primary_key);
           break;
         }
         case syncer::EntityChange::ACTION_DELETE: {
@@ -811,8 +805,8 @@ PasswordSyncBridge::ApplyIncrementalSyncChanges(
             continue;
           }
           DCHECK_EQ(1U, changes.size());
-          DCHECK(changes[0].form().primary_key.has_value());
-          DCHECK(changes[0].form().primary_key.value() == primary_key);
+          DCHECK(changes[0].credential().primary_key.has_value());
+          DCHECK(changes[0].credential().primary_key.value() == primary_key);
           break;
         }
       }
@@ -962,10 +956,11 @@ void PasswordSyncBridge::ApplyDisableSyncChanges(
       password_store_sync_->ReadAllCredentials(&credentials);
   if (result == FormRetrievalResult::kSuccess) {
     for (const auto& [primary_key, specifics] : credentials) {
-      PasswordForm form = PasswordFromSpecifics(*specifics);
-      form.primary_key = primary_key;
-      form.in_store = password_manager::PasswordForm::Store::kAccountStore;
-      password_store_changes.emplace_back(PasswordStoreChange::REMOVE, form);
+      StoredCredential cred = StoredCredentialFromSpecifics(*specifics);
+      cred.primary_key = primary_key;
+      cred.in_store = password_manager::PasswordForm::Store::kAccountStore;
+      password_store_changes.emplace_back(PasswordStoreChange::REMOVE,
+                                          std::move(cred));
     }
   }
   password_store_sync_->GetMetadataStore()->DeleteAllSyncMetadata(

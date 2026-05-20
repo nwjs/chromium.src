@@ -34,10 +34,10 @@
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_observer_jni_bridge.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window/internal/android/android_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_muted_utils.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -332,6 +332,11 @@ tabs::TabInterface* TabModelJniBridge::CreateTab(
     int index,
     TabLaunchType type,
     bool should_pin) {
+  // It is not possible to create a new tab in a non-standard tab model.
+  if (GetTabModelType() != TabModelType::kStandard) {
+    return nullptr;
+  }
+
   JNIEnv* env = AttachCurrentThread();
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
@@ -497,12 +502,19 @@ void TabModelJniBridge::ActivateTab(tabs::TabHandle tab) {
   SetActiveIndex(index);
 }
 
-tabs::TabInterface* TabModelJniBridge::OpenTab(const GURL& url, int index) {
+tabs::TabInterface* TabModelJniBridge::OpenTab(const GURL& url,
+                                               int index,
+                                               bool foreground) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> jobj = java_object_.get(env);
   ScopedJavaLocalRef<jobject> jurl = url::GURLAndroid::FromNativeGURL(env, url);
 
-  return Java_TabModelJniBridge_openTabProgrammatically(env, jobj, jurl, index);
+  tabs::TabInterface* tab = Java_TabModelJniBridge_openTabProgrammatically(
+      env, jobj, jurl, index, foreground);
+  if (foreground && tab) {
+    ActivateTab(tab->GetHandle());
+  }
+  return tab;
 }
 
 void TabModelJniBridge::SetOpenerForTab(tabs::TabHandle target,

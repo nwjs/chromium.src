@@ -207,9 +207,6 @@ BrowserWindowInterface* GlicSharingManagerImpl::GetFocusedBrowser() const {
   return focused_browser_manager_->GetFocusedBrowser();
 }
 
-GlicFocusedBrowserManager& GlicSharingManagerImpl::focused_browser_manager() {
-  return *focused_browser_manager_;
-}
 
 base::CallbackListSubscription
 GlicSharingManagerImpl::AddFocusedTabDataChangedCallback(
@@ -271,17 +268,9 @@ void GlicSharingManagerImpl::GetContextFromTab(
     std::move(callback).Run(base::unexpected(*error));
     return;
   }
+
   tabs::TabInterface* tab = tab_handle.Get();
   CHECK(tab);
-
-  // If tab context was allowed to be extracted, report to metrics.
-  // Instance-level metrics for context requests are recorded by the caller
-  // (e.g., GlicPageHandler) to ensure correct attribution in multi-instance
-  // mode.
-  if (!GlicEnabling::IsMultiInstanceEnabled()) {
-    metrics_->DidRequestContextFromTab(*tab);
-  }
-
   GetContextFromTabImpl(tab, options, std::move(callback));
 }
 
@@ -295,7 +284,11 @@ void GlicSharingManagerImpl::GetContextForActorFromTab(
         GlicGetContextFromTabError::kTabNotFound, "tab not found"}));
     return;
   }
-
+  if (tab->GetProfile() != profile_) {
+    std::move(callback).Run(base::unexpected(GlicGetContextError{
+        GlicGetContextFromTabError::kPermissionDenied, "profile mismatch"}));
+    return;
+  }
   GetContextFromTabImpl(tab, options, std::move(callback));
 }
 

@@ -9,6 +9,7 @@ import static org.chromium.chrome.browser.flags.ChromeFeatureList.YOUR_SAVED_INF
 import android.content.Context;
 import android.os.Bundle;
 
+import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 
 import org.chromium.base.supplier.MonotonicObservableSupplier;
@@ -54,6 +55,11 @@ public class HomeOfTransactionsFragment extends ChromeBaseSettingsFragment {
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         mPageTitle.set(getString(R.string.autofill_and_passwords_settings_title));
+
+        requireActivity()
+                .addMenuProvider(
+                        new AutofillHelpMenuProvider(this), this, Lifecycle.State.RESUMED);
+
         SettingsUtils.addPreferencesFromResource(this, R.xml.home_of_transactions_preferences);
 
         PasswordsPreference passwordsPreference = findPreference(PREF_PASSWORDS);
@@ -85,18 +91,13 @@ public class HomeOfTransactionsFragment extends ChromeBaseSettingsFragment {
         Preference identityDocsPref = findPreference(PREF_AUTOFILL_IDENTITY_DOCS);
         identityDocsPref.setVisible(shouldShowIdentityDocs());
         identityDocsPref.setOnPreferenceClickListener(
-                preference -> {
-                    // TODO(crbug.com/482994257): Launch identity docs leaf page.
-                    return true;
-                });
+                preference ->
+                        SettingsNavigationHelper.showAutofillIdentityDocsSettings(getActivity()));
 
         Preference travelPref = findPreference(PREF_AUTOFILL_TRAVEL);
         travelPref.setVisible(shouldShowTravel());
         travelPref.setOnPreferenceClickListener(
-                preference -> {
-                    // TODO(crbug.com/482994258): Launch travel leaf page.
-                    return true;
-                });
+                preference -> SettingsNavigationHelper.showAutofillTravelSettings(getActivity()));
 
         findPreference(PREF_AUTOFILL_SETTINGS)
                 .setOnPreferenceClickListener(

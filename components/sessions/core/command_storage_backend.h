@@ -79,13 +79,14 @@ class SESSIONS_EXPORT CommandStorageBackend
   // Creates a CommandStorageBackend. This method is invoked on the MAIN thread,
   // and does no IO. The real work is done from InitIfNecessary(), which is
   // invoked on a background task runer.
+  // |encryptor| may be null, in which case the file is not encrypted.
   //
   // See `CommandStorageManager` for details on `type` and `path`.
   CommandStorageBackend(
       scoped_refptr<base::SequencedTaskRunner> owning_task_runner,
       const base::FilePath& path,
       CommandStorageManager::SessionType type,
-      std::optional<os_crypt_async::Encryptor> encryptor,
+      std::unique_ptr<os_crypt_async::Encryptor> encryptor,
       base::Clock* clock = nullptr);
   CommandStorageBackend(const CommandStorageBackend&) = delete;
   CommandStorageBackend& operator=(const CommandStorageBackend&) = delete;
@@ -165,8 +166,8 @@ class SESSIONS_EXPORT CommandStorageBackend
     kFileNotOpened = 2,
     kFileWriteError = 3,
     kSerializationError = 4,
-    // TODO(crbug.com/479420496): Add encryption errors
-    kMaxValue = kSerializationError,
+    kEncryptionUnavailable = 5,  // OSCrypt lacked permission to encrypt.
+    kMaxValue = kEncryptionUnavailable,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/session/enums.xml:CommandStorageWriteStatus)
 
@@ -186,8 +187,9 @@ class SESSIONS_EXPORT CommandStorageBackend
     kFileEmpty = 4,
     kInvalidHeader = 5,
     kInvalidCommand = 6,
-    // TODO(crbug.com/479420496): Add encryption errors
-    kMaxValue = kInvalidCommand,
+    kUnsupportedVersion = 7,
+    kDecryptionUnavailable = 8,  // OSCrypt lacked permission to decrypt.
+    kMaxValue = kDecryptionUnavailable,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/session/enums.xml:CommandStorageReadStatus)
 
@@ -272,7 +274,7 @@ class SESSIONS_EXPORT CommandStorageBackend
                                std::string_view slice,
                                std::string_view metric) const;
 
-  bool is_encrypted() const { return encryptor_.has_value(); }
+  bool is_encrypted() const { return encryptor_.get() != nullptr; }
 
   const CommandStorageManager::SessionType type_;
 
@@ -284,7 +286,9 @@ class SESSIONS_EXPORT CommandStorageBackend
   scoped_refptr<base::SequencedTaskRunner> callback_task_runner_;
 
   raw_ptr<base::Clock> clock_;
-  std::optional<os_crypt_async::Encryptor> encryptor_;
+
+  // May be null, in which case the file is not encrypted.
+  std::unique_ptr<os_crypt_async::Encryptor> encryptor_;
 
   // File and path commands are being written.
   std::unique_ptr<OpenFile> open_file_;

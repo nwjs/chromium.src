@@ -17,12 +17,11 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.chrome.browser.multiwindow.MultiWindowTestUtils.enableMultiInstance;
 
 import android.app.Activity;
@@ -53,14 +52,13 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.CallbackUtils;
-import org.chromium.base.MathUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -75,11 +73,13 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
 import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorButton;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.AreaMotionEventFilter;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager.TabModelStartupInfo;
+import org.chromium.chrome.browser.compositor.overlays.strip.TabLoadTracker.TabLoadTrackerCallback;
 import org.chromium.chrome.browser.compositor.scene_layer.TabStripSceneLayer;
 import org.chromium.chrome.browser.compositor.scene_layer.TabStripSceneLayerJni;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.glic.GlicKeyedService;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
@@ -90,6 +90,7 @@ import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestrator;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
+import org.chromium.chrome.browser.tab.MediaState;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
@@ -97,6 +98,7 @@ import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tabstrip.StripVisibilityState;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
@@ -109,13 +111,19 @@ import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.collaboration.ServiceStatus;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.components.prefs.PrefChangeRegistrar;
+import org.chromium.components.prefs.PrefChangeRegistrarJni;
+import org.chromium.components.prefs.PrefService;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
+import org.chromium.components.user_prefs.UserPrefs;
+import org.chromium.components.user_prefs.UserPrefsJni;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.dragdrop.DragAndDropDelegate;
 import org.chromium.ui.resources.ResourceManager;
 
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -130,6 +138,7 @@ import java.util.List;
 public class StripLayoutHelperManagerTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private TabStripSceneLayer.Natives mTabStripSceneMock;
+    @Mock private StripTabUnderlineManager.Natives mStripTabUnderlineManagerNatives;
     @Mock private TabStripSceneLayer mTabStripTreeProvider;
     @Mock private LayerTitleCache mLayerTitleCache;
     @Mock private LayoutManagerHost mManagerHost;
@@ -164,6 +173,10 @@ public class StripLayoutHelperManagerTest {
     @Mock private ResourceManager mResourceManager;
     @Mock private BackPressManager mBackPressManager;
     @Mock private SnackbarManager mSnackbarManager;
+    @Mock private GlicKeyedService mGlicKeyedService;
+    @Mock private PrefService mPrefService;
+    @Mock private UserPrefs.Natives mUserPrefsJniMock;
+    @Mock private PrefChangeRegistrar.Natives mPrefChangeRegistrarJniMock;
     @Captor private ArgumentCaptor<List<Rect>> mSystemExclusionRectCaptor;
 
     private final SettableMonotonicObservableSupplier<LayerTitleCache> mLayerTitleCacheSupplier =
@@ -188,10 +201,16 @@ public class StripLayoutHelperManagerTest {
     @Before
     public void beforeTest() {
         TabStripSceneLayerJni.setInstanceForTesting(mTabStripSceneMock);
+        StripTabUnderlineManagerJni.setInstanceForTesting(mStripTabUnderlineManagerNatives);
         MultiInstanceOrchestratorFactory.setInstanceForTesting(mMultiInstanceOrchestrator);
         mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
         TabStripSceneLayer.setTestFlag(true);
+
+        UserPrefsJni.setInstanceForTesting(mUserPrefsJniMock);
+        when(mUserPrefsJniMock.get(mProfile)).thenReturn(mPrefService);
+        PrefChangeRegistrarJni.setInstanceForTesting(mPrefChangeRegistrarJniMock);
+        when(mPrefChangeRegistrarJniMock.init(any(), any())).thenReturn(1L);
 
         mLayerTitleCacheSupplier.set(mLayerTitleCache);
         mTabContentManagerSupplier.set(mTabContentManager);
@@ -215,6 +234,9 @@ public class StripLayoutHelperManagerTest {
 
     @After
     public void tearDown() {
+        if (mStripLayoutHelperManager != null) {
+            mStripLayoutHelperManager.destroy();
+        }
         TabStripSceneLayer.setTestFlag(false);
         CompositorAnimationHandler.setTestingMode(false);
     }
@@ -259,7 +281,9 @@ public class StripLayoutHelperManagerTest {
                         /* xrSpaceModeObservableSupplier= */ null,
                         mBackPressManager,
                         mSnackbarManager,
-                        () -> {});
+                        () -> {},
+                        mGlicKeyedService);
+        mStripLayoutHelperManager.setTabStripTreeProviderForTesting(mTabStripTreeProvider);
         mStripLayoutHelperManager.setTabModelSelector(mTabModelSelector, mTabCreatorManager);
         mStripLayoutHelperManager.setIsTabStripHiddenByHeightTransition(false);
     }
@@ -475,25 +499,23 @@ public class StripLayoutHelperManagerTest {
     }
 
     @Test
-    @Feature("Advanced Peripherals Support")
     public void testModelSelectorButtonHoverHighlightProperties() {
         // Set model selector button position.
         mStripLayoutHelperManager.onSizeChanged(
                 SCREEN_WIDTH, SCREEN_HEIGHT, VISIBLE_VIEWPORT_Y, ORIENTATION);
 
-        // Verify model selector button hover highlight resource id.
+        // Verify model selector button background resource id.
         assertEquals(
-                "Model selector button hover highlight is not as expected",
+                "Model selector button background resource id is not as expected",
                 R.drawable.bg_circle_tab_strip_button,
                 ((TintedCompositorButton) mStripLayoutHelperManager.getModelSelectorButton())
                         .getBackgroundResourceId());
 
-        // Verify model selector button hover highlight default tint.
         TintedCompositorButton msb =
-                ((TintedCompositorButton) spy(mStripLayoutHelperManager.getModelSelectorButton()));
-        when(msb.isHovered()).thenReturn(true);
-        when(msb.isPressedFromMouse()).thenReturn(false);
+                ((TintedCompositorButton) mStripLayoutHelperManager.getModelSelectorButton());
 
+        // Verify model selector button hover highlight default tint.
+        msb.setHovered(true);
         @ColorInt
         int hoverBackgroundDefaultColor =
                 ColorUtils.setAlphaComponent(
@@ -504,9 +526,8 @@ public class StripLayoutHelperManagerTest {
                 msb.getBackgroundTint());
 
         // Verify model selector button hover highlight pressed tint.
-        when(msb.isPressed()).thenReturn(true);
-        when(msb.isHovered()).thenReturn(false);
-        when(msb.isPressedFromMouse()).thenReturn(true);
+        msb.setHovered(false);
+        msb.setPressed(true, true);
         @ColorInt
         int hoverBackgroundPressedColor =
                 ColorUtils.setAlphaComponent(
@@ -515,38 +536,38 @@ public class StripLayoutHelperManagerTest {
                 "Model selector button hover highlight pressed tint is not as expected",
                 hoverBackgroundPressedColor,
                 msb.getBackgroundTint());
-        when(msb.isPressed()).thenReturn(false);
+
+        // Verify incognito properties.
+        mStripLayoutHelperManager.tabModelSwitched(/* incognito= */ true);
 
         // Verify model selector button incognito hover highlight default tint.
-        when(msb.isHovered()).thenReturn(true);
-        when(msb.isIncognito()).thenReturn(true);
+        msb.setPressed(false);
+        msb.setHovered(true);
         @ColorInt
         int hoverBackgroundDefaultIncognitoColor =
                 ColorUtils.setAlphaComponent(
                         mActivity.getColor(R.color.tab_strip_button_hover_bg_color),
                         (int) (0.08 * 255));
         assertEquals(
-                "Model selector button hover highlight pressed tint is not as expected",
+                "Model selector button incognito hover highlight default tint is not as expected",
                 hoverBackgroundDefaultIncognitoColor,
                 msb.getBackgroundTint());
 
         // Verify model selector button incognito hover highlight pressed tint.
-        when(msb.isPressed()).thenReturn(true);
-        when(msb.isHovered()).thenReturn(false);
-        when(msb.isPressedFromMouse()).thenReturn(true);
+        msb.setHovered(false);
+        msb.setPressed(true, true);
         @ColorInt
         int hoverBackgroundPressedIncognitoColor =
                 ColorUtils.setAlphaComponent(
                         mActivity.getColor(R.color.tab_strip_button_hover_bg_color),
                         (int) (0.12 * 255));
         assertEquals(
-                "Model selector button hover highlight pressed tint is not as expected",
+                "Model selector button incognito hover highlight pressed tint is not as expected",
                 hoverBackgroundPressedIncognitoColor,
                 msb.getBackgroundTint());
     }
 
     @Test
-    @Feature("Advanced Peripherals Support")
     public void testModelSelectorButtonHoverEnter() {
         mStripLayoutHelperManager.setModelSelectorButtonVisibleForTesting(true);
 
@@ -554,7 +575,8 @@ public class StripLayoutHelperManagerTest {
         mStripLayoutHelperManager
                 .getActiveStripLayoutHelper()
                 .onHoverEnter(
-                        x + 1, 0); // mouse position within MSB range(32dp width + 12dp click slop).
+                        x + 1, 0,
+                        false); // mouse position within MSB range(32dp width + 12dp click slop).
         assertTrue(
                 "Model selector button should be hovered",
                 mStripLayoutHelperManager.getModelSelectorButton().isHovered());
@@ -563,15 +585,14 @@ public class StripLayoutHelperManagerTest {
         mStripLayoutHelperManager
                 .getActiveStripLayoutHelper()
                 .onHoverEnter(
-                        x + 45,
-                        0); // mouse position out of MSB range(32dp width + 12dp click slop).
+                        x + 45, 0,
+                        false); // mouse position out of MSB range(32dp width + 12dp click slop).
         assertFalse(
                 "Model selector button should NOT be hovered",
                 mStripLayoutHelperManager.getModelSelectorButton().isHovered());
     }
 
     @Test
-    @Feature("Advanced Peripherals Support")
     public void testModelSelectorButtonHoverOnDown() {
         mStripLayoutHelperManager.setModelSelectorButtonVisibleForTesting(true);
 
@@ -588,77 +609,6 @@ public class StripLayoutHelperManagerTest {
     }
 
     @Test
-    public void testFadeDrawable_Right_ModelSelectorButtonVisible() {
-        // setup
-        mStripLayoutHelperManager.setModelSelectorButtonVisibleForTesting(true);
-
-        // Verify fade drawable.
-        assertEquals(
-                "Fade drawable resource is not as expected",
-                R.drawable.tab_strip_fade_long,
-                mStripLayoutHelperManager.getRightFadeDrawable());
-    }
-
-    @Test
-    public void testFadeDrawable_Right() {
-        // Verify fade drawable.
-        assertEquals(
-                "Fade drawable resource is not as expected",
-                R.drawable.tab_strip_fade_medium,
-                mStripLayoutHelperManager.getRightFadeDrawable());
-    }
-
-    @Test
-    public void testFadeDrawable_Left() {
-        // setup
-        mStripLayoutHelperManager.setModelSelectorButtonVisibleForTesting(true);
-
-        // Verify fade drawable.
-        assertEquals(
-                "Fade drawable resource is not as expected",
-                R.drawable.tab_strip_fade_short,
-                mStripLayoutHelperManager.getLeftFadeDrawable());
-    }
-
-    @Test
-    public void testFadeDrawable_Left_Rtl_ModelSelectorButtonVisible() {
-        // setup
-        mStripLayoutHelperManager.setModelSelectorButtonVisibleForTesting(true);
-        LocalizationUtils.setRtlForTesting(true);
-
-        // Verify fade drawable.
-        assertEquals(
-                "Fade drawable resource is not as expected",
-                R.drawable.tab_strip_fade_long,
-                mStripLayoutHelperManager.getLeftFadeDrawable());
-    }
-
-    @Test
-    public void testFadeDrawable_Left_Rtl() {
-        // setup
-        LocalizationUtils.setRtlForTesting(true);
-
-        // Verify fade drawable.
-        assertEquals(
-                "Fade drawable resource is not as expected",
-                R.drawable.tab_strip_fade_medium,
-                mStripLayoutHelperManager.getLeftFadeDrawable());
-    }
-
-    @Test
-    public void testFadeDrawable_Right_Rtl() {
-        // setup
-        mStripLayoutHelperManager.setModelSelectorButtonVisibleForTesting(true);
-        LocalizationUtils.setRtlForTesting(true);
-
-        // Verify fade drawable.
-        assertEquals(
-                "Fade drawable resource is not as expected",
-                R.drawable.tab_strip_fade_short,
-                mStripLayoutHelperManager.getRightFadeDrawable());
-    }
-
-    @Test
     public void testButtonIconColor_DisableButtonStyle() {
         // Verify button icon color after disabling button style.
         assertEquals(
@@ -671,7 +621,6 @@ public class StripLayoutHelperManagerTest {
     }
 
     @Test
-    @Feature("TabStripPerformance")
     public void testSetTabModelStartupInfo() {
         // Setup
         int expectedStandardCount = 5;
@@ -727,7 +676,6 @@ public class StripLayoutHelperManagerTest {
         // Setup and stub required mocks.
         int hoveredTabId = 1;
         int selectedTabId = 2;
-        mStripLayoutHelperManager.setTabStripTreeProviderForTesting(mTabStripTreeProvider);
 
         when(mStandardTabModel.index()).thenReturn(selectedTabId);
         when(mStandardTabModel.getTabAt(selectedTabId)).thenReturn(mSelectedTab);
@@ -763,6 +711,7 @@ public class StripLayoutHelperManagerTest {
         verify(mTabStripTreeProvider)
                 .pushAndUpdateStrip(
                         eq(mStripLayoutHelperManager),
+                        any(),
                         any(),
                         any(),
                         any(),
@@ -809,7 +758,6 @@ public class StripLayoutHelperManagerTest {
     // TODO(crbug.com/430058918): Reenable or add new test.
     @DisableFeatures(ChromeFeatureList.TOP_CONTROLS_REFACTOR_V2)
     public void testTabStripHeightTransition_Hide() {
-        mStripLayoutHelperManager.setTabStripTreeProviderForTesting(mTabStripTreeProvider);
 
         float yOffset = 10;
         doReturn((int) yOffset).when(mBrowserControlStateProvider).getTopControlOffset();
@@ -824,6 +772,7 @@ public class StripLayoutHelperManagerTest {
                 new RectF(), new RectF(), mResourceManager);
         verify(mTabStripTreeProvider)
                 .pushAndUpdateStrip(
+                        any(),
                         any(),
                         any(),
                         any(),
@@ -845,6 +794,7 @@ public class StripLayoutHelperManagerTest {
                 new RectF(), new RectF(), mResourceManager);
         verify(mTabStripTreeProvider)
                 .pushAndUpdateStrip(
+                        any(),
                         any(),
                         any(),
                         any(),
@@ -995,7 +945,6 @@ public class StripLayoutHelperManagerTest {
         mTabStripHeightSupplier.set(0);
         mStripLayoutHelperManager.onHeightChanged(0, /* applyScrimOverlay= */ true);
         mStripLayoutHelperManager.onHeightTransitionFinished(true);
-        mStripLayoutHelperManager.setTabStripTreeProviderForTesting(mTabStripTreeProvider);
 
         // The yOffset will be forced to be reduced by the tab strip height to be kept invisible.
         float yOffset = -10;
@@ -1004,6 +953,7 @@ public class StripLayoutHelperManagerTest {
                 new RectF(), new RectF(), mResourceManager);
         verify(mTabStripTreeProvider)
                 .pushAndUpdateStrip(
+                        any(),
                         any(),
                         any(),
                         any(),
@@ -1036,6 +986,7 @@ public class StripLayoutHelperManagerTest {
                         any(),
                         any(),
                         any(),
+                        any(),
                         /* yOffset= */ eq(0f),
                         anyInt(),
                         anyInt(),
@@ -1052,6 +1003,7 @@ public class StripLayoutHelperManagerTest {
                 new RectF(), new RectF(), mResourceManager);
         verify(mTabStripTreeProvider)
                 .pushAndUpdateStrip(
+                        any(),
                         any(),
                         any(),
                         any(),
@@ -1375,78 +1327,6 @@ public class StripLayoutHelperManagerTest {
     }
 
     @Test
-    public void testGlicButtonDisabled() {
-        initializeTest();
-        assertNull("Glic button should not be created.", mStripLayoutHelperManager.getGlicButton());
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.GLIC)
-    public void testGlicButtonEnabled() {
-        initializeTest();
-        assertNotNull("Glic button should be created.", mStripLayoutHelperManager.getGlicButton());
-
-        StripLayoutHelper standardHelper = mStripLayoutHelperManager.getStripLayoutHelper(false);
-        assertNonNull(standardHelper.getGlicButtonForTesting());
-
-        StripLayoutHelper incognitoHelper = mStripLayoutHelperManager.getStripLayoutHelper(true);
-        assertNull(incognitoHelper.getGlicButtonForTesting());
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.GLIC)
-    public void testSetGlicButtonText() {
-        initializeTest();
-        assertNotNull("Glic button should be created.", mStripLayoutHelperManager.getGlicButton());
-
-        float initialWidth = mStripLayoutHelperManager.getGlicButton().getWidth();
-        when(mLayerTitleCache.getUpdatedGlicButtonText(any())).thenReturn(123);
-        when(mLayerTitleCache.getTitleWidth(anyBoolean(), any())).thenReturn(100);
-
-        mStripLayoutHelperManager.setGlicButtonText("Glic Text");
-
-        verify(mLayerTitleCache).getUpdatedGlicButtonText("Glic Text");
-        assertTrue(
-                "Glic button width should increase to accommodate text.",
-                mStripLayoutHelperManager.getGlicButton().getWidth() > initialWidth);
-
-        mStripLayoutHelperManager.setGlicButtonText(null);
-
-        assertEquals(
-                "Glic button width should return to original singular icon width.",
-                initialWidth,
-                mStripLayoutHelperManager.getGlicButton().getWidth(),
-                MathUtils.EPSILON);
-    }
-
-    @Test
-    @Config(sdk = 30)
-    @EnableFeatures(ChromeFeatureList.GLIC)
-    public void testGlicButtonUnfocusedOpacity() {
-        var appHeaderState =
-                new AppHeaderState(new Rect(), new Rect(), /* isInDesktopWindow= */ true);
-        when(mDesktopWindowStateManager.getAppHeaderState()).thenReturn(appHeaderState);
-        initializeTest();
-        assertNotNull("Glic button should be created.", mStripLayoutHelperManager.getGlicButton());
-
-        // Focused state
-        mStripLayoutHelperManager.onTopResumedActivityChanged(true);
-        assertEquals(
-                "Glic button opacity should be 1.0 when focused in desktop windowing mode.",
-                1.0f,
-                mStripLayoutHelperManager.getGlicButton().getOpacity(),
-                MathUtils.EPSILON);
-
-        // Unfocused state
-        mStripLayoutHelperManager.onTopResumedActivityChanged(false);
-        assertEquals(
-                "Glic button opacity should be 0.65 when unfocused in desktop windowing mode.",
-                0.65f,
-                mStripLayoutHelperManager.getGlicButton().getOpacity(),
-                MathUtils.EPSILON);
-    }
-
-    @Test
     @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testIncognitoSwitcherDisabled() {
         IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
@@ -1582,7 +1462,6 @@ public class StripLayoutHelperManagerTest {
     // TODO(crbug.com/430058918): Reenable or add new test.
     @DisableFeatures(ChromeFeatureList.TOP_CONTROLS_REFACTOR_V2)
     public void testVisibilityConstraintAndOffsetOverride() {
-        mStripLayoutHelperManager.setTabStripTreeProviderForTesting(mTabStripTreeProvider);
         doReturn(false).when(mBrowserControlStateProvider).isVisibilityForced();
 
         float yOffset = 10;
@@ -1594,6 +1473,7 @@ public class StripLayoutHelperManagerTest {
         // should always be 0, to position the controls at their fully visible positions.
         verify(mTabStripTreeProvider)
                 .pushAndUpdateStrip(
+                        any(),
                         any(),
                         any(),
                         any(),
@@ -1615,6 +1495,7 @@ public class StripLayoutHelperManagerTest {
         // When visibility is forced, use the provided offset.
         verify(mTabStripTreeProvider)
                 .pushAndUpdateStrip(
+                        any(),
                         any(),
                         any(),
                         any(),
@@ -1702,7 +1583,6 @@ public class StripLayoutHelperManagerTest {
         ChromeFeatureList.TOP_CONTROLS_REFACTOR_V2
     })
     public void testPushAndUpdateStrip_RefactorEnabled() {
-        mStripLayoutHelperManager.setTabStripTreeProviderForTesting(mTabStripTreeProvider);
 
         mTabStripHeightSupplier.set(0);
         mStripLayoutHelperManager.onHeightChanged(0, true);
@@ -1716,6 +1596,7 @@ public class StripLayoutHelperManagerTest {
         ArgumentCaptor<Float> scrimOpacityCaptor = ArgumentCaptor.forClass(Float.class);
         verify(mTabStripTreeProvider)
                 .pushAndUpdateStrip(
+                        any(),
                         any(),
                         any(),
                         any(),
@@ -1740,6 +1621,7 @@ public class StripLayoutHelperManagerTest {
                 new RectF(), new RectF(), mResourceManager);
         verify(mTabStripTreeProvider)
                 .pushAndUpdateStrip(
+                        any(),
                         any(),
                         any(),
                         any(),
@@ -1785,5 +1667,65 @@ public class StripLayoutHelperManagerTest {
                 "Unexpected bottom px value.",
                 (Integer) (TAB_STRIP_HEIGHT_PX + topControlOffset),
                 mStripLayoutHelperManager.getStripBottomPxSupplier().get());
+    }
+
+    @Test
+    public void testLoadingStateChanged_toDifferentDocument() throws Exception {
+        // Setup: Create a tab and a corresponding StripLayoutTab.
+        Tab tab = mock(Tab.class);
+        int tabId = 1;
+        when(tab.getId()).thenReturn(tabId);
+        when(tab.isIncognitoBranded()).thenReturn(false);
+
+        StripLayoutHelper standardHelper = mStripLayoutHelperManager.getStripLayoutHelper(false);
+        var callback = mock(TabLoadTrackerCallback.class);
+        StripLayoutTab stripTab =
+                new StripLayoutTab(
+                        mActivity,
+                        tabId,
+                        null,
+                        null,
+                        callback,
+                        mUpdateHost,
+                        false,
+                        false,
+                        MediaState.NONE);
+
+        // Inject the strip tab into the helper via reflection.
+        Field tabsField = StripLayoutHelper.class.getDeclaredField("mStripTabs");
+        tabsField.setAccessible(true);
+        tabsField.set(standardHelper, new StripLayoutTab[] {stripTab});
+
+        // Get the internal observer via reflection.
+        Field observerField =
+                StripLayoutHelperManager.class.getDeclaredField("mTabModelSelectorTabObserver");
+        observerField.setAccessible(true);
+        TabModelSelectorTabObserver observer =
+                (TabModelSelectorTabObserver) observerField.get(mStripLayoutHelperManager);
+
+        // Verify initial state.
+        assertFalse("Tab should not be loading initially.", stripTab.isLoading());
+
+        // 1. Test onLoadStarted with toDifferentDocument = false (should be ignored).
+        observer.onLoadStarted(tab, false);
+        assertFalse(
+                "Tab should not start loading for same-document navigation.", stripTab.isLoading());
+
+        // 2. Test onLoadStarted with toDifferentDocument = true (should trigger).
+        observer.onLoadStarted(tab, true);
+        assertTrue(
+                "Tab should start loading for different-document navigation.",
+                stripTab.isLoading());
+
+        // 3. Test onLoadStopped with toDifferentDocument = false (should be ignored, so still
+        // loading).
+        observer.onLoadStopped(tab, false);
+        assertTrue("Tab should still be loading after same-document stop.", stripTab.isLoading());
+
+        // 4. Test onLoadStopped with toDifferentDocument = true (should trigger).
+        observer.onLoadStopped(tab, true);
+        // Advance clock and run delayed tasks to allow TabLoadTracker's 100ms delay to expire.
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        assertFalse("Tab should stop loading after different-document stop.", stripTab.isLoading());
     }
 }

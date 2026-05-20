@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #import "base/apple/foundation_util.h"
-#import "base/apple/scoped_cftyperef.h"
 #import "base/functional/bind.h"
 #import "base/ios/ios_util.h"
 #import "base/strings/stringprintf.h"
@@ -20,17 +19,15 @@
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
+#import "ios/chrome/test/earl_grey/chrome_test_case.h"
 #import "ios/chrome/test/earl_grey/scoped_block_popups_pref.h"
-#import "ios/chrome/test/earl_grey/web_http_server_chrome_test_case.h"
 #import "ios/chrome/test/scoped_eg_synchronization_disabler.h"
 #import "ios/testing/earl_grey/app_launch_manager.h"
 #import "ios/testing/earl_grey/disabled_test_macros.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #import "ios/web/common/features.h"
-#import "ios/web/public/test/http_server/error_page_response_provider.h"
-#import "ios/web/public/test/http_server/http_server.h"
-#import "ios/web/public/test/http_server/http_server_util.h"
 #import "net/test/embedded_test_server/embedded_test_server.h"
+#import "net/test/embedded_test_server/http_response.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "url/gurl.h"
 
@@ -45,14 +42,8 @@ namespace {
 // The page height of test pages. This must be big enough to triger fullscreen.
 const int kPageHeightEM = 400;
 
-// Offset to check when there is no safe area (in points).
-const CGFloat kNoInsetOffset = 10.0;
-
-// Sides for gutter color verification.
-enum class FullscreenGutterSide {
-  kLeft,
-  kRight,
-};
+// Tolerance for width increase check.
+const CGFloat kViewportFitCoverTolerance = 5.0;
 
 // Hides the toolbar by scrolling down.
 void HideToolbarUsingUI() {
@@ -92,95 +83,18 @@ std::unique_ptr<net::test_server::HttpResponse> CreateHttpResponse(
   return response;
 }
 
-// Helper to get pixel color at a point in an image.
-void GetColorAtPoint(CGPoint point,
-                     UIImage* image,
-                     CGFloat* red,
-                     CGFloat* green,
-                     CGFloat* blue,
-                     CGFloat* alpha) {
-  base::apple::ScopedCFTypeRef<CFDataRef> pixelData(
-      CGDataProviderCopyData(CGImageGetDataProvider(image.CGImage)));
-  base::span<const uint8_t> pixelDataSpan =
-      base::apple::NSDataToSpan((__bridge NSData*)pixelData.get());
-
-  const NSUInteger bytesPerPixel = CGImageGetBitsPerPixel(image.CGImage) /
-                                   CGImageGetBitsPerComponent(image.CGImage);
-  const NSUInteger index =
-      (CGImageGetWidth(image.CGImage) * (NSUInteger)point.y +
-       (NSUInteger)point.x) *
-      bytesPerPixel;
-
-  base::span<const uint8_t> pixelDataView =
-      pixelDataSpan.subspan(index, bytesPerPixel);
-  // Assuming RGBA.
-  *red = CGFloat(pixelDataView[0]) / 255.0f;
-  *green = CGFloat(pixelDataView[1]) / 255.0f;
-  *blue = CGFloat(pixelDataView[2]) / 255.0f;
-  *alpha = CGFloat(pixelDataView[3]) / 255.0f;
+int GetWidth(const base::Value& value) {
+  if (value.is_double()) {
+    return static_cast<int>(value.GetDouble());
+  }
+  return value.GetInt();
 }
 
-// Helper to assert color at a point in an image.
-void AssertColorAtPoint(CGPoint point,
-                        UIImage* image,
-                        BOOL shouldBeLime,
-                        NSString* sideName,
-                        CGFloat inset) {
-  CGFloat red = 0, green = 0, blue = 0, alpha = 0;
-  GetColorAtPoint(point, image, &red, &green, &blue, &alpha);
-
-  if (shouldBeLime) {
-    GREYAssert(green > 0.9 && red < 0.1 && blue < 0.1,
-               @"%@ gutter should be lime (red=%f, green=%f, blue=%f, "
-               @"inset=%f, point=%@)",
-               sideName, red, green, blue, inset, NSStringFromCGPoint(point));
-  } else {
-    GREYAssertFalse(green > 0.9 && red < 0.1 && blue < 0.1,
-                    @"%@ gutter should NOT be lime (red=%f, green=%f, "
-                    @"blue=%f, inset=%f, point=%@)",
-                    sideName, red, green, blue, inset,
-                    NSStringFromCGPoint(point));
-  }
-}
-
-// Helper to assert color at a side gutter.
-void AssertColorAtSide(FullscreenGutterSide side,
-                       CGFloat inset,
-                       UIImage* image,
-                       BOOL shouldBeLime) {
-  NSString* sideName = nil;
-  CGPoint point;
-
-  const NSUInteger width = CGImageGetWidth(image.CGImage);
-  const NSUInteger height = CGImageGetHeight(image.CGImage);
-  const CGFloat scale = image.scale;
-
-  switch (side) {
-    case FullscreenGutterSide::kLeft:
-      sideName = @"Left";
-      if (inset > 0) {
-        // If there is an inset, we check in the middle of the safe area gutter.
-        point = CGPointMake((inset / 2) * scale, height / 2);
-      } else {
-        // If there is no safe area, we check a point near the edge to verify it
-        // is covered.
-        point = CGPointMake(kNoInsetOffset * scale, height / 2);
-      }
-      break;
-    case FullscreenGutterSide::kRight:
-      sideName = @"Right";
-      if (inset > 0) {
-        // If there is an inset, we check in the middle of the safe area gutter.
-        point = CGPointMake(width - (inset / 2) * scale, height / 2);
-      } else {
-        // If there is no safe area, we check a point near the edge to verify it
-        // is covered.
-        point = CGPointMake(width - kNoInsetOffset * scale, height / 2);
-      }
-      break;
-  }
-
-  AssertColorAtPoint(point, image, shouldBeLime, sideName, inset);
+// Helper function to create 404 Not Found responses.
+std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
+  auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+  response->set_code(net::HTTP_NOT_FOUND);
+  return response;
 }
 
 }  // namespace
@@ -189,7 +103,13 @@ void AssertColorAtSide(FullscreenGutterSide side,
 
 // Fullscreens tests for Chrome.
 // TODO(crbug.com/40849153): Remove the "ZZZ" when the bug is fixed.
-@interface ZZZFullscreenTestCase : WebHttpServerChromeTestCase
+@interface ZZZFullscreenTestCase : ChromeTestCase
+@end
+
+@interface ZZZFullscreenTestCase () {
+  // A map of request URLs to HTML responses.
+  std::map<std::string, std::string> _responses;
+}
 @end
 
 @implementation ZZZFullscreenTestCase
@@ -210,6 +130,25 @@ void AssertColorAtSide(FullscreenGutterSide side,
 
   [ChromeEarlGrey setBoolValue:NO
              forLocalStatePref:omnibox::kIsOmniboxInBottomPosition];
+
+  auto* responses = &_responses;
+  self.testServer->RegisterRequestHandler(base::BindRepeating(
+      [](std::map<std::string, std::string>* responses,
+         const net::test_server::HttpRequest& request)
+          -> std::unique_ptr<net::test_server::HttpResponse> {
+        if (request.relative_url == "/two_pages.pdf" ||
+            request.relative_url == "/single_page_wide.pdf") {
+          return nullptr;
+        }
+        auto it = responses->find(request.relative_url);
+        if (it != responses->end()) {
+          return CreateHttpResponse(it->second);
+        }
+        return NotFoundResponse();
+      },
+      responses));
+
+  GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
 }
 
 - (void)tearDownHelper {
@@ -222,8 +161,7 @@ void AssertColorAtSide(FullscreenGutterSide side,
 // Verifies that the content offset of the web view is set up at the correct
 // initial value when initially displaying a PDF.
 - (void)testLongPDFInitialState {
-  GURL URL = web::test::HttpServer::MakeUrl(
-      "http://ios/testing/data/http_server_files/two_pages.pdf");
+  GURL URL = self.testServer->GetURL("/two_pages.pdf");
   [ChromeEarlGrey loadURL:URL];
   WaitforPDFExtensionView();
   [ChromeEarlGreyUI waitForToolbarVisible:YES];
@@ -246,8 +184,7 @@ void AssertColorAtSide(FullscreenGutterSide side,
 // Verifies that the toolbar is not hidden when scrolling a short pdf, as the
 // entire document is visible without hiding the toolbar.
 - (void)testSmallWidePDFScroll {
-  GURL URL = web::test::HttpServer::MakeUrl(
-      "http://ios/testing/data/http_server_files/single_page_wide.pdf");
+  GURL URL = self.testServer->GetURL("/single_page_wide.pdf");
   [ChromeEarlGrey loadURL:URL];
   WaitforPDFExtensionView();
 
@@ -264,8 +201,7 @@ void AssertColorAtSide(FullscreenGutterSide side,
 // Verifies that the toolbar properly appears/disappears when scrolling up/down
 // on a PDF that is long in length and wide in width.
 - (void)testLongPDFScroll {
-  GURL URL = web::test::HttpServer::MakeUrl(
-      "http://ios/testing/data/http_server_files/two_pages.pdf");
+  GURL URL = self.testServer->GetURL("/two_pages.pdf");
   [ChromeEarlGrey loadURL:URL];
   WaitforPDFExtensionView();
 
@@ -330,17 +266,9 @@ void AssertColorAtSide(FullscreenGutterSide side,
 
 // Tests hiding and showing of the header with a user scroll on a long page.
 - (void)testHideHeaderUserScrollLongPage {
-  self.testServer->RegisterRequestHandler(base::BindRepeating(
-      [](const net::test_server::HttpRequest& request)
-          -> std::unique_ptr<net::test_server::HttpResponse> {
-        if (request.relative_url == "/tallpage") {
-          return CreateHttpResponse(base::StringPrintf(
-              "<p style='height:%dem'>a</p><p>b</p>", kPageHeightEM));
-        }
-        return nullptr;
-      }));
+  _responses["/tallpage"] =
+      base::StringPrintf("<p style='height:%dem'>a</p><p>b</p>", kPageHeightEM);
 
-  GREYAssertTrue(self.testServer->Start(), @"The server has not started");
   GURL URL = self.testServer->GetURL("/tallpage");
   [ChromeEarlGrey loadURL:URL];
   [ChromeEarlGreyUI waitForToolbarVisible:YES];
@@ -356,19 +284,11 @@ void AssertColorAtSide(FullscreenGutterSide side,
 // Tests that reloading of a page shows the header even if it was not shown
 // previously.
 - (void)testShowHeaderOnReload {
-  self.testServer->RegisterRequestHandler(base::BindRepeating(
-      [](const net::test_server::HttpRequest& request)
-          -> std::unique_ptr<net::test_server::HttpResponse> {
-        if (request.relative_url == "/origin") {
-          return CreateHttpResponse(base::StringPrintf(
-              "<p style='height:%dem'>Tall page</p>"
-              "<a onclick='window.location.reload();' id='link'>link</a>",
-              kPageHeightEM));
-        }
-        return nullptr;
-      }));
+  _responses["/origin"] = base::StringPrintf(
+      "<p style='height:%dem'>Tall page</p>"
+      "<a onclick='window.location.reload();' id='link'>link</a>",
+      kPageHeightEM);
 
-  GREYAssertTrue(self.testServer->Start(), @"The server has not started");
   GURL URL = self.testServer->GetURL("/origin");
   [ChromeEarlGrey loadURL:URL];
   [ChromeEarlGrey waitForWebStateContainingText:"Tall page"];
@@ -384,27 +304,25 @@ void AssertColorAtSide(FullscreenGutterSide side,
 // Test to make sure the header is shown when a Tab opened by the current Tab is
 // closed even if the toolbar was not present previously.
 - (void)testShowHeaderWhenChildTabCloses {
-  std::map<GURL, std::string> responses;
-  const GURL URL = web::test::HttpServer::MakeUrl("http://origin");
-  const GURL destinationURL =
-      web::test::HttpServer::MakeUrl("http://destination");
+  const GURL URL = self.testServer->GetURL("/origin");
+  const GURL destinationURL = self.testServer->GetURL("/destination");
   // JavaScript to open a window using window.open.
   std::string javaScript =
       base::StringPrintf("window.open(\"%s\");", destinationURL.spec().c_str());
 
   // A long page with a link to execute JavaScript.
-  responses[URL] = base::StringPrintf("<p style='height:%dem'>whatever</p>"
-                                      "<a onclick='%s' id='link1'>link1</a>",
-                                      kPageHeightEM, javaScript.c_str());
+  _responses["/origin"] =
+      base::StringPrintf("<p style='height:%dem'>whatever</p>"
+                         "<a onclick='%s' id='link1'>link1</a>",
+                         kPageHeightEM, javaScript.c_str());
   // A long page with some simple text and link to close itself using
   // window.close.
   javaScript = "window.close()";
-  responses[destinationURL] =
+  _responses["/destination"] =
       base::StringPrintf("<p style='height:%dem'>whatever</p><a onclick='%s' "
                          "id='link2'>link2</a>",
                          kPageHeightEM, javaScript.c_str());
 
-  web::test::SetUpSimpleHttpServer(responses);
   ScopedBlockPopupsPref prefSetter(CONTENT_SETTING_ALLOW);
 
   [ChromeEarlGrey loadURL:URL];
@@ -442,25 +360,15 @@ void AssertColorAtSide(FullscreenGutterSide side,
 // loaded from a page where the header was not see before.
 // Also tests that auto-hide works correctly on new page loads.
 - (void)testShowHeaderOnRegularPageLoad {
-  self.testServer->RegisterRequestHandler(base::BindRepeating(
-      [](const net::test_server::HttpRequest& request)
-          -> std::unique_ptr<net::test_server::HttpResponse> {
-        const std::string manyLines = base::StringPrintf(
-            "<p style='height:%dem'>a</p><p>End of lines</p>", kPageHeightEM);
+  const std::string manyLines = base::StringPrintf(
+      "<p style='height:%dem'>a</p><p>End of lines</p>", kPageHeightEM);
 
-        if (request.relative_url == "/origin") {
-          return CreateHttpResponse(
-              manyLines + "<a href='/destination' id='link1'>link1</a>");
-        } else if (request.relative_url == "/destination") {
-          return CreateHttpResponse(manyLines +
-                                    "<a href='javascript:void(0)' "
-                                    "onclick='window.history.back()' "
-                                    "id='link2'>link2</a>");
-        }
-        return nullptr;
-      }));
+  _responses["/origin"] =
+      manyLines + "<a href='/destination' id='link1'>link1</a>";
+  _responses["/destination"] = manyLines + "<a href='javascript:void(0)' "
+                                           "onclick='window.history.back()' "
+                                           "id='link2'>link2</a>";
 
-  GREYAssertTrue(self.testServer->Start(), @"The server has not started");
   GURL originURL = self.testServer->GetURL("/origin");
   [ChromeEarlGrey loadURL:originURL];
 
@@ -490,19 +398,11 @@ void AssertColorAtSide(FullscreenGutterSide side,
 // Tests that the header is shown when a native page is loaded from a page where
 // the header was not seen before.
 - (void)testShowHeaderOnNativePageLoad {
-  self.testServer->RegisterRequestHandler(base::BindRepeating(
-      [](const net::test_server::HttpRequest& request)
-          -> std::unique_ptr<net::test_server::HttpResponse> {
-        if (request.relative_url == "/origin") {
-          return CreateHttpResponse(base::StringPrintf(
-              "<p style='height:%dem'>a</p>"
-              "<a onclick='window.history.back()' id='link'>link</a>",
-              kPageHeightEM));
-        }
-        return nullptr;
-      }));
+  _responses["/origin"] = base::StringPrintf(
+      "<p style='height:%dem'>a</p>"
+      "<a onclick='window.history.back()' id='link'>link</a>",
+      kPageHeightEM);
 
-  GREYAssertTrue(self.testServer->Start(), @"The server has not started");
   GURL URL = self.testServer->GetURL("/origin");
 
   [ChromeEarlGrey loadURL:URL];
@@ -528,23 +428,13 @@ void AssertColorAtSide(FullscreenGutterSide side,
 #define MAYBE_testShowHeaderOnErrorPage testShowHeaderOnErrorPage
 #endif
 - (void)MAYBE_testShowHeaderOnErrorPage {
-  GURL errorURL = ErrorPageResponseProvider::GetDnsFailureUrl();
+  GURL errorURL = self.testServer->GetURL("/mock/bad/");
 
-  self.testServer->RegisterRequestHandler(base::BindRepeating(
-      [](const std::string& errorURLSpec,
-         const net::test_server::HttpRequest& request)
-          -> std::unique_ptr<net::test_server::HttpResponse> {
-        if (request.relative_url == "/origin") {
-          return CreateHttpResponse(
-              base::StringPrintf("<p style='height:%dem'>a</p>"
-                                 "<a href=\"%s\" id=\"link\">bad link</a>",
-                                 kPageHeightEM, errorURLSpec.c_str()));
-        }
-        return nullptr;
-      },
-      errorURL.spec()));
+  _responses["/origin"] =
+      base::StringPrintf("<p style='height:%dem'>a</p>"
+                         "<a href=\"%s\" id=\"link\">bad link</a>",
+                         kPageHeightEM, errorURL.spec().c_str());
 
-  GREYAssertTrue(self.testServer->Start(), @"The server has not started");
   GURL URL = self.testServer->GetURL("/origin");
   [ChromeEarlGrey loadURL:URL];
   HideToolbarUsingUI();
@@ -552,23 +442,15 @@ void AssertColorAtSide(FullscreenGutterSide side,
 
   [ChromeEarlGrey tapWebStateElementWithID:@"link"];
   [ChromeEarlGrey
-      waitForWebStateVisibleURL:ErrorPageResponseProvider::GetDnsFailureUrl()];
+      waitForWebStateVisibleURL:self.testServer->GetURL("/mock/bad/")];
   [ChromeEarlGreyUI waitForToolbarVisible:YES];
 }
 
 // Tests collapsing of toolbar when a user scroll on a long page and rotate.
 - (void)testCollapseToolbarOnScrollAndRotate {
-  self.testServer->RegisterRequestHandler(base::BindRepeating(
-      [](const net::test_server::HttpRequest& request)
-          -> std::unique_ptr<net::test_server::HttpResponse> {
-        if (request.relative_url == "/tallpage") {
-          return CreateHttpResponse(base::StringPrintf(
-              "<p style='height:%dem'>a</p><p>b</p>", kPageHeightEM));
-        }
-        return nullptr;
-      }));
+  _responses["/tallpage"] =
+      base::StringPrintf("<p style='height:%dem'>a</p><p>b</p>", kPageHeightEM);
 
-  GREYAssertTrue(self.testServer->Start(), @"The server has not started");
   GURL URL = self.testServer->GetURL("/tallpage");
 
   [ChromeEarlGrey loadURL:URL];
@@ -591,11 +473,10 @@ void AssertColorAtSide(FullscreenGutterSide side,
 // Tests that the toolbar reappears after backgrounding and foregrounding the
 // app during or after a fast scroll.
 - (void)testShowFullToolbarAfterBackgroundDuringFastScroll {
-  std::map<GURL, std::string> responses;
-  const GURL URL = web::test::HttpServer::MakeUrl("http://tallpage");
-  responses[URL] =
+  _responses["/tallpage"] =
       base::StringPrintf("<p style='height:%dem'>a</p><p>b</p>", kPageHeightEM);
-  web::test::SetUpSimpleHttpServer(responses);
+
+  const GURL URL = self.testServer->GetURL("/tallpage");
 
   [ChromeEarlGrey loadURL:URL];
   [ChromeEarlGreyUI waitForToolbarVisible:YES];
@@ -611,17 +492,9 @@ void AssertColorAtSide(FullscreenGutterSide side,
 // Tests that tapping on the collapsed primary toolbar exits force fullscreen
 // mode.
 - (void)testTapOnCollapsedToolbarExitsForceFullscreenMode {
-  self.testServer->RegisterRequestHandler(base::BindRepeating(
-      [](const net::test_server::HttpRequest& request)
-          -> std::unique_ptr<net::test_server::HttpResponse> {
-        if (request.relative_url == "/tallpage") {
-          return CreateHttpResponse(base::StringPrintf(
-              "<p style='height:%dem'>a</p><p>b</p>", kPageHeightEM));
-        }
-        return nullptr;
-      }));
+  _responses["/tallpage"] =
+      base::StringPrintf("<p style='height:%dem'>a</p><p>b</p>", kPageHeightEM);
 
-  GREYAssertTrue(self.testServer->Start(), @"The server has not started");
   GURL URL = self.testServer->GetURL("/tallpage");
   [ChromeEarlGrey loadURL:URL];
   [ChromeEarlGreyUI waitForToolbarVisible:YES];
@@ -698,67 +571,60 @@ void AssertColorAtSide(FullscreenGutterSide side,
   if ([ChromeEarlGrey isFullscreenSmoothScrollingSupported]) {
     EARL_GREY_TEST_SKIPPED(@"Smooth scrolling not supported.");
   }
-  self.testServer->RegisterRequestHandler(base::BindRepeating(
-      [](const net::test_server::HttpRequest& request)
-          -> std::unique_ptr<net::test_server::HttpResponse> {
-        if (request.relative_url == "/viewport-fit") {
-          return CreateHttpResponse(
-              "<!DOCTYPE html>"
-              "<html>"
-              "<head>"
-              "  <meta id='viewport' name='viewport' "
-              "content='width=device-width, initial-scale=1.0'>"
-              "  <style>"
-              "    html { background-color: white; }"
-              "    body { background-color: white; margin: 0; }"
-              "    #content { "
-              "      background-color: lime; "
-              "      position: absolute; "
-              "      top: 0; left: 0; right: 0; bottom: 0; "
-              "    }"
-              "    #toggle { "
-              "              position: absolute; top: 50%; left: 50%; "
-              "              transform: translate(-50%, -50%); "
-              "              width: 200px; height: 100px; font-size: 20px; "
-              "z-index: 100; "
-              "              background-color: black; color: white; border: "
-              "none; }"
-              "  </style>"
-              "  <script>"
-              "    function toggle() {"
-              "      var oldMeta = document.getElementById('viewport');"
-              "      var newMeta = document.createElement('meta');"
-              "      newMeta.id = 'viewport';"
-              "      newMeta.name = 'viewport';"
-              "      if "
-              "(oldMeta.getAttribute('content').includes('viewport-fit=cover'))"
-              " {"
-              "        newMeta.setAttribute('content', 'width=device-width, "
-              "initial-scale=1.0');"
-              "        document.getElementById('toggle').innerText = 'Toggle "
-              "(now auto)';"
-              "      } else {"
-              "        newMeta.setAttribute('content', 'width=device-width, "
-              "initial-scale=1.0, viewport-fit=cover');"
-              "        document.getElementById('toggle').innerText = 'Toggle "
-              "(now cover)';"
-              "      }"
-              "      oldMeta.parentNode.replaceChild(newMeta, oldMeta);"
-              "    }"
-              "  </script>"
-              "</head>"
-              "<body>"
-              "  <div id='content'>"
-              "    <button id='toggle' onclick='toggle()'>Toggle (now "
-              "auto)</button>"
-              "  </div>"
-              "</body>"
-              "</html>");
-        }
-        return nullptr;
-      }));
 
-  GREYAssertTrue(self.testServer->Start(), @"The server has not started");
+  _responses["/viewport-fit"] =
+      "<!DOCTYPE html>"
+      "<html>"
+      "<head>"
+      "  <meta id='viewport' name='viewport' "
+      "content='width=device-width, initial-scale=1.0'>"
+      "  <style>"
+      "    html { background-color: white; }"
+      "    body { background-color: white; margin: 0; }"
+      "    #content { "
+      "      background-color: lime; "
+      "      position: absolute; "
+      "      top: 0; left: 0; right: 0; bottom: 0; "
+      "    }"
+      "    #toggle { "
+      "              position: absolute; top: 50%; left: 50%; "
+      "              transform: translate(-50%, -50%); "
+      "              width: 200px; height: 100px; font-size: 20px; "
+      "z-index: 100; "
+      "              background-color: black; color: white; border: "
+      "none; }"
+      "  </style>"
+      "  <script>"
+      "    function toggle() {"
+      "      var oldMeta = document.getElementById('viewport');"
+      "      var newMeta = document.createElement('meta');"
+      "      newMeta.id = 'viewport';"
+      "      newMeta.name = 'viewport';"
+      "      if "
+      "(oldMeta.getAttribute('content').includes('viewport-fit=cover'))"
+      " {"
+      "        newMeta.setAttribute('content', 'width=device-width, "
+      "initial-scale=1.0');"
+      "        document.getElementById('toggle').innerText = 'Toggle "
+      "(now auto)';"
+      "      } else {"
+      "        newMeta.setAttribute('content', 'width=device-width, "
+      "initial-scale=1.0, viewport-fit=cover');"
+      "        document.getElementById('toggle').innerText = 'Toggle "
+      "(now cover)';"
+      "      }"
+      "      oldMeta.parentNode.replaceChild(newMeta, oldMeta);"
+      "    }"
+      "  </script>"
+      "</head>"
+      "<body>"
+      "  <div id='content'>"
+      "    <button id='toggle' onclick='toggle()'>Toggle (now "
+      "auto)</button>"
+      "  </div>"
+      "</body>"
+      "</html>";
+
   GURL URL = self.testServer->GetURL("/viewport-fit");
   [ChromeEarlGrey loadURL:URL];
   [ChromeEarlGrey waitForWebStateContainingText:"Toggle (now auto)"];
@@ -768,38 +634,37 @@ void AssertColorAtSide(FullscreenGutterSide side,
                                    error:nil];
 
   UIEdgeInsets safeArea = [FullscreenAppInterface currentWindowSafeArea];
-  // Pick the side with the largest safe area to check.
-  FullscreenGutterSide sideToCheck = (safeArea.right > safeArea.left)
-                                         ? FullscreenGutterSide::kRight
-                                         : FullscreenGutterSide::kLeft;
-  CGFloat inset = (sideToCheck == FullscreenGutterSide::kLeft) ? safeArea.left
-                                                               : safeArea.right;
+  CGFloat inset = safeArea.left + safeArea.right;
 
-  // Take a snapshot of the window.
-  EDORemoteVariable<UIImage*>* snapshot = [[EDORemoteVariable alloc] init];
-  [[EarlGrey selectElementWithMatcher:grey_keyWindow()]
-      performAction:grey_snapshot(snapshot)];
-  UIImage* image = snapshot.object;
-
-  // Check color without viewport-fit=cover.
-  // If there is no safe area inset on the side, it should already be lime.
-  AssertColorAtSide(sideToCheck, inset, image, /*shouldBeLime=*/(inset == 0));
+  // Read the width of the content area before toggling.
+  int widthBefore = GetWidth([ChromeEarlGrey
+      evaluateJavaScript:@"document.getElementById('content').offsetWidth"]);
 
   // Toggle viewport-fit=cover.
   [ChromeEarlGrey tapWebStateElementWithID:@"toggle"];
-  [ChromeEarlGrey waitForWebStateContainingText:"Toggle (now cover)"];
 
-  // Wait for layout update.
-  [ChromeEarlGreyUI waitForAppToIdle];
+  if (inset > 0) {
+    // Wait for the width to increase.
+    ConditionBlock condition = ^{
+      base::Value widthValue = [ChromeEarlGrey
+          evaluateJavaScript:@"document.getElementById('content').offsetWidth"];
+      int widthAfter = GetWidth(widthValue);
+      // Check that the increase is roughly similar to the safe area insets.
+      return widthAfter - widthBefore >= inset - kViewportFitCoverTolerance;
+    };
+    GREYAssert(
+        WaitUntilConditionOrTimeout(kWaitForJSCompletionTimeout, condition),
+        @"Width did not increase after enabling viewport-fit=cover");
+  } else {
+    // If no insets, wait for the text to update to confirm action completed.
+    [ChromeEarlGrey waitForWebStateContainingText:"Toggle (now cover)"
+                                          timeout:kWaitForJSCompletionTimeout];
 
-  // Snapshot again.
-  [[EarlGrey selectElementWithMatcher:grey_keyWindow()]
-      performAction:grey_snapshot(snapshot)];
-  image = snapshot.object;
-
-  // Check color with viewport-fit=cover.
-  // The side should now be lime regardless of initial safe area.
-  AssertColorAtSide(sideToCheck, inset, image, /*shouldBeLime=*/YES);
+    int widthAfter = GetWidth([ChromeEarlGrey
+        evaluateJavaScript:@"document.getElementById('content').offsetWidth"]);
+    GREYAssertEqual(widthBefore, widthAfter,
+                    @"Width changed even without safe area insets");
+  }
 
   // Rotate back to portrait.
   [EarlGrey rotateInterfaceToOrientation:UIInterfaceOrientationPortrait
@@ -835,8 +700,7 @@ void AssertColorAtSide(FullscreenGutterSide side,
   if (![ChromeEarlGrey isFullscreenSmoothScrollingSupported]) {
     EARL_GREY_TEST_SKIPPED(@"Smooth scrolling not supported.");
   }
-  GURL URL = web::test::HttpServer::MakeUrl(
-      "http://ios/testing/data/http_server_files/two_pages.pdf");
+  GURL URL = self.testServer->GetURL("/two_pages.pdf");
   [ChromeEarlGrey loadURL:URL];
   WaitforPDFExtensionView();
   [ChromeEarlGreyUI waitForToolbarVisible:YES];
@@ -902,8 +766,7 @@ void AssertColorAtSide(FullscreenGutterSide side,
   if (![ChromeEarlGrey isFullscreenSmoothScrollingSupported]) {
     EARL_GREY_TEST_SKIPPED(@"Smooth scrolling not supported.");
   }
-  GURL URL = web::test::HttpServer::MakeUrl(
-      "http://ios/testing/data/http_server_files/two_pages.pdf");
+  GURL URL = self.testServer->GetURL("/two_pages.pdf");
   [ChromeEarlGrey loadURL:URL];
   WaitforPDFExtensionView();
   [ChromeEarlGreyUI waitForToolbarVisible:YES];

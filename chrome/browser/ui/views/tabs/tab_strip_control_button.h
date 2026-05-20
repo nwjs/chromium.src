@@ -73,7 +73,7 @@ class TabStripControlButton : public views::LabelButton,
 
   // Updates the styling and icons for the button. Should be called when colors
   // change.
-  void UpdateIcon();
+  virtual void UpdateIcon();
 
   virtual int GetCornerRadius() const;
   virtual int GetFlatCornerRadius() const;
@@ -117,12 +117,12 @@ class TabStripControlButton : public views::LabelButton,
   ui::ColorId GetBackgroundColor();
   ui::ColorId GetForegroundColor();
 
- protected:
   // Called whenever a color change occurs (theming/frame state). By default
   // this only changes the hover color and updates the icon. Override for any
   // additional changes.
   virtual void UpdateColors();
 
+ protected:
   // views::Button
   void NotifyClick(const ui::Event& event) override;
 
@@ -136,8 +136,9 @@ class TabStripControlButton : public views::LabelButton,
   // testing.
   virtual bool IsFrameCondensed() const;
 
+  virtual void UpdateBackground();
+
  private:
-  void UpdateBackground();
   void UpdateInkDrop();
 
   bool IsWidgetAlive() const;

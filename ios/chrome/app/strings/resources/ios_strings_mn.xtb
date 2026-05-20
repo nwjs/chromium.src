@@ -54,6 +54,7 @@
 <translation id="1179890706672152411">Таны хадгалах сан дүүрсэн байна</translation>
 <translation id="1181037720776840403">Хасах</translation>
 <translation id="1190609913194133056">Мэдэгдлийн төв</translation>
+<translation id="1199631150313925648">Гараар оруулах</translation>
 <translation id="1199963004393929848">Ногоон загвар</translation>
 <translation id="1201402288615127009">Дараагийнх</translation>
 <translation id="1204075260022434100">{count,plural, =1{Хавчуургыг таны {email} бүртгэлийн "{title}"-д хадгалсан}other{{count} хавчуургыг таны {email} бүртгэлийн "{title}"-д хадгалсан}}</translation>
@@ -99,6 +100,7 @@
 <translation id="1347468774581902829">Үйл ажиллагааг удирдах</translation>
 <translation id="1348596747084433075">https://www.amazon.com/Wife-Gifts/s?k=for+Wife+Gifts</translation>
 <translation id="1355337783640312381">Бүртгэлүүдийн хооронд сэлгэхийн тулд бүртгэлийнхээ дүрс тэмдэг дээр товшино уу</translation>
+<translation id="135806768612505061">Бүх таб</translation>
 <translation id="1358106883354237005">Тохиргоо хийгдсэн бүртгэл</translation>
 <translation id="1358214951266274152">Хуулсан холбоосондоо зочлох</translation>
 <translation id="1360432990279830238">Гараад синк хийхийг унтраах уу?</translation>
@@ -258,6 +260,7 @@
 <translation id="1861262398884155592">Энэ фолдер хоосон байна</translation>
 <translation id="1864266050569350424">Та нууц үг хадгалсан сайт дээрээ нэвтрэх нууц үг талбарыг товшино уу.</translation>
 <translation id="1866700949421703765">Унших горимыг асаахыг нуух</translation>
+<translation id="1869050523388525800">Хайлтын дэлгэцийг зөвхөн Google-г таны өгөгдмөл хайлтын системээр тохируулсан үед ашиглах боломжтой. Та өгөгдмөл хайлтын системээ <ph name="BEGIN_LINK" />Тохиргооноос<ph name="END_LINK" /> өөрчлөх боломжтой.</translation>
 <translation id="1872096359983322073">Чийдэн</translation>
 <translation id="1875733418125333939"><ph name="FILENAME" />.</translation>
 <translation id="1881621406744213161">Гэр бүлийн гишүүдийг урих</translation>
@@ -718,6 +721,7 @@
 <translation id="3565012355885596568">Зургуудыг ачаалж чадсангүй</translation>
 <translation id="3565930036634619844">Таб. <ph name="NUMBER_OF_TABS" />-н <ph name="TAB_INDEX" />.</translation>
 <translation id="3567168891086460374">Өөр аргаар хадгалах</translation>
+<translation id="3571703298474554279">Аппыг ашиглах илүү хурдан арга</translation>
 <translation id="3572503683475187385">Таныг шинэ чат эхлүүлэхэд одоогийн табыг Gemini-тай хуваалцана. Таныг Gemini-тай таб хуваалцахад тухайн табын контент, URL-г Google-д илгээнэ. <ph name="BEGIN_LINK" />Нэмэлт мэдээлэл авах<ph name="END_LINK" /></translation>
 <translation id="3572607909481582402">Таны Google Бүртгэлд</translation>
 <translation id="3575234738189584619">Lens-р хайх</translation>
@@ -784,7 +788,6 @@
 <translation id="3838691874161539578">Аюулгүй байдлаа сайжруулж, онлайн орчинд илүү аюулгүй байхын тулд хадгалсан нууц үгнүүдээ шалгана уу</translation>
 <translation id="3838985624086228724">Таны хянасан бүтээгдэхүүний үнийн бууралт, <ph name="PREVIOUS_PRICE" />-с <ph name="PRICE" />, <ph name="PRODUCT_NAME" />, <ph name="DOMAIN" /></translation>
 <translation id="385051799172605136">Буцах</translation>
-<translation id="3850952228519377137">"Табаасаа үнэ хянах"-ыг нуух</translation>
 <translation id="3851938967634752633"><ph name="WEBSITE" />, <ph name="SECOND_WEBSITE" /> болон өөр <ph name="NUMBER_OF_ACCOUNTS" /> бүртгэлийн нууц үгийг устгана. Таны бүртгэлүүдийг устгахгүй.</translation>
 <translation id="3853162385423733133">Өөрийн <ph name="EMAIL" /> Google Бүртгэл дэх нууц үгээ ашиглаж, хадгалсаар байгаарай</translation>
 <translation id="3853873210696342070">Импортлох</translation>
@@ -802,6 +805,7 @@
 <translation id="3893858854379998374">Бүртгэлдээ хавчуурга хадгалахын тулд ашиглаагүй хавчуургаа устгана уу</translation>
 <translation id="3897092660631435901">Цэс</translation>
 <translation id="3904270275864974753">Тойруулгыг засах</translation>
+<translation id="3905384981098338147">ХОУ-ы горимын түүх</translation>
 <translation id="3909222758573607742">Нууц үг болон бусад зүйлийг бүртгэлд хадгалах</translation>
 <translation id="3913463964270756493">Google Lens-р дэлгэцээс хайхыг нуух</translation>
 <translation id="3914640181019354363">Хаягуудыг илрүүлэх</translation>
@@ -931,7 +935,6 @@
 <translation id="4323122584592971322">OID.</translation>
 <translation id="4324735664183300693">Мэдэгдлийг асаах</translation>
 <translation id="4326912346867677256">Аюулгүй нэвтрэхийн тулд "Нууц үг ашиглах" дээр товшино уу.</translation>
-<translation id="4327017157997423717"><ph name="PRODUCT_NAME" />-н үнийг мөшгөх, <ph name="PRICE" />, <ph name="DOMAIN" /></translation>
 <translation id="4328843285884395590">Миний драйв</translation>
 <translation id="4331177082088332784">Та үүнийг BEGIN_LINK Контентын тохиргоонд END_LINK удирдах боломжтой</translation>
 <translation id="4334428914252001502">Уншаагүй 1 нийтлэл.</translation>
@@ -955,6 +958,7 @@
 <translation id="441868831736628555">Нууцлалын мэдэгдэл</translation>
 <translation id="4420409367264901497">Хавчуургыг засах</translation>
 <translation id="4425365312778464779">Энэ бүртгэлийг удирдаж байна</translation>
+<translation id="443008484043213881">Хэрэгсэл</translation>
 <translation id="4430277756566635951">Одоогоор <ph name="EMAIL" />-г сонгосон. Бүртгэл сонгоно уу.</translation>
 <translation id="4430505936695785931">Бусад аппад хадгалсан нууц үгээ ашиглаарай</translation>
 <translation id="4431224949908513835">Бөглөх төлбөрийн хэрэгслийг сонгоно уу.</translation>
@@ -1073,6 +1077,7 @@
 <translation id="4824497107140370669">{count,plural, =0{{domain}}=1{{domain} болон бусад 1}other{{domain} болон бусад {count}}}</translation>
 <translation id="4826588772550366629">камер, микрофон</translation>
 <translation id="4828431027673677473">Таны сонирхолд тулгуурласан бүтээгдэхүүн</translation>
+<translation id="4829420936835028285">Табын бүлгийг засах</translation>
 <translation id="4833786495304741580">Хэрэглээний статистик мэдээ болон гэмтлийн тайланг Google-д автоматаар илгээдэг.</translation>
 <translation id="483689884442613745">Хадгалах…</translation>
 <translation id="4840495572919996524">Таны хавчуурга, түүх, нууц үг болон бусад зүйлийг таны Google Бүртгэлд цаашид синк хийхгүй.</translation>
@@ -1080,7 +1085,6 @@
 <translation id="484462545196658690">Автомат</translation>
 <translation id="4850886885716139402">Харах</translation>
 <translation id="4854068532375923088">“Gemini”-д камерыг тань ашиглахыг зөвшөөрөх</translation>
-<translation id="4860114370595561279">Таны хадгалсан мэдээллийг төхөөрөмж дээр тань хадгалдаг</translation>
 <translation id="4860895144060829044">Дуудлага</translation>
 <translation id="4861953997778766866">Хүн бүр таны хуваалцсан табын бүлэгт өөрчлөлт хийх боломжтой</translation>
 <translation id="4865063548323785458">Сайт, аппад хялбархан нэвтрэхийн тулд нууц үгээ хадгалж, автоматаар бөглөөрэй</translation>
@@ -1171,6 +1175,7 @@
 <translation id="5145331760738811130">Таб хооронд шилжүүлэгчээс гарах</translation>
 <translation id="5148717509369231739">Safari-н импорт</translation>
 <translation id="5152483358138813104">Төхөөрөмжүүд дээрээ илүү хурдан нэвтрээрэй</translation>
+<translation id="515315847398512535">Хайлтын дэлгэцийг таны бүртгэлийн хувьд унтраасан. Нэмэлт мэдээлэл авах бол админтайгаа холбогдоно уу.</translation>
 <translation id="5155502059906700593">Хаяг оруулах хэсгийнхээ байрлалыг дээш, доош сэлгээрэй.</translation>
 <translation id="5157638238828697074">Ямар нэг алдаа гарлаа. Аппликэйшнийг нээж чадсангүй.</translation>
 <translation id="5163417375525818870">PDF</translation>
@@ -1290,6 +1295,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="5581786858144165447">ХОУ-аас асуух горим</translation>
 <translation id="5585019845078534178">Карт</translation>
 <translation id="5591526871732898147">Хавсаргасан {index}-р зураг</translation>
+<translation id="5594597292424622277">Видеог түр зогсоох</translation>
 <translation id="5595485650161345191">Хаягийг засах</translation>
 <translation id="559567008082979829">Татаж авсан файлаа нэг сарын дараа устгахаар тохируулна уу.</translation>
 <translation id="5596627076506792578">Бусад сонголт</translation>
@@ -1315,7 +1321,6 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="5647702255748985085">Бүлгээс гарах уу?</translation>
 <translation id="5648166631817621825">Сүүлийн 7 хоног</translation>
 <translation id="5652623411397330904">Таны хянаж буй бүтээгдэхүүнүүдийг энд харуулна.</translation>
-<translation id="5653100054596780862">Бүх таб</translation>
 <translation id="5656431592348714536">Сайжруулсан Календарь</translation>
 <translation id="5659593005791499971">И-мэйл хаяг</translation>
 <translation id="5665739277590037307"><ph name="GOOGLE_TERMS" />, <ph name="GEMINI_APPS_PRIVACY" /> хэрэгжинэ. Gemini алдаа гаргаж болох тул дахин шалгана уу.</translation>
@@ -1501,7 +1506,6 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="6259928806013786178">Унших горимыг идэвхжүүлж чадсангүй</translation>
 <translation id="6268773951964630964">Хуулсан зургийг хайх</translation>
 <translation id="6271462272606946663">Хөдөлгөөнт төхөөрөмжийн сайт хүсэхийг нуух</translation>
-<translation id="6271556257184622612">Google-с таб болон бусад зүйлийн талаар асуух</translation>
 <translation id="6271824294945464304">Нууц үг хуваалцаж байна</translation>
 <translation id="628251768213143684">Та Google Бүртгэлд тань юу хадгалахыг үргэлж удирдах боломжтой</translation>
 <translation id="6284652193729350524"><ph name="LANGUAGE" />-г орчуулахыг санал болгох</translation>
@@ -1514,8 +1518,8 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="6307241780749477694">Та энэ төхөөрөмж дээр бүх нууц үгээ авахын тулд өөрийгөө мөн болохыг баталгаажуулна уу</translation>
 <translation id="6316141353357700666">Та гарч ирэх жагсаалтаас ашиглахыг хүсэж буй нууц үгээ сонгоно уу.</translation>
 <translation id="6321526113093607004">Хавчуургaд нэмэх</translation>
+<translation id="6327249202318869726">Gemini-г таны бүртгэлийн хувьд унтраасан. Нэмэлт мэдээлэл авах бол админтайгаа холбогдоно уу.</translation>
 <translation id="6331836477476466332">Танд зориулсан илүү аюулгүй, илүү хүчирхэг хөтөч</translation>
-<translation id="6335744088476213315">Энэ карт таны саяхан үзсэн, үнэ бууралтын дохио авахаар мөшгөх сонирхолтой байж магадгүй бүтээгдэхүүнийг харуулна</translation>
 <translation id="6337234675334993532">Шифрлэх</translation>
 <translation id="6337313937331295309">Gemini-тай харилцдаг аппын нууцлалын сануулга</translation>
 <translation id="633809752005859102">Ямар нэг ноцтой алдаа гарсан байна. Бид үүн дээр ажиллах болно.</translation>
@@ -1570,6 +1574,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="6476800141292307438">Хуудсыг <ph name="LANGUAGE" /> руу орчуулж байна. Дэлгэцийн доод хэсгийн ойролцоо сонголт хийх боломжтой.</translation>
 <translation id="647867789226964031">Нууц үгнүүдээ өөрчлөх</translation>
 <translation id="6480363549849064919">Клиентийн баталгаажуулалт</translation>
+<translation id="6489174933860678546">Вебийг илүү нууцлалтайгаар үзэхийн тулд Нууцлалтай таб нээнэ үү.</translation>
 <translation id="6494931198667773526">Дуусна</translation>
 <translation id="6503077044568424649">Хамгийн олон хандалт авсан</translation>
 <translation id="6503763061813913607">Аюулгүй байдлын шалгалтын мэдэгдэл</translation>
@@ -1606,6 +1611,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="6596481460663245319">Google-р зураг хайх</translation>
 <translation id="6598432073497341323">{COUNT,plural, =1{1 нууц үг}other{# нууц үг}}</translation>
 <translation id="6601302169302852717"><ph name="USER_EMAIL" />-д зориулж зургийг Google Зурагт хадгалсан</translation>
+<translation id="6602173570135186741">Автоматаар бөглөх хэсэг болон нууц үгнүүд</translation>
 <translation id="6603393121510733479">Танай байгууллага хувийн хөтчийг унтраасан.
 <ph name="BEGIN_LINK" />Нэмэлт мэдээлэл авах<ph name="END_LINK" /></translation>
 <translation id="6606914854592108404">Аюулгүй байдлын шалгалт хийж байна…</translation>
@@ -1626,6 +1632,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="6640268266988685324">Нээлттэй таб</translation>
 <translation id="6641465290890659327">Нууц үгнийхээ хуулбарыг хуваалцах</translation>
 <translation id="6642362222295953972">Аль хэдийн нээсэн таб руу сэлгэх</translation>
+<translation id="6643016212128521049">Цэвэрлэх</translation>
 <translation id="6645899968535965230">QR код: <ph name="PAGE_TITLE" /></translation>
 <translation id="6657585470893396449">Нууц үг</translation>
 <translation id="6659660757330712663">Та табуудын хооронд сэлгэхийн тулд самбарыг шудрах боломжтой.</translation>
@@ -1692,6 +1699,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="6871397658902960384">Үзэж эхлээрэй</translation>
 <translation id="6874328931822449112">{COUNT,plural, =1{Нууц үгийг бүртгэлд хадгалах}other{Нууц үгнүүдийг бүртгэлд хадгалах}}</translation>
 <translation id="6875166646976836138">Та мөн эдгээр зүйлийг хавчуурга, унших жагсаалт, нууц үгний менежертээ харах болон удирдах боломжтой.</translation>
+<translation id="6878052248816456143">Google Драйв дахь файлууддаа хүссэн үедээ хандаарай.</translation>
 <translation id="6882836635272038266">Аюултай гэж мэдэгдсэн веб сайт, таталт болон өргөтгөлийн эсрэг стандарт хамгаалалт.</translation>
 <translation id="6884135917113737984">{COUNT,plural, =1{Таны Google Бүртгэлд {COUNT} нууц үг хадгална}other{Таны Google Бүртгэлд {COUNT} нууц үг хадгална}}</translation>
 <translation id="6888009575607455378">Та өөрчлөлт оруулахаа болихдоо итгэлтэй байна уу?</translation>
@@ -1805,6 +1813,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="7345061034321640811">Импортлохыг зөвшөөрдөггүй</translation>
 <translation id="7347998088283246662">Нууц үг, түүх, хавчуурга болон бусад зүйлийг импортлоорой</translation>
 <translation id="7352651011704765696">Алдаа гарсан байна</translation>
+<translation id="7363497636543208734">Аппад шилжих илүү хялбар боллоо.</translation>
 <translation id="7364796246159120393">Файлаа сонгоно уу</translation>
 <translation id="736564850024123010">Өөрчилсөн хэрэглээнд зориулж хаяг оруулах хэсгийн байрлалаа сэлгэнэ үү.</translation>
 <translation id="7366909168761621528">Хайх өгөгдөл</translation>
@@ -1858,6 +1867,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="7506817096924591340"><ph name="FILENAME" /> (<ph name="FILESIZE" />).</translation>
 <translation id="7508728395076009983">Нууцлалтай табуудаа түгжихийн тулд Touch ID, Face ID эсвэл нууц код тохируулна уу.</translation>
 <translation id="750886945254958667">Дараа таб нэмэхийн тулд энэ бүлгийг үлдээх эсвэл та цаашид уг бүлэгт хандахыг хүсэхгүй байвал гарна уу</translation>
+<translation id="7511099437872594216">Табууд</translation>
 <translation id="7511727374778217603">{COUNT,plural, =1{1 хүртэлх таб нэмэх}other{{COUNT} хүртэлх таб нэмэх}}</translation>
 <translation id="7512909159512473473">Нэвтрэх үгийг оруулах…</translation>
 <translation id="7514365320538308">Татаж авах</translation>
@@ -2103,7 +2113,6 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="8319282042900445670">Сануулагчийг <ph name="DATE" />-ны <ph name="TIME" />-д тохируулсан</translation>
 <translation id="8320212361750431956">Саяхны үйл ажиллагаа</translation>
 <translation id="8325455175867928593">"Таны сонирхолд тулгуурласан шүүмж"-ийг нуух</translation>
-<translation id="8328777765163860529">Бүгдийг хаах</translation>
 <translation id="833647236762414178">Сайт, аппад хялбархан нэвтрэхийн тулд нууц үг, нэвтрэх түлхүүрээ үүсгэж, хадгалж, удирдана уу. <ph name="BEGIN_LINK" />Нэмэлт мэдээлэл авах<ph name="END_LINK" /></translation>
 <translation id="8343993175958086504">Зүйлсээ хуулбарлаж, дурын төхөөрөмж дээр ашиглана уу.</translation>
 <translation id="8348530355586151720">Гурван цэгтэй цэсийг товшино уу</translation>
@@ -2158,6 +2167,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="8528009254289981965">Нууцлалтай горимд бусад аппаас холбоос нээх</translation>
 <translation id="8529767659511976195">Шинэ</translation>
 <translation id="8531572740963685410">PDF</translation>
+<translation id="8532059953132740592">Видеог тоглуулах</translation>
 <translation id="8533411848724153701">Gemini</translation>
 <translation id="8533670235862049797">Аюулгүй үзэх үйлчилгээ асаалттай байна</translation>
 <translation id="8534481786647257214">Google+ пост дууссан.</translation>
@@ -2286,6 +2296,7 @@ Handoff-ыг Тохиргооны ерөнхий хэсэгт идэвхижүү
 <translation id="8915916167043355778">Бүгдийг хаах</translation>
 <translation id="892185197271200809">Хүн бүр “<ph name="GROUP_NAME" />“ табын бүлэгт хандах эрхээ тэр даруй алдах бөгөөд үүнийг бүх төхөөрөмжөөс устгана</translation>
 <translation id="8923178205567790913">Нууц үгнүүд</translation>
+<translation id="8926498511977337209">Нууцлалтай горимд үзэх</translation>
 <translation id="892776311701544612">Нэмэлт мэдээлэл авах…</translation>
 <translation id="8928133177108699615">Компьютер</translation>
 <translation id="8928426232677696166">Одоогоор танай байгууллагаас тохиргоо хийсэн <ph name="EMAIL" />-г сонгосон. Бүртгэл сонгоно уу.</translation>

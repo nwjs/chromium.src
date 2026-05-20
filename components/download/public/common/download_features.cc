@@ -36,6 +36,8 @@ BASE_FEATURE(kSmartSuggestionForLargeDownloads,
 BASE_FEATURE(kShowBlockedSensitiveDownload, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kShowDownloadScanningState, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDownloadsCompactListView, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kDownloadNotificationServiceUnifiedAPI,
@@ -73,6 +75,9 @@ BASE_FEATURE(kEnableAsyncNotificationManagerForDownload,
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kEnableSavePackageForOffTheRecord,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kOpenDownloadInFilesAppIfNoHandlerFound,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 }  // namespace features
 

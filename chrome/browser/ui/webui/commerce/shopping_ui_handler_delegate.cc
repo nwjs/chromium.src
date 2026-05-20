@@ -16,6 +16,8 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/common/url_constants.h"
 #include "components/bookmarks/browser/bookmark_model.h"
@@ -42,7 +44,8 @@ ShoppingUiHandlerDelegate::ShoppingUiHandlerDelegate(Profile* profile)
 ShoppingUiHandlerDelegate::~ShoppingUiHandlerDelegate() = default;
 
 std::optional<GURL> ShoppingUiHandlerDelegate::GetCurrentTabUrl() {
-  BrowserWindowInterface* browser = chrome::FindTabbedBrowser(profile_, false);
+  BrowserWindowInterface* browser =
+      ProfileBrowserCollection::GetForProfile(profile_)->FindTabbedBrowser();
   if (!browser) {
     return std::nullopt;
   }
@@ -58,7 +61,7 @@ std::optional<GURL> ShoppingUiHandlerDelegate::GetCurrentTabUrl() {
 const bookmarks::BookmarkNode*
 ShoppingUiHandlerDelegate::GetOrAddBookmarkForCurrentUrl() {
   BrowserWindowInterface* const browser =
-      chrome::FindLastActiveWithProfile(profile_);
+      ProfileBrowserCollection::GetForProfile(profile_)->GetLastActiveBrowser();
   if (!browser) {
     return nullptr;
   }
@@ -88,7 +91,8 @@ ShoppingUiHandlerDelegate::GetOrAddBookmarkForCurrentUrl() {
 }
 
 void ShoppingUiHandlerDelegate::OpenUrlInNewTab(const GURL& url) {
-  BrowserWindowInterface* browser = chrome::FindLastActiveWithProfile(profile_);
+  BrowserWindowInterface* browser =
+      ProfileBrowserCollection::GetForProfile(profile_)->GetLastActiveBrowser();
   if (!browser) {
     return;
   }
@@ -100,9 +104,11 @@ void ShoppingUiHandlerDelegate::SwitchToOrOpenTab(const GURL& url) {
   if (!url.is_valid() || !url.SchemeIsHTTPOrHTTPS()) {
     return;
   }
-  BrowserWindowInterface* browser = chrome::FindBrowserWithActiveWindow();
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->GetActiveBrowser();
   if (!browser) {
-    browser = chrome::FindLastActiveWithProfile(profile_);
+    browser = ProfileBrowserCollection::GetForProfile(profile_)
+                  ->GetLastActiveBrowser();
   }
   if (!browser) {
     return;
@@ -121,7 +127,8 @@ void ShoppingUiHandlerDelegate::SwitchToOrOpenTab(const GURL& url) {
 }
 
 ukm::SourceId ShoppingUiHandlerDelegate::GetCurrentTabUkmSourceId() {
-  BrowserWindowInterface* browser = chrome::FindTabbedBrowser(profile_, false);
+  BrowserWindowInterface* browser =
+      ProfileBrowserCollection::GetForProfile(profile_)->FindTabbedBrowser();
   if (!browser) {
     return ukm::kInvalidSourceId;
   }

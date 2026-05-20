@@ -48,9 +48,6 @@ chromium-metrics-reviews@google.com.
   <variant name=".QueryBackgroundFeed" summary="QueryBackgroundFeed"/>
   <variant name=".QueryInteractiveFeed" summary="QueryInteractiveFeed"/>
   <variant name=".QueryNextPage" summary="QueryNextPage"/>
-  <variant name=".QueryWebFeed" summary="QueryWebFeed"/>
-  <variant name=".SingleWebFeedListContents"
-      summary="SingleWebFeedListContents"/>
   <variant name=".SupervisedFeed" summary="SupervisedFeed"/>
   <variant name=".UnfollowWebFeed" summary="UnfollowWebFeed"/>
   <variant name=".UploadActions" summary="UploadActions"/>
@@ -81,7 +78,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Content.SharedWorker.CreationContextTypeMismatch"
-    enum="SharedWorkerCreationContextTypeMismatch" expires_after="2026-08-09">
+    enum="SharedWorkerCreationContextTypeMismatch" expires_after="2026-10-25">
   <owner>yyanagisawa@chromium.org</owner>
   <owner>content-owners@chromium.org</owner>
   <summary>
@@ -92,7 +89,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Content.SharedWorker.Host.DestructionSource"
-    enum="SharedWorkerHostDestructionSource" expires_after="2026-08-09">
+    enum="SharedWorkerHostDestructionSource" expires_after="2026-10-11">
   <owner>yyanagisawa@chromium.org</owner>
   <owner>chrome-worker@google.com</owner>
   <summary>
@@ -103,13 +100,27 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Content.SharedWorker.Service.LastClientCheckTime" units="ms"
-    expires_after="2026-08-02">
+    expires_after="2026-10-04">
   <owner>annasato@chromium.org</owner>
   <owner>chrome-worker@google.com</owner>
   <summary>
     The time spent checking if a navigating page with a SharedWorker is the last
     active client. This is recorded whenever a page with a SharedWorker
     connection navigates away.
+  </summary>
+</histogram>
+
+<histogram
+    name="Content.SharedWorker.WebSocket.DoesRequireCrossSiteRequestForCookies"
+    enum="Boolean" expires_after="2027-04-10">
+  <owner>yyanagisawa@chromium.org</owner>
+  <owner>wanderview@chromium.org</owner>
+  <summary>
+    Records whether a WebSocket connection was initiated from a SharedWorker in
+    a context that requires cross-site cookie restrictions (e.g. created via the
+    Storage Access API (SAA) or in a third-party context). This helps measure
+    the prevalence of workers that should have SameSite cookie restrictions.
+    Recorded in SharedWorkerHost::CreateWebSocketConnector.
   </summary>
 </histogram>
 
@@ -280,16 +291,6 @@ chromium-metrics-reviews@google.com.
   <token key="ProviderType" variants="ContentAllProviderTypes"/>
 </histogram>
 
-<histogram name="ContentSettings.AllowStorageAccessSync" units="ms"
-    expires_after="2024-04-28">
-  <owner>cduvall@chromium.org</owner>
-  <owner>jam@chromium.org</owner>
-  <summary>
-    Measures how long a sync call to ContentSettingsManager::AllowStorageAccess
-    takes. Logged each time a sync call is made that is not cached.
-  </summary>
-</histogram>
-
 <histogram name="ContentSettings.Bubble.StorageAccess.Action"
     enum="ContentSettingBubbleAction" expires_after="2024-07-10">
   <owner>fsenra@chromium.org</owner>
@@ -415,7 +416,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSettings.Popups.StrongBlockerActions"
-    enum="StrongPopupBlockerAction" expires_after="2026-08-16">
+    enum="StrongPopupBlockerAction" expires_after="2026-10-18">
   <owner>csharrison@chromium.org</owner>
   <summary>
     Counts of various events related to the strong popup blocker (aka abusive
@@ -1088,7 +1089,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSuggestions.Feed.DisplayStatusOnOpen"
-    enum="ContentSuggestionsDisplayStatus" expires_after="2026-08-09">
+    enum="ContentSuggestionsDisplayStatus" expires_after="2026-10-11">
   <owner>jianli@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <summary>
@@ -1099,17 +1100,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="ContentSuggestions.Feed.DocumentViewSendCount100"
-    units="documents" expires_after="2023-10-15">
-  <owner>harringtond@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    Number of docids sent when loading the Feed from the network. Reported when
-    the Feed is loaded from the network, when docview sending is allowed. This
-    histogram has a maximum count of 100.
-  </summary>
-</histogram>
-
 <histogram name="ContentSuggestions.Feed.DocumentViewSendCount1000"
     units="documents" expires_after="2023-10-15">
   <owner>harringtond@chromium.org</owner>
@@ -1117,9 +1107,7 @@ chromium-metrics-reviews@google.com.
   <summary>
     Number of docids sent when loading the Feed from the network. Reported when
     the Feed is loaded from the network, when docview sending is allowed. This
-    histogram has a maximum count of 1000, see
-    ContentSuggestions.Feed.DocumentViewSendCount100 for a more accurate
-    representation of lower counts.
+    histogram has a maximum count of 1000.
   </summary>
 </histogram>
 
@@ -1463,7 +1451,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSuggestions.Feed.UserActions" enum="FeedUserActionType"
-    expires_after="2026-08-09">
+    expires_after="2026-10-11">
   <owner>jianli@chromium.org</owner>
   <owner>feed@chromium.org</owner>
   <summary>
@@ -1552,7 +1540,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="Surface">
     <variant name="OpenFeed" summary="For-You Feed"/>
-    <variant name="OpenFeed.SingleWebFeed" summary="Single Web Feed"/>
     <variant name="OpenFeed.WebFeed" summary="Web Feed"/>
   </token>
   <token key="Status">
@@ -1625,28 +1612,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="ContentSuggestions.Feed.WebFeed.FollowByIdResult"
-    enum="WebFeedSubscriptionRequestStatus" expires_after="2024-07-28">
-  <owner>harringtond@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    Android: The result of following a WebFeed when the Web Feed ID is known.
-    Reported when the follow is attempted, once per request. Triggered by a
-    user's request to follow a Web Feed.
-  </summary>
-</histogram>
-
-<histogram name="ContentSuggestions.Feed.WebFeed.FollowUriResult"
-    enum="WebFeedSubscriptionRequestStatus" expires_after="2024-06-30">
-  <owner>harringtond@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    Android: The result of following a WebFeed when the Web Feed ID is NOT
-    known. Reported when the follow is attempted, once per request. Triggered by
-    a user's request to follow a Web Feed.
-  </summary>
-</histogram>
-
 <histogram name="ContentSuggestions.Feed.WebFeed.GetRssLinksRendererTime"
     units="microseconds" expires_after="2023-03-01">
   <owner>carlosk@chromium.org</owner>
@@ -1658,128 +1623,6 @@ chromium-metrics-reviews@google.com.
     is recorded every time the renderer fulfills a request for these links,
     currently only requested by the web feeds system. This histogram is only
     logged in platforms with high-resolution clocks.
-  </summary>
-</histogram>
-
-<histogram
-    name="ContentSuggestions.Feed.WebFeed.LoadedCardCount.{ContentOrder}"
-    units="index" expires_after="2023-07-23">
-  <owner>harringtond@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    Android: Reports the total number of {ContentOrder} cards in the Following
-    feed when data is successfully loaded to be presented to the user. Reported
-    after an initial load. Only one of 'Grouped' or 'ReverseChron' is reported
-    for each stream load.
-  </summary>
-  <token key="ContentOrder">
-    <variant name="Grouped" summary="Grouped"/>
-    <variant name="ReverseChron" summary="ReverseChron"/>
-  </token>
-</histogram>
-
-<histogram name="ContentSuggestions.Feed.WebFeed.NewFollow.ChangeReason"
-    enum="WebFeedChangeReason" expires_after="2024-06-30">
-  <owner>harringtond@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    Change reason for the follow.
-
-    Reported upon successfully following a web feed. Reported as 'true' if the
-    web feed was recommended, even if the user did not see or interact with
-    recommendation UI.
-  </summary>
-</histogram>
-
-<histogram name="ContentSuggestions.Feed.WebFeed.PageInformationRequested"
-    enum="WebFeedPageInformationRequestReason" expires_after="2023-03-01">
-  <owner>carlosk@chromium.org</owner>
-  <owner>harringtond@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    Records the reason why the web feeds system is requesting information from
-    the renderer process about a loaded web page.
-  </summary>
-</histogram>
-
-<histogram name="ContentSuggestions.Feed.WebFeed.PostFollowDialog.Show"
-    enum="WebFeedPostFollowDialogPresentation" expires_after="2024-04-28">
-  <owner>harringtond@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    Android: Reports which presentation of the post-follow dialog is shown.
-    Reported when the post-follow dialog is displayed, after the user follows a
-    Web Feed.
-  </summary>
-</histogram>
-
-<histogram name="ContentSuggestions.Feed.WebFeed.QueryResult"
-    enum="WebFeedQueryRequestStatus" expires_after="2024-07-28">
-  <owner>jeffreycohen@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    Android: Reports the result of a user's request to query a Web Feed.
-    Reported after the query attempt has completed, once per request.
-  </summary>
-</histogram>
-
-<histogram name="ContentSuggestions.Feed.WebFeed.RefreshContentOrder"
-    enum="FeedContentOrder" expires_after="2023-07-23">
-  <owner>harringtond@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    The content order requested when refreshing content on the Following feed.
-    Reported before sending a refresh request to the server. Not reported for
-    NextPage requests.
-  </summary>
-</histogram>
-
-<histogram name="ContentSuggestions.Feed.WebFeed.RefreshRecommendedFeeds"
-    enum="WebFeedRefreshStatus" expires_after="2023-07-23">
-  <owner>harringtond@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    Android: Reports the status of attempting to refresh the list of recommended
-    Web Feeds from the server. The refresh occurrs periodically when the
-    information is stale.
-  </summary>
-</histogram>
-
-<histogram name="ContentSuggestions.Feed.WebFeed.RefreshSubscribedFeeds.{Kind}"
-    enum="WebFeedRefreshStatus" expires_after="2023-07-23">
-  <owner>harringtond@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    Android: Reports the status of attempting to refresh the list of subscribed
-    Web Feeds from the server. {Kind}
-  </summary>
-  <token key="Kind">
-    <variant name="Force"
-        summary="Refresh is forced to fetch the most up to date list."/>
-    <variant name="Stale"
-        summary="Refresh is triggered because stored subscriptions are stale."/>
-  </token>
-</histogram>
-
-<histogram name="ContentSuggestions.Feed.WebFeed.SortTypeWhenEngaged"
-    enum="FeedSortType" expires_after="2026-03-08">
-  <owner>adamta@google.com</owner>
-  <owner>sczs@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    The currently selected sort type when the user has engaged with the
-    Following feed.
-  </summary>
-</histogram>
-
-<histogram name="ContentSuggestions.Feed.WebFeed.UnfollowResult"
-    enum="WebFeedSubscriptionRequestStatus" expires_after="2025-09-28">
-  <owner>harringtond@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    Android: The result of attempting to unfollow a WebFeed. Reported when the
-    unfollow is attempted, once per request. Triggered by a user's request to
-    unfollow a Web Feed.
   </summary>
 </histogram>
 
@@ -1830,15 +1673,6 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="ContentSuggestions.SingleWebFeed.EntryPoint"
-    enum="SingleWebFeedEntryPoint" expires_after="2024-06-30">
-  <owner>jeffreyochen@chromium.org</owner>
-  <owner>creator@chromium.org</owner>
-  <summary>
-    Android: reports the entry point used to launch the single web feed view.
-  </summary>
-</histogram>
-
 <histogram name="ContentSuggestions.{FeedType}.Activity"
     enum="FeedActivityBucket" expires_after="2025-09-28">
   <owner>guiperez@google.com</owner>
@@ -1881,28 +1715,8 @@ chromium-metrics-reviews@google.com.
   <token key="FeedType">
     <variant name="Feed" summary="the For-You Feed"/>
     <variant name="Feed.AllFeeds" summary="all Feeds combined"/>
-    <variant name="Feed.SingleWebFeed" summary="the single web feed"/>
     <variant name="Feed.SupervisedFeed" summary="the supervised Feed"/>
     <variant name="Feed.WebFeed" summary="the Web Feed"/>
-  </token>
-</histogram>
-
-<histogram name="ContentSuggestions.{FeedType}.FollowCount.Engaged2"
-    units="follows" expires_after="2024-12-08">
-  <owner>harringtond@chromium.org</owner>
-  <owner>feed@chromium.org</owner>
-  <summary>
-    Android: The number of web feeds the user is following. Reported at most
-    once per feed visit, when the user engages (FeedEngagementType.Engaged,
-    non-Simple) with {FeedType}.
-  </summary>
-  <token key="FeedType">
-    <variant name="Feed" summary="the For-You feed"/>
-    <variant name="Feed.AllFeeds"
-        summary="either the For-You or Following/Web feed"/>
-    <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
-    <variant name="Feed.SupervisedFeed" summary="the supervised Feed"/>
-    <variant name="Feed.WebFeed" summary="the Following/Web Feed"/>
   </token>
 </histogram>
 
@@ -1917,7 +1731,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="FeedType">
     <variant name="Feed" summary="For-You Feed"/>
-    <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
     <variant name="Feed.SupervisedFeed" summary="the supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>
@@ -1942,7 +1755,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="FeedType">
     <variant name="Feed" summary="For-You Feed"/>
-    <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
     <variant name="Feed.SupervisedFeed" summary="the supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>
@@ -1959,7 +1771,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="FeedType">
     <variant name="Feed" summary="For-You Feed"/>
-    <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
     <variant name="Feed.SupervisedFeed" summary="Supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>
@@ -1975,7 +1786,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="FeedType">
     <variant name="Feed" summary="For-You Feed"/>
-    <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
     <variant name="Feed.SupervisedFeed" summary="Supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>
@@ -1988,13 +1798,12 @@ chromium-metrics-reviews@google.com.
   <owner>feed@chromium.org</owner>
   <summary>
     Android: Status of loading new {FeedType} data in the background. Reported
-    any time Chrome attempts to fetch fresh Feed content in the background. This
-    is either due to a background fetch schedule, or when fetching the Web-Feed
-    while the For-You feed is active.
+    any time Chrome attempts to fetch fresh Feed content in the background.
+    Thisf is either due to a background fetch schedule, or when fetching the
+    Web-Feed while the For-You feed is active.
   </summary>
   <token key="FeedType">
     <variant name="Feed" summary="For-You Feed"/>
-    <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
     <variant name="Feed.SupervisedFeed" summary="the supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>
@@ -2010,7 +1819,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="FeedType">
     <variant name="Feed" summary="For-You Feed"/>
-    <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
     <variant name="Feed.SupervisedFeed" summary="the supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>
@@ -2029,7 +1837,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="FeedType">
     <variant name="Feed" summary="For-You Feed"/>
-    <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
     <variant name="Feed.SupervisedFeed" summary="the supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>
@@ -2045,7 +1852,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="FeedType">
     <variant name="Feed" summary="For-You Feed"/>
-    <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
     <variant name="Feed.SupervisedFeed" summary="the supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>
@@ -2068,7 +1874,6 @@ chromium-metrics-reviews@google.com.
     inserted in the middle of the feed.
   </summary>
   <token key="FeedType">
-    <variant name="Feed.SingleWebFeed" summary="the single Single Web feed"/>
     <variant name="Feed.SupervisedFeed" summary="the supervised Feed"/>
     <variant name="Feed.WebFeed" summary="the Web Feed"/>
   </token>
@@ -2088,7 +1893,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="FeedType">
     <variant name="Feed" summary="For-You Feed"/>
-    <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
     <variant name="Feed.SupervisedFeed" summary="the supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>
@@ -2105,7 +1909,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="FeedType">
     <variant name="Feed" summary="For-You Feed"/>
-    <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
     <variant name="Feed.SupervisedFeed" summary="the supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>
@@ -2129,7 +1932,6 @@ chromium-metrics-reviews@google.com.
     requested more that got inserted in the middle of the feed.
   </summary>
   <token key="FeedType">
-    <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
     <variant name="Feed.SupervisedFeed" summary="Supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>
@@ -2147,7 +1949,6 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="FeedType">
     <variant name="Feed" summary="For-You Feed"/>
-    <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
     <variant name="Feed.SupervisedFeed" summary="the supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>

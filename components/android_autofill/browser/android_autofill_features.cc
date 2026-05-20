@@ -20,7 +20,9 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &kAndroidAutofillLazyFrameworkWrapper,
     &kAutofillVirtualViewStructureAndroidPasskeyLongPress,
     &kAndroidAutofillForwardIframeOrigin,
-    &kAndroidAutofillImprovedVisibilityDetection};
+    &kAndroidAutofillImprovedVisibilityDetection,
+    &kAndroidAutofillFieldsUpdatedOnSelect,
+    &kAndroidAutofillSupportForHttpAuthOrigin};
 
 }  // namespace
 
@@ -57,6 +59,18 @@ BASE_FEATURE(kAndroidAutofillUpdateContextForWebContents,
 // autofill purposes. Functions as a kill switch. Remove in or after M146.
 BASE_FEATURE(kAndroidAutofillSupportForHttpAuth,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, fields are updated whenever a user interacts with a <select>.
+// TODO(crbug.com/502346855): Remove in M152 or later.
+BASE_FEATURE(kAndroidAutofillFieldsUpdatedOnSelect,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// LINT.IfChange
+// If enabled, the origin of the challenger is passed to the HttpAuth dialog for
+// autofill purposes. Remove in or after M153.
+BASE_FEATURE(kAndroidAutofillSupportForHttpAuthOrigin,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+// LINT.ThenChange(//chrome/android/DEPS)
 
 static int64_t JNI_AndroidAutofillFeatures_GetFeature(JNIEnv* env,
                                                       int32_t ordinal) {

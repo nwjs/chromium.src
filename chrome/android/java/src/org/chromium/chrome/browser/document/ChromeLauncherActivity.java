@@ -15,6 +15,8 @@ import android.os.Bundle;
 import android.provider.MediaStore;
 import android.text.TextUtils;
 
+import androidx.annotation.IntDef;
+
 import com.google.android.material.color.DynamicColors;
 
 import org.chromium.base.ContextUtils;
@@ -40,6 +42,9 @@ import org.chromium.chrome.browser.tabwindow.TabWindowInfo;
 import org.chromium.chrome.browser.webapps.WebappLauncherActivity;
 import org.chromium.webapk.lib.common.WebApkConstants;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
 /**
  * Dispatches incoming intents to the appropriate activity based on the current configuration and
  * Intent fired.
@@ -47,10 +52,12 @@ import org.chromium.webapk.lib.common.WebApkConstants;
 @NullMarked
 public class ChromeLauncherActivity extends Activity {
     private static final String TAG = "ActivityDispatcher";
+    private static final String HISTOGRAM_BRING_TAB_TO_FRONT_RESULT =
+            "Android.Intent.BringTabToFront.Result";
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
-        // Third-party code adds disk access to Activity.onCreate. http://crbug.com/619824
+        // Third-party code adds disk access to Activity.onCreate. http://crbug.com/41258729
         TraceEvent.begin("ChromeLauncherActivity.onCreate");
         boolean unparcelFds = ChromeFeatureList.sUnparcelIntentFileDescriptors.isEnabled();
         setIntent(IntentUtils.sanitizeIntent(getIntent(), unparcelFds));
@@ -95,7 +102,7 @@ public class ChromeLauncherActivity extends Activity {
         // check for a dead WebappActivity because we don't have that information without a global
         // TabManager.  If that ever lands, code to bring back any Tab could be consolidated
         // here instead of being spread between ChromeTabbedActivity and ChromeLauncherActivity.
-        // https://crbug.com/443772, https://crbug.com/522918
+        // https://crbug.com/40399032, https://crbug.com/40432274
         if (WebappLauncherActivity.bringWebappToFront(tabId)) return;
 
         if (bringTabActivityToFront(tabId, intent)) return;
@@ -122,6 +129,24 @@ public class ChromeLauncherActivity extends Activity {
         LaunchIntentDispatcher.dispatchToTabbedActivity(this, intent);
     }
 
+    // These values are persisted to logs. Entries should not be renumbered and
+    // numeric values should never be reused.
+    // LINT.IfChange(BringTabToFrontResult)
+    @IntDef({
+        BringTabToFrontResult.SUCCESS,
+        BringTabToFrontResult.FAILED_WINDOW_INFO_NOT_FOUND,
+        BringTabToFrontResult.FAILED_LAUNCH_IN_INSTANCE,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface BringTabToFrontResult {
+        int SUCCESS = 0;
+        int FAILED_WINDOW_INFO_NOT_FOUND = 1;
+        int FAILED_LAUNCH_IN_INSTANCE = 2;
+        int NUM_ENTRIES = 3;
+    }
+
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:BringTabToFrontResult)
+
     /**
      * Attempts to bring the tabbed activity instance containing the given tab to the foreground.
      *
@@ -144,9 +169,22 @@ public class ChromeLauncherActivity extends Activity {
 
         TabWindowInfo windowInfo =
                 TabWindowManagerSingleton.getInstance().getTabWindowInfoById(tabId);
-        if (windowInfo == null) return false;
+        if (windowInfo == null) {
+            RecordHistogram.recordEnumeratedHistogram(
+                    HISTOGRAM_BRING_TAB_TO_FRONT_RESULT,
+                    BringTabToFrontResult.FAILED_WINDOW_INFO_NOT_FOUND,
+                    BringTabToFrontResult.NUM_ENTRIES);
+            return false;
+        }
 
-        return MultiWindowUtils.launchIntentInInstance(intent, windowInfo.windowId);
+        boolean success = MultiWindowUtils.launchIntentInInstance(intent, windowInfo.windowId);
+        RecordHistogram.recordEnumeratedHistogram(
+                HISTOGRAM_BRING_TAB_TO_FRONT_RESULT,
+                success
+                        ? BringTabToFrontResult.SUCCESS
+                        : BringTabToFrontResult.FAILED_LAUNCH_IN_INSTANCE,
+                BringTabToFrontResult.NUM_ENTRIES);
+        return success;
     }
 
     @SuppressWarnings(value = "UnsafeImplicitIntentLaunch")

@@ -4,6 +4,7 @@
 
 package org.chromium.components.omnibox;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.text.format.DateUtils;
 
@@ -14,6 +15,7 @@ import com.google.android.gms.location.Priority;
 import org.chromium.base.BaseSwitches;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.SysUtils;
 import org.chromium.base.TimeUtils;
@@ -37,6 +39,8 @@ import java.util.List;
 /** This is the place where we define these: List of Omnibox features and parameters. */
 @NullMarked
 public class OmniboxFeatures {
+    private static final String TAG = "OmniboxFeatures";
+
     @IntDef({FeatureState.DISABLED, FeatureState.ENABLED_IN_TEST, FeatureState.ENABLED_IN_PROD})
     @Retention(RetentionPolicy.SOURCE)
     @interface FeatureState {
@@ -120,6 +124,9 @@ public class OmniboxFeatures {
     public static final CachedFlag sPlatformAgnosticXGeo =
             newFlag(OmniboxFeatureList.PLATFORM_AGNOSTIC_X_GEO, FeatureState.DISABLED);
 
+    public static final CachedFlag sInlineLocationSignaling =
+            newFlag(OmniboxFeatureList.INLINE_LOCATION_SIGNALING, FeatureState.DISABLED);
+
     public static final CachedFlag sAsyncViewInflation =
             newFlag(OmniboxFeatureList.OMNIBOX_ASYNC_VIEW_INFLATION, FeatureState.ENABLED_IN_TEST);
 
@@ -132,14 +139,11 @@ public class OmniboxFeatures {
     public static final CachedFlag sOmniboxSiteSearch =
             newFlag(OmniboxFeatureList.OMNIBOX_SITE_SEARCH, FeatureState.ENABLED_IN_TEST);
 
-    public static final CachedFlag sOmniboxMultimodalInput =
+    private static final CachedFlag sOmniboxMultimodalInput =
             newFlag(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT, FeatureState.ENABLED_IN_TEST);
 
     public static final BooleanCachedFeatureParam sShowDedicatedModeButton =
             newBooleanParam(sOmniboxMultimodalInput, "show_dedicated_mode_button", false);
-
-    public static final BooleanCachedFeatureParam sShowImageGenerationButtonInIncognito =
-            newBooleanParam(sOmniboxMultimodalInput, "show_image_gen_button_in_incognito", true);
 
     public static final BooleanCachedFeatureParam sCompactFusebox =
             newBooleanParam(sOmniboxMultimodalInput, "compact_fusebox", false);
@@ -149,6 +153,9 @@ public class OmniboxFeatures {
 
     public static final BooleanCachedFeatureParam sRedirectComposeplateButton =
             newBooleanParam(sOmniboxMultimodalInput, "redirect_composeplate_button", true);
+
+    public static final BooleanCachedFeatureParam sEnableAllFileTypes =
+            newBooleanParam(sOmniboxMultimodalInput, "all_file_types", false);
 
     /** A necessary but not sufficient condition to show the current tab button. */
     public static final BooleanCachedFeatureParam sAllowCurrentTab =
@@ -165,6 +172,12 @@ public class OmniboxFeatures {
     public static final BooleanCachedFeatureParam sShowBottomSheetPopup =
             newBooleanParam(sOmniboxMultimodalInput, "show_bottom_sheet_popup", false);
 
+    public static final BooleanCachedFeatureParam sUseAskHintForNtp =
+            newBooleanParam(sOmniboxMultimodalInput, "use_ask_hint_for_ntp", false);
+
+    public static final CachedFlag sAndroidDesktopAimGate =
+            newFlag(OmniboxFeatureList.ANDROID_DESKTOP_AIM_GATE, FeatureState.ENABLED_IN_TEST);
+
     public static final CachedFlag sMultilineEditField =
             newFlag(OmniboxFeatureList.MULTILINE_EDIT_FIELD, FeatureState.ENABLED_IN_PROD);
 
@@ -175,13 +188,16 @@ public class OmniboxFeatures {
             newFlag(OmniboxFeatureList.ANDROID_HUB_SEARCH_TAB_GROUPS, FeatureState.ENABLED_IN_PROD);
 
     public static final CachedFlag sOmniboxImprovementForLFF =
-            newFlag(OmniboxFeatureList.OMNIBOX_IMPROVEMENT_FOR_LFF, FeatureState.ENABLED_IN_TEST);
+            newFlag(OmniboxFeatureList.OMNIBOX_IMPROVEMENT_FOR_LFF, FeatureState.ENABLED_IN_PROD);
 
-    public static final CachedFlag sRemoveSearchReadyOmnibox =
-            newFlag(OmniboxFeatureList.REMOVE_SEARCH_READY_OMNIBOX, FeatureState.DISABLED);
+    public static final CachedFlag sAIMSuppressVerbatimMatch =
+            newFlag(OmniboxFeatureList.AIM_SUPPRESS_VERBATIM_MATCH, FeatureState.ENABLED_IN_PROD);
 
     public static final CachedFlag sOmniboxItemDecoration =
-            newFlag(OmniboxFeatureList.OMNIBOX_ITEM_DECORATION, FeatureState.DISABLED);
+            newFlag(OmniboxFeatureList.OMNIBOX_ITEM_DECORATION, FeatureState.ENABLED_IN_TEST);
+
+    public static final CachedFlag sExactMatchFavicons =
+            newFlag(OmniboxFeatureList.EXACT_MATCH_FAVICONS, FeatureState.DISABLED);
 
     public static final CachedFlag sServeJavaCachedZeroSuggest =
             newFlag(
@@ -191,9 +207,6 @@ public class OmniboxFeatures {
     public static final CachedFlag sResetSuggestionsScroll =
             newFlag(OmniboxFeatureList.RESET_SUGGESTIONS_SCROLL, FeatureState.DISABLED);
 
-    public static final BooleanCachedFeatureParam sRemoveSroIncludingVerbatimMatch =
-            newBooleanParam(
-                    sRemoveSearchReadyOmnibox, "remove_sro_including_verbatim_match", false);
     public static final IntCachedFeatureParam sGeolocationRequestTimeoutMinutes =
             newIntParam(
                     sUseFusedLocationProvider,
@@ -252,13 +265,13 @@ public class OmniboxFeatures {
 
     // This parameter enables showing the switch-to-tab chip on large form factors.
     public static final BooleanCachedFeatureParam sOmniboxImprovementForLFFSwitchToTabChip =
-            newBooleanParam(sOmniboxImprovementForLFF, "switch_to_tab_chip", false);
+            newBooleanParam(sOmniboxImprovementForLFF, "switch_to_tab_chip", true);
 
     // This parameter enables removing suggestion via "x" button.
     public static final BooleanCachedFeatureParam
             sOmniboxImprovementForLFFRemoveSuggestionViaButton =
                     newBooleanParam(
-                            sOmniboxImprovementForLFF, "remove_suggestion_via_button", false);
+                            sOmniboxImprovementForLFF, "remove_suggestion_via_button", true);
 
     // This parameter enables persisting editing state.
     public static final BooleanCachedFeatureParam sOmniboxImprovementForLFFPersistEditingState =
@@ -270,8 +283,11 @@ public class OmniboxFeatures {
     public static final BooleanCachedFeatureParam sDiagInputConnection =
             newBooleanParam(sDiagnostics, "omnibox_diag_input_connection", false);
 
-    /** See {@link #setShouldRetainOmniboxOnFocusForTesting(boolean)}. */
-    private static @Nullable Boolean sShouldRetainOmniboxOnFocusForTesting;
+    /** See {@link #setHasDesktopExperienceForTesting(boolean)}. */
+    private static @Nullable Boolean sHasDesktopExperienceForTesting;
+
+    /** See {@link #setIsDesktopPlatformForTesting(boolean)}. */
+    private static @Nullable Boolean sIsDesktopPlatformForTesting;
 
     /** When enabled, Jump Start Omnibox is activated and can engage if the feature is enabled. */
     private static @Nullable Boolean sActivateJumpStartOmnibox;
@@ -397,34 +413,68 @@ public class OmniboxFeatures {
         return inputCount >= DEFAULT_RICH_INLINE_MIN_CHAR;
     }
 
-    /** Modifies the output of {@link #shouldRetainOmniboxOnFocus()} for testing. */
-    public static void setShouldRetainOmniboxOnFocusForTesting(Boolean shouldRetainOmniboxOnFocus) {
-        sShouldRetainOmniboxOnFocusForTesting = shouldRetainOmniboxOnFocus;
-        ResettersForTesting.register(() -> sShouldRetainOmniboxOnFocusForTesting = null);
+    /** Modifies the output of {@link #hasDesktopExperience()} for testing. */
+    public static void setHasDesktopExperienceForTesting(Boolean hasDesktopExperience) {
+        sHasDesktopExperienceForTesting = hasDesktopExperience;
+        ResettersForTesting.register(() -> sHasDesktopExperienceForTesting = null);
+    }
+
+    /** Returns whether the device type is supported for Fusebox. */
+    public static boolean isFuseboxSupportedDeviceType() {
+        return !DeviceInfo.isAutomotive() && !DeviceInfo.isXr() && !DeviceInfo.isTV();
     }
 
     /**
-     * @return Whether the device is in a desktop-like configuration (tablet with a physical
-     *     keyboard and precision pointer).
+     * Return whether the device is in a desktop-like configuration (interacted with using physical
+     * keyboard and precision pointer).
+     *
+     * <p>We're not limiting to tablet modes here, because narrow windows on LFF devices are
+     * eligible for Desktop treatment, too.
+     *
+     * @param context the context to use to determine device form factor
      */
-    public static boolean isDesktopMode() {
-        return DeviceFormFactor.isTablet()
+    public static boolean hasDesktopExperience(Context context) {
+        if (sHasDesktopExperienceForTesting != null) {
+            return sHasDesktopExperienceForTesting;
+        }
+
+        return DeviceFormFactor.isNonMultiDisplayContextOnTablet(context)
                 && DeviceInput.supportsAlphabeticKeyboard()
                 && DeviceInput.supportsPrecisionPointer();
     }
 
+    /** Modifies the output of {@link #isDesktopPlatform()} for testing. */
+    public static void setIsDesktopPlatformForTesting(Boolean isDesktopPlatform) {
+        sIsDesktopPlatformForTesting = isDesktopPlatform;
+        ResettersForTesting.register(() -> sIsDesktopPlatformForTesting = null);
+    }
+
     /**
-     * @return Whether the contents of the omnibox should be retained on focus as opposed to being
-     *     cleared. When {@code true} and the omnibox contents are retained, focus events will also
-     *     result in the omnibox contents being fully selected so as to allow for easy replacement
-     *     by the user. Note that only large screen devices with an attached keyboard and precision
-     *     pointer will exhibit a change in behavior when the feature flag is enabled.
+     * Return whether the current platform is specifically a desktop platform.
+     *
+     * <p>This call should be used sparingly - only to gate features that are strictly Desktop
+     * specific. All other calls should defer to {@link #hasDesktopExperience()}.
      */
-    public static boolean shouldRetainOmniboxOnFocus() {
-        if (sShouldRetainOmniboxOnFocusForTesting != null) {
-            return sShouldRetainOmniboxOnFocusForTesting;
+    public static boolean isDesktopPlatform() {
+        if (sIsDesktopPlatformForTesting != null) {
+            return sIsDesktopPlatformForTesting;
         }
-        return isDesktopMode();
+        return DeviceInfo.isDesktop();
+    }
+
+    /**
+     * Explicitly disable fusebox for desktop for release users, but not for tests or for local
+     * development. Fusebox feature checks should go through this instead of the feature directly.
+     * This should be removed in a milestone or two, before fusebox launch for desktop.
+     *
+     * <p>Checks whether the fusebox is enabled for the current combination of context, device and
+     * flag state, disabling the fusebox on unsupported device and experience configurations.
+     */
+    public static boolean isMultimodalInputEnabled(Context context) {
+        if (isDesktopPlatform() || hasDesktopExperience(context)) {
+            return sAndroidDesktopAimGate.isEnabled() && sOmniboxMultimodalInput.isEnabled();
+        }
+        return sOmniboxMultimodalInput.isEnabled();
     }
 
     /**

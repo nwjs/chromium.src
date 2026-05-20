@@ -9,33 +9,41 @@ chrome.test.runTests([
     let callsCompleted = 0;
     function setComplete() {
       ++callsCompleted;
-      if (callsCompleted == 4) {
-        chrome.test.succeed()
+      if (callsCompleted === 4) {
+        chrome.test.succeed();
       }
     }
 
     // Embedded patterns.
-    cs['images'].set({
-      primaryPattern: 'http://google.com/*',
-      secondaryPattern: 'http://example.com/*',
-      setting: 'allow'
-    }, setComplete);
-    cs['location'].set({
-      primaryPattern: 'http://google.com/*',
-      secondaryPattern: 'http://example.com/*',
-      setting: 'allow'
-    }, setComplete);
+    cs['images'].set(
+        {
+          primaryPattern: 'http://google.com/*',
+          secondaryPattern: 'http://example.com/*',
+          setting: 'allow',
+        },
+        setComplete);
+    cs['location'].set(
+        {
+          primaryPattern: 'http://google.com/*',
+          secondaryPattern: 'http://example.com/*',
+          setting: 'allow',
+        },
+        setComplete);
 
     // Top level patterns.
-    cs['images'].set({
-      primaryPattern: 'http://google.com/*',
-      secondaryPattern: 'http://google.com/*',
-      setting: 'allow'
-    }, setComplete);
-    cs['cookies'].set({
-      primaryPattern: 'http://google.com/*',
-      secondaryPattern: '<all_urls>',
-      setting: 'allow'
-    }, setComplete);
+    cs['images'].set(
+        {
+          primaryPattern: 'http://google.com/*',
+          secondaryPattern: 'http://google.com/*',
+          setting: 'allow',
+        },
+        setComplete);
+    cs['cookies'].set(
+        {
+          primaryPattern: 'http://google.com/*',
+          secondaryPattern: '<all_urls>',
+          setting: 'allow',
+        },
+        setComplete);
   },
 ]);

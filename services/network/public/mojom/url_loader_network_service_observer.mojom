@@ -9,11 +9,15 @@ import "mojo/public/mojom/base/string16.mojom";
 import "mojo/public/mojom/base/time.mojom";
 import "mojo/public/mojom/base/unguessable_token.mojom";
 import "services/network/public/mojom/ad_auction.mojom";
+import "services/network/public/mojom/auth.mojom";
 import "services/network/public/mojom/cookie_partition_key.mojom";
+import "services/network/public/mojom/http_response_headers.mojom";
 import "services/network/public/mojom/ip_address.mojom";
 import "services/network/public/mojom/ip_address_space.mojom";
 import "services/network/public/mojom/network_param.mojom";
 import "services/network/public/mojom/shared_storage.mojom";
+import "services/network/public/mojom/ssl_info.mojom";
+import "services/network/public/mojom/x509_certificate.mojom";
 import "url/mojom/origin.mojom";
 import "url/mojom/url.mojom";
 
@@ -92,17 +96,17 @@ interface ClientCertificateResponder {
 // net::SSLPrivateKey::SignCallback.
 interface SSLPrivateKey {
   // Sign |input| using the private key and |algorithm|.
-  Sign(uint16 algorithm,
-       array<uint8> input) => (int32 net_error, array<uint8> signature);
+  Sign(uint16 algorithm, array<uint8> input)
+      => (int32 net_error, array<uint8> signature);
 };
 
 // The |credentials| output parameter is given to URLRequest::SetAuth()
 // through this mojo interface. It is not set when URLRequest::CancelAuth()
 // needs to be called.
 interface AuthChallengeResponder {
-   // Called in response to an authentication request. See
-   // URLLoaderNetworkServiceObserver::OnAuthRequired.
-   OnAuthCredentials(AuthCredentials? credentials);
+  // Called in response to an authentication request. See
+  // URLLoaderNetworkServiceObserver::OnAuthRequired.
+  OnAuthCredentials(AuthCredentials? credentials);
 };
 
 // This interface is used by an URLLoaderFactory to provide notification
@@ -112,10 +116,9 @@ interface URLLoaderNetworkServiceObserver {
   // Called when an SSL certificate error is encountered.
   // The callback argument is a net::ERROR value. If it's net::OK, then the
   // request is resumed. Otherwise it's cancelled with the given error.
-  OnSSLCertificateError(url.mojom.Url url,
-                        int32 net_error,
-                        SSLInfo ssl_info,
-                        bool fatal) => (int32 net_error);
+  OnSSLCertificateError(
+      url.mojom.Url url, int32 net_error, SSLInfo ssl_info, bool fatal)
+      => (int32 net_error);
 
   // Called when an SSL certificate requested message is received for client
   // authentication.
@@ -165,8 +168,14 @@ interface URLLoaderNetworkServiceObserver {
   // that there aren't any race conditions to worry about with respect to the
   // permission value.
   OnLocalNetworkAccessPermissionRequired(
-      TransportType transport_type,
-      IPAddressSpace ip_address_space) => (LocalNetworkAccessResult result);
+      TransportType transport_type, IPAddressSpace ip_address_space)
+      => (LocalNetworkAccessResult result);
+
+  // Called when a platform-specific (OS-level) Local Network Access permission
+  // prompt is required.
+  // This must not be called again while a previous call's response is pending.
+  // Returns true if the user granted the permission.
+  OnPlatformLocalNetworkPermissionRequired() => (bool granted);
 
   // Called when the Clear-Site-Data header has been received. The callback
   // should be run after the data is deleted.
@@ -215,7 +224,8 @@ interface URLLoaderNetworkServiceObserver {
   // synchronous so that we can guarantee that order is preserved between calls
   // triggered by response headers and Shared Storage calls from the same
   // renderer process where this request originated.
-  OnSharedStorageHeaderReceived(url.mojom.Origin request_origin,
+  OnSharedStorageHeaderReceived(
+      url.mojom.Origin request_origin,
       network.mojom.SharedStorageBatchUpdateMethodsArgument methods_with_options,
       network.mojom.LockName? with_lock) => ();
 
@@ -243,9 +253,8 @@ interface URLLoaderNetworkServiceObserver {
 
   // Called when a URLLoader is connected to a local or loopback IP address
   // space.
-  OnUrlLoaderConnectedToLocalNetwork(
-      url.mojom.Url request_url,
-      IPAddressSpace response_address_space,
-      IPAddressSpace client_address_space,
-      IPAddressSpace target_address_space);
+  OnUrlLoaderConnectedToLocalNetwork(url.mojom.Url request_url,
+                                     IPAddressSpace response_address_space,
+                                     IPAddressSpace client_address_space,
+                                     IPAddressSpace target_address_space);
 };

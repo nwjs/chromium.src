@@ -23,7 +23,7 @@
 #include "chrome/browser/ssl/https_upgrades_util.h"
 #include "chrome/browser/ssl/insecure_form/insecure_form_controller_client.h"
 #include "chrome/browser/ssl/ssl_error_controller_client.h"
-#include "chrome/browser/ui/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_features.h"
 #include "components/safe_browsing/core/browser/safe_browsing_metrics_collector.h"
@@ -53,10 +53,11 @@
 #include "chrome/browser/captive_portal/captive_portal_service_factory.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/captive_portal/content/captive_portal_tab_helper.h"
@@ -161,6 +162,38 @@ ChromeSecurityBlockingPageFactory::CreateSSLPage(
   std::unique_ptr<SSLBlockingPage> page;
 
   page = std::make_unique<SSLBlockingPage>(
+      web_contents, cert_error, ssl_info, request_url, options_mask,
+      time_triggered, support_url, overridable,
+      /*can_show_enhanced_protection_message=*/true,
+      std::move(controller_client));
+
+  return page;
+}
+
+std::unique_ptr<LocalSelfSignedBlockingPage>
+ChromeSecurityBlockingPageFactory::CreateLocalSelfSignedBlockingPage(
+    content::WebContents* web_contents,
+    net::Error cert_error,
+    const net::SSLInfo& ssl_info,
+    const GURL& request_url,
+    int options_mask,
+    const base::Time& time_triggered,
+    const GURL& support_url) {
+  bool overridable = SSLBlockingPage::IsOverridable(options_mask);
+  std::unique_ptr<ContentMetricsHelper> metrics_helper(
+      CreateMetricsHelperAndStartRecording(
+          web_contents, request_url,
+          overridable ? "ssl_overridable" : "ssl_nonoverridable", overridable));
+
+  LogSafeBrowsingSecuritySensitiveAction(
+      safe_browsing::SafeBrowsingMetricsCollectorFactory::GetForProfile(
+          Profile::FromBrowserContext(web_contents->GetBrowserContext())));
+
+  auto controller_client = std::make_unique<SSLErrorControllerClient>(
+      web_contents, ssl_info, cert_error, request_url,
+      std::move(metrics_helper), CreateSettingsPageHelper());
+
+  auto page = std::make_unique<LocalSelfSignedBlockingPage>(
       web_contents, cert_error, ssl_info, request_url, options_mask,
       time_triggered, support_url, overridable,
       /*can_show_enhanced_protection_message=*/true,
@@ -419,7 +452,10 @@ void ChromeSecurityBlockingPageFactory::OpenLoginTabForWebContents(
     content::WebContents* web_contents,
     bool focus_tab) {
   OpenLoginPageForBrowser(
-      [&web_contents]() { return chrome::FindBrowserWithTab(web_contents); },
+      [&web_contents]() {
+        return GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+            web_contents);
+      },
       focus_tab);
 }
 
@@ -428,7 +464,8 @@ void ChromeSecurityBlockingPageFactory::
     OpenLoginPageInAnyTabbedBrowserOrCreateOne(Profile* profile,
                                                bool focus_tab) {
   auto lambda = [&profile]() -> BrowserWindowInterface* {
-    BrowserWindowInterface* browser = chrome::FindTabbedBrowser(profile, false);
+    BrowserWindowInterface* browser =
+        ProfileBrowserCollection::GetForProfile(profile)->FindTabbedBrowser();
     // Create browser if not exists.
     if (!browser && Browser::GetCreationStatusForProfile(profile) ==
                         Browser::CreationStatus::kOk) {

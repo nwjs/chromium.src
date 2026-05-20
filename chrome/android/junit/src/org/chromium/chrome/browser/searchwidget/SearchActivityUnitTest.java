@@ -29,6 +29,7 @@ import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getO
 import android.app.SearchManager;
 import android.content.Intent;
 import android.content.res.ColorStateList;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -91,6 +92,7 @@ import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.PageTransition;
+import org.chromium.ui.test.util.MockitoHelper;
 import org.chromium.url.GURL;
 
 import java.util.Map;
@@ -136,6 +138,7 @@ public class SearchActivityUnitTest {
     private ShadowActivity mShadowActivity;
     private SearchBoxDataProvider mDataProvider;
     private View mAnchorView;
+    private View mControlContainer;
 
     @Before
     public void setUp() {
@@ -167,6 +170,10 @@ public class SearchActivityUnitTest {
                 ContextCompat.getColor(mActivity, R.color.search_suggestion_bg_color));
         mAnchorView.setBackground(anchorViewBackground);
         mActivity.setAnchorViewForTesting(mAnchorView);
+
+        mControlContainer = new View(mActivity);
+        doReturn(mControlContainer).when(mActivity).findViewById(R.id.control_container);
+
         mActivity.setLocationBarCoordinatorForTesting(mLocationBarCoordinator);
 
         lenient().when(mLocationBar.getBackground()).thenReturn(mSearchBoxBackground);
@@ -731,7 +738,7 @@ public class SearchActivityUnitTest {
         setProfile(mProfile);
         mActivity.finishNativeInitialization();
 
-        ArgumentCaptor<Callback<Boolean>> captor = ArgumentCaptor.forClass(Callback.class);
+        ArgumentCaptor<Callback<Boolean>> captor = MockitoHelper.callbackCaptor();
         verify(mDelegate).showSearchEngineDialogIfNeeded(eq(mActivity), captor.capture());
 
         // Notify Activity that the search engine promo dialog was canceled.
@@ -750,7 +757,7 @@ public class SearchActivityUnitTest {
         setProfile(mProfile);
         mActivity.finishNativeInitialization();
 
-        ArgumentCaptor<Callback<Boolean>> captor = ArgumentCaptor.forClass(Callback.class);
+        ArgumentCaptor<Callback<Boolean>> captor = MockitoHelper.callbackCaptor();
         verify(mDelegate).showSearchEngineDialogIfNeeded(eq(mActivity), captor.capture());
 
         // "should never happen".
@@ -769,7 +776,7 @@ public class SearchActivityUnitTest {
         setProfile(mProfile);
         mActivity.finishNativeInitialization();
 
-        ArgumentCaptor<Callback<Boolean>> captor = ArgumentCaptor.forClass(Callback.class);
+        ArgumentCaptor<Callback<Boolean>> captor = MockitoHelper.callbackCaptor();
         verify(mDelegate).showSearchEngineDialogIfNeeded(eq(mActivity), captor.capture());
 
         // Notify Activity that the search engine promo dialog was completed.
@@ -800,7 +807,7 @@ public class SearchActivityUnitTest {
         setProfile(mProfile);
         mActivity.finishNativeInitialization();
 
-        ArgumentCaptor<Callback<Boolean>> captor = ArgumentCaptor.forClass(Callback.class);
+        ArgumentCaptor<Callback<Boolean>> captor = MockitoHelper.callbackCaptor();
         verify(mDelegate).showSearchEngineDialogIfNeeded(eq(mActivity), captor.capture());
 
         // Cancel activity, and notify that the search engine promo dialog was completed.
@@ -1115,34 +1122,46 @@ public class SearchActivityUnitTest {
         mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.HUB), false);
 
         // Assert that the search box has the correct color scheme on inflation.
+        int expectedRegularColor = mActivity.getColor(R.color.omnibox_suggestion_dropdown_bg);
         assertEquals(
-                ColorStateList.valueOf(mActivity.getColor(R.color.omnibox_suggestion_dropdown_bg)),
+                ColorStateList.valueOf(expectedRegularColor),
                 ((GradientDrawable) mAnchorView.getBackground()).getColor());
         verify(mSearchBoxBackground)
                 .setBackgroundColor(
                         ContextCompat.getColor(mActivity, R.color.search_suggestion_bg_color));
+        // Assert that the control container has the same color as the anchor view.
+        assertEquals(
+                expectedRegularColor,
+                ((ColorDrawable) mControlContainer.getBackground()).getColor());
 
         // Toggle the incognito state and check that the search box has the correct color scheme.
         mDataProvider.setIsIncognitoForTesting(true);
         mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.HUB), false);
 
+        int expectedIncognitoColor = mActivity.getColor(R.color.omnibox_dropdown_bg_incognito);
         assertEquals(
-                ColorStateList.valueOf(mActivity.getColor(R.color.omnibox_dropdown_bg_incognito)),
+                ColorStateList.valueOf(expectedIncognitoColor),
                 ((GradientDrawable) mAnchorView.getBackground()).getColor());
         verify(mSearchBoxBackground)
                 .setBackgroundColor(
                         ContextCompat.getColor(
                                 mActivity, R.color.toolbar_text_box_background_incognito));
+        assertEquals(
+                expectedIncognitoColor,
+                ((ColorDrawable) mControlContainer.getBackground()).getColor());
 
         // Toggle to non-incognito and check that the search box has the correct color scheme.
         mDataProvider.setIsIncognitoForTesting(false);
         mActivity.handleNewIntent(buildTestServiceIntent(IntentOrigin.HUB), false);
 
         assertEquals(
-                ColorStateList.valueOf(mActivity.getColor(R.color.omnibox_suggestion_dropdown_bg)),
+                ColorStateList.valueOf(expectedRegularColor),
                 ((GradientDrawable) mAnchorView.getBackground()).getColor());
         verify(mSearchBoxBackground, times(2))
                 .setBackgroundColor(
                         ContextCompat.getColor(mActivity, R.color.search_suggestion_bg_color));
+        assertEquals(
+                expectedRegularColor,
+                ((ColorDrawable) mControlContainer.getBackground()).getColor());
     }
 }

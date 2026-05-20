@@ -1,0 +1,15 @@
+{
+  "win-archive-rel": {
+    "additional_compile_targets": [
+      "all"
+    ],
+    "scripts": [
+      {
+        "module_name": "checkbins",
+        "module_scheme": "single",
+        "name": "checkbins",
+        "script": "checkbins.py"
+      }
+    ]
+  }
+}

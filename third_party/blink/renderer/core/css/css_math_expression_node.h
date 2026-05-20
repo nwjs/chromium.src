@@ -92,6 +92,11 @@ enum CalculationResultCategory {
   kCalcFrequency,
   kCalcResolution,
   kCalcIdent,
+  // kCalcPercentAngle is used for calc() expressions that mix <angle> and
+  // <percentage>. It is analogous to kCalcLengthFunction (for length+percent
+  // mixes), but the percentage resolves against a context-supplied angle
+  // (e.g. 360deg for conic-gradient color stops).
+  kCalcPercentAngle,
   kCalcOther,
 };
 using CalculationResultCategorySet =
@@ -1125,57 +1130,89 @@ struct DowncastTraits<CSSMathExpressionSiblingFunction> {
   }
 };
 
-// <random-value-sharing> = [ [ auto | <dashed-ident> ] || element-shared ]
-//                          | fixed <number [0,1]>
-// https://drafts.csswg.org/css-values-5/#typedef-random-value-sharing
-class CORE_EXPORT RandomValueSharing
-    : public GarbageCollected<RandomValueSharing> {
+// <random-cache-key> = auto | <random-name> | fixed <number [0,1]>
+// https://drafts.csswg.org/css-values-5/#typedef-random-cache-key
+class CORE_EXPORT RandomCacheKey : public GarbageCollected<RandomCacheKey> {
  public:
-  static const RandomValueSharing* Parse(CSSParserTokenStream& stream,
-                                         const CSSParserContext&,
-                                         CSSParserLocalContext&);
-  static const RandomValueSharing* Auto(const CSSParserLocalContext&);
-  static const RandomValueSharing* Fixed(double fixed_value);
+  static const RandomCacheKey* Parse(CSSParserTokenStream& stream,
+                                     const CSSParserContext&,
+                                     CSSParserLocalContext&);
+  static const RandomCacheKey* Auto(const CSSParserLocalContext&);
+  static const RandomCacheKey* Fixed(double fixed_value);
 
-  RandomValueSharing() = delete;
-  using ElementShared = base::StrongAlias<class ElementSharedTag, bool>;
-  RandomValueSharing(const AtomicString& name, ElementShared element_shared)
-      : value_(NameAndElementShared(name, element_shared)) {}
-  explicit RandomValueSharing(const CSSPrimitiveValue* fixed_value)
+  RandomCacheKey() = delete;
+  using ElementScoped = base::StrongAlias<class ElementScopedTag, bool>;
+  RandomCacheKey(const AtomicString& ident,
+                 ElementScoped element_scoped,
+                 const AtomicString& random_ua_ident)
+      : value_(RandomName(ident, element_scoped, random_ua_ident)) {}
+  explicit RandomCacheKey(const CSSPrimitiveValue* fixed_value)
       : value_(fixed_value) {}
 
   bool IsFixed() const;
   const CSSPrimitiveValue* GetFixed() const;
-  bool IsAuto() const;
-  const AtomicString& Name() const;
-  bool IsElementShared() const;
+  bool IsElementScoped() const;
 
-  bool operator==(const RandomValueSharing& other) const;
+  // For non-fixed values, returns a concatenated string of the identifier,
+  // property name, and property value index (if present). For fixed values,
+  // returns a null string.
+  AtomicString RandomNameForCaching() const;
+
+  bool operator==(const RandomCacheKey& other) const;
   String CssText() const;
   void Trace(Visitor* visitor) const;
 
  private:
-  // Used for non fixed <random-value-sharing> values, i.e.:
-  // [ [ auto | <dashed-ident> ] || element-shared ]
-  // "name" can refer to either the property name and property value index, or
-  // the random identifier.
-  struct NameAndElementShared {
-    NameAndElementShared() = delete;
-    explicit NameAndElementShared(
-        const AtomicString& random_name,
-        ElementShared element_shared = ElementShared(false))
-        : name(random_name), is_element_shared(element_shared) {}
-    bool operator==(const NameAndElementShared& other) const {
-      return name == other.name && is_element_shared == other.is_element_shared;
+  // Used for non fixed <random-cache-key> values, i.e.:
+  // <random-name> =  <dashed-ident> || element-scoped
+  //                        || [ property-scoped | property-index-scoped |
+  //                        <random-ua-ident> ]
+  // <random-ua-ident> = <custom-ident>
+  // https://drafts.csswg.org/css-values-5/#typedef-random-name
+  struct RandomName {
+    RandomName() = delete;
+    explicit RandomName(const AtomicString& random_ident,
+                        ElementScoped element_scoped,
+                        const AtomicString& random_ua_ident)
+        : ident(random_ident),
+          ua_ident(random_ua_ident),
+          is_element_scoped(element_scoped) {}
+    bool operator==(const RandomName& other) const {
+      return ident == other.ident &&
+             is_element_scoped == other.is_element_scoped &&
+             ua_ident == other.ua_ident;
     }
-    const AtomicString name;
-    ElementShared is_element_shared;
+    String CssText() const {
+      StringBuilder result;
+      if (ident) {
+        result.Append(ident);
+      }
+      if (is_element_scoped) {
+        if (!result.empty()) {
+          result.Append(" ");
+        }
+        result.Append("element-scoped");
+      }
+      if (ua_ident) {
+        if (!result.empty()) {
+          result.Append(" ");
+        }
+        result.Append(ua_ident);
+      }
+      return result.ToString();
+    }
+    // user specified dashed ident
+    const AtomicString ident;
+    // property index ident
+    const AtomicString ua_ident;
+    ElementScoped is_element_scoped;
   };
-  std::variant<NameAndElementShared, Member<const CSSPrimitiveValue>> value_;
+  std::variant<RandomName, Member<const CSSPrimitiveValue>> value_;
 };
 
 // <random()> = random( <random-value-sharing>? , <calc-sum>, <calc-sum>,
-// <calc-sum>? ) https://drafts.csswg.org/css-values-5/#random
+// <calc-sum>? )
+// https://drafts.csswg.org/css-values-5/#random
 class CORE_EXPORT CSSMathExpressionRandomFunction final
     : public CSSMathExpressionNode {
  public:
@@ -1187,7 +1224,7 @@ class CORE_EXPORT CSSMathExpressionRandomFunction final
   explicit CSSMathExpressionRandomFunction(
       base::PassKey<CSSMathExpressionRandomFunction>,
       CalculationResultCategory category,
-      const RandomValueSharing* random_value_sharing,
+      const RandomCacheKey* random_cache_key,
       const CSSMathExpressionNode* min,
       const CSSMathExpressionNode* max,
       const CSSMathExpressionNode* step,
@@ -1199,7 +1236,7 @@ class CORE_EXPORT CSSMathExpressionRandomFunction final
   // used value. To control that use `percentages_depend_on_used_value`
   // parameter.
   static CSSMathExpressionRandomFunction* Create(
-      const RandomValueSharing* random_value_sharing,
+      const RandomCacheKey* random_cache_key,
       HeapVector<Member<const CSSMathExpressionNode>>&& nodes,
       bool percentages_depend_on_used_value);
 
@@ -1247,9 +1284,7 @@ class CORE_EXPORT CSSMathExpressionRandomFunction final
     NOTREACHED();
   }
   bool HasInvalidAnchorFunctions(const CSSLengthResolver&) const final;
-  const RandomValueSharing* GetRandomValueSharing() const {
-    return random_value_sharing_;
-  }
+  const RandomCacheKey* GetRandomCacheKey() const { return random_cache_key_; }
   const CSSMathExpressionNode* Min() const { return min_; }
   const CSSMathExpressionNode* Max() const { return max_; }
   const CSSMathExpressionNode* Step() const { return step_; }
@@ -1260,7 +1295,7 @@ class CORE_EXPORT CSSMathExpressionRandomFunction final
   std::optional<double> GetValueIfKnown() const final { return std::nullopt; }
 
  private:
-  Member<const RandomValueSharing> random_value_sharing_;
+  Member<const RandomCacheKey> random_cache_key_;
   Member<const CSSMathExpressionNode> min_;
   Member<const CSSMathExpressionNode> max_;
   Member<const CSSMathExpressionNode> step_;

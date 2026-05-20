@@ -12,24 +12,29 @@
 #include "base/base64.h"
 #include "base/command_line.h"
 #include "base/files/file_util.h"
+#include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
 #include "base/logging.h"
 #include "base/memory/read_only_shared_memory_region.h"
-#include "base/memory/shared_memory_switch.h"
 #include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "base/trace_event/trace_log.h"
 #include "base/values.h"
+#include "build/blink_buildflags.h"
 #include "build/build_config.h"
 #include "components/tracing/common/tracing_switches.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_config.h"
-#include "services/tracing/public/mojom/perfetto_service.mojom.h"
+#include "services/tracing/public/cpp/perfetto/perfetto_data_source_names.h"
 #include "third_party/perfetto/protos/perfetto/config/track_event/track_event_config.gen.h"
 #include "third_party/snappy/src/snappy.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/early_trace_event_binding.h"
+#endif
+
+#if BUILDFLAG(USE_BLINK)
+#include "base/memory/shared_memory_switch.h"
 #endif
 
 namespace tracing {
@@ -71,6 +76,10 @@ constexpr std::string_view kDefaultStartupCategories[] = {
     "download_service",
     "disabled-by-default-histogram_samples",
     "disabled-by-default-user_action_samples",
+#elif BUILDFLAG(IS_IOS)
+    "startup",       "browser",    "toplevel",
+    "toplevel.flow", "navigation", "loading",
+    "gpu",           "ui",         "disabled-by-default-histogram_samples",
 #else
     "benchmark",     "toplevel",         "startup", "disabled-by-default-file",
     "toplevel.flow", "download_service",
@@ -81,8 +90,14 @@ constexpr std::string_view kDefaultStartupCategories[] = {
 
 // static
 TraceStartupConfig& TraceStartupConfig::GetInstance() {
-  static base::NoDestructor<TraceStartupConfig> g_instance;
-  return *g_instance;
+  static base::NoDestructor<TraceStartupConfig> instance;
+  return *instance;
+}
+
+// static
+void TraceStartupConfig::ResetForTesting() {
+  GetInstance().Clear();
+  GetInstance().Initialize();
 }
 
 // static
@@ -112,19 +127,23 @@ perfetto::TraceConfig TraceStartupConfig::GetDefaultBackgroundStartupConfig() {
   track_event_data_source->set_name("track_event");
   {
     auto* source_config = config.add_data_sources()->mutable_config();
-    source_config->set_name(tracing::mojom::kMetaData2SourceName);
+    source_config->set_name(kMetaData2SourceName);
     source_config->set_target_buffer(1);
   }
 
 #if BUILDFLAG(IS_ANDROID)
   config.add_data_sources()->mutable_config()->set_name(
-      tracing::mojom::kSamplerProfilerSourceName);
+      kSamplerProfilerSourceName);
 #endif
   tracing::AdaptPerfettoConfigForChrome(&config, true, true);
   return config;
 }
 
 TraceStartupConfig::TraceStartupConfig() {
+  Initialize();
+}
+
+void TraceStartupConfig::Initialize() {
   auto* command_line = base::CommandLine::ForCurrentProcess();
   const std::string value =
       command_line->GetSwitchValueASCII(switches::kTraceStartupOwner);
@@ -147,6 +166,15 @@ TraceStartupConfig::TraceStartupConfig() {
     DCHECK_EQ(SessionOwner::kBackgroundTracing, session_owner_);
     CHECK(GetResultFile().empty());
   }
+}
+
+void TraceStartupConfig::Clear() {
+  is_enabled_ = false;
+  perfetto_config_ = perfetto::TraceConfig();
+  result_file_ = base::FilePath();
+  session_owner_ = SessionOwner::kTracingController;
+  session_adopted_ = false;
+  output_format_ = OutputFormat::kProto;
 }
 
 TraceStartupConfig::~TraceStartupConfig() = default;
@@ -273,6 +301,7 @@ bool TraceStartupConfig::EnableFromCommandLine() {
 }
 
 bool TraceStartupConfig::EnableFromConfigHandle() {
+#if BUILDFLAG(USE_BLINK)
   auto* command_line = base::CommandLine::ForCurrentProcess();
   if (!command_line->HasSwitch(switches::kTraceConfigHandle)) {
     return false;
@@ -300,6 +329,9 @@ bool TraceStartupConfig::EnableFromConfigHandle() {
   }
   is_enabled_ = true;
   return true;
+#else
+  return false;
+#endif
 }
 
 bool TraceStartupConfig::EnableFromJsonConfigFile() {

@@ -218,6 +218,8 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   return self;
 }
 
+#pragma mark - UIViewController
+
 - (void)viewDidLoad {
   [super viewDidLoad];
 
@@ -395,6 +397,8 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   [self updateModuleWidth];
 }
 
+#pragma mark - UIContentContainer
+
 - (void)viewWillTransitionToSize:(CGSize)size
        withTransitionCoordinator:
            (id<UIViewControllerTransitionCoordinator>)coordinator {
@@ -561,7 +565,6 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
   DCHECK(
       [self.headerViewController.view isDescendantOfView:self.containerView]);
-  self.headerViewController.view.translatesAutoresizingMaskIntoConstraints = NO;
 
   // The view controllers have to be added in reverse order, so the array is
   // then reversed to reflect the visible order.
@@ -849,6 +852,14 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   _isAIMAllowed = allowed;
 }
 
+#pragma mark - NewTabPageHeaderViewControllerDelegate
+
+- (void)didChangeOmniboxPosition:
+    (NewTabPageHeaderViewController*)viewController {
+  CHECK_EQ(viewController, self.headerViewController);
+  [self updateFakeOmniboxForScrollPosition];
+}
+
 #pragma mark - UIScrollViewDelegate
 
 - (void)scrollViewDidScroll:(UIScrollView*)scrollView {
@@ -979,6 +990,9 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 #pragma mark - Scrolling Animations
 
 - (void)shiftTilesUpToFocusOmnibox {
+  if (IsComposeboxIOSEnabled()) {
+    return;
+  }
   // Add gesture recognizer to collection view when the omnibox is focused.
   [self.view addGestureRecognizer:self.tapGestureRecognizer];
 
@@ -1229,6 +1243,9 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
 // Shifts tiles down when defocusing the omnibox.
 - (void)shiftTilesDownForOmniboxDefocus {
+  if (IsComposeboxIOSEnabled()) {
+    return;
+  }
   if (self.shiftDownInProgress) {
     return;
   }
@@ -1385,11 +1402,20 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
   if (self.shouldAnimateHeader) {
     UIEdgeInsets insets = self.collectionView.safeAreaInsets;
+
+    BOOL animateScrollAnimation = !self.disableScrollAnimation;
+    if (IsChromeNextIaEnabled() && !IsSplitToolbarMode(self) &&
+        !CanShowTabStrip(self)) {
+      /// TODO(crbug.com/508170459): Implement NTP toolbars for split toolbar
+      /// mode.
+      animateScrollAnimation = NO;
+    }
+
     [self.headerViewController
         updateFakeOmniboxForOffset:[self adjustedOffset].y
                        screenWidth:self.collectionView.frame.size.width
                     safeAreaInsets:insets
-            animateScrollAnimation:!self.disableScrollAnimation];
+            animateScrollAnimation:animateScrollAnimation];
   }
 }
 
@@ -1946,6 +1972,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   // controller.
   [viewController willMoveToParentViewController:parentViewController];
   [parentViewController addChildViewController:viewController];
+  viewController.view.translatesAutoresizingMaskIntoConstraints = NO;
   [self.collectionView addSubview:viewController.view];
   [viewController didMoveToParentViewController:parentViewController];
 

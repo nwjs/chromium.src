@@ -28,11 +28,12 @@
 #import "components/search_engines/util.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
-#import "ios/chrome/browser/intelligence/bwg/model/bwg_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_page_context.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_ui_utils.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_feature_availability.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_prefs.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_utils.h"
@@ -50,6 +51,7 @@
 #import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/location_bar_badge_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/public/provider/chrome/browser/bwg/bwg_api.h"
@@ -73,18 +75,8 @@ NSMutableArray<NSString*>* ZeroStateSuggestionsAsNSArray(
 
 }  // namespace
 
-struct BwgTabHelper::ZeroStateSuggestions {
-  ZeroStateSuggestions() = default;
-  ~ZeroStateSuggestions() = default;
-
-  // The zero-state suggestions service.
-  mojo::Remote<ai::mojom::ZeroStateSuggestionsService> service;
-  std::unique_ptr<ai::ZeroStateSuggestionsServiceImpl> service_impl;
-
-  // The zero-state suggestions data for the current page.
-  std::optional<std::vector<std::string>> suggestions;
-  bool can_apply = false;
-};
+BwgTabHelper::ZeroStateSuggestions::ZeroStateSuggestions() = default;
+BwgTabHelper::ZeroStateSuggestions::~ZeroStateSuggestions() = default;
 
 BwgTabHelper::BwgTabHelper(web::WebState* web_state) : web_state_(web_state) {
   ProfileIOS* profile =
@@ -331,8 +323,12 @@ bool BwgTabHelper::IsGeminiAvailableForWebState() {
     return false;
   }
 
+  const GURL& url = web_state_->GetVisibleURL();
+  if (IsChromeNextIaEnabled() && IsUrlNtp(url)) {
+    return true;
+  }
+
   if (IsGeminiCopresenceEnabled() || IsGeminiFloatyAllPagesEnabled()) {
-    const GURL& url = web_state_->GetVisibleURL();
     if (!IsUrlEligibleForGemini(url)) {
       return false;
     }
@@ -343,6 +339,10 @@ bool BwgTabHelper::IsGeminiAvailableForWebState() {
 }
 
 bool BwgTabHelper::IsUrlEligibleForGemini(const GURL& url) {
+  if (IsChromeNextIaEnabled() && IsUrlNtp(url)) {
+    return true;
+  }
+
   if (!url.SchemeIsHTTPOrHTTPS()) {
     return false;
   }
@@ -408,7 +408,7 @@ void BwgTabHelper::DidStartNavigation(
 
   ProfileIOS* profile =
       ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
-  BwgService* gemini_service = GeminiServiceFactory::GetForProfile(profile);
+  GeminiService* gemini_service = GeminiServiceFactory::GetForProfile(profile);
   const bool gemini_available = IsGeminiAvailableForWebState() &&
                                 gemini_service &&
                                 gemini_service->IsProfileEligibleForGemini();
@@ -480,10 +480,13 @@ void BwgTabHelper::DidFinishNavigation(
       return;
     }
 
-    optimization_guide_decider_->CanApplyOptimization(
-        current_url, optimization_guide::proto::GLIC_CONTEXTUAL_CUEING,
-        base::BindOnce(&BwgTabHelper::OnCanApplyContextualCueingDecision,
-                       weak_ptr_factory_.GetWeakPtr(), current_url));
+    // Don't re-trigger Gemini contextual cues for same-document navigations.
+    if (!navigation_context->IsSameDocument()) {
+      optimization_guide_decider_->CanApplyOptimization(
+          current_url, optimization_guide::proto::GLIC_CONTEXTUAL_CUEING,
+          base::BindOnce(&BwgTabHelper::OnCanApplyContextualCueingDecision,
+                         weak_ptr_factory_.GetWeakPtr(), current_url));
+    }
   }
 }
 
@@ -674,7 +677,14 @@ void BwgTabHelper::OnCanApplyContextualCueingDecision(
 
   badge_config.badgeText = cue_label;
   badge_config.shouldHideBadgeAfterChipCollapse = true;
-  [location_bar_badge_commands_handler_ updateBadgeConfig:badge_config];
+  bool success = false;
+  if ([(id)location_bar_badge_commands_handler_
+          respondsToSelector:@selector(updateBadgeConfig:)]) {
+    [location_bar_badge_commands_handler_ updateBadgeConfig:badge_config];
+    success = true;
+  }
+  base::UmaHistogramBoolean("IOS.Gemini.LocationBarBadgeUpdateSuccess",
+                            success);
 }
 
 // Computes Gemini eligibility based on the presence of metadata.
@@ -715,7 +725,9 @@ void BwgTabHelper::OnGeminiEligibilityDecision(
 
   ProfileIOS* profile =
       ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
-  if (eligible && IsGeminiImageRemixToolEnabled() &&
+
+  if (eligible &&
+      gemini::IsFeatureAvailable(gemini::Feature::kImageRemix, profile) &&
       user_enabled_request_metadata &&
       feature_engagement::TrackerFactory::GetForProfile(profile)
           ->WouldTriggerHelpUI(

@@ -228,6 +228,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[autofill::prefs::kAutofillAiIdentityEntitiesEnabled] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[autofill::prefs::kAutofillAiShoppingEntitiesEnabled] =
+      settings_api::PrefType::kBoolean;
   (*s_allowlist)[autofill::prefs::kAutofillAiOptInStatus] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[autofill::prefs::kAutofillAiTravelEntitiesEnabled] =
@@ -325,7 +327,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
 #if BUILDFLAG(IS_CHROMEOS)
   (*s_allowlist)[ash::prefs::kNetworkFileSharesAllowed] =
       settings_api::PrefType::kBoolean;
-  (*s_allowlist)[::prefs::kMostRecentlyUsedNetworkFileShareURL] =
+  (*s_allowlist)[ash::prefs::kMostRecentlyUsedNetworkFileShareURL] =
       settings_api::PrefType::kString;
   (*s_allowlist)[drive::prefs::kDriveFsBulkPinningEnabled] =
       settings_api::PrefType::kBoolean;
@@ -392,8 +394,9 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[::prefs::kDnsOverHttpsAutomaticModeFallbackToDoh] =
       settings_api::PrefType::kBoolean;
 #if BUILDFLAG(IS_CHROMEOS)
-  (*s_allowlist)[::prefs::kDnsOverHttpsSalt] = settings_api::PrefType::kString;
-  (*s_allowlist)[::prefs::kDnsOverHttpsTemplatesWithIdentifiers] =
+  (*s_allowlist)[ash::prefs::kDnsOverHttpsSalt] =
+      settings_api::PrefType::kString;
+  (*s_allowlist)[ash::prefs::kDnsOverHttpsTemplatesWithIdentifiers] =
       settings_api::PrefType::kString;
 #endif
 
@@ -1317,6 +1320,9 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[contextual_tasks::kContextualTasksSiteExclusions] =
       settings_api::PrefType::kDictionary;
+  (*s_allowlist)[optimization_guide::prefs::GetSettingEnabledPrefName(
+      optimization_guide::UserVisibleFeatureKey::kContextualCueing)] =
+      settings_api::PrefType::kNumber;
 
   // AI enterprise prefs
   (*s_allowlist)
@@ -1336,9 +1342,12 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[optimization_guide::prefs::
                      kAutofillPredictionImprovementsEnterprisePolicyAllowed] =
       settings_api::PrefType::kNumber;
+  (*s_allowlist)
+      [optimization_guide::prefs::kContextualCueingEnterprisePolicyAllowed] =
+          settings_api::PrefType::kNumber;
 
   // Glic prefs
-  if (glic::GlicEnabling::IsEnabledByFlags()) {
+  if (glic::GlicEnabling::IsEnabledByGlobalCriteria()) {
     (*s_allowlist)[glic::prefs::kGlicPinnedToTabstrip] =
         settings_api::PrefType::kBoolean;
     (*s_allowlist)[glic::prefs::kGlicLauncherEnabled] =
@@ -1356,11 +1365,7 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
     (*s_allowlist)[glic::prefs::kGlicUserStatus] =
         settings_api::PrefType::kDictionary;
     (*s_allowlist)[prefs::kGeminiSettings] = settings_api::PrefType::kNumber;
-    (*s_allowlist)[glic::prefs::kGlicUserEnabledActuationOnWeb] =
-        settings_api::PrefType::kBoolean;
     (*s_allowlist)[glic::prefs::kGlicKeepSidepanelOpenOnNewTabsEnabled] =
-        settings_api::PrefType::kBoolean;
-    (*s_allowlist)[glic::prefs::kGlicExperimentalTriggeringEnabled] =
         settings_api::PrefType::kBoolean;
   }
 

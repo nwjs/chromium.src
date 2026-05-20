@@ -5,6 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_GRID_GRID_LAYOUT_UTILS_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_GRID_GRID_LAYOUT_UTILS_H_
 
+#include "base/functional/function_ref.h"
 #include "third_party/blink/renderer/core/layout/grid/grid_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/grid/grid_sizing_tree.h"
 #include "third_party/blink/renderer/core/style/grid_enums.h"
@@ -52,6 +53,13 @@ class BaselineAccumulator {
   virtual std::optional<LayoutUnit> FirstBaseline() const = 0;
   virtual std::optional<LayoutUnit> LastBaseline() const = 0;
 };
+
+// Performs a layout of `grid_item` for measurement purposes. Disables layout
+// side effects when appropriate.
+const LayoutResult* LayoutGridItemForMeasure(
+    const GridItemData& grid_item,
+    const ConstraintSpace& constraint_space,
+    SizingConstraint sizing_constraint);
 
 // Update the provided `available_size`, `min_available_size`, and
 // `max_available_size` to their appropriate values.
@@ -111,10 +119,12 @@ void AlignmentOffsetForOutOfFlow(AxisEdge inline_axis_edge,
 // force this to both true and false to get both potential contributions for use
 // later when more information is known about the tracks a virtual item spans.
 //
-// `min_content_contribution` and `max_content_contribution` are the content
-// based min and maximums for the provided `grid_item` respectively. If the item
-// is a subgrid, `subgrid_minmax_sizes` will be the min/max size result for the
-// subgrid.
+// `min_content_contribution`, `max_content_contribution`, and
+// `subgrid_minmax_sizes` are callbacks that lazily compute expensive layout
+// values only when actually needed. `min_content_contribution` and
+// `max_content_contribution` compute the content based min and maximum
+// contributions for the provided `grid_item` respectively.
+// `subgrid_minmax_sizes` computes the min/max size result for a subgrid item.
 //
 // This method will set `maybe_clamp` to true if the content based contribution
 // was returned and should be considered for clamping. Otherwise, it will be set
@@ -124,10 +134,10 @@ void AlignmentOffsetForOutOfFlow(AxisEdge inline_axis_edge,
 LayoutUnit CalculateIntrinsicMinimumContribution(
     bool is_parallel_with_track_direction,
     bool special_spanning_criteria,
-    const LayoutUnit min_content_contribution,
-    const LayoutUnit max_content_contribution,
+    base::FunctionRef<LayoutUnit()> min_content_contribution,
+    base::FunctionRef<LayoutUnit()> max_content_contribution,
+    base::FunctionRef<MinMaxSizesResult()> subgrid_minmax_sizes,
     const ConstraintSpace& space,
-    const MinMaxSizesResult& subgrid_minmax_sizes,
     const GridItemData* grid_item,
     bool& maybe_clamp);
 
@@ -149,6 +159,14 @@ LayoutUnit GetTrackBaseline(const GridItemData& grid_item,
 LayoutUnit GetLogicalBaseline(const LogicalBoxFragment& baseline_fragment,
                               FontBaseline font_baseline,
                               bool is_last_baseline);
+
+// Updates `layout_data` with a baseline value on the appropriate track for the
+// given item, based on its baseline-sharing group (major → start-most track,
+// minor → end-most track).
+void SetTrackBaseline(const GridItemData& grid_item,
+                      GridTrackSizingDirection track_direction,
+                      LayoutUnit baseline,
+                      GridLayoutData& layout_data);
 
 // Calculates and stores an item's baseline in the appropriate track.
 // `extra_margin` should include any margins and subgrid extra margins that need
@@ -398,12 +416,32 @@ bool ValidateMinMaxSizesCache(const BlockNode& grid_node,
                               const GridSizingSubtree& sizing_subtree,
                               GridTrackSizingDirection track_direction);
 
+// Returns true if an additional track sizing pass is needed after the block
+// size transitions from indefinite to definite.
+bool NeedsAdditionalLayoutPass(
+    const ComputedStyle& style,
+    const ConstraintSpace& constraint_space,
+    const BlockNode& node,
+    const BoxStrut& border_padding,
+    const GridSizingTrackCollection& track_collection,
+    LayoutUnit grid_inline_size);
+
 // Returns the synthesized logical baseline for a grid item. This is used when
 // computing min/max content contributions without a full layout result.
 LayoutUnit GetSynthesizedLogicalBaseline(
     const GridItemData& grid_item,
     LayoutUnit block_size,
     GridTrackSizingDirection track_direction);
+
+// Accommodates extra margins from subgrid items in the given track collection.
+// A subgrid's border/padding/margin can extend beyond the parent's track edges
+// and must be accounted for by flooring the base sizes of the edge tracks it
+// spans. For auto-placed subgrids in grid-lanes, the final position isn't known
+// yet, so the extra margins are accommodated at every possible start/end set
+// pair for the subgrid's set span size.
+void AccommodateSubgridExtraMargins(const GridSizingSubtree& sizing_subtree,
+                                    GridSizingTrackCollection& track_collection,
+                                    GridTrackSizingDirection track_direction);
 
 }  // namespace blink
 

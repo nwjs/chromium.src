@@ -19,6 +19,7 @@
 #include "base/test/bind.h"
 #include "base/test/gmock_expected_support.h"
 #include "base/test/icu_test_util.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
@@ -34,9 +35,11 @@
 #include "chrome/browser/themes/custom_theme_supplier.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/download/download_display.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
+#include "chrome/browser/ui/page_actions/page_action_properties_provider.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
@@ -52,8 +55,8 @@
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
-#include "chrome/browser/ui/views/page_action/page_action_properties_provider.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
+#include "chrome/browser/ui/views/toolbar/app_menu_control.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_test_helper.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_view.h"
@@ -78,6 +81,7 @@
 #include "chrome/browser/web_applications/test/web_app_test_observers.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
+#include "chrome/browser/web_applications/web_app_filter.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_origin_association_manager.h"
@@ -100,7 +104,6 @@
 #include "components/webapps/services/web_app_origin_association/test/test_web_app_origin_association_fetcher.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/page_zoom.h"
 #include "content/public/test/browser_test.h"
@@ -119,12 +122,16 @@
 #include "third_party/skia/include/core/SkRect.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/ozone_buildflags.h"
+#include "ui/events/event.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/layout/animating_layout_manager_test_util.h"
+#include "ui/views/test/button_test_api.h"
+#include "ui/views/test/dialog_test.h"
 #include "ui/views/test/views_test_utils.h"
 #include "ui/views/test/widget_activation_waiter.h"
 #include "ui/views/view.h"
@@ -194,7 +201,7 @@ content::EvalJsResult EvalDisplayStateChange(
             reject('window.$1() resolved, but ' +
             '`display-state: $2` not matched.');
           }
-        }).catch(() => reject('window.$1() rejected.'));
+        }).catch((e) => reject('window.$1() rejected: ' + e.message));
       });)";
   return content::EvalJs(
       execution_target,
@@ -343,7 +350,10 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, SpaceConstrained) {
   }
 
   views::View* const menu_button =
-      helper()->browser_view()->toolbar_button_provider()->GetAppMenuButton();
+      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+          kToolbarAppMenuButtonElementId,
+          views::ElementTrackerViews::GetContextForView(
+              helper()->browser_view()));
   EXPECT_EQ(menu_button->parent(), toolbar_right_container);
 
   // Ensure we initially have abundant space. Set the size from the root view
@@ -429,10 +439,11 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, ThemeChange) {
 #if !BUILDFLAG(IS_LINUX)
   // Avoid dependence on Linux GTK+ Themes appearance setting.
 
-  ToolbarButtonProvider* const toolbar_button_provider =
-      helper()->browser_view()->toolbar_button_provider();
-  AppMenuButton* const app_menu_button =
-      toolbar_button_provider->GetAppMenuButton();
+  AppMenuButton* const app_menu_button = views::AsViewClass<AppMenuButton>(
+      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+          kToolbarAppMenuButtonElementId,
+          views::ElementTrackerViews::GetContextForView(
+              helper()->browser_view())));
 
   auto get_ink_drop_color = [app_menu_button]() -> SkColor {
     return SkColorSetA(views::InkDrop::Get(app_menu_button)->GetBaseColor(),
@@ -542,7 +553,10 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest,
   helper()->InstallAndLaunchWebApp(browser(), app_url);
 
   views::View* const menu_button =
-      helper()->browser_view()->toolbar_button_provider()->GetAppMenuButton();
+      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+          kToolbarAppMenuButtonElementId,
+          views::ElementTrackerViews::GetContextForView(
+              helper()->browser_view()));
 
   EXPECT_EQ(menu_button->GetViewAccessibility().GetCachedName(),
             u"Customize and control A minimal-ui app");
@@ -553,9 +567,11 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest,
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest, MenuButtonUpdatePending) {
   const GURL app_url("https://test.org");
   webapps::AppId app_id = helper()->InstallAndLaunchWebApp(browser(), app_url);
-
-  WebAppMenuButton* const menu_button = static_cast<WebAppMenuButton*>(
-      helper()->browser_view()->toolbar_button_provider()->GetAppMenuButton());
+  WebAppMenuButton* const menu_button = views::AsViewClass<WebAppMenuButton>(
+      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+          kToolbarAppMenuButtonElementId,
+          views::ElementTrackerViews::GetContextForView(
+              helper()->browser_view())));
   EXPECT_FALSE(menu_button->IsLabelPresentAndVisible());
 
   // Set that the `update_info` was not ignored by the user.
@@ -613,9 +629,11 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest,
       "/web_apps/migration/migrate_from/no_migration_info.html");
   webapps::AppId app_id = web_app::InstallWebAppFromPage(browser(), app_url);
   helper()->LaunchWebAppBrowserAndWait(browser()->profile(), app_id);
-
-  WebAppMenuButton* const menu_button = static_cast<WebAppMenuButton*>(
-      helper()->browser_view()->toolbar_button_provider()->GetAppMenuButton());
+  WebAppMenuButton* const menu_button = views::AsViewClass<WebAppMenuButton>(
+      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+          kToolbarAppMenuButtonElementId,
+          views::ElementTrackerViews::GetContextForView(
+              helper()->browser_view())));
   EXPECT_FALSE(menu_button->IsLabelPresentAndVisible());
 
   // Set pending migration info by visiting a site with migration info pointing
@@ -649,9 +667,11 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest,
       web_app::ForceInstallWebApp(browser()->profile(), app_url).value();
   helper()->LaunchWebAppBrowserAndWait(browser()->profile(), app_id);
   provider().command_manager().AwaitAllCommandsCompleteForTesting();
-
-  WebAppMenuButton* const menu_button = static_cast<WebAppMenuButton*>(
-      helper()->browser_view()->toolbar_button_provider()->GetAppMenuButton());
+  WebAppMenuButton* const menu_button = views::AsViewClass<WebAppMenuButton>(
+      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+          kToolbarAppMenuButtonElementId,
+          views::ElementTrackerViews::GetContextForView(
+              helper()->browser_view())));
   EXPECT_FALSE(menu_button->IsLabelPresentAndVisible());
 }
 
@@ -1463,7 +1483,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
 
 // TODO(crbug.com/40827841): Enable for mac/win when flakiness has been fixed.
 #if !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_WIN)
-// Test to ensure crbug.com/1298226 won't reproduce.
+// Test to ensure crbug.com/40822808 won't reproduce.
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
                        PopupFromWcoAppToItself) {
   InstallAndLaunchWebApp();
@@ -1490,7 +1510,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
                   .ExtractBool());
 }
 
-// Test to ensure crbug.com/1298237 won't reproduce.
+// Test to ensure crbug.com/40822812 won't reproduce.
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
                        PopupFromWcoAppToAnyOtherWebsite) {
   InstallAndLaunchWebApp();
@@ -1536,7 +1556,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
   EXPECT_FALSE(bounds.IsEmpty());
 }
 
-// Test to ensure crbug.com/1353133 won't reproduce. It casts the frame_view to
+// Test to ensure crbug.com/40858241 won't reproduce. It casts the frame_view to
 // the ChromeOS's frame_view to have access to the caption_button_container_ so
 // it cannot be run on any other platform.
 #if BUILDFLAG(IS_CHROMEOS)
@@ -1703,7 +1723,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
   helper()->TestDraggableRegions();
 }
 
-// Regression test for https://crbug.com/1448878.
+// Regression test for https://crbug.com/40914522.
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
                        DraggableRegionsIgnoredForOwnedWidgets) {
   // TODO(https://crbug.com/329235190): In case accelerated widget is used for
@@ -1879,7 +1899,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
   EXPECT_FALSE(browser_view->IsWindowControlsOverlayEnabled());
 }
 
-// Regression test for https://crbug.com/1239443.
+// Regression test for https://crbug.com/40784780.
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
                        OpenWithOverlayEnabled) {
   webapps::AppId app_id = InstallAndLaunchWebApp();
@@ -1968,7 +1988,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
 
 // Extensions in  ChromeOS are not in the titlebar.
 #if !BUILDFLAG(IS_CHROMEOS)
-// Regression test for https://crbug.com/1351566.
+// Regression test for https://crbug.com/40857235.
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
                        ExtensionsIconVisibility) {
   webapps::AppId app_id = InstallAndLaunchWebApp();
@@ -2137,7 +2157,7 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
   EXPECT_FALSE(draggable_region.value().isEmpty());
 }
 
-// Regression test for https://crbug.com/1516830.
+// Regression test for https://crbug.com/41489813.
 IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_WindowControlsOverlay,
                        DragAfterNavigation) {
   InstallAndLaunchWebApp();
@@ -2197,6 +2217,7 @@ class WebAppFrameToolbarBrowserTest_AdditionalWindowingControls
   WebAppFrameToolbarBrowserTest_AdditionalWindowingControls() {
     scoped_feature_list_.InitWithFeatures(
         {blink::features::kDesktopPWAsAdditionalWindowingControls,
+         blink::features::kDesktopPWAsAdditionalWindowingControlsOnMove,
          blink::features::kDesktopPWAsTabStrip},
         {});
   }
@@ -2366,6 +2387,27 @@ class WebAppFrameToolbarBrowserTest_AdditionalWindowingControls
   base::ScopedTempDir temp_dir_;
   GURL second_page_url_;
 };
+
+IN_PROC_BROWSER_TEST_F(
+    WebAppFrameToolbarBrowserTest_AdditionalWindowingControls,
+    APIRejectedInBrowserMode) {
+  InstallAndLaunchWebApp();
+  helper()->GrantWindowManagementPermission();
+
+  auto* app_browser = helper()->app_browser();
+
+  // Switch to browser mode
+  ui_test_utils::BrowserDestroyedObserver observer(app_browser);
+  chrome::ExecuteCommand(app_browser, IDC_OPEN_IN_CHROME);
+  observer.Wait();
+
+  auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
+
+  EXPECT_THAT(EvalDisplayStateChange(web_contents, "maximize", "maximized"),
+              content::EvalJsResult::ErrorIs(testing::AllOf(
+                  testing::HasSubstr("window.maximize() rejected"),
+                  testing::HasSubstr("API is only supported in web apps."))));
+}
 
 IN_PROC_BROWSER_TEST_F(
     WebAppFrameToolbarBrowserTest_AdditionalWindowingControls,
@@ -3453,4 +3495,136 @@ IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarBrowserTest_ScopeExtensionsOriginText,
         helper()->app_browser()->app_controller()->ShouldShowCustomTabBar());
     ExpectLastCommittedUrl(nav_url);
   }
+}
+
+class WebAppFrameToolbarUninstallButtonTest
+    : public WebAppFrameToolbarBrowserTest {
+ private:
+  base::test::ScopedFeatureList feature_list_{features::kWebAppInstallDialog};
+};
+
+IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarUninstallButtonTest, ButtonExists) {
+  const GURL app_url("https://test.org");
+  webapps::AppId app_id = helper()->InstallAndLaunchWebApp(browser(), app_url);
+
+  WebAppToolbarButtonContainer* toolbar_right_container =
+      helper()->web_app_frame_toolbar()->get_right_container_for_testing();
+
+  // First launch: uninstall button should be visible.
+  EXPECT_NE(toolbar_right_container->uninstall_button(), nullptr);
+  EXPECT_TRUE(toolbar_right_container->uninstall_button()->GetVisible());
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarUninstallButtonTest,
+                       NotVisibleOnSecondLaunch) {
+  const GURL app_url("https://test.org");
+  webapps::AppId app_id = helper()->InstallAndLaunchWebApp(browser(), app_url);
+
+  WebAppToolbarButtonContainer* toolbar_right_container =
+      helper()->web_app_frame_toolbar()->get_right_container_for_testing();
+
+  // First launch: uninstall button should be visible.
+  EXPECT_NE(toolbar_right_container->uninstall_button(), nullptr);
+  EXPECT_TRUE(toolbar_right_container->uninstall_button()->GetVisible());
+
+  // Close the app and launch it again.
+  Browser* app_browser = helper()->app_browser();
+  ui_test_utils::BrowserDestroyedObserver browser_destroyed_observer(
+      app_browser);
+  app_browser->window()->Close();
+  browser_destroyed_observer.Wait();
+
+  helper()->LaunchWebAppBrowserAndWait(browser()->profile(), app_id);
+  toolbar_right_container =
+      helper()->web_app_frame_toolbar()->get_right_container_for_testing();
+
+  // Second launch: uninstall button should NOT be present.
+  EXPECT_EQ(toolbar_right_container->uninstall_button(), nullptr);
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarUninstallButtonTest, AppRemoved) {
+  base::HistogramTester histogram_tester;
+  const GURL app_url("https://test.org");
+  webapps::AppId app_id = helper()->InstallAndLaunchWebApp(browser(), app_url);
+
+  WebAppToolbarButtonContainer* toolbar_right_container =
+      helper()->web_app_frame_toolbar()->get_right_container_for_testing();
+
+  // First launch: uninstall button should be visible.
+  EXPECT_NE(toolbar_right_container->uninstall_button(), nullptr);
+  EXPECT_TRUE(toolbar_right_container->uninstall_button()->GetVisible());
+
+  auto uninstall_dialog_waiter =
+      std::make_unique<views::NamedWidgetShownWaiter>(
+          views::test::AnyWidgetTestPasskey{},
+          "WebAppUninstallDialogDelegateView");
+  Browser* app_browser = helper()->app_browser();
+  ui_test_utils::BrowserDestroyedObserver browser_destroyed_observer(
+      app_browser);
+
+  // Trigger uninstall by clicking the button, waiting for the uninstall dialog
+  // to show up, and then accepting that dialog. A successful uninstall should
+  // close the browser window.
+  views::test::ButtonTestApi test_api(
+      toolbar_right_container->uninstall_button());
+  test_api.NotifyClick(ui::MouseEvent(
+      ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
+      base::TimeTicks(), ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON));
+  views::Widget* uninstall_dialog =
+      uninstall_dialog_waiter->WaitIfNeededAndGet();
+  views::test::AcceptDialog(uninstall_dialog);
+  browser_destroyed_observer.Wait();
+
+  // Verify the app has been removed from the web app registry.
+  EXPECT_FALSE(
+      web_app::WebAppProvider::GetForWebApps(browser()->profile())
+          ->registrar_unsafe()
+          .AppMatches(app_id,
+                      web_app::WebAppFilter::IsAppEligibleForManifestUpdate()));
+  EXPECT_THAT(histogram_tester.GetAllSamples("Webapp.Install.UninstallEvent"),
+              base::BucketsAre(base::Bucket(
+                  webapps::WebappUninstallSource::kToolbarPostInstall, 1)));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarUninstallButtonTest,
+                       NotVisibleForPreinstalledApp) {
+  const GURL app_url("https://test.org");
+  auto web_app_info =
+      web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(app_url);
+  web_app_info->scope = app_url;
+  web_app_info->title = u"preinstalled app";
+  webapps::AppId app_id = web_app::test::InstallWebApp(
+      browser()->profile(), std::move(web_app_info),
+      /*overwrite_existing_manifest_fields=*/false,
+      webapps::WebappInstallSource::INTERNAL_DEFAULT);
+  helper()->LaunchWebAppBrowserAndWait(browser()->profile(), app_id);
+
+  WebAppToolbarButtonContainer* toolbar_right_container =
+      helper()->web_app_frame_toolbar()->get_right_container_for_testing();
+  EXPECT_EQ(toolbar_right_container->uninstall_button(), nullptr);
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppFrameToolbarUninstallButtonTest,
+                       VisibleOnReparent) {
+  const GURL app_url("https://test.org");
+  EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(), app_url));
+
+  // Install the app without launching it.
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  auto web_app_info =
+      web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(app_url);
+  web_app_info->scope = app_url;
+  web_app_info->title = u"test app";
+  webapps::AppId app_id = web_app::test::InstallWebApp(browser()->profile(),
+                                                       std::move(web_app_info));
+
+  // Reparent the web contents into an app window, so that it gets treated as
+  // a first launch, and the uninstall button shows up.
+  helper()->ReparentWebContentsIntoAppBrowserAndWait(contents, app_id);
+
+  WebAppToolbarButtonContainer* toolbar_right_container =
+      helper()->web_app_frame_toolbar()->get_right_container_for_testing();
+  EXPECT_NE(toolbar_right_container->uninstall_button(), nullptr);
+  EXPECT_TRUE(toolbar_right_container->uninstall_button()->GetVisible());
 }

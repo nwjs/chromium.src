@@ -113,7 +113,7 @@ class AppMenuHandlerImpl
     private final WindowAndroid mWindowAndroid;
     private final BrowserControlsStateProvider mBrowserControlsStateProvider;
     private @Nullable ModelList mModelList;
-    private @Nullable HierarchicalMenuController mHierarchicalMenuController;
+    private @Nullable HierarchicalMenuController<AppMenuPopup> mHierarchicalMenuController;
     private final SubmenuHeaderFactory mSubmenuHeaderFactory;
     private final ListObserver<Void> mListObserver;
     private @Nullable Callback<Integer> mTestOptionsItemSelectedListener;
@@ -301,7 +301,7 @@ class AppMenuHandlerImpl
 
         // If the anchor view used to show the popup or the activity's decor view is not attached
         // to window, we don't show the app menu because the window manager might have revoked
-        // the window token for this activity. See https://crbug.com/1105831.
+        // the window token for this activity. See https://crbug.com/40706027.
         if (!mDecorView.isAttachedToWindow()
                 || !anchorView.isAttachedToWindow()
                 || !anchorView.getRootView().isAttachedToWindow()) {
@@ -321,7 +321,7 @@ class AppMenuHandlerImpl
 
         if (mHierarchicalMenuController == null) {
             mHierarchicalMenuController =
-                    new HierarchicalMenuController(
+                    new HierarchicalMenuController<>(
                             mContext, new AppMenuUtil.AppMenuKeyProvider(), mSubmenuHeaderFactory);
         }
 
@@ -570,7 +570,7 @@ class AppMenuHandlerImpl
 
         adapter.registerType(
                 AppMenuItemType.STANDARD,
-                new LayoutViewBuilder(standardItemResId),
+                new LayoutViewBuilder<>(standardItemResId),
                 AppMenuItemViewBinder::bindStandardItem);
         adapter.registerType(
                 AppMenuItemType.TITLE_BUTTON,
@@ -587,19 +587,19 @@ class AppMenuHandlerImpl
                 AppMenuItemViewBinder::bindTitleButtonItem);
         adapter.registerType(
                 AppMenuItemType.BUTTON_ROW,
-                new LayoutViewBuilder(R.layout.icon_row_menu_item),
+                new LayoutViewBuilder<>(R.layout.icon_row_menu_item),
                 AppMenuItemViewBinder::bindIconRowItem);
         adapter.registerType(
                 AppMenuItemType.MENU_ITEM_WITH_SUBMENU,
-                new LayoutViewBuilder(R.layout.menu_item_with_submenu),
+                new LayoutViewBuilder<>(R.layout.menu_item_with_submenu),
                 AppMenuItemViewBinder::bindItemWithSubmenu);
         adapter.registerType(
                 AppMenuItemType.SUBMENU_HEADER,
-                new LayoutViewBuilder(R.layout.submenu_header),
+                new LayoutViewBuilder<>(R.layout.submenu_header),
                 AppMenuItemViewBinder::bindSubmenuHeader);
         adapter.registerType(
                 AppMenuItemType.DIVIDER,
-                new LayoutViewBuilder(R.layout.divider_line_menu_item),
+                new LayoutViewBuilder<>(R.layout.divider_line_menu_item),
                 DividerLineMenuItemViewBinder::bind);
     }
 

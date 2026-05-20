@@ -81,8 +81,8 @@ TEST_F(PasswordStoreEmptyBackendTest, FillMatchingLoginsAsyncReturnsEmpty) {
   base::test::TestFuture<LoginsResultOrError> future;
   std::vector<PasswordFormDigest> forms = {PasswordFormDigest(
       PasswordForm::Scheme::kHtml, kTestUrl, GURL(kTestUrl))};
-  backend->FillMatchingLoginsAsync(future.GetCallback(), /*include_psl=*/false,
-                                   forms);
+  backend->FillMatchingLoginsAsync(future.GetCallback(),
+                                   /*include_psl=*/false, forms);
   const LoginsResultOrError& result = future.Get();
   EXPECT_TRUE(std::get<LoginsResult>(result).empty());
 }
@@ -106,7 +106,6 @@ TEST_F(PasswordStoreEmptyBackendTest,
   base::Time delete_end = base::Time::FromTimeT(2000);
   base::test::TestFuture<PasswordChangesOrError> future;
   backend->RemoveLoginsCreatedBetweenAsync(FROM_HERE, delete_begin, delete_end,
-                                           base::DoNothing(),
                                            future.GetCallback());
 
   const PasswordChangesOrError& result = future.Get();

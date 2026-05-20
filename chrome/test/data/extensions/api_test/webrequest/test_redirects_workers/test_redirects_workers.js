@@ -2,40 +2,44 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-(async() => {
+(async () => {
   const scriptUrl = '_test_resources/api_test/webrequest/framework.js';
   await chrome.test.loadScript(scriptUrl);
   const workerJsContent = await (await fetch('page/worker.js')).text();
   const config = await new Promise(resolve => chrome.test.getConfig(resolve));
   const args = JSON.parse(config.customArg);
 
-  const base_url = args.base_url;
-  const workerUrl = base_url + 'worker.js';
-  const dataWorkerUrl = 'data:text/javascript,' + workerJsContent;
-  const redirectWorkerUrl = base_url + 'redirect_worker.js';
-  const redirectDataWorkerUrl = base_url + 'redirect_data_worker.js';
-  const importRedirectWorkerUrl = base_url + 'import_redirect_worker.js';
+  const baseUrl = args.base_url;
+  const workerUrl = `${baseUrl}worker.js`;
+  const dataWorkerUrl = `data:text/javascript,${workerJsContent}`;
+  const redirectWorkerUrl = `${baseUrl}redirect_worker.js`;
+  const redirectDataWorkerUrl = `${baseUrl}redirect_data_worker.js`;
+  const importRedirectWorkerUrl = `${baseUrl}import_redirect_worker.js`;
   const importRedirectDataWorkerUrl =
-      base_url + 'import_redirect_data_worker.js';
+      `${baseUrl}import_redirect_data_worker.js`;
 
   const registerErrorMessage = (url, message) =>
-    `Error: Failed to register a ServiceWorker for scope ` +
-    `('${base_url}') with script ('${url}'): ${message}`;
+      `Error: Failed to register a ServiceWorker for scope ` +
+      `('${baseUrl}') with script ('${url}'): ${message}`;
 
   const runSubTest = (workerClass, url, subresourceUrl, expected) => {
-    const testDocumentUrl = new URL(base_url + 'test.html');
+    const testDocumentUrl = new URL(`${baseUrl}test.html`);
     testDocumentUrl.searchParams.set('workerClass', workerClass);
     testDocumentUrl.searchParams.set('workerUrl', url);
     if (subresourceUrl) {
       testDocumentUrl.searchParams.set('subresourceUrl', subresourceUrl);
     }
 
-    const listener = () => { return {redirectUrl: workerUrl}; };
-    const listenerDataUrl = () => { return {redirectUrl: dataWorkerUrl}; };
-    chrome.webRequest.onBeforeRequest.addListener(listener,
-        {urls: [redirectWorkerUrl]}, ['blocking']);
-    chrome.webRequest.onBeforeRequest.addListener(listenerDataUrl,
-        {urls: [redirectDataWorkerUrl]}, ['blocking']);
+    const listener = () => {
+      return {redirectUrl: workerUrl};
+    };
+    const listenerDataUrl = () => {
+      return {redirectUrl: dataWorkerUrl};
+    };
+    chrome.webRequest.onBeforeRequest.addListener(
+        listener, {urls: [redirectWorkerUrl]}, ['blocking']);
+    chrome.webRequest.onBeforeRequest.addListener(
+        listenerDataUrl, {urls: [redirectDataWorkerUrl]}, ['blocking']);
 
     navigateAndWait(testDocumentUrl, tab => {
       const messageListener = chrome.test.callbackPass(r => {
@@ -46,8 +50,8 @@
       });
       chrome.runtime.onMessage.addListener(messageListener);
       chrome.tabs.executeScript(tab.id, {
-          runAt: 'document_end',
-          code: `(async () => {
+        runAt: 'document_end',
+        code: `(async () => {
               const elem = document.getElementById('status');
               let observer;
               const check = () => {
@@ -61,7 +65,7 @@
               observer = new MutationObserver(check);
               observer.observe(elem, {childList: true});
               check();
-            })();`
+            })();`,
       });
     });
   };
@@ -78,10 +82,12 @@
     function redirectForServiceWorkerToplevelScript() {
       // Redirects are disallowed for service worker top-level scripts.
       runSubTest(
-          'ServiceWorker', redirectWorkerUrl, null,
+          'ServiceWorker',
+          redirectWorkerUrl,
+          null,
           registerErrorMessage(
               redirectWorkerUrl,
-              'The script resource is behind a redirect, which is disallowed.')
+              'The script resource is behind a redirect, which is disallowed.'),
       );
     },
 
@@ -92,52 +98,59 @@
       runSubTest('Worker', redirectDataWorkerUrl, null, 'Error: undefined');
     },
     function redirectToDataUrlForSharedWorkerToplevelScript() {
-      runSubTest('SharedWorker', redirectDataWorkerUrl, null,
-                 'Error: undefined');
+      runSubTest(
+          'SharedWorker', redirectDataWorkerUrl, null, 'Error: undefined');
     },
     function redirectToDataUrlForServiceWorkerToplevelScript() {
       // Redirects are disallowed for service worker top-level scripts.
       runSubTest(
-          'ServiceWorker', redirectDataWorkerUrl, null,
+          'ServiceWorker',
+          redirectDataWorkerUrl,
+          null,
           registerErrorMessage(
               redirectDataWorkerUrl,
-              'The script resource is behind a redirect, which is disallowed.')
+              'The script resource is behind a redirect, which is disallowed.'),
       );
     },
 
     // HTTP(S)->HTTP(S) redirects for `importScripts()`.
     function redirectForWorkerImportScripts() {
-      runSubTest('Worker', importRedirectWorkerUrl, null,
-                 importRedirectWorkerUrl);
+      runSubTest(
+          'Worker', importRedirectWorkerUrl, null, importRedirectWorkerUrl);
     },
     function redirectForSharedWorkerImportScripts() {
-      runSubTest('SharedWorker', importRedirectWorkerUrl, null,
-                 importRedirectWorkerUrl);
+      runSubTest(
+          'SharedWorker', importRedirectWorkerUrl, null,
+          importRedirectWorkerUrl);
     },
     function redirectForServiceWorkerImportScripts() {
       // Redirects are currently disallowed for importScripts() in service
       // workers on Chrome, but at least non-extension HTTP redirects
-      // should be allowed (https://crbug.com/889798).
-      runSubTest('ServiceWorker', importRedirectWorkerUrl, null,
-                 registerErrorMessage(
-                     importRedirectWorkerUrl,
-                     'ServiceWorker script evaluation failed'));
+      // should be allowed (https://crbug.com/40595655).
+      runSubTest(
+          'ServiceWorker', importRedirectWorkerUrl, null,
+          registerErrorMessage(
+              importRedirectWorkerUrl,
+              'ServiceWorker script evaluation failed'));
     },
 
     // HTTP(S)->data: URL redirects for `importScripts()`.
     function redirectToDataUrlForWorkerImportScripts() {
-      runSubTest('Worker', importRedirectDataWorkerUrl, null,
-                 importRedirectDataWorkerUrl);
+      runSubTest(
+          'Worker', importRedirectDataWorkerUrl, null,
+          importRedirectDataWorkerUrl);
     },
     function redirectToDataUrlForSharedWorkerImportScripts() {
-      runSubTest('SharedWorker', importRedirectDataWorkerUrl, null,
-                 importRedirectDataWorkerUrl);
+      runSubTest(
+          'SharedWorker', importRedirectDataWorkerUrl, null,
+          importRedirectDataWorkerUrl);
     },
     function redirectForServiceWorkerImportScripts() {
-      runSubTest('ServiceWorker', importRedirectDataWorkerUrl, null,
-                 registerErrorMessage(
-                     importRedirectDataWorkerUrl,
-                     'ServiceWorker script evaluation failed'));
+      runSubTest(
+          'ServiceWorker', importRedirectDataWorkerUrl, null,
+          registerErrorMessage(
+              importRedirectDataWorkerUrl,
+              'ServiceWorker script evaluation failed'));
     },
 
     // HTTP(S)->HTTP(S) redirects for subresources.

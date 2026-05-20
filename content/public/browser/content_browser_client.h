@@ -74,6 +74,7 @@
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/cross_origin_embedder_policy.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
+#include "services/network/public/mojom/fetch_api.mojom-forward.h"
 #include "services/network/public/mojom/ip_address_space.mojom-forward.h"
 #include "services/network/public/mojom/network_context.mojom-forward.h"
 #include "services/network/public/mojom/proxy_config.mojom-forward.h"
@@ -87,7 +88,6 @@
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom-forward.h"
 #include "third_party/blink/public/mojom/browsing_topics/browsing_topics.mojom-forward.h"
-#include "third_party/blink/public/mojom/cpu_performance.mojom-forward.h"
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_cloud_identifier.mojom-forward.h"
 #include "third_party/blink/public/mojom/file_system_access/file_system_access_error.mojom-forward.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom-forward.h"
@@ -558,19 +558,19 @@ class CONTENT_EXPORT ContentBrowserClient {
   // TODO(chlily): This doesn't take into account the
   // matching_scheme_cookies_allowed_schemes, but maybe we should remove that
   // anyway.
-  virtual bool ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
-      std::string_view scheme,
+  virtual bool ShouldTreatAsFirstPartyWhenTopLevel(
+      const url::Origin& top_frame_origin,
       bool is_embedded_origin_secure);
 
   // Similar to the above. Returns whether SameSite cookie restrictions should
-  // be ignored when the site_for_cookies's scheme is |scheme|.
+  // be ignored when the site_for_cookies's origin is |top_frame_origin|.
   // |is_embedded_origin_secure| refers to whether the origin that is embedded
-  // in a document with the given scheme is secure.
+  // in a document with the given origin is secure.
   // This is a separate function from the above because the allowed schemes can
   // be different, as SameSite restrictions and third-party cookie blocking are
   // related but have different semantics.
   virtual bool ShouldIgnoreSameSiteCookieRestrictionsWhenTopLevel(
-      std::string_view scheme,
+      const url::Origin& top_frame_origin,
       bool is_embedded_origin_secure);
 
   // Gets a user friendly display name for a given |site_url| to be used in the
@@ -650,6 +650,11 @@ class CONTENT_EXPORT ContentBrowserClient {
                                       const std::string& scheme);
 
   // Returns whether a browser context involves WebRequest API.
+  // Note: In ChromeContentBrowserClient, the behavior changes based on the
+  // kOptimizeWebRequestProxyForServiceWorkerAutoPreload feature. When disabled,
+  // it returns true if any extension with 'webview' permission is installed.
+  // When enabled, it returns false for such extensions (returning true only
+  // for actual 'webRequest' or 'declarativeNetRequest' extensions).
   virtual bool HasWebRequestAPIProxy(BrowserContext* browser_context);
 
   // Returns whether the given process is allowed to commit |url|.  This is a
@@ -830,12 +835,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // false on platforms that do not support Top Chrome WebUIs, e.g., Android.
   virtual bool IsTopChromeWebUIURL(const GURL& url);
 
-  // Allows the embedder to enable access to Isolated Context Web APIs for the
-  // given |lock_url| -- the URL to which the renderer process is locked.
-  // See [IsolatedContext] IDL attribute for more details.
-  virtual bool IsIsolatedContextAllowedForUrl(BrowserContext* browser_context,
-                                              const GURL& lock_url);
-
   // Returns whether the application running in the |render_frame_host| is
   // allowed to automatically capture all screens by using the
   // getAllScreensMedia API.
@@ -973,10 +972,17 @@ class CONTENT_EXPORT ContentBrowserClient {
   // https://w3c.github.io/ServiceWorker/#control-and-use-worker-client.
   virtual bool AllowSharedWorkerBlobURLFix(BrowserContext* context);
 
+  // Return whether data: URL web workers should have opaque origins.
+  virtual bool IsDataUrlInWebWorkerOpaqueOriginEnabled(BrowserContext* context);
+
   // Allow the shared worker to have extended lifetime.
   virtual bool AllowSharedWorkerExtendedLifetime(BrowserContext* context);
 
   virtual bool IsDataSaverEnabled(BrowserContext* context);
+
+  // Returns whether pinch-to-zoom is allowed for the given BrowserContext.
+  // Defaults to true.
+  virtual bool IsPinchToZoomAllowed(BrowserContext* context);
 
   // Updates the given prefs for Service Worker and Shared Worker. The prefs
   // are to be sent to the renderer process when a worker is created. Note that
@@ -1425,8 +1431,10 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   // Returns whether on-device speech recognition is available.
   virtual media::mojom::AvailabilityStatus
-  GetOnDeviceSpeechRecognitionAvailabilityStatus(BrowserContext* context,
-                                                 const std::string& language);
+  GetOnDeviceSpeechRecognitionAvailabilityStatus(
+      BrowserContext* context,
+      const std::string& language,
+      media::mojom::SpeechRecognitionQuality quality);
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Allows the embedder to return a delegate for the TtsController.
@@ -1931,6 +1939,8 @@ class CONTENT_EXPORT ContentBrowserClient {
   // process. The caller must not send any of |factories| to any other process.
   virtual void RegisterNonNetworkWorkerMainResourceURLLoaderFactories(
       BrowserContext* browser_context,
+      const std::optional<url::Origin>& request_initiator,
+      network::mojom::RequestDestination request_destination,
       NonNetworkURLLoaderFactoryMap* factories);
 
   // Allows the embedder to register per-scheme URLLoaderFactory
@@ -2597,13 +2607,15 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual void StartRtcDiagnosticLogging(
       RenderFrameHost& frame_host,
       bool should_upload_on_stop,
-      base::flat_map<std::string, std::string> metadata,
+      const base::flat_map<std::string, std::string>& metadata,
       base::OnceCallback<void(const std::string&)> callback);
 
   // Finishes RTC diagnostic logging if a session is ongoing.
   // The results of logging are stored to disk and potentially uploaded.
-  virtual void FinishRtcDiagnosticLogging(RenderFrameHost& frame_host,
-                                          base::OnceClosure callback);
+  virtual void FinishRtcDiagnosticLogging(
+      RenderFrameHost& frame_host,
+      const base::flat_map<std::string, std::string>& metadata,
+      base::OnceClosure callback);
 
   // Cancels RTC diagnostic logging if a session is ongoing. If a session is
   // cancelled, the results of logging are not stored in a file or uploaded.
@@ -3296,9 +3308,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   // the destination.
   virtual bool ShouldAnimateBackForwardTransitions();
 
-  // Returns the CPU performance tier, which exposes some information about how
-  // powerful the user device is.
-  virtual blink::mojom::PerformanceTier GetCpuPerformanceTier();
+  // Returns the enterprise policy override for the CPU performance tier,
+  // if one is configured.
+  virtual std::optional<int> GetCpuPerformanceTierOverride(
+      BrowserContext* browser_context);
 
   // Describes the type of logins assisted by the browser via passkeys or
   // federation.

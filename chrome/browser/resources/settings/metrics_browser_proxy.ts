@@ -337,7 +337,8 @@ export enum AiPageInteractions {
   // WALLPAPER_SEARCH_CLICK = 4, // DEPRECATED
   AUTOFILL_AI_CLICK = 5,
   PASSWORD_CHANGE_CLICK = 6,
-  MAX_VALUE = 7,
+  AI_SUGGESTIONS_CLICK = 7,
+  MAX_VALUE = 8,
 }
 // LINT.ThenChange(/tools/metrics/histograms/metadata/settings/enums.xml:SettingsAiPageInteractions)
 
@@ -379,6 +380,25 @@ export enum AiPageComposeInteractions {
 // LINT.ThenChange(/tools/metrics/histograms/metadata/settings/enums.xml:SettingsAiPageComposeInteractions)
 
 /**
+ * Contains all recorded interactions in the AI Suggestions settings page.
+ *
+ * These values are persisted to logs. Entries should not be renumbered and
+ * numeric values should never be reused.
+ *
+ * Must be kept in sync with the SettingsAiPageSuggestionsInteractions enum in
+ * histograms/metadata/settings/enums.xml
+ */
+// LINT.IfChange(AiPageSuggestionsInteractions)
+export enum AiPageSuggestionsInteractions {
+  SUGGESTIONS_ENABLED = 0,
+  SUGGESTIONS_DISABLED = 1,
+  LEARN_MORE_LINK_CLICKED = 2,
+  SYNC_SETTINGS_LINK_CLICKED = 3,
+  MAX_VALUE = 4,
+}
+// LINT.ThenChange(/tools/metrics/histograms/metadata/settings/enums.xml:SettingsAiPageSuggestionsInteractions)
+
+/**
  * These values are persisted to logs. Entries should not be renumbered and
  * numeric values should never be reused.
  *
@@ -409,7 +429,8 @@ export enum YourSavedInfoDataCategory {
   CONTACT_INFO = 2,
   IDENTITY_DOCS = 3,
   TRAVEL = 4,
-  MAX_VALUE = 5,
+  SHOPPING = 5,
+  MAX_VALUE = 6,
 }
 // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:YourSavedInfoDataCategory)
 
@@ -437,7 +458,9 @@ export enum YourSavedInfoDataChip {
   FLIGHT_RESERVATIONS = 10,
   TRAVEL_INFO = 11,
   VEHICLES = 12,
-  MAX_VALUE = 13,
+  SHIPMENTS = 13,
+  ORDERS = 14,
+  MAX_VALUE = 15,
 }
 // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:YourSavedInfoDataChip)
 
@@ -630,6 +653,13 @@ export interface MetricsBrowserProxy {
    * Settings.AiPage.Compose.Interactions histogram
    */
   recordAiPageComposeInteractions(interaction: AiPageComposeInteractions): void;
+
+  /**
+   * Helper function that calls recordHistogram for the
+   * Settings.AiPage.Suggestions.Interactions histogram
+   */
+  recordAiPageSuggestionsInteractions(
+      interaction: AiPageSuggestionsInteractions): void;
 
   /**
    * Records a referrer to one of Autofill settings pages.
@@ -866,6 +896,15 @@ export class MetricsBrowserProxyImpl implements MetricsBrowserProxy {
       'Settings.AiPage.Compose.Interactions',
       interaction,
       AiPageComposeInteractions.MAX_VALUE,
+    ]);
+  }
+
+  recordAiPageSuggestionsInteractions(
+      interaction: AiPageSuggestionsInteractions): void {
+    chrome.send('metricsHandler:recordInHistogram', [
+      'Settings.AiPage.Suggestions.Interactions',
+      interaction,
+      AiPageSuggestionsInteractions.MAX_VALUE,
     ]);
   }
 

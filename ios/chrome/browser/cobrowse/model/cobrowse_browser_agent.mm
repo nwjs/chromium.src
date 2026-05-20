@@ -4,10 +4,10 @@
 
 #import "ios/chrome/browser/cobrowse/model/cobrowse_browser_agent.h"
 
+#import "components/omnibox/browser/aim_eligibility_service.h"
 #import "components/search_engines/util.h"
+#import "ios/chrome/browser/aim/model/ios_chrome_aim_eligibility_service_factory.h"
 #import "ios/chrome/browser/cobrowse/model/cobrowse_context.h"
-#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
-#import "ios/chrome/browser/shared/coordinator/scene/state/tab_grid_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
@@ -33,15 +33,27 @@ void CobrowseBrowserAgent::SetCobrowseContext(CobrowseContext* context) {
   context_ = context;
 }
 
+void CobrowseBrowserAgent::SetUIStateProvider(UIStateProvider* provider) {
+  ui_state_provider_ = provider;
+}
+
 #pragma mark - CobrowseTabHelper::Delegate
 
 bool CobrowseBrowserAgent::CanShowAssistantForWebState(
     web::WebState* web_state) {
+  AimEligibilityService* aim_eligibility_service =
+      IOSChromeAimEligibilityServiceFactory::GetForProfile(
+          browser_->GetProfile());
+  if (!aim_eligibility_service ||
+      !aim_eligibility_service->IsFuseboxEligible() ||
+      !aim_eligibility_service->IsCobrowseEligible()) {
+    return false;
+  }
   // A WebState is loaded when it becomes the active WebState while the Tab
   // Grid is visible, which triggers DidStartNavigation. To avoid UI conflicts
   // or crashes, do not show the assistant if the Tab Grid is currently
   // displayed.
-  if (browser_->GetSceneState().tabGridState.tabGridVisible) {
+  if (ui_state_provider_ && ui_state_provider_->IsTabGridVisible()) {
     return false;
   }
 
@@ -59,8 +71,10 @@ void CobrowseBrowserAgent::ConfigureAssistantContextForWebState(
   WebStateList* web_state_list = browser_->GetWebStateList();
   const int index = web_state_list->GetIndexOfWebState(web_state);
   web::WebState* opener = web_state_list->GetOpenerOfWebStateAt(index).opener;
-  SetCobrowseContext(
-      [[CobrowseContext alloc] initWithURL:opener->GetLastCommittedURL()]);
+  if (opener) {
+    SetCobrowseContext(
+        [[CobrowseContext alloc] initWithURL:opener->GetLastCommittedURL()]);
+  }
 }
 
 bool CobrowseBrowserAgent::IsSessionActive() {

@@ -38,12 +38,12 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.TestAnimations.EnableAnimations;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuTestSupport;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
@@ -99,7 +99,7 @@ public class CloseAllTabsDialogTest {
 
         if (mIsIncognito) mActivityTestRule.newIncognitoTabFromMenu();
         navigateToCloseAllTabsDialog(selector);
-        onViewWaiting(withId(org.chromium.chrome.test.R.id.positive_button)).perform(click());
+        onViewWaiting(withId(R.id.positive_button)).perform(click());
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -119,7 +119,7 @@ public class CloseAllTabsDialogTest {
         if (mIsIncognito) mActivityTestRule.newIncognitoTabFromMenu();
         navigateToCloseAllTabsDialog(selector);
 
-        onViewWaiting(withId(org.chromium.chrome.test.R.id.negative_button)).perform(click());
+        onViewWaiting(withId(R.id.negative_button)).perform(click());
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -143,7 +143,7 @@ public class CloseAllTabsDialogTest {
 
         TabUiTestHelper.createTabs(mActivityTestRule.getActivity(), mIsIncognito, 8);
         navigateToCloseAllTabsDialog(selector);
-        onViewWaiting(withId(org.chromium.chrome.test.R.id.positive_button)).perform(click());
+        onViewWaiting(withId(R.id.positive_button)).perform(click());
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> assertUndoSnackbar(/* wasCloseAllTabsConfirmed= */ true));
@@ -161,7 +161,7 @@ public class CloseAllTabsDialogTest {
                     AppMenuTestSupport.showAppMenu(
                             mActivityTestRule.getAppMenuCoordinator(), null, false);
                 });
-        waitForView(withId(org.chromium.chrome.test.R.id.app_menu_list));
+        waitForView(withId(R.id.app_menu_list));
 
         // Click close all tabs.
         ThreadUtils.runOnUiThreadBlocking(

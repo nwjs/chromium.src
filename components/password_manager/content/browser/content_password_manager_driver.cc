@@ -6,7 +6,9 @@
 
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/task/sequenced_task_runner.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
@@ -20,6 +22,7 @@
 #include "components/password_manager/content/browser/content_password_manager_driver_factory.h"
 #include "components/password_manager/content/browser/form_meta_data.h"
 #include "components/password_manager/core/browser/browser_save_password_progress_logger.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_manager.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/password_manager/core/browser/password_manager_metrics_recorder.h"
@@ -60,12 +63,16 @@ bool HasValidURL(content::RenderFrameHost* render_frame_host) {
   if (!url.is_valid())
     return false;
 
-  return password_manager::bad_message::CheckForIllegalURL(
+  return password_manager::bad_message::CheckChildProcessSecurityPolicyForURL(
       render_frame_host, url,
       password_manager::BadMessageReason::CPMD_BAD_ORIGIN_FORM_SUBMITTED);
 }
 
 bool IsRenderFrameHostSupported(content::RenderFrameHost* rfh) {
+  if (rfh->GetProcess()->IsPdf()) {
+    return false;
+  }
+
   // Explanation of current PasswordManagerDriver limitations:
   // * Currently, PasswordManagerDriver binding has RenderFrameHost lifetime,
   //   not document lifetime. This can lead to premature binding in rare race
@@ -186,7 +193,20 @@ gfx::RectF ContentPasswordManagerDriver::TransformToRootCoordinates(
 
 void ContentPasswordManagerDriver::PropagateFillDataOnParsingCompletion(
     const autofill::PasswordFormFillData& form_data) {
-  password_autofill_manager_.OnAddPasswordFillData(form_data);
+  if (base::FeatureList::IsEnabled(
+          features::kCallOnAddPasswordFillDataAsynchronously)) {
+    // This asynchronous call is to avoid reentrant AutofillManager::Observer
+    // calls. See crbug.com/500883329 for details.
+    // While PasswordAutofillAgent::ApplyFillDataOnParsingCompletion() may call
+    // back into the browser process, those Mojo events are processed after this
+    // posted task.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(&PasswordAutofillManager::OnAddPasswordFillData,
+                       password_autofill_manager_.GetWeakPtr(), form_data));
+  } else {
+    password_autofill_manager_.OnAddPasswordFillData(form_data);
+  }
   if (const auto& agent = GetPasswordAutofillAgent()) {
     agent->ApplyFillDataOnParsingCompletion(
         autofill::MaybeClearPasswordValues(form_data));
@@ -613,26 +633,6 @@ void ContentPasswordManagerDriver::UserModifiedNonPasswordField(
   // A user has modified an input field, it wouldn't be a submission "after
   // Touch To Fill".
   client_->ResetSubmissionTrackingAfterTouchToFill();
-}
-
-void ContentPasswordManagerDriver::ShowPasswordSuggestions(
-    const autofill::PasswordSuggestionRequest& request) {
-  if (!password_manager::bad_message::CheckFrameNotPrerendering(
-          render_frame_host_))
-    return;
-
-  if ((request.username_field_index > request.form_data.fields().size()) ||
-      (request.password_field_index > request.form_data.fields().size())) {
-    mojo::ReportBadMessage(
-        "username_field_index or password_field_index cannot be greater than "
-        "form.fields.size()!");
-  }
-
-#if !BUILDFLAG(IS_ANDROID)
-  GetPasswordAutofillManager()->ShowSuggestions(request.field);
-#else
-  GetPasswordAutofillManager()->ShowKeyboardReplacingSurface(request);
-#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 void ContentPasswordManagerDriver::CheckSafeBrowsingReputation(

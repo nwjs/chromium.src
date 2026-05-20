@@ -18,6 +18,8 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/page_actions/page_action_controller.h"
+#include "chrome/browser/ui/page_actions/page_action_triggers.h"
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
 #include "chrome/browser/ui/read_anything/read_anything_prefs.h"
@@ -29,8 +31,6 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
-#include "chrome/browser/ui/views/page_action/page_action_controller.h"
-#include "chrome/browser/ui/views/page_action/page_action_triggers.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/optimization_guide/core/filters/optimization_hints_component_update_listener.h"
 #include "components/optimization_guide/core/hints/optimization_guide_decision.h"
@@ -276,7 +276,7 @@ void ReadAnythingEntryPointController::ShowUI(
     if (tabs::TabInterface* tab = bwi->GetActiveTabInterface()) {
       auto* controller = ReadAnythingController::From(tab);
       CHECK(controller);
-      controller->ShowImmersiveUI(open_trigger);
+      controller->ShowInPreferredUI(open_trigger);
     }
   } else {
     SidePanelOpenTrigger side_panel_open_trigger =
@@ -335,17 +335,28 @@ bool ReadAnythingEntryPointController::IsUIShowing(
 // static
 void ReadAnythingEntryPointController::UpdatePageActionVisibility(
     bool should_show_page_action,
-    BrowserWindowInterface* bwi,
+    tabs::TabInterface* tab,
     base::OnceCallback<void(user_education::FeaturePromoResult promo_result)>
         show_promo_callback) {
   if (!base::FeatureList::IsEnabled(features::kPageActionsMigration) ||
-      !features::IsReadAnythingOmniboxChipEnabled() || !bwi) {
+      !features::IsReadAnythingOmniboxChipEnabled() || !tab) {
     return;
   }
 
+  BrowserWindowInterface* bwi = tab->GetBrowserWindowInterface();
+  if (!bwi) {
+    return;
+  }
+
+  if (!tab->IsActivated()) {
+    DUMP_WILL_BE_CHECK(!should_show_page_action)
+        << "should_show_page_action should not be set for inactive tabs.";
+  }
+
   page_actions::PageActionController* page_action_controller =
-      bwi->GetActiveTabInterface()->GetTabFeatures()->page_action_controller();
+      tab->GetTabFeatures()->page_action_controller();
   auto* const user_ed = BrowserUserEducationInterface::From(bwi);
+
   // No need to show the button if reading mode is already open.
   if (should_show_page_action && !IsUIShowing(bwi)) {
     page_action_controller->Show(kActionSidePanelShowReadAnything);
@@ -359,11 +370,18 @@ void ReadAnythingEntryPointController::UpdatePageActionVisibility(
       params.show_promo_result_callback = std::move(show_promo_callback);
     }
     user_ed->MaybeShowFeaturePromo(std::move(params));
-  } else {
+    return;
+  }
+
+  // We are hiding or not showing omnibox chip. If this tab is currently
+  // active, we should abort any active feature promo for this action.
+  // We skip this for background tabs because feature promo is a window-level
+  // operation and could accidentally interrupt a promo for the active tab.
+  if (tab->IsActivated()) {
     user_ed->AbortFeaturePromo(
         feature_engagement::kIPHReadingModePageActionLabelFeature);
-    page_action_controller->Hide(kActionSidePanelShowReadAnything);
   }
+  page_action_controller->Hide(kActionSidePanelShowReadAnything);
 }
 
 // static

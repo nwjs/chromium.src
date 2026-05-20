@@ -6,6 +6,7 @@
 
 #include <atomic>
 
+#include "android_webview/browser/content_restriction/aw_content_restriction_blocked_navigation_tracker.h"
 #include "android_webview/browser/content_restriction/aw_content_restriction_manager_client.h"
 #include "content/public/test/browser_task_environment.h"
 #include "net/base/net_errors.h"
@@ -22,6 +23,7 @@ namespace android_webview {
 namespace {
 
 constexpr char kTestUrl[] = "https://www.example.com";
+constexpr int64_t kTestNavigationId = 1;
 
 class MockAwContentRestrictionManagerClient
     : public AwContentRestrictionManagerClient {
@@ -61,12 +63,14 @@ class TestThrottleDelegate : public blink::URLLoaderThrottle::Delegate {
 
 class AwContentRestrictionURLLoaderThrottleTest : public testing::Test {
  protected:
-  void SetUp() override { throttle.set_delegate(&delegate); }
+  void SetUp() override { throttle_.set_delegate(&delegate_); }
 
   content::BrowserTaskEnvironment task_environment_;
   MockAwContentRestrictionManagerClient mock_client_;
-  AwContentRestrictionURLLoaderThrottle throttle{&mock_client_};
-  TestThrottleDelegate delegate;
+  AwContentRestrictionBlockedNavigationTracker tracker_;
+  TestThrottleDelegate delegate_;
+  AwContentRestrictionURLLoaderThrottle throttle_{&mock_client_, &tracker_,
+                                                  kTestNavigationId};
 };
 
 TEST_F(AwContentRestrictionURLLoaderThrottleTest,
@@ -77,11 +81,12 @@ TEST_F(AwContentRestrictionURLLoaderThrottleTest,
   network::ResourceRequest request;
   request.url = GURL(kTestUrl);
   bool defer = false;
-  throttle.WillStartRequest(&request, &defer);
+  throttle_.WillStartRequest(&request, &defer);
 
   EXPECT_FALSE(defer);
-  EXPECT_FALSE(delegate.resume_called());
-  EXPECT_FALSE(delegate.cancel_called());
+  EXPECT_FALSE(delegate_.resume_called());
+  EXPECT_FALSE(delegate_.cancel_called());
+  EXPECT_FALSE(tracker_.IsNavigationBlocked(kTestNavigationId));
 }
 
 TEST_F(AwContentRestrictionURLLoaderThrottleTest, AllowRequest) {
@@ -95,11 +100,11 @@ TEST_F(AwContentRestrictionURLLoaderThrottleTest, AllowRequest) {
   network::ResourceRequest request;
   request.url = GURL(kTestUrl);
   bool defer = false;
-  throttle.WillStartRequest(&request, &defer);
+  throttle_.WillStartRequest(&request, &defer);
 
   EXPECT_TRUE(defer);
-  EXPECT_TRUE(delegate.resume_called());
-  EXPECT_FALSE(delegate.cancel_called());
+  EXPECT_TRUE(delegate_.resume_called());
+  EXPECT_FALSE(delegate_.cancel_called());
 }
 
 TEST_F(AwContentRestrictionURLLoaderThrottleTest, BlockRequest) {
@@ -113,12 +118,13 @@ TEST_F(AwContentRestrictionURLLoaderThrottleTest, BlockRequest) {
   network::ResourceRequest request;
   request.url = GURL(kTestUrl);
   bool defer = false;
-  throttle.WillStartRequest(&request, &defer);
+  throttle_.WillStartRequest(&request, &defer);
 
   EXPECT_TRUE(defer);
-  EXPECT_FALSE(delegate.resume_called());
-  EXPECT_TRUE(delegate.cancel_called());
-  EXPECT_EQ(delegate.error_code(), net::ERR_BLOCKED_BY_CLIENT);
+  EXPECT_FALSE(delegate_.resume_called());
+  EXPECT_TRUE(delegate_.cancel_called());
+  EXPECT_EQ(delegate_.error_code(), net::ERR_BLOCKED_BY_CLIENT);
+  EXPECT_TRUE(tracker_.IsNavigationBlocked(kTestNavigationId));
 }
 
 }  // namespace

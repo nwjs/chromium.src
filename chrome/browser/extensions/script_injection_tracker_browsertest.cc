@@ -49,6 +49,7 @@
 #include "extensions/common/features/feature_channel.h"
 #include "extensions/common/manifest_handlers/permissions_parser.h"
 #include "extensions/test/extension_test_message_listener.h"
+#include "extensions/test/permissions_manager_waiter.h"
 #include "extensions/test/result_catcher.h"
 #include "extensions/test/test_content_script_load_waiter.h"
 #include "extensions/test/test_extension_dir.h"
@@ -939,8 +940,8 @@ IN_PROC_BROWSER_TEST_F(
       *child_frame->GetProcess(), extension->id()));
 }
 
-// This is a regression test for https://crbug.com/1312125 - it simulates a race
-// where an extension is loaded during or before a navigation, resulting in
+// This is a regression test for https://crbug.com/40059263 - it simulates a
+// race where an extension is loaded during or before a navigation, resulting in
 // ScriptInjectionTracker::DidUpdateContentScriptsInRenderer getting called
 // between ReadyToCommit and DidCommit of a navigation from a page where content
 // scripts are not injected, to a page where content scripts are injected.
@@ -1053,10 +1054,10 @@ IN_PROC_BROWSER_TEST_F(
   // *) Non-racey step UI.4: UI thread: IPC from the content script is
   //    processed.  The test simulates this by explicitly calling and checking
   //    ScriptInjectionTracker::DidProcessRunContentScriptFromExtension which in
-  //    presence of https://crbug.com/1312125 could have incorrectly returned
+  //    presence of https://crbug.com/40059263 could have incorrectly returned
   //    false.
   //
-  // Triggering https://crbug.com/1312125 requires that UI.3a happens before
+  // Triggering https://crbug.com/40059263 requires that UI.3a happens before
   // UI.3b - when this happens then ScriptInjectionTracker's
   // DidUpdateContentScriptsInRenderer won't see the newly committed URL and
   // won't realize that content script may be injected into the newly committed
@@ -1097,7 +1098,7 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(ScriptInjectionTrackerBrowserTest,
                        ContentScriptViaDeclarativeContentApi) {
 #if BUILDFLAG(IS_MAC)
-  GTEST_SKIP() << "Very flaky on Mac; https://crbug.com/1311017";
+  GTEST_SKIP() << "Very flaky on Mac; https://crbug.com/40830799";
 #else
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -1388,7 +1389,7 @@ IN_PROC_BROWSER_TEST_F(DynamicScriptsTrackerBrowserTest,
       *first_tab->GetPrimaryMainFrame()->GetProcess(), extension->id()));
 }
 
-// Regression test for https://crbug.com/1439642.
+// Regression test for https://crbug.com/40064211.
 IN_PROC_BROWSER_TEST_F(DynamicScriptsTrackerBrowserTest,
                        ContentScriptViaScriptingApiWhileIdle) {
   // The test orchestrates the following sequence of events.
@@ -1406,7 +1407,7 @@ IN_PROC_BROWSER_TEST_F(DynamicScriptsTrackerBrowserTest,
   //         - registering content script injection for a.com
   //         - when the script gets loaded (step 2b)
   //           `ScriptInjectionTracker::DidUpdateContentScriptsInRenderer` will
-  //           be called (but as described in https://crbug.com/1439642 there
+  //           be called (but as described in https://crbug.com/40064211 there
   //           may be trouble with seeing the newly registered scripts)
   //
   // Step 3: DOMContentLoaded
@@ -1778,8 +1779,11 @@ IN_PROC_BROWSER_TEST_F(DynamicScriptsTrackerBrowserTest, ActiveTabGranted) {
       *web_contents->GetPrimaryMainFrame()->GetProcess(), extension->id()));
 
   // Step 3: Grant activeTab and verify tracker runs the content script.
+  PermissionsManagerWaiter waiter(PermissionsManager::Get(profile()));
   ActiveTabPermissionGranter::FromWebContents(web_contents)
       ->GrantIfRequested(extension);
+  waiter.WaitForActiveTabPermissionGranted(extension->id());
+
   EXPECT_TRUE(ScriptInjectionTracker::DidProcessRunContentScriptFromExtension(
       *web_contents->GetPrimaryMainFrame()->GetProcess(), extension->id()));
 

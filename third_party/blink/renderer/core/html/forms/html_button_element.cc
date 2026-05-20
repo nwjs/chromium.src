@@ -208,7 +208,6 @@ bool HTMLButtonElement::CanBeCommandInvoker() const {
 }
 
 bool HTMLButtonElement::IsValidInterestInvoker(Element& target) const {
-  DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
   // Buttons need to be enabled in order to support interest invokers.
   return !IsDisabledFormControl();
 }
@@ -261,9 +260,7 @@ void HTMLButtonElement::DefaultEventHandler(Event& event) {
         return;
       }
     }
-  }
 
-  if (event.type() == event_type_names::kDOMActivate) {
     if (HandleCommandForActivation()) {
       return;
     }
@@ -370,6 +367,12 @@ HTMLSelectElement* HTMLButtonElement::OwnerSelect() const {
     }
   }
   return nullptr;
+}
+
+bool HTMLButtonElement::SupportsBaseAppearanceInternal(
+    Element::BaseAppearanceValue value) const {
+  return RuntimeEnabledFeatures::AppearanceBaseEnabled() &&
+         value == Element::BaseAppearanceValue::kBase;
 }
 
 }  // namespace blink

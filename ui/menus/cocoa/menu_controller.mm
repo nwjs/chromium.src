@@ -17,10 +17,9 @@
 #include "ui/base/accelerators/platform_accelerator_cocoa.h"
 #include "ui/base/interaction/element_tracker_mac.h"
 #include "ui/base/l10n/l10n_util_mac.h"
-#include "ui/base/models/image_model.h"
+#include "ui/base/models/menu_model.h"
 #import "ui/events/event_utils.h"
 #include "ui/gfx/font_list.h"
-#include "ui/gfx/image/image.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/strings/grit/ui_strings.h"
 
@@ -188,11 +187,10 @@ bool MenuHasVisibleItems(const ui::MenuModel* model) {
                                                 action:@selector(itemSelected:)
                                          keyEquivalent:@""];
 
-  // If the menu item has an icon, set it.
-  ui::ImageModel icon = model->GetIconAt(index);
-  if (icon.IsImage()) {
-    item.image = icon.GetImage().ToNSImage();
-  }
+  // Do not set an icon. GM3 icons do not quite fit in with the SF Symbols icons
+  // that AppKit automatically adds to menus. TODO(https://crbug.com/423632863):
+  // Come up with a consistent way to handle icons, and return icons to menus
+  // when and where appropriate.
 
   ui::MenuModel::ItemType type = model->GetTypeAt(index);
   const NSInteger modelIndex = base::checked_cast<NSInteger>(index);
@@ -264,15 +262,19 @@ bool MenuHasVisibleItems(const ui::MenuModel* model) {
   BOOL checked = model->IsItemCheckedAt(modelIndex);
   menuItem.state = checked ? NSControlStateValueOn : NSControlStateValueOff;
   menuItem.hidden = !model->IsVisibleAt(modelIndex);
+
   if (model->IsItemDynamicAt(modelIndex)) {
-    // Update the label and the icon.
+    // Update the label.
     NSString* label =
         l10n_util::FixUpWindowsStyleLabel(model->GetLabelAt(modelIndex));
     menuItem.title = label;
 
-    ui::ImageModel icon = model->GetIconAt(modelIndex);
-    menuItem.image = icon.IsImage() ? icon.GetImage().ToNSImage() : nil;
+    // Do not set an icon. GM3 icons do not quite fit in with the SF Symbols
+    // icons that AppKit automatically adds to menus.
+    // TODO(https://crbug.com/423632863): Come up with a consistent way to
+    // handle icons, and return icons to menus when and where appropriate.
   }
+
   const gfx::FontList* font_list = model->GetLabelFontListAt(modelIndex);
   if (font_list) {
     CTFontRef font = font_list->GetPrimaryFont().GetCTFont();

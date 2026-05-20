@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-var testTabId_;
+let testTabId;
 
-const scriptUrl = '_test_resources/api_test/tabs/basics/tabs_util.js';
-let loadScript = chrome.test.loadScript(scriptUrl);
+const SCRIPT_URL = '_test_resources/api_test/tabs/basics/tabs_util.js';
+const loadScript = chrome.test.loadScript(SCRIPT_URL);
 
 // The set of tabs that have completed loading as of their last update.
 const loadedTabs = new Set();
@@ -29,7 +29,7 @@ async function waitForTabLoaded(tabId) {
 // has to be here, since adding it after the tab is created might be too late if
 // tabs load very quickly.
 chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
-  if (tab.status == 'complete') {
+  if (tab.status === 'complete') {
     loadedTabs.add(tabId);
     if (waitingForTabs.has(tabId)) {
       const resolve = waitingForTabs.get(tabId);
@@ -42,76 +42,78 @@ chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
 });
 
 loadScript.then(async function() {
-chrome.test.runTests([
-  async function createTab() {
-    chrome.tabs.create({}, async (tab) => {
-      testTabId_ = tab.id;
-      // Wait for tab loading complete.
-      await waitForTabLoaded(testTabId_);
-      chrome.test.succeed();
-    });
-  },
-
-  function mutedStartsFalse() {
-    chrome.tabs.get(testTabId_, pass(function(tab) {
-      assertEq(false, tab.mutedInfo.muted);
-
-      queryForTab(testTabId_, {muted: false}, pass(function(tab) {
-        assertEq(false, tab.mutedInfo.muted);
-      }));
-      queryForTab(testTabId_, {muted: true} , pass(function(tab) {
-        assertEq(null, tab);
-      }));
-    }));
-  },
-
-  function makeMuted() {
-    var expectedAfterMute = {
-      muted: true,
-      reason: 'extension',
-      extensionId: chrome.runtime.id
-    };
-
-    chrome.tabs.onUpdated.addListener(function local(tabId, changeInfo, tab) {
-      if (tabId != testTabId_ || !changeInfo.mutedInfo) {
-        return;  // Ignore unrelated events.
-      }
-      assertEq(expectedAfterMute, changeInfo.mutedInfo);
-      chrome.tabs.onUpdated.removeListener(local);
-      chrome.test.succeed();
-    });
-
-    chrome.tabs.update(testTabId_, {muted: true});
-  },
-
-  function testStaysMutedAfterChangingWindow() {
-    chrome.windows.create({}, function(window) {
-      // chrome.tabs.onUpdated is not sent on tab movement.
-      chrome.tabs.move(testTabId_, {windowId: window.id, index: -1},
-                       function(tab) {
-        assertEq(true, tab.mutedInfo.muted);
+  chrome.test.runTests([
+    async function createTab() {
+      chrome.tabs.create({}, async (tab) => {
+        testTabId = tab.id;
+        // Wait for tab loading complete.
+        await waitForTabLoaded(testTabId);
         chrome.test.succeed();
       });
-    });
-  },
+    },
 
-  function makeNotMuted() {
-    var expectedAfterUnmute = {
-      muted: false,
-      reason: 'extension',
-      extensionId: chrome.runtime.id
-    };
+    function mutedStartsFalse() {
+      chrome.tabs.get(
+          testTabId, pass(function(tab) {
+            assertEq(false, tab.mutedInfo.muted);
 
-    chrome.tabs.onUpdated.addListener(function local(tabId, changeInfo, tab) {
-      if (tabId != testTabId_ || !changeInfo.mutedInfo) {
-        return;  // Ignore unrelated events.
-      }
-      chrome.tabs.onUpdated.removeListener(local);
-      assertEq(expectedAfterUnmute, changeInfo.mutedInfo);
-      chrome.test.succeed();
-    });
+            queryForTab(testTabId, {muted: false}, pass(function(tab) {
+                          assertEq(false, tab.mutedInfo.muted);
+                        }));
+            queryForTab(testTabId, {muted: true}, pass(function(tab) {
+                          assertEq(null, tab);
+                        }));
+          }));
+    },
 
-    chrome.tabs.update(testTabId_, {muted: false});
-  }
+    function makeMuted() {
+      const expectedAfterMute = {
+        muted: true,
+        reason: 'extension',
+        extensionId: chrome.runtime.id,
+      };
 
-])});
+      chrome.tabs.onUpdated.addListener(function local(tabId, changeInfo, tab) {
+        if (tabId !== testTabId || !changeInfo.mutedInfo) {
+          return;  // Ignore unrelated events.
+        }
+        assertEq(expectedAfterMute, changeInfo.mutedInfo);
+        chrome.tabs.onUpdated.removeListener(local);
+        chrome.test.succeed();
+      });
+
+      chrome.tabs.update(testTabId, {muted: true});
+    },
+
+    function testStaysMutedAfterChangingWindow() {
+      chrome.windows.create({}, function(window) {
+        // chrome.tabs.onUpdated is not sent on tab movement.
+        chrome.tabs.move(
+            testTabId, {windowId: window.id, index: -1}, function(tab) {
+              assertEq(true, tab.mutedInfo.muted);
+              chrome.test.succeed();
+            });
+      });
+    },
+
+    function makeNotMuted() {
+      const expectedAfterUnmute = {
+        muted: false,
+        reason: 'extension',
+        extensionId: chrome.runtime.id,
+      };
+
+      chrome.tabs.onUpdated.addListener(function local(tabId, changeInfo, tab) {
+        if (tabId !== testTabId || !changeInfo.mutedInfo) {
+          return;  // Ignore unrelated events.
+        }
+        chrome.tabs.onUpdated.removeListener(local);
+        assertEq(expectedAfterUnmute, changeInfo.mutedInfo);
+        chrome.test.succeed();
+      });
+
+      chrome.tabs.update(testTabId, {muted: false});
+    },
+
+  ]);
+});

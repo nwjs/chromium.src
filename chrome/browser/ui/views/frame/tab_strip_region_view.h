@@ -9,14 +9,15 @@
 #include <optional>
 
 #include "chrome/browser/ui/tabs/tab_data.h"
+#include "chrome/browser/ui/views/frame/browser_root_view.h"
+#include "components/tab_groups/tab_group_id.h"
+#include "components/tabs/public/tab_interface.h"
+#include "ui/base/metadata/metadata_header_macros.h"
+#include "ui/views/accessible_pane_view.h"
 
 namespace tabs {
 struct TabData;
 }
-#include "chrome/browser/ui/views/frame/browser_root_view.h"
-#include "components/tab_groups/tab_group_id.h"
-#include "ui/base/metadata/metadata_header_macros.h"
-#include "ui/views/accessible_pane_view.h"
 
 class TabDragContext;
 class TabStripObserver;
@@ -29,9 +30,16 @@ class ExpandOnHoverLock {
 // `kForceCollapse` should be used when there is some other UI element that will
 // overlay over the tab strip, so we want to make sure that takes priority in
 // visibility.
-// `kKeepExpanded` should be used when the user is interacting with a bubble or
-// context menu so that their interaction with the tab strip is not interrupted.
-enum class ExpandOnHoverLockType { kForceCollapse, kKeepExpanded };
+// `kKeepCurrentState` should be used when the user is interacting with a bubble
+// or context menu so that their interaction with the tab strip is not
+// interrupted.
+// `kKeepExpanded` should be used when the tab strip should be forced to be
+// expanded and not allowed to collapse.
+enum class ExpandOnHoverLockType {
+  kForceCollapse,
+  kKeepCurrentState,
+  kKeepExpanded
+};
 
 // This class serves as the single point of interaction for all consumers of
 // tabstrip-related functionality. This should only be owned by BrowserView and
@@ -53,7 +61,7 @@ class TabStripRegionView : public views::AccessiblePaneView,
   virtual bool IsTabStripCloseable() const = 0;
   virtual void UpdateLoadingAnimations(const base::TimeDelta& elapsed_time) = 0;
   virtual std::optional<int> GetFocusedTabIndex() const = 0;
-  virtual const tabs::TabData& GetTabData(int tab_index) = 0;
+  virtual const tabs::TabData& GetTabData(const tabs::TabHandle& tab) = 0;
   virtual views::View* GetTabStripView() = 0;
 
   // -- UI anchoring --

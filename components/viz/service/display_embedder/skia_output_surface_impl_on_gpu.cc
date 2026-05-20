@@ -815,9 +815,12 @@ SkiaOutputSurfaceImplOnGpu::CreateSharedImageRepresentationSkia(
     std::string_view debug_label) {
   gpu::Mailbox mailbox = gpu::Mailbox::Generate();
   bool result = shared_image_factory_->CreateSharedImage(
-      mailbox, format, size, color_space, kTopLeft_GrSurfaceOrigin,
-      kPremul_SkAlphaType, gpu::kNullSurfaceHandle,
-      CopyOutputResult::kDefaultSharedImageUsage, std::string(debug_label));
+      mailbox,
+      gpu::SharedImageInfo(format, size, color_space, kTopLeft_GrSurfaceOrigin,
+                           kPremul_SkAlphaType,
+                           CopyOutputResult::kDefaultSharedImageUsage,
+                           std::string(debug_label)),
+      gpu::kNullSurfaceHandle);
   if (!result) {
     DLOG(ERROR) << "Failed to create shared image.";
     return nullptr;
@@ -1890,6 +1893,10 @@ void SkiaOutputSurfaceImplOnGpu::SetVSyncDisplayID(int64_t display_id) {
   output_device_->SetVSyncDisplayID(display_id);
 }
 
+void SkiaOutputSurfaceImplOnGpu::RefreshRateChangedOnSameDisplay() {
+  output_device_->RefreshRateChangedOnSameDisplay();
+}
+
 #if BUILDFLAG(IS_ANDROID)
 void SkiaOutputSurfaceImplOnGpu::SetFrameRate(
     gfx::SurfaceControlFrameRate frame_rate) {
@@ -2005,7 +2012,7 @@ bool SkiaOutputSurfaceImplOnGpu::InitializeForGL() {
         AddChildWindowToBrowser(presenter_->GetWindow());
         output_device_ = std::make_unique<SkiaOutputDeviceDComp>(
             shared_image_representation_factory_.get(), context_state_.get(),
-            std::move(presenter), feature_info_,
+            std::move(presenter), feature_info_->workarounds(),
             shared_gpu_deps_->memory_tracker(),
             GetDidSwapBuffersCompleteCallback());
 #endif  // BUILDFLAG(IS_WIN)
@@ -2162,7 +2169,8 @@ bool SkiaOutputSurfaceImplOnGpu::InitializeForDawn() {
     AddChildWindowToBrowser(presenter_->GetWindow());
     output_device_ = std::make_unique<SkiaOutputDeviceDComp>(
         shared_image_representation_factory_.get(), context_state_.get(),
-        std::move(presenter), feature_info_, shared_gpu_deps_->memory_tracker(),
+        std::move(presenter), feature_info_->workarounds(),
+        shared_gpu_deps_->memory_tracker(),
         GetDidSwapBuffersCompleteCallback());
   } else {
     auto output_device = SkiaOutputDeviceDawn::Create(
@@ -2457,7 +2465,7 @@ void SkiaOutputSurfaceImplOnGpu::DidSwapBuffersCompleteInternal(
   }
 
   PostTaskToClientThread(base::BindOnce(did_swap_buffer_complete_callback_,
-                                        params, pixel_size,
+                                        std::move(params), pixel_size,
                                         std::move(release_fence)));
 }
 
@@ -2649,8 +2657,10 @@ void SkiaOutputSurfaceImplOnGpu::CreateSharedImage(
     return;
   }
   shared_image_factory_->CreateSharedImage(
-      mailbox, format, size, color_space, kTopLeft_GrSurfaceOrigin, alpha_type,
-      surface_handle, usage, std::move(debug_label));
+      mailbox,
+      gpu::SharedImageInfo(format, size, color_space, kTopLeft_GrSurfaceOrigin,
+                           alpha_type, usage, std::move(debug_label)),
+      surface_handle);
   skia_representations_.emplace(mailbox, nullptr);
 }
 
@@ -2667,10 +2677,13 @@ void SkiaOutputSurfaceImplOnGpu::CreateSolidColorSharedImage(
   auto pixel_span = base::byte_span_from_ref(premul_bytes);
 
   shared_image_factory_->CreateSharedImage(
-      mailbox, SinglePlaneFormat::kRGBA_8888, size, color_space,
-      kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType,
-      gpu::SHARED_IMAGE_USAGE_SCANOUT | gpu::SHARED_IMAGE_USAGE_DISPLAY_READ,
-      "SkiaSolidColor", pixel_span);
+      mailbox,
+      gpu::SharedImageInfo(SinglePlaneFormat::kRGBA_8888, size, color_space,
+                           kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType,
+                           gpu::SHARED_IMAGE_USAGE_SCANOUT |
+                               gpu::SHARED_IMAGE_USAGE_DISPLAY_READ,
+                           "SkiaSolidColor"),
+      pixel_span);
   solid_color_images_.insert(mailbox);
 }
 

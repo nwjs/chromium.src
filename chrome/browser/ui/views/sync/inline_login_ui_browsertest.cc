@@ -23,7 +23,6 @@
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/browser/ui/webui/signin/inline_login_handler_impl.h"
@@ -196,7 +195,7 @@ MockInlineSigninHelper::MockInlineSigninHelper(
 
 class InlineLoginUIBrowserTest : public InProcessBrowserTest {};
 
-// crbug.com/422868
+// crbug.com/41136981
 IN_PROC_BROWSER_TEST_F(InlineLoginUIBrowserTest, DSABLED_DifferentStorageId) {
   ContentInfo info = NavigateAndGetInfo(browser(), GetSigninPromoURL(),
                                         WindowOpenDisposition::CURRENT_TAB);
@@ -270,7 +269,7 @@ class InlineLoginHelperBrowserTest : public InProcessBrowserTest {
 
   void SetUp() override {
     // Don't spin up the IO thread yet since no threads are allowed while
-    // spawning sandbox host process. See crbug.com/322732.
+    // spawning sandbox host process. See crbug.com/41076404.
     ASSERT_TRUE(embedded_test_server()->InitializeAndListen());
 
     InProcessBrowserTest::SetUp();
@@ -324,7 +323,6 @@ class InlineLoginHelperBrowserTest : public InProcessBrowserTest {
                                     const std::string& refresh_token) {
     GaiaAuthConsumer::ClientOAuthResult result(
         refresh_token, /*access_token=*/"", /*expires_in_secs=*/0,
-        /*is_child_account*/ false,
         /*is_under_advanced_protection=*/false, /*is_bound_to_key=*/false);
     consumer->OnClientOAuthSuccess(result);
     base::RunLoop().RunUntilIdle();
@@ -382,7 +380,7 @@ class InlineLoginUISafeIframeBrowserTest : public InProcessBrowserTest {
         base::BindRepeating(&EmptyHtmlResponseHandler));
 
     // Don't spin up the IO thread yet since no threads are allowed while
-    // spawning sandbox host process. See crbug.com/322732.
+    // spawning sandbox host process. See crbug.com/41076404.
     ASSERT_TRUE(embedded_test_server()->InitializeAndListen());
 
     InProcessBrowserTest::SetUp();
@@ -519,7 +517,7 @@ class InlineLoginCorrectGaiaUrlBrowserTest : public InProcessBrowserTest {
         &HtmlRequestTracker::HtmlResponseHandler, base::Unretained(&tracker_)));
 
     // Don't spin up the IO thread yet since no threads are allowed while
-    // spawning sandbox host process. See crbug.com/322732.
+    // spawning sandbox host process. See crbug.com/41076404.
     ASSERT_TRUE(embedded_test_server()->InitializeAndListen());
 
     InProcessBrowserTest::SetUp();

@@ -30,7 +30,6 @@
 #include "third_party/blink/renderer/core/xml/parser/xml_document_parser.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/runtime_call_stats.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 
@@ -77,18 +76,21 @@ Node* DocumentFragment::Clone(Document& factory,
 void DocumentFragment::ParseHTML(const String& source,
                                  Element* context_element,
                                  CustomElementRegistry* registry,
-                                 ParserContentPolicy parser_content_policy) {
+                                 ParserContentPolicy parser_content_policy,
+                                 StreamingSanitizer* sanitizer) {
   RUNTIME_CALL_TIMER_SCOPE(
       GetDocument().GetAgent().isolate(),
       RuntimeCallStats::CounterId::kDocumentFragmentParseHTML);
   HTMLDocumentParser::ParseDocumentFragment(source, this, context_element,
-                                            registry, parser_content_policy);
+                                            registry, parser_content_policy,
+                                            sanitizer);
 }
 
 bool DocumentFragment::ParseXML(const String& source,
                                 Element* context_element,
                                 ExceptionState& exception_state,
-                                ParserContentPolicy parser_content_policy) {
+                                ParserContentPolicy parser_content_policy,
+                                StreamingSanitizer* sanitizer) {
   return XMLDocumentParser::ParseDocumentFragment(
       source, this, context_element, parser_content_policy, exception_state);
 }

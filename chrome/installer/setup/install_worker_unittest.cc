@@ -316,10 +316,10 @@ TEST_F(InstallWorkerTest, TestInstallChromeSystem) {
 
   const base::Version current_version(
       installer_state->GetCurrentVersion(*installation_state));
+  static const uint32_t kEstimatedSizeKb = 1234;
   installer::InstallParams install_params = {
       *installer_state, *installation_state, setup_path_,   current_version,
-      src_path_,        temp_dir_,           *new_version_,
-  };
+      src_path_,        temp_dir_,           *new_version_, kEstimatedSizeKb};
 
   // Set up expectations for setup.exe's on-os-upgrade handler.
   const std::wstring update_handler_command_key =
@@ -329,11 +329,12 @@ TEST_F(InstallWorkerTest, TestInstallChromeSystem) {
               AddCreateRegKeyWorkItem(kRegRoot, update_handler_command_key,
                                       KEY_WOW64_32KEY))
       .WillOnce(Return(create_reg_key_work_item.get()));
-  const std::wstring command_line =
-      base::StrCat({L"\"", installer_state->target_path().value(), L"\\",
-                    base::ASCIIToWide(new_version_->GetString()),
-                    L"\\Installer\\setup.exe\" --on-os-upgrade --system-level "
-                    L"--verbose-logging %1"});
+  const std::wstring command_line = base::StrCat(
+      {L"\"", installer_state->target_path().value(), L"\\",
+       base::ASCIIToWide(new_version_->GetString()),
+       L"\\Installer\\setup.exe\" --on-os-upgrade --system-level "
+       L"--verbose-logging --",
+       base::ASCIIToWide(installer::switches::kOsUpgradeVersions), L"=%1"});
   EXPECT_CALL(work_item_list,
               AddSetRegStringValueWorkItem(
                   kRegRoot, update_handler_command_key, KEY_WOW64_32KEY,
@@ -345,6 +346,11 @@ TEST_F(InstallWorkerTest, TestInstallChromeSystem) {
       AddSetRegDwordValueWorkItem(
           kRegRoot, update_handler_command_key, KEY_WOW64_32KEY,
           std::wstring(google_update::kRegAutoRunOnOSUpgradeField), 1, true))
+      .WillOnce(Return(set_reg_value_work_item.get()));
+
+  EXPECT_CALL(work_item_list, AddSetRegDwordValueWorkItem(
+                                  _, _, _, std::wstring(L"EstimatedSize"),
+                                  kEstimatedSizeKb, true))
       .WillOnce(Return(set_reg_value_work_item.get()));
 
   AddInstallWorkItems(install_params, &work_item_list);

@@ -7,15 +7,15 @@ const completionPromise = new Promise((res) => {
   resolve = res;
 });
 
-var messagesReceived = [];
+const messagesReceived = [];
 
 function getMessageCountAfterReceivingRealSenderMessage() {
   return completionPromise;
 }
 
 chrome.runtime.onMessageExternal.addListener(function(msg, sender, respond) {
-  messagesReceived.push({msg:msg, sender:sender});
-  if (msg == 'from_sender') {
+  messagesReceived.push({msg: msg, sender: sender});
+  if (msg === 'from_sender') {
     resolve(messagesReceived.length);
   }
 });

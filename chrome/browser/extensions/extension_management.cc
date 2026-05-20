@@ -17,6 +17,7 @@
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/no_destructor.h"
 #include "base/observer_list.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -32,7 +33,6 @@
 #include "chrome/browser/extensions/external_policy_loader.h"
 #include "chrome/browser/extensions/external_provider_impl.h"
 #include "chrome/browser/extensions/forced_extensions/install_stage_tracker_factory.h"
-#include "chrome/browser/extensions/managed_installation_mode.h"
 #include "chrome/browser/extensions/managed_toolbar_pin_mode.h"
 #include "chrome/browser/extensions/permissions_based_management_policy_provider.h"
 #include "chrome/browser/extensions/standard_management_policy_provider.h"
@@ -43,6 +43,7 @@
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/pref_names.h"
 #include "components/crx_file/id_util.h"
+#include "components/enterprise/browser/reporting/common_pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/common/content_switches.h"
@@ -50,13 +51,14 @@
 #include "extensions/browser/cws_info_service.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/forced_extensions/install_stage_tracker.h"
+#include "extensions/browser/managed_installation_mode.h"
 #include "extensions/browser/pref_names.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/manifest_constants.h"
-#include "extensions/common/manifest_url_handlers.h"
+#include "extensions/common/manifest_handlers/manifest_url_handlers.h"
 #include "extensions/common/permissions/api_permission_set.h"
 #include "extensions/common/permissions/permission_set.h"
 #include "extensions/common/url_pattern.h"
@@ -117,8 +119,9 @@ ExtensionManagement::ExtensionManagement(Profile* profile)
   pref_change_registrar_.Add(pref_names::kAllowedTypes, pref_change_callback);
   pref_change_registrar_.Add(pref_names::kExtensionManagement,
                              pref_change_callback);
-  pref_change_registrar_.Add(prefs::kCloudExtensionRequestEnabled,
-                             pref_change_callback);
+  pref_change_registrar_.Add(
+      enterprise_reporting::kCloudExtensionRequestEnabled,
+      pref_change_callback);
 #if !BUILDFLAG(IS_CHROMEOS)
   pref_change_registrar_.Add(enterprise_reporting::kCloudReportingEnabled,
                              pref_change_callback);
@@ -230,7 +233,7 @@ base::DictValue ExtensionManagement::GetRecommendedInstallList() const {
 
 bool ExtensionManagement::HasAllowlistedExtension() {
   // TODO(rdevlin.cronin): investigate implementation correctness per
-  // https://crbug.com/1258180.
+  // https://crbug.com/40200962.
   if (default_settings_->installation_mode !=
           ManagedInstallationMode::kBlocked &&
       default_settings_->installation_mode !=
@@ -476,9 +479,8 @@ bool ExtensionManagement::IsAllowedByUnpackedDeveloperModePolicy(
   if (extension.location() != mojom::ManifestLocation::kUnpacked) {
     return true;
   }
-  // Allow extensions loaded from DevTools' "Extensions.loadUnpacked" command.
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableUnsafeExtensionDebugging)) {
+
+  if (extension.creation_flags() & extensions::Extension::INSTALLED_VIA_CDP) {
     return true;
   }
 
@@ -713,8 +715,9 @@ void ExtensionManagement::Refresh() {
       LoadListPreference(pref_names::kAllowedTypes, true);
   const base::DictValue* dict_pref =
       LoadDictPreference(pref_names::kExtensionManagement, true);
-  const base::Value* extension_request_pref = LoadPreference(
-      prefs::kCloudExtensionRequestEnabled, false, base::Value::Type::BOOLEAN);
+  const base::Value* extension_request_pref =
+      LoadPreference(enterprise_reporting::kCloudExtensionRequestEnabled, false,
+                     base::Value::Type::BOOLEAN);
 
   const base::Value* manifest_v2_pref =
       LoadPreference(pref_names::kManifestV2Availability,
@@ -1122,7 +1125,8 @@ ExtensionManagement* ExtensionManagementFactory::GetForBrowserContext(
 
 // static
 ExtensionManagementFactory* ExtensionManagementFactory::GetInstance() {
-  return base::Singleton<ExtensionManagementFactory>::get();
+  static base::NoDestructor<ExtensionManagementFactory> instance;
+  return instance.get();
 }
 
 ExtensionManagementFactory::ExtensionManagementFactory()

@@ -366,18 +366,10 @@ scoped_refptr<VideoFrame> VideoFrame::WrapSharedImage(
     scoped_refptr<gpu::ClientSharedImage> shared_image,
     gpu::SyncToken sync_token,
     ReleaseMailboxCB shared_image_release_cb,
-    const gfx::Size& coded_size,
     const gfx::Rect& visible_rect,
     const gfx::Size& natural_size,
     base::TimeDelta timestamp) {
   CHECK(shared_image);
-  if (coded_size != shared_image->size()) {
-    DLOG(ERROR) << "coded_size (" << coded_size.ToString()
-                << ") does not match shared_image size ("
-                << shared_image->size().ToString() << ")";
-    return nullptr;
-  }
-
   scoped_refptr<VideoFrame> frame = CreateFrameForNativeTexturesInternal(
       format, shared_image->size(), visible_rect, natural_size, timestamp);
   if (!frame) {
@@ -390,21 +382,6 @@ scoped_refptr<VideoFrame> VideoFrame::WrapSharedImage(
     frame->SetReleaseMailboxCB(std::move(shared_image_release_cb));
   }
   return frame;
-}
-
-// static
-scoped_refptr<VideoFrame> VideoFrame::WrapSharedImage(
-    VideoPixelFormat format,
-    scoped_refptr<gpu::ClientSharedImage> shared_image,
-    gpu::SyncToken sync_token,
-    ReleaseMailboxCB shared_image_release_cb,
-    const gfx::Rect& visible_rect,
-    const gfx::Size& natural_size,
-    base::TimeDelta timestamp) {
-  CHECK(shared_image);
-  return WrapSharedImage(
-      format, shared_image, sync_token, std::move(shared_image_release_cb),
-      shared_image->size(), visible_rect, natural_size, timestamp);
 }
 
 scoped_refptr<VideoFrame> VideoFrame::WrapMappableSharedImage(
@@ -1231,10 +1208,8 @@ gfx::ColorSpace VideoFrame::ColorSpace() const {
 }
 
 void VideoFrame::set_color_space(const gfx::ColorSpace& color_space) {
-  // Check color spaces are same for video frames created from shared image
-  // from WrapSharedImage codepaths.
-  if (HasSharedImage() && !HasMappableSharedImage() &&
-      color_space != shared_image()->color_space()) {
+  // Check color spaces are same for video frames created from shared image.
+  if (HasSharedImage() && color_space != shared_image()->color_space()) {
     SCOPED_CRASH_KEY_STRING256("video_frame", "si_color_space",
                                shared_image()->color_space().ToString());
     SCOPED_CRASH_KEY_STRING256("video_frame", "color_space",
@@ -1290,6 +1265,10 @@ int VideoFrame::rows(size_t plane) const {
   return Rows(plane, format(), coded_size().height());
 }
 
+int VideoFrame::columns(size_t plane) const {
+  return Columns(plane, format(), coded_size().width());
+}
+
 int VideoFrame::GetVisibleRowBytes(size_t plane) const {
   return RowBytes(plane, format(), visible_rect().width());
 }
@@ -1298,8 +1277,8 @@ int VideoFrame::GetVisibleRows(size_t plane) const {
   return Rows(plane, format(), visible_rect().height());
 }
 
-int VideoFrame::columns(size_t plane) const {
-  return Columns(plane, format(), coded_size().width());
+int VideoFrame::GetVisibleColumns(size_t plane) const {
+  return Columns(plane, format(), visible_rect().width());
 }
 
 template <typename T>

@@ -49,7 +49,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="History.AttemptedToFixProfileError"
-    enum="BooleanDatabaseKilled" expires_after="2026-08-21">
+    enum="BooleanDatabaseKilled" expires_after="2026-10-25">
   <owner>etienneb@chromium.org</owner>
   <owner>sdefresne@chromium.org</owner>
   <component>1456716</component>
@@ -69,19 +69,22 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.BrowsingDataLifetime.Duration.BrowserShutdownDeletion"
-    units="ms" expires_after="2025-07-01">
+    units="ms" expires_after="2027-04-16">
   <owner>ydago@chromium.org</owner>
   <owner>dullweber@chromium.org</owner>
   <component>1456716</component>
   <summary>
     The time that passed while performing a browsing data deletion using the
     ClearBrowsingDataOnExitList policy. The deletion will be for all time.
+
+    Warning: this histogram was expired from 2025-07-01 to 2026-04-15; data may
+    be missing.
   </summary>
 </histogram>
 
 <histogram
     name="History.BrowsingDataLifetime.Duration.Scheduled{DeletionType}Deletion"
-    units="ms" expires_after="2025-07-01">
+    units="ms" expires_after="2027-04-16">
   <owner>ydago@chromium.org</owner>
   <owner>dullweber@chromium.org</owner>
   <component>1456716</component>
@@ -89,6 +92,9 @@ chromium-metrics-reviews@google.com.
     The time that passed while performing a scheduled data deletion using the
     BrowsingDataSettings policy. The deletion will be for a specific hourly time
     range, the data types being deleted are {DeletionType}.
+
+    Warning: this histogram was expired from 2025-07-01 to 2026-04-15; data may
+    be missing.
   </summary>
   <token key="DeletionType">
     <variant name="Filterable" summary="filterable"/>
@@ -148,7 +154,6 @@ chromium-metrics-reviews@google.com.
 
   <token key="Task">
     <variant name="AccountPasswords" summary="AccountPasswords"/>
-    <variant name="AccountPasswordsSynced" summary="AccountPasswordsSynced"/>
     <variant name="AutofillData" summary="AutofillData"/>
     <variant name="AutofillOrigins" summary="AutofillOrigins"/>
     <variant name="CdmLicenses" summary="CdmLicenses"/>
@@ -180,7 +185,7 @@ chromium-metrics-reviews@google.com.
     <variant name="WebrtcEventLogs" summary="WebrtcEventLogs"/>
     <variant name="WebrtcLogs" summary="WebrtcLogs"/>
   </token>
-<!-- LINT.ThenChange(//chrome/browser/browsing_data/chrome_browsing_data_remover_delegate.h:TracingDataType) -->
+<!-- LINT.ThenChange(//chrome/browser/browsing_data/chrome_browsing_data_remover_delegate.cc:TracingDataTypeHistogramSuffix) -->
 
 </histogram>
 
@@ -761,23 +766,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="History.Clusters.Backend.KeywordCache.ShortKeywordsCount"
-    units="count" expires_after="2024-11-03">
-  <owner>manukh@chromium.org</owner>
-  <owner>chrome-journeys@google.com</owner>
-  <component>1457319</component>
-  <summary>
-    Logs the number of keyword stored in the short cache. Each keyword may
-    actually be multiple words.
-
-    Each cluster can have multiple keyword phrases; each phrase consists of 1 or
-    more words.
-
-    Logged each time the short cache is refreshed, i.e. on omnibox key stroke if
-    the primary cache is not stale and limited to at most once every 10 seconds.
-  </summary>
-</histogram>
-
 <histogram name="History.Clusters.Backend.NumClustersReturned"
     units="number clusters returned" expires_after="2024-04-28">
   <owner>mcrouse@chromium.org</owner>
@@ -1084,20 +1072,6 @@ chromium-metrics-reviews@google.com.
     <variant name="SingleVisit" summary="only a single visit"/>
     <variant name="VisibilityScore" summary="low visibility score"/>
   </token>
-</histogram>
-
-<histogram
-    name="History.Clusters.ContextClusterer.ClusterCleanedUpBeforePersistence"
-    enum="Boolean" expires_after="2024-06-02">
-  <owner>sophiechang@chromium.org</owner>
-  <owner>chrome-journeys@google.com</owner>
-  <component>1457319</component>
-  <summary>
-    When the user visits a page, `ContextClustererHistoryServiceObserver`
-    considers whether to add the visit to a new cluster or an existing cluster.
-    If it decides to create a new cluster, this is logged. Therefore, logged at
-    most once per page visit.
-  </summary>
 </histogram>
 
 <histogram name="History.Clusters.ContextClusterer.DbLatency.{Segment}"
@@ -1793,20 +1767,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="History.Embeddings.DatabaseIterationSkippedMissizedEmbeddings"
-    units="rows" expires_after="2026-02-28">
-  <owner>orinj@chromium.org</owner>
-  <owner>manukh@chromium.org</owner>
-  <summary>
-    Number of database statement iteration rows skipped due to embeddings having
-    unexpected dimensions. If a row is skipped, only one counter is incremented
-    to reflect the reason; the check order is: passages, embeddings, mismatches.
-    Logged once for each full iteration, which happens when the database is
-    queried; this may include a time range or not, and may exhaust all rows or
-    stop early if a new query is initiated.
-  </summary>
-</histogram>
-
 <histogram name="History.Embeddings.DatabaseIterationSkippedPassages"
     units="rows" expires_after="2026-02-28">
   <owner>orinj@chromium.org</owner>
@@ -1939,7 +1899,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.Embedder.EmbeddingsGenerationSucceeded"
-    enum="Boolean" expires_after="2026-08-09">
+    enum="Boolean" expires_after="2026-10-11">
   <owner>sophiechang@chromium.org</owner>
   <owner>zekunjiang@google.com</owner>
   <summary>
@@ -2106,17 +2066,6 @@ chromium-metrics-reviews@google.com.
     total score including the word match boost, so it signals how helpful the
     boost from text search is in yielding results that would not have been
     included otherwise.
-  </summary>
-</histogram>
-
-<histogram name="History.Embeddings.LoadedMissizedEmbedding" enum="Boolean"
-    expires_after="2026-02-28">
-  <owner>orinj@chromium.org</owner>
-  <owner>sophiechang@chromium.org</owner>
-  <summary>
-    Whether any embeddings loaded from the SQL database are of the wrong size
-    (number of dimensions expected to be consistent). Logged each time
-    history_embeddings::SqlDatabase::GetUrlData completes.
   </summary>
 </histogram>
 
@@ -2665,7 +2614,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.MonthlyHostCount" units="hosts"
-    expires_after="2026-08-02">
+    expires_after="2026-10-04">
   <owner>mpearson@chromium.org</owner>
   <owner>sky@chromium.org</owner>
   <component>1456716</component>
@@ -2677,7 +2626,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.MonthlyURLCount" units="urls"
-    expires_after="2026-08-02">
+    expires_after="2026-10-04">
   <owner>mpearson@chromium.org</owner>
   <owner>sky@chromium.org</owner>
   <component>1456716</component>
@@ -2689,7 +2638,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.MostVisitedTilesVisualDeduplication" units="tiles"
-    expires_after="2026-08-09">
+    expires_after="2026-10-11">
   <owner>hitarthkothari@google.com</owner>
   <owner>ckitagawa@chromium.org</owner>
   <summary>
@@ -2746,7 +2695,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.RemoveVisitsFromWebHistory.EntryCount" units="entries"
-    expires_after="2026-08-23">
+    expires_after="2026-10-25">
   <owner>treib@chromium.org</owner>
   <owner>src/components/sync/OWNERS</owner>
   <summary>
@@ -3009,30 +2958,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="History.WebHistoryMergeResult.{LocalOrRemote}.{VisitAge}"
-    units="visits" expires_after="2026-08-30">
-  <owner>treib@chromium.org</owner>
-  <owner>src/components/sync/OWNERS</owner>
-  <component>1456716</component>
-  <summary>
-    Recorded whenever remote history data is queried for display on
-    chrome://history (i.e. when the page is opened, when the user scrolls to the
-    bottom of the available list, and when the user changes the search terms).
-    Records the number of {LocalOrRemote} visits from {VisitAge}. See also
-    History.BrowsingHistoryResult.*, which gets recorded independently of the
-    existence of remote data.
-  </summary>
-  <token key="LocalOrRemote">
-    <variant name="Combined" summary="combined (local and remote)"/>
-    <variant name="LocalOnly" summary="local-only"/>
-    <variant name="RemoteOnly" summary="remote-only"/>
-  </token>
-  <token key="VisitAge">
-    <variant name="PostExpiryThreshold" summary="at most 90 days ago"/>
-    <variant name="PreExpiryThreshold" summary="more than 90 days ago"/>
-  </token>
-</histogram>
-
 <histogram name="History.WebHistoryRequestOutcome.{RequestType}"
     enum="WebHistoryRequestOutcome" expires_after="2026-09-01">
   <owner>treib@chromium.org</owner>
@@ -3062,7 +2987,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.WeeklyURLCount" units="URLs"
-    expires_after="2026-08-09">
+    expires_after="2026-10-11">
   <owner>mpearson@chromium.org</owner>
   <owner>sky@chromium.org</owner>
   <component>1456716</component>
@@ -3084,7 +3009,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="HistoryPage.ActorItemsShown" enum="BooleanVisible"
-    expires_after="2026-08-02">
+    expires_after="2026-10-04">
   <owner>zalmashni@google.com</owner>
   <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
@@ -3095,7 +3020,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="HistoryPage.NonActorContextMenuActions"
-    enum="VisitContextMenuAction" expires_after="2026-08-02">
+    enum="VisitContextMenuAction" expires_after="2026-10-04">
   <owner>zalmashni@google.com</owner>
   <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>

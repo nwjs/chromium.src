@@ -61,6 +61,11 @@ public class HeadlessBrowserControlsStateProvider implements BrowserControlsStat
     }
 
     @Override
+    public boolean hasBottomControlsHeightAnimation() {
+        return false;
+    }
+
+    @Override
     public int getBottomControlOffset() {
         return 0;
     }
@@ -87,7 +92,7 @@ public class HeadlessBrowserControlsStateProvider implements BrowserControlsStat
 
     @Override
     public @ControlsPosition int getControlsPosition() {
-        return ControlsPosition.NONE;
+        return ControlsPosition.TOP;
     }
 
     @Override

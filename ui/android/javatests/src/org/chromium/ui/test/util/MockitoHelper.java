@@ -6,6 +6,7 @@ package org.chromium.ui.test.util;
 
 import static org.mockito.ArgumentMatchers.any;
 
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 import org.mockito.stubbing.Stubber;
@@ -43,6 +44,7 @@ public class MockitoHelper {
         return Mockito.doAnswer(
                 (Answer<Void>)
                         invocation -> {
+                            @SuppressWarnings("unchecked") // Mockito args are Object[].
                             T arg = (T) invocation.getArguments()[index];
                             callback.onResult(arg);
                             return null;
@@ -94,5 +96,39 @@ public class MockitoHelper {
                 mock,
                 Mockito.timeout(
                         ScalableTimeout.scaleTimeout(CriteriaHelper.DEFAULT_MAX_TIME_TO_POLL)));
+    }
+
+    /**
+     * Type-safe wrapper around {@code any(Callback.class)} that avoids unchecked warnings.
+     *
+     * <p>Using {@code any(Callback.class)} directly produces an unchecked warning because {@code
+     * Callback.class} is a raw type — Java generics are erased at runtime so {@code
+     * Callback<Foo>.class} does not exist. This method centralizes the suppression and returns a
+     * properly typed {@code Callback<T>} via type inference.
+     *
+     * <p>Matches any non-null {@link Callback} argument (same behavior as {@code
+     * any(Callback.class)}).
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> Callback<T> anyCallback() {
+        return any(Callback.class);
+    }
+
+    /**
+     * Type-safe wrapper around {@code ArgumentCaptor.forClass(Callback.class)} that avoids
+     * unchecked warnings. For field-level captors, prefer the {@code @Captor} annotation.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> ArgumentCaptor<Callback<T>> callbackCaptor() {
+        return ArgumentCaptor.forClass(Callback.class);
+    }
+
+    /**
+     * Type-safe wrapper around {@code Mockito.mock(Callback.class)} that avoids unchecked warnings.
+     * Returns a properly typed {@code Callback<T>} mock via type inference.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> Callback<T> mockCallback() {
+        return Mockito.mock(Callback.class);
     }
 }

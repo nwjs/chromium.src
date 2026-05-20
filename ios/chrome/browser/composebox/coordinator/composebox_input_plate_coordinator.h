@@ -6,10 +6,12 @@
 #define IOS_CHROME_BROWSER_COMPOSEBOX_COORDINATOR_COMPOSEBOX_INPUT_PLATE_COORDINATOR_H_
 
 #import "ios/chrome/browser/shared/coordinator/chrome_coordinator/chrome_coordinator.h"
-#import "ios/chrome/browser/shared/public/commands/composebox_tab_picker_commands.h"
+#import "ios/chrome/browser/shared/public/commands/tab_picker_commands.h"
+#import "ios/chrome/browser/tab_picker/coordinator/tab_picker_logger.h"
 
 @protocol ComposeboxDebuggerLogger;
 @class ComposeboxInputPlateViewController;
+@class ComposeboxFocusParams;
 enum class ComposeboxEntrypoint;
 @class ComposeboxModeHolder;
 @class ComposeboxTheme;
@@ -19,7 +21,7 @@ class Browser;
 
 // The coordinator for the compose box input plate.
 @interface ComposeboxInputPlateCoordinator
-    : ChromeCoordinator <ComposeboxTabPickerCommands>
+    : ChromeCoordinator <TabPickerCommands>
 
 // The view controller managed by this coordinator.
 @property(nonatomic, readonly)
@@ -30,14 +32,14 @@ class Browser;
     omniboxPopupPresenterDelegate;
 
 // Delegate for logging events.
-@property(nonatomic, weak) id<ComposeboxDebuggerLogger> debugLogger;
+@property(nonatomic, weak) id<ComposeboxDebuggerLogger, TabPickerLogger>
+    debugLogger;
 
 /// Init the composebox opened from `entrypoint` with an optional `query` in
 /// the omnibox.
 - (instancetype)initWithBaseViewController:(UIViewController*)baseViewController
                                    browser:(Browser*)browser
-                                entrypoint:(ComposeboxEntrypoint)entrypoint
-                                     query:(NSString*)query
+                               focusParams:(ComposeboxFocusParams*)focusParams
                                  URLLoader:(id<ComposeboxURLLoader>)URLLoader
                                      theme:(ComposeboxTheme*)theme
                                 modeHolder:(ComposeboxModeHolder*)modeHolder

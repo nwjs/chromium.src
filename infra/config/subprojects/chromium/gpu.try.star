@@ -456,6 +456,16 @@ gpu_mac_builder(
 )
 
 gpu_mac_builder(
+    name = "gpu-fyi-try-mac-arm64-apple-m2-asan",
+    description_html = "Runs release GPU tests with ASan enabled on stable Mac/M2 Macbook Pro configs",
+    mirrors = [
+        "ci/GPU FYI Mac arm64 Builder (asan)",
+        "ci/Mac FYI Retina Release ASAN (Apple M2)",
+    ],
+    gn_args = "ci/GPU FYI Mac arm64 Builder (asan)",
+)
+
+gpu_mac_builder(
     name = "gpu-fyi-try-mac-arm64-apple-m2-exp",
     description_html = "Runs standard GPU tests on experimental M2 configs",
     mirrors = [
@@ -724,16 +734,6 @@ gpu_win_builder(
         "ci/Win11 FYI x64 Release (NVIDIA RTX 4070 Super)",
     ],
     gn_args = "ci/GPU FYI Win x64 Builder",
-)
-
-gpu_win_builder(
-    name = "gpu-fyi-try-win11-qualcomm-rel-64",
-    description_html = "Triggers GPU tests on Windows arm64 devices with Adreno 690 GPUs",
-    mirrors = [
-        "ci/GPU FYI Win arm64 Builder",
-        "ci/Win11 FYI arm64 Release (Qualcomm Adreno 690)",
-    ],
-    gn_args = "ci/GPU FYI Win arm64 Builder",
 )
 
 gpu_win_builder(

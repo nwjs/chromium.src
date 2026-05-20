@@ -1740,7 +1740,7 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
 
   const std::string kOriginalPath = "/original.html";
   const std::string kFirstRedirectPath = "/redirect1.html";
-  const std::string kSecondRedirectPath = "/reidrect2.html";
+  const std::string kSecondRedirectPath = "/redirect2.html";
   net::test_server::ControllableHttpResponse original_response1(
       embedded_test_server(), kOriginalPath);
   net::test_server::ControllableHttpResponse original_response2(
@@ -3660,7 +3660,7 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest, LastCommittedOrigin) {
   shell()->LoadURL(url_b);
   navigation_manager.WaitForSpeculativeRenderFrameHostCreation();
 
-  // The speculative RFH shouln't have a last committed origin (the default
+  // The speculative RFH shouldn't have a last committed origin (the default
   // value is a unique origin). The current RFH shouldn't change its last
   // committed origin before commit.
   RenderFrameHostImpl* rfh_b = root->render_manager()->speculative_frame_host();
@@ -4509,7 +4509,7 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
         IsMainFrameOriginOpaqueAndCompatibleWithURL(shell(), error_url));
   }
 
-  // Creat a new, unrelated, window, navigate it to an error page and
+  // Create a new, unrelated, window, navigate it to an error page and
   // verify.
   Shell* new_shell = CreateBrowser();
   {
@@ -4705,7 +4705,7 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
   NavigationControllerImpl& nav_controller =
       static_cast<NavigationControllerImpl&>(
           shell()->web_contents()->GetController());
-  // We start at 3, because IsolateOriginsForTesting is sneeking in extra two
+  // We start at 3, because IsolateOriginsForTesting is sneaking in extra two
   // navigations.
   EXPECT_EQ(3, nav_controller.GetEntryCount());
 
@@ -4793,7 +4793,7 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
   NavigationControllerImpl& nav_controller =
       static_cast<NavigationControllerImpl&>(
           shell()->web_contents()->GetController());
-  // We start at 3, because IsolateOriginsForTesting calls are sneeking in extra
+  // We start at 3, because IsolateOriginsForTesting calls are sneaking in extra
   // two navigations.
   EXPECT_EQ(3, nav_controller.GetEntryCount());
 
@@ -4834,8 +4834,16 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
     EXPECT_EQ(4, nav_controller.GetEntryCount());
     EXPECT_EQ(test_url, child1->current_frame_host()->GetLastCommittedURL());
 
-    // Error pages should commit in an opaque origin.
-    EXPECT_TRUE(IsOriginOpaqueAndCompatibleWithURL(child1, test_url));
+    // Error pages should commit in an opaque origin. This particular error
+    // stays in the current process, so when B2 navigates B1 to C, it stays in
+    // B's process. The origin's precursor should be empty, and more
+    // specifically, it should not be C, to guard against compromised renderers
+    // gaining access to cross-site precursors (crbug.com/502348223).
+    const url::Origin& child1_origin =
+        child1->current_frame_host()->GetLastCommittedOrigin();
+    EXPECT_TRUE(child1_origin.opaque());
+    EXPECT_TRUE(
+        child1_origin.GetTupleOrPrecursorTupleIfOpaque().GetURL().is_empty());
 
     // net::ERR_BLOCKED_BY_CLIENT errors in subframes should commit in the
     // the correct process based on whether isolation is enabled or not.
@@ -5396,7 +5404,7 @@ class BrowsingInstanceSwapContentBrowserClient
 };
 
 // Test to verify that reloading of an error page which resulted from a
-// navigation to an URL which requires a BrowsingInstance swap, correcly
+// navigation to an URL which requires a BrowsingInstance swap, correctly
 // reloads in the same SiteInstance for the error page.
 IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
                        ErrorPageNavigationReloadBrowsingInstanceSwap) {
@@ -6304,7 +6312,7 @@ class RenderFrameHostManagerDefaultProcessTest
 // 1. Visit foo.com.
 // 2. Start to navigate to a siteless URL.
 // 3. When the commit is pending, start a navigation to bar.com in a popup.
-// (Using a popup avoids a crash when replacting the speculative RFH, per
+// (Using a popup avoids a crash when replacing the speculative RFH, per
 // https://crbug.com/838348.)
 // All navigations should use the default process, and we should not crash.
 // See https://crbug.com/977956.

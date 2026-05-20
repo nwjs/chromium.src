@@ -2,12 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/memory/raw_ptr.h"
+#include "base/test/gmock_expected_support.h"
 #include "base/test/run_until.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -50,13 +53,34 @@ class GlicBrowserTest : public InProcessBrowserTest {
 
  protected:
   virtual void InitializeFeatureList() {
-    scoped_feature_list_.InitWithFeatures(
-        {}, {features::kGlicTrustFirstOnboarding});
   }
 
  private:
   GlicTestEnvironment glic_test_environment_{{.fre_status = std::nullopt}};
-  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+class SharedGlicBrowserTest : public glic::GlicBrowserTest {
+ public:
+  // Set up the Glic UI for testing. This runs after the browser is launched.
+  void SetUpOnMainThread() override {
+    glic::GlicBrowserTest::SetUpOnMainThread();
+    auto* profile = GetProfile();
+    SetFRECompletion(profile, prefs::FreStatus::kCompleted);
+
+    ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTab());
+    web_contents_ = instance->host().webui_contents();
+    ASSERT_TRUE(web_contents_);
+    ASSERT_TRUE(WaitForWebUiState(mojom::WebUiState::kReady).has_value());
+  }
+  // Clear the raw_ptr before the test environment destroys the WebContents,
+  // preventing a dangling pointer error.
+  void TearDownOnMainThread() override {
+    web_contents_ = nullptr;
+    glic::GlicBrowserTest::TearDownOnMainThread();
+  }
+
+ protected:
+  raw_ptr<content::WebContents> web_contents_ = nullptr;
 };
 
 // Ensure basic incognito window doesn't cause a crash. Simply opens an
@@ -74,9 +98,6 @@ IN_PROC_BROWSER_TEST_F(GlicBrowserTest, PausedProfileIsNotReady) {
   auto* const identity_manager = IdentityManagerFactory::GetForProfile(profile);
 
   ASSERT_TRUE(GlicEnabling::IsEnabledForProfile(profile));
-
-  // False until FRE is completed.
-  ASSERT_FALSE(GlicEnabling::IsReadyForProfile(profile));
   SetFRECompletion(profile, prefs::FreStatus::kCompleted);
   ASSERT_TRUE(GlicEnabling::IsReadyForProfile(profile));
 
@@ -104,42 +125,27 @@ IN_PROC_BROWSER_TEST_F(GlicBrowserTest, GlicEnablingDismissed) {
   ASSERT_FALSE(GlicEnabling::DidDismissForProfile(profile));
 }
 
-IN_PROC_BROWSER_TEST_F(GlicBrowserTest, TabHostIsRemovedWhenTabClosed) {
-  auto* profile = browser()->profile();
-  auto* glic_service = GlicKeyedServiceFactory::GetGlicKeyedService(profile);
-  ASSERT_TRUE(glic_service);
+// This test verifies that focus is correctly trapped and forwarded to the
+// guest panel's webview when the guest panel is visible.
+// This simulates the behavior expected by the focus listener in
+// glic_app_controller.ts.
+IN_PROC_BROWSER_TEST_F(SharedGlicBrowserTest, FocusTrappingGuestPanel) {
+  // Execute script to simulate focus trapping.
+  std::string script = R"(
+    (() => {
+      // Simulate focus on body
+      document.body.focus();
+      // Trigger the focus event listener
+      window.dispatchEvent(new Event('focus'));
+      const webview = document.querySelector('#webviewContainer webview');
+      if (document.activeElement === webview) {
+        return 'success';
+      }
+      return 'activeElement is ' + document.activeElement.tagName;
+    })()
+  )";
 
-  size_t initial_hosts_count =
-      glic_service->host_manager().GetAllHosts().size();
-
-  // Open chrome://glic in a new tab.
-  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
-      browser(), GURL(chrome::kChromeUIGlicURL),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
-
-  size_t hosts_count_after_open =
-      glic_service->host_manager().GetAllHosts().size();
-  EXPECT_EQ(hosts_count_after_open, initial_hosts_count + 1);
-
-  tabs::TabInterface* glic_tab = browser()->tab_strip_model()->GetActiveTab();
-  ASSERT_TRUE(glic_tab);
-
-  Host* tab_host =
-      glic_service->host_manager().FindHostForTabForTesting(*glic_tab);
-  ASSERT_TRUE(tab_host);
-
-  base::WeakPtr<Host> tab_host_weak = tab_host->GetWeakPtr();
-  ASSERT_TRUE(tab_host_weak);
-
-  browser()->tab_strip_model()->CloseWebContentsAt(
-      browser()->tab_strip_model()->active_index(), TabCloseTypes::CLOSE_NONE);
-
-  // Wait for the tab close to finish tearing down the tab Host.
-  ASSERT_TRUE(base::test::RunUntil([&]() { return !tab_host_weak; }));
-
-  EXPECT_EQ(glic_service->host_manager().GetAllHosts().size(),
-            initial_hosts_count);
+  EXPECT_EQ("success", content::EvalJs(web_contents_, script));
 }
 
 }  // namespace

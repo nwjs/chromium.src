@@ -181,8 +181,8 @@ void LayoutImageResource::UseBrokenImage() {
   SetImageResource(broken_image);
 }
 
-bool LayoutImageResource::IsAccessAllowed() const {
-  return !cached_image_ || cached_image_->IsAccessAllowed();
+bool LayoutImageResource::IsCorsSameOrigin() const {
+  return !cached_image_ || cached_image_->IsCorsSameOrigin();
 }
 
 scoped_refptr<Image> LayoutImageResource::GetImage(

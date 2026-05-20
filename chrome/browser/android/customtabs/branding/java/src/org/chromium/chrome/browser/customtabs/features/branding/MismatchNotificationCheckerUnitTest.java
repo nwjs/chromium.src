@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.customtabs.features.branding;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
@@ -40,6 +39,7 @@ import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
+import org.chromium.ui.test.util.MockitoHelper;
 
 /** Unit test for {@link MismatchNotificationChecker} */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -143,14 +143,13 @@ public class MismatchNotificationCheckerUnitTest {
             when(mTracker.acquireDisplayLock()).thenReturn(mIphDisplayLock);
 
             mIdentityManager = mock(IdentityManager.class);
-            when(mIdentityManager.getPrimaryAccountInfo(anyInt()))
-                    .thenReturn(TestAccounts.ACCOUNT1);
+            when(mIdentityManager.getPrimaryAccountInfo()).thenReturn(TestAccounts.ACCOUNT1);
 
             mAppData.showCount = INIT_SHOW_COUNT;
             mAppData.userActCount = INIT_USER_ACT_COUNT;
             mAppData.closeType = CloseType.UNKNOWN.getNumber();
 
-            mOnClose = mock(Callback.class);
+            mOnClose = MockitoHelper.mockCallback();
             mSigninLauncher = mock(SigninAndHistorySyncActivityLauncher.class);
 
             mChecker =
@@ -173,7 +172,7 @@ public class MismatchNotificationCheckerUnitTest {
                 boolean shown, MismatchNotificationData mimData) {
             when(mDelegate.maybeShow(any(), any(), anyLong(), any(), any())).thenReturn(shown);
 
-            ArgumentCaptor<Callback> captor = ArgumentCaptor.forClass(Callback.class);
+            ArgumentCaptor<Callback<Integer>> captor = MockitoHelper.callbackCaptor();
             if (mimData != null) mimData.setAppData(mChecker.getAccountId(), "app-id", mAppData);
             mChecker.maybeShow("app-id", /* lastShowTime= */ 12345, mimData, mOnClose);
             verify(mDelegate).maybeShow(any(), any(), anyLong(), any(), captor.capture());
@@ -182,7 +181,7 @@ public class MismatchNotificationCheckerUnitTest {
         }
 
         public MismatchNotificationCheckerTester signOut() {
-            when(mIdentityManager.getPrimaryAccountInfo(anyInt())).thenReturn(null);
+            when(mIdentityManager.getPrimaryAccountInfo()).thenReturn(null);
             return this;
         }
 

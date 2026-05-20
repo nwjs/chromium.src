@@ -33,6 +33,7 @@ import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
+import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.build.annotations.EnsuresNonNullIf;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -70,6 +71,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -302,7 +304,7 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge
             new SettableLookAheadObservableSupplier<>();
     private final SettableNonNullObservableSupplier<Integer> mTabCountSupplier =
             ObservableSuppliers.createNonNull(0);
-    private final Set<Integer> mMultiSelectedTabs = new HashSet<>();
+    private final Set<Integer> mMultiSelectedTabs = new LinkedHashSet<>();
     private final Set<Token> mHidingTabGroups = new HashSet<>();
 
     // Efficient lookup of tabs by id rather than index (stored in C++). Also ensures the Java Tab
@@ -345,7 +347,8 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge
      * @param modelDelegate The {@link TabModelDelegate} for interacting outside the tab model.
      * @param asyncTabParamsManager To detect if an async tab operation is in progress.
      * @param tabRemover For removing tabs.
-     * @param tabUngrouper For ungrouping tabs.
+     * @param isIncognitoBranded Parameter to tabUngrouperFactory
+     * @param tabUngrouperFactory For ungrouping tabs.
      * @param batchFactory A factory for creating {@link ScopedStorageBatch} objects.
      * @param supportUndo Whether the tab model supports undo functionality.
      */
@@ -362,7 +365,8 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge
             TabModelDelegate modelDelegate,
             AsyncTabParamsManager asyncTabParamsManager,
             TabRemover tabRemover,
-            TabUngrouper tabUngrouper,
+            boolean isIncognitoBranded,
+            TabUngrouperFactory tabUngrouperFactory,
             Supplier<ScopedStorageBatch> batchFactory,
             boolean supportUndo) {
         super(profile);
@@ -376,7 +380,7 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge
         mModelDelegate = modelDelegate;
         mAsyncTabParamsManager = asyncTabParamsManager;
         mTabRemover = tabRemover;
-        mTabUngrouper = tabUngrouper;
+        mTabUngrouper = tabUngrouperFactory.create(isIncognitoBranded, SupplierUtils.of(this));
         mBatchFactory = batchFactory;
         if (supportUndo && !isIncognito()) {
             mPendingTabClosureManager =
@@ -763,6 +767,19 @@ public class TabCollectionTabModelImpl extends TabModelJniBridge
         // If no other tabs are in multi-selection, this returns 1, as the active tab is always
         // considered selected.
         return mMultiSelectedTabs.isEmpty() ? 1 : mMultiSelectedTabs.size();
+    }
+
+    @Override
+    public List<Tab> getOrderedMultiSelectedTabs() {
+        assertOnUiThread();
+        List<Tab> orderedTabs = new ArrayList<>(mMultiSelectedTabs.size());
+        for (Integer id : mMultiSelectedTabs) {
+            Tab tab = getTabById(id);
+            if (tab != null) {
+                orderedTabs.add(tab);
+            }
+        }
+        return orderedTabs;
     }
 
     @Override

@@ -5,9 +5,12 @@
 #import "ios/chrome/browser/toolbar/ui/toolbar_view_controller.h"
 
 #import "base/apple/foundation_util.h"
+#import "base/cancelable_callback.h"
 #import "base/notimplemented.h"
 #import "base/notreached.h"
-#import "ios/chrome/browser/composebox/coordinator/composebox_entrypoint.h"
+#import "base/task/sequenced_task_runner.h"
+#import "base/time/time.h"
+#import "ios/chrome/browser/composebox/public/composebox_entrypoint.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
 #import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
@@ -16,6 +19,11 @@
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
+#import "ios/chrome/browser/toolbar/legacy/ui_bundled/banner_promo_view.h"
+#import "ios/chrome/browser/toolbar/legacy/ui_bundled/public/toolbar_constants.h"
+#import "ios/chrome/browser/toolbar/legacy/ui_bundled/toolbar_progress_bar.h"
+#import "ios/chrome/browser/toolbar/tab_group/ui/tab_group_indicator_constants.h"
+#import "ios/chrome/browser/toolbar/tab_group/ui/tab_group_indicator_view.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button_constants.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button_factory.h"
@@ -25,16 +33,24 @@
 #import "ios/chrome/browser/toolbar/ui/toolbar_height_delegate.h"
 #import "ios/chrome/browser/toolbar/ui/toolbar_mutator.h"
 #import "ios/chrome/browser/toolbar/ui/toolbar_utils.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/ui_util.h"
+#import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/device_form_factor.h"
+#import "ui/base/l10n/l10n_util.h"
+#import "ui/gfx/ios/uikit_util.h"
 
 namespace {
 
 constexpr CGFloat kStackViewSpacing = 9;
+const base::TimeDelta kBannerPromoAnimationDuration = base::Seconds(0.5);
 
 constexpr CGFloat kButtonMinScale = 0.2;
 
 constexpr CGFloat kAnimationDuration = 0.2f;
+
+constexpr CGFloat kLocationBarToTabGroupMargin = 6;
 
 // The margin for the leading/trailing edges of the stack view.
 constexpr CGFloat kStackViewMarginRegularRegular = 16;
@@ -49,7 +65,17 @@ constexpr CGFloat kLocationBarStackViewMarginLandscape = 18;
 // Max width of the location bar.
 constexpr CGFloat kLocationBarMaxWidth = 600;
 
+// The threshold for the fullscreen progress of a collapsed toolbar.
+constexpr CGFloat kFullscreenCollapsedThreshold = 0.05;
+
+// Timing to finish the animation of the progress bar before hiding it.
+const base::TimeDelta kProgressBarEndAnimationDuration =
+    base::Milliseconds(250);
+
 }  // namespace
+
+@interface ToolbarViewController () <TabGroupIndicatorViewDelegate>
+@end
 
 @implementation ToolbarViewController {
   ToolbarButton* _backButton;
@@ -65,6 +91,20 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
   UIMenu* _tabGridButtonMenu;
   ToolbarButton* _toolsMenuButton;
 
+  // Button taking the full size of the toolbar. Exits fullscreen mode to expand
+  // the toolbar when tapped.
+  UIButton* _collapsedToolbarButton;
+
+  // Page load progress bar on the edge of the toolbar.
+  ToolbarProgressBar* _progressBar;
+
+  // Separator line for the toolbar. Visible when the toolbar has the omnibox
+  // or when the tab group indicator is visible.
+  UIView* _separator;
+
+  // Closure to cancel hiding the progress bar when a new page load starts.
+  base::CancelableOnceClosure _hideProgressBarClosure;
+
   // Dynamic container for the `_backButton` and `_forwardButton` Toolbar
   // navigation buttons in the `_leadingStackView`.
   UIView* _navigationButtonsContainer;
@@ -74,13 +114,26 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
   UIView* _locationBarContainer;
   // The background for the location bar, which is a pill-shaped view.
   UIView* _locationBarBackground;
+  // The target for the fake omnibox, which replaces the location bar when the
+  // location bar is not visible.
+  UIView* _fakeOmniboxTarget;
   // The stack views that hold the buttons on the trailing side.
   UIStackView* _trailingStackView;
+
+  // The tab group indicator view.
+  TabGroupIndicatorView* _tabGroupIndicatorView;
 
   // The location bar height constraint.
   NSLayoutConstraint* _locationBarHeightConstraint;
   // The constraint for the bottom padding of the toolbar.
   NSLayoutConstraint* _locationBarBottomPaddingConstraint;
+  // The constraint for the top padding of the toolbar when collapsed above the
+  // keyboard.
+  NSLayoutConstraint* _locationBarTopConstraint;
+
+  // Constraints for the tabGroupIndicator.
+  NSLayoutConstraint* _tabGroupIndicatorActiveToolbarConstraint;
+  NSLayoutConstraint* _tabGroupIndicatorInactiveToolbarConstraint;
 
   // Constraints for different modes.
   NSArray<NSLayoutConstraint*>* _portraitOrientationConstraints;
@@ -90,6 +143,9 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
   // The constraints for the leading/trailing margins of the stacks.
   NSLayoutConstraint* _leadingStackLeadingConstraint;
   NSLayoutConstraint* _trailingStackTrailingConstraint;
+
+  // Whether this toolbar is in the top position.
+  BOOL _topPosition;
 
   // Whether this toolbar is currently visible.
   /// TODO(crbug.com/493268305): Clean up the animation dismissing the toolbar
@@ -102,22 +158,104 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
   // Whether the visible page is the NTP.
   BOOL _NTPVisible;
 
+  // Whether the visible page is loading.
+  BOOL _isLoading;
+
   // Used to record the latest fullscreen progress.
   CGFloat _fullscreenProgress;
+
+  // Used to record the scroll progress to show and hide the toolbar.
+  CGFloat _NTPScrollProgress;
+
+  // Background and container for the banner promo.
+  UIView* _bannerPromoBackground;
+  // The banner promo view.
+  BannerPromoView* _bannerPromo;
+  // Whether the banner promo is displayed.
+  BOOL _bannerPromoVisible;
+  // Constraint for the banner promo background height.
+  NSLayoutConstraint* _bannerPromoBackgroundHeightConstraint;
+  // Constraint for the banner promo background top.
+  NSLayoutConstraint* _bannerPromoBackgroundTopConstraint;
+  // Constraints for the banner promo in split toolbar mode (where the banner is
+  // above the toolbar).
+  NSArray<NSLayoutConstraint*>* _bannerPromoAboveConstraints;
+  // Constraints for the banner promo in non-split toolbar mode (where the
+  // banner is below the toolbar).
+  NSArray<NSLayoutConstraint*>* _bannerPromoBelowConstraints;
 }
 
-- (instancetype)initInIncognito:(BOOL)incognito {
+- (instancetype)initInIncognito:(BOOL)incognito topPosition:(BOOL)topPosition {
   self = [super initWithNibName:nil bundle:nil];
   if (self) {
     _incognito = incognito;
+    _topPosition = topPosition;
   }
   return self;
 }
 
 #pragma mark - Public
 
+- (void)setTabGroupIndicatorView:(TabGroupIndicatorView*)view {
+  if (_tabGroupIndicatorView == view) {
+    return;
+  }
+  _tabGroupIndicatorView = view;
+  if (!_tabGroupIndicatorView) {
+    return;
+  }
+  _tabGroupIndicatorView.delegate = self;
+  // ToolbarViewController will show its own _separator, when needed.
+  _tabGroupIndicatorView.showSeparator = NO;
+  _tabGroupIndicatorView.translatesAutoresizingMaskIntoConstraints = NO;
+  [self.view addSubview:_tabGroupIndicatorView];
+
+  _tabGroupIndicatorActiveToolbarConstraint =
+      [_tabGroupIndicatorView.bottomAnchor
+          constraintEqualToAnchor:_locationBarContainer.topAnchor
+                         constant:-kLocationBarToTabGroupMargin];
+
+  _tabGroupIndicatorInactiveToolbarConstraint =
+      [_tabGroupIndicatorView.bottomAnchor
+          constraintEqualToAnchor:self.view.bottomAnchor];
+
+  [self updateTabGroupIndicatorAvailability];
+
+  id<LayoutGuideProvider> safeArea = self.view.safeAreaLayoutGuide;
+  [NSLayoutConstraint activateConstraints:@[
+    [_tabGroupIndicatorView.leadingAnchor
+        constraintEqualToAnchor:safeArea.leadingAnchor],
+    [_tabGroupIndicatorView.trailingAnchor
+        constraintEqualToAnchor:safeArea.trailingAnchor],
+    [_tabGroupIndicatorView.heightAnchor
+        constraintEqualToConstant:kTabGroupIndicatorHeight],
+  ]];
+}
+
+- (void)setNTPScrollProgress:(CGFloat)progress {
+  CHECK(_NTPVisible);
+  _NTPScrollProgress = progress;
+
+  if (!CanShowTabStrip(self)) {
+    if (self.view.alpha == progress) {
+      // No change in toolbar visibility alpha.
+      return;
+    }
+    // On iPhone, the entire toolbar is initially hidden on the NTP, and appears
+    // based on the scroll `progress`.
+    [self setNTPScrollProgressForToolbar:progress];
+    return;
+  }
+
+  if (_topPosition) {
+    // On iPad, the toolbar is always visible. The location bar is initially
+    // hidden on the NTP and  appears based on the scroll `progress`.
+    [self setNTPScrollProgressForOmnibox:progress];
+  }
+}
+
 - (void)setLocationBarHidden:(BOOL)hidden {
-  _locationBarContainer.hidden = hidden;
+  _locationBarContainer.hidden = hidden || !_visible;
 }
 
 - (UIView*)locationBarContainerCopy {
@@ -158,13 +296,18 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
   [_locationBarViewController didMoveToParentViewController:self];
 }
 
+- (void)setBannerPromoDelegate:
+    (id<BannerPromoViewDelegate>)bannerPromoDelegate {
+  _bannerPromoDelegate = bannerPromoDelegate;
+  _bannerPromo.delegate = bannerPromoDelegate;
+}
+
 #pragma mark - UIViewController
 
 - (void)viewDidLoad {
   [super viewDidLoad];
   self.view.translatesAutoresizingMaskIntoConstraints = NO;
-  /// TODO(crbug.com/472279443): Use real color.
-  self.view.backgroundColor = UIColor.greenColor;
+  self.view.backgroundColor = [UIColor colorNamed:kBackgroundColor];
   self.view.accessibilityIdentifier = kToolbarViewIdentifier;
 
   [self createView];
@@ -172,6 +315,7 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
 
   [self updateToolbarElementsVisibility];
   [self updateToolbarVisibility];
+  [self updateTabGroupIndicatorAvailability];
 
   [self
       registerForTraitChanges:
@@ -182,6 +326,12 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
 - (void)viewWillLayoutSubviews {
   [super viewWillLayoutSubviews];
   [self updateLayoutConstraints];
+}
+
+- (void)viewSafeAreaInsetsDidChange {
+  [super viewSafeAreaInsetsDidChange];
+  _bannerPromoBackgroundHeightConstraint.constant = [self
+      bannerPromoBackgroundHeightForFullscreenProgress:_fullscreenProgress];
 }
 
 #pragma mark - PopupMenuUIUpdating
@@ -231,8 +381,32 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
 }
 
 - (void)setIsLoading:(BOOL)isLoading {
+  if (_isLoading == isLoading) {
+    return;
+  }
+
+  _isLoading = isLoading;
   _reloadButton.forceHidden = isLoading;
   _stopButton.forceHidden = !isLoading;
+
+  if (!_progressBar) {
+    return;
+  }
+
+  if (_isLoading) {
+    [_progressBar setProgress:0 animated:NO];
+  }
+  [self updateProgressBarVisibility];
+}
+
+- (void)setLoadingProgress:(double)progress {
+  if (!_progressBar || progress == _progressBar.progress) {
+    return;
+  }
+
+  BOOL isGoingBackward = progress < _progressBar.progress;
+  [_progressBar setProgress:progress
+                   animated:!_progressBar.hidden && !isGoingBackward];
 }
 
 - (void)setShareEnabled:(BOOL)enabled {
@@ -246,6 +420,7 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
   _visible = visible;
   [self loadViewIfNeeded];
   [self updateToolbarElementsVisibility];
+  [self updateTabGroupIndicatorAvailability];
 }
 
 - (void)setNTPVisible:(BOOL)NTPVisible {
@@ -254,7 +429,7 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
   }
   _NTPVisible = NTPVisible;
   [self updateToolbarVisibility];
-  /// TODO(crbug.com/498602138): The location bar should be initially hidden on
+  /// TODO(crbug.com/508170459): The location bar should be initially hidden on
   /// the NTP, until the fakebox is swiped up out of view.
 }
 
@@ -292,9 +467,14 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
 
 - (void)setLocationIndicatorVisible:(BOOL)locationIndicatorVisible
                     forNotification:(NSNotification*)notification {
+  CHECK(!_topPosition);
   if (locationIndicatorVisible) {
+    _locationBarBottomPaddingConstraint.active = NO;
+    _locationBarTopConstraint.active = YES;
     [self.toolbarHeightDelegate secondaryToolbarMovedAboveKeyboard];
   } else {
+    _locationBarTopConstraint.active = NO;
+    _locationBarBottomPaddingConstraint.active = YES;
     [self.toolbarHeightDelegate secondaryToolbarRemovedFromKeyboard];
     [GetFirstResponder() resignFirstResponder];
   }
@@ -324,18 +504,66 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
                                         curve:curve];
 }
 
+- (void)showBannerPromo {
+  CHECK(_topPosition);
+  if (_bannerPromoVisible) {
+    return;
+  }
+  [self setUpBannerPromoIfNecessary];
+  _bannerPromoVisible = YES;
+  _bannerPromoBackground.alpha = 1;
+
+  [self updateBannerConstraints];
+
+  if ([self isBannerBelowToolbar]) {
+    _bannerPromoBackgroundHeightConstraint.constant = 0;
+  } else {
+    _bannerPromoBackgroundHeightConstraint.constant =
+        [self bannerPromoBackgroundHeightForFullscreenProgress:1];
+    _bannerPromoBackgroundTopConstraint.constant =
+        -_bannerPromoBackgroundHeightConstraint.constant;
+  }
+
+  [self.view layoutIfNeeded];
+  _bannerPromoBackgroundTopConstraint.constant = 0;
+
+  __weak __typeof(self) weakSelf = self;
+  [UIView animateWithDuration:kBannerPromoAnimationDuration.InSecondsF()
+      animations:^{
+        [weakSelf showBannerPromoAnimationBlock];
+      }
+      completion:^(BOOL finished) {
+        [weakSelf showBannerPromoCompletionBlock];
+      }];
+}
+
+- (void)hideBannerPromo {
+  if (!_bannerPromoVisible) {
+    return;
+  }
+  [self.view.superview layoutIfNeeded];
+
+  __weak __typeof(self) weakSelf = self;
+  [UIView animateWithDuration:kBannerPromoAnimationDuration.InSecondsF()
+      animations:^{
+        [weakSelf hideBannerPromoAnimationBlock];
+      }
+      completion:^(BOOL completed) {
+        [weakSelf hideBannerPromoCompletionBlock];
+      }];
+
+  [self.toolbarHeightDelegate toolbarsHeightChanged];
+}
+
 #pragma mark - FullscreenUIElement
 
 - (void)updateForFullscreenProgress:(CGFloat)progress {
   _fullscreenProgress = progress;
   CGFloat locationBarExpandedHeight;
-  CGFloat locationBarBottomPadding;
   if (ShouldHaveCompactLocationBar(self.traitCollection)) {
     locationBarExpandedHeight = kLocationBarHeight;
-    locationBarBottomPadding = kToolbarPadding;
   } else {
     locationBarExpandedHeight = kTopLocationBarIPhonePortraitHeight;
-    locationBarBottomPadding = kTopToolbarIPhonePortraitPadding;
   }
   CGFloat locationBarHeight = progress * locationBarExpandedHeight +
                               (1 - progress) * kLocationBarHeightFullscreen;
@@ -345,17 +573,162 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
 
   _locationBarBackground.alpha = progress;
 
-  CGFloat toolbarPadding = progress * locationBarBottomPadding +
-                           (1 - progress) * kToolbarPaddingFullscreen;
-  _locationBarBottomPaddingConstraint.constant = -toolbarPadding;
+  _locationBarBottomPaddingConstraint.constant =
+      -[self locationBarBottomPaddingForFullscreenProgress:progress];
+
+  _bannerPromoBackgroundHeightConstraint.constant =
+      [self bannerPromoBackgroundHeightForFullscreenProgress:progress];
 
   [self updateButtons:_leadingStackView.arrangedSubviews
       forFullscreenProgress:progress];
   [self updateButtons:_trailingStackView.arrangedSubviews
       forFullscreenProgress:progress];
+
+  CGFloat alphaValue = fmax(progress * 2 - 1, 0);
+  _tabGroupIndicatorView.alpha = alphaValue;
+  if (_bannerPromoVisible) {
+    _bannerPromoBackground.alpha = alphaValue;
+  }
+
+  CGFloat offset = 0;
+  if (!IsRegularXRegularSizeClass(self.traitCollection) &&
+      !IsIPhoneLandscape(self.traitCollection)) {
+    // The location bar is not centered in iPhone landscape when forward is
+    // visible. Add a translation in those cases to have the location bar
+    // centered in fullscreen.
+    offset = (_leadingStackView.bounds.size.width -
+              _trailingStackView.bounds.size.width) /
+             2.0;
+  }
+  CGFloat translation = (progress - 1) * offset;
+
+  CGAffineTransform translationTransform =
+      CGAffineTransformMakeTranslation(translation, 0);
+  _locationBarContainer.transform = translationTransform;
+  _leadingStackView.transform = translationTransform;
+  _trailingStackView.transform = translationTransform;
+
+  _collapsedToolbarButton.hidden = progress > kFullscreenCollapsedThreshold;
+}
+
+#pragma mark - TabGroupIndicatorViewDelegate
+
+- (void)tabGroupIndicatorViewVisibilityUpdated:(BOOL)visible {
+  _tabGroupIndicatorView.hidden = !visible;
+  _separator.hidden = !(visible || [self hasOmnibox]);
+  [self.toolbarHeightDelegate toolbarsHeightChanged];
+  [self.mutator tabGroupIndicatorVisibilityUpdated:visible];
 }
 
 #pragma mark - Private
+
+// Helper method to actually do the animation to show the banner promo.
+- (void)showBannerPromoAnimationBlock {
+  _bannerPromoBackgroundHeightConstraint.constant =
+      [self bannerPromoBackgroundHeightForFullscreenProgress:1];
+  _locationBarBottomPaddingConstraint.constant =
+      -[self locationBarBottomPaddingForFullscreenProgress:_fullscreenProgress];
+  [self.toolbarHeightDelegate toolbarsHeightChanged];
+  [self.view.superview layoutIfNeeded];
+}
+
+// Helper method for show completion.
+- (void)showBannerPromoCompletionBlock {
+  UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification,
+                                  _bannerPromo);
+}
+
+// Helper method to actually do the animation to hide the banner promo.
+- (void)hideBannerPromoAnimationBlock {
+  if ([self isBannerBelowToolbar]) {
+    _bannerPromoBackgroundHeightConstraint.constant = 0;
+  } else {
+    _bannerPromoBackgroundTopConstraint.constant =
+        -[self bannerPromoBackgroundHeightForFullscreenProgress:1];
+  }
+
+  _bannerPromoVisible = NO;
+
+  _locationBarBottomPaddingConstraint.constant =
+      -[self locationBarBottomPaddingForFullscreenProgress:_fullscreenProgress];
+
+  [self.toolbarHeightDelegate toolbarsHeightChanged];
+  [self.view.superview layoutIfNeeded];
+}
+
+// Helper method for hide completion.
+- (void)hideBannerPromoCompletionBlock {
+  [NSLayoutConstraint deactivateConstraints:_bannerPromoAboveConstraints];
+  [NSLayoutConstraint deactivateConstraints:_bannerPromoBelowConstraints];
+  _bannerPromoBackground.alpha = 0;
+  [self.view.superview layoutIfNeeded];
+}
+
+// Returns whether the banner is displayed below the toolbar.
+- (BOOL)isBannerBelowToolbar {
+  return !IsSplitToolbarMode(self);
+}
+
+// Returns the height of the promo banner for `progress`.
+- (CGFloat)bannerPromoBackgroundHeightForFullscreenProgress:(CGFloat)progress {
+  if (!_bannerPromoVisible) {
+    return 0;
+  }
+
+  if (![self isBannerBelowToolbar]) {
+    return kToolbarPromoBannerHeight + self.view.safeAreaInsets.top;
+  }
+
+  return kToolbarPromoBannerHeight * progress;
+}
+
+// Returns the location bar bottom padding for `progress`.
+- (CGFloat)locationBarBottomPaddingForFullscreenProgress:(CGFloat)progress {
+  CGFloat locationBarBottomPadding;
+  if (ShouldHaveCompactLocationBar(self.traitCollection)) {
+    locationBarBottomPadding = kToolbarPadding;
+  } else {
+    locationBarBottomPadding = kTopToolbarIPhonePortraitPadding;
+  }
+  if ([self isBannerBelowToolbar]) {
+    // When the banner is below the toolbar, always use its height for a
+    // progress of 1 as progress is used below.
+    locationBarBottomPadding +=
+        [self bannerPromoBackgroundHeightForFullscreenProgress:1];
+  }
+  return progress * locationBarBottomPadding +
+         (1 - progress) * kToolbarPaddingFullscreen;
+}
+
+// Updates the banner-related constraints.
+- (void)updateBannerConstraints {
+  if (!_bannerPromoVisible) {
+    return;
+  }
+
+  if ([self isBannerBelowToolbar]) {
+    [NSLayoutConstraint deactivateConstraints:_bannerPromoAboveConstraints];
+    [NSLayoutConstraint activateConstraints:_bannerPromoBelowConstraints];
+  } else {
+    [NSLayoutConstraint activateConstraints:_bannerPromoAboveConstraints];
+    [NSLayoutConstraint deactivateConstraints:_bannerPromoBelowConstraints];
+  }
+}
+
+// Updates the availability of the tab group indicator and its constraints.
+- (void)updateTabGroupIndicatorAvailability {
+  if (_visible) {
+    _tabGroupIndicatorInactiveToolbarConstraint.active = NO;
+    _tabGroupIndicatorActiveToolbarConstraint.active = YES;
+  } else {
+    _tabGroupIndicatorActiveToolbarConstraint.active = NO;
+    _tabGroupIndicatorInactiveToolbarConstraint.active = YES;
+  }
+
+  BOOL canShowTabStrip = CanShowTabStrip(self);
+  BOOL isAvailable = !IsCompactHeight(self) && !canShowTabStrip;
+  _tabGroupIndicatorView.available = isAvailable;
+}
 
 // Updates all the `buttons` according to the fullscreen `progress`.
 - (void)updateButtons:(NSArray<UIView*>*)buttons
@@ -369,6 +742,55 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
       CGFloat scale = progress + (1 - progress) * kButtonMinScale;
       button.transform = CGAffineTransformMakeScale(scale, scale);
     }
+  }
+}
+
+// Sets the NTP scroll progress for the toolbar. The toolbar is revealed as the
+// page is scrolled.
+- (void)setNTPScrollProgressForToolbar:(CGFloat)progress {
+  [self updateToolbarVisibility];
+  [self setNTPScrollProgressForOmnibox:progress];
+  self.view.alpha = progress;
+}
+
+// Sets the NTP scroll progress for the location bar. The location bar in the
+// toolbar is revealed with a translation effect as the page is scrolled.
+- (void)setNTPScrollProgressForOmnibox:(CGFloat)progress {
+  // The vertical distance the location bar translates during the NTP scroll
+  // animation. Set to `kToolbarPadding` so the location bar slides exactly down
+  // to the bottom edge of the toolbar container as it fades out of view.
+  const CGFloat kNTPLocationBarTranslation = kToolbarPadding;
+
+  CGAffineTransform translationTransform =
+      (progress == 1.0)
+          ? CGAffineTransformIdentity
+          : CGAffineTransformMakeTranslation(
+                0.0, kNTPLocationBarTranslation * (1.0 - progress));
+
+  if (_locationBarContainer.alpha == progress &&
+
+      CGAffineTransformEqualToTransform(_locationBarContainer.transform,
+                                        translationTransform)) {
+    // No changes.
+    return;
+  }
+
+  _locationBarContainer.transform = translationTransform;
+  _locationBarContainer.alpha = progress;
+
+  if (!_fakeOmniboxTarget || !CanShowTabStrip(self)) {
+    return;
+  }
+
+  CHECK(_topPosition);
+
+  // When the location bar is fully hidden, activate the fake omnibox
+  // target in its place.
+  if (_locationBarContainer.alpha == 0.0 && _fakeOmniboxTarget.isHidden) {
+    _fakeOmniboxTarget.hidden = NO;
+  } else if (_locationBarContainer.alpha > 0.0 &&
+             !_fakeOmniboxTarget.isHidden) {
+    _fakeOmniboxTarget.hidden = YES;
   }
 }
 
@@ -412,9 +834,9 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
   locationBarBackground.layer.cornerRadius = kLocationBarHeight / 2.0;
 
   locationBarBackground.backgroundColor =
-      ToolbarLocationBarBackgroundColor(_incognito);
+      ToolbarElementBackgroundColor(_incognito);
 
-  ConfigureShadowForToolbarButton(locationBarBackground);
+  ConfigureShadowForToolbarElement(locationBarBackground);
 
   return locationBarBackground;
 }
@@ -438,12 +860,48 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
   return locationBarContainer;
 }
 
+// Creates a target to dismiss fullscreen when the collapsed toolbar is tapped.
+- (UIButton*)createCollapsedToolbarButton {
+  UIButton* collapsedToolbarButton = [[UIButton alloc] init];
+  collapsedToolbarButton.translatesAutoresizingMaskIntoConstraints = NO;
+  collapsedToolbarButton.accessibilityLabel =
+      l10n_util::GetNSString(IDS_IOS_COLLAPSED_PRIMARY_TOOLBAR_BUTTON);
+  collapsedToolbarButton.hidden = YES;
+
+  UITapGestureRecognizer* tapRecognizer =
+      [[UITapGestureRecognizer alloc] initWithTarget:self.mutator
+                                              action:@selector(exitFullscreen)];
+  [collapsedToolbarButton addGestureRecognizer:tapRecognizer];
+  return collapsedToolbarButton;
+}
+
+// Creates a loading progress bar.
+- (ToolbarProgressBar*)createProgressBar {
+  ToolbarProgressBar* progressBar = [[ToolbarProgressBar alloc] init];
+  progressBar.translatesAutoresizingMaskIntoConstraints = NO;
+  progressBar.hidden = YES;
+  return progressBar;
+}
+
 // Creates the views.
 - (void)createView {
   CHECK(self.buttonFactory);
   _locationBarBackground = [self createLocationBarBackground];
   _locationBarContainer =
       [self createLocationBarContainerWithBackground:_locationBarBackground];
+
+  if (_topPosition &&
+      ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    _fakeOmniboxTarget = [self createFakeOmniboxTarget];
+  }
+  _progressBar = [self createProgressBar];
+  _collapsedToolbarButton = [self createCollapsedToolbarButton];
+
+  _separator = [[UIView alloc] init];
+  _separator.backgroundColor = [UIColor colorNamed:kToolbarShadowColor];
+  _separator.translatesAutoresizingMaskIntoConstraints = NO;
+  _separator.hidden = YES;
+
   _backButton = [self.buttonFactory makeBackButton];
   _backButton.menu = _backButtonMenu;
   [_backButton addTarget:self
@@ -486,6 +944,61 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
              forControlEvents:UIControlEventTouchUpInside];
 }
 
+// Sets up the banner promo view and its constraints if not already done.
+- (void)setUpBannerPromoIfNecessary {
+  if (_bannerPromoBackground) {
+    return;
+  }
+  _bannerPromoBackground = [[UIView alloc] init];
+  _bannerPromoBackground.translatesAutoresizingMaskIntoConstraints = NO;
+  _bannerPromoBackground.backgroundColor =
+      [UIColor colorNamed:@"banner_promo_background_color"];
+  _bannerPromoBackground.clipsToBounds = YES;
+  _bannerPromoBackground.alpha = 0;
+  [self.view addSubview:_bannerPromoBackground];
+
+  _bannerPromo = [[BannerPromoView alloc] init];
+  _bannerPromo.translatesAutoresizingMaskIntoConstraints = NO;
+  [_bannerPromoBackground addSubview:_bannerPromo];
+
+  _bannerPromo.delegate = self.bannerPromoDelegate;
+  _bannerPromoVisible = NO;
+
+  _bannerPromoBackgroundHeightConstraint =
+      [_bannerPromoBackground.heightAnchor constraintEqualToConstant:0];
+
+  _bannerPromoBackgroundTopConstraint = [_bannerPromoBackground.topAnchor
+      constraintEqualToAnchor:self.view.topAnchor];
+
+  _bannerPromoAboveConstraints = @[
+    _bannerPromoBackgroundTopConstraint,
+    [_bannerPromo.topAnchor
+        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+  ];
+
+  _bannerPromoBelowConstraints = @[
+    [_bannerPromo.topAnchor
+        constraintEqualToAnchor:_bannerPromoBackground.topAnchor],
+    [_bannerPromoBackground.bottomAnchor
+        constraintEqualToAnchor:self.view.bottomAnchor],
+  ];
+
+  [NSLayoutConstraint activateConstraints:@[
+    [_bannerPromoBackground.leadingAnchor
+        constraintEqualToAnchor:self.view.leadingAnchor],
+    [_bannerPromoBackground.trailingAnchor
+        constraintEqualToAnchor:self.view.trailingAnchor],
+    _bannerPromoBackgroundHeightConstraint,
+
+    [_bannerPromo.leadingAnchor
+        constraintEqualToAnchor:_bannerPromoBackground.leadingAnchor],
+    [_bannerPromo.trailingAnchor
+        constraintEqualToAnchor:_bannerPromoBackground.trailingAnchor],
+    [_bannerPromo.bottomAnchor
+        constraintEqualToAnchor:_bannerPromoBackground.bottomAnchor],
+  ]];
+}
+
 - (UIStackView*)makeStackViewWithButtons:(NSArray<UIView*>*)buttons {
   UIStackView* stackView =
       [[UIStackView alloc] initWithArrangedSubviews:buttons];
@@ -510,7 +1023,48 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
 
   [self.view addSubview:_leadingStackView];
   [self.view addSubview:_locationBarContainer];
+
+  if (_fakeOmniboxTarget) {
+    [self.view addSubview:_fakeOmniboxTarget];
+    AddSameConstraints(_locationBarContainer, _fakeOmniboxTarget);
+  }
+
   [self.view addSubview:_trailingStackView];
+  [self.view addSubview:_progressBar];
+  [self.view addSubview:_separator];
+  [self.view addSubview:_collapsedToolbarButton];
+  AddSameConstraints(self.view, _collapsedToolbarButton);
+
+  NSLayoutConstraint* progressBarEdgeConstraint =
+      _topPosition ? [_progressBar.bottomAnchor
+                         constraintEqualToAnchor:self.view.bottomAnchor]
+                   : [_progressBar.topAnchor
+                         constraintEqualToAnchor:self.view.topAnchor];
+
+  [NSLayoutConstraint activateConstraints:@[
+    [_progressBar.leadingAnchor
+        constraintEqualToAnchor:self.view.leadingAnchor],
+    [_progressBar.trailingAnchor
+        constraintEqualToAnchor:self.view.trailingAnchor],
+    [_progressBar.heightAnchor constraintEqualToConstant:kProgressBarHeight],
+    progressBarEdgeConstraint
+  ]];
+
+  NSLayoutConstraint* separatorEdgeConstraint =
+      _topPosition
+          ? [_separator.bottomAnchor
+                constraintEqualToAnchor:self.view.bottomAnchor]
+          : [_separator.topAnchor constraintEqualToAnchor:self.view.topAnchor];
+
+  [NSLayoutConstraint activateConstraints:@[
+    [_separator.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+    [_separator.trailingAnchor
+        constraintEqualToAnchor:self.view.trailingAnchor],
+    [_separator.heightAnchor
+        constraintEqualToConstant:ui::AlignValueToUpperPixel(
+                                      kToolbarSeparatorHeight)],
+    separatorEdgeConstraint
+  ]];
 
   _locationBarHeightConstraint = [_locationBarContainer.heightAnchor
       constraintEqualToConstant:kLocationBarHeight];
@@ -520,6 +1074,9 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
       constraintEqualToAnchor:self.view.bottomAnchor
                      constant:-kToolbarPadding];
   _locationBarBottomPaddingConstraint.active = YES;
+
+  _locationBarTopConstraint = [_locationBarContainer.topAnchor
+      constraintEqualToAnchor:self.view.topAnchor];
 
   [NSLayoutConstraint activateConstraints:@[
     [_leadingStackView.centerYAnchor
@@ -620,6 +1177,20 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
   }
 }
 
+// Creates a fake omnibox target to activate when the location bar is not
+// visible (iPad only).
+- (UIView*)createFakeOmniboxTarget {
+  UIView* fakeOmniboxTarget = [[UIView alloc] init];
+  fakeOmniboxTarget.translatesAutoresizingMaskIntoConstraints = NO;
+  fakeOmniboxTarget.hidden = YES;
+
+  UITapGestureRecognizer* tapRecognizer = [[UITapGestureRecognizer alloc]
+      initWithTarget:self.browserCoordinatorHandler
+              action:@selector(showComposebox)];
+  [fakeOmniboxTarget addGestureRecognizer:tapRecognizer];
+  return fakeOmniboxTarget;
+}
+
 // Handles back button tap.
 - (void)backButtonTapped {
   [self.mutator goBack];
@@ -669,10 +1240,45 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
 
 // Updates the visibility of the toolbar.
 - (void)updateToolbarVisibility {
-  BOOL hideToolbar = _NTPVisible && !_incognito && !CanShowTabStrip(self) &&
-                     IsSplitToolbarMode(self);
+  /// TODO(crbug.com/508170459): Allow the toolbar to be unhidden in split
+  /// toolbar mode.
+  BOOL hideToolbar;
+  BOOL alwaysShowToolbar = CanShowTabStrip(self) && _topPosition;
+  if (alwaysShowToolbar) {
+    self.view.alpha = 1.0;
+    hideToolbar = NO;
+  } else {
+    hideToolbar = _NTPVisible && !_incognito && !CanShowTabStrip(self) &&
+                  (_NTPScrollProgress == 0.0 || IsSplitToolbarMode(self));
+  }
+
+  BOOL visibilityChanged = hideToolbar != self.view.isHidden;
+  BOOL needsToolbarReset =
+      !_NTPVisible &&
+      (!CGAffineTransformIsIdentity(_locationBarContainer.transform) ||
+       _locationBarContainer.alpha != 1.0 || self.view.alpha != 1.0);
+
+  if (!visibilityChanged && !needsToolbarReset) {
+    // No change.
+    return;
+  }
+
   self.view.hidden = hideToolbar;
+
+  // Resets the position of the location bar and the alpha of the toolbar. While
+  // browsing (non-NTP), the toolbar should be fully visible.
+  if (needsToolbarReset) {
+    _locationBarContainer.transform = CGAffineTransformIdentity;
+    _locationBarContainer.alpha = 1.0;
+    self.view.alpha = 1.0;
+  }
+
   [self.toolbarHeightDelegate toolbarsHeightChanged];
+}
+
+// Returns whether the toolbar has the omnibox.
+- (BOOL)hasOmnibox {
+  return !_locationBarContainer.isHidden && _locationBarContainer.alpha != 0.0;
 }
 
 // Updates the visibility of the toolbar elements.
@@ -680,7 +1286,54 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
   _leadingStackView.hidden = !_visible;
   _locationBarContainer.hidden = !_visible;
   _trailingStackView.hidden = !_visible;
+  BOOL tabGroupIndicatorVisible =
+      _tabGroupIndicatorView && !_tabGroupIndicatorView.hidden;
+  _separator.hidden = !(tabGroupIndicatorVisible || [self hasOmnibox]);
   [self.toolbarHeightDelegate toolbarsHeightChanged];
+}
+
+// Starts or stops the loading progress bar.
+- (void)updateProgressBarVisibility {
+  CHECK(_progressBar);
+
+  if (![self hasOmnibox]) {
+    _progressBar.hidden = YES;
+    return;
+  }
+
+  [self.view layoutIfNeeded];
+
+  // Cancel any pending task to hide the progress bar.
+  _hideProgressBarClosure.Cancel();
+
+  __weak __typeof(self) weakSelf = self;
+
+  // Start and unhide the progress bar.
+  if (_isLoading && !_NTPVisible && !CanShowTabStrip(self) &&
+      (_progressBar.isHidden || _progressBar.alpha < 1.0)) {
+    [_progressBar setProgress:0 animated:NO];
+    [_progressBar setHidden:NO
+                   animated:YES
+                 completion:^(BOOL) {
+                   [weakSelf updateProgressBarVisibility];
+                 }];
+  } else if (!_isLoading && !_progressBar.hidden) {
+    // Stop and hide the progress bar.
+    __weak ToolbarProgressBar* progressBar = _progressBar;
+    [_progressBar setProgress:1 animated:YES];
+
+    _hideProgressBarClosure.Reset(base::BindOnce(^{
+      [progressBar setHidden:YES
+                    animated:YES
+                  completion:^(BOOL) {
+                    [weakSelf updateProgressBarVisibility];
+                  }];
+    }));
+
+    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE, _hideProgressBarClosure.callback(),
+        kProgressBarEndAnimationDuration);
+  }
 }
 
 // Called when the size class is updated.
@@ -688,6 +1341,12 @@ constexpr CGFloat kLocationBarMaxWidth = 600;
   [self updateForFullscreenProgress:_fullscreenProgress];
   [self updateLayoutConstraints];
   [self updateToolbarVisibility];
+  [self updateTabGroupIndicatorAvailability];
+  if (_topPosition) {
+    [self updateBannerConstraints];
+    _bannerPromoBackgroundHeightConstraint.constant = [self
+        bannerPromoBackgroundHeightForFullscreenProgress:_fullscreenProgress];
+  }
 }
 
 @end

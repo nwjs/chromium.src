@@ -5,12 +5,33 @@
 #ifndef SERVICES_ON_DEVICE_MODEL_ANDROID_ON_DEVICE_MODEL_BRIDGE_NATIVE_UNITTEST_HELPER_H_
 #define SERVICES_ON_DEVICE_MODEL_ANDROID_ON_DEVICE_MODEL_BRIDGE_NATIVE_UNITTEST_HELPER_H_
 
+#include <optional>
+
 #include "base/android/scoped_java_ref.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
 #include "services/on_device_model/android/backend_session_impl_android.h"
 #include "services/on_device_model/android/model_downloader_android.h"
 
 namespace on_device_model {
+
+class OnDeviceModelBridgeNativeUnitTestSettings {
+ public:
+  OnDeviceModelBridgeNativeUnitTestSettings();
+  ~OnDeviceModelBridgeNativeUnitTestSettings();
+
+  void Init(base::android::ScopedJavaGlobalRef<jobject>* java_helper);
+  void SetGenerateResult(BackendSessionImplAndroid::GenerateResult result);
+  void SetCompleteAsync(bool complete_async);
+  void SetSessionCallbackOnDifferentThread(
+      bool session_callback_on_different_thread);
+  void SetDownloaderCallbackOnDifferentThread(
+      bool downloader_callback_on_different_thread);
+  void SetDefaultStatusCheckResult(
+      std::optional<ModelDownloaderAndroid::ModelStatus> status);
+
+ private:
+  base::android::ScopedJavaGlobalRef<jobject> java_settings_;
+};
 
 // A test helper for calling the Java test helper. This allows centralizing the
 // JNI calls and avoiding `-Wunused-function` warnings in multiple places.
@@ -35,12 +56,9 @@ class OnDeviceModelBridgeNativeUnitTestHelper {
       float temperature);
   void VerifyGenerateOptions(int index, int max_output_tokens);
 
-  void SetGenerateResult(BackendSessionImplAndroid::GenerateResult result);
+  OnDeviceModelBridgeNativeUnitTestSettings& settings() { return settings_; }
 
-  void SetCompleteAsync();
-  void SetCallbackOnDifferentThread();
   void ResumeOnCompleteCallback();
-  void SetDownloaderCallbackOnDifferentThread();
 
   void VerifyDownloaderParams(
       optimization_guide::proto::ModelExecutionFeature feature,
@@ -50,11 +68,18 @@ class OnDeviceModelBridgeNativeUnitTestHelper {
       ModelDownloaderAndroid::DownloadFailureReason reason);
   void TriggerDownloaderOnAvailable(const std::string& name,
                                     const std::string& version);
+  void TriggerDownloaderOnDownloadProgress(int64_t downloaded_bytes,
+                                           int64_t total_bytes);
   void TriggerDownloaderOnStatusCheckResult(
       ModelDownloaderAndroid::ModelStatus model_status);
+  void TriggerAllDownloadersOnStatusCheckResult(
+      ModelDownloaderAndroid::ModelStatus model_status);
+
+  int GetStatusCheckerCount();
 
  private:
   base::android::ScopedJavaGlobalRef<jobject> java_helper_;
+  OnDeviceModelBridgeNativeUnitTestSettings settings_;
 };
 
 }  // namespace on_device_model

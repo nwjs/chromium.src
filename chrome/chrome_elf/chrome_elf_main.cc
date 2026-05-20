@@ -72,12 +72,11 @@ bool IsTemporaryUserDataDirectoryCreatedForHeadless() {
 // - Note: Do not use install_static::GetUserDataDir from inside DllMain.
 //         This can result in path expansion that triggers secondary DLL loads,
 //         that will blow up with the loader lock held.
-//         https://bugs.chromium.org/p/chromium/issues/detail?id=748949#c18
+//         https://crbug.com/41335819#comment19
 
 void* ElfGetReporterClient() {
   return crash_reporter::GetCrashReporterClient();
 }
-
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) {
   if (reason == DLL_PROCESS_ATTACH) {
     install_static::InitializeProductDetailsForPrimaryModule();

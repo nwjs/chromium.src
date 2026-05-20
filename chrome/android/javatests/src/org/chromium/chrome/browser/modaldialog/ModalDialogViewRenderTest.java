@@ -40,8 +40,8 @@ import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Feature;
+import org.chromium.chrome.R;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
-import org.chromium.chrome.test.R;
 import org.chromium.components.browser_ui.modaldialog.ModalDialogTestUtils;
 import org.chromium.components.browser_ui.modaldialog.ModalDialogView;
 import org.chromium.ui.UiUtils;
@@ -231,7 +231,7 @@ public class ModalDialogViewRenderTest {
         setUpViews(
                 R.style.ThemeOverlay_BrowserUI_ModalDialog_TextPrimaryButton,
                 /* forceWrapContentHeight= */ true);
-        final var paragraphs = new java.util.ArrayList<CharSequence>();
+        final var paragraphs = new ArrayList<CharSequence>();
         paragraphs.add(TextUtils.join("\n", Collections.nCopies(100, "Message")));
         createModel(
                 mModelBuilder
@@ -259,7 +259,7 @@ public class ModalDialogViewRenderTest {
         setUpViews(
                 R.style.ThemeOverlay_BrowserUI_ModalDialog_TextPrimaryButton,
                 /* forceWrapContentHeight= */ true);
-        final var paragraphs = new java.util.ArrayList<CharSequence>();
+        final var paragraphs = new ArrayList<CharSequence>();
         paragraphs.add(paragraph1);
         paragraphs.add(paragraph2);
         createModel(
@@ -641,7 +641,7 @@ public class ModalDialogViewRenderTest {
         setUpViews(
                 R.style.ThemeOverlay_BrowserUI_ModalDialog_TextPrimaryButton,
                 /* forceWrapContentHeight= */ true);
-        final var paragraphs = new java.util.ArrayList<CharSequence>();
+        final var paragraphs = new ArrayList<CharSequence>();
         paragraphs.add(TextUtils.join("\n", Collections.nCopies(10, "Message")));
         createModel(
                 mModelBuilder
@@ -665,7 +665,7 @@ public class ModalDialogViewRenderTest {
         setUpViews(
                 R.style.ThemeOverlay_BrowserUI_ModalDialog_TextPrimaryButton,
                 /* forceWrapContentHeight= */ false);
-        final var paragraphs = new java.util.ArrayList<CharSequence>();
+        final var paragraphs = new ArrayList<CharSequence>();
         paragraphs.add(TextUtils.join("\n", Collections.nCopies(50, "Message")));
         createModel(
                 mModelBuilder

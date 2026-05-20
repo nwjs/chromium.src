@@ -49,6 +49,7 @@ import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
@@ -79,7 +80,6 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.CriteriaNotSatisfiedException;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
-import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.autofill.AutofillImageFetcher;
@@ -129,7 +129,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @SuppressWarnings("DoNotMock") // Mocks GURL
-@DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_KEYBOARD_ACCESSORY_CHIP_REDESIGN})
 public class KeyboardAccessoryViewTest {
     private static final String CUSTOM_ICON_URL = "https://www.example.com/image.png";
     private static final Bitmap TEST_CARD_ART_IMAGE =
@@ -150,6 +149,11 @@ public class KeyboardAccessoryViewTest {
     private static class TestTracker implements Tracker {
         private boolean mWasDismissed;
         private @Nullable String mEmittedEvent;
+        private final String mFeature;
+
+        public TestTracker(String feature) {
+            mFeature = feature;
+        }
 
         @Override
         public void notifyEvent(String event) {
@@ -162,7 +166,7 @@ public class KeyboardAccessoryViewTest {
 
         @Override
         public boolean shouldTriggerHelpUi(String feature) {
-            return true;
+            return mFeature.equals(feature);
         }
 
         @Override
@@ -172,7 +176,7 @@ public class KeyboardAccessoryViewTest {
 
         @Override
         public boolean wouldTriggerHelpUi(String feature) {
-            return true;
+            return mFeature.equals(feature);
         }
 
         @Override
@@ -308,27 +312,6 @@ public class KeyboardAccessoryViewTest {
     @Test
     @MediumTest
     public void testAccessoryDimensions() throws InterruptedException {
-        assertNull(mKeyboardAccessoryView.poll());
-        // After setting the visibility to true, the view should exist and be visible.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mModel.set(VISIBLE, true);
-                });
-        KeyboardAccessoryView view = mKeyboardAccessoryView.take();
-
-        LinearLayout barContents = view.findViewById(R.id.accessory_bar_contents);
-        assertThat(
-                barContents.getMinimumHeight(),
-                is(getDimensionPixelSize(R.dimen.keyboard_accessory_height)));
-        LinearLayout.LayoutParams params =
-                (LinearLayout.LayoutParams) barContents.getLayoutParams();
-        assertThat(params.height, is(getDimensionPixelSize(R.dimen.keyboard_accessory_height)));
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_KEYBOARD_ACCESSORY_CHIP_REDESIGN})
-    public void testAccessoryDimensionsWithRedesign() throws InterruptedException {
         assertNull(mKeyboardAccessoryView.poll());
         // After setting the visibility to true, the view should exist and be visible.
         ThreadUtils.runOnUiThreadBlocking(
@@ -549,7 +532,9 @@ public class KeyboardAccessoryViewTest {
         itemWithIph.setFeatureForIph(
                 FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_CARD_INFO_RETRIEVAL_FEATURE);
 
-        TestTracker tracker = new TestTracker();
+        TestTracker tracker =
+                new TestTracker(
+                        FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_CARD_INFO_RETRIEVAL_FEATURE);
         TrackerFactory.setTrackerForTests(tracker);
 
         ThreadUtils.runOnUiThreadBlocking(
@@ -588,7 +573,9 @@ public class KeyboardAccessoryViewTest {
         itemWithIph.setFeatureForIph(
                 FeatureConstants.KEYBOARD_ACCESSORY_HOME_WORK_PROFILE_SUGGESTION_FEATURE);
 
-        TestTracker tracker = new TestTracker();
+        TestTracker tracker =
+                new TestTracker(
+                        FeatureConstants.KEYBOARD_ACCESSORY_HOME_WORK_PROFILE_SUGGESTION_FEATURE);
         TrackerFactory.setTrackerForTests(tracker);
 
         ThreadUtils.runOnUiThreadBlocking(
@@ -624,7 +611,8 @@ public class KeyboardAccessoryViewTest {
                         mMockProfile);
         itemWithIph.setFeatureForIph(FeatureConstants.KEYBOARD_ACCESSORY_PASSWORD_FILLING_FEATURE);
 
-        TestTracker tracker = new TestTracker();
+        TestTracker tracker =
+                new TestTracker(FeatureConstants.KEYBOARD_ACCESSORY_PASSWORD_FILLING_FEATURE);
         TrackerFactory.setTrackerForTests(tracker);
 
         ThreadUtils.runOnUiThreadBlocking(
@@ -662,7 +650,8 @@ public class KeyboardAccessoryViewTest {
                         mMockProfile);
         itemWithIph.setFeatureForIph(FeatureConstants.KEYBOARD_ACCESSORY_ADDRESS_FILL_FEATURE);
 
-        TestTracker tracker = new TestTracker();
+        TestTracker tracker =
+                new TestTracker(FeatureConstants.KEYBOARD_ACCESSORY_ADDRESS_FILL_FEATURE);
         TrackerFactory.setTrackerForTests(tracker);
 
         ThreadUtils.runOnUiThreadBlocking(
@@ -698,7 +687,8 @@ public class KeyboardAccessoryViewTest {
                         mMockProfile);
         itemWithIph.setFeatureForIph(FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_FILLING_FEATURE);
 
-        TestTracker tracker = new TestTracker();
+        TestTracker tracker =
+                new TestTracker(FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_FILLING_FEATURE);
         TrackerFactory.setTrackerForTests(tracker);
 
         ThreadUtils.runOnUiThreadBlocking(
@@ -723,7 +713,7 @@ public class KeyboardAccessoryViewTest {
     @DisableIf.Build(sdk_equals = Build.VERSION_CODES.S_V2, message = "crbug.com/40263973")
     public void testDismissesSwipingEducationBubbleOnTap() throws InterruptedException {
         TestTracker tracker =
-                new TestTracker() {
+                new TestTracker(FeatureConstants.KEYBOARD_ACCESSORY_BAR_SWIPING_FEATURE) {
                     @Override
                     public int getTriggerState(String feature) {
                         // Pretend that an autofill IPH was shown already.
@@ -772,7 +762,8 @@ public class KeyboardAccessoryViewTest {
                         mMockProfile);
         itemWithIph.setFeatureForIph(FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_OFFER_FEATURE);
 
-        TestTracker tracker = new TestTracker();
+        TestTracker tracker =
+                new TestTracker(FeatureConstants.KEYBOARD_ACCESSORY_PAYMENT_OFFER_FEATURE);
         TrackerFactory.setTrackerForTests(tracker);
 
         ThreadUtils.runOnUiThreadBlocking(
@@ -794,9 +785,19 @@ public class KeyboardAccessoryViewTest {
     @Test
     @MediumTest
     public void testScrollingNotResetOnItemUpdate() throws InterruptedException {
+        AtomicInteger obfuscatedChildAt = new AtomicInteger(-1);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
+                    mModel.set(OBFUSCATED_CHILD_AT_CALLBACK, obfuscatedChildAt::set);
                     mModel.set(VISIBLE, true);
+                    mModel.get(BAR_ITEMS).set(createAutofillChipAndTab("John", null));
+                });
+        KeyboardAccessoryView view = mKeyboardAccessoryView.take();
+        CriteriaHelper.pollUiThread(() -> view.mBarItemsView.getChildCount() > 0);
+        assertThat(obfuscatedChildAt.get(), is(-1));
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
                     mModel.get(BAR_ITEMS)
                             .set(
                                     new BarItem[] {
@@ -817,8 +818,8 @@ public class KeyboardAccessoryViewTest {
                                         createSheetOpener()
                                     });
                 });
-        KeyboardAccessoryView view = mKeyboardAccessoryView.take();
-        CriteriaHelper.pollUiThread(() -> view.mBarItemsView.getChildCount() > 0);
+        onViewWaiting(withText("Item 1 - very long text to fill width"));
+        CriteriaHelper.pollUiThread(() -> obfuscatedChildAt.get() > -1);
 
         // Scroll the view manually
         ThreadUtils.runOnUiThreadBlocking(() -> view.mBarItemsView.scrollBy(500, 0));
@@ -1018,7 +1019,7 @@ public class KeyboardAccessoryViewTest {
     public void testAccessoryButtonsHaveHoverBackground() throws InterruptedException {
         KeyboardAccessoryButtonGroupView buttonGroupView = setupButtonsAndGetGroup();
         ArrayList<ImageButton> buttons = buttonGroupView.getButtons();
-        assertEquals("Expected two buttons to be present.", 2, buttons.size());
+        assertEquals("Expected three buttons to be present.", 3, buttons.size());
 
         // The presence of a background drawable (e.g., a state-list drawable)
         // is used to enable visual feedback on hover and press states.
@@ -1028,6 +1029,9 @@ public class KeyboardAccessoryViewTest {
         assertNotNull(
                 "Second button should have a background for hover effects.",
                 buttons.get(1).getBackground());
+        assertNotNull(
+                "Third button should have a background for hover effects.",
+                buttons.get(2).getBackground());
     }
 
     @Test
@@ -1035,16 +1039,19 @@ public class KeyboardAccessoryViewTest {
     public void testAccessoryButtonsHaveCorrectSpacing() throws InterruptedException {
         KeyboardAccessoryButtonGroupView buttonGroupView = setupButtonsAndGetGroup();
         ArrayList<ImageButton> buttons = buttonGroupView.getButtons();
-        assertEquals("Expected two buttons to be present.", 2, buttons.size());
+        assertEquals("Expected three buttons to be present.", 3, buttons.size());
 
         ImageButton button1 = buttons.get(0);
         ImageButton button2 = buttons.get(1);
+        ImageButton button3 = buttons.get(2);
 
         // Check spacing.
         ViewGroup.MarginLayoutParams params1 =
                 (ViewGroup.MarginLayoutParams) button1.getLayoutParams();
         ViewGroup.MarginLayoutParams params2 =
                 (ViewGroup.MarginLayoutParams) button2.getLayoutParams();
+        ViewGroup.MarginLayoutParams params3 =
+                (ViewGroup.MarginLayoutParams) button3.getLayoutParams();
 
         int expectedMargin =
                 buttonGroupView
@@ -1059,6 +1066,44 @@ public class KeyboardAccessoryViewTest {
                 "Second button's left margin is incorrect.", expectedMargin, params2.leftMargin);
         assertEquals(
                 "Second button's right margin is incorrect.", expectedMargin, params2.rightMargin);
+        assertEquals(
+                "Third button's left margin is incorrect.", expectedMargin, params3.leftMargin);
+        assertEquals(
+                "Third button's right margin is incorrect.", expectedMargin, params3.rightMargin);
+    }
+
+    @Test
+    @MediumTest
+    public void testDismissesAtMemoryEducationBubbleOnTap() throws InterruptedException {
+        TestTracker tracker =
+                new TestTracker(FeatureConstants.KEYBOARD_ACCESSORY_AT_MEMORY_FEATURE);
+        TrackerFactory.setTrackerForTests(tracker);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mModel.set(VISIBLE, true);
+                    mModel.get(BAR_ITEMS).set(new BarItem[] {createSheetOpener()});
+                });
+
+        waitForHelpBubble(withText(R.string.iph_keyboard_accessory_at_memory));
+        assertThat(mKeyboardAccessoryView.take().areClicksAllowedWhenObscured(), is(true));
+        waitForHelpBubble(withText(R.string.iph_keyboard_accessory_at_memory)).perform(click());
+
+        assertThat(tracker.wasDismissed(), is(true));
+    }
+
+    @Test
+    @MediumTest
+    public void testAlwaysAddsAtMemoryButton() throws InterruptedException {
+        KeyboardAccessoryButtonGroupView buttonGroupView = setupButtonsAndGetGroup();
+        ArrayList<ImageButton> buttons = buttonGroupView.getButtons();
+        assertEquals("Expected three buttons to be present.", 3, buttons.size());
+
+        // The first button should be the @memory spark icon.
+        ImageButton atMemoryButton = buttons.get(0);
+        assertEquals(
+                buttonGroupView.getContext().getString(R.string.at_memory_icon_description),
+                atMemoryButton.getContentDescription());
     }
 
     @Test
@@ -1066,26 +1111,26 @@ public class KeyboardAccessoryViewTest {
     public void testAccessoryButtonsEnabledState() throws InterruptedException {
         KeyboardAccessoryButtonGroupView buttonGroupView = setupButtonsAndGetGroup();
         ArrayList<ImageButton> buttons = buttonGroupView.getButtons();
-        assertEquals("Expected two buttons to be present.", 2, buttons.size());
+        assertEquals("Expected three buttons to be present.", 3, buttons.size());
 
         // Initially buttons should be enabled.
         assertTrue(buttonGroupView.isEnabled());
         assertTrue(buttons.get(0).isEnabled());
         assertTrue(buttons.get(1).isEnabled());
+        assertTrue(buttons.get(2).isEnabled());
 
         // Disable the group.
         ThreadUtils.runOnUiThreadBlocking(() -> buttonGroupView.setEnabled(false));
         assertFalse(buttonGroupView.isEnabled());
         assertFalse(buttons.get(0).isEnabled());
         assertFalse(buttons.get(1).isEnabled());
+        assertFalse(buttons.get(2).isEnabled());
 
         // Add a new button while the group is disabled.
         ThreadUtils.runOnUiThreadBlocking(
-                () ->
-                        buttonGroupView.addButton(
-                                R.drawable.ic_password_manager_key, "New Key Icon"));
-        assertEquals("Expected three buttons to be present.", 3, buttons.size());
-        assertFalse("New button should inherit disabled state", buttons.get(2).isEnabled());
+                () -> buttonGroupView.addButton(R.drawable.ic_password_manager_key, "Key Icon", 2));
+        assertEquals("Expected four buttons to be present.", 4, buttons.size());
+        assertFalse("New button should inherit disabled state", buttons.get(3).isEnabled());
 
         // Enable the group again.
         ThreadUtils.runOnUiThreadBlocking(() -> buttonGroupView.setEnabled(true));
@@ -1093,6 +1138,7 @@ public class KeyboardAccessoryViewTest {
         assertTrue(buttons.get(0).isEnabled());
         assertTrue(buttons.get(1).isEnabled());
         assertTrue(buttons.get(2).isEnabled());
+        assertTrue(buttons.get(3).isEnabled());
     }
 
     @Test
@@ -1118,7 +1164,7 @@ public class KeyboardAccessoryViewTest {
 
         CoordinatorLayout.LayoutParams params =
                 (CoordinatorLayout.LayoutParams) view.getLayoutParams();
-        assertEquals(android.view.Gravity.LEFT | android.view.Gravity.TOP, params.gravity);
+        assertEquals(Gravity.LEFT | Gravity.TOP, params.gravity);
         assertEquals(verticalOffset, params.topMargin);
         assertEquals(0, view.getPaddingTop());
         assertEquals(
@@ -1151,7 +1197,7 @@ public class KeyboardAccessoryViewTest {
         ThreadUtils.runOnUiThreadBlocking(() -> view.setStyle(topNotchStyle));
         CoordinatorLayout.LayoutParams params =
                 (CoordinatorLayout.LayoutParams) view.getLayoutParams();
-        assertEquals(android.view.Gravity.LEFT | android.view.Gravity.TOP, params.gravity);
+        assertEquals(Gravity.LEFT | Gravity.TOP, params.gravity);
         assertEquals(verticalOffset, params.topMargin);
         assertEquals(0, view.getPaddingBottom());
         assertEquals(
@@ -1221,7 +1267,7 @@ public class KeyboardAccessoryViewTest {
         assertNotNull(buttonGroupView);
 
         // Wait for buttons to be added.
-        CriteriaHelper.pollUiThread(() -> buttonGroupView.getButtons().size() == 2);
+        CriteriaHelper.pollUiThread(() -> buttonGroupView.getButtons().size() == 3);
 
         return buttonGroupView;
     }
@@ -1310,13 +1356,14 @@ public class KeyboardAccessoryViewTest {
                     public void onViewBound(View buttons) {
                         KeyboardAccessoryButtonGroupView group =
                                 (KeyboardAccessoryButtonGroupView) buttons;
-                        if (group.getButtons().size() > 0) {
+                        if (group.getButtons().size() > 1) {
                             return;
                         }
 
-                        group.addButton(R.drawable.ic_password_manager_key, "Key Icon");
+                        group.addAtMemoryButton();
+                        group.addButton(R.drawable.ic_password_manager_key, "Key Icon", 0);
 
-                        group.addButton(R.drawable.ic_credit_card_black, "Card Icon 2");
+                        group.addButton(R.drawable.ic_credit_card_black, "Card Icon 2", 1);
                     }
 
                     @Override

@@ -8,6 +8,7 @@ import android.app.Activity;
 
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ActivityUtils;
@@ -24,6 +25,7 @@ import org.chromium.components.payments.PaymentRequestService;
 import org.chromium.components.payments.PaymentRequestServiceUtil;
 import org.chromium.components.payments.SslValidityChecker;
 import org.chromium.components.user_prefs.UserPrefs;
+import org.chromium.content_public.browser.LifecycleState;
 import org.chromium.content_public.browser.PermissionsPolicyFeature;
 import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.WebContents;
@@ -129,13 +131,22 @@ public class ChromePaymentRequestFactory implements InterfaceFactory<@Nullable P
             ChromePaymentRequestDelegateImplObserverForTest observer) {
         assert observer != null;
         sObserverForTest = observer;
+        ResettersForTesting.register(() -> sObserverForTest = null);
     }
 
     @Override
     public @Nullable PaymentRequest createImpl() {
-        if (mRenderFrameHost == null) return new InvalidPaymentRequest();
+        if (mRenderFrameHost == null
+                || mRenderFrameHost.getLifecycleState() != LifecycleState.ACTIVE) {
+            // This happens when the page has navigated away, which would cause the
+            // blink PaymentRequest to be released shortly, or when the iframe is being
+            // removed from the page.
+            return new InvalidPaymentRequest();
+        }
+
         if (!mRenderFrameHost.isFeatureEnabled(PermissionsPolicyFeature.PAYMENT)) {
-            mRenderFrameHost.terminateRendererDueToBadMessage(241 /*PAYMENTS_WITHOUT_PERMISSION*/);
+            // PAYMENTS_WITHOUT_PERMISSION = 241
+            mRenderFrameHost.terminateRendererDueToBadMessage(241);
             return null;
         }
 

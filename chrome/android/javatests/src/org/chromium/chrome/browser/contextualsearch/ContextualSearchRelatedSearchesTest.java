@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.contextualsearch;
 
-import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
-
 import androidx.test.filters.SmallTest;
 
 import org.hamcrest.Matchers;
@@ -23,7 +21,6 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
@@ -40,7 +37,6 @@ import java.util.List;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @EnableFeatures(ChromeFeatureList.CONTEXTUAL_SEARCH_DISABLE_ONLINE_DETECTION)
 @Features.DisableFeatures({ContentFeatures.ANDROID_DESKTOP_ZOOM_SCALING})
-@Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
 @Batch(Batch.PER_CLASS)
 public class ContextualSearchRelatedSearchesTest extends ContextualSearchInstrumentationBase {
     @Override
@@ -77,7 +73,7 @@ public class ContextualSearchRelatedSearchesTest extends ContextualSearchInstrum
 
     /**
      * Tests that the offset of the SERP is unaffected by whether we are showing Related Searches in
-     * the Bar or not. See https://crbug.com/1250546.
+     * the Bar or not. See https://crbug.com/40791940.
      */
     @Test
     @SmallTest
@@ -230,7 +226,7 @@ public class ContextualSearchRelatedSearchesTest extends ContextualSearchInstrum
     @Test
     @SmallTest
     @Feature({"ContextualSearch"})
-    @DisabledTest(message = "https://crbug.com/1255084")
+    @DisabledTest(message = "https://crbug.com/40794713")
     public void testRelatedSearchesDismissDuringAnimation() throws Exception {
         // Use the "intelligence" node to generate Related Searches suggestions.
         simulateResolveSearch("intelligence");

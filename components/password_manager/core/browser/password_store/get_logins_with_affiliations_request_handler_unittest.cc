@@ -19,6 +19,7 @@
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_store/fake_password_store_backend.h"
 #include "components/password_manager/core/browser/password_store/mock_password_store_consumer.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_backend_error.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -37,6 +38,19 @@ using ::testing::ElementsAreArray;
 using ::testing::IsEmpty;
 using ::testing::UnorderedElementsAre;
 using ::testing::UnorderedElementsAreArray;
+
+MATCHER_P(MatchesForm, expected_form, "") {
+  return ToPasswordForm(arg) == expected_form;
+}
+
+std::vector<testing::Matcher<const StoredCredential&>> MatchesForms(
+    const std::vector<PasswordForm>& forms) {
+  std::vector<testing::Matcher<const StoredCredential&>> matchers;
+  for (const auto& form : forms) {
+    matchers.push_back(MatchesForm(form));
+  }
+  return matchers;
+}
 using ::testing::VariantWith;
 
 constexpr const char kTestWebURL[] = "https://example.com/";
@@ -65,6 +79,12 @@ PasswordForm CreateForm(const std::string& url_string,
   form.signon_realm = url_string;
   form.in_store = PasswordForm::Store::kProfileStore;
   return form;
+}
+
+StoredCredential CreateStoredCredential(const std::string& url_string,
+                                        std::u16string_view username,
+                                        std::u16string_view password) {
+  return FromPasswordForm(CreateForm(url_string, username, password));
 }
 
 }  // namespace
@@ -109,10 +129,12 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest, NoMatchesTest) {
 }
 
 TEST_F(GetLoginsWithAffiliationsRequestHandlerTest, ExactAndPslMatchesTest) {
-  backend()->AddLoginAsync(CreateForm(kTestWebURL, u"username1", u"password"),
-                           base::DoNothing());
-  backend()->AddLoginAsync(CreateForm(kTestPSLURL, u"username2", u"password"),
-                           base::DoNothing());
+  backend()->AddLoginAsync(
+      CreateStoredCredential(kTestWebURL, u"username1", u"password"),
+      base::DoNothing());
+  backend()->AddLoginAsync(
+      CreateStoredCredential(kTestPSLURL, u"username2", u"password"),
+      base::DoNothing());
   RunUntilIdle();
 
   EXPECT_CALL(affiliation_service(), GetPSLExtensions)
@@ -135,17 +157,17 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest, ExactAndPslMatchesTest) {
   expected_forms.push_back(CreateForm(kTestPSLURL, u"username2", u"password"));
   expected_forms.back().match_type = PasswordForm::MatchType::kPSL;
 
-  EXPECT_CALL(result_callback,
-              Run(VariantWith<LoginsResult>(ElementsAreArray(expected_forms))));
+  EXPECT_CALL(result_callback, Run(VariantWith<LoginsResult>(ElementsAreArray(
+                                   MatchesForms(expected_forms)))));
   RunUntilIdle();
 }
 
 TEST_F(GetLoginsWithAffiliationsRequestHandlerTest, AffiliatedMatchesOnlyTest) {
   backend()->AddLoginAsync(
-      CreateForm(kAffiliatedWebURL, u"username1", u"password"),
+      CreateStoredCredential(kAffiliatedWebURL, u"username1", u"password"),
       base::DoNothing());
   backend()->AddLoginAsync(
-      CreateForm(kAffiliatedAndroidApp, u"username2", u"password"),
+      CreateStoredCredential(kAffiliatedAndroidApp, u"username2", u"password"),
       base::DoNothing());
   RunUntilIdle();
 
@@ -179,27 +201,30 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest, AffiliatedMatchesOnlyTest) {
   expected_forms.back().affiliated_web_realm = kAffiliatedWebURL;
   expected_forms.back().match_type = PasswordForm::MatchType::kAffiliated;
 
-  EXPECT_CALL(result_callback, Run(VariantWith<LoginsResult>(
-                                   UnorderedElementsAreArray(expected_forms))));
+  EXPECT_CALL(result_callback,
+              Run(VariantWith<LoginsResult>(
+                  UnorderedElementsAreArray(MatchesForms(expected_forms)))));
   RunUntilIdle();
 }
 
 #if !BUILDFLAG(IS_ANDROID)
 TEST_F(GetLoginsWithAffiliationsRequestHandlerTest,
        AffiliatedAndPSLMatchesTest) {
-  backend()->AddLoginAsync(CreateForm(kTestWebURL, u"username1", u"password"),
-                           base::DoNothing());
-  backend()->AddLoginAsync(CreateForm(kTestPSLURL, u"username2", u"password"),
-                           base::DoNothing());
+  backend()->AddLoginAsync(
+      CreateStoredCredential(kTestWebURL, u"username1", u"password"),
+      base::DoNothing());
+  backend()->AddLoginAsync(
+      CreateStoredCredential(kTestPSLURL, u"username2", u"password"),
+      base::DoNothing());
   GroupedFacets group;
   group.facets.emplace_back(FacetURI::FromPotentiallyInvalidSpec(kTestWebURL));
   EXPECT_CALL(affiliation_service(), GetGroupingInfo)
       .WillOnce(RunOnceCallback<1>(std::vector<GroupedFacets>{group}));
   backend()->AddLoginAsync(
-      CreateForm(kAffiliatedWebURL, u"username3", u"password"),
+      CreateStoredCredential(kAffiliatedWebURL, u"username3", u"password"),
       base::DoNothing());
   backend()->AddLoginAsync(
-      CreateForm(kAffiliatedAndroidApp, u"username4", u"password"),
+      CreateStoredCredential(kAffiliatedAndroidApp, u"username4", u"password"),
       base::DoNothing());
   RunUntilIdle();
 
@@ -230,16 +255,19 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest,
   expected_forms.back().affiliated_web_realm = kAffiliatedWebURL;
   expected_forms.back().match_type = PasswordForm::MatchType::kAffiliated;
 
-  EXPECT_CALL(result_callback, Run(VariantWith<LoginsResult>(
-                                   UnorderedElementsAreArray(expected_forms))));
+  EXPECT_CALL(result_callback,
+              Run(VariantWith<LoginsResult>(
+                  UnorderedElementsAreArray(MatchesForms(expected_forms)))));
   RunUntilIdle();
 }
 
 TEST_F(GetLoginsWithAffiliationsRequestHandlerTest, AffiliationsArePSLTest) {
-  backend()->AddLoginAsync(CreateForm(kTestWebURL, u"username1", u"password"),
-                           base::DoNothing());
-  backend()->AddLoginAsync(CreateForm(kTestPSLURL, u"username2", u"password"),
-                           base::DoNothing());
+  backend()->AddLoginAsync(
+      CreateStoredCredential(kTestWebURL, u"username1", u"password"),
+      base::DoNothing());
+  backend()->AddLoginAsync(
+      CreateStoredCredential(kTestPSLURL, u"username2", u"password"),
+      base::DoNothing());
   GroupedFacets group;
   group.facets.emplace_back(FacetURI::FromPotentiallyInvalidSpec(kTestWebURL));
   EXPECT_CALL(affiliation_service(), GetGroupingInfo)
@@ -266,14 +294,15 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest, AffiliationsArePSLTest) {
   expected_forms.back().match_type =
       PasswordForm::MatchType::kAffiliated | PasswordForm::MatchType::kPSL;
 
-  EXPECT_CALL(result_callback,
-              Run(VariantWith<LoginsResult>(ElementsAreArray(expected_forms))));
+  EXPECT_CALL(result_callback, Run(VariantWith<LoginsResult>(ElementsAreArray(
+                                   MatchesForms(expected_forms)))));
   RunUntilIdle();
 }
 
 TEST_F(GetLoginsWithAffiliationsRequestHandlerTest, GroupedMatchesOnlyTest) {
-  backend()->AddLoginAsync(CreateForm(kGroupWebURL, u"username", u"password"),
-                           base::DoNothing());
+  backend()->AddLoginAsync(
+      CreateStoredCredential(kGroupWebURL, u"username", u"password"),
+      base::DoNothing());
   RunUntilIdle();
 
   EXPECT_CALL(affiliation_service(), GetPSLExtensions)
@@ -296,18 +325,20 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest, GroupedMatchesOnlyTest) {
       CreateForm(kGroupWebURL, u"username", u"password");
   expected_form.match_type = PasswordForm::MatchType::kGrouped;
 
-  EXPECT_CALL(result_callback,
-              Run(VariantWith<LoginsResult>(ElementsAre(expected_form))));
+  EXPECT_CALL(
+      result_callback,
+      Run(VariantWith<LoginsResult>(ElementsAre(MatchesForm(expected_form)))));
   RunUntilIdle();
 }
 
 TEST_F(GetLoginsWithAffiliationsRequestHandlerTest,
        GroupedAndAffiliatedMatchesIntersectTest) {
   backend()->AddLoginAsync(
-      CreateForm(kAffiliatedAndroidApp, u"username1", u"password"),
+      CreateStoredCredential(kAffiliatedAndroidApp, u"username1", u"password"),
       base::DoNothing());
-  backend()->AddLoginAsync(CreateForm(kGroupWebURL, u"username2", u"password"),
-                           base::DoNothing());
+  backend()->AddLoginAsync(
+      CreateStoredCredential(kGroupWebURL, u"username2", u"password"),
+      base::DoNothing());
   RunUntilIdle();
   EXPECT_CALL(affiliation_service(), GetPSLExtensions)
       .WillOnce(RunOnceCallback<0>(std::vector<std::string>()));
@@ -342,19 +373,22 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest,
   expected_forms.push_back(CreateForm(kGroupWebURL, u"username2", u"password"));
   expected_forms.back().match_type = PasswordForm::MatchType::kGrouped;
 
-  EXPECT_CALL(result_callback,
-              Run(VariantWith<LoginsResult>(ElementsAreArray(expected_forms))));
+  EXPECT_CALL(result_callback, Run(VariantWith<LoginsResult>(ElementsAreArray(
+                                   MatchesForms(expected_forms)))));
   RunUntilIdle();
 }
 
 TEST_F(GetLoginsWithAffiliationsRequestHandlerTest,
        PslMatchInExtensionListButAffiliatedTest) {
-  backend()->AddLoginAsync(CreateForm("https://a.slack.com/", u"test", u"test"),
-                           base::DoNothing());
   backend()->AddLoginAsync(
-      CreateForm("https://b.slack.com/", u"test2", u"test"), base::DoNothing());
+      CreateStoredCredential("https://a.slack.com/", u"test", u"test"),
+      base::DoNothing());
   backend()->AddLoginAsync(
-      CreateForm("https://c.slack.com/", u"test3", u"test"), base::DoNothing());
+      CreateStoredCredential("https://b.slack.com/", u"test2", u"test"),
+      base::DoNothing());
+  backend()->AddLoginAsync(
+      CreateStoredCredential("https://c.slack.com/", u"test3", u"test"),
+      base::DoNothing());
   RunUntilIdle();
 
   EXPECT_CALL(affiliation_service(), GetPSLExtensions)
@@ -386,17 +420,19 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest,
   // The second form is only affiliated not PSL matched.
   expected_forms.back().match_type = PasswordForm::MatchType::kAffiliated;
 
-  EXPECT_CALL(result_callback,
-              Run(VariantWith<LoginsResult>(ElementsAreArray(expected_forms))));
+  EXPECT_CALL(result_callback, Run(VariantWith<LoginsResult>(ElementsAreArray(
+                                   MatchesForms(expected_forms)))));
   RunUntilIdle();
 }
 
 TEST_F(GetLoginsWithAffiliationsRequestHandlerTest,
        PslMatchesFilteredBecauseOfExtensionListTest) {
-  backend()->AddLoginAsync(CreateForm("https://a.slack.com/", u"test", u"test"),
-                           base::DoNothing());
-  backend()->AddLoginAsync(CreateForm("https://b.slack.com/", u"test", u"test"),
-                           base::DoNothing());
+  backend()->AddLoginAsync(
+      CreateStoredCredential("https://a.slack.com/", u"test", u"test"),
+      base::DoNothing());
+  backend()->AddLoginAsync(
+      CreateStoredCredential("https://b.slack.com/", u"test", u"test"),
+      base::DoNothing());
   RunUntilIdle();
 
   EXPECT_CALL(affiliation_service(), GetPSLExtensions)
@@ -417,8 +453,9 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest,
       CreateForm("https://a.slack.com/", u"test", u"test");
   expected_form.match_type = PasswordForm::MatchType::kExact;
 
-  EXPECT_CALL(result_callback,
-              Run(VariantWith<LoginsResult>(ElementsAre(expected_form))));
+  EXPECT_CALL(
+      result_callback,
+      Run(VariantWith<LoginsResult>(ElementsAre(MatchesForm(expected_form)))));
   RunUntilIdle();
 }
 
@@ -429,9 +466,10 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest, ChangePasswordURLIsSet) {
   PasswordForm grouped_form =
       CreateForm(kGroupWebURL, u"username3", u"password");
 
-  backend()->AddLoginAsync(exact_form, base::DoNothing());
-  backend()->AddLoginAsync(affiliated_form, base::DoNothing());
-  backend()->AddLoginAsync(grouped_form, base::DoNothing());
+  backend()->AddLoginAsync(FromPasswordForm(exact_form), base::DoNothing());
+  backend()->AddLoginAsync(FromPasswordForm(affiliated_form),
+                           base::DoNothing());
+  backend()->AddLoginAsync(FromPasswordForm(grouped_form), base::DoNothing());
   RunUntilIdle();
 
   EXPECT_CALL(affiliation_service(), GetPSLExtensions)
@@ -470,17 +508,20 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest, ChangePasswordURLIsSet) {
 
   EXPECT_CALL(result_callback,
               Run(VariantWith<LoginsResult>(UnorderedElementsAre(
-                  exact_form, affiliated_form, grouped_form))));
+                  MatchesForm(exact_form), MatchesForm(affiliated_form),
+                  MatchesForm(grouped_form)))));
   RunUntilIdle();
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 TEST_F(GetLoginsWithAffiliationsRequestHandlerTest, AffiliatedMatchHelperNull) {
-  backend()->AddLoginAsync(CreateForm(kTestWebURL, u"username1", u"password"),
-                           base::DoNothing());
-  backend()->AddLoginAsync(CreateForm(kTestPSLURL, u"username2", u"password"),
-                           base::DoNothing());
+  backend()->AddLoginAsync(
+      CreateStoredCredential(kTestWebURL, u"username1", u"password"),
+      base::DoNothing());
+  backend()->AddLoginAsync(
+      CreateStoredCredential(kTestPSLURL, u"username2", u"password"),
+      base::DoNothing());
   RunUntilIdle();
 
   EXPECT_CALL(affiliation_service(), GetAffiliationsAndBranding).Times(0);
@@ -497,8 +538,8 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest, AffiliatedMatchHelperNull) {
   expected_forms.push_back(CreateForm(kTestPSLURL, u"username2", u"password"));
   expected_forms.back().match_type = PasswordForm::MatchType::kPSL;
 
-  EXPECT_CALL(result_callback,
-              Run(VariantWith<LoginsResult>(ElementsAreArray(expected_forms))));
+  EXPECT_CALL(result_callback, Run(VariantWith<LoginsResult>(ElementsAreArray(
+                                   MatchesForms(expected_forms)))));
   RunUntilIdle();
 }
 
@@ -519,8 +560,9 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest,
       url::SchemeHostPort(GURL("https://google.com/"));
   federated_credential.skip_zero_click = false;
 
-  backend()->AddLoginAsync(username_only, base::DoNothing());
-  backend()->AddLoginAsync(federated_credential, base::DoNothing());
+  backend()->AddLoginAsync(FromPasswordForm(username_only), base::DoNothing());
+  backend()->AddLoginAsync(FromPasswordForm(federated_credential),
+                           base::DoNothing());
   RunUntilIdle();
 
   EXPECT_CALL(affiliation_service(), GetPSLExtensions)
@@ -546,8 +588,9 @@ TEST_F(GetLoginsWithAffiliationsRequestHandlerTest,
   expected_form.match_type = PasswordForm::MatchType::kAffiliated;
   expected_form.skip_zero_click = true;
 
-  EXPECT_CALL(result_callback,
-              Run(VariantWith<LoginsResult>(ElementsAre(expected_form))));
+  EXPECT_CALL(
+      result_callback,
+      Run(VariantWith<LoginsResult>(ElementsAre(MatchesForm(expected_form)))));
   RunUntilIdle();
 }
 

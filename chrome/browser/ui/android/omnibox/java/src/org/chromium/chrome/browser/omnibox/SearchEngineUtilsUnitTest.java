@@ -8,6 +8,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isNotNull;
 import static org.mockito.Mockito.clearInvocations;
@@ -21,8 +22,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.robolectric.Shadows.shadowOf;
 
-import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNativeNtpUrl;
-
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -35,7 +34,6 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.shadow.api.Shadow;
@@ -52,10 +50,10 @@ import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBrid
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
 import org.chromium.chrome.browser.omnibox.suggestions.CachedZeroSuggestionsManager;
 import org.chromium.chrome.browser.omnibox.suggestions.CachedZeroSuggestionsManager.JumpStartContext;
-import org.chromium.chrome.browser.omnibox.test.R;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelper;
+import org.chromium.chrome.browser.url_constants.UrlConstantResolver;
 import org.chromium.components.contextual_search.InputState;
 import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
 import org.chromium.components.omnibox.AutocompleteRequestType;
@@ -108,14 +106,15 @@ public class SearchEngineUtilsUnitTest {
         doReturn(false).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
         doReturn(true)
                 .when(mFaviconHelper)
-                .getLocalFaviconImageForURL(any(), any(), anyInt(), any());
+                .getLocalFaviconImageForURL(any(), any(), anyInt(), anyBoolean(), any());
         doReturn(false).when(mLocaleManagerDelegate).needToCheckForSearchEnginePromo();
         LocaleManager.getInstance().setDelegateForTest(mLocaleManagerDelegate);
 
         lenient()
                 .doReturn(true)
                 .when(mFaviconHelper)
-                .getLocalFaviconImageForURL(any(), any(), anyInt(), mCallbackCaptor.capture());
+                .getLocalFaviconImageForURL(
+                        any(), any(), anyInt(), anyBoolean(), mCallbackCaptor.capture());
 
         // Used when creating bitmaps, needs to be greater than 0.
         doReturn(1).when(mResources).getDimensionPixelSize(anyInt());
@@ -184,7 +183,8 @@ public class SearchEngineUtilsUnitTest {
         reset(mEngineIconObserver);
 
         // SearchEngineUtils retrieves logo when it's first created, and whenever the DSE changes.
-        verify(mFaviconHelper).getLocalFaviconImageForURL(any(), any(), anyInt(), any());
+        verify(mFaviconHelper)
+                .getLocalFaviconImageForURL(any(), any(), anyInt(), anyBoolean(), any());
         mCallbackCaptor.getValue().onFaviconAvailable(mBitmap, new GURL(LOGO_URL));
 
         histograms.assertExpected();
@@ -235,7 +235,7 @@ public class SearchEngineUtilsUnitTest {
 
     private void verifyNoSearchEngineSpecificDataInCache() {
         var jumpStartContext = CachedZeroSuggestionsManager.readJumpStartContext();
-        assertEquals(getOriginalNativeNtpUrl(), jumpStartContext.url.getSpec());
+        assertEquals(UrlConstantResolver.getOriginalNativeNtpUrl(), jumpStartContext.url.getSpec());
         assertEquals(
                 PageClassification.INSTANT_NTP_WITH_OMNIBOX_AS_STARTING_FOCUS_VALUE,
                 jumpStartContext.pageClass);
@@ -412,7 +412,8 @@ public class SearchEngineUtilsUnitTest {
         verify(mEngineIconObserver).onSearchEngineIconChanged(null);
         reset(mEngineIconObserver);
 
-        verify(mFaviconHelper).getLocalFaviconImageForURL(any(), any(), anyInt(), any());
+        verify(mFaviconHelper)
+                .getLocalFaviconImageForURL(any(), any(), anyInt(), anyBoolean(), any());
         mCallbackCaptor.getValue().onFaviconAvailable(mBitmap, new GURL(LOGO_URL));
 
         verify(mEngineIconObserver).onSearchEngineIconChanged(isNotNull());
@@ -458,7 +459,8 @@ public class SearchEngineUtilsUnitTest {
         // Simulate FaviconFetcher failure on the next TemplateUrl change.
         doReturn(false)
                 .when(mFaviconHelper)
-                .getLocalFaviconImageForURL(any(), any(), anyInt(), mCallbackCaptor.capture());
+                .getLocalFaviconImageForURL(
+                        any(), any(), anyInt(), anyBoolean(), mCallbackCaptor.capture());
         var searchEngineUtils = new SearchEngineUtils(mProfile, mFaviconHelper);
         searchEngineUtils.addIconObserver(mEngineIconObserver);
 
@@ -485,7 +487,8 @@ public class SearchEngineUtilsUnitTest {
         reset(mEngineIconObserver);
 
         verify(mFaviconHelper)
-                .getLocalFaviconImageForURL(any(), any(), anyInt(), mCallbackCaptor.capture());
+                .getLocalFaviconImageForURL(
+                        any(), any(), anyInt(), anyBoolean(), mCallbackCaptor.capture());
         FaviconHelper.FaviconImageCallback faviconCallback = mCallbackCaptor.getValue();
         faviconCallback.onFaviconAvailable(null, new GURL(LOGO_URL));
 
@@ -531,13 +534,13 @@ public class SearchEngineUtilsUnitTest {
                 .needToCheckForSearchEnginePromo();
         assertFalse(searchEngineUtils.needToCheckForSearchEnginePromo());
 
-        Mockito.reset(mLocaleManagerDelegate);
+        reset(mLocaleManagerDelegate);
 
         doReturn(true).when(mLocaleManagerDelegate).needToCheckForSearchEnginePromo();
 
         assertTrue(searchEngineUtils.needToCheckForSearchEnginePromo());
 
-        Mockito.reset(mLocaleManagerDelegate);
+        reset(mLocaleManagerDelegate);
 
         doReturn(false).when(mLocaleManagerDelegate).needToCheckForSearchEnginePromo();
 
@@ -669,5 +672,40 @@ public class SearchEngineUtilsUnitTest {
                 "Describe your image",
                 searchEngineUtils.getOmniboxHintText(
                         AutocompleteRequestType.IMAGE_GENERATION, mFuseboxSessionState));
+    }
+
+    @Test
+    public void testGetOmniboxHintText_UseAskHintForNtp() {
+        SearchEngineUtils searchEngineUtils = new SearchEngineUtils(mProfile, mFaviconHelper);
+
+        // Case 1: Feature disabled
+        OmniboxFeatures.sUseAskHintForNtp.setForTesting(false);
+        configureSearchEngine("google", "Google");
+        searchEngineUtils.onTemplateURLServiceChanged();
+        assertEquals(
+                "Search Google or type URL",
+                searchEngineUtils.getOmniboxHintText(
+                        AutocompleteRequestType.SEARCH, /* fuseboxSessionState= */ null));
+
+        // Case 2: Feature enabled, Search Engine is Google
+        OmniboxFeatures.sUseAskHintForNtp.setForTesting(true);
+        configureSearchEngine("google", "Google");
+        searchEngineUtils.onTemplateURLServiceChanged();
+        assertEquals(
+                "Ask Google or type URL",
+                searchEngineUtils.getOmniboxHintText(
+                        AutocompleteRequestType.SEARCH, /* fuseboxSessionState= */ null));
+
+        // Case 3: Feature enabled, Search Engine is NOT Google
+        OmniboxFeatures.sUseAskHintForNtp.setForTesting(true);
+        configureSearchEngine("yahoo", "Yahoo");
+        searchEngineUtils.onTemplateURLServiceChanged();
+        assertEquals(
+                "Search Yahoo or type URL",
+                searchEngineUtils.getOmniboxHintText(
+                        AutocompleteRequestType.SEARCH, /* fuseboxSessionState= */ null));
+
+        // Reset for testing
+        OmniboxFeatures.sUseAskHintForNtp.setForTesting(false);
     }
 }

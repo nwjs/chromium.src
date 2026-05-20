@@ -99,10 +99,10 @@ void WebXrPermissionContext::NotifyPermissionSet(
     auto previous_setting = GetContentSettingStatusInternal(
         rfh, request_data.requesting_origin, request_data.embedding_origin);
     auto new_content_setting = std::get<ContentSetting>(
-        request_data.resolver->ComputePermissionDecisionResult(previous_setting,
-                                                               decision));
+        CreatePermissionResolver(request_data.permission_descriptor)
+            ->ComputePermissionDecisionResult(previous_setting, decision));
 
-    ContentSettingPermissionContextBase::UpdateContentSetting(
+    UpdateSetting(
         request_data, new_content_setting,
         decision.overall_decision == PermissionDecision::kAllowThisTime);
   }
@@ -148,13 +148,7 @@ void WebXrPermissionContext::NotifyPermissionSet(
               permission_type, content_settings_type(),
               base::BindOnce(
                   &WebXrPermissionContext::OnAndroidPermissionDecided,
-                  weak_ptr_factory_.GetWeakPtr(),
-                  PermissionRequestData(
-                      std::make_unique<ContentSettingPermissionResolver>(
-                          request_data.resolver->GetContentSettingsType()
-                              .value()),
-                      request_data.user_gesture, request_data.requesting_origin,
-                      request_data.embedding_origin),
+                  weak_ptr_factory_.GetWeakPtr(), request_data.Clone(),
                   std::move(callback)));
       return;
   }

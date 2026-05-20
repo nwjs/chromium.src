@@ -10,7 +10,6 @@
 #import "base/feature_list.h"
 #import "base/functional/callback_helpers.h"
 #import "base/memory/raw_ptr.h"
-#import "base/metrics/histogram_functions.h"
 #import "base/not_fatal_until.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
@@ -117,17 +116,6 @@ UIImage* DefaultIconForType(FormSuggestion* suggestion,
     case autofill::SuggestionType::kGeneratePasswordEntry:
       return MakeSymbolMulticolor(
           CustomSymbolWithPointSize(kPasswordManagerSymbol, kSymbolPointSize));
-    case autofill::SuggestionType::kFillExistingPlusAddress: {
-      BOOL isPlusAddressFeaturesEnabled = base::FeatureList::IsEnabled(
-          plus_addresses::features::kPlusAddressesEnabled);
-      return isPlusAddressFeaturesEnabled
-                 ? SymbolWithPalette(DefaultSymbolWithPointSize(
-                                         kShieldedEnvelope, kSymbolPointSize),
-                                     @[
-                                       [UIColor colorNamed:kTextPrimaryColor],
-                                     ])
-                 : nil;
-    }
     case autofill::SuggestionType::kAddressEntry: {
       switch (suggestion.suggestionIconType) {
         case SuggestionIconType::kAccountHome:
@@ -605,20 +593,8 @@ bool IsRequestDedupingAllowed() {
       _webState ? ProfileIOS::FromBrowserState(_webState->GetBrowserState())
                 : nullptr;
   if (profile) {
-    int dismissCount = profile->GetPrefs()->GetInteger(
-        prefs::kIosPasswordBottomSheetDismissCount);
     profile->GetPrefs()->SetInteger(prefs::kIosPasswordBottomSheetDismissCount,
                                     0);
-    if (dismissCount > 0) {
-      // Log how many times the bottom sheet had been dismissed before being
-      // re-enabled.
-      static constexpr int kHistogramMin = 1;
-      static constexpr int kHistogramMax = 4;
-      static constexpr size_t kHistogramBuckets = 3;
-      base::UmaHistogramCustomCounts(
-          "IOS.ResetDismissCount.Password.BottomSheet", dismissCount,
-          kHistogramMin, kHistogramMax, kHistogramBuckets);
-    }
   }
 }
 

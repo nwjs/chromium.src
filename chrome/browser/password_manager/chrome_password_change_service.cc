@@ -12,6 +12,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
+#include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/password_change_delegate.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/affiliations/core/browser/affiliation_service.h"
@@ -26,7 +27,6 @@
 #include "components/password_manager/core/browser/password_manager_settings_service.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
-#include "components/variations/service/variations_service.h"
 #include "content/public/browser/web_contents.h"
 #include "url/gurl.h"
 
@@ -43,38 +43,7 @@ inline constexpr base::TimeDelta kThrottleDuration = base::Days(14);
 // already.
 using Logger = password_manager::BrowserSavePasswordProgressLogger;
 
-// Returns whether chrome switch for change password URLs is used.
-bool HasChangePasswordUrlOverride() {
-  return !password_manager::GetChangePasswordUrlOverrides().empty();
-}
 
-// Returns whether overridden change password URL matches with `url`.
-GURL GetChangePasswordURLOverride(const GURL& url) {
-  if (!HasChangePasswordUrlOverride()) {
-    return GURL();
-  }
-
-  if (!url.is_valid()) {
-    return GURL();
-  }
-
-  for (auto& override_url : password_manager::GetChangePasswordUrlOverrides()) {
-    if (!override_url.is_valid() ||
-        !affiliations::IsExtendedPublicSuffixDomainMatch(url, override_url,
-                                                         {})) {
-      continue;
-    }
-    return std::move(override_url);
-  }
-  return GURL();
-}
-
-std::string GetVariationConfigCountryCode() {
-  variations::VariationsService* variation_service =
-      g_browser_process->variations_service();
-  return variation_service ? variation_service->GetLatestCountry()
-                           : std::string();
-}
 
 optimization_guide::prefs::FeatureOptInState GetFeatureState(
     PrefService* pref_service) {
@@ -114,7 +83,9 @@ ChromePasswordChangeService::ChromePasswordChangeService(
       optimization_keyed_service_(optimization_keyed_service),
       settings_service_(settings_service),
       feature_manager_(std::move(feature_manager)),
-      log_router_(log_router) {}
+      log_router_(log_router) {
+  override_urls_ = password_manager::GetChangePasswordUrlOverrides();
+}
 
 ChromePasswordChangeService::~ChromePasswordChangeService() {
   CHECK(password_change_delegates_.empty());
@@ -145,11 +116,12 @@ void ChromePasswordChangeService::RecordLoginAttemptQuality(
 
 bool ChromePasswordChangeService::IsPasswordChangeSupported(
     const password_manager::PasswordForm& form,
-    const autofill::LanguageCode& page_language) const {
+    bool is_non_password_login_detected) const {
 #if BUILDFLAG(IS_ANDROID)
   return false;
 #else
-  auto availability = GetPerSiteAvailability(form, page_language);
+  PasswordChangeAvailability availability =
+      GetPerSiteAvailability(form, is_non_password_login_detected);
   base::UmaHistogramEnumeration("PasswordManager.PasswordChangeAvailability",
                                 availability);
 
@@ -171,6 +143,38 @@ bool ChromePasswordChangeService::UserIsActivePasswordChangeUser() const {
     return false;
   }
   return IsPasswordChangeAvailable();
+}
+
+void ChromePasswordChangeService::AddChangePasswordUrlOverride(
+    const GURL& url) {
+  if (url.is_valid()) {
+    override_urls_.emplace_back(url);
+  }
+}
+
+bool ChromePasswordChangeService::HasChangePasswordUrlOverride() const {
+  return !override_urls_.empty();
+}
+
+GURL ChromePasswordChangeService::GetChangePasswordURLOverride(
+    const GURL& url) const {
+  if (override_urls_.empty()) {
+    return GURL();
+  }
+
+  if (!url.is_valid()) {
+    return GURL();
+  }
+
+  for (const auto& override_url : override_urls_) {
+    CHECK(override_url.is_valid());
+    if (!affiliations::IsExtendedPublicSuffixDomainMatch(url, override_url,
+                                                         {})) {
+      continue;
+    }
+    return override_url;
+  }
+  return GURL();
 }
 
 void ChromePasswordChangeService::OfferPasswordChangeUi(
@@ -206,7 +210,8 @@ void ChromePasswordChangeService::StartPasswordChangeFromCheckup(
 
   if (!password_change_from_checkup_delegate_) {
     password_change_from_checkup_delegate_ =
-        std::make_unique<PasswordChangeFromCheckupDelegate>();
+        std::make_unique<PasswordChangeFromCheckupDelegate>(
+            ChromePasswordManagerClient::FromWebContents(web_contents));
   }
 
   password_change_from_checkup_delegate_->StartPasswordChangeFlow(
@@ -318,7 +323,7 @@ PasswordChangeAvailability ChromePasswordChangeService::GetGeneralAvailability()
 
 PasswordChangeAvailability ChromePasswordChangeService::GetPerSiteAvailability(
     const password_manager::PasswordForm& form,
-    const autofill::LanguageCode& page_language) const {
+    bool is_non_password_login_detected) const {
   auto [log_manager, logger] = CreateLoggerPair(log_router_);
 
   auto general_availability = GetGeneralAvailability();
@@ -344,33 +349,24 @@ PasswordChangeAvailability ChromePasswordChangeService::GetPerSiteAvailability(
     return PasswordChangeAvailability::kAvailable;
   }
 
-  if (page_language != autofill::LanguageCode("en") &&
-      page_language != autofill::LanguageCode("en-US") &&
-      !base::FeatureList::IsEnabled(
-          password_manager::features::kReduceRequirementsForPasswordChange)) {
-    if (logger) {
-      logger->LogMessage(Logger::STRING_PASSWORD_CHANGE_UNSUPPORTED_LANGUAGE);
-    }
-    return PasswordChangeAvailability::kUnsupportedLanguage;
-  }
-
-  const std::string country_code = GetVariationConfigCountryCode();
-  if (country_code != "us" &&
-      !base::FeatureList::IsEnabled(
-          password_manager::features::kReduceRequirementsForPasswordChange)) {
-    if (logger) {
-      logger->LogMessage(Logger::STRING_PASSWORD_CHANGE_UNSUPPORTED_COUNTRY);
-    }
-    return PasswordChangeAvailability::kUnsupportedCountryCode;
-  }
-
-  const bool has_change_url =
-      affiliation_service_->GetChangePasswordURL(form.url).is_valid();
+  const bool has_change_url = form.change_password_url.is_valid();
   base::UmaHistogramBoolean(kHasPasswordChangeUrlHistogram, has_change_url);
   if (logger) {
     logger->LogBoolean(Logger::STRING_PASSWORD_CHANGE_URL_AVAILABLE,
                        has_change_url);
   }
-  return has_change_url ? PasswordChangeAvailability::kAvailable
-                        : PasswordChangeAvailability::kNotSupportedSite;
+
+  if (!has_change_url) {
+    return PasswordChangeAvailability::kNotSupportedSite;
+  }
+
+  if (is_non_password_login_detected) {
+    if (logger) {
+      logger->LogBoolean(Logger::STRING_PASSWORD_CHANGE_NON_PASSWORD_LOGIN,
+                         true);
+    }
+    return PasswordChangeAvailability::kNonPasswordLogin;
+  }
+
+  return PasswordChangeAvailability::kAvailable;
 }

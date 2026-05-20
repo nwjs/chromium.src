@@ -149,6 +149,8 @@ std::string GetStubPolicyFilenamePostfix(
       DCHECK(descriptor.has_component_id());
       return kStubSigninExtensionPolicyFileNameFragment +
              descriptor.component_id();
+    case login_manager::POLICY_DOMAIN_EXTENSION_INSTALL:
+      return std::string();
   }
   NOTREACHED();
 }
@@ -519,6 +521,7 @@ void FakeSessionManagerClient::StoreDevicePolicy(
 
 void FakeSessionManagerClient::StorePolicyForUser(
     const cryptohome::AccountIdentifier& cryptohome_id,
+    login_manager::PolicyDomain domain,
     const std::string& policy_blob,
     chromeos::VoidDBusMethodCallback callback) {
   login_manager::PolicyDescriptor descriptor = MakeChromePolicyDescriptor(

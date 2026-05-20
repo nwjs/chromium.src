@@ -128,12 +128,11 @@ class CanvasResourceProviderTest : public Test {
   void EnsureResourceRecycled(CanvasResourceProvider* provider,
                               scoped_refptr<CanvasResource>&& resource) {
     viz::TransferableResource transferable_resource;
-    CanvasResource::ReleaseCallback release_callback;
     CHECK(resource->PrepareTransferableResource(
-        &transferable_resource, &release_callback,
+        &transferable_resource,
         /*needs_verified_synctoken=*/false));
-    std::move(release_callback)
-        .Run(std::move(resource), resource->sync_token(), false);
+
+    CanvasResource::DropRefOnOwningThread(std::move(resource));
   }
 
   test::TaskEnvironment task_environment_{
@@ -144,7 +143,7 @@ class CanvasResourceProviderTest : public Test {
   ScopedTestingPlatformSupport<GpuCompositingTestPlatform> platform_;
 };
 
-TEST_F(CanvasResourceProviderTest, BeginExternalWrite) {
+TEST_F(CanvasResourceProviderTest, BeginExternalOverwrite) {
   const gpu::SharedImageUsageSet shared_image_usage_flags =
       gpu::SHARED_IMAGE_USAGE_DISPLAY_READ | gpu::SHARED_IMAGE_USAGE_SCANOUT |
       gpu::SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE;
@@ -159,12 +158,11 @@ TEST_F(CanvasResourceProviderTest, BeginExternalWrite) {
   gpu::SyncToken sync_token;
 
   // The same ClientSharedImage should be returned from sequential calls to
-  // BeginExternalWrite().
-  auto client_si = provider->BeginExternalWrite(sync_token,
-                                                /*is_overwrite=*/false);
+  // BeginExternalOverwrite().
+  auto client_si = provider->BeginExternalOverwrite(sync_token);
   provider->EndExternalWrite(sync_token);
   auto client_si_from_second_call =
-      provider->BeginExternalWrite(sync_token, /*is_overwrite=*/false);
+      provider->BeginExternalOverwrite(sync_token);
   EXPECT_EQ(client_si_from_second_call, client_si);
 }
 

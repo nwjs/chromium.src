@@ -222,10 +222,6 @@ std::vector<StatusBubble*> TestBrowserWindow::GetStatusBubbles() {
   return {};
 }
 
-bool TestBrowserWindow::CanDockDevTools() const {
-  return true;
-}
-
 gfx::Rect TestBrowserWindow::GetRestoredBounds() const {
   return gfx::Rect();
 }
@@ -252,10 +248,6 @@ bool TestBrowserWindow::IsMinimized() const {
   return is_minimized_;
 }
 
-bool TestBrowserWindow::ShouldHideUIForFullscreen() const {
-  return false;
-}
-
 bool TestBrowserWindow::GetCanResize() {
   return false;
 }
@@ -265,14 +257,6 @@ ui::mojom::WindowShowState TestBrowserWindow::GetWindowShowState() const {
 }
 
 bool TestBrowserWindow::IsFullscreen() const {
-  return false;
-}
-
-bool TestBrowserWindow::IsFullscreenBubbleVisible() const {
-  return false;
-}
-
-bool TestBrowserWindow::IsForceFullscreen() const {
   return false;
 }
 
@@ -303,16 +287,8 @@ bool TestBrowserWindow::HandleKeyboardEvent(
   return false;
 }
 
-bool TestBrowserWindow::IsBookmarkBarVisible() const {
-  return false;
-}
-
-bool TestBrowserWindow::IsBookmarkBarAnimating() const {
-  return false;
-}
-
 bool TestBrowserWindow::IsTabStripEditable() const {
-  return is_tab_strip_editable_;
+  return false;
 }
 
 void TestBrowserWindow::DisableTabStripEditingForTesting() {
@@ -358,47 +334,9 @@ void TestBrowserWindow::StartPartialTranslate(
     const std::string& target_language,
     const std::u16string& text_selection) {}
 
-qrcode_generator::QRCodeGeneratorBubbleView*
-TestBrowserWindow::ShowQRCodeGeneratorBubble(content::WebContents* contents,
-                                             const GURL& url,
-                                             bool show_back_button) {
-  return nullptr;
-}
-
-SharingDialog* TestBrowserWindow::ShowSharingDialog(
-    content::WebContents* web_contents,
-    SharingDialogData data) {
-  return nullptr;
-}
-
-#if !BUILDFLAG(IS_ANDROID)
-sharing_hub::ScreenshotCapturedBubble*
-TestBrowserWindow::ShowScreenshotCapturedBubble(content::WebContents* contents,
-                                                const gfx::Image& image) {
-  return nullptr;
-}
-#endif
-
-send_tab_to_self::SendTabToSelfBubbleView*
-TestBrowserWindow::ShowSendTabToSelfDevicePickerBubble(
-    content::WebContents* contents) {
-  return nullptr;
-}
-
-send_tab_to_self::SendTabToSelfBubbleView*
-TestBrowserWindow::ShowSendTabToSelfPromoBubble(content::WebContents* contents,
-                                                bool show_signin_button) {
-  return nullptr;
-}
-
 #if BUILDFLAG(IS_CHROMEOS)
 void TestBrowserWindow::ToggleMultitaskMenu() {
   return;
-}
-#else
-sharing_hub::SharingHubBubbleView* TestBrowserWindow::ShowSharingHubBubble(
-    share::ShareAttempt attempt) {
-  return nullptr;
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 

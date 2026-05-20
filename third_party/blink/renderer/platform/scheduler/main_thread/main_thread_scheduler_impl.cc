@@ -68,6 +68,7 @@
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
+#include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/chrome_renderer_scheduler_state.pbzero.h"
 #include "third_party/perfetto/protos/perfetto/trace/track_event/track_event.pbzero.h"
 #include "v8/include/v8.h"
@@ -98,8 +99,16 @@ constexpr base::TimeDelta kBusyLoopAggressiveTime = base::Milliseconds(500);
 // When scrolling and the main thread is not expected to be blocking, decrease
 // its thread priority, so as not to contend with the actually display critical
 // threads.
+//
+// Android only, as it's been evaluated in the field only on this platform.
+// TODO(crbug.com/503682317): Evaluate on desktop as well.
 BASE_FEATURE(kLowerPriorityForCompositorGestures,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 #if BUILDFLAG(IS_ANDROID)
 // On devices with at least 3 CPU clusters, only selectively allow the renderer
@@ -465,9 +474,9 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
   end_renderer_hidden_idle_period_closure_.Reset(base::BindRepeating(
       &MainThreadSchedulerImpl::EndIdlePeriod, weak_factory_.GetWeakPtr()));
 
-  TRACE_EVENT_OBJECT_CREATED_WITH_ID(
-      TRACE_DISABLED_BY_DEFAULT("renderer.scheduler"), "MainThreadScheduler",
-      this);
+  TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("renderer.scheduler"),
+                      "MainThreadScheduler:created",
+                      perfetto::Flow::FromPointer(this, "MainThreadScheduler"));
 
   helper_.SetObserver(this);
 
@@ -531,9 +540,10 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
 }
 
 MainThreadSchedulerImpl::~MainThreadSchedulerImpl() {
-  TRACE_EVENT_OBJECT_DELETED_WITH_ID(
-      TRACE_DISABLED_BY_DEFAULT("renderer.scheduler"), "MainThreadScheduler",
-      this);
+  TRACE_EVENT_INSTANT(
+      TRACE_DISABLED_BY_DEFAULT("renderer.scheduler"),
+      "MainThreadScheduler:deleted",
+      perfetto::TerminatingFlow::FromPointer(this, "MainThreadScheduler"));
   // Ensure the renderer scheduler was shut down explicitly, because otherwise
   // we could end up having stale pointers to the Blink heap which has been
   // terminated by this point.
@@ -2129,21 +2139,25 @@ void MainThreadSchedulerImpl::OnVirtualTimeResumed() {
 }
 
 void MainThreadSchedulerImpl::CreateTraceEventObjectSnapshot() const {
-  TRACE_EVENT_OBJECT_SNAPSHOT_WITH_ID(
-      TRACE_DISABLED_BY_DEFAULT("renderer.scheduler.debug"),
-      "MainThreadScheduler", this, [&](perfetto::TracedValue context) {
-        base::AutoLock lock(any_thread_lock_);
-        WriteIntoTraceLocked(std::move(context), helper_.NowTicks());
-      });
+  TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("renderer.scheduler.debug"),
+                      "MainThreadScheduler:snapshot",
+                      perfetto::Flow::FromPointer(this, "MainThreadScheduler"),
+                      "snapshot", [&](perfetto::TracedValue context) {
+                        base::AutoLock lock(any_thread_lock_);
+                        WriteIntoTraceLocked(std::move(context),
+                                             helper_.NowTicks());
+                      });
 }
 
 void MainThreadSchedulerImpl::CreateTraceEventObjectSnapshotLocked() const {
-  TRACE_EVENT_OBJECT_SNAPSHOT_WITH_ID(
-      TRACE_DISABLED_BY_DEFAULT("renderer.scheduler.debug"),
-      "MainThreadScheduler", this, [&](perfetto::TracedValue context) {
-        any_thread_lock_.AssertAcquired();
-        WriteIntoTraceLocked(std::move(context), helper_.NowTicks());
-      });
+  TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("renderer.scheduler.debug"),
+                      "MainThreadScheduler:snapshot",
+                      perfetto::Flow::FromPointer(this, "MainThreadScheduler"),
+                      "snapshot", [&](perfetto::TracedValue context) {
+                        any_thread_lock_.AssertAcquired();
+                        WriteIntoTraceLocked(std::move(context),
+                                             helper_.NowTicks());
+                      });
 }
 
 void MainThreadSchedulerImpl::WriteIntoTraceLocked(

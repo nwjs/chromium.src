@@ -29,6 +29,7 @@
 #include "base/types/pass_key.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/container_query.h"
+#include "third_party/blink/renderer/core/css/container_query_set.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
 #include "third_party/blink/renderer/core/css/css_selector_list.h"
 #include "third_party/blink/renderer/core/css/css_syntax_definition.h"
@@ -297,6 +298,11 @@ class CORE_EXPORT StyleRule : public StyleRuleBase {
   GCedHeapVector<Member<StyleRuleBase>>* ChildRules() {
     return child_rules_.Get();
   }
+  // See StyleSheetContents::ReplaceRuleIfExists() for an explanation
+  // of `position_hint` and the return value.
+  wtf_size_t ReplaceChildRuleIfExists(StyleRuleBase* old_rule,
+                                      StyleRuleBase* new_rule,
+                                      wtf_size_t position_hint);
   const MixinParameterBindings* GetMixinParameterBindings() const {
     return mixin_parameter_bindings_;
   }
@@ -380,6 +386,11 @@ class CORE_EXPORT StyleRuleGroup : public StyleRuleBase {
   }
   HeapVector<Member<StyleRuleBase>>& ChildRules() { return child_rules_; }
 
+  // See StyleSheetContents::ReplaceRuleIfExists() for an explanation
+  // of `position_hint` and the return value.
+  wtf_size_t ReplaceChildRuleIfExists(StyleRuleBase* old_rule,
+                                      StyleRuleBase* new_rule,
+                                      wtf_size_t position_hint);
   void WrapperInsertRule(CSSStyleSheet*, unsigned, StyleRuleBase*);
   void WrapperRemoveRule(CSSStyleSheet*, unsigned);
 
@@ -537,12 +548,15 @@ class StyleRuleSupports : public StyleRuleCondition {
 
 class CORE_EXPORT StyleRuleContainer : public StyleRuleCondition {
  public:
-  StyleRuleContainer(ContainerQuery&, HeapVector<Member<StyleRuleBase>> rules);
+  StyleRuleContainer(const ContainerQuerySet&,
+                     HeapVector<Member<StyleRuleBase>> rules);
   StyleRuleContainer(const StyleRuleContainer&) = delete;
   StyleRuleContainer(const StyleRuleContainer&,
                      HeapVector<Member<StyleRuleBase>> rules);
 
-  ContainerQuery& GetContainerQuery() const { return *container_query_; }
+  const ContainerQuerySet& GetContainerQuerySet() const {
+    return *container_query_set_;
+  }
 
   void SetConditionText(const ExecutionContext*,
                         StyleSheetContents* parent_contents,
@@ -551,7 +565,7 @@ class CORE_EXPORT StyleRuleContainer : public StyleRuleCondition {
   void TraceAfterDispatch(blink::Visitor*) const;
 
  private:
-  Member<ContainerQuery> container_query_;
+  Member<const ContainerQuerySet> container_query_set_;
 };
 
 class StyleRuleNavigation : public StyleRuleCondition {
@@ -775,6 +789,31 @@ class CORE_EXPORT StyleRuleCustomMedia : public StyleRuleBase {
   bool boolean_value_ = false;
 };
 
+// Returns a "position hint", which is an index the caller may want to check
+// first during the next mutation.
+template <typename ChildRulesType>
+static wtf_size_t ReplaceStyleRuleInVector(const StyleRuleBase* old_rule,
+                                           StyleRuleBase* new_rule,
+                                           wtf_size_t position_hint,
+                                           ChildRulesType& child_rules) {
+  if (position_hint < child_rules.size() &&
+      child_rules[position_hint] == old_rule) {
+    child_rules[position_hint] = new_rule;
+    return position_hint;
+  }
+
+  for (wtf_size_t i = 0; i < child_rules.size(); ++i) {
+    StyleRuleBase* rule = child_rules[i].Get();
+    if (rule == old_rule) {
+      child_rules[i] = new_rule;
+      return i;
+    }
+  }
+
+  // Not found.
+  return std::numeric_limits<wtf_size_t>::max();
+}
+
 template <>
 struct DowncastTraits<StyleRule> {
   static bool AllowFrom(const StyleRuleBase& rule) {
@@ -829,7 +868,7 @@ struct DowncastTraits<StyleRuleGroup> {
            rule.IsContainerRule() || rule.IsLayerBlockRule() ||
            rule.IsScopeRule() || rule.IsStartingStyleRule() ||
            rule.IsFunctionRule() || rule.IsPageRule() ||
-           rule.IsNavigationRule();
+           rule.IsNavigationRule() || rule.IsMixinRule() || rule.IsResultRule();
   }
 };
 
@@ -921,6 +960,14 @@ template <>
 struct DowncastTraits<StyleRuleCustomMedia> {
   static bool AllowFrom(const StyleRuleBase& rule) {
     return rule.IsCustomMediaRule();
+  }
+};
+
+template <>
+struct DowncastTraits<StyleRuleCondition> {
+  static bool AllowFrom(const StyleRuleBase& rule) {
+    return IsA<StyleRuleMedia>(rule) || IsA<StyleRuleSupports>(rule) ||
+           IsA<StyleRuleContainer>(rule) || IsA<StyleRuleNavigation>(rule);
   }
 };
 

@@ -27,19 +27,20 @@ class ClickTool : public WebActorTool {
  public:
   ~ClickTool() override;
 
-  static base::expected<std::unique_ptr<ClickTool>, ActorToolError> Create(
+  static base::expected<std::unique_ptr<ClickTool>, ToolExecutionResult> Create(
       const optimization_guide::proto::ClickAction& action,
       ProfileIOS* profile);
 
   // ActorTool:
   void Execute(ToolExecutionCallback callback) override;
+  base::WeakPtr<web::WebState> GetTargetWebState() const override;
 
  private:
   void OnTargetFrameResolved(
       const optimization_guide::proto::ClickAction& action,
       ToolExecutionCallback callback,
       base::expected<ActionTargetJavaScriptFeature::TargetFrameResult,
-                     ActorToolError> result);
+                     ToolExecutionResult> result);
 
   ClickTool(const optimization_guide::proto::ClickAction& action,
             base::WeakPtr<web::WebState> web_state);

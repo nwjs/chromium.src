@@ -143,7 +143,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Input.ToolType.Android" units="tool type"
-    expires_after="2026-08-02">
+    expires_after="2026-10-04">
   <owner>alexmitra@chromium.org</owner>
   <owner>flackr@chromium.org</owner>
   <owner>peconn@chromium.org</owner>
@@ -161,12 +161,11 @@ chromium-metrics-reviews@google.com.
   <owner>essential-inputs-team@google.com</owner>
   <summary>
     The number of enabled input methods. Recorded when the user logs in to
-    Chrome OS or each cold start of Chrome on Android. The enabled input methods
-    are selected by user in the language settings page on Chrome OS and in
-    system language settings on Android. NOTE: 'Active' in the metric name is a
-    legacy misnomer; 'active' should refer to just the single current aka.
-    activated input method that is one of the enabled input methods whose total
-    count is being tracked by this metric.
+    Chrome OS. The enabled input methods are selected by user in the language
+    settings page on Chrome OS. NOTE: 'Active' in the metric name is a legacy
+    misnomer; 'active' should refer to just the single current aka. activated
+    input method that is one of the enabled input methods whose total count is
+    being tracked by this metric.
   </summary>
 </histogram>
 
@@ -2246,7 +2245,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TextInputClient.FirstRect.TimedOut" enum="Boolean"
-    expires_after="2026-08-16">
+    expires_after="2026-10-25">
   <owner>joenotcharles@google.com</owner>
   <owner>input-dev@chromium.org</owner>
   <summary>
@@ -2259,7 +2258,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TextInputClient.FirstRect2" units="ms"
-    expires_after="2026-08-16">
+    expires_after="2026-10-25">
   <owner>joenotcharles@google.com</owner>
   <owner>input-dev@chromium.org</owner>
   <summary>
@@ -2274,7 +2273,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TextInputClient.GetCachedFirstRectResult"
-    enum="GetCachedFirstRectResult" expires_after="2026-08-16">
+    enum="GetCachedFirstRectResult" expires_after="2026-10-18">
   <owner>joenotcharles@google.com</owner>
   <owner>input-dev@chromium.org</owner>
   <summary>
@@ -2302,7 +2301,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TextInputClient.InSyncRequest.FirstRect" enum="Boolean"
-    expires_after="2026-08-16">
+    expires_after="2026-10-25">
   <owner>joenotcharles@google.com</owner>
   <owner>input-dev@chromium.org</owner>
   <summary>
@@ -2317,7 +2316,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TextInputClient.LockWait2" units="ms"
-    expires_after="2026-08-16">
+    expires_after="2026-10-25">
   <owner>joenotcharles@google.com</owner>
   <owner>input-dev@chromium.org</owner>
   <summary>

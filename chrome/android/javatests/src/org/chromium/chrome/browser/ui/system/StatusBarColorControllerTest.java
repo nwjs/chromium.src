@@ -16,6 +16,7 @@ import android.app.Activity;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.os.Build;
+import android.view.View;
 
 import androidx.annotation.ColorInt;
 import androidx.core.content.ContextCompat;
@@ -39,6 +40,7 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
@@ -46,13 +48,13 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.layouts.LayoutTestUtils;
 import org.chromium.chrome.browser.layouts.LayoutType;
+import org.chromium.chrome.browser.logo.LogoUtils;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.chrome.browser.toolbar.top.ToolbarLayout;
 import org.chromium.chrome.browser.toolbar.top.ToolbarPhone;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.page.WebPageStation;
@@ -524,9 +526,12 @@ public class StatusBarColorControllerTest {
     private void scrollUpToolbarUntilPinnedAtTop(Activity activity) {
         Resources resources = activity.getResources();
         // Drag the Feed header title to scroll the toolbar to the top.
+        View logoView = activity.findViewById(R.id.search_provider_logo);
+        int totalLogoHeight = LogoUtils.getTotalLogoHeight(logoView);
+
         int toY =
                 -resources.getDimensionPixelOffset(R.dimen.toolbar_height_no_shadow)
-                        - activity.findViewById(R.id.logo_holder).getHeight();
+                        - totalLogoHeight;
         TestTouchUtils.dragCompleteView(
                 InstrumentationRegistry.getInstrumentation(),
                 activity.findViewById(R.id.header_title),

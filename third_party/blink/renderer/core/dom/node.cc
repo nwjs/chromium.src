@@ -405,7 +405,7 @@ Node* Node::PseudoAwarePreviousSibling() const {
   // corresponds to the ordering of pseudo-elements in a traversal:
   // ::scroll-marker-group(before), ::marker, ::scroll-marker,
   // ::scroll-button(), ::checkmark,
-  // ::before, non-pseudo Elements, ::after, ::picker-icon, ::interest-hint,
+  // ::before, non-pseudo Elements, ::after, ::picker-icon, ::interest-button,
   // ::scroll-marker-group(after), ::view-transition. The fallthroughs ensure
   // this ordering by checking for each kind of node in-turn.
   switch (GetPseudoId()) {
@@ -416,26 +416,26 @@ Node* Node::PseudoAwarePreviousSibling() const {
       }
       [[fallthrough]];
     case kPseudoIdScrollMarkerGroupAfter:
-      if (Node* next = parent->GetPseudoElement(kPseudoIdInterestHint)) {
-        return next;
+      if (Node* previous = parent->GetPseudoElement(kPseudoIdInterestButton)) {
+        return previous;
       }
       [[fallthrough]];
-    case kPseudoIdInterestHint:
-      if (Node* next = parent->GetPseudoElement(kPseudoIdPickerIcon)) {
-        return next;
-      }
-      [[fallthrough]];
-    case kPseudoIdPickerIcon:
-      if (Node* next = parent->GetPseudoElement(kPseudoIdExpandIcon)) {
-        return next;
-      }
-      [[fallthrough]];
-    case kPseudoIdExpandIcon:
-      if (Node* next = parent->GetPseudoElement(kPseudoIdAfter)) {
-        return next;
+    case kPseudoIdInterestButton:
+      if (Node* previous = parent->GetPseudoElement(kPseudoIdAfter)) {
+        return previous;
       }
       [[fallthrough]];
     case kPseudoIdAfter:
+      if (Node* previous = parent->GetPseudoElement(kPseudoIdExpandIcon)) {
+        return previous;
+      }
+      [[fallthrough]];
+    case kPseudoIdExpandIcon:
+      if (Node* previous = parent->GetPseudoElement(kPseudoIdPickerIcon)) {
+        return previous;
+      }
+      [[fallthrough]];
+    case kPseudoIdPickerIcon:
       if (Node* previous = parent->lastChild())
         return previous;
       [[fallthrough]];
@@ -497,9 +497,9 @@ Node* Node::PseudoAwarePreviousSibling() const {
       }
       [[fallthrough]];
     case kPseudoIdMarker:
-      if (Node* next =
+      if (Node* previous =
               parent->GetPseudoElement(kPseudoIdScrollMarkerGroupBefore)) {
-        return next;
+        return previous;
       }
       [[fallthrough]];
     case kPseudoIdScrollMarkerGroupBefore:
@@ -609,25 +609,26 @@ Node* Node::PseudoAwareNextSibling() const {
         return parent->firstChild();
       [[fallthrough]];
     case kPseudoIdNone:
-      if (Node* next = parent->GetPseudoElement(kPseudoIdAfter))
-        return next;
-      [[fallthrough]];
-    case kPseudoIdAfter:
-      if (Node* next = parent->GetPseudoElement(kPseudoIdExpandIcon)) {
-        return next;
-      }
-      [[fallthrough]];
-    case kPseudoIdExpandIcon:
       if (Node* next = parent->GetPseudoElement(kPseudoIdPickerIcon)) {
         return next;
       }
       [[fallthrough]];
     case kPseudoIdPickerIcon:
-      if (Node* next = parent->GetPseudoElement(kPseudoIdInterestHint)) {
+      if (Node* next = parent->GetPseudoElement(kPseudoIdExpandIcon)) {
         return next;
       }
       [[fallthrough]];
-    case kPseudoIdInterestHint:
+    case kPseudoIdExpandIcon:
+      if (Node* next = parent->GetPseudoElement(kPseudoIdAfter)) {
+        return next;
+      }
+      [[fallthrough]];
+    case kPseudoIdAfter:
+      if (Node* next = parent->GetPseudoElement(kPseudoIdInterestButton)) {
+        return next;
+      }
+      [[fallthrough]];
+    case kPseudoIdInterestButton:
       if (Node* next =
               parent->GetPseudoElement(kPseudoIdScrollMarkerGroupAfter)) {
         return next;
@@ -748,17 +749,17 @@ Node* Node::PseudoAwareFirstChild() const {
       return first;
     if (Node* first = current_element->firstChild())
       return first;
-    if (Node* first = current_element->GetPseudoElement(kPseudoIdAfter)) {
+    if (Node* first = current_element->GetPseudoElement(kPseudoIdPickerIcon)) {
       return first;
     }
     if (Node* first = current_element->GetPseudoElement(kPseudoIdExpandIcon)) {
       return first;
     }
-    if (Node* first = current_element->GetPseudoElement(kPseudoIdPickerIcon)) {
+    if (Node* first = current_element->GetPseudoElement(kPseudoIdAfter)) {
       return first;
     }
     if (Node* first =
-            current_element->GetPseudoElement(kPseudoIdInterestHint)) {
+            current_element->GetPseudoElement(kPseudoIdInterestButton)) {
       return first;
     }
     if (Node* first = current_element->GetPseudoElement(
@@ -817,17 +818,19 @@ Node* Node::PseudoAwareLastChild() const {
             kPseudoIdScrollMarkerGroupAfter)) {
       return last;
     }
-    if (Node* last = current_element->GetPseudoElement(kPseudoIdInterestHint)) {
+    if (Node* last =
+            current_element->GetPseudoElement(kPseudoIdInterestButton)) {
       return last;
     }
-    if (Node* last = current_element->GetPseudoElement(kPseudoIdPickerIcon)) {
+    if (Node* last = current_element->GetPseudoElement(kPseudoIdAfter)) {
       return last;
     }
     if (Node* last = current_element->GetPseudoElement(kPseudoIdExpandIcon)) {
       return last;
     }
-    if (Node* last = current_element->GetPseudoElement(kPseudoIdAfter))
+    if (Node* last = current_element->GetPseudoElement(kPseudoIdPickerIcon)) {
       return last;
+    }
     if (Node* last = current_element->lastChild())
       return last;
     if (Node* last = current_element->GetPseudoElement(kPseudoIdBefore))
@@ -3014,7 +3017,8 @@ static void AppendMarkedTree(const String& base_indent,
         AppendMarkedTree(indent_string, pseudo, marked_node1, marked_label1,
                          marked_node2, marked_label2, builder);
       }
-      if (Element* pseudo = element->GetPseudoElement(kPseudoIdInterestHint)) {
+      if (Element* pseudo =
+              element->GetPseudoElement(kPseudoIdInterestButton)) {
         AppendMarkedTree(indent_string, pseudo, marked_node1, marked_label1,
                          marked_node2, marked_label2, builder);
       }

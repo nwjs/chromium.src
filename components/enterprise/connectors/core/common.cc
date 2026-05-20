@@ -414,6 +414,8 @@ std::string EventResultToString(EventResult result) {
       return "EVENT_RESULT_BYPASSED";
     case EventResult::FORCED_SAVE_TO_CLOUD:
       return "EVENT_RESULT_FORCED_SAVE_TO_CLOUD";
+    case EventResult::CANCELLED:
+      return "EVENT_RESULT_CANCELLED";
   }
   NOTREACHED();
 }
@@ -444,6 +446,7 @@ std::string GetFailedUploadDurationUmaMetricName(
              : base::StrCat({kUnknownUmaMetricName, "UploadFailure.Duration"});
 }
 
+// LINT.IfChange(EnterpriseConnector)
 std::string DeepScanAccessPointToString(DeepScanAccessPoint access_point) {
   switch (access_point) {
     case DeepScanAccessPoint::DOWNLOAD:
@@ -458,9 +461,12 @@ std::string DeepScanAccessPointToString(DeepScanAccessPoint access_point) {
       return "Print";
     case DeepScanAccessPoint::FILE_TRANSFER:
       return "FileTransfer";
+    case DeepScanAccessPoint::ACTOR:
+      return "Actor";
   }
   NOTREACHED();
 }
+// LINT.ThenChange(//tools/metrics/histograms/metadata/safe_browsing/histograms.xml:EnterpriseConnector)
 
 std::string FinalContentAnalysisResultToString(
     FinalContentAnalysisResult result) {
@@ -479,6 +485,8 @@ std::string FinalContentAnalysisResultToString(
       return "Success";
     case FinalContentAnalysisResult::FORCE_SAVE_TO_CLOUD:
       return "ForceSaveToCloud";
+    case FinalContentAnalysisResult::CANCELLED:
+      return "Cancelled";
   }
   NOTREACHED();
 }

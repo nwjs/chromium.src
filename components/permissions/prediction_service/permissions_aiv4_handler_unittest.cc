@@ -78,11 +78,10 @@ PermissionsAiv4ModelMetadata BuildMetadataFromValues(
   return metadata;
 }
 
-passage_embeddings::Embedding GetDummyEmbeddings(
-    int input_size = kTestTextInputSize) {
-  std::vector<float> data(input_size, 42.f);
-  return passage_embeddings::Embedding(data,
-                                       /*passage_word_count=*/42);
+std::vector<float> GetDummyEmbeddings(int input_size = kTestTextInputSize) {
+  std::vector<float> data(input_size, 0.0f);
+  data[0] = 1.0f;
+  return data;
 }
 
 class PermissionsAiv4ExecutorFake : public PermissionsAiv4Executor {
@@ -488,8 +487,9 @@ TEST_F(Aiv4HandlerTest, TextEmbeddingGetsCopiedToTensor) {
             tflite::task::core::PopulateVector<float>(input_tensors[0], &data)
                 .ok());
         EXPECT_THAT(data, SizeIs(kTestTextInputSize));
-        for (int i = 0; i < kTestTextInputSize; i++) {
-          EXPECT_FLOAT_EQ(data[i], 42.f);
+        EXPECT_FLOAT_EQ(data[0], 1.0f);
+        for (int i = 1; i < kTestTextInputSize; i++) {
+          EXPECT_FLOAT_EQ(data[i], 0.0f);
         }
         flag = true;
       }));
@@ -594,6 +594,28 @@ TEST_F(Aiv4HandlerTest, GetPassageCountReturnsCorrectValue) {
 TEST_F(Aiv4HandlerTest, GetPassageCountReturnsNulloptWhenNotSet) {
   PermissionsAiv4ModelMetadata metadata =
       BuildMetadataFromValues({0.1, 0.2, 0.3, 0.4});
+  PushModelFileToModelExecutor(kOptTargetNotifications,
+                               test::ModelFilePath(kZeroReturnModel), metadata);
+
+  auto* aiv4_handler = model_handler();
+  EXPECT_EQ(aiv4_handler->GetPassageCount(), std::nullopt);
+}
+
+TEST_F(Aiv4HandlerTest, GetPassageCountReturnsNulloptWhenZero) {
+  PermissionsAiv4ModelMetadata metadata = BuildMetadataFromValues(
+      {0.1, 0.2, 0.3, 0.4}, /*text_embeddings_input_size=*/std::nullopt,
+      /*passage_count=*/0);
+  PushModelFileToModelExecutor(kOptTargetNotifications,
+                               test::ModelFilePath(kZeroReturnModel), metadata);
+
+  auto* aiv4_handler = model_handler();
+  EXPECT_EQ(aiv4_handler->GetPassageCount(), std::nullopt);
+}
+
+TEST_F(Aiv4HandlerTest, GetPassageCountReturnsNulloptWhenNegative) {
+  PermissionsAiv4ModelMetadata metadata = BuildMetadataFromValues(
+      {0.1, 0.2, 0.3, 0.4}, /*text_embeddings_input_size=*/std::nullopt,
+      /*passage_count=*/-1);
   PushModelFileToModelExecutor(kOptTargetNotifications,
                                test::ModelFilePath(kZeroReturnModel), metadata);
 

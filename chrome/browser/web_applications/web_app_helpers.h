@@ -77,7 +77,7 @@ webapps::ManifestId GenerateManifestId(const std::string& manifest_id_path,
 
 // Same as above but does not CHECK that the resulting id is valid. Only used
 // for sync parsing to avoid crashes, and ignore bad sync data.
-webapps::ManifestId GenerateManifestIdUnsafe(
+std::optional<webapps::ManifestId> GenerateManifestIdUnsafe(
     const std::string& manifest_id_path,
     const GURL& start_url);
 
@@ -94,7 +94,7 @@ std::optional<webapps::AppId> FindInstalledAppWithUrlInScope(
 bool IsNonLocallyInstalledAppWithUrlInScope(Profile* profile, const GURL& url);
 
 // Tests if `app` is marked as a placeholder app or appears to be one despite
-// not being marked due to corruption, see: https://crbug.com/1427340
+// not being marked due to corruption, see: https://crbug.com/40261748
 bool LooksLikePlaceholder(const WebApp& app);
 
 }  // namespace web_app

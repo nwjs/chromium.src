@@ -15,11 +15,11 @@ import android.widget.TextView;
 import org.chromium.base.test.transit.Station;
 import org.chromium.base.test.transit.ViewElement;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.lens.LensController;
 import org.chromium.chrome.browser.safe_browsing.settings.SafeBrowsingSettingsFragment;
 import org.chromium.chrome.browser.toolbar.settings.AddressBarSettingsFragment;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.quick_delete.QuickDeleteDialogFacility;
 import org.chromium.chrome.test.transit.settings.SettingsStation;
 import org.chromium.chrome.test.transit.ui.BottomSheetFacility;
@@ -60,7 +60,7 @@ public class TipsPromoDetailsPageBottomSheetFacility<
     }
 
     /** Press the back button to navigate back to the main page. */
-    public TipsPromoMainPageBottomSheetFacility clickBackButton() {
+    public TipsPromoMainPageBottomSheetFacility<HostStationT> clickBackButton() {
         return backButtonElement
                 .clickTo()
                 .exitFacilityAnd()
@@ -68,7 +68,7 @@ public class TipsPromoDetailsPageBottomSheetFacility<
     }
 
     /** Use the system backpress to navigate back to the main page. */
-    public TipsPromoMainPageBottomSheetFacility pressBack() {
+    public TipsPromoMainPageBottomSheetFacility<HostStationT> pressBack() {
         recheckActiveConditions();
         return pressBackTo()
                 .exitFacilityAnd()

@@ -852,6 +852,45 @@ TEST(CSSMathExpressionNode, CSSMathTypeComplex) {
   EXPECT_EQ(((length + length) * (number + number)).Category(), kCalcLength);
 }
 
+TEST(CSSMathExpressionNode, CSSMathTypePercentAngle) {
+  auto check_type_sum = [](const CSSMathType& type1, const CSSMathType& type2,
+                           bool is_valid, CalculationResultCategory type) {
+    CSSMathType sum_type = type1 + type2;
+    CSSMathType reversed_sum_type = type2 + type1;
+    EXPECT_EQ(sum_type.IsValid(), is_valid);
+    EXPECT_EQ(sum_type.Category(), type);
+    EXPECT_EQ(reversed_sum_type.IsValid(), is_valid);
+    EXPECT_EQ(reversed_sum_type.Category(), type);
+  };
+
+  CSSMathType number(kCalcNumber);
+  CSSMathType length(kCalcLength);
+  CSSMathType percent(kCalcPercent);
+  CSSMathType angle(kCalcAngle);
+  CSSMathType percent_angle(kCalcPercentAngle);
+
+  // Mixing <percentage> with <angle> produces kCalcPercentAngle.
+  check_type_sum(percent, angle, true, kCalcPercentAngle);
+
+  // Combining kCalcPercentAngle with itself or its constituent types stays
+  // in the same category.
+  check_type_sum(percent_angle, percent, true, kCalcPercentAngle);
+  check_type_sum(percent_angle, angle, true, kCalcPercentAngle);
+  check_type_sum(percent_angle, percent_angle, true, kCalcPercentAngle);
+
+  // Adding kCalcPercentAngle to unrelated types is invalid.
+  check_type_sum(percent_angle, length, false, kCalcOther);
+  check_type_sum(percent_angle, number, false, kCalcOther);
+
+  // Scaling by a number preserves the category; dividing out the angle
+  // collapses to a plain number, while multiplying by an angle is
+  // intermediate.
+  EXPECT_EQ((percent_angle * number).Category(), kCalcPercentAngle);
+  EXPECT_EQ((percent_angle / number).Category(), kCalcPercentAngle);
+  EXPECT_EQ((percent_angle / angle).Category(), kCalcNumber);
+  EXPECT_EQ((percent_angle * angle).Category(), kCalcIntermediate);
+}
+
 TEST(CSSMathExpressionNode, InvalidRandomFunction) {
   const std::string test_cases[] = {
       "random(1px)",
@@ -863,10 +902,12 @@ TEST(CSSMathExpressionNode, InvalidRandomFunction) {
       "random(1px 3px, 9px)",
       "random(1px, 3px 9px)",
       "random(, 1, 2, 3)",
-      "random(element-shared ident, 1, 2, 3)",
-      "random(ident element-shared, 1, 2, 3)",
-      "random(--ident element-shared --ident, 1, 2, 3)",
-      "random(element-shared 0, 1, 2, 3)",
+      "random(ident element-scoped, 1, 2, 3)",
+      "random(--ident element-scoped --ident, 1, 2, 3)",
+      "random(--ident element-scoped 0, 1, 2, 3)",
+      "random(ident property-scoped, 1, 2, 3)",
+      "random(--ident property-scoped property-index-scoped, 1, 2, 3)",
+      "random(--ident property-index-scoped property-scoped, 1, 2, 3)",
       "random(--ident 0, 1, 2, 3)",
       "random(element-shared --ident 0, 1, 2, 3)",
       "random(ident, 1, 2)",
@@ -902,22 +943,29 @@ TEST(CSSMathExpressionNode, ValidRandomFunction) {
     const char* input;
     const char* output;
   } test_cases[] = {
-      {"random(1, 3)", "random(1, 3)"},
-      {"random(1px, 3%)", "random(1px, 3%)"},
-      {"random(1px, 3px, 9px)", "random(1px, 3px, 9px)"},
-      {"random(calc(1 + 1), calc(3 + 3), round(10, 10))", "random(2, 6, 10)"},
-      {"random(element-shared --ident, 1, 2, 3)",
-       "random(--ident element-shared, 1, 2, 3)"},
-      {"random(--ident element-shared, 1, 2, 3)",
-       "random(--ident element-shared, 1, 2, 3)"},
-      {"random(element-shared auto, 1, 2, 3)",
-       "random(element-shared, 1, 2, 3)"},
-      {"random(auto element-shared, 1, 2, 3)",
-       "random(element-shared, 1, 2, 3)"},
+      {"random(1, 3)", "random(element-scoped ua-height-1, 1, 3)"},
+      {"random(1px, 3%)", "random(element-scoped ua-height-1, 1px, 3%)"},
+      {"random(1px, 3px, 9px)",
+       "random(element-scoped ua-height-1, 1px, 3px, 9px)"},
+      {"random(element-scoped, 1, 2, 3)", "random(element-scoped, 1, 2, 3)"},
+      {"random(element-scoped --ident, 1, 2, 3)",
+       "random(--ident element-scoped, 1, 2, 3)"},
+      {"random(calc(1 + 1), calc(3 + 3), round(10, 10))",
+       "random(element-scoped ua-height-1, 2, 6, 10)"},
+      {"random(--ident element-scoped, 1, 2, 3)",
+       "random(--ident element-scoped, 1, 2, 3)"},
+      {"random(--ident property-scoped, 1, 2, 3)",
+       "random(--ident ua-height, 1, 2, 3)"},
+      {"random(--ident property-index-scoped, 1, 2, 3)",
+       "random(--ident ua-height-1, 1, 2, 3)"},
+      {"random(--ident element-scoped property-index-scoped, 1, 2, 3)",
+       "random(--ident element-scoped ua-height-1, 1, 2, 3)"},
+      {"random(--ident property-scoped element-scoped, 1, 2, 3)",
+       "random(--ident element-scoped ua-height, 1, 2, 3)"},
       {"random(--ident, 1, 2)", "random(--ident, 1, 2)"},
       {"random(--ident, 1, 2, 3)", "random(--ident, 1, 2, 3)"},
-      {"random(auto, 1px, 2%)", "random(1px, 2%)"},
-      {"random(auto, 1, 2, 3)", "random(1, 2, 3)"},
+      {"random(auto, 1px, 2%)", "random(element-scoped ua-height-1, 1px, 2%)"},
+      {"random(auto, 1, 2, 3)", "random(element-scoped ua-height-1, 1, 2, 3)"},
       {"random(fixed 0.1, 1px, 3px)", "random(fixed 0.1, 1px, 3px)"},
       {"random(fixed .3, 0deg, 90deg)", "random(fixed 0.3, 0deg, 90deg)"},
       {"random(fixed calc(2 / 4), 0px, 100px)",
@@ -927,8 +975,10 @@ TEST(CSSMathExpressionNode, ValidRandomFunction) {
     CSSParserTokenStream stream(test_case.input);
     const CSSParserContext* context = MakeGarbageCollected<CSSParserContext>(
         kHTMLStandardMode, SecureContextMode::kInsecureContext);
-    CSSParserLocalContext local_context =
-        CSSParserLocalContext::CreateWithoutPropertyForTest();
+    CSSParserLocalContext local_context(
+        CSSPropertyName(CSSPropertyID::kHeight),
+        /*current_shorthand=*/CSSPropertyID::kInvalid,
+        /*custom_function_name=*/g_null_atom);
     const CSSMathExpressionNode* res = CSSMathExpressionNode::ParseMathFunction(
         CSSValueID::kCalc, stream, *context, local_context,
         Flags({Flag::AllowPercent}), kCSSAnchorQueryTypesNone);

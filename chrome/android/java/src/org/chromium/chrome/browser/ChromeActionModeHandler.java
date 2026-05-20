@@ -26,6 +26,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.enterprise.util.DataProtectionBridge;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.readaloud.ReadAloudController;
@@ -73,7 +74,7 @@ public class ChromeActionModeHandler {
             ActivityTabProvider activityTabProvider,
             Callback<String> searchCallback,
             boolean showWebSearch,
-            Supplier<ShareDelegate> shareDelegateSupplier,
+            Supplier<@Nullable ShareDelegate> shareDelegateSupplier,
             BrowserControlsStateProvider controlsState,
             Supplier<@Nullable ReadAloudController> readAloudControllerSupplier) {
         mInitWebContentsObserver =
@@ -125,8 +126,8 @@ public class ChromeActionModeHandler {
     @VisibleForTesting
     static class ChromeActionModeCallback extends ActionModeCallback {
         /**
-         * Android Intent size limitations prevent sending over a megabyte of data. Limit
-         * query lengths to 100kB because other things may be added to the Intent.
+         * Android Intent size limitations prevent sending over a megabyte of data. Limit query
+         * lengths to 100kB because other things may be added to the Intent.
          */
         private static final int MAX_SHARE_QUERY_LENGTH_CHARS = 100000;
 
@@ -134,7 +135,7 @@ public class ChromeActionModeHandler {
         private final ActionModeCallbackHelper mHelper;
         private final Callback<String> mSearchCallback;
         private final boolean mShowWebSearch;
-        private final Supplier<ShareDelegate> mShareDelegateSupplier;
+        private final Supplier<@Nullable ShareDelegate> mShareDelegateSupplier;
         private final Supplier<@Nullable ReadAloudController> mReadAloudControllerSupplier;
         private final BrowserControlsStateProvider mControlsState;
 
@@ -146,7 +147,7 @@ public class ChromeActionModeHandler {
                 WebContents webContents,
                 Callback<String> searchCallback,
                 boolean showWebSearch,
-                Supplier<ShareDelegate> shareDelegateSupplier,
+                Supplier<@Nullable ShareDelegate> shareDelegateSupplier,
                 BrowserControlsStateProvider controlsState,
                 Supplier<@Nullable ReadAloudController> readAloudControllerSupplier) {
             mTab = tab;
@@ -173,7 +174,9 @@ public class ChromeActionModeHandler {
                             | ActionModeCallbackHelper.MENU_ITEM_SHARE;
             // Disable options that expose additional Chrome functionality prior to the FRE being
             // completed (i.e. creation of a new tab).
-            if (FirstRunStatus.getFirstRunFlowComplete() && mShowWebSearch) {
+            if (FirstRunStatus.getFirstRunFlowComplete()
+                    && mShowWebSearch
+                    && DataProtectionBridge.isSearchWithAllowed(mTab.getWebContents())) {
                 allowedActionModes |= ActionModeCallbackHelper.MENU_ITEM_WEB_SEARCH;
             }
             mHelper.setAllowedMenuItems(allowedActionModes);
@@ -196,7 +199,7 @@ public class ChromeActionModeHandler {
                     continue;
                 }
                 String packageName = item.getIntent().getComponent().getPackageName();
-                // Exclude actions from browsers and system launchers. https://crbug.com/850195
+                // Exclude actions from browsers and system launchers. https://crbug.com/41393094
                 if (browsers.contains(packageName) || launchers.contains(packageName)) {
                     item.setVisible(false);
                 }

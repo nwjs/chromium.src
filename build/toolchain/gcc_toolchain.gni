@@ -101,6 +101,8 @@ if (enable_resource_allowlist_generation) {
 # additional toolchain for Rust targets that are build-time artificts such as
 # proc macros.
 template("single_gcc_toolchain") {
+  _host_toolchain_is_msan = host_toolchain_is_msan
+  _host_toolchain_msan_track_origins = host_toolchain_msan_track_origins
   toolchain(target_name) {
     assert(defined(invoker.ar), "gcc_toolchain() must specify a \"ar\" value")
     assert(defined(invoker.cc), "gcc_toolchain() must specify a \"cc\" value")
@@ -140,6 +142,15 @@ template("single_gcc_toolchain") {
       if (!defined(invoker_toolchain_args.v8_current_cpu)) {
         v8_current_cpu = invoker_toolchain_args.current_cpu
       }
+
+      # These are set for some non-host toolchain e.g. system_allocator which
+      # requires to run built binary from host toolchain with msan config but
+      # in non-host toolchain context.
+      # Use captured values here because host_toolchain_is_msan might be
+      # overridden by the invoker_toolchain_args or defaults if already in a
+      # sub-toolchain.
+      host_toolchain_is_msan = _host_toolchain_is_msan
+      host_toolchain_msan_track_origins = _host_toolchain_msan_track_origins
     }
 
     # When the invoker has explicitly overridden use_remoteexec or
@@ -683,13 +694,6 @@ template("single_gcc_toolchain") {
       rustc = "$rust_compiler_prefix${rustc_bin}"
       rustc_wrapper += " --rustc=$rustc"
 
-      rustc_wrapper_inputs = [
-        "//build/action_helpers.py",
-        "//build/gn_helpers.py",
-        "//build/rust/gni_impl/rustc_wrapper.py",
-        "//third_party/rust-toolchain/bin/rustc",
-      ]
-
       # RSP manipulation due to https://bugs.chromium.org/p/gn/issues/detail?id=249
       tool("rust_staticlib") {
         libname = "{{output_dir}}/{{target_output_name}}{{output_extension}}"
@@ -791,6 +795,31 @@ template("single_gcc_toolchain") {
         rspfile_content =
             "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
         command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link -o $dllname -- -Clinker=\"${invoker.cxx}\" {{source}} LDFLAGS {{ldflags}} ${extra_ldflags} RUSTENV {{rustenv}}"
+        rust_sysroot = rust_sysroot_relative
+        inputs = rustc_wrapper_inputs
+      }
+
+      tool("rust_dylib") {
+        dllname = "{{output_dir}}/{{target_output_name}}{{output_extension}}"
+        depfile = "$dllname.d"
+        rspfile = rustc_rsp_path
+        rmetaname = "{{output_dir}}/lib{{target_output_name}}.rmeta"
+        pool = "//build/toolchain:link_pool($default_toolchain)"
+
+        default_output_extension = default_shlib_extension
+        output_prefix = "lib"
+        default_output_dir = "{{root_out_dir}}${default_shlib_subdir}"
+        description = "RUST(DYLIB) {{output}}"
+        outputs = [
+          dllname,
+          rmetaname,
+          rustc_env_and_flags_path,
+          "${rspfile}.rust",
+        ]
+
+        rspfile_content =
+            "$rustc_common_args {{rustdeps}} {{externs}} SOURCES {{sources}}"
+        command = "$rustc_wrapper --depfile=$depfile --emit=dep-info=$depfile,link,metadata=$rmetaname -o $dllname -- -Clinker=\"${invoker.cxx}\" {{source}} LDFLAGS {{ldflags}} ${extra_ldflags} RUSTENV {{rustenv}}"
         rust_sysroot = rust_sysroot_relative
         inputs = rustc_wrapper_inputs
       }

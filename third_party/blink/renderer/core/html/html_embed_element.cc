@@ -108,7 +108,7 @@ void HTMLEmbedElement::ParseAttribute(
   } else if (params.name == html_names::kCodeAttr) {
     // TODO(rendering-core): Remove this branch? It's not in the spec and we're
     // not in the HTMLAppletElement hierarchy.
-    SetUrl(StripLeadingAndTrailingHTMLSpaces(params.new_value));
+    SetUrl(StripLeadingAndTrailingHtmlSpaces(params.new_value));
     SetDisposeView();
   } else if (params.name == html_names::kSrcAttr) {
     // https://html.spec.whatwg.org/multipage/iframe-embed-object.html#the-embed-element
@@ -117,24 +117,19 @@ void HTMLEmbedElement::ParseAttribute(
     // steps.
     // We don't follow the "potentially active" definition precisely here, but
     // it works.
-    SetUrl(StripLeadingAndTrailingHTMLSpaces(params.new_value));
+    SetUrl(StripLeadingAndTrailingHtmlSpaces(params.new_value));
     SetDisposeView();
     if (GetLayoutObject() && IsImageType()) {
       if (!image_loader_)
         image_loader_ = MakeGarbageCollected<HTMLImageLoader>(this);
       image_loader_->UpdateFromElement(ImageLoader::kUpdateIgnorePreviousError);
-    } else if (GetLayoutObject() ||
-               RuntimeEnabledFeatures::
-                   HTMLEmbedElementRepresentsNothingToActiveEnabled()) {
+    } else {
       if (!FastHasAttribute(html_names::kTypeAttr)) {
         UseCounter::Count(GetDocument(),
                           WebFeature::kEmbedElementWithoutTypeSrcChanged);
       }
       SetNeedsPluginUpdate(true);
-      const bool require_layout =
-          !RuntimeEnabledFeatures::
-              HTMLEmbedElementRepresentsNothingToActiveEnabled();
-      ReattachOnPluginChangeIfNeeded(require_layout);
+      ReattachOnPluginChangeIfNeeded(/*require_layout=*/false);
     }
   } else {
     HTMLPlugInElement::ParseAttribute(params);

@@ -76,8 +76,7 @@ MockPermissionRequest::MockPermissionRequest(
     : MockPermissionRequest(
           [&] {
             auto data = std::make_unique<PermissionRequestData>(
-                std::make_unique<ContentSettingPermissionResolver>(
-                    request_type),
+                request_type,
                 /*user_gesture=*/gesture_type ==
                     PermissionRequestGestureType::GESTURE,
                 requesting_origin);
@@ -160,6 +159,13 @@ void MockPermissionRequest::PermissionDecided(
 
     if (decision.overall_decision == PermissionDecision::kNone) {
       request_state_->cancelled = true;
+    }
+
+    if (std::holds_alternative<GeolocationPromptOptions>(
+            decision.prompt_options)) {
+      request_state_->selected_accuracy =
+          std::get<GeolocationPromptOptions>(decision.prompt_options)
+              .selected_accuracy;
     }
   }
   if (on_permission_decided_) {

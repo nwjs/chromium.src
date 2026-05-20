@@ -15,7 +15,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -171,7 +170,7 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
       // maximized windows. Additionally creating a window with a maximized
       // show state results in an invisible window if the window is a PWA
       // (i.e. out-of-process remote cocoa) window
-      // (https://crbug.com/1441966). Never using WindowShowState::kMaximized
+      // (https://crbug.com/40910284). Never using WindowShowState::kMaximized
       // on Mac is also consistent with NativeWidgetMac::Show, which does not
       // support WindowShowState::kMaximized either.
 #if !BUILDFLAG(IS_MAC)

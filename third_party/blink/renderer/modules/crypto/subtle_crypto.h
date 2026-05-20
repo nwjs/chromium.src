@@ -44,6 +44,7 @@ class CryptoKey;
 class DOMArrayBuffer;
 class EncapsulatedBits;
 class EncapsulatedKey;
+class V8UnionCryptoKeyOrCryptoKeyPair;
 
 class SubtleCrypto final : public ScriptWrappable {
   DEFINE_WRAPPERTYPEINFO();
@@ -79,11 +80,12 @@ class SubtleCrypto final : public ScriptWrappable {
                                const V8BufferSource* data,
                                ExceptionState&);
 
-  ScriptPromise<IDLAny> generateKey(ScriptState*,
-                                    const V8AlgorithmIdentifier*,
-                                    bool extractable,
-                                    const Vector<String>& key_usages,
-                                    ExceptionState&);
+  ScriptPromise<V8UnionCryptoKeyOrCryptoKeyPair> generateKey(
+      ScriptState*,
+      const V8AlgorithmIdentifier*,
+      bool extractable,
+      const Vector<String>& key_usages,
+      ExceptionState&);
   ScriptPromise<CryptoKey> importKey(ScriptState*,
                                      const String&,
                                      const V8UnionBufferSourceOrJsonWebKey*,
@@ -156,6 +158,16 @@ class SubtleCrypto final : public ScriptWrappable {
       CryptoKey* decapsulation_key,
       const V8BufferSource* ciphertext,
       ExceptionState&);
+
+  // Length is in bits
+  static bool supports(ScriptState*,
+                       const String& operation,
+                       const V8AlgorithmIdentifier* algorithm,
+                       std::optional<unsigned> length);
+  static bool supports(ScriptState*,
+                       const String& operation,
+                       const V8AlgorithmIdentifier* algorithm,
+                       const V8AlgorithmIdentifier* additional_algorithm);
 };
 
 }  // namespace blink

@@ -80,7 +80,7 @@ SharedImageInterfaceInProcessBase::CreateSharedImage(
     const SharedImageInfo& si_info,
     gpu::SurfaceHandle surface_handle,
     std::optional<SharedImagePoolId> pool_id) {
-  DCHECK(gpu::IsValidClientUsage(si_info.meta.usage));
+  DCHECK(gpu::IsValidClientUsage(si_info.usage));
   auto mailbox = Mailbox::Generate();
   {
     base::AutoLock lock(lock_);
@@ -110,11 +110,8 @@ void SharedImageInterfaceInProcessBase::CreateSharedImageOnGpuThread(
     return;
   }
 
-  if (!shared_image_factory->CreateSharedImage(
-          mailbox, si_info.meta.format, si_info.meta.size,
-          si_info.meta.color_space, si_info.meta.surface_origin,
-          si_info.meta.alpha_type, surface_handle, si_info.meta.usage,
-          std::string(si_info.debug_label))) {
+  if (!shared_image_factory->CreateSharedImage(mailbox, si_info,
+                                               surface_handle)) {
     MarkContextLostOnGpuThread();
   }
 }
@@ -123,7 +120,7 @@ scoped_refptr<ClientSharedImage>
 SharedImageInterfaceInProcessBase::CreateSharedImage(
     const SharedImageInfo& si_info,
     base::span<const uint8_t> pixel_data) {
-  DCHECK(gpu::IsValidClientUsage(si_info.meta.usage));
+  DCHECK(gpu::IsValidClientUsage(si_info.usage));
   auto mailbox = Mailbox::Generate();
   std::vector<uint8_t> pixel_data_copy(pixel_data.begin(), pixel_data.end());
   {
@@ -154,11 +151,7 @@ void SharedImageInterfaceInProcessBase::CreateSharedImageWithDataOnGpuThread(
     return;
   }
 
-  if (!shared_image_factory->CreateSharedImage(
-          mailbox, si_info.meta.format, si_info.meta.size,
-          si_info.meta.color_space, si_info.meta.surface_origin,
-          si_info.meta.alpha_type, si_info.meta.usage,
-          std::move(si_info.debug_label), pixel_data)) {
+  if (!shared_image_factory->CreateSharedImage(mailbox, si_info, pixel_data)) {
     MarkContextLostOnGpuThread();
   }
 }
@@ -169,12 +162,12 @@ SharedImageInterfaceInProcessBase::CreateSharedImage(
     SurfaceHandle surface_handle,
     gfx::BufferUsage buffer_usage,
     std::optional<SharedImagePoolId> pool_id) {
-  DCHECK(gpu::IsValidClientUsage(si_info.meta.usage));
+  DCHECK(gpu::IsValidClientUsage(si_info.usage));
   auto mailbox = Mailbox::Generate();
   // Copy which can be modified.
   SharedImageInfo si_info_copy = si_info;
   // Set CPU read/write usage based on buffer usage.
-  si_info_copy.meta.usage |= GetCpuSIUsage(buffer_usage);
+  si_info_copy.usage |= GetCpuSIUsage(buffer_usage);
   {
     base::AutoLock lock(lock_);
     // Note: we enqueue the task under the lock to guarantee monotonicity of
@@ -190,10 +183,10 @@ SharedImageInterfaceInProcessBase::CreateSharedImage(
   auto handle_info = GetGpuMemoryBufferHandleInfo(mailbox);
   // Clear the external sampler prefs for shared memory case if it is set.
   // https://issues.chromium.org/339546249.
-  if (si_info_copy.meta.format.PrefersExternalSampler() &&
+  if (si_info_copy.format.PrefersExternalSampler() &&
       (handle_info.handle.type ==
        gfx::GpuMemoryBufferType::SHARED_MEMORY_BUFFER)) {
-    si_info_copy.meta.format.ClearPrefersExternalSampler();
+    si_info_copy.format.ClearPrefersExternalSampler();
   }
 
   return base::MakeRefCounted<ClientSharedImage>(
@@ -222,11 +215,8 @@ void SharedImageInterfaceInProcessBase::
   // implementation and code path compared to ClientSharedImage implementation
   // which creates native buffer/shared memory on IO thread and then creates a
   // mailbox from it on GPU thread.
-  if (!shared_image_factory->CreateSharedImage(
-          mailbox, si_info.meta.format, si_info.meta.size,
-          si_info.meta.color_space, si_info.meta.surface_origin,
-          si_info.meta.alpha_type, surface_handle, si_info.meta.usage,
-          std::move(si_info.debug_label), buffer_usage)) {
+  if (!shared_image_factory->CreateSharedImage(mailbox, si_info, surface_handle,
+                                               buffer_usage)) {
     MarkContextLostOnGpuThread();
   }
 }
@@ -277,10 +267,10 @@ SharedImageInterfaceInProcessBase::CreateSharedImage(
     gpu::SurfaceHandle surface_handle,
     gfx::BufferUsage buffer_usage,
     gfx::GpuMemoryBufferHandle buffer_handle) {
-  DCHECK(gpu::IsValidClientUsage(si_info.meta.usage));
+  DCHECK(gpu::IsValidClientUsage(si_info.usage));
 
 #if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_WIN)
-  CHECK(!si_info.meta.format.PrefersExternalSampler());
+  CHECK(!si_info.format.PrefersExternalSampler());
 #endif
 
   auto client_buffer_handle = buffer_handle.Clone();
@@ -288,7 +278,7 @@ SharedImageInterfaceInProcessBase::CreateSharedImage(
   // Copy which can be modified.
   SharedImageInfo si_info_copy = si_info;
   // Set CPU read/write usage based on buffer usage.
-  si_info_copy.meta.usage |= GetCpuSIUsage(buffer_usage);
+  si_info_copy.usage |= GetCpuSIUsage(buffer_usage);
   {
     base::AutoLock lock(lock_);
     // Note: we enqueue the task under the lock to guarantee monotonicity of
@@ -310,10 +300,10 @@ scoped_refptr<ClientSharedImage>
 SharedImageInterfaceInProcessBase::CreateSharedImage(
     const SharedImageInfo& si_info,
     gfx::GpuMemoryBufferHandle buffer_handle) {
-  DCHECK(gpu::IsValidClientUsage(si_info.meta.usage));
+  DCHECK(gpu::IsValidClientUsage(si_info.usage));
 
 #if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_WIN)
-  CHECK(!si_info.meta.format.PrefersExternalSampler());
+  CHECK(!si_info.format.PrefersExternalSampler());
 #endif
 
   auto mailbox = Mailbox::Generate();
@@ -377,11 +367,8 @@ void SharedImageInterfaceInProcessBase::CreateSharedImageWithBufferOnGpuThread(
     return;
   }
 
-  if (!shared_image_factory->CreateSharedImage(
-          mailbox, si_info.meta.format, si_info.meta.size,
-          si_info.meta.color_space, si_info.meta.surface_origin,
-          si_info.meta.alpha_type, si_info.meta.usage,
-          std::move(si_info.debug_label), std::move(buffer_handle))) {
+  if (!shared_image_factory->CreateSharedImage(mailbox, si_info,
+                                               std::move(buffer_handle))) {
     MarkContextLostOnGpuThread();
   }
 }

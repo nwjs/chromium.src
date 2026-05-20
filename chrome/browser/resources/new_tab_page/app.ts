@@ -50,7 +50,7 @@ import {ParentTrustedDocumentProxy} from './modules/microsoft_auth_frame_connect
 import type {PageCallbackRouter, PageHandlerRemote, Theme} from './new_tab_page.mojom-webui.js';
 import {NtpBackgroundImageSource} from './new_tab_page.mojom-webui.js';
 import {NewTabPageProxy} from './new_tab_page_proxy.js';
-import type {MicrosoftAuthUntrustedDocumentRemote} from './ntp_microsoft_auth_shared_ui.mojom-webui.js';
+
 import {ShowNtpPromosResult} from './ntp_promo.mojom-webui.js';
 import type {NtpSearchboxElement} from './ntp_searchbox.js';
 import {$$} from './utils.js';
@@ -265,6 +265,7 @@ export class AppElement extends AppElementBase {
       browserPromoLimit_: {type: Number},
       browserPromoCompletedLimit_: {type: Number},
       showBrowserPromo_: {type: Boolean},
+      caretAnimationsEnabled_: {type: Boolean},
 
       modulesShownToUser: {
         type: Boolean,
@@ -342,6 +343,9 @@ export class AppElement extends AppElementBase {
         type: Number,
         reflect: true,
       },
+
+      energyEffectEnabled_: {type: Boolean, reflect: true},
+      energyEffectAnimationEnabled_: {type: Boolean, reflect: true},
     };
   }
 
@@ -372,7 +376,7 @@ export class AppElement extends AppElementBase {
   protected accessor wasComposeboxOpened_: boolean = false;
   protected accessor showLensUploadDialog_: boolean = false;
   protected accessor showComposebox_: boolean = false;
-  protected caretAnimationsEnabled_: boolean =
+  protected accessor caretAnimationsEnabled_: boolean =
       loadTimeData.getBoolean('caretAnimationEnabled');
   protected accessor logoEnabled_: boolean =
       loadTimeData.getBoolean('logoEnabled');
@@ -438,7 +442,10 @@ export class AppElement extends AppElementBase {
       loadTimeData.getBoolean('composeboxShowContextMenuDescription');
   protected accessor enableThreadsRail_: boolean =
       loadTimeData.getBoolean('enableThreadsRail');
-
+  protected accessor energyEffectEnabled_: boolean =
+      loadTimeData.getBoolean('energyEffectEnabled');
+  protected accessor energyEffectAnimationEnabled_: boolean =
+      loadTimeData.getBoolean('energyEffectAnimationEnabled');
   private accessor selectedCustomizeDialogPage_: string|null = null;
   private accessor middleSlotPromoLoaded_: boolean = false;
   private accessor modulesLoadedStatus_: ModuleLoadStatus =
@@ -521,12 +528,12 @@ export class AppElement extends AppElementBase {
     // connect to the NTP.
     this.connectMicrosoftAuthToParentDocumentListenerId_ =
         this.callbackRouter_.connectToParentDocument.addListener(
-            (childDocumentRemote: MicrosoftAuthUntrustedDocumentRemote) => {
+            childDocumentRemote => {
               ParentTrustedDocumentProxy.setInstance(childDocumentRemote);
             });
 
     this.setThemeListenerId_ =
-        this.callbackRouter_.setTheme.addListener((theme: Theme) => {
+        this.callbackRouter_.setTheme.addListener(theme => {
           if (!this.theme_) {
             this.onThemeLoaded_(theme);
           }
@@ -535,13 +542,12 @@ export class AppElement extends AppElementBase {
         });
     this.setCustomizeChromeSidePanelVisibilityListener_ =
         this.customizeButtonsCallbackRouter_
-            .setCustomizeChromeSidePanelVisibility.addListener(
-                (visible: boolean) => {
-                  this.showCustomize_ = visible;
-                  if (!visible) {
-                    this.showWallpaperSearch_ = false;
-                  }
-                });
+            .setCustomizeChromeSidePanelVisibility.addListener(visible => {
+              this.showCustomize_ = visible;
+              if (!visible) {
+                this.showWallpaperSearch_ = false;
+              }
+            });
     this.showWebstoreToastListenerId_ =
         this.callbackRouter_.showWebstoreToast.addListener(() => {
           if (this.showCustomize_) {
@@ -554,7 +560,7 @@ export class AppElement extends AppElementBase {
         });
     this.setWallpaperSearchButtonVisibilityListener_ =
         this.callbackRouter_.setWallpaperSearchButtonVisibility.addListener(
-            (visible: boolean) => {
+            visible => {
               // Hides the wallpaper search button if the browser indicates that
               // it should be hidden.
               // Note: We don't resurface the button later even if the browser
@@ -567,13 +573,12 @@ export class AppElement extends AppElementBase {
 
     this.setActionChipsVisibilityListenerId_ =
         this.callbackRouter_.setActionChipsVisibility.addListener(
-            (isVisible: boolean) => this.isActionChipsVisible_ = isVisible);
+            isVisible => this.isActionChipsVisible_ = isVisible);
 
     this.footerVisibilityUpdatedListener_ =
-        this.callbackRouter_.footerVisibilityUpdated.addListener(
-            (visible: boolean) => {
-              this.isFooterVisible_ = visible;
-            });
+        this.callbackRouter_.footerVisibilityUpdated.addListener(visible => {
+          this.isFooterVisible_ = visible;
+        });
     this.pageHandler_.updateFooterVisibility();
 
     // Open Customize Chrome if there are Customize Chrome URL params.
@@ -1251,7 +1256,6 @@ export class AppElement extends AppElementBase {
         recordShowBrowserPromosResult(ShowNtpPromosResult.kNotShownNoPromos);
         break;
       case 'simple':
-      case 'setuplist':
         recordShowBrowserPromosResult(ShowNtpPromosResult.kShown);
         break;
       default:

@@ -11,6 +11,7 @@
 #include "chrome/browser/password_manager/password_change/login_state_checker.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/affiliations/core/browser/affiliation_utils.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
@@ -274,6 +275,10 @@ void ModelQualityLogsUploader::SetLoggedInCheckQuality(
   logged_in_check_quality->mutable_request()->CopyFrom(logging_data->request());
   logged_in_check_quality->mutable_response()->CopyFrom(
       logging_data->response());
+  if (logging_data->has_model_execution_info()) {
+    logged_in_check_quality->mutable_model_execution_info()->CopyFrom(
+        logging_data->model_execution_info());
+  }
 
   QualityStatus quality_status;
   if (logging_data->response().is_logged_in_data().is_logged_in()) {
@@ -333,6 +338,10 @@ void ModelQualityLogsUploader::SetOpenFormQuality(
       *logging_data);
 
   open_form_quality->mutable_request()->CopyFrom(logging_data->request());
+  if (logging_data->has_model_execution_info()) {
+    open_form_quality->mutable_model_execution_info()->CopyFrom(
+        logging_data->model_execution_info());
+  }
   open_form_quality->set_status(quality_status);
 }
 
@@ -366,6 +375,10 @@ void ModelQualityLogsUploader::SetSubmitFormQuality(
       *logging_data);
 
   submit_form_quality->mutable_request()->CopyFrom(logging_data->request());
+  if (logging_data->has_model_execution_info()) {
+    submit_form_quality->mutable_model_execution_info()->CopyFrom(
+        logging_data->model_execution_info());
+  }
   submit_form_quality->set_status(quality_status);
 }
 
@@ -395,6 +408,10 @@ void ModelQualityLogsUploader::SetVerifySubmissionQuality(
   }
   verify_submission_quality->mutable_request()->CopyFrom(
       logging_data->request());
+  if (logging_data->has_model_execution_info()) {
+    verify_submission_quality->mutable_model_execution_info()->CopyFrom(
+        logging_data->model_execution_info());
+  }
   verify_submission_quality->set_status(quality_status);
 }
 

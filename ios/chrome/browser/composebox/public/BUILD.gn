@@ -5,8 +5,13 @@
 group("public") {
   public_deps = [
     ":animation",
+    ":attachment_options",
+    ":attachment_selection",
+    ":composebox_mode",
     ":constants",
+    ":entrypoint",
     ":features",
+    ":focus_params",
     ":input_plate_controls",
     ":input_plate_position",
     ":model_options",
@@ -58,5 +63,48 @@ source_set("input_plate_controls") {
 
 source_set("model_options") {
   sources = [ "composebox_model_option.h" ]
+  deps = [ "//base" ]
+}
+
+source_set("attachment_options") {
+  sources = [ "composebox_attachment_option.h" ]
+  deps = [ "//base" ]
+}
+
+source_set("entrypoint") {
+  sources = [ "composebox_entrypoint.h" ]
+  deps = [ "//base" ]
+}
+
+source_set("attachment_selection") {
+  sources = [
+    "composebox_attachment_selection.h",
+    "composebox_attachment_selection.mm",
+  ]
+  public_deps = [
+    "//ios/chrome/browser/composebox/shared/coordinator",
+    "//ios/web/public",
+  ]
+  deps = [ "//base" ]
+}
+
+source_set("composebox_mode") {
+  sources = [ "composebox_mode.h" ]
+  deps = [ "//base" ]
+}
+
+source_set("focus_params") {
+  sources = [
+    "composebox_focus_params.h",
+    "composebox_focus_params.mm",
+  ]
+  public_deps = [
+    ":attachment_selection",
+    ":composebox_mode",
+    ":entrypoint",
+    ":model_options",
+    "//ios/chrome/browser/composebox/shared/coordinator",
+    "//ios/web/public",
+  ]
   deps = [ "//base" ]
 }

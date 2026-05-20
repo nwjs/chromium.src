@@ -403,6 +403,7 @@
 <translation id="2618015542787108131">homokdűne</translation>
 <translation id="2619761439309613843">Napi frissítés</translation>
 <translation id="2620436844016719705">Rendszer</translation>
+<translation id="2626848494898563581">Nem lehet hozzáférni a Google-szolgáltatásokhoz</translation>
 <translation id="2637303424821734920">KIKAPCSOLVA – A helyi időjárás megjelenítéséhez <ph name="BEGIN_LINK" />kapcsolja be a rendszer helyhozzáférését<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">Bejelentkezési kép</translation>
 <translation id="2640549051766135490">A következő album kiválasztva: <ph name="TITLE" /> <ph name="DESC" /></translation>
@@ -1183,6 +1184,7 @@
 <translation id="6234024205316847054">Főbb pontok megjelenítése</translation>
 <translation id="6243280677745499710">Jelenleg beállított</translation>
 <translation id="6250316632541035980">sonka és tojás</translation>
+<translation id="6262413940100821797">ismeretlen címzett</translation>
 <translation id="6265268291107409527">A kiválasztott billentyű: <ph name="KEYS" />. <ph name="ASSIGN_INSTRUCTION" />.</translation>
 <translation id="6275224645089671689">Jobbra nyíl</translation>
 <translation id="6278428485366576908">Téma</translation>

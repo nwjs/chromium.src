@@ -501,7 +501,6 @@ IN_PROC_BROWSER_TEST_F(BrowserKeyEventsTest, CtrlKeyEvents) {
   EXPECT_NO_FATAL_FAILURE(TestKeyEvent(tab_index, kTestCtrlEnter));
 }
 #elif BUILDFLAG(IS_MAC)
-// http://crbug.com/81451
 IN_PROC_BROWSER_TEST_F(BrowserKeyEventsTest, CommandKeyEvents) {
   static const KeyEventTestData kTestCmdF = {
     ui::VKEY_F, false, false, false, true,
@@ -510,14 +509,23 @@ IN_PROC_BROWSER_TEST_F(BrowserKeyEventsTest, CommandKeyEvents) {
       "D 70 0 false false false true" }
   };
 
-  // On Mac we don't send key up events when command modifier is down.
   static const KeyEventTestData kTestCmdFSuppressKeyDown = {
-    ui::VKEY_F, false, false, false, true,
-    true, false, false, false, 3,
-    { "D 91 0 false false false true",
-      "D 70 0 false false false true",
-      "U 91 0 false false false true" }
-  };
+      ui::VKEY_F,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      3,
+      {
+          "D 91 0 false false false true",
+          "D 70 0 false false false true",
+          "U 70 0 false false false true",
+          "U 91 0 false false false true",
+      }};
 
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -544,7 +552,7 @@ IN_PROC_BROWSER_TEST_F(BrowserKeyEventsTest, CommandKeyEvents) {
 }
 #endif
 
-// https://crbug.com/81451 for mac
+// https://crbug.com/40564036 for mac
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_AccessKeys DISABLED_AccessKeys
 #else
@@ -629,7 +637,7 @@ IN_PROC_BROWSER_TEST_F(BrowserKeyEventsTest, MAYBE_AccessKeys) {
   EXPECT_NO_FATAL_FAILURE(TestKeyEvent(tab_index, kTestAccessD));
 
   // TODO(isherman): This is an experimental change to help diagnose
-  // http://crbug.com/55713
+  // http://crbug.com/41219367
   content::RunAllPendingInMessageLoop();
   EXPECT_TRUE(IsViewFocused(VIEW_ID_OMNIBOX));
   // No element should be focused, as Alt+D was handled by the browser.
@@ -700,8 +708,8 @@ IN_PROC_BROWSER_TEST_F(BrowserKeyEventsTest, ReservedAccelerators) {
   EXPECT_EQ(2, browser()->tab_strip_model()->count());
   ASSERT_EQ(1, browser()->tab_strip_model()->active_index());
 
-  // Because of issue <http://crbug.com/65375>, switching back to the first tab
-  // may cause the focus to be grabbed by omnibox. So instead, we load our
+  // Because of issue <http://crbug.com/41279531>, switching back to the first
+  // tab may cause the focus to be grabbed by omnibox. So instead, we load our
   // testing page in the newly created tab and try Cmd-W here.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 

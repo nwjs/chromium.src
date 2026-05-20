@@ -13,10 +13,7 @@ target(libcxxabi_target_type, "libc++abi") {
     visibility = [ "//buildtools/third_party/libc++" ]
   }
 
-  deps = [
-    "//buildtools/third_party/libc++:custom_headers",
-    "//buildtools/third_party/libc++:libcxx_headers",
-  ]
+  deps = [ "//buildtools/third_party/libc++:headers" ]
 
   # Fuchsia builds don't link against any libraries that provide stack
   # unwinding symbols, unlike Linux does with glibc (same applies for Android).
@@ -62,6 +59,9 @@ target(libcxxabi_target_type, "libc++abi") {
   }
 
   defines = [ "LIBCXXABI_SILENT_TERMINATE" ]
+
+  # TODO(crbug.com/469458284): Remove this once libc++abi is rolled again.
+  defines += [ "_LIBCPP_CONSTINIT=constinit" ]
 
   if (is_fuchsia || (is_posix && !is_apple)) {
     sources += [ "//third_party/libc++abi/src/src/cxa_thread_atexit.cpp" ]

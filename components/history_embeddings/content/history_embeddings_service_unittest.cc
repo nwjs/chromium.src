@@ -43,6 +43,7 @@
 #include "components/page_content_annotations/core/test_page_content_annotator.h"
 #include "components/passage_embeddings/core/passage_embeddings_test_util.h"
 #include "components/passage_embeddings/core/passage_embeddings_types.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 
@@ -50,6 +51,13 @@ namespace history_embeddings {
 
 using passage_embeddings::ComputeEmbeddingsStatus;
 using passage_embeddings::Embedding;
+using testing::AllOf;
+using testing::ElementsAreArray;
+using testing::Eq;
+using testing::ExplainMatchResult;
+using testing::Field;
+using testing::Optional;
+using testing::UnorderedElementsAre;
 
 namespace {
 
@@ -58,6 +66,16 @@ base::FilePath GetTestFilePath(const std::string& file_name) {
   base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &test_data_dir);
   return test_data_dir.AppendASCII("components/test/data/history_embeddings")
       .AppendASCII(file_name);
+}
+
+MATCHER_P2(PassageEmbeddingEq,
+           expected_embedding_data,
+           expected_word_count,
+           "") {
+  return ExplainMatchResult(ElementsAreArray(expected_embedding_data),
+                            arg.embedding.GetData(), result_listener) &&
+         ExplainMatchResult(Eq(expected_word_count), arg.word_count,
+                            result_listener);
 }
 
 }  // namespace
@@ -202,7 +220,7 @@ class HistoryEmbeddingsServiceTest : public testing::Test {
                                     ComputeEmbeddingsStatus status) {
     for (const std::string& passage : passages) {
       url_passages.passages.add_passages(passage);
-      url_passages.embeddings.emplace_back(std::vector<float>{});
+      url_passages.passage_embeddings.emplace_back(std::nullopt);
     }
     service_->OnPassagesEmbeddingsComputed(std::move(url_passages),
                                            std::move(passages),
@@ -271,9 +289,8 @@ TEST_F(HistoryEmbeddingsServiceTest, OnHistoryDeletions) {
   // Add a fake set of passages for all visits.
   std::vector<std::string> passages = {"test passage 1", "test passage 2"};
   UrlData url_passages(/*url_id=*/1, /*visit_id=*/1, base::Time::Now());
-  std::vector<Embedding> passages_embeddings = {
-      Embedding(std::vector<float>(768, 1.0f)),
-      Embedding(std::vector<float>(768, 1.0f))};
+  std::vector<Embedding> passages_embeddings = {Embedding({1.0f, 0.0f, 0.0f}),
+                                                Embedding({1.0f, 0.0f, 0.0f})};
   OnPassagesEmbeddingsComputed(url_passages, passages, passages_embeddings,
                                ComputeEmbeddingsStatus::kSuccess);
   url_passages.url_id = 2;
@@ -325,10 +342,9 @@ TEST_F(HistoryEmbeddingsServiceTest, SearchCallsCallbackWithAnswer) {
     AddTestHistoryPage("http://answertest.com");
     ScoredUrlRow scored_url_row(
         ScoredUrl(1, visit_id, {}, score, word_match_score));
-    scored_url_row.passages_embeddings.passages.add_passages(
-        "A passage with five words.");
-    scored_url_row.passages_embeddings.embeddings.emplace_back(
-        std::vector<float>(768, 1.0f));
+    scored_url_row.url_data.passages.add_passages("A passage with five words.");
+    scored_url_row.url_data.passage_embeddings.emplace_back(
+        PassageEmbedding(Embedding({1.0f, 0.0f, 0.0f}), 5));
     scored_url_row.scores.push_back(score);
     return scored_url_row;
   };
@@ -460,9 +476,9 @@ TEST_F(HistoryEmbeddingsServiceTest, SearchUsesCorrectThresholds) {
     AddTestHistoryPage("http://test.com");
     ScoredUrlRow scored_url_row(
         ScoredUrl(1, visit_id, {}, score, word_match_score));
-    scored_url_row.passages_embeddings.passages.add_passages("passage");
-    scored_url_row.passages_embeddings.embeddings.emplace_back(
-        std::vector<float>(768, 1.0f));
+    scored_url_row.url_data.passages.add_passages("passage");
+    scored_url_row.url_data.passage_embeddings.emplace_back(
+        PassageEmbedding(Embedding({1.0f, 0.0f, 0.0f}), 5));
     scored_url_row.scores.push_back(score);
     return scored_url_row;
   };
@@ -524,21 +540,18 @@ TEST_F(HistoryEmbeddingsServiceTest, SearchFiltersLowScoringResults) {
   AddTestHistoryPage("http://test1.com");
   AddTestHistoryPage("http://test2.com");
   AddTestHistoryPage("http://test3.com");
-  OnPassagesEmbeddingsComputed(UrlData(1, 1, base::Time::Now()),
-                               {"test passage 1", "test passage 2"},
-                               {Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
-  OnPassagesEmbeddingsComputed(UrlData(2, 2, base::Time::Now()),
-                               {"test passage 3", "test passage 4"},
-                               {Embedding(std::vector<float>(768, -1.0f)),
-                                Embedding(std::vector<float>(768, -1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
-  OnPassagesEmbeddingsComputed(UrlData(3, 3, base::Time::Now()),
-                               {"test passage 5", "test passage 6"},
-                               {Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(1, 1, base::Time::Now()), {"test passage 1", "test passage 2"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(2, 2, base::Time::Now()), {"test passage 3", "test passage 4"},
+      {Embedding({-1.0f, 0.0f, 0.0f}), Embedding({-1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(3, 3, base::Time::Now()), {"test passage 5", "test passage 6"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
 
   // Search
   base::test::TestFuture<SearchResult> future;
@@ -588,13 +601,12 @@ TEST_F(HistoryEmbeddingsServiceTest, StaticHashVerificationTest) {
 
 TEST_F(HistoryEmbeddingsServiceTest, FilterWordsHashes) {
   AddTestHistoryPage("http://test1.com");
-  OnPassagesEmbeddingsComputed(UrlData(1, 1, base::Time::Now()),
-                               {"passage1", "passage2", "passage3", "passage4"},
-                               {Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(1, 1, base::Time::Now()),
+      {"passage1", "passage2", "passage3", "passage4"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f}),
+       Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
   OverrideVisibilityScoresForTesting({
       {"query without terms", 0.99},
       {"query with inexact spe'cial in the middle", 0.99},
@@ -742,11 +754,10 @@ TEST_F(HistoryEmbeddingsServiceTest, SearchDoesNotWordMatchBoostLongQueries) {
       {"test passage 1", 0.99},
       {"test passage 2", 0.99},
   });
-  OnPassagesEmbeddingsComputed(UrlData(1, 1, base::Time::Now()),
-                               {"test passage 1", "test passage 2"},
-                               {Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(1, 1, base::Time::Now()), {"test passage 1", "test passage 2"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
   {
     base::test::TestFuture<SearchResult> future;
     service_->Search(/*previous_search_result=*/nullptr, "boosted test query",
@@ -791,11 +802,11 @@ TEST_F(HistoryEmbeddingsServiceTest, NoWordMatchBoostForLowTermCountRatio) {
       {"test passage one", 0.99},
       {"test passage two", 0.99},
   });
-  OnPassagesEmbeddingsComputed(UrlData(1, 1, base::Time::Now()),
-                               {"test passage one", "test passage two"},
-                               {Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(1, 1, base::Time::Now()),
+      {"test passage one", "test passage two"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
   {
     set_ratio(0.3f);
     base::test::TestFuture<SearchResult> future;
@@ -864,11 +875,10 @@ TEST_F(HistoryEmbeddingsServiceTest, NoWordMatchBoostForLowTermCountRatio) {
 TEST_F(HistoryEmbeddingsServiceTest, WordMatchBoostAddsLowScoredResultItems) {
   // These parameter override values make it easy to have one embedding
   // exceed the threshold and another to fall below the threshold. Due
-  // to how the mock embedder works, all 1's will score the square root of
-  // the output size, sqrt(768) ~= 27.7128, so setting the threshold
+  // to how the mock embedder works, it will score 1.0, so setting the threshold
   // just below this value and using a shorter embedding will differentiate.
   ScopedFeatureParametersForTesting params;
-  params.Get().search_score_threshold = 27.7;
+  params.Get().search_score_threshold = 0.9;
   params.Get().search_word_match_score_threshold = 0.01f;
 
   base::HistogramTester histogram_tester;
@@ -880,21 +890,18 @@ TEST_F(HistoryEmbeddingsServiceTest, WordMatchBoostAddsLowScoredResultItems) {
       {"test passage 1", 0.99},
       {"test passage 2", 0.99},
   });
-  OnPassagesEmbeddingsComputed(UrlData(1, 1, base::Time::Now()),
-                               {"test passage 1", "test passage 2"},
-                               {Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
-  OnPassagesEmbeddingsComputed(UrlData(2, 2, base::Time::Now()),
-                               {"test passage 1", "test passage 2"},
-                               {Embedding(std::vector<float>(768, 0.9f)),
-                                Embedding(std::vector<float>(768, 0.9f))},
-                               ComputeEmbeddingsStatus::kSuccess);
-  OnPassagesEmbeddingsComputed(UrlData(3, 3, base::Time::Now()),
-                               {"test passage 1", "test passage 2"},
-                               {Embedding(std::vector<float>(768, 0.9f)),
-                                Embedding(std::vector<float>(768, 0.9f))},
-                               ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(1, 1, base::Time::Now()), {"test passage 1", "test passage 2"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(2, 2, base::Time::Now()), {"test passage 1", "boosted"},
+      {Embedding({0.0f, 1.0f, 0.0f}), Embedding({0.0f, 1.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(3, 3, base::Time::Now()), {"test passage 1", "boosted"},
+      {Embedding({0.0f, 1.0f, 0.0f}), Embedding({0.0f, 1.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
 
   base::test::TestFuture<SearchResult> future;
   service_->Search(/*previous_search_result=*/nullptr, "boosted test query", {},
@@ -917,11 +924,10 @@ TEST_F(HistoryEmbeddingsServiceTest, WordMatchBoostAddsLowScoredResultItems) {
 TEST_F(HistoryEmbeddingsServiceTest, GetUrlData) {
   base::Time now = base::Time::Now();
   AddTestHistoryPage("http://test1.com");
-  OnPassagesEmbeddingsComputed(UrlData(1, 1, now),
-                               {"test passage 1", "test passage 2"},
-                               {Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(1, 1, now), {"test passage 1", "test passage 2"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
   {
     base::test::TestFuture<std::optional<UrlData>> future;
     service_->GetUrlData(1, future.GetCallback());
@@ -929,7 +935,7 @@ TEST_F(HistoryEmbeddingsServiceTest, GetUrlData) {
     EXPECT_EQ(url_data->url_id, 1);
     EXPECT_EQ(url_data->visit_id, 1);
     EXPECT_EQ(url_data->visit_time, now);
-    EXPECT_EQ(url_data->embeddings.size(), 2u);
+    EXPECT_EQ(url_data->passage_embeddings.size(), 2u);
     EXPECT_EQ(url_data->passages.passages_size(), 2);
 
     const auto& passages = url_data->passages.passages();
@@ -937,9 +943,11 @@ TEST_F(HistoryEmbeddingsServiceTest, GetUrlData) {
     EXPECT_EQ(passages[1], "test passage 2");
 
     // Note the word count gets set when storing the embedding with its passage.
-    const auto& embeddings = url_data->embeddings;
-    EXPECT_EQ(embeddings[0], Embedding(std::vector<float>(768, 1.0f), 3));
-    EXPECT_EQ(embeddings[1], Embedding(std::vector<float>(768, 1.0f), 3));
+    const auto& embeddings = url_data->passage_embeddings;
+    EXPECT_THAT(embeddings[0], Optional(PassageEmbeddingEq(
+                                   std::vector<float>{1.0f, 0.0f, 0.0f}, 3u)));
+    EXPECT_THAT(embeddings[1], Optional(PassageEmbeddingEq(
+                                   std::vector<float>{1.0f, 0.0f, 0.0f}, 3u)));
   }
   {
     base::test::TestFuture<std::optional<UrlData>> future;
@@ -952,26 +960,24 @@ TEST_F(HistoryEmbeddingsServiceTest, GetUrlData) {
 TEST_F(HistoryEmbeddingsServiceTest, GetUrlDataInTimeRange) {
   base::Time now = base::Time::Now();
   AddTestHistoryPage("http://test1.com");
-  OnPassagesEmbeddingsComputed(UrlData(1, 1, now + base::Seconds(1)),
-                               {"test passage 1", "test passage 2"},
-                               {Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
-  OnPassagesEmbeddingsComputed(UrlData(2, 2, now + base::Hours(1)),
-                               {"test passage 3", "test passage 4"},
-                               {Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
-  OnPassagesEmbeddingsComputed(UrlData(3, 3, now + base::Minutes(1)),
-                               {"test passage 5", "test passage 6"},
-                               {Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
-  OnPassagesEmbeddingsComputed(UrlData(4, 4, now),
-                               {"test passage 7", "test passage 8"},
-                               {Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(1, 1, now + base::Seconds(1)),
+      {"test passage 1", "test passage 2"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(2, 2, now + base::Hours(1)), {"test passage 3", "test passage 4"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(3, 3, now + base::Minutes(1)),
+      {"test passage 5", "test passage 6"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(4, 4, now), {"test passage 7", "test passage 8"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
   {
     base::test::TestFuture<std::vector<UrlData>> future;
     service_->GetUrlDataInTimeRange(now, now + base::Days(1), 8, 0,
@@ -983,15 +989,19 @@ TEST_F(HistoryEmbeddingsServiceTest, GetUrlDataInTimeRange) {
       EXPECT_EQ(url_data.url_id, 4);
       EXPECT_EQ(url_data.visit_id, 4);
       EXPECT_EQ(url_data.visit_time, now);
-      EXPECT_EQ(url_data.embeddings.size(), 2u);
+      EXPECT_EQ(url_data.passage_embeddings.size(), 2u);
       EXPECT_EQ(url_data.passages.passages_size(), 2);
 
       const auto& passages = url_data.passages.passages();
       EXPECT_EQ(passages[0], "test passage 7");
       EXPECT_EQ(passages[1], "test passage 8");
-      const auto& embeddings = url_data.embeddings;
-      EXPECT_EQ(embeddings[0], Embedding(std::vector<float>(768, 1.0f), 3));
-      EXPECT_EQ(embeddings[1], Embedding(std::vector<float>(768, 1.0f), 3));
+      const auto& embeddings = url_data.passage_embeddings;
+      EXPECT_THAT(embeddings[0],
+                  Optional(PassageEmbeddingEq(
+                      std::vector<float>{1.0f, 0.0f, 0.0f}, 3u)));
+      EXPECT_THAT(embeddings[1],
+                  Optional(PassageEmbeddingEq(
+                      std::vector<float>{1.0f, 0.0f, 0.0f}, 3u)));
     }
     {
       // The last is the latest due to ordering by visit_time.
@@ -999,15 +1009,19 @@ TEST_F(HistoryEmbeddingsServiceTest, GetUrlDataInTimeRange) {
       EXPECT_EQ(url_data.url_id, 2);
       EXPECT_EQ(url_data.visit_id, 2);
       EXPECT_EQ(url_data.visit_time, now + base::Hours(1));
-      EXPECT_EQ(url_data.embeddings.size(), 2u);
+      EXPECT_EQ(url_data.passage_embeddings.size(), 2u);
       EXPECT_EQ(url_data.passages.passages_size(), 2);
 
       const auto& passages = url_data.passages.passages();
       EXPECT_EQ(passages[0], "test passage 3");
       EXPECT_EQ(passages[1], "test passage 4");
-      const auto& embeddings = url_data.embeddings;
-      EXPECT_EQ(embeddings[0], Embedding(std::vector<float>(768, 1.0f), 3));
-      EXPECT_EQ(embeddings[1], Embedding(std::vector<float>(768, 1.0f), 3));
+      const auto& embeddings = url_data.passage_embeddings;
+      EXPECT_THAT(embeddings[0],
+                  Optional(PassageEmbeddingEq(
+                      std::vector<float>{1.0f, 0.0f, 0.0f}, 3u)));
+      EXPECT_THAT(embeddings[1],
+                  Optional(PassageEmbeddingEq(
+                      std::vector<float>{1.0f, 0.0f, 0.0f}, 3u)));
     }
   }
   {
@@ -1090,16 +1104,14 @@ TEST_F(HistoryEmbeddingsServiceTest, SearchGetsIfUrlIsKnownToSync) {
     run_loop.Run();
   }
 
-  OnPassagesEmbeddingsComputed(UrlData(1, 1, base::Time::Now()),
-                               {"test passage 1", "test passage 2"},
-                               {Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
-  OnPassagesEmbeddingsComputed(UrlData(2, 2, base::Time::Now()),
-                               {"test passage 1", "test passage 2"},
-                               {Embedding(std::vector<float>(768, 0.9f)),
-                                Embedding(std::vector<float>(768, 0.9f))},
-                               ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(1, 1, base::Time::Now()), {"test passage 1", "test passage 2"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(2, 2, base::Time::Now()), {"test passage 1", "test passage 2"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
 
   base::test::TestFuture<SearchResult> future;
   OverrideVisibilityScoresForTesting({{"my query", 0.99}});
@@ -1108,20 +1120,22 @@ TEST_F(HistoryEmbeddingsServiceTest, SearchGetsIfUrlIsKnownToSync) {
   SearchResult result = future.Take();
 
   EXPECT_EQ(result.scored_url_rows.size(), 2u);
-  EXPECT_EQ(result.scored_url_rows[0].scored_url.url_id, 1);
-  EXPECT_EQ(result.scored_url_rows[0].is_url_known_to_sync, false);
-  EXPECT_EQ(result.scored_url_rows[1].scored_url.url_id, 2);
-  EXPECT_EQ(result.scored_url_rows[1].is_url_known_to_sync, true);
+  EXPECT_THAT(
+      result.scored_url_rows,
+      UnorderedElementsAre(
+          AllOf(Field(&ScoredUrlRow::scored_url, Field(&ScoredUrl::url_id, 1)),
+                Field(&ScoredUrlRow::is_url_known_to_sync, false)),
+          AllOf(Field(&ScoredUrlRow::scored_url, Field(&ScoredUrl::url_id, 2)),
+                Field(&ScoredUrlRow::is_url_known_to_sync, true))));
 }
 
 TEST_F(HistoryEmbeddingsServiceTest, CancelPreviousSearches) {
   base::Time now = base::Time::Now();
   AddTestHistoryPage("http://test1.com");
-  OnPassagesEmbeddingsComputed(UrlData(1, 1, now),
-                               {"test passage 1", "test passage 2"},
-                               {Embedding(std::vector<float>(768, 1.0f)),
-                                Embedding(std::vector<float>(768, 1.0f))},
-                               ComputeEmbeddingsStatus::kSuccess);
+  OnPassagesEmbeddingsComputed(
+      UrlData(1, 1, now), {"test passage 1", "test passage 2"},
+      {Embedding({1.0f, 0.0f, 0.0f}), Embedding({1.0f, 0.0f, 0.0f})},
+      ComputeEmbeddingsStatus::kSuccess);
   OverrideVisibilityScoresForTesting({
       {"test passage 1", 0.99},
       {"test passage 2", 0.99},
@@ -1194,15 +1208,15 @@ TEST_F(HistoryEmbeddingsServiceTest, RebuildAbsentEmbeddings) {
 
   UrlData url_data = store_future.Take();
   ASSERT_EQ(url_data.passages.passages_size(), 4);
-  ASSERT_EQ(url_data.embeddings.size(), 4u);
+  ASSERT_EQ(url_data.passage_embeddings.size(), 4u);
   ASSERT_EQ(url_data.passages.passages(0), "test passage 1");
-  ASSERT_EQ(url_data.embeddings[0].Dimensions(), 768u);
+  ASSERT_EQ(url_data.passage_embeddings[0]->embedding.GetData().size(), 3u);
   ASSERT_EQ(url_data.passages.passages(1), "test passage ßßß");
-  ASSERT_EQ(url_data.embeddings[1].Dimensions(), 768u);
+  ASSERT_EQ(url_data.passage_embeddings[1]->embedding.GetData().size(), 3u);
   ASSERT_EQ(url_data.passages.passages(2), "ßßß");
-  ASSERT_EQ(url_data.embeddings[2].Dimensions(), 768u);
+  ASSERT_EQ(url_data.passage_embeddings[2]->embedding.GetData().size(), 3u);
   ASSERT_EQ(url_data.passages.passages(3), "");
-  ASSERT_EQ(url_data.embeddings[3].Dimensions(), 768u);
+  ASSERT_EQ(url_data.passage_embeddings[3]->embedding.GetData().size(), 3u);
 }
 
 }  // namespace history_embeddings

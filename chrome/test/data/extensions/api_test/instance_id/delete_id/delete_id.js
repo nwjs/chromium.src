@@ -8,7 +8,7 @@ async function deleteIDWithoutCallback() {
     chrome.test.succeed();
   } catch (e) {
     chrome.test.fail(`deleteID Promise rejected with error: ${e}`);
-  };
+  }
 }
 
 function deleteIDWithCallback() {
@@ -38,7 +38,7 @@ function deleteAfterGetID() {
         return;
       }
       chrome.instanceID.getID(function(id) {
-        if (!id || id == oldID) {
+        if (!id || id === oldID) {
           chrome.test.fail('Different ID should be returned after deleteID.');
           return;
         }

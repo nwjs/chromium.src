@@ -20,11 +20,11 @@
 #else
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/page_actions/page_action_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/views/page_action/page_action_controller.h"
 #include "components/tabs/public/tab_interface.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -273,7 +273,9 @@ void MandatoryReauthBubbleControllerImpl::DoShowBubble() {
   }
   SetBubbleView(*view_android_.get());
 #else
-  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents());
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          web_contents());
   AutofillBubbleHandler* autofill_bubble_handler =
       browser->GetBrowserForMigrationOnly()
           ->window()

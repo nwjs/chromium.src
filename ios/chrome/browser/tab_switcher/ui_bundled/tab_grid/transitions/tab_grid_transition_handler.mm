@@ -236,10 +236,20 @@ enum class TabGridTransitionType {
     sourceView = appContentGuide;
   }
   UIViewController* rootViewController = tabGrid.view.window.rootViewController;
+  if (IsFullscreenRefactoringEnabled()) {
+    // Temporarily re-enable autoresizing so that the frame can be manually set
+    // for the snapshot.
+    browserLayout.view.translatesAutoresizingMaskIntoConstraints = YES;
+  }
   browserLayout.view.frame = [sourceView convertRect:browserLayoutOriginalFrame
                                               toView:rootViewController.view];
   [rootViewController addChildViewController:browserLayout];
   [rootViewController.view insertSubview:browserLayout.view atIndex:0];
+  if (IsFullscreenRefactoringEnabled()) {
+    // Running a layout here ensures that the toolbar frames are correct for
+    // the snapshots.
+    [browserLayout.view layoutIfNeeded];
+  }
   [self takeToolbarSnapshots];
   browserLayout.view.frame = browserLayoutOriginalFrame;
 
@@ -247,12 +257,14 @@ enum class TabGridTransitionType {
     [tabGrid addChildViewController:browserLayout];
     [appContentGuide addSubview:browserLayout.view];
     if (IsFullscreenRefactoringEnabled()) {
+      browserLayout.view.translatesAutoresizingMaskIntoConstraints = NO;
       AddSameConstraints(browserLayout.view, appContentGuide);
     }
   } else {
     [tabGrid addChildViewController:browserLayout];
     [tabGrid.view addSubview:browserLayout.view];
     if (IsFullscreenRefactoringEnabled()) {
+      browserLayout.view.translatesAutoresizingMaskIntoConstraints = NO;
       AddSameConstraints(browserLayout.view, tabGrid.view);
     }
   }

@@ -83,7 +83,7 @@ void GetDynamicId(v8::Local<v8::Name> property_name,
 
 void EmptySetter(v8::Local<v8::Name> name,
                  v8::Local<v8::Value> value,
-                 const v8::PropertyCallbackInfo<void>& info) {
+                 const v8::PropertyCallbackInfo<v8::Boolean>& info) {
   // Empty setter is required to keep the native data property in "accessor"
   // state even in case the value is updated by user code.
 }
@@ -208,7 +208,7 @@ mojom::SerializationFormat GetSerializationFormat(
     return mojom::SerializationFormat::kJson;
   }
 
-  ExternallyConnectableInfo* info =
+  const ExternallyConnectableInfo* info =
       ExternallyConnectableInfo::Get(installed_target_extension);
   if (!info || !info->matches.MatchesURL(script_context->url())) {
     // Extension installed, but not externally connectable from context.

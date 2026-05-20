@@ -21,8 +21,9 @@
 namespace content {
 
 // A class that represents a PrePrefetch request.
-// This receives prefetch requests and appropriate `URLLoaderFactory` from
-// `PrePrefetchServiceImpl`, and handles the actual prefetching. This also holds
+// This receives prefetch requests, appropriate `URLLoaderFactory` from
+// `PrePrefetchServiceImpl`, and pre-calculated headers associated with the
+// request, in order to handle the actual pre-prefetching. This holds
 // PrePrefetch's pending URLLoader remote and client receiver for its
 // consumption.
 //
@@ -43,10 +44,16 @@ class CONTENT_EXPORT PrePrefetchContainer final {
   static std::unique_ptr<PrePrefetchContainer> CreateAndStart(
       base::PassKey<PrePrefetchServiceImpl>,
       std::unique_ptr<const PrefetchRequest> prefetch_request,
-      mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory);
+      mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory,
+      const PrefetchUpdateHeadersParams& ui_thread_pre_calculated_headers,
+      const std::vector<PrePrefetchUpdateHeadersCallback>&
+          non_ui_thread_update_headers_callbacks);
   static std::unique_ptr<PrePrefetchContainer> CreateAndStartForTesting(
       std::unique_ptr<const PrefetchRequest> prefetch_request,
-      mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory);
+      mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory,
+      const PrefetchUpdateHeadersParams& ui_thread_pre_calculated_headers,
+      const std::vector<PrePrefetchUpdateHeadersCallback>&
+          non_ui_thread_update_headers_callbacks);
 
   // Called only from `CreateAndStartInternal()`.
   PrePrefetchContainer(base::PassKey<PrePrefetchContainer>,
@@ -68,10 +75,16 @@ class CONTENT_EXPORT PrePrefetchContainer final {
   // Called only from `CreateAndStart()` or `CreateAndStartForTesting()`.
   static std::unique_ptr<PrePrefetchContainer> CreateAndStartInternal(
       std::unique_ptr<const PrefetchRequest> prefetch_request,
-      mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory);
+      mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory,
+      const PrefetchUpdateHeadersParams& ui_thread_pre_calculated_headers,
+      const std::vector<PrePrefetchUpdateHeadersCallback>&
+          non_ui_thread_update_headers_callbacks);
 
   void Start(
-      mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory);
+      mojo::PendingRemote<network::mojom::URLLoaderFactory> url_loader_factory,
+      const PrefetchUpdateHeadersParams& ui_thread_pre_calculated_headers,
+      const std::vector<PrePrefetchUpdateHeadersCallback>&
+          non_ui_thread_update_headers_callbacks);
 
   // `PrefetchRequest` associated to `this`.
   std::unique_ptr<const PrefetchRequest> prefetch_request_;

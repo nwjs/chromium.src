@@ -206,9 +206,9 @@ void CALayerTreeCoordinator::CommitPresentedFrameToCA(
   // Send the swap parameters to the browser.
   if (frame.completion_callback) {
     gfx::CALayerParams params;
-    TRACE_EVENT_INSTANT2("test_gpu", "SwapBuffers", TRACE_EVENT_SCOPE_THREAD,
-                         "GLImpl", static_cast<int>(gl::GetGLImplementation()),
-                         "width", pixel_size_.width());
+    TRACE_EVENT_INSTANT("test_gpu", "SwapBuffers", "GLImpl",
+                        static_cast<int>(gl::GetGLImplementation()), "width",
+                        pixel_size_.width());
     if (allow_remote_layers_) {
       params.ca_context_id = [ca_context_ contextId];
     } else {
@@ -220,22 +220,19 @@ void CALayerTreeCoordinator::CommitPresentedFrameToCA(
     }
     params.pixel_size = pixel_size_;
     params.scale_factor = scale_factor_;
-    params.is_empty = false;
 
     // |frame.completion_callback| will reach this function:
     // SkiaOutputDeviceBufferQueue::DoFinishSwapBuffers().
     if (no_post_task_for_callback_) {
       std::move(frame.completion_callback)
-          .Run(gfx::SwapCompletionResult(
-              gfx::SwapResult::SWAP_ACK,
-              std::make_unique<gfx::CALayerParams>(params)));
+          .Run(gfx::SwapCompletionResult(gfx::SwapResult::SWAP_ACK,
+                                         std::move(params)));
     } else {
       base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE,
           base::BindOnce(std::move(frame.completion_callback),
-                         gfx::SwapCompletionResult(
-                             gfx::SwapResult::SWAP_ACK,
-                             std::make_unique<gfx::CALayerParams>(params))));
+                         gfx::SwapCompletionResult(gfx::SwapResult::SWAP_ACK,
+                                                   std::move(params))));
     }
   }
 

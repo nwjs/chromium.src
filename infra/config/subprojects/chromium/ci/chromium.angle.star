@@ -390,6 +390,7 @@ ci.thin_tester(
     targets = targets.bundle(
         targets = [
             "gpu_common_gtests_passthrough",
+            "gpu_fyi_and_optional_non_linux_gtests",
             "gpu_angle_mac_telemetry_tests",
         ],
         mixins = [
@@ -433,6 +434,7 @@ ci.thin_tester(
     targets = targets.bundle(
         targets = [
             "gpu_common_gtests_passthrough",
+            "gpu_fyi_and_optional_non_linux_gtests",
             "gpu_angle_mac_telemetry_tests",
         ],
         mixins = [
@@ -640,11 +642,17 @@ ci.thin_tester(
     ),
     targets = targets.bundle(
         targets = [
+            "gpu_fyi_and_optional_non_linux_gtests",
             "gpu_angle_win_intel_nvidia_telemetry_tests",
         ],
         mixins = [
             "win10_intel_uhd_630_stable",
         ],
+        per_test_modifications = {
+            "webgl_conformance_d3d9_passthrough_tests": targets.remove(
+                reason = "Flaky crashes crbug.com/486945324",
+            ),
+        },
     ),
     targets_settings = targets.settings(
         browser_config = targets.browser_config.RELEASE_X64,
@@ -681,6 +689,7 @@ ci.thin_tester(
     ),
     targets = targets.bundle(
         targets = [
+            "gpu_fyi_and_optional_non_linux_gtests",
             "gpu_angle_win_intel_nvidia_telemetry_tests",
         ],
         mixins = [

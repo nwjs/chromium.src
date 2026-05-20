@@ -46,9 +46,16 @@ void BrowserControlsAdapterImpl::Forward(WindowOpenDisposition disposition) {
 }
 
 void BrowserControlsAdapterImpl::BackButtonHovered() {
-  browser_.get().GetActiveTabInterface()->GetContents()->BackNavigationLikely(
-      chrome_preloading_predictor::kBackButtonHover,
-      WindowOpenDisposition::CURRENT_TAB);
+  auto* const active_tab = browser_.get().GetActiveTabInterface();
+  if (!active_tab) {
+    return;
+  }
+  auto* const contents = active_tab->GetContents();
+  if (!contents) {
+    return;
+  }
+  contents->BackNavigationLikely(chrome_preloading_predictor::kBackButtonHover,
+                                 WindowOpenDisposition::CURRENT_TAB);
 }
 
 void BrowserControlsAdapterImpl::CreateNewSplitTab() {
@@ -64,11 +71,6 @@ void BrowserControlsAdapterImpl::NavigateHome(
 webui_toolbar::TabSplitStatus
 BrowserControlsAdapterImpl::ComputeSplitTabStatus() {
   return webui_toolbar::ComputeTabSplitStatus(&browser_.get());
-}
-
-bool BrowserControlsAdapterImpl::IsButtonPinned(
-    toolbar_ui_api::mojom::ToolbarButtonType type) {
-  return webui_toolbar::IsButtonPinned(&browser_.get(), type);
 }
 
 }  // namespace browser_controls_api

@@ -8,6 +8,7 @@
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_management_test_util.h"
 #include "chrome/browser/extensions/test_extension_system.h"
+#include "chrome/browser/policy/cloud/extension_install_policy_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
@@ -87,12 +88,13 @@ class ExtensionInstallPolicyServiceTest : public testing::Test {
     manager->Init(&schema_registry_);
     manager->Connect(g_browser_process->local_state(), std::move(client_));
 #endif  // !BUILDFLAG(IS_CHROMEOS)
-    service_ = std::make_unique<ExtensionInstallPolicyServiceImpl>(profile());
+    service_ = static_cast<ExtensionInstallPolicyServiceImpl*>(
+        ExtensionInstallPolicyServiceFactory::GetForBrowserContext(profile()));
   }
 
   void TearDown() override {
     service_->Shutdown();
-    service_.reset();
+    service_ = nullptr;
     profile_.reset();
   }
 
@@ -105,7 +107,7 @@ class ExtensionInstallPolicyServiceTest : public testing::Test {
             dm_protocol::GetChromeUserPolicyType());
     std::unique_ptr<MockUserCloudPolicyStore>
         mock_user_cloud_policy_extension_install_store;
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
     mock_user_cloud_policy_extension_install_store =
         std::make_unique<MockUserCloudPolicyStore>(
             dm_protocol::kChromeExtensionInstallUserCloudPolicyType);
@@ -125,7 +127,7 @@ class ExtensionInstallPolicyServiceTest : public testing::Test {
   std::unique_ptr<MockConfigurationPolicyProvider> policy_provider_;
   std::unique_ptr<MockCloudPolicyClient> client_;
   std::unique_ptr<TestingProfile> profile_;
-  std::unique_ptr<ExtensionInstallPolicyServiceImpl> service_;
+  raw_ptr<ExtensionInstallPolicyServiceImpl> service_;
   base::test::ScopedFeatureList scoped_feature_list_{
       features::kEnableExtensionInstallPolicyFetching};
   SchemaRegistry schema_registry_;

@@ -47,6 +47,9 @@ UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kDeprecatedExternalPickerFunction);
 // Whether photo picker should be disabled for video capture.
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kDisablePhotoPickerForVideoCapture);
 
+// Guard changes to use maximum window metrics for gesture navigation detection.
+UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kMaximumWindowForGestureNavDetection);
+
 // Whether to enable the refactor of the smallestScreenWidthDp override.
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kRefactorMinWidthContextOverride);
 
@@ -65,6 +68,9 @@ UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kSelectFileOpenDocument);
 // after changing the default behavior for EventForwarder observers.
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(
     kSendTouchMovesToEventForwarderObservers);
+
+// Update display for context on configuration changed and activity resumed.
+UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kAndroidUpdateDisplayForContext);
 
 // Kill switch to turn off new supportKeyabord method
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kSupportKeyboard);

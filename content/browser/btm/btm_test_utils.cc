@@ -459,7 +459,8 @@ void TpcBlockingBrowserClient::SetThirdPartyCookieAccess(
 
 bool TpcBlockingBrowserClient::ShouldIgnoreSameSiteRestrictions(
     const GURL& url,
-    const net::SiteForCookies& site_for_cookies) const {
+    const net::SiteForCookies& site_for_cookies,
+    const url::Origin& top_level_origin) const {
   return false;
 }
 
@@ -500,10 +501,6 @@ bool TpcBlockingBrowserClient::ShouldBlockThirdPartyCookies(
     base::optional_ref<const url::Origin> top_frame_origin,
     net::CookieSettingOverrides overrides) const {
   return block_3pcs_;
-}
-
-bool TpcBlockingBrowserClient::MitigationsEnabledFor3pcd() const {
-  return false;
 }
 
 bool TpcBlockingBrowserClient::IsThirdPartyCookiesAllowedScheme(

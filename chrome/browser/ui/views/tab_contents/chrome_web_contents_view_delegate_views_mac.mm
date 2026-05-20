@@ -8,9 +8,8 @@
 #include <optional>
 
 #import "chrome/browser/renderer_host/chrome_render_widget_host_view_mac_delegate.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/cocoa/renderer_context_menu/render_view_context_menu_mac_cocoa.h"
 #include "chrome/browser/ui/cocoa/renderer_context_menu/render_view_context_menu_mac_remote_cocoa.h"
 #include "chrome/browser/ui/cocoa/tab_contents/web_drag_bookmark_handler_mac.h"
@@ -27,6 +26,7 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/drop_data.h"
+#include "ui/base/base_window.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
 #include "ui/views/widget/widget.h"
@@ -43,8 +43,10 @@ ChromeWebContentsViewDelegateViewsMac::
     ~ChromeWebContentsViewDelegateViewsMac() = default;
 
 gfx::NativeWindow ChromeWebContentsViewDelegateViewsMac::GetNativeWindow() {
-  Browser* browser = chrome::FindBrowserWithTab(web_contents_);
-  return browser ? browser->window()->GetNativeWindow() : gfx::NativeWindow();
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents_);
+  return browser ? browser->GetWindow()->GetNativeWindow()
+                 : gfx::NativeWindow();
 }
 
 NSObject<RenderWidgetHostViewMacDelegate>*
@@ -68,6 +70,17 @@ ChromeWebContentsViewDelegateViewsMac::GetDragDestDelegate() {
 void ChromeWebContentsViewDelegateViewsMac::ShowContextMenu(
     content::RenderFrameHost& render_frame_host,
     const content::ContextMenuParams& params) {
+  BuildMenuAsync(
+      render_frame_host, params,
+      base::BindOnce(&ChromeWebContentsViewDelegateViewsMac::ShowMenu,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+void ChromeWebContentsViewDelegateViewsMac::BuildMenuAsync(
+    content::RenderFrameHost& render_frame_host,
+    const content::ContextMenuParams& params,
+    base::OnceCallback<void(std::unique_ptr<RenderViewContextMenuBase>)>
+        callback) {
   // MacOS doesn't activate the `WebContents` on click by default so it must be
   // manually configured.
   tabs::TabInterface* tab_interface =
@@ -92,13 +105,15 @@ void ChromeWebContentsViewDelegateViewsMac::ShowContextMenu(
           &ChromeWebContentsViewDelegateViewsMac::OnReadAvailableTypes,
           weak_ptr_factory_.GetWeakPtr(), render_frame_host.GetGlobalId(),
           AddContextMenuParamsPropertiesFromPreferences(web_contents_, params),
-          data_dst));
+          data_dst, std::move(callback)));
 }
 
 void ChromeWebContentsViewDelegateViewsMac::OnReadAvailableTypes(
     content::GlobalRenderFrameHostId render_frame_host_id,
     const content::ContextMenuParams& params,
     std::optional<ui::DataTransferEndpoint> data_dst,
+    base::OnceCallback<void(std::unique_ptr<RenderViewContextMenuBase>)>
+        callback,
     std::vector<std::u16string> types) {
   is_paste_enabled_ = !types.empty();
 
@@ -106,12 +121,15 @@ void ChromeWebContentsViewDelegateViewsMac::OnReadAvailableTypes(
       ui::ClipboardBuffer::kCopyPaste, std::move(data_dst),
       base::BindOnce(
           &ChromeWebContentsViewDelegateViewsMac::OnGetAllAvailableFormats,
-          weak_ptr_factory_.GetWeakPtr(), render_frame_host_id, params));
+          weak_ptr_factory_.GetWeakPtr(), render_frame_host_id, params,
+          std::move(callback)));
 }
 
 void ChromeWebContentsViewDelegateViewsMac::OnGetAllAvailableFormats(
     content::GlobalRenderFrameHostId render_frame_host_id,
     const content::ContextMenuParams& params,
+    base::OnceCallback<void(std::unique_ptr<RenderViewContextMenuBase>)>
+        callback,
     base::flat_set<ui::ClipboardFormatType> formats) {
   is_paste_and_match_style_enabled_ =
       formats.contains(ui::ClipboardFormatType::PlainTextType());
@@ -119,10 +137,11 @@ void ChromeWebContentsViewDelegateViewsMac::OnGetAllAvailableFormats(
   content::RenderFrameHost* render_frame_host =
       content::RenderFrameHost::FromID(render_frame_host_id);
   if (!render_frame_host) {
+    std::move(callback).Run(nullptr);
     return;
   }
 
-  ShowMenu(BuildMenu(*render_frame_host, params));
+  std::move(callback).Run(BuildMenu(*render_frame_host, params));
 }
 
 void ChromeWebContentsViewDelegateViewsMac::StoreFocus() {

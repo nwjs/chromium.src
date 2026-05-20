@@ -55,6 +55,7 @@ import org.chromium.chrome.browser.tab.TabBrowserControlsConstraintsHelper;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.UiAndroidFeatures;
 
 import java.util.HashMap;
 
@@ -64,7 +65,8 @@ import java.util.HashMap;
  */
 @Features.EnableFeatures({
     ChromeFeatureList.DISPLAY_EDGE_TO_EDGE_FULLSCREEN,
-    ChromeFeatureList.ENABLE_FULLSCREEN_TO_ANY_SCREEN_ANDROID
+    ChromeFeatureList.ENABLE_FULLSCREEN_TO_ANY_SCREEN_ANDROID,
+    UiAndroidFeatures.MAXIMUM_WINDOW_FOR_GESTURE_NAV_DETECTION
 })
 @Features.DisableFeatures({ChromeFeatureList.ENABLE_EXCLUSIVE_ACCESS_MANAGER})
 @RunWith(BaseRobolectricTestRunner.class)
@@ -105,13 +107,21 @@ public class FullscreenHtmlApiHandlerCompatUnitTest {
     @Implements(Activity.class)
     public static class FullscreenShadowActivity extends ShadowActivity {
         public HashMap<Integer, Integer> counters = new HashMap<>();
+        public RuntimeException exceptionToThrow;
 
         public FullscreenShadowActivity() {}
 
         @Implementation(minSdk = 34)
         protected void requestFullscreenMode(
                 int request, OutcomeReceiver<Void, Throwable> approvalCallback) {
-            if (approvalCallback != null) {
+            if (exceptionToThrow != null) {
+                if (approvalCallback != null) {
+                    approvalCallback.onError(exceptionToThrow);
+                } else {
+                    throw exceptionToThrow;
+                }
+                return;
+            } else if (approvalCallback != null) {
                 approvalCallback.onResult(null);
             }
             if (counters.containsKey(request)) {
@@ -683,5 +693,36 @@ public class FullscreenHtmlApiHandlerCompatUnitTest {
         mMultiWindowModeStateDispatcher.dispatchMultiWindowModeChanged(true);
 
         assertEqualNumberOfEnterAndExitActivityFullscreenMode(1);
+    }
+
+    @Test
+    @Config(
+            shadows = {FullscreenShadowActivity.class},
+            sdk = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void testRequestFullscreenModeThrowsSecurityException() {
+        doReturn(mWebContents).when(mTab).getWebContents();
+        doReturn(mContentView).when(mTab).getContentView();
+        doReturn(true).when(mTab).isUserInteractable();
+        doReturn(true).when(mTab).isHidden();
+        doReturn(true).when(mContentView).hasWindowFocus();
+        doReturn(VISIBLE_SYSTEM_BARS_WINDOW_INSETS.toWindowInsets())
+                .when(mContentView)
+                .getRootWindowInsets();
+        mAreControlsHidden.set(true);
+
+        mFullscreenHtmlApiHandlerCompat.setTabForTesting(mTab);
+        FullscreenOptions fullscreenOptions = new FullscreenOptions(false, false, INVALID_DISPLAY);
+
+        FullscreenShadowActivity shadowActivity =
+                (FullscreenShadowActivity) Shadows.shadowOf(mActivity);
+        shadowActivity.exceptionToThrow = new SecurityException("Permission denied");
+
+        // Enter full screen. This should not crash despite the SecurityException.
+        mFullscreenHtmlApiHandlerCompat.onEnterFullscreen(mTab, fullscreenOptions);
+
+        // Exit full screen. This should not crash despite the SecurityException.
+        mFullscreenHtmlApiHandlerCompat.onExitFullscreen(mTab);
+
+        assertEqualNumberOfEnterAndExitActivityFullscreenMode(0);
     }
 }

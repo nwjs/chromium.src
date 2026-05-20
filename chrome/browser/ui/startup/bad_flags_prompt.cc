@@ -42,6 +42,7 @@
 #include "net/base/switches.h"
 #include "sandbox/policy/switches.h"
 #include "services/network/public/cpp/network_switches.h"
+#include "services/webnn/public/mojom/features.mojom.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "third_party/blink/public/common/features_generated.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -60,7 +61,7 @@
 #include "chrome/browser/android/flags/bad_flags_snackbar_manager.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #else
-#include "chrome/browser/actor/actor_switches.h"
+#include "components/actor/core/actor_switches.h"
 #include "services/device/public/cpp/hid/hid_switches.h"
 #endif
 
@@ -116,7 +117,7 @@ const char* const kBadFlags[] = {
 
 #if BUILDFLAG(IS_LINUX)
     // Speech dispatcher is buggy, it can crash and it can make Chrome freeze.
-    // http://crbug.com/327295
+    // http://crbug.com/40078530
     switches::kEnableSpeechDispatcher,
 #endif
 
@@ -228,6 +229,9 @@ static const std::variant<const base::Feature*, const char*>
         // This flag disables security for the Page Embedded Permission Control,
         // for testing purposes. Can only be enabled via the command line.
         &blink::features::kBypassPepcSecurityForTesting,
+
+        // This feature is under development and has known security risks.
+        &webnn::mojom::features::kWebMachineLearningNeuralNetwork,
 };
 
 void ShowBadFlagsInfoBarHelper(content::WebContents* web_contents,

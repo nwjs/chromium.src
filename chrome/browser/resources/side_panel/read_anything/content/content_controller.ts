@@ -9,10 +9,11 @@ import {previousReadHighlightClass} from '../read_aloud/movement.js';
 import {getReadAloudModel} from '../read_aloud/read_aloud_model_browser_proxy.js';
 import {ReadAloudNode} from '../read_aloud/read_aloud_types.js';
 import {SpeechController} from '../read_aloud/speech_controller.js';
-import {isDistilledByReadability, LOG_EMPTY_DELAY_MS} from '../shared/common.js';
+import {getReadingModeTextNodes, isDistilledByReadability, LOG_EMPTY_DELAY_MS} from '../shared/common.js';
 import {LinkStatus, ReadAnythingLogger} from '../shared/read_anything_logger.js';
 
 import {NodeStore} from './node_store.js';
+import {removeExtraneousElementsFrom} from './readability_content_processing.js';
 import {ReadabilityImageClassifier} from './readability_image_classifier.js';
 
 const DATA_PREFIX = 'data-';
@@ -312,14 +313,24 @@ export class ContentController {
       // Ensure link visibility is updated with user preferences.
       this.updateLinksForReadability(contentContainer);
 
-      // TODO(crbug.com/40910704): Remove ReadabilityImageClassifier once we
-      // share code with mobile's Reading Mode.
-      ReadabilityImageClassifier.processImagesIn(contentContainer);
+      this.applyReadabilityContentPostProcessing_(contentContainer);
       this.updateReadAloudState(contentFragment);
       this.listeners_.forEach(l => l.onContentChange());
       return contentFragment;
     }
     return null;
+  }
+
+  private applyReadabilityContentPostProcessing_(
+      contentContainer: HTMLElement) {
+    if (!isDistilledByReadability()) {
+      return;
+    }
+
+    // TODO(crbug.com/478229109): Remove duplicated code once we share code with
+    // mobile's Reading Mode.
+    removeExtraneousElementsFrom(contentContainer);
+    ReadabilityImageClassifier.processImagesIn(contentContainer);
   }
 
   updateContentForScreen2x(shadowRoot?: ShadowRoot): Node|null {
@@ -606,13 +617,6 @@ export class ContentController {
 
   // TODO(crbug.com/40910704): Potentially hide links during distillation.
   private shouldShowLinks_(): boolean {
-    // If Readability is enabled and the ReadabilityWithLinks flag is disabled,
-    // don't show links.
-    if (chrome.readingMode.isReadabilityEnabled &&
-        !chrome.readingMode.isReadabilityWithLinksEnabled) {
-      return false;
-    }
-
     // Links should only show when Read Aloud is paused.
     return chrome.readingMode.linksEnabled &&
         !this.speechController_.isSpeechActive();
@@ -657,6 +661,20 @@ export class ContentController {
     }
   }
 
+  onRenderedTextBlocksAvailable(container: HTMLElement) {
+    if (!isDistilledByReadability() ||
+        !chrome.readingMode.isReadabilitySelectTextEnabled) {
+      return;
+    }
+
+    const nodes = getReadingModeTextNodes(container);
+
+    // Extract the raw text content from each node.
+    const blocks = nodes.map(n => n.textContent || '');
+
+    chrome.readingMode.onRenderedTextBlocksAvailable(blocks);
+  }
+
   updateImages(shadowRoot?: ShadowRoot) {
     if (!shadowRoot || !this.hasContent()) {
       return;
@@ -684,7 +702,6 @@ export class ContentController {
 
   updateAnchorsForReadability(root: ParentNode) {
     if (!chrome.readingMode.isReadabilityEnabled ||
-        !chrome.readingMode.isReadabilityWithLinksEnabled ||
         !isDistilledByReadability()) {
       return;
     }

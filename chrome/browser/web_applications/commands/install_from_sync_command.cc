@@ -103,8 +103,6 @@ InstallFromSyncCommand::Params::Params(
       trusted_icons(trusted_icons),
       migrated_from_manifest_id(migrated_from_manifest_id) {
   CHECK(!app_id.empty());
-  CHECK(manifest_id.is_valid());
-  CHECK(!manifest_id.is_empty());
 }
 
 InstallFromSyncCommand::Params::Params(const Params&) = default;
@@ -420,7 +418,7 @@ void InstallFromSyncCommand::InstallFallback(webapps::InstallResultCode code) {
 
   // It is OK to skip downloading the page favicons as everything in is the URL
   // list.
-  // TODO(dmurph): Also use favicons. https://crbug.com/1328977.
+  // TODO(dmurph): Also use favicons. https://crbug.com/40226606.
   data_retriever_->GetIcons(
       &lock_->shared_web_contents(), std::move(icon_urls),
       /*download_page_favicons=*/false,

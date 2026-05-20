@@ -14,10 +14,12 @@
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_form_digest.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/password_manager/core/browser/sharing/incoming_password_sharing_invitation_sync_bridge.h"
 #include "components/sync/model/data_type_controller_delegate.h"
 #include "components/sync/service/sync_service.h"
+#include "url/origin.h"
 
 namespace password_manager {
 
@@ -39,6 +41,13 @@ bool IsValidString(const std::string& str) {
 bool IsValidSharedPasswordForm(const PasswordForm& form) {
   if (!form.url.is_valid() || form.url.is_empty()) {
     return false;
+  }
+  if (form.scheme == PasswordForm::Scheme::kHtml &&
+      form.url.SchemeIsHTTPOrHTTPS()) {
+    if (url::Origin::Create(form.url) !=
+        url::Origin::Create(GURL(form.signon_realm))) {
+      return false;
+    }
   }
   if (!IsValidString16(form.username_element) ||
       !IsValidString16(form.username_value) ||
@@ -132,6 +141,7 @@ std::vector<PasswordForm> IncomingSharingInvitationToPasswordForms(
     form.icon_url = GURL(password_group_element_data.avatar_url());
     form.date_created = base::Time::Now();
     form.type = PasswordForm::Type::kReceivedViaSharing;
+    form.skip_zero_click = true;
 
     // Invitation metadata.
     const sync_pb::UserDisplayInfo& sender_info =
@@ -169,18 +179,25 @@ ProcessIncomingSharingInvitationTask::ProcessIncomingSharingInvitationTask(
 ProcessIncomingSharingInvitationTask::~ProcessIncomingSharingInvitationTask() =
     default;
 
-void ProcessIncomingSharingInvitationTask::OnGetPasswordStoreResults(
-    std::vector<std::unique_ptr<PasswordForm>> results) {
+void ProcessIncomingSharingInvitationTask::OnGetPasswordStoreResultsOrErrorFrom(
+    PasswordStoreInterface* store,
+    LoginsResultOrError results_or_error) {
+  if (std::holds_alternative<PasswordStoreBackendError>(results_or_error)) {
+    std::move(done_processing_invitation_callback_).Run(this);
+    return;
+  }
+  auto results = std::get<LoginsResult>(std::move(results_or_error));
+
   // Grouped credentials are ignored because they have different domains.
   std::erase_if(results, [](const auto& form) {
-    return form->match_type == PasswordForm::MatchType::kGrouped;
+    return form.match_type == PasswordForm::MatchType::kGrouped;
   });
   // TODO(crbug.com/40269204): process PSL and affilated credentials if needed.
   // TODO(crbug.com/40269204): process conflicting passwords differently if
   // necessary.
-  auto credential_with_same_username_it = std::ranges::find_if(
-      results, [this](const std::unique_ptr<PasswordForm>& result) {
-        return result->username_value == incoming_credentials_.username_value;
+  auto credential_with_same_username_it =
+      std::ranges::find_if(results, [this](const StoredCredential& result) {
+        return result.username_value == incoming_credentials_.username_value;
       });
   if (credential_with_same_username_it == results.end()) {
     metrics_util::LogProcessIncomingPasswordSharingInvitationResult(
@@ -194,7 +211,8 @@ void ProcessIncomingSharingInvitationTask::OnGetPasswordStoreResults(
 
   ProcessIncomingPasswordSharingInvitationResult processing_result =
       GetProcessSharingInvitationResultForIgnoredInvitations(
-          **credential_with_same_username_it, incoming_credentials_);
+          ToPasswordForm(*credential_with_same_username_it),
+          incoming_credentials_);
   metrics_util::LogProcessIncomingPasswordSharingInvitationResult(
       processing_result);
 

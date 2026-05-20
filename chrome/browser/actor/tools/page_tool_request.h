@@ -10,10 +10,10 @@
 #include <string>
 #include <variant>
 
-#include "chrome/browser/actor/shared_types.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/task_id.h"
+#include "components/actor/core/shared_types.h"
 #include "ui/gfx/geometry/point.h"
 #include "url/gurl.h"
 
@@ -45,6 +45,10 @@ class PageToolRequest : public TabToolRequest {
       content::RenderFrameHost& frame) const = 0;
 
   virtual std::unique_ptr<PageToolRequest> Clone() const = 0;
+
+  // Returns the text content that will be sent to the renderer, if any.
+  // Used for enterprise policy content scanning.
+  virtual std::string GetTextContentSentToRenderer() const;
 
   // ToolRequest
   CreateToolResult CreateTool(TaskId task_id,

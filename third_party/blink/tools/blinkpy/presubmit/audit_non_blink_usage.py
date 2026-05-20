@@ -114,12 +114,15 @@ _CONFIG = [
             'base::KiB',
             'base::KiBS',
             'base::KiBU',
+            'base::kCriticalMemoryPressureThreshold',
             'base::kInvalidThreadId',
+            'base::kStatefulMemoryPressure',
             'base::Location',
             'base::MakeRefCounted',
             'base::MatcherStringPattern',
             'base::MatchPattern',
             'base::MaxThreadType',
+            'base::MemoryConsumer',
             'base::MemoryPressureListener',
             'base::MemoryPressureListenerTag',
             'base::MessagePump',
@@ -378,6 +381,13 @@ _CONFIG = [
             'base::WritableSharedMemoryMapping',
             'base::subtle::SharedAtomic',
 
+            # Helpers for response headers and associated support code that
+            # are OK to use anywhere; raw headers contain internal NUL
+            # delimiters, so it's easier/safer to work with a helper built for
+            # that convention.
+            'net::HttpVersion',
+            'net::HttpResponseHeaders',
+
             # tracing
             'perfetto::.+',
         ]
@@ -492,6 +502,15 @@ _CONFIG = [
             'base::ToVector',
             'mojom::Element',
             'network::DataElementBytes',
+        ],
+    },
+    {
+        'paths': [
+            'third_party/blink/common/webrtc/',
+            'third_party/blink/public/common/webrtc/',
+        ],
+        'allowed': [
+            'base::flat_map',
         ],
     },
     {
@@ -810,6 +829,7 @@ _CONFIG = [
             'event_util::.+',
             'file_error::.+',
             'file_system_access_error::.+',
+            'focusgroup::.+',
             'geometry_util::.+',
             'inspector_\\w+_event::.+',
             'inspector_async_task::.+',
@@ -1826,6 +1846,7 @@ _CONFIG = [
             'media::PaintCanvasVideoRenderer',
             'media::PIXEL_FORMAT_Y16',
             'media::VideoFrame',
+            'media::VideoFrameSharedImageCache',
             'viz::RasterContextProvider',
             'viz::ReleaseCallback',
             'viz::SinglePlaneFormat',
@@ -2253,6 +2274,12 @@ _CONFIG = [
             'learning::mojom::LearningTaskControllerInterfaceBase',
             'media::mojom::MediaMetricsProviderInterfaceBase',
         ],
+    },
+    {
+        'paths': [
+            'third_party/blink/renderer/platform/webrtc/rtc_logging_mojom_traits.h'
+        ],
+        'allowed': ['blink::mojom::RTCMetadataDataView'],
     },
     {
         'paths': [
@@ -2697,7 +2724,6 @@ _CONFIG = [
         ],
         'allowed': [
             'net::ERR_.+',
-            'net::HttpResponseHeaders',
             'net::OK',
             'net::RedirectInfo',
         ],

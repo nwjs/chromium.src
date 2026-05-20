@@ -4,6 +4,7 @@
 
 package org.chromium.components.signin.test.util;
 
+
 import androidx.annotation.MainThread;
 
 import org.chromium.base.ThreadUtils;
@@ -11,7 +12,6 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.base.CoreAccountInfo;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.identitymanager.PrimaryAccountChangeEvent;
 import org.chromium.google_apis.gaia.CoreAccountId;
@@ -42,12 +42,12 @@ public class FakeIdentityManager implements IdentityManager {
     }
 
     @Override
-    public boolean hasPrimaryAccount(@ConsentLevel int consentLevel) {
+    public boolean hasPrimaryAccount() {
         return mPrimaryAccount != null;
     }
 
     @Override
-    public @Nullable CoreAccountInfo getPrimaryAccountInfo(@ConsentLevel int consentLevel) {
+    public @Nullable CoreAccountInfo getPrimaryAccountInfo() {
         return mPrimaryAccount;
     }
 
@@ -127,9 +127,7 @@ public class FakeIdentityManager implements IdentityManager {
                                 mPrimaryAccount == null
                                         ? PrimaryAccountChangeEvent.Type.SET
                                         : PrimaryAccountChangeEvent.Type.CLEARED;
-                        observer.onPrimaryAccountChanged(
-                                new PrimaryAccountChangeEvent(
-                                        type, PrimaryAccountChangeEvent.Type.NONE));
+                        observer.onPrimaryAccountChanged(new PrimaryAccountChangeEvent(type));
                     }
                 });
     }
@@ -138,7 +136,7 @@ public class FakeIdentityManager implements IdentityManager {
     public void removeAccount(CoreAccountId accountId) {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    mExtendedAccountInfos.remove(accountId);
+                    var removedAccountInfo = mExtendedAccountInfos.remove(accountId);
                     if (mPrimaryAccount != null && mPrimaryAccount.getId().equals(accountId)) {
                         mPrimaryAccount = null;
                     }
@@ -146,6 +144,23 @@ public class FakeIdentityManager implements IdentityManager {
                         for (Observer observer : mObservers) {
                             observer.onRefreshTokenRemovedForAccount(accountId);
                         }
+                    }
+                    if (!mIsOnExtendedAccountInfoUpdatedBlocked && removedAccountInfo != null) {
+                        for (Observer observer : mObservers) {
+                            observer.onExtendedAccountInfoUpdated(removedAccountInfo);
+                        }
+                    }
+                });
+    }
+
+    /** Removes all accounts from the fake IdentityManager. */
+    public void removeAllAccounts() {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    List<CoreAccountId> accountIds =
+                            new ArrayList<>(mExtendedAccountInfos.keySet());
+                    for (CoreAccountId accountId : accountIds) {
+                        removeAccount(accountId);
                     }
                 });
     }

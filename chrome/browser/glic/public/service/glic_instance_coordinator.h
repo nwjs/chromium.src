@@ -24,6 +24,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_features.h"
 #include "content/public/browser/web_contents.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/gfx/native_ui_types.h"
 
@@ -49,13 +50,11 @@ class GlicWidget;
 class GlicInstanceCoordinator {
  public:
   using StateObserver = PanelStateObserver;
-  using PanelStateContext = ::glic::PanelStateContext;
   GlicInstanceCoordinator(const GlicInstanceCoordinator&) = delete;
   GlicInstanceCoordinator& operator=(const GlicInstanceCoordinator&) = delete;
   GlicInstanceCoordinator() = default;
   virtual ~GlicInstanceCoordinator() = default;
 
-  virtual HostManager& host_manager() = 0;
   virtual std::vector<GlicInstance*> GetInstances() = 0;
   virtual GlicInstance* GetInstanceForTab(
       const tabs::TabInterface* tab) const = 0;
@@ -76,10 +75,8 @@ class GlicInstanceCoordinator {
       bool deprecated_auto_send,
       std::optional<std::string> deprecated_conversation_id) = 0;
 
-  // If the panel is opened, but sign-in is required, we provide a sign-in
-  // button which closes the panel. This is called after the user signs in to
-  // open the panel again.
-  virtual void ShowAfterSignIn(base::WeakPtr<Browser> browser) = 0;
+  // Readies glic to show.
+  virtual void EnsurePreload() = 0;
 
   // Destroy the glic panel and its web contents.
   virtual void Shutdown() = 0;
@@ -109,43 +106,9 @@ class GlicInstanceCoordinator {
   virtual base::CallbackListSubscription AddGlobalShowHideCallback(
       base::RepeatingClosure callback) = 0;
 
-  // Warms the glic web contents.
-  virtual void Preload() = 0;
-
   // Reloads the glic web contents or the FRE's web contents (depending on
   // which is currently visible).
   virtual void Reload(content::RenderFrameHost* render_frame_host) = 0;
-
-  // Returns the widget that backs the glic window.
-  virtual GlicWidget* GetGlicWidget() const = 0;
-
-  // Return the Browser to which the panel is attached, or null if detached.
-  virtual Browser* attached_browser() = 0;
-
-  // Possible states for the glic window. Public for testing.
-  //   * Closed (aka hidden, invisible)
-  //   * Waiting for glic to load (the open animation has finished, but the
-  //     glic window contents is not yet ready)
-  //   * Open (aka showing, visible)
-  //   * Detaching - the panel should not be considered open since the view
-  //     might not exist.
-  //   * Waiting for side panel - in the process of setting up side panel to
-  //   show.
-  enum class State {
-    kClosed,
-    kWaitingForGlicToLoad,
-    kOpen,
-    kDetaching,
-    kWaitingForSidePanelToShow,
-  };
-  virtual State state() const = 0;
-
-  virtual Profile* profile() = 0;
-
-  virtual gfx::Rect GetInitialBounds(Browser* browser) = 0;
-
-  virtual void ShowDetachedForTesting() = 0;
-  virtual void SetPreviousPositionForTesting(gfx::Point position) = 0;
 
   using ActiveInstanceChangedCallback =
       base::RepeatingCallback<void(GlicInstance* new_instance)>;
@@ -154,12 +117,10 @@ class GlicInstanceCoordinator {
       ActiveInstanceChangedCallback callback) = 0;
   virtual GlicInstance* GetActiveInstance() = 0;
 
-  // Helper function to return whether the kGlicDetached feature is enabled
-  // while multi-instance is not.
-  static bool AlwaysDetached() {
-    return base::FeatureList::IsEnabled(features::kGlicDetached) &&
-           !GlicEnabling::IsMultiInstanceEnabled();
-  }
+  // Registers a handler to observe experimental triggering related updates.
+  virtual void GetExperimentalTriggeringUpdates(
+      mojo::PendingRemote<mojom::ExperimentalTriggeringUpdatesHandler> handler,
+      base::OnceCallback<void(bool)> success_status_callback) = 0;
 };
 
 }  // namespace glic

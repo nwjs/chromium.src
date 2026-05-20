@@ -725,6 +725,18 @@ void HTMLIFrameElement::CheckPotentialPermissionsPolicyViolation() {
 }
 
 void HTMLIFrameElement::NaturalSizingInfoChanged() {
+  HTMLFrameOwnerElement::NaturalSizingInfoChanged();
+  if (!RuntimeEnabledFeatures::ResponsiveIframesEnabled()) {
+    return;
+  }
+  if (auto* object = DynamicTo<LayoutIFrame>(GetLayoutObject())) {
+    object->SetNeedsLayoutAndIntrinsicWidthsRecalcAndFullPaintInvalidation(
+        layout_invalidation_reason::kSizeChanged);
+  }
+}
+
+void HTMLIFrameElement::ClearLastNaturalSizingInfo() {
+  HTMLFrameOwnerElement::ClearLastNaturalSizingInfo();
   if (!RuntimeEnabledFeatures::ResponsiveIframesEnabled()) {
     return;
   }

@@ -15,6 +15,8 @@
 #include "ash/accessibility/accessibility_notification_controller.h"
 #include "ash/accessibility/accessibility_observer.h"
 #include "ash/accessibility/accessibility_prefs_custom_associator.h"
+#include "ash/accessibility/accessibility_prefs_merge_conflict_controller.h"
+#include "ash/accessibility/accessibility_prefs_merge_conflict_dialog.h"
 #include "ash/accessibility/accessibility_sync_prefs_utils.h"
 #include "ash/accessibility/autoclick/autoclick_controller.h"
 #include "ash/accessibility/disable_touchpad_event_rewriter.h"
@@ -2485,12 +2487,24 @@ void AccessibilityController::OnSessionStateChanged(
 }
 
 void AccessibilityController::OnFirstSessionReady() {
-  // By the time the user desktop fully loads, any eventual syncable/conflicting
-  // preferences are set in the associator already.
-  //
-  // TODO(crbug.com/479890756): Launch the conflict resolution feature.
+  // By the time the user desktop is fully loaded, any syncable or conflicting
+  // preferences have already been processed by the associator.
+  // If needed, launch the merge resolution dialog.
+  if (auto controller =
+          AccessibilityPrefsMergeConflictController::MaybeCreate()) {
+    prefs_conflict_resolution_dialog_ =
+        AccessibilityPrefsMergeConflictDialog::CreateAndShow(
+            std::move(controller),
+            base::BindOnce(
+                &AccessibilityController::OnPrefsConflictResolutionDialogClosed,
+                GetWeakPtr()));
+  }
 
-  // Reset the associator since it is not needed anymore.
+  // After attempting to construct the dialog, the associator is no longer
+  // required and can be safely destroyed.
+  // The dialog observes changes to the preferences it displays and reacts
+  // accordingly. Any other preference changes that occur while the dialog
+  // is open will proceed through the normal flow.
   prefs_custom_associator_.reset();
 }
 
@@ -2550,7 +2564,8 @@ void AccessibilityController::CopySigninPrefsIfNeeded(
   // Ensure a fresh state on the associator.
   CHECK(!prefs_custom_associator_);
   prefs_custom_associator_ =
-      std::make_unique<AccessibilityPrefsCustomAssociator>();
+      std::make_unique<AccessibilityPrefsCustomAssociator>(
+          current_pref_service);
 
   PrefService* signin_prefs =
       Shell::Get()->session_controller()->GetSigninScreenPrefService();
@@ -2559,8 +2574,18 @@ void AccessibilityController::CopySigninPrefsIfNeeded(
     const PrefService::Preference* pref =
         signin_prefs->FindPreference(pref_path);
 
-    // Ignore if the pref has not been set by the user.
-    if (!pref || !pref->IsUserControlled()) {
+    if (!pref) {
+      continue;
+    }
+
+    // Ignore if the pref has not been set by the user and isn't lockable.
+    //
+    // NOTE: A preference is lockable when it is a feature accessibility
+    // preference and the user should be prompted with a conflict resolution
+    // dialog in case the values set during the OOBE differ from the value
+    // stored in the Sync.
+    if (!pref->IsUserControlled() &&
+        !prefs_custom_associator_->CanLockPref(pref_path)) {
       continue;
     }
 
@@ -2568,8 +2593,8 @@ void AccessibilityController::CopySigninPrefsIfNeeded(
     const base::Value* value_on_login = pref->GetValue();
     current_pref_service->Set(pref_path, *value_on_login);
 
-    // Try to "lock" this preference in case it is syncable and we must wait to
-    // sync until after showing the resolution dialog.
+    // Lock OOBE feature accessibility prefs (even if not user-controlled) when
+    // syncable, so syncing is deferred until after conflict resolution.
     prefs_custom_associator_->TryLockPref(pref_path, *value_on_login);
   }
 }
@@ -4145,6 +4170,10 @@ void AccessibilityController::OnRequestDisableFaceGazeAction(
 
   disable_dialog_.reset();
   client_->SendFaceGazeDisableDialogResultToSettings(dialog_accepted);
+}
+
+void AccessibilityController::OnPrefsConflictResolutionDialogClosed() {
+  prefs_conflict_resolution_dialog_.reset();
 }
 
 }  // namespace ash

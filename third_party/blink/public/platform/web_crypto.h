@@ -78,8 +78,6 @@ class BLINK_PLATFORM_EXPORT WebCryptoResult {
     return *this;
   }
 
-  // Note that WebString is NOT safe to pass across threads.
-  //
   // Error details are surfaced in an exception, and MUST NEVER reveal any
   // secret information such as bytes of the key or plain text. An
   // appropriate error would be something like:
@@ -91,8 +89,13 @@ class BLINK_PLATFORM_EXPORT WebCryptoResult {
   void CompleteWithJson(std::string_view);
   void CompleteWithBoolean(bool);
   void CompleteWithKey(const WebCryptoKey&);
-  void CompleteWithKeyPair(const WebCryptoKey& public_key,
-                           const WebCryptoKey& private_key);
+  void CompleteWithKeyForGenerateKey(const WebCryptoKey&);
+  void CompleteWithKeyPairForGenerateKey(const WebCryptoKey& public_key,
+                                         const WebCryptoKey& private_key);
+  void CompleteWithEncapsulatedKey(const WebCryptoKey& shared_key,
+                                   base::span<const uint8_t> ciphertext);
+  void CompleteWithEncapsulatedBits(base::span<const uint8_t> shared_key,
+                                    base::span<const uint8_t> ciphertext);
 
   // Returns true if the underlying operation was cancelled.
   // This method can be called from any thread.
@@ -287,6 +290,75 @@ class WebCrypto {
       WebCryptoResult result,
       scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
     result.CompleteWithError(kWebCryptoErrorTypeNotSupported, "");
+  }
+
+  // -------------------------------------
+  // Key Encapsulation Mechanism (KEM)
+  // -------------------------------------
+  //
+  // Methods support KEM encapulate/decapsulate functions.
+  //
+  // See https://wicg.github.io/webcrypto-modern-algos/ for more information.
+
+  virtual void EncapsulateKey(
+      const WebCryptoAlgorithm& encapsulation_algorithm,
+      const WebCryptoKey& encapsulation_key,
+      const WebCryptoAlgorithm& shared_key_algorithm,
+      bool extractable,
+      WebCryptoKeyUsageMask usages,
+      WebCryptoResult result,
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
+    result.CompleteWithError(kWebCryptoErrorTypeNotSupported, "");
+  }
+
+  virtual void EncapsulateBits(
+      const WebCryptoAlgorithm& encapsulation_algorithm,
+      const WebCryptoKey& encapsulation_key,
+      WebCryptoResult result,
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
+    result.CompleteWithError(kWebCryptoErrorTypeNotSupported, "");
+  }
+
+  virtual void DecapsulateKey(
+      const WebCryptoAlgorithm& decapsulation_algorithm,
+      const WebCryptoKey& decapsulation_key,
+      std::vector<uint8_t> ciphertext,
+      const WebCryptoAlgorithm& shared_key_algorithm,
+      bool extractable,
+      WebCryptoKeyUsageMask usages,
+      WebCryptoResult result,
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
+    result.CompleteWithError(kWebCryptoErrorTypeNotSupported, "");
+  }
+
+  virtual void DecapsulateBits(
+      const WebCryptoAlgorithm& decapsulation_algorithm,
+      const WebCryptoKey& decapsulation_key,
+      std::vector<uint8_t> ciphertext,
+      WebCryptoResult result,
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
+    result.CompleteWithError(kWebCryptoErrorTypeNotSupported, "");
+  }
+
+  // Synchronously returns true if the given operation and algorithm are
+  // supported.
+  // This is used by SubtleCrypto.supports().
+  virtual bool Supports(WebCryptoOperation op,
+                        const WebCryptoAlgorithm& algorithm,
+                        std::optional<unsigned int> length_bits) {
+    return false;
+  }
+
+  // This is run whenever the spec says:
+  //    "Let length be the result of executing the get key length algorithm"
+  //
+  // In the Web Crypto spec the operation returns either "null" or an
+  // "Integer". In this code "null" is represented with |std::nullopt|.
+  //
+  // Returns false if there was an error getting the key length.
+  virtual bool GetKeyLength(const WebCryptoAlgorithm& key_length_algorithm,
+                            std::optional<unsigned int>* length_bits) {
+    return false;
   }
 
   // -----------------------

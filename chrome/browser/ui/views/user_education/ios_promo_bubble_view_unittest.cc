@@ -57,19 +57,10 @@ class MockIOSPromoTriggerService : public IOSPromoTriggerService {
  private:
   syncer::FakeDeviceInfoTracker fake_device_info_tracker_;
   syncer::DeviceInfo fake_device_info_{
-      "guid",
-      "iPhone",
-      "Chrome 100",
-      "User Agent",
-      syncer::DeviceInfo::DeviceType::kPhone,
-      syncer::DeviceInfo::OsType::kIOS,
-      syncer::DeviceInfo::FormFactor::kPhone,
-      "device_id",
-      "manufacturer",
-      "model",
-      "full_hardware_class",
-      base::Time::Now(),
-      base::TimeDelta(),
+      "guid", "iPhone", "Chrome 100", "User Agent",
+      syncer::DeviceInfo::DeviceType::kPhone, syncer::DeviceInfo::OsType::kIOS,
+      syncer::DeviceInfo::FormFactor::kPhone, "device_id", "manufacturer",
+      "model", "full_hardware_class", base::Time::Now(), base::TimeDelta(),
       /*send_tab_to_self_receiving_enabled=*/true,
       syncer::DeviceInfo::SendTabReceivingType::kChromeOrUnspecified,
       /*sharing_info=*/std::nullopt,
@@ -77,7 +68,11 @@ class MockIOSPromoTriggerService : public IOSPromoTriggerService {
       /*fcm_registration_token=*/"token",
       /*interested_data_types=*/syncer::DataTypeSet::All(),
       /*auto_sign_out_last_signin_timestamp=*/std::nullopt,
-      /*desktop_to_ios_promo_receiving_enabled=*/false};
+      /*desktop_to_ios_promo_receiving_enabled=*/false,
+      /*desktop_to_ios_promo_receiving_types=*/
+      MobilePromoOnDesktopPromoTypeSet{},
+      /*glic_experimental_triggering_state=*/
+      syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable};
 };
 
 std::unique_ptr<KeyedService> CreateMockIOSPromoTriggerService(

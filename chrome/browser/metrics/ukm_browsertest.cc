@@ -25,9 +25,7 @@
 #include "chrome/browser/metrics/testing/metrics_reporting_pref_helper.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/sync/test/integration/secondary_account_helper.h"
 #include "chrome/browser/sync/test/integration/sync_service_impl_harness.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
 #include "chrome/browser/unified_consent/unified_consent_service_factory.h"
@@ -291,28 +289,6 @@ class UkmBrowserTest : public UkmBrowserTestBase {
 #if BUILDFLAG(IS_ANDROID)
   raw_ptr<TabModel> initial_tab_model_;
 #endif  // !BUILDFLAG(IS_ANDROID)
-};
-
-class UkmBrowserTestWithSyncTransport : public UkmBrowserTestBase {
- public:
-  UkmBrowserTestWithSyncTransport() = default;
-
-  UkmBrowserTestWithSyncTransport(const UkmBrowserTestWithSyncTransport&) =
-      delete;
-  UkmBrowserTestWithSyncTransport& operator=(
-      const UkmBrowserTestWithSyncTransport&) = delete;
-
-  void SetUpInProcessBrowserTestFixture() override {
-    // This is required to support (fake) secondary-account-signin (based on
-    // cookies) in tests. Without this, the real GaiaCookieManagerService would
-    // try talking to Google servers which of course wouldn't work in tests.
-    test_signin_client_subscription_ =
-        secondary_account_helper::SetUpSigninClient(&test_url_loader_factory_);
-    UkmBrowserTestBase::SetUpInProcessBrowserTestFixture();
-  }
-
- private:
-  base::CallbackListSubscription test_signin_client_subscription_;
 };
 
 // This tests if UKM service is enabled/disabled appropriately based on an
@@ -681,7 +657,7 @@ IN_PROC_BROWSER_TEST_P(UkmBrowserTestWithDemographics,
 #if !BUILDFLAG(IS_CHROMEOS)
   // Sign out the user to revoke all refresh tokens. This prevents any posted
   // tasks from successfully fetching an access token during the tear-down
-  // phase and crashing on a DCHECK. See crbug/1102746 for more details.
+  // phase and crashing on a DCHECK. See crbug.com/40704261 for more details.
   harness->SignOutPrimaryAccount();
 #endif  // !BUILDFLAG(IS_CHROMEOS)
   ClosePlatformBrowser(browser);
@@ -790,7 +766,7 @@ IN_PROC_BROWSER_TEST_F(UkmBrowserTest,
 }
 
 // Make sure that providing consent doesn't enable UKM when sync is disabled.
-// Flaky on Android crbug.com/1096400
+// Flaky on Android crbug.com/40700711
 #if BUILDFLAG(IS_ANDROID)
 #define MAYBE_ConsentAddedButNoSyncCheck DISABLED_ConsentAddedButNoSyncCheck
 #else
@@ -1030,7 +1006,7 @@ IN_PROC_BROWSER_TEST_F(UkmBrowserTest, LogsOpenerSource) {
 // ChromeOS doesn't have the concept of sign-out so this test doesn't make sense
 // there.
 //
-// Flaky on Android: https://crbug.com/1096047.
+// Flaky on Android: https://crbug.com/40700532.
 //
 // Make sure that UKM is disabled when the profile signs out of Sync.
 // LINT.IfChange(SingleSyncSignoutCheck)
@@ -1138,7 +1114,7 @@ IN_PROC_BROWSER_TEST_F(UkmBrowserTest, MetricsReportingCheck) {
 
 // Make sure that pending data is deleted when user deletes history.
 // LINT.IfChange(HistoryDeleteCheck)
-// Flaky on Android: https://crbug.com/1131541.
+// Flaky on Android: https://crbug.com/40721445.
 #if BUILDFLAG(IS_ANDROID)
 #define MAYBE_HistoryDeleteCheck DISABLED_HistoryDeleteCheck
 #else
@@ -1177,8 +1153,7 @@ IN_PROC_BROWSER_TEST_F(UkmBrowserTest, MAYBE_HistoryDeleteCheck) {
 // On ChromeOS, the test profile starts with a primary account already set, so
 // this test doesn't apply.
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
-IN_PROC_BROWSER_TEST_F(UkmBrowserTestWithSyncTransport,
-                       NotEnabledForSecondaryAccountSync) {
+IN_PROC_BROWSER_TEST_F(UkmBrowserTest, NotEnabledForNonSyncingAccountSync) {
   ukm::UkmTestHelper ukm_test_helper(GetUkmService());
   test::MetricsConsentOverride metrics_consent(true);
 
@@ -1191,8 +1166,7 @@ IN_PROC_BROWSER_TEST_F(UkmBrowserTestWithSyncTransport,
   syncer::SyncService* sync_service =
       SyncServiceFactory::GetForProfile(profile);
 
-  secondary_account_helper::SignInUnconsentedAccount(
-      profile, &test_url_loader_factory_, "secondary_user@email.com");
+  ASSERT_TRUE(harness->SignInNoWaitForCompletion());
   ASSERT_NE(syncer::SyncService::TransportState::DISABLED,
             sync_service->GetTransportState());
   ASSERT_TRUE(harness->AwaitSyncTransportActive());
@@ -1651,7 +1625,7 @@ IN_PROC_BROWSER_TEST_F(UkmBrowserTestForAppConsent,
   const std::unique_ptr<ukm::Report> report = ukm_test_helper.GetUkmReport();
 
   // Verify that the only sources in the report are APP_ID.
-  // NOTE(crbug/1395143): It was noticed that there was an APP_ID source
+  // NOTE(crbug.com/40248943): It was noticed that there was an APP_ID source
   // generated despite not being explicitly created. No entries are associated
   // with it though.
   for (int i = 0; i < report->sources_size(); ++i) {

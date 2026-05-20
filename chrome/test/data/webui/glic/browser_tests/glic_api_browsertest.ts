@@ -1,8 +1,8 @@
 // Copyright 2025 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-import {CaptureRegionErrorReason, FormFactor, HostCapability, InvocationSource, MetricUserInputReactionType, PanelStateKind, Platform, ResponseStopCause, ScrollToErrorReason, SkillSource, WebClientMode} from '/glic/glic_api/glic_api.js';
-import type {CancelActionsResult, CaptureRegionResult, FocusedTabData, GetPinCandidatesOptions, GlicBrowserHost, OpenPanelInfo, PageMetadata, PanelOpeningData, ScrollToError, TabData, UserConfirmationDialogRequest, UserProfileInfo, ZeroStateSuggestionsV2} from '/glic/glic_api/glic_api.js';
+import {CaptureRegionErrorReason, FormFactor, HostCapability, InvocationSource, MetricUserInputReactionType, PanelStateKind, Platform, ResponseStopCause, ScrollToErrorReason, WebClientMode} from '/glic/glic_api/glic_api.js';
+import type {CancelActionsResult, CaptureRegionResult, FocusedTabData, GetPinCandidatesOptions, GlicBrowserHost, InvokeOptions, OpenPanelInfo, PageMetadata, PanelOpeningData, ScrollToError, TabData, UserConfirmationDialogRequest, UserProfileInfo, ZeroStateSuggestionsV2} from '/glic/glic_api/glic_api.js';
 
 import {ApiTestError, ApiTestFixtureBase, assertDefined, assertEquals, assertFalse, assertNotEquals, assertRejects, assertTrue, assertUndefined, checkDefined, mapObservable, observeSequence, readStream, runUntil, sleep, testMain, waitFor, WebClient} from './browser_test_base.js';
 import type {SequencedSubscriber} from './browser_test_base.js';
@@ -38,8 +38,6 @@ class ApiTests extends ApiTestFixtureBase {
 
   async testHibernateAllOnMemoryPressure() {}
 
-  async testHibernateAllAggressiveOnMemoryPressure() {}
-
   async testHibernateOnMemoryUsage() {}
 
   async testCancelActions() {
@@ -51,31 +49,11 @@ class ApiTests extends ApiTestFixtureBase {
 
   async testDoNothing() {}
 
-  async testInvocationSource() {
-    const expectedSource = this.testParams as number;
-    const panelOpenData =
-        checkDefined(this.client.panelOpenData.getCurrentValue());
-    assertEquals(panelOpenData.invocationSource, expectedSource);
-  }
-
   async testDefaultInvocationSource() {
     const panelOpenData =
         checkDefined(this.client.panelOpenData.getCurrentValue());
     assertEquals(
         panelOpenData.invocationSource, InvocationSource.TOP_CHROME_BUTTON);
-  }
-
-  async testWebClientReadyOnFullLoad() {}
-
-  async testWebClientReadyOnPreload() {}
-
-  // This test should fail even if the ApiTestError is captured in a try-catch
-  // block.
-  async testFailureForCapturedApiTestError() {
-    try {
-      throw new ApiTestError('Non-throwing test error');
-    } catch (e) {
-    }
   }
 
   async testRequestHeader() {
@@ -214,6 +192,8 @@ class ApiTests extends ApiTestFixtureBase {
     this.assertCreateTabFails(location.href);
   }
 
+
+
   async testOpenGlicSettingsPage() {
     assertDefined(this.host.openGlicSettingsPage);
     this.host.openGlicSettingsPage();
@@ -228,10 +208,7 @@ class ApiTests extends ApiTestFixtureBase {
     this.host.openPasswordManagerSettingsPage();
   }
 
-  async testShowManageSkillsUiNoWindow() {
-    assertDefined(this.host.showManageSkillsUi);
-    this.host.showManageSkillsUi();
-  }
+
 
   async testCanAttachPanelToFallbackEmbedder() {
     assertDefined(this.host.getFocusedTabStateV2);
@@ -307,6 +284,17 @@ class ApiTests extends ApiTestFixtureBase {
     // this.host.attachPanel();
     // await panelStates.waitFor(state => state.kind ===
     //    PanelStateKind.ATTACHED);
+  }
+
+  async testDetachPanelNoFloatyOrLiveMode() {
+    assertDefined(this.host.getPanelState);
+    // getPanelState and notifyPanelWillOpen should signal the ATTACHED state.
+    const panelStates = observeSequence(this.host.getPanelState());
+    await panelStates.waitFor(state => state.kind === PanelStateKind.ATTACHED);
+
+    assertRejects((async () => {
+      this.host.detachPanel?.();
+    })());
   }
 
   async testCanAttachPanelSidePanel() {
@@ -1353,7 +1341,8 @@ class ApiTests extends ApiTestFixtureBase {
   async testCallingApiWhileHiddenRecordsMetrics() {
     assertDefined(this.host.createTab);
     await this.advanceToNextStep();
-    await runUntil(() => document.visibilityState === 'hidden');
+    await observeSequence(this.host.panelActive())
+        .waitFor(isActive => !isActive);
     try {
       await this.host.createTab(
           'https://www.google.com', {openInBackground: false});
@@ -1903,7 +1892,6 @@ class ApiTests extends ApiTestFixtureBase {
     }
   }
 
-  async testReloadWebUi() {}
 
   private async assertCreateTabFails(url: string) {
     assertDefined(this.host.createTab);
@@ -2239,34 +2227,6 @@ class ApiTests extends ApiTestFixtureBase {
     assertDefined(metadata);
     assertEquals(1, metadata.frameMetadata.length);
     assertEquals(0, metadata.frameMetadata[0]!.metaTags.length);
-  }
-
-  /**
-   * Checks that the `ObservableValue` stops emitting updates after the
-   * associated tab is closed.
-   */
-  async testGetPageMetadataTabDestroyed() {
-    assertDefined(this.host.getPageMetadata);
-    assertDefined(this.host.getFocusedTabStateV2);
-
-    const focus =
-        await observeSequence(this.host.getFocusedTabStateV2()).next();
-    const tabId = checkDefined(focus.hasFocus?.tabData.tabId);
-
-    const metadataObservable = this.host.getPageMetadata(tabId, ['author']);
-    assertDefined(metadataObservable);
-    const metadataSequence = observeSequence(metadataObservable);
-
-    const metadata: PageMetadata = await metadataSequence.next();
-    assertDefined(metadata);
-    assertEquals(1, metadata.frameMetadata[0]!.metaTags.length);
-
-    // Close the tab.
-    await this.advanceToNextStep();
-
-    // The observable should not emit any more values, and should complete.
-    await metadataSequence.completed;
-    assertTrue(metadataSequence.isEmpty());
   }
 
   /**
@@ -2727,6 +2687,20 @@ class ApiTests extends ApiTestFixtureBase {
     }
   }
 
+  async testGetZoomLevel() {
+    assertDefined(this.host.getZoomLevel);
+    const sequence = observeSequence<number>(this.host.getZoomLevel());
+    const zoom = await sequence.next();
+    assertDefined(zoom);
+    assertEquals(zoom, 1.0);
+
+    // Trigger zoom-in.
+    await this.advanceToNextStep();
+
+    const newZoom = await sequence.next();
+    assertEquals(newZoom, 1.1);
+  }
+
   private async closePanelAndWaitUntilInactive() {
     assertDefined(this.host.closePanel);
     await this.host.closePanel();
@@ -2750,10 +2724,6 @@ class ApiTests extends ApiTestFixtureBase {
 class ApiTestWithoutOpen extends ApiTestFixtureBase {
   override async setUpTest() {
     await this.client.waitForInitialize();
-  }
-
-  async testLoadWhileWindowClosed() {
-    await observeSequence(this.host.panelActive()).waitForValue(false);
   }
 
   async testDeferredFocusedTabStateAtCreation() {
@@ -2820,114 +2790,6 @@ class ApiTestWithoutOpen extends ApiTestFixtureBase {
       withErrorMessage: 'GetContextFromTab not allowed while backgrounded',
     });
   }
-
-  async testGetSkillSuccess() {
-    assertDefined(this.host.getSkillPreviews);
-    assertDefined(this.host.getSkill);
-    const skillPreviewsSequence = observeSequence(this.host.getSkillPreviews());
-    const skills = await skillPreviewsSequence.waitFor(s => s.length === 2);
-    const targetSkill = skills.find(s => s.name === 'test_skill_1');
-    assertDefined(targetSkill);
-    const actualSkill = await this.host.getSkill(targetSkill.id);
-    assertDefined(actualSkill);
-    assertEquals(actualSkill.preview.id, targetSkill.id);
-    assertEquals(actualSkill.preview.name, 'test_skill_1');
-    assertEquals(actualSkill.preview.icon, 'test_icon_1');
-    assertEquals(actualSkill.prompt, 'test_prompt_1');
-    assertEquals(actualSkill.sourceSkillId, 'source_id_1');
-  }
-
-  async testGetSkillPreviewsSuccess() {
-    assertDefined(this.host.getSkillPreviews);
-    assertDefined(this.host.getSkill);
-    const skillPreviewsSequence = observeSequence(this.host.getSkillPreviews());
-    const skills = await skillPreviewsSequence.waitFor(s => s.length === 2);
-    const skill1 = skills.find(s => s.name === 'test_skill_1');
-    assertDefined(skill1);
-    assertEquals('test_icon_1', skill1.icon);
-    const actualSkill1 = await this.host.getSkill(skill1.id);
-    assertDefined(actualSkill1);
-    assertEquals(actualSkill1.sourceSkillId, 'source_id_1');
-    const skill2 = skills.find(s => s.name === 'test_skill_2');
-    assertDefined(skill2);
-    assertEquals('test_icon_2', skill2.icon);
-    const actualSkill2 = await this.host.getSkill(skill2.id);
-    assertDefined(actualSkill2);
-    assertEquals(actualSkill2.sourceSkillId, 'source_id_2');
-  }
-
-  async testShowManageSkillsUi() {
-    assertDefined(this.host.showManageSkillsUi);
-    this.host.showManageSkillsUi();
-  }
-
-  async testDisplaySkillInDialogSuccess() {
-    assertDefined(this.host.createSkill);
-    const request = {
-      id: 'id',
-      name: 'name',
-      icon: 'icon',
-      prompt: 'prompt',
-      source: SkillSource.FIRST_PARTY,
-    };
-    this.host.createSkill(request);
-  }
-
-  async testSendingContextualSkillsToGlic() {
-    assertDefined(this.host.getSkillPreviews);
-    const skillPreviewsSequence = observeSequence(this.host.getSkillPreviews());
-    let skills = await skillPreviewsSequence.waitFor(s => s.length === 2);
-    let user_skill_1 = skills.find(s => s.name === 'user_skill_1');
-    assertDefined(user_skill_1);
-    let user_skill_2 = skills.find(s => s.name === 'user_skill_2');
-    assertDefined(user_skill_2);
-    await this.advanceToNextStep();
-
-    // Verify that the skills cache is updated with both the user owned skills
-    // and the contextual skills.
-    skills = await skillPreviewsSequence.waitFor(s => s.length === 4);
-    const contextual_skill_1 =
-        skills.find(s => s.id === 'contextual_skill_id_1');
-    assertDefined(contextual_skill_1);
-    assertEquals('contextual_skill_1', contextual_skill_1.name);
-    assertEquals(
-        'contextual_skill_description_1', contextual_skill_1.description);
-    const contextual_skill_2 =
-        skills.find(s => s.id === 'contextual_skill_id_2');
-    assertDefined(contextual_skill_2);
-    assertEquals('contextual_skill_2', contextual_skill_2.name);
-    assertEquals(
-        'contextual_skill_description_2', contextual_skill_2.description);
-    user_skill_1 = skills.find(s => s.name === 'user_skill_1');
-    assertDefined(user_skill_1);
-    user_skill_2 = skills.find(s => s.name === 'user_skill_2');
-    assertDefined(user_skill_2);
-    // Verify that only the contextual skills are marked as contextual.
-    assertEquals(true, contextual_skill_1.isContextual);
-    assertEquals(true, contextual_skill_2.isContextual);
-    assertEquals(false, user_skill_1.isContextual);
-    assertEquals(false, user_skill_2.isContextual);
-    await this.advanceToNextStep();
-
-    // Verify that after a contextual skills update, the skills cache is updated
-    // with the new list of contextual skills and the user owned skills are
-    // still present.
-    skills = await skillPreviewsSequence.waitFor(s => s.length === 3);
-    const contextual_skill_3 =
-        skills.find(s => s.id === 'contextual_skill_id_3');
-    assertDefined(contextual_skill_3);
-    assertEquals('contextual_skill_3', contextual_skill_3.name);
-    assertEquals(
-        'contextual_skill_description_3', contextual_skill_3.description);
-    user_skill_1 = skills.find(s => s.name === 'user_skill_1');
-    assertDefined(user_skill_1);
-    user_skill_2 = skills.find(s => s.name === 'user_skill_2');
-    assertDefined(user_skill_2);
-    // Verify that only the contextual skills are marked as contextual.
-    assertEquals(true, contextual_skill_3.isContextual);
-    assertEquals(false, user_skill_1.isContextual);
-    assertEquals(false, user_skill_2.isContextual);
-  }
 }
 
 type InitFailureType = 'error'|'timeout'|'none'|'reloadAfterInitialize'|
@@ -2986,14 +2848,6 @@ class ApiTestFailsToInitialize extends ApiTestFixtureBase {
     sleep(100).then(() => super.setUpClient());
   }
 
-  async testInitializeFailsWindowClosed() {
-    this.deferredSetUpClient();
-  }
-
-  async testInitializeFailsWindowOpen() {
-    this.deferredSetUpClient();
-  }
-
   async testReload() {
     // First run.
     if (this.getTestParams().failWith === 'reloadAfterInitialize') {
@@ -3023,6 +2877,10 @@ class ApiTestFailsToInitialize extends ApiTestFixtureBase {
   // specially.
   async testNoBootstrap() {}
   async testInitializeTimesOut() {
+    await super.setUpClient();
+  }
+
+  async testInitializeFails() {
     await super.setUpClient();
   }
 
@@ -3125,6 +2983,50 @@ class InitiallyNotResizableTest extends ApiTestFixtureBase {
   }
 }
 
+class WebClientWithInvoke extends WebClient {
+  invokePromise = Promise.withResolvers<InvokeOptions>();
+  async invoke(options: InvokeOptions): Promise<void> {
+    this.invokePromise.resolve(options);
+  }
+}
+
+class ApiTestWithInvoke extends ApiTestFixtureBase {
+  override createWebClient(): WebClient {
+    return new WebClientWithInvoke();
+  }
+
+  async testInvoke() {
+    const options =
+        await (this.client as WebClientWithInvoke).invokePromise.promise;
+    assertEquals(options.invocationSource, InvocationSource.TOP_CHROME_BUTTON);
+  }
+}
+
+class WebClientForCreateTabInInvoke extends WebClient {
+  createTabResult = Promise.withResolvers<TabData>();
+  async invoke(_options: InvokeOptions): Promise<void> {
+    try {
+      const url = location.href + '#invoking';
+      const data = await this.host!.createTab!(url, {openInBackground: false});
+      this.createTabResult.resolve(data);
+    } catch (e) {
+      this.createTabResult.reject(e as Error);
+    }
+  }
+}
+
+class ApiTestCreateTabInInvoke extends ApiTestFixtureBase {
+  override createWebClient(): WebClient {
+    return new WebClientForCreateTabInInvoke();
+  }
+
+  async testCreateTabSucceedsIfInvoking() {
+    const data = await (this.client as WebClientForCreateTabInInvoke)
+                     .createTabResult.promise;
+    assertEquals(data.url, location.href + '#invoking');
+  }
+}
+
 // All test fixtures. We look up tests by name, and the fixture name is ignored.
 // Therefore all tests must have unique names.
 const TEST_FIXTURES = [
@@ -3134,6 +3036,8 @@ const TEST_FIXTURES = [
   InitiallyNotResizableTest,
   ApiTestWithoutOpen,
   ApiTestFailsToInitialize,
+  ApiTestWithInvoke,
+  ApiTestCreateTabInInvoke,
 ];
 
 testMain(TEST_FIXTURES);

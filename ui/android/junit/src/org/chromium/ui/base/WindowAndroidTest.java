@@ -5,8 +5,13 @@
 package org.chromium.ui.base;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.anyFloat;
+import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -14,8 +19,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import android.content.ComponentCallbacks;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.os.Build;
 import android.view.WindowManager;
@@ -25,23 +33,33 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.robolectric.annotation.Config;
+import org.robolectric.annotation.GraphicsMode;
+import org.robolectric.shadows.ShadowLooper;
+import org.robolectric.shadows.ShadowSystemClock;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.insets.InsetObserver.WindowInsetObserver;
 
 import java.lang.ref.WeakReference;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(sdk = BaseRobolectricTestRunner.MAX_SDK)
-@EnableFeatures({UiAndroidFeatures.ANDROID_USE_CORRECT_WINDOW_BOUNDS})
+@EnableFeatures({
+    UiAndroidFeatures.ANDROID_USE_CORRECT_WINDOW_BOUNDS,
+    UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION
+})
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 public class WindowAndroidTest {
 
     @Mock private final Context mContext = mock(Context.class);
@@ -82,13 +100,16 @@ public class WindowAndroidTest {
                 .addObserver(any(WindowInsetObserver.class));
 
         WindowAndroidJni.setInstanceForTesting(mWindowAndroidNativeInterface);
-        mWindowAndroid = new WindowAndroid(mContext, false, null, mInsetObserver, false);
+        mWindowAndroid = new WindowAndroid(mContext, false, null, mInsetObserver, true);
         mWindowAndroid.setNativePointerForTesting(MOCK_NATIVE_POINTER);
     }
 
     @After
     public void tearDown() {
-        mWindowAndroid.destroy();
+        if (!mWindowAndroid.isDestroyed()) {
+            mWindowAndroid.destroy();
+        }
+        WindowAndroid.resetPeriodicMetricsForTesting();
     }
 
     @Test
@@ -162,5 +183,302 @@ public class WindowAndroidTest {
         for (WindowInsetObserver observer : mWindowInsetObservers) {
             observer.onInsetChanged();
         }
+    }
+
+    @Test
+    public void testOcclusionDurationMetric() {
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Window.OcclusionExperimental.Duration", 5000);
+
+        mWindowAndroid.setOccluded(true, null, null);
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(5));
+        mWindowAndroid.setOccluded(false, null, null);
+
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testOccludedCountMetric() {
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Window.OcclusionExperimental.OccludedCount", 1);
+
+        mWindowAndroid.setIsOcclusionTracked(true);
+        mWindowAndroid.setOccluded(true, null, null);
+
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testOcclusionDurationMetricOnDestroy() {
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Window.OcclusionExperimental.Duration", 5000);
+
+        mWindowAndroid.setOccluded(true, null, null);
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(5));
+        mWindowAndroid.destroy();
+
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures({UiAndroidFeatures.ANDROID_UPDATE_DISPLAY_FOR_CONTEXT})
+    public void testOnConfigurationChangedOnDifferentDisplay_updatesDisplay() {
+        ArgumentCaptor<ComponentCallbacks> captor =
+                ArgumentCaptor.forClass(ComponentCallbacks.class);
+        verify(mContext).registerComponentCallbacks(captor.capture());
+
+        DisplayAndroid newDisplay = mock(DisplayAndroid.class);
+        when(newDisplay.getAdaptiveRefreshRateInfo())
+                .thenReturn(new DisplayAndroid.AdaptiveRefreshRateInfo(false, 0, null));
+        DisplayAndroid.setNonMultiDisplayForTesting(newDisplay);
+
+        captor.getValue().onConfigurationChanged(new Configuration());
+
+        verifyDisplayUpdate(newDisplay);
+    }
+
+    @Test
+    @EnableFeatures({UiAndroidFeatures.ANDROID_UPDATE_DISPLAY_FOR_CONTEXT})
+    public void testOnActivityResumedOnDifferentDisplay_updatesDisplay() {
+        DisplayAndroid newDisplay = mock(DisplayAndroid.class);
+        when(newDisplay.getAdaptiveRefreshRateInfo())
+                .thenReturn(new DisplayAndroid.AdaptiveRefreshRateInfo(false, 0, null));
+        DisplayAndroid.setNonMultiDisplayForTesting(newDisplay);
+
+        mWindowAndroid.onActivityResumed();
+
+        verifyDisplayUpdate(newDisplay);
+    }
+
+    @Test
+    public void testOcclusionOptimizationsEnabled() {
+        UiAndroidFeatureList.sAndroidWindowOcclusionOptimizations.setForTesting(true);
+
+        mWindowAndroid.setOccluded(true, null, null);
+        assertTrue(mWindowAndroid.getOcclusionSupplier().get());
+
+        mWindowAndroid.setOccluded(false, null, null);
+        assertFalse(mWindowAndroid.getOcclusionSupplier().get());
+    }
+
+    @Test
+    public void testOcclusionOptimizationsDisabled() {
+        UiAndroidFeatureList.sAndroidWindowOcclusionOptimizations.setForTesting(false);
+
+        mWindowAndroid.setOccluded(true, null, null);
+        assertFalse(mWindowAndroid.getOcclusionSupplier().get());
+
+        mWindowAndroid.setOccluded(false, null, null);
+        assertFalse(mWindowAndroid.getOcclusionSupplier().get());
+    }
+
+    @Test
+    public void testOcclusionTimePercentMetric() {
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Window.OcclusionExperimental.OccludedTimePercent", 40);
+
+        mWindowAndroid.setIsOcclusionTracked(true);
+
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(1));
+        mWindowAndroid.setOccluded(true, null, null);
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(4));
+        mWindowAndroid.setOccluded(false, null, null);
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(5));
+
+        mWindowAndroid.destroy();
+
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testOcclusionTimePercentMetricOcclusionNotTracked() {
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Android.Window.OcclusionExperimental.OccludedTimePercent")
+                        .build();
+
+        // Do not call setIsOcclusionTracked().
+
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(1));
+        mWindowAndroid.setOccluded(true, null, null);
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(4));
+        mWindowAndroid.setOccluded(false, null, null);
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(5));
+
+        mWindowAndroid.destroy();
+
+        histogramWatcher.assertExpected();
+    }
+
+    private void verifyDisplayUpdate(DisplayAndroid newDisplay) {
+        verify(mDisplay).removeObserver(mWindowAndroid);
+        verify(newDisplay).addObserver(mWindowAndroid);
+        verify(mWindowAndroidNativeInterface).onUpdateDisplayId(anyLong(), anyInt());
+        verify(mWindowAndroidNativeInterface)
+                .onAdaptiveRefreshRateInfoChanged(
+                        anyLong(), anyBoolean(), anyFloat(), any(), any());
+        verify(mWindowAndroidNativeInterface).onUpdateRefreshRate(anyLong(), anyFloat());
+    }
+
+    @Test
+    public void testSavedRenderingMetric() {
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Window.OcclusionExperimental.SavedRenderingPer5Minutes", 300);
+
+        mWindowAndroid.setIsOcclusionTracked(true);
+        mWindowAndroid.setOccluded(true, new Rect(0, 0, 1000, 1000), null); // 1 megapixel
+
+        ShadowSystemClock.advanceBy(Duration.ofMinutes(5));
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testSavedRenderingMetric_MultipleWindows() {
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Window.OcclusionExperimental.SavedRenderingPer5Minutes", 600);
+
+        WindowAndroid window1 = new WindowAndroid(mContext, false, null, mInsetObserver, true);
+        window1.setIsOcclusionTracked(true);
+
+        WindowAndroid window2 = new WindowAndroid(mContext, false, null, mInsetObserver, true);
+        window2.setIsOcclusionTracked(true);
+
+        // Both windows occluded for 2.5 minutes (150s)
+        window1.setOccluded(true, new Rect(0, 0, 1000, 1000), null); // 1 megapixel
+        window2.setOccluded(true, new Rect(0, 0, 1000, 2000), null); // 2 megapixels
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(150));
+
+        // Only window 1 occluded for the next 2.5 minutes (150s)
+        window2.setOccluded(false, null, null);
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(150));
+
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+
+        histogramWatcher.assertExpected();
+
+        window1.destroy();
+        window2.destroy();
+    }
+
+    @Test
+    public void testSavedRenderingMetric_WindowDestroyedWhileOccluded() {
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.Window.OcclusionExperimental.SavedRenderingPer5Minutes",
+                                150)
+                        .build();
+
+        WindowAndroid window = new WindowAndroid(mContext, false, null, mInsetObserver, true);
+        window.setIsOcclusionTracked(true);
+        window.setOccluded(true, new Rect(0, 0, 1000, 1000), null); // 1 megapixel
+
+        // Window occluded for 2.5 minutes (150s)
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(150));
+
+        window.destroy();
+
+        // Another 2.5 minutes passes, but window was destroyed so shouldn't add to accumulated
+        // value
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(150));
+
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testSavedRenderingMetric_NullWindowBounds() {
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Window.OcclusionExperimental.SavedRenderingPer5Minutes", 0);
+
+        mWindowAndroid.setIsOcclusionTracked(true);
+        mWindowAndroid.setOccluded(true, null, null);
+
+        ShadowSystemClock.advanceBy(Duration.ofMinutes(5));
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testTotalOccludedMegapixelsMetric() {
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Window.OcclusionExperimental.TotalOccludedMegapixels", 1);
+
+        WindowAndroid window = new WindowAndroid(mContext, false, null, mInsetObserver, true);
+        window.setIsOcclusionTracked(true);
+        window.setOccluded(true, new Rect(0, 0, 1000, 1000), null); // 1 megapixel
+
+        ShadowSystemClock.advanceBy(Duration.ofMinutes(5));
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+
+        histogramWatcher.assertExpected();
+
+        window.destroy();
+    }
+
+    @Test
+    public void testTotalOccludedMegapixelsMetric_MultipleWindows() {
+        var histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Window.OcclusionExperimental.TotalOccludedMegapixels", 3);
+
+        // Window 1: 1 megapixel
+        WindowAndroid window = new WindowAndroid(mContext, false, null, mInsetObserver, true);
+        window.setIsOcclusionTracked(true);
+        window.setOccluded(true, new Rect(0, 0, 1000, 1000), null); // 1 megapixel
+
+        // Window 2: 2 megapixels
+        WindowAndroid window2 = new WindowAndroid(mContext, false, null, mInsetObserver, true);
+        window2.setIsOcclusionTracked(true);
+        window2.setOccluded(true, new Rect(0, 0, 1000, 2000), null); // 2 megapixels
+
+        // Both windows occluded
+        ShadowSystemClock.advanceBy(Duration.ofMinutes(5));
+
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+
+        histogramWatcher.assertExpected();
+
+        window.destroy();
+        window2.destroy();
+    }
+
+    @Test
+    public void testTotalOccludedMegapixelsMetric_WindowDestroyedWhileOccluded() {
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.Window.OcclusionExperimental.TotalOccludedMegapixels", 0)
+                        .build();
+
+        WindowAndroid window = new WindowAndroid(mContext, false, null, mInsetObserver, true);
+        window.setIsOcclusionTracked(true);
+        window.setOccluded(true, new Rect(0, 0, 1000, 1000), null); // 1 megapixel
+
+        // Window occluded for 2.5 minutes (150s)
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(150));
+
+        window.destroy();
+
+        // Another 2.5 minutes passes
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(150));
+
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+
+        histogramWatcher.assertExpected();
     }
 }

@@ -7,6 +7,7 @@ import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 
 import type {BrowserProxy} from './contextual_tasks_browser_proxy.js';
+import type {WebViewType} from './web_view_type.js';
 
 const HANDSHAKE_INTERVAL_MS = 10;
 // 3000 * 10ms = 30 seconds.
@@ -31,7 +32,7 @@ export interface InputPlateBoundsUpdateMessage {
  * A proxy class to control post messages sent to the webview.
  */
 export class PostMessageHandler {
-  private webview_: chrome.webviewTag.WebView;
+  private webview_: WebViewType;
   private targetOrigin_: string = '';
   private eventTracker_: EventTracker = new EventTracker();
   private browserProxy_: BrowserProxy;
@@ -43,9 +44,11 @@ export class PostMessageHandler {
   private handshakeMessage_: Uint8Array|null = null;
   private onInputPlateBoundsUpdate_:
       ((rect?: Rect, occluders?: Rect[]) => void)|null = null;
+  // The URL of the active navigation. Null if there is no active navigation.
+  private activeNavigationUrl_: string|null = null;
 
   constructor(
-      webview: chrome.webviewTag.WebView, browserProxy: BrowserProxy,
+      webview: WebViewType, browserProxy: BrowserProxy,
       // Allow overriding max attempts for testing.
       private readonly maxHandshakeAttempts_: number = MAX_HANDSHAKE_ATTEMPTS) {
     this.webview_ = webview;
@@ -54,7 +57,12 @@ export class PostMessageHandler {
     this.eventTracker_.add(
         this.webview_, 'loadstart', this.onLoadStart_.bind(this));
     this.eventTracker_.add(
+        this.webview_, 'loadredirect', this.onLoadRedirect_.bind(this));
+    this.eventTracker_.add(
         this.webview_, 'loadcommit', this.onLoadCommit_.bind(this));
+    this.eventTracker_.add(
+        this.webview_, 'loadabort', this.onLoadAbort_.bind(this));
+
     this.eventTracker_.add(
         window, 'message', this.onMessageReceived_.bind(this));
 
@@ -108,15 +116,32 @@ export class PostMessageHandler {
   }
 
   private onLoadStart_(event: chrome.webviewTag.LoadStartEvent) {
-    // This event is fired anytime a load starts in the webview, including
-    // subframes and navigations within the same page. Only reset the handshake
-    // if its the top level frame to avoid unnecessary resets.
+    if (!event.isTopLevel) {
+      return;
+    }
+    // Store the start event to be used once its clear if this navigation is
+    // committed or aborted
+    this.activeNavigationUrl_ = event.url;
+  }
+
+  private onLoadRedirect_(event: chrome.webviewTag.LoadRedirectEvent) {
     if (!event.isTopLevel) {
       return;
     }
 
-    // Reset the handshake since the src has changed.
-    this.resetHandshake_();
+    const urlObj = URL.parse(event.newUrl);
+    if (urlObj) {
+      // Update target origin immediately on redirect to ensure handshake
+      // messages go to the correct origin for the intermediate hop or final
+      // destination.
+      this.targetOrigin_ = urlObj.origin;
+    } else {
+      console.error('Invalid URL in loadredirect:', event.newUrl);
+    }
+
+    if (this.activeNavigationUrl_ === event.oldUrl) {
+      this.activeNavigationUrl_ = event.newUrl;
+    }
   }
 
   // This event is fired when the load has committed in the webview. This is
@@ -128,12 +153,29 @@ export class PostMessageHandler {
       return;
     }
 
-    this.targetOrigin_ = new URL(event.url).origin;
+    const urlObj = URL.parse(event.url);
+    if (urlObj) {
+      // Update target origin to the final committed URL.
+      this.targetOrigin_ = urlObj.origin;
+    } else {
+      console.error('Invalid URL in loadcommit:', event.url);
+    }
 
-    // Must reset the handshake before starting a new one. onLoadCommit_ can be
-    // called multiple times in a row for the same page load, so reattempt the
-    // handshake with each page load, since there is no way to distinguish
-    // which load has the receiving Javascript.
+    if (this.activeNavigationUrl_ === event.url) {
+      this.restartHandshake_();
+      this.activeNavigationUrl_ = null;
+    }
+  }
+
+  private onLoadAbort_(event: chrome.webviewTag.LoadAbortEvent) {
+    if (!event.isTopLevel) {
+      return;
+    }
+    // The navigation aborted, so reset the last thread frame load start event.
+    this.activeNavigationUrl_ = null;
+  }
+
+  private restartHandshake_() {
     this.resetHandshake_();
     this.startHandshake_();
   }

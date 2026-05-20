@@ -68,6 +68,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns YES if running on an iPhone.
 - (BOOL)isIPhoneIdiom;
 
+// YES if the TabGridViewController's child views have been set up.
+- (BOOL)isTabGridSetUp;
+
 // YES if the current interface language uses RTL layout.
 - (BOOL)isRTL;
 
@@ -340,6 +343,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns the generated text fragment for the given URL, or nil if no entry
 // exists or no fragment is set.
 - (NSString*)textFragmentForSendTabToSelfEntryWithURL:(NSString*)URL;
+
+// Opens a new tab with the given URL and attaches the text fragment to its
+// internal NavigationItem to trigger scroll restoration upon page load.
+- (void)openNewTabWithURL:(NSString*)url textFragment:(NSString*)textFragment;
 
 // Triggers a sync cycle for a `type`.
 - (void)triggerSyncCycleForType:(syncer::DataType)type;

@@ -31,7 +31,6 @@ const char kFindInPageTestSpecialCharactersText[] = "!@#$%^&*()_+";
 const char kFindInPageTestNumbersText[] = "1234567890";
 const char kFindInPageTestAlphanumericText[] = "f00bar";
 const char kFindInPageTestNonASCIIText[] = "大家好🦑";
-const char kFindInPageTestWithSpanishAccentText[] = "á";
 const char kFindInPageTestWithoutSpanishAccentText[] = "a";
 const char kFindInPageTestLowercaseAndUppercaseText[] =
     "ThIs tExT Is bOtH UpPeRcAsE AnD LoWeRcAsE";
@@ -511,41 +510,6 @@ FindInPageTestCrossOriginFramePageHttpResponse(
   [self closeFindInPageWithDoneButton];
 }
 
-// Tests that FIP yields no matches for a text with spanish accents e.g. 'á' if
-// the web page contains the same text without spanish accents e.g. 'a'. This
-// test assumes removing accents from `kFindInPageTestWithSpanishAccentText`
-// yields `kFindInPageTestWithoutSpanishAccentText`.
-- (void)testFindInPageDifferentAccent {
-  // TODO(crbug.com/439548043): Re-enable the test on iOS26.
-  if (base::ios::IsRunningOnIOS26OrLater()) {
-    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.");
-  }
-  [self setUpTestServersForWebPageTest];
-
-  // Load test page with cross-origin iframe.
-  GURL destinationURL =
-      [self secondTestServer]->GetURL(kFindInPageCrossOriginFrameTestURL);
-  [ChromeEarlGrey loadURL:destinationURL];
-
-  // Assert the text without accent is there but the text with accents does
-  // not match.
-  [ChromeEarlGrey
-      waitForWebStateContainingText:kFindInPageTestWithoutSpanishAccentText];
-  [ChromeEarlGrey
-      waitForWebStateNotContainingText:kFindInPageTestWithSpanishAccentText];
-
-  // Open FIP and assert that text with no accents yields matches.
-  [self openFindInPageWithOverflowMenu];
-  [self replaceFindInPageText:@(kFindInPageTestWithoutSpanishAccentText)];
-  [self assertResultStringIsNonZero];
-
-  // Replace the text without spanish accent with the same text with spanish
-  // accents and test that there are no more matches.
-  [self replaceFindInPageText:@(kFindInPageTestWithSpanishAccentText)];
-  [self assertResultStringIsEmptyOrZero];
-  [self closeFindInPageWithDoneButton];
-}
-
 // Test that there is no query persistence with this variant of Native Find in
 // Page i.e. with Find interaction.
 - (void)testFindInPageHistory {
@@ -937,10 +901,8 @@ FindInPageTestCrossOriginFramePageHttpResponse(
   GURL destinationURL = self.testServer->GetURL(kFindInPageComplexPDFTestURL);
   [ChromeEarlGrey loadURL:destinationURL];
 
-  // Ensure the toolbars are not in fullscreen mode by checking if share
-  // button is visible.
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::TabShareButton()]
-      assertWithMatcher:grey_sufficientlyVisible()];
+  // Ensure the toolbars are not in fullscreen mode.
+  [ChromeEarlGreyUI waitForToolbarVisible:YES];
 
   // Open FIP with Overflow menu and check it is visible and the share button
   // is not visible.
@@ -948,16 +910,14 @@ FindInPageTestCrossOriginFramePageHttpResponse(
   [ChromeEarlGrey
       waitForSufficientlyVisibleElementWithMatcher:[self findInPageInputField]];
 
-  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:chrome_test_util::
-                                                             TabShareButton()];
+  [ChromeEarlGreyUI waitForToolbarVisible:NO];
 
   // Close find in page with Done button and ensure the share button is
   // visible again.
   [self closeFindInPageWithDoneButton];
   [[EarlGrey selectElementWithMatcher:[self findInPageInputField]]
       assertWithMatcher:grey_notVisible()];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::TabShareButton()]
-      assertWithMatcher:grey_sufficientlyVisible()];
+  [ChromeEarlGreyUI waitForToolbarVisible:YES];
 }
 
 // Tests that FIP works properly with bottom omnibox.

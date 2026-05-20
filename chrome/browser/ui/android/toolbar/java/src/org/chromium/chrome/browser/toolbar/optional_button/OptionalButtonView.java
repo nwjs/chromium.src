@@ -81,6 +81,7 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
     private ImageView mAnimationImage;
 
     private @Nullable Drawable mIconDrawable;
+    private @Nullable Drawable mCollapsedIconDrawable;
 
     private @MonotonicNonNull ViewGroup mTransitionRoot;
     private @Nullable String mContentDescription;
@@ -88,6 +89,8 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
     private @StringRes int mActionChipLabelResId = Resources.ID_NULL;
     private boolean mCurrentButtonSupportsTinting;
     private boolean mIsIncognitoBranded;
+    private boolean mSuppressBackground;
+    private boolean mIsCpaCheckedState;
     private @Nullable ColorStateList mForegroundColorTint;
     private int mBackgroundColorFilter;
     private Runnable mOnBeforeHideTransitionCallback = CallbackUtils.emptyRunnable();
@@ -102,6 +105,7 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
     private @AdaptiveToolbarButtonVariant int mCurrentButtonVariant =
             AdaptiveToolbarButtonVariant.NONE;
     private boolean mCanCurrentButtonShow;
+    private int mActionChipCollapseDelayMs;
 
     // Indicates whether this optional button can change its own the visibility or leave the control
     // to some other entity. {@code true} by default.
@@ -194,7 +198,22 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
         // Logic for setting the background resource is in #updateButtonWithAnimation.
     }
 
+    void setSuppressBackground(boolean suppressBackground) {
+        mSuppressBackground = suppressBackground;
+        if (mSuppressBackground) {
+            mButton.setBackground(null);
+            mBackground.setVisibility(GONE);
+        } else {
+            setBackgroundResourceHelper(mIsCpaCheckedState);
+            mBackground.setVisibility(mNextButtonType == ButtonType.DYNAMIC ? VISIBLE : GONE);
+        }
+    }
+
     private void setBackgroundResourceHelper(boolean isCpaCheckedState) {
+        if (mSuppressBackground) {
+            mButton.setBackground(null);
+            return;
+        }
         @DrawableRes
         int backgroundDrawableRes =
                 isCpaCheckedState
@@ -289,11 +308,14 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
 
         mCurrentButtonVariant = buttonSpec.getButtonVariant();
         mCanCurrentButtonShow = true;
+        mActionChipCollapseDelayMs = buttonSpec.getActionChipCollapseDelayMs();
         mCurrentButtonSupportsTinting = buttonSpec.getSupportsTinting();
 
         mIconDrawable = buttonSpec.getDrawable();
+        mCollapsedIconDrawable = buttonSpec.getCollapsedDrawable();
 
         boolean isCpaCheckedState = buttonData.getButtonSpec().isChecked();
+        mIsCpaCheckedState = isCpaCheckedState;
 
         // Change the CPA background to a square if the button data instance is owned by
         // PriceTrackingButtonController and is a "checked" state.
@@ -522,9 +544,10 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
      */
     @Override
     public void onTransitionEnd(@Nullable Transition transition) {
-        if (mTransitionFinishedCallback != null
-                && getCurrentTransitionType() != TransitionType.NONE) {
-            mTransitionFinishedCallback.onResult(getCurrentTransitionType());
+        @TransitionType int transitionType = getCurrentTransitionType();
+
+        if (mTransitionFinishedCallback != null && transitionType != TransitionType.NONE) {
+            mTransitionFinishedCallback.onResult(transitionType);
         }
 
         mState = getNextState();
@@ -537,7 +560,13 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
             if (mCanChangeOwnVisibility) this.setVisibility(GONE);
         } else {
             mButton.setVisibility(VISIBLE);
-            mButton.setImageDrawable(mIconDrawable);
+            Drawable drawableToUse =
+                    (transitionType == TransitionType.COLLAPSING_ACTION_CHIP
+                                    && mCollapsedIconDrawable != null)
+                            ? mCollapsedIconDrawable
+                            : mIconDrawable;
+
+            mButton.setImageDrawable(drawableToUse);
             ImageViewCompat.setImageTintList(
                     mButton, mCurrentButtonSupportsTinting ? mForegroundColorTint : null);
             mButton.setOnClickListener(mClickListener);
@@ -546,13 +575,9 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
             mButton.setContentDescription(mContentDescription);
         }
 
-        // When finished expanding the action chip schedule the collapse transition in 3 seconds.
+        // When finished expanding the action chip schedule the collapse transition.
         if (mState == State.SHOWING_ACTION_CHIP) {
-            getHandler()
-                    .postDelayed(
-                            mCollapseActionChipRunnable,
-                            AdaptiveToolbarFeatures.getContextualPageActionDelayMs(
-                                    mCurrentButtonVariant));
+            getHandler().postDelayed(mCollapseActionChipRunnable, mActionChipCollapseDelayMs);
         }
     }
 
@@ -757,7 +782,8 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
         }
 
         // Background shows/hides with a fade animation.
-        mBackground.setVisibility(mNextButtonType == ButtonType.DYNAMIC ? VISIBLE : GONE);
+        mBackground.setVisibility(
+                (mNextButtonType == ButtonType.DYNAMIC && !mSuppressBackground) ? VISIBLE : GONE);
 
         mState = State.RUNNING_SWAP_TRANSITION;
     }
@@ -808,7 +834,9 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
         mButton.setVisibility(VISIBLE);
         mAnimationImage.setVisibility(GONE);
         mActionChipLabel.setVisibility(VISIBLE);
-        mBackground.setVisibility(VISIBLE);
+        if (!mSuppressBackground) {
+            mBackground.setVisibility(VISIBLE);
+        }
 
         float actionChipLabelTextWidth =
                 mActionChipLabel.getPaint().measureText(mActionChipLabelString);
@@ -915,7 +943,9 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
         mAnimationImage.setVisibility(GONE);
         mActionChipLabel.setVisibility(GONE);
 
-        mButton.setImageDrawable(mIconDrawable);
+        Drawable drawableToUse =
+                (mCollapsedIconDrawable != null) ? mCollapsedIconDrawable : mIconDrawable;
+        mButton.setImageDrawable(drawableToUse);
         ImageViewCompat.setImageTintList(
                 mButton, mCurrentButtonSupportsTinting ? mForegroundColorTint : null);
 
@@ -927,7 +957,8 @@ class OptionalButtonView extends FrameLayout implements TransitionListener {
         mButton.setVisibility(VISIBLE);
 
         mBackground.setColorFilter(mBackgroundColorFilter);
-        mBackground.setVisibility(mNextButtonType == ButtonType.DYNAMIC ? VISIBLE : GONE);
+        mBackground.setVisibility(
+                (mNextButtonType == ButtonType.DYNAMIC && !mSuppressBackground) ? VISIBLE : GONE);
         mOnBeforeShowTransitionCallback.run();
 
         mState = State.RUNNING_SHOW_TRANSITION;

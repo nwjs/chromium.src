@@ -8,7 +8,15 @@
 #include <string>
 
 #include "ash/ash_export.h"
+#include "base/memory/raw_ptr.h"
 #include "base/values.h"
+#include "components/sync_preferences/synced_pref_observer.h"
+
+class PrefService;
+
+namespace sync_preferences {
+class PrefServiceSyncable;
+}
 
 namespace ash {
 
@@ -28,10 +36,11 @@ struct AccessibilityPrefBatchEntry;
 // wins).
 // Locking is only used for prefs that can be toggled at the OOBE/login
 // screen before full profile sync is established.
-class ASH_EXPORT AccessibilityPrefsCustomAssociator {
+class ASH_EXPORT AccessibilityPrefsCustomAssociator
+    : public sync_preferences::SyncedPrefObserver {
  public:
-  AccessibilityPrefsCustomAssociator();
-  ~AccessibilityPrefsCustomAssociator();
+  explicit AccessibilityPrefsCustomAssociator(PrefService* prefs);
+  virtual ~AccessibilityPrefsCustomAssociator();
 
   AccessibilityPrefsCustomAssociator(
       const AccessibilityPrefsCustomAssociator&) = delete;
@@ -89,20 +98,24 @@ class ASH_EXPORT AccessibilityPrefsCustomAssociator {
   // Returns the currently tracked locked prefs and account-store prefs.
   LockedAndAccountStorePrefs GetLockedAndAccountStorePrefs() const;
 
+  // Returns whether a given preference `pref_name` can be locked, i.e. it is
+  // a syncable accessibility pref that requires conflict resolution.
+  bool CanLockPref(std::string_view pref_name) const;
+
   // Prints to stderr the content of the preference/value pairs set by calling
   // TryLockPref() and TrySetAccountStorePref().
   void ToString() const;
 
  private:
-  // Returns whether a given preference `pref_name` can be locked, i.e. it is
-  // a syncable accessibility pref that requires conflict resolution.
-  bool CanLockPref(std::string_view pref_name) const;
-
   // Returns whether `pref_name` is currently locked.
   bool IsPrefLocked(std::string_view pref_name) const;
 
   // Returns the locked value for `pref_name`, or base::Value() if not locked.
   base::Value GetPrefLockedValue(std::string_view pref_name) const;
+
+  // SyncedPrefObserver:
+  void OnStartedSyncing(std::string_view pref_name,
+                        const base::Value& sync_value) override;
 
   // List of locked prefs that must use the stored local value instead of
   // server value.
@@ -114,6 +127,10 @@ class ASH_EXPORT AccessibilityPrefsCustomAssociator {
 
   // Array of accessibility prefs that are syncable as per the feature flags.
   const std::vector<AccessibilityPrefBatchEntry> enabled_sync_prefs_;
+
+  // The pref service of the currently active user.
+  // Can be null in ash_unittests.
+  raw_ptr<sync_preferences::PrefServiceSyncable> prefs_ = nullptr;
 };
 
 }  // namespace ash

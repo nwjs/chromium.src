@@ -30,12 +30,8 @@
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/form_field_data.h"
-#include "components/autofill/core/common/plus_address_survey_type.h"
 #include "components/plus_addresses/core/browser/grit/plus_addresses_strings.h"
-#include "components/plus_addresses/core/browser/metrics/plus_address_metrics.h"
 #include "components/plus_addresses/core/browser/plus_address_allocator.h"
-#include "components/plus_addresses/core/browser/plus_address_blocklist_data.h"
-#include "components/plus_addresses/core/browser/plus_address_hats_utils.h"
 #include "components/plus_addresses/core/browser/plus_address_http_client.h"
 #include "components/plus_addresses/core/browser/plus_address_http_client_impl.h"
 #include "components/plus_addresses/core/browser/plus_address_jit_allocator.h"
@@ -94,54 +90,9 @@ std::unique_ptr<PlusAddressAllocator> CreateAllocator(
   return std::make_unique<PlusAddressJitAllocator>(http_client);
 }
 
-// Returns `true` if the origin is part of the set of blocklisted domains and
-// `false` otherwise. This means that the domain's origin matches the
-// `exclusion_pattern` regex and does not match the `exception_pattern` regex.
-bool IsSiteExcluded(const url::Origin& origin) {
-  const PlusAddressBlocklistData& blocklist_data =
-      PlusAddressBlocklistData::GetInstance();
-
-  const re2::RE2* exception_pattern = blocklist_data.GetExceptionPattern();
-  if (exception_pattern &&
-      RE2::PartialMatch(origin.host(), *exception_pattern)) {
-    return false;
-  }
-
-  const re2::RE2* exclusion_pattern = blocklist_data.GetExclusionPattern();
-  return exclusion_pattern &&
-         RE2::PartialMatch(origin.host(), *exclusion_pattern);
-}
-
 std::string GetPlusAddressFromPlusProfile(
     const PlusProfile& affiliated_profile) {
   return affiliated_profile.plus_address.value();
-}
-
-// Returns a suggestion to fill an existing plus address.
-Suggestion CreateFillPlusAddressSuggestion(std::u16string plus_address) {
-  Suggestion suggestion = Suggestion(std::move(plus_address),
-                                     SuggestionType::kFillExistingPlusAddress);
-  if constexpr (!BUILDFLAG(IS_ANDROID)) {
-    suggestion.labels = {{Suggestion::Text(l10n_util::GetStringUTF16(
-        IDS_PLUS_ADDRESS_FILL_SUGGESTION_SECONDARY_TEXT))}};
-  }
-  suggestion.icon = Suggestion::Icon::kPlusAddress;
-  return suggestion;
-}
-
-std::vector<autofill::Suggestion> GetSuggestions(
-    const std::vector<std::string>& affiliated_plus_addresses) {
-  std::vector<Suggestion> suggestions;
-  suggestions.reserve(affiliated_plus_addresses.size());
-  for (const std::string& affiliated_plus_address : affiliated_plus_addresses) {
-    suggestions.push_back(CreateFillPlusAddressSuggestion(
-        base::UTF8ToUTF16(affiliated_plus_address)));
-  }
-  // It is required by `autofill::SuggestionGenerator` that this function should
-  // not filter plus addresses and should return an `autofill::Suggestion`
-  // object for each of them.
-  CHECK_EQ(suggestions.size(), affiliated_plus_addresses.size());
-  return suggestions;
 }
 
 }  // namespace
@@ -321,27 +272,6 @@ void PlusAddressServiceImpl::GetAffiliatedPlusAddresses(
             std::move(inner_callback).Run(std::move(plus_addresses));
           },
           std::move(callback)));
-}
-
-std::vector<Suggestion> PlusAddressServiceImpl::GetSuggestionsFromPlusAddresses(
-    const std::vector<std::string>& plus_addresses) {
-  std::vector<Suggestion> suggestions = GetSuggestions(plus_addresses);
-  const autofill::DenseSet<SuggestionType> suggestion_types(suggestions,
-                                                            &Suggestion::type);
-
-  using enum AutofillPlusAddressDelegate::SuggestionEvent;
-  if (suggestion_types.contains(SuggestionType::kFillExistingPlusAddress)) {
-    RecordAutofillSuggestionEvent(kExistingPlusAddressSuggested);
-  }
-  return suggestions;
-}
-
-Suggestion PlusAddressServiceImpl::GetManagePlusAddressSuggestion() const {
-  Suggestion suggestion(
-      l10n_util::GetStringUTF16(IDS_PLUS_ADDRESS_MANAGE_PLUS_ADDRESSES_TEXT),
-      SuggestionType::kManagePlusAddress);
-  suggestion.icon = Suggestion::Icon::kGoogleMonochrome;
-  return suggestion;
 }
 
 void PlusAddressServiceImpl::ReservePlusAddress(
@@ -541,71 +471,12 @@ void PlusAddressServiceImpl::HandleSignout() {
 
 bool PlusAddressServiceImpl::IsSupportedOrigin(
     const url::Origin& origin) const {
-  if (origin.opaque() || IsSiteExcluded(origin)) {
+  if (origin.opaque()) {
     return false;
   }
 
   return origin.scheme() == url::kHttpsScheme ||
          origin.scheme() == url::kHttpScheme;
-}
-
-void PlusAddressServiceImpl::RecordAutofillSuggestionEvent(
-    SuggestionEvent suggestion_event) {
-  metrics::RecordAutofillSuggestionEvent(suggestion_event);
-
-  using enum autofill::AutofillPlusAddressDelegate::SuggestionEvent;
-  switch (suggestion_event) {
-    case kRefreshPlusAddressInlineClicked:
-      base::RecordAction(base::UserMetricsAction("PlusAddresses.Refreshed"));
-      return;
-    case kExistingPlusAddressSuggested:
-      base::RecordAction(base::UserMetricsAction(
-          "PlusAddresses.StandaloneFillSuggestionShown"));
-      return;
-    case kCreateNewPlusAddressSuggested: {
-      if (setting_service_->GetHasAcceptedNotice()) {
-        base::RecordAction(
-            base::UserMetricsAction("PlusAddresses.CreateSuggestionShown"));
-      } else {
-        base::RecordAction(base::UserMetricsAction(
-            "PlusAddresses.CreateSuggestionFirstTimeNoticeShown"));
-      }
-      return;
-    }
-    case kCreateNewPlusAddressInlineSuggested:
-      base::RecordAction(
-          base::UserMetricsAction("PlusAddresses.CreateSuggestionShown"));
-      return;
-    case kExistingPlusAddressChosen:
-      base::RecordAction(base::UserMetricsAction(
-          "PlusAddresses.FillStandaloneSuggestionAccepted"));
-      return;
-    case kCreateNewPlusAddressChosen:
-      base::RecordAction(
-          base::UserMetricsAction("PlusAddresses.CreateSuggestionAccepted"));
-      return;
-    case kCreateNewPlusAddressInlineChosen:
-      base::RecordAction(
-          base::UserMetricsAction("PlusAddresses.OfferedPlusAddressAccepted"));
-      return;
-    case kErrorDuringReserve:
-    case kCreateNewPlusAddressInlineReserveLoadingStateShown:
-      return;
-  }
-  NOTREACHED();
-}
-
-void PlusAddressServiceImpl::OnPlusAddressSuggestionShown(
-    autofill::AutofillManager& manager,
-    autofill::FormGlobalId form,
-    autofill::FieldGlobalId field,
-    SuggestionContext suggestion_context,
-    autofill::PasswordFormClassification::Type form_type,
-    autofill::SuggestionType suggestion_type) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  submission_logger_.OnPlusAddressSuggestionShown(
-      manager, form, field, suggestion_context, form_type, suggestion_type,
-      /*plus_address_count=*/plus_address_cache_.Size());
 }
 
 void PlusAddressServiceImpl::DidFillPlusAddress() {
@@ -616,23 +487,5 @@ size_t PlusAddressServiceImpl::GetPlusAddressesCount() {
   return GetPlusProfiles().size();
 }
 
-std::map<std::string, std::string>
-PlusAddressServiceImpl::GetPlusAddressHatsData() const {
-  auto time_pref_to_string = [&](std::string_view pref) {
-    const base::Time time = pref_service_->GetTime(pref);
-    if (time.is_null()) {
-      return std::string("-1");
-    }
-    const base::TimeDelta delta = base::Time::Now() - time;
-    return delta.is_positive() ? base::ToString(delta.InSeconds())
-                               : std::string("-1");
-  };
-
-  return {{hats::kPlusAddressesCount, base::ToString(GetPlusProfiles().size())},
-          {hats::kFirstPlusAddressCreationTime,
-           time_pref_to_string(prefs::kFirstPlusAddressCreationTime)},
-          {hats::kLastPlusAddressFillingTime,
-           time_pref_to_string(prefs::kLastPlusAddressFillingTime)}};
-}
 
 }  // namespace plus_addresses

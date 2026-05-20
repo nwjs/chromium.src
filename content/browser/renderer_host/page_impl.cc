@@ -36,9 +36,7 @@
 namespace content {
 
 PageImpl::PageImpl(RenderFrameHostImpl& rfh, PageDelegate& delegate)
-    : main_document_(rfh),
-      delegate_(delegate),
-      text_autosizer_page_info_({0, 0, 1.f}) {
+    : main_document_(rfh), delegate_(delegate) {
   if (base::FeatureList::IsEnabled(features::kSharedStorageSelectURLLimit)) {
     select_url_overall_budget_ =
         features::kSharedStorageSelectURLBitBudgetPerPageLoad.Get();
@@ -82,6 +80,21 @@ void PageImpl::GetManifest(GetManifestCallback callback) {
 
 bool PageImpl::IsPrimary() const {
   return main_document_->IsInPrimaryMainFrame();
+}
+
+const blink::mojom::CaptureHandleConfig& PageImpl::GetCaptureHandleConfig() {
+  return capture_handle_config_;
+}
+
+void PageImpl::SetCaptureHandleConfig(
+    blink::mojom::CaptureHandleConfigPtr config) {
+  if (capture_handle_config_ == *config) {
+    return;
+  }
+  capture_handle_config_ = std::move(*config);
+
+  // Notify the tab-level observers via the delegate bridge.
+  main_document_->delegate()->OnCaptureHandleConfigUpdate(*this);
 }
 
 void PageImpl::UpdateManifestUrl(const GURL& manifest_url) {
@@ -166,38 +179,6 @@ void PageImpl::NotifyPageBecameCurrent() {
 
 void PageImpl::SetContentsMimeType(std::string mime_type) {
   contents_mime_type_ = std::move(mime_type);
-}
-
-void PageImpl::OnTextAutosizerPageInfoChanged(
-    blink::mojom::TextAutosizerPageInfoPtr page_info) {
-  OPTIONAL_TRACE_EVENT0("content", "PageImpl::OnTextAutosizerPageInfoChanged");
-
-  // Keep a copy of `page_info` in case we create a new `blink::WebView` before
-  // the next update, so that the PageImpl can tell the newly created
-  // `blink::WebView` about the autosizer info.
-  text_autosizer_page_info_.main_frame_width = page_info->main_frame_width;
-  text_autosizer_page_info_.main_frame_layout_width =
-      page_info->main_frame_layout_width;
-  text_autosizer_page_info_.device_scale_adjustment =
-      page_info->device_scale_adjustment;
-
-  auto remote_frames_broadcast_callback =
-      [this](RenderFrameProxyHost* proxy_host) {
-        DCHECK(proxy_host);
-        proxy_host->GetAssociatedRemoteMainFrame()->UpdateTextAutosizerPageInfo(
-            text_autosizer_page_info_.Clone());
-      };
-
-  {
-    TRACE_EVENT("navigation",
-                "PageImpl::OnTextAutosizerPageInfoChanged broadcast");
-    main_document_->frame_tree()
-        ->root()
-        ->render_manager()
-        ->ExecuteRemoteFramesBroadcastMethod(
-            std::move(remote_frames_broadcast_callback),
-            main_document_->GetSiteInstance()->group());
-  }
 }
 
 void PageImpl::SetActivationStartTime(base::TimeTicks activation_start) {
@@ -408,12 +389,14 @@ base::flat_map<std::string, std::string> PageImpl::GetKeyboardLayoutMap() {
 }
 
 int32_t PageImpl::GetSavedQueryResultIndexOrStoreCallback(
-    const url::Origin& origin,
+    const url::Origin& context_origin,
+    const url::Origin& data_origin,
     const GURL& script_url,
     const std::string& operation_name,
     const std::u16string& query_name,
     base::OnceCallback<void(uint32_t)> callback) {
-  auto key = std::make_tuple(origin, script_url, operation_name, query_name);
+  auto key = std::make_tuple(context_origin, data_origin, script_url,
+                             operation_name, query_name);
   auto it = select_url_saved_query_index_results_.find(key);
   if (it == select_url_saved_query_index_results_.end()) {
     select_url_saved_query_index_results_[key] = SharedStorageSavedQueryData();
@@ -434,12 +417,14 @@ int32_t PageImpl::GetSavedQueryResultIndexOrStoreCallback(
 }
 
 void PageImpl::SetSavedQueryResultIndexAndRunCallbacks(
-    const url::Origin& origin,
+    const url::Origin& context_origin,
+    const url::Origin& data_origin,
     const GURL& script_url,
     const std::string& operation_name,
     const std::u16string& query_name,
     uint32_t index) {
-  auto key = std::make_tuple(origin, script_url, operation_name, query_name);
+  auto key = std::make_tuple(context_origin, data_origin, script_url,
+                             operation_name, query_name);
   auto it = select_url_saved_query_index_results_.find(key);
   CHECK(it != select_url_saved_query_index_results_.end());
   CHECK_EQ(it->second.index, -1L);

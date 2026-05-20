@@ -17,6 +17,7 @@
 #include "base/scoped_observation.h"
 #include "base/timer/timer.h"
 #include "base/values.h"
+#include "build/branding_buildflags.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/ui/webui/signin/managed_user_profile_notice_ui.h"
 #include "chrome/browser/ui/webui/signin/signin_utils.h"
@@ -76,12 +77,18 @@ class ManagedUserProfileNoticeHandler
 
   // signin::IdentityManager::Observer:
   void OnExtendedAccountInfoUpdated(const AccountInfo& info) override;
+  void OnExtendedAccountInfoRemoved(const AccountInfo& info) override;
+  void OnIdentityManagerShutdown(signin::IdentityManager* identity_manager) override;
+
   void OnBrowserDidClose(BrowserWindowInterface* browser);
 
   // Access to construction parameters for tests.
   ManagedUserProfileNoticeUI::ScreenType GetTypeForTesting();
   void CallProceedCallbackForTesting(signin::SigninChoice choice);
   void set_web_ui_for_test(content::WebUI* web_ui) { set_web_ui(web_ui); }
+  void SetJavaScriptAllowedCallbackForTesting(base::OnceClosure callback) {
+    javascript_allowed_callback_ = std::move(callback);
+  }
 
  private:
   FRIEND_TEST_ALL_PREFIXES(
@@ -101,6 +108,11 @@ class ManagedUserProfileNoticeHandler
   void HandleInitializedWithSize(const base::ListValue& args);
   void HandleProceed(const base::ListValue& args);
   void HandleCancel(const base::ListValue& args);
+
+#if BUILDFLAG(CHROME_FOR_TESTING)
+  // Processes the enterprise-signin-dialog-behavior command line switch.
+  void ProcessAutoApprove();
+#endif
 
   void OnLongProcessingTime();
 
@@ -155,6 +167,7 @@ class ManagedUserProfileNoticeHandler
   base::OnceClosure done_callback_;
   base::RepeatingClosure retry_callback_;
   bool canceling_ = false;
+  base::OnceClosure javascript_allowed_callback_;
   base::WeakPtrFactory<ManagedUserProfileNoticeHandler> weak_ptr_factory_{this};
 };
 

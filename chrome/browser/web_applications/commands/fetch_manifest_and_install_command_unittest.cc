@@ -189,7 +189,14 @@ class FetchManifestAndInstallCommandTest
            std::unique_ptr<WebAppInstallInfo> web_app_info,
            WebAppInstallationAcceptanceCallback acceptance_callback) {
           web_app_info->user_display_mode = user_display_mode;
-          std::move(acceptance_callback).Run(accept, std::move(web_app_info));
+          std::move(acceptance_callback)
+              .Run(accept, std::move(web_app_info),
+                   base::BindOnce([](bool success,
+                                     base::OnceClosure reparent_or_launch_app) {
+                     if (success && reparent_or_launch_app) {
+                       std::move(reparent_or_launch_app).Run();
+                     }
+                   }));
         },
         accept, user_display_mode);
   }
@@ -199,7 +206,7 @@ class FetchManifestAndInstallCommandTest
     manifest->name = u"foo";
     manifest->short_name = u"bar";
     manifest->start_url = kWebAppUrl;
-    manifest->id = GenerateManifestIdFromStartUrlOnly(kWebAppUrl);
+    manifest->id = GenerateManifestIdFromStartUrlOnly(kWebAppUrl).value();
     manifest->display = blink::mojom::DisplayMode::kStandalone;
     blink::Manifest::ImageResource icon;
     icon.src = kDefaultIconUrl;
@@ -278,6 +285,53 @@ TEST_F(FetchManifestAndInstallCommandTest, SuccessWithManifest) {
             webapps::InstallResultCode::kSuccessNewInstall);
   EXPECT_TRUE(provider()->registrar_unsafe().AppMatches(
       kWebAppId, WebAppFilter::InstalledInOperatingSystemForTesting()));
+  provider()->command_manager().AwaitAllCommandsCompleteForTesting();
+  EXPECT_EQ(1, fake_ui_manager().num_reparent_tab_calls());
+}
+
+TEST_F(FetchManifestAndInstallCommandTest, SuccessWithDelayedReparent) {
+  SetupPageState();
+
+  base::OnceClosure saved_reparent_closure;
+  auto dialog_callback = base::BindLambdaForTesting(
+      [&](base::WeakPtr<WebAppScreenshotFetcher>,
+          content::WebContents* initiator_web_contents,
+          std::unique_ptr<WebAppInstallInfo> web_app_info,
+          WebAppInstallationAcceptanceCallback acceptance_callback) {
+        web_app_info->user_display_mode = mojom::UserDisplayMode::kStandalone;
+        std::move(acceptance_callback)
+            .Run(true, std::move(web_app_info),
+                 base::BindOnce(
+                     [](base::OnceClosure* saved_closure, bool success,
+                        base::OnceClosure reparent_or_launch_app) {
+                       if (success) {
+                         *saved_closure = std::move(reparent_or_launch_app);
+                       }
+                     },
+                     &saved_reparent_closure));
+      });
+
+  base::test::TestFuture<const webapps::AppId&, webapps::InstallResultCode>
+      install_future;
+  provider()->scheduler().FetchManifestAndInstall(
+      webapps::WebappInstallSource::OMNIBOX_INSTALL_ICON,
+      web_contents()->GetWeakPtr(), std::move(dialog_callback),
+      install_future.GetCallback(), FallbackBehavior::kCraftedManifestOnly);
+
+  EXPECT_TRUE(install_future.Wait());
+  EXPECT_EQ(install_future.Get<webapps::InstallResultCode>(),
+            webapps::InstallResultCode::kSuccessNewInstall);
+
+  // Install completed, but reparenting should not have happened yet.
+  EXPECT_EQ(0, fake_ui_manager().num_reparent_tab_calls());
+  EXPECT_TRUE(saved_reparent_closure);
+
+  // Now run the closure.
+  std::move(saved_reparent_closure).Run();
+
+  // Wait for the reparent command to complete.
+  provider()->command_manager().AwaitAllCommandsCompleteForTesting();
+
   EXPECT_EQ(1, fake_ui_manager().num_reparent_tab_calls());
 }
 
@@ -366,6 +420,7 @@ TEST_F(FetchManifestAndInstallCommandTest,
   EXPECT_TRUE(provider()->registrar_unsafe().AppMatches(
       kWebAppId, WebAppFilter::InstalledInOperatingSystemForTesting()));
   EXPECT_EQ(provider()->registrar_unsafe().GetAppShortName(kWebAppId), "foo");
+  provider()->command_manager().AwaitAllCommandsCompleteForTesting();
   EXPECT_EQ(1, fake_ui_manager().num_reparent_tab_calls());
 }
 
@@ -386,6 +441,7 @@ TEST_F(FetchManifestAndInstallCommandTest,
       kWebAppId, WebAppFilter::InstalledInOperatingSystemForTesting()));
   EXPECT_EQ(provider()->registrar_unsafe().GetAppShortName(kWebAppId),
             "test app");
+  provider()->command_manager().AwaitAllCommandsCompleteForTesting();
   EXPECT_EQ(1, fake_ui_manager().num_reparent_tab_calls());
 }
 
@@ -434,7 +490,14 @@ TEST_F(FetchManifestAndInstallCommandTest, Shutdown) {
           content::WebContents* initiator_web_contents,
           std::unique_ptr<WebAppInstallInfo> web_app_info,
           WebAppInstallationAcceptanceCallback acceptance_callback) {
-        std::move(acceptance_callback).Run(true, std::move(web_app_info));
+        std::move(acceptance_callback)
+            .Run(true, std::move(web_app_info),
+                 base::BindOnce([](bool success,
+                                   base::OnceClosure reparent_or_launch_app) {
+                   if (success && reparent_or_launch_app) {
+                     std::move(reparent_or_launch_app).Run();
+                   }
+                 }));
         dialog_runloop.Quit();
       });
 
@@ -1061,7 +1124,7 @@ class UniversalInstallComboTest
     }
 
     if (GetManifestIdentity()) {
-      manifest->id = GetManifestIdentity().value();
+      manifest->id = GetManifestIdentity()->value();
     }
 
     if (GetDisplayMode()) {
@@ -1182,9 +1245,10 @@ TEST_P(UniversalInstallComboTest, InstallStateValid) {
   GURL start_url = GetStartUrl().value_or(kWebAppUrl);
   EXPECT_EQ(registrar.GetAppStartUrl(app_id), start_url);
 
-  webapps::ManifestId manifest_id =
-      GetManifestIdentity().value_or(GetStartUrl().value_or(kWebAppUrl));
-  EXPECT_EQ(registrar.GetAppManifestId(app_id), manifest_id);
+  webapps::ManifestId manifest_id = GetManifestIdentity().value_or(
+      webapps::ManifestId(GetStartUrl().value_or(kWebAppUrl)));
+  EXPECT_TRUE(registrar.GetAppManifestId(app_id).has_value());
+  EXPECT_EQ(registrar.GetAppManifestId(app_id).value(), manifest_id);
 
   auto display_mode =
       GetDisplayMode().value_or(blink::mojom::DisplayMode::kMinimalUi);

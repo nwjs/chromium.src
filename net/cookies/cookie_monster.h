@@ -186,12 +186,20 @@ class NET_EXPORT CookieMonster : public CookieStore {
                 NetLog* net_log,
                 std::unique_ptr<PrefDelegate> pref_delegate = nullptr);
 
-  // Only used during unit testing.
-  // |net_log| must outlive the CookieMonster.
-  CookieMonster(scoped_refptr<PersistentCookieStore> store,
+  // Internal ctor, exposed publicly only for std::make_unique.
+  // `net_log` must outlive the CookieMonster.
+  CookieMonster(base::PassKey<CookieMonster>,
+                scoped_refptr<PersistentCookieStore> store,
                 base::TimeDelta last_access_threshold,
                 NetLog* net_log,
                 std::unique_ptr<PrefDelegate> pref_delegate);
+
+  // `net_log` must outlive the CookieMonster.
+  static std::unique_ptr<CookieMonster> CreateForTesting(
+      scoped_refptr<PersistentCookieStore> store,
+      base::TimeDelta last_access_threshold,
+      NetLog* net_log,
+      std::unique_ptr<PrefDelegate> pref_delegate);
 
   CookieMonster(const CookieMonster&) = delete;
   CookieMonster& operator=(const CookieMonster&) = delete;
@@ -212,8 +220,7 @@ class NET_EXPORT CookieMonster : public CookieStore {
       const GURL& source_url,
       const CookieOptions& options,
       SetCookiesCallback callback,
-      std::optional<CookieAccessResult> cookie_access_result =
-          std::nullopt) override;
+      std::optional<CookieAccessResult> cookie_access_result) override;
   void SetUnsafeCanonicalCookieForTestAsync(
       std::unique_ptr<CanonicalCookie> cookie,
       SetCookiesCallback callback) override;

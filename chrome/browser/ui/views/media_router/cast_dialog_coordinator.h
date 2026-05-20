@@ -7,10 +7,11 @@
 
 #include "base/time/time.h"
 #include "components/media_router/browser/media_router_metrics.h"
+#include "ui/views/bubble/bubble_anchor.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/view_tracker.h"
 
-class Browser;
+class BrowserWindowInterface;
 class Profile;
 
 namespace actions {
@@ -22,7 +23,6 @@ class Rect;
 }  // namespace gfx
 
 namespace views {
-class View;
 class Widget;
 }  // namespace views
 
@@ -42,7 +42,7 @@ class CastDialogCoordinator {
   // BrowserActionsContainer exists for |browser|.
   void ShowDialogWithToolbarAction(
       CastDialogController* controller,
-      Browser* browser,
+      BrowserWindowInterface* browser,
       const base::Time& start_time,
       MediaRouterDialogActivationLocation activation_location);
 
@@ -50,7 +50,7 @@ class CastDialogCoordinator {
   // window.
   void ShowDialogCenteredForBrowserWindow(
       CastDialogController* controller,
-      Browser* browser,
+      BrowserWindowInterface* browser,
       const base::Time& start_time,
       MediaRouterDialogActivationLocation activation_location);
 
@@ -82,7 +82,7 @@ class CastDialogCoordinator {
 
   // Instantiates and shows the singleton dialog. The dialog must not be
   // currently shown.
-  void Show(views::View* anchor_view,
+  void Show(views::BubbleAnchor anchor,
             views::BubbleBorder::Arrow anchor_position,
             CastDialogController* controller,
             Profile* profile,

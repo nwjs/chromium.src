@@ -1894,8 +1894,15 @@ void SpdySession::ResetStreamIterator(ActiveStreamMap::iterator it,
   RequestPriority priority = it->second->priority();
   EnqueueResetStreamFrame(stream_id, priority, error_code, description);
 
-  // Removes any pending writes for the stream except for possibly an
-  // in-flight one.
+  // EnqueueResetStreamFrame() can synchronously call DoDrainSession() ->
+  // StartGoingAway() -> CloseActiveStreamIterator(), which erases entries
+  // from `active_streams_` and invalidates `it`. Re-look-up the stream by
+  // ID; if it was already closed by the drain, there is nothing left to do.
+  it = active_streams_.find(stream_id);
+  if (it == active_streams_.end()) {
+    return;
+  }
+
   CloseActiveStreamIterator(it, error);
 }
 
@@ -3261,10 +3268,11 @@ void SpdySession::IncreaseSendWindowSize(int delta_window_size) {
     RecordProtocolErrorHistogram(PROTOCOL_ERROR_INVALID_WINDOW_UPDATE_SIZE);
     DoDrainSession(
         ERR_HTTP2_PROTOCOL_ERROR,
-        "Received WINDOW_UPDATE [delta: " +
-            base::NumberToString(delta_window_size) +
-            "] for session overflows session_send_window_size_ [current: " +
-            base::NumberToString(session_send_window_size_) + "]");
+        base::StrCat(
+            {"Received WINDOW_UPDATE [delta: ",
+             base::NumberToString(delta_window_size),
+             "] for session overflows session_send_window_size_ [current: ",
+             base::NumberToString(session_send_window_size_), "]"}));
     return;
   }
 
@@ -3353,9 +3361,10 @@ void SpdySession::DecreaseRecvWindowSize(int32_t delta_window_size) {
     RecordProtocolErrorHistogram(PROTOCOL_ERROR_RECEIVE_WINDOW_VIOLATION);
     DoDrainSession(
         ERR_HTTP2_FLOW_CONTROL_ERROR,
-        "delta_window_size is " + base::NumberToString(delta_window_size) +
-            " in DecreaseRecvWindowSize, which is larger than the receive " +
-            "window size of " + base::NumberToString(receiving_window_size));
+        base::StrCat(
+            {"delta_window_size is ", base::NumberToString(delta_window_size),
+             " in DecreaseRecvWindowSize, which is larger than the receive ",
+             "window size of ", base::NumberToString(receiving_window_size)}));
     return;
   }
 

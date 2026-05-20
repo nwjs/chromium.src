@@ -8,7 +8,6 @@ import("//build/config/dcheck_always_on.gni")
 import("//build/config/features.gni")
 import("//components/compose/features.gni")
 import("//components/safe_browsing/buildflags.gni")
-import("//components/sharing_message/buildflags.gni")
 import("//components/signin/features.gni")
 import("//components/supervised_user/buildflags.gni")
 import("//content/public/common/features.gni")
@@ -20,6 +19,7 @@ import("//net/features.gni")
 import("//pdf/features.gni")
 import("//printing/buildflags/buildflags.gni")
 import("//services/screen_ai/buildflags/features.gni")
+import("//services/webnn/public/webnn_features.gni")
 import("//ui/base/ui_features.gni")
 import("//ui/webui/webui_features.gni")
 
@@ -103,11 +103,12 @@ chrome_grit_defines = [
   "enable_screen_capture=$enable_screen_capture",
   "enable_supervised_users=$enable_supervised_users",
   "enable_vr=$enable_vr",
+
   "enable_webui_certificate_viewer=$enable_webui_certificate_viewer",
-  "enable_webui_tab_strip=$enable_webui_tab_strip",
   "is_official_build=$is_official_build",
   "safe_browsing_mode=$safe_browsing_mode",
   "optimize_webui=$optimize_webui",
   "chrome_root_store_cert_management_ui=$chrome_root_store_cert_management_ui",
   "use_nss_certs=$use_nss_certs",
+  "webnn_enable_graph_dump=$webnn_enable_graph_dump",
 ]

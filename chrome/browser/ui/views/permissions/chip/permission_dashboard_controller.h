@@ -11,21 +11,21 @@
 #include "base/scoped_observation.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/ui/views/location_bar/content_setting_image_view.h"
-#include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
-#include "chrome/browser/ui/views/permissions/chip/permission_dashboard_view.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_chip_interface.h"
 #include "content/public/browser/global_routing_id.h"
 #include "ui/views/view_tracker.h"
 
 class LocationBar;
 class ChipController;
 class ContentSettingImageModel;
+class PermissionDashboardInterface;
 
-class PermissionDashboardController : public PermissionChipView::Observer {
+class PermissionDashboardController : public PermissionChipInterface::Observer {
  public:
   PermissionDashboardController(
       LocationBar* location_bar,
       ContentSettingImageViewDelegate* content_settings_image_delegate,
-      PermissionDashboardView* permission_dashboard_view);
+      PermissionDashboardInterface* permission_dashboard);
 
   ~PermissionDashboardController() override;
   PermissionDashboardController(const PermissionDashboardController&) = delete;
@@ -36,8 +36,8 @@ class PermissionDashboardController : public PermissionChipView::Observer {
     return request_chip_controller_.get();
   }
 
-  PermissionDashboardView* permission_dashboard_view() {
-    return permission_dashboard_view_;
+  PermissionDashboardInterface* permission_dashboard() {
+    return permission_dashboard_;
   }
 
   // This method updates UI based on `ContentSettingImageModel` state. Returns
@@ -47,7 +47,7 @@ class PermissionDashboardController : public PermissionChipView::Observer {
   // appropriate to use with `indicator_model`.
   bool Update(ContentSettingImageModel* indicator_model);
 
-  // PermissionChipView::Observer
+  // PermissionChipInterface::Observer
   void OnChipVisibilityChanged(bool is_visible) override;
   void OnExpandAnimationEnded() override;
   void OnCollapseAnimationEnded() override;
@@ -92,7 +92,7 @@ class PermissionDashboardController : public PermissionChipView::Observer {
   // that it's the appropriate delegate to use for everything shown.
   raw_ptr<ContentSettingImageViewDelegate> content_setting_image_delegate_ =
       nullptr;
-  raw_ptr<PermissionDashboardView> permission_dashboard_view_ = nullptr;
+  raw_ptr<PermissionDashboardInterface> permission_dashboard_ = nullptr;
   // Currently only Camera and Mic are supported.
   raw_ptr<ContentSettingImageModel> content_setting_image_model_ = nullptr;
   std::unique_ptr<ChipController> request_chip_controller_;
@@ -115,7 +115,8 @@ class PermissionDashboardController : public PermissionChipView::Observer {
   // button handles the mouse release event.
   bool should_suppress_reopening_page_info_ = false;
 
-  base::ScopedObservation<PermissionChipView, PermissionChipView::Observer>
+  base::ScopedObservation<PermissionChipInterface,
+                          PermissionChipInterface::Observer>
       observation_{this};
   base::WeakPtrFactory<PermissionDashboardController> weak_factory_{this};
 };

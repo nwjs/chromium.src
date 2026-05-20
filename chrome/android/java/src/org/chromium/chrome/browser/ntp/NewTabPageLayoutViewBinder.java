@@ -6,12 +6,14 @@ package org.chromium.chrome.browser.ntp;
 
 import static org.chromium.chrome.browser.ntp.NewTabPageLayoutProperties.DELEGATE;
 import static org.chromium.chrome.browser.ntp.NewTabPageLayoutProperties.ON_LAYOUT_CHANGE_LISTENER;
+import static org.chromium.chrome.browser.ntp.NewTabPageLayoutProperties.SEARCH_BOX_VIEW;
 import static org.chromium.chrome.browser.ntp.NewTabPageLayoutProperties.TOP_INSET_PX;
 import static org.chromium.chrome.browser.ntp.NewTabPageLayoutProperties.TRANSITION_Y;
 
 import android.view.View;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.chrome.R;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -30,12 +32,21 @@ public class NewTabPageLayoutViewBinder {
         if (DELEGATE == key) {
             newTabPageLayout.setDelegate(model.get(DELEGATE));
         } else if (ON_LAYOUT_CHANGE_LISTENER == key) {
-            View.OnLayoutChangeListener listener = model.get(ON_LAYOUT_CHANGE_LISTENER);
-            if (listener != null) {
-                newTabPageLayout.addOnLayoutChangeListener(listener);
-            } else {
-                newTabPageLayout.removeOnLayoutChangeListener(listener);
+            // Sets the layout change listener for NewTabPageLayout. Previously added listener will
+            // be removed.
+            View.OnLayoutChangeListener oldListener =
+                    (View.OnLayoutChangeListener)
+                            newTabPageLayout.getTag(R.id.ntp_view_layout_change_listener_tag);
+            if (oldListener != null) {
+                newTabPageLayout.removeOnLayoutChangeListener(oldListener);
             }
+            View.OnLayoutChangeListener newListener = model.get(ON_LAYOUT_CHANGE_LISTENER);
+            if (newListener != null) {
+                newTabPageLayout.addOnLayoutChangeListener(newListener);
+            }
+            newTabPageLayout.setTag(R.id.ntp_view_layout_change_listener_tag, newListener);
+        } else if (SEARCH_BOX_VIEW == key) {
+            newTabPageLayout.setSearchBoxView(model.get(SEARCH_BOX_VIEW));
         } else if (TOP_INSET_PX == key) {
             newTabPageLayout.setPaddingRelative(
                     newTabPageLayout.getPaddingStart(),

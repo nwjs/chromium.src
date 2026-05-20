@@ -66,6 +66,7 @@ import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.blink_public.common.ContextMenuDataMediaFlags;
 import org.chromium.blink_public.common.ContextMenuDataMediaType;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.download.DownloadTestRule;
 import org.chromium.chrome.browser.download.DownloadUtils;
@@ -83,11 +84,11 @@ import org.chromium.chrome.browser.share.ShareDelegate.ShareOrigin;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabContextMenuItemDelegate;
 import org.chromium.chrome.browser.tab.TabCreationState;
+import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.tabmodel.SupportedProfileType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.util.ChromeTabUtils;
@@ -115,6 +116,7 @@ import org.chromium.ui.hierarchicalmenu.FlyoutController;
 import org.chromium.ui.listmenu.MenuModelBridge;
 import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.ui.mojom.MenuSourceType;
+import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.url.GURL;
 
 import java.io.IOException;
@@ -736,12 +738,16 @@ public class ContextMenuTest {
 
     @Test
     @LargeTest
-    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    @Restriction({
+        DeviceFormFactor.DESKTOP, // Re-enable on tablets once the crbug.com/500650152 is fixed.
+        DeviceRestriction.RESTRICTION_TYPE_NON_AUTO // crbug.com/502983881
+    })
     @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE})
     @DisableFeatures({UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION})
     public void testSavePageLongPress() throws TimeoutException {
         DeviceInput.setSupportsPrecisionPointerForTesting(true);
         Tab tab = mActivityTestRule.getActivityTab();
+        switchToDesktopUserAgent(tab);
         int callCount = mDownloadTestRule.getChromeDownloadCallCount();
         ContextMenuUtils.selectContextMenuItem(
                 InstrumentationRegistry.getInstrumentation(),
@@ -1305,7 +1311,10 @@ public class ContextMenuTest {
 
     @Test
     @SmallTest
-    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    @Restriction({
+        DeviceFormFactor.DESKTOP, // Re-enable on tablets once the crbug.com/500650152 is fixed.
+        DeviceRestriction.RESTRICTION_TYPE_NON_AUTO // crbug.com/502983881
+    })
     @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE})
     @DisableFeatures({UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION})
     public void testSharePageLongPress() throws Exception {
@@ -1314,6 +1323,7 @@ public class ContextMenuTest {
 
         // Set share delegate before triggering context menu, so the mocked share delegate is used.
         ChromeContextMenuPopulatorFactory.setShareDelegateForTesting(mShareDelegate);
+        switchToDesktopUserAgent(tab);
 
         ContextMenuUtils.selectContextMenuItem(
                 InstrumentationRegistry.getInstrumentation(),
@@ -1385,12 +1395,17 @@ public class ContextMenuTest {
 
     @Test
     @MediumTest
-    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    @Restriction({
+        DeviceFormFactor.DESKTOP, // Re-enable on tablets once the crbug.com/500650152 is fixed.
+        // Re-enable on automotive once crbug.com/504680967 is fixed
+        DeviceRestriction.RESTRICTION_TYPE_NON_AUTO
+    })
     @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE})
     @DisableFeatures({UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION})
     public void testPrintPageLongPress() throws Exception {
         DeviceInput.setSupportsPrecisionPointerForTesting(true);
         Tab tab = mActivityTestRule.getActivityTab();
+        switchToDesktopUserAgent(tab);
         ThreadUtils.runOnUiThreadBlocking(
                 // Set printing controller to use the mock instance.
                 () -> {
@@ -1440,6 +1455,13 @@ public class ContextMenuTest {
         ArgumentCaptor<Printable> printableCaptor = ArgumentCaptor.forClass(Printable.class);
         verify(mPrintingController).startPrint(printableCaptor.capture(), any());
         Assert.assertEquals(tab.getTitle(), printableCaptor.getValue().getTitle());
+    }
+
+    private void switchToDesktopUserAgent(Tab tab) {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> TabUtils.switchUserAgent(tab, /* switchToDesktop= */ true));
+        ChromeTabUtils.waitForTabPageLoaded(tab, mTestUrl);
+        mActivityTestRule.assertWaitForPageScaleFactorMatch(PAGE_SCALE_FACTOR);
     }
 
     // TODO(benwgold): Add more test coverage for histogram recording of other context menu types.

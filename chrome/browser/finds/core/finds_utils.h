@@ -20,9 +20,9 @@ std::string ThemeTypeEnumToString(
     optimization_guide::proto::FindsSuggestionResponse::SuggestionTheme::
         ThemeType theme_type);
 
-// Record metric that notification has been shown, also save in the pref service
-// the timestamp to mark the last model execution time for cooldown tracking.
-void MarkNotificationShown(PrefService* pref_service);
+// Update the PrefService with the timestamp of the last model execution for
+// cooldown tracking.
+void MarkModelExecutionLastTimestamp(PrefService* pref_service);
 
 // Mark theme as not interested in the PrefService. This is called when the user
 // clicks the finds notification unhelpful button.
@@ -33,6 +33,9 @@ void MarkThemeAsNotInterested(
 
 // Returns the model execution cooldown duration as a base::TimeDelta.
 base::TimeDelta GetModelExecutionCooldownDurationTimeDelta();
+
+// Returns true if the Chrome finds feature is allowed by enterprise policy.
+bool IsAllowedByEnterprisePolicy(PrefService* pref_service);
 
 }  // namespace finds
 

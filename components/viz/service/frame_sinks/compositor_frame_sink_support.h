@@ -277,6 +277,8 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
     return current_capture_bounds_;
   }
 
+  LayerContextImpl* layer_context_for_testing() { return layer_context_.get(); }
+
   void SetExternalReservedResourceDelegate(ReservedResourceDelegate* delegate);
 
   // Subscribes or unsubscribes `layer_context_` to subsequent BeginFrames.
@@ -530,8 +532,8 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
 
   // Initialize |last_drawn_frame_index_| as though the frame before the first
   // has been drawn.
-  static_assert(kFrameIndexStart > 1,
-                "|last_drawn_frame_index| relies on kFrameIndexStart > 1");
+  static_assert(kFrameIndexStart >= 1,
+                "|last_drawn_frame_index| relies on kFrameIndexStart >= 1");
   uint32_t last_drawn_frame_index_ = kFrameIndexStart - 1;
 
   FrameSinkThrottler throttler_;

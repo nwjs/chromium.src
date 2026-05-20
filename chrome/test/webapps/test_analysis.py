@@ -6,20 +6,18 @@
 """
 
 from collections import defaultdict
-import datetime
 import logging
-import re
 import os
-from typing import List, Set
+import re
+from typing import Dict, List, Set
 
 from models import Action
+from models import ActionType
 from models import CoverageTest
 from models import CoverageTestsByPlatform
-from models import ActionType
 from models import CoverageTestsByPlatformSet
 from models import TestId
 from models import TestIdsTestNamesByPlatformSet
-from models import TestIdTestNameTuple
 from models import TestPartitionDescription
 from models import TestPlatform
 
@@ -27,15 +25,12 @@ from models import TestPlatform
 def filter_tests_for_partition(tests: List[CoverageTest],
                                partition: TestPartitionDescription
                                ) -> List[CoverageTest]:
-    def DoesTestHaveActionWithPrefixes(test: CoverageTest):
-        """Returns if the given tests has any actions with the given prefixes"""
-        nonlocal partition
-        for action in test.actions:
-            for prefix in partition.action_name_prefixes:
-                if action.name.startswith(prefix):
-                    return True
-
-    return list(filter(DoesTestHaveActionWithPrefixes, tests))
+    """Returns tests whose actions match any prefix assigned to `partition`."""
+    return [
+        test for test in tests if any(
+            action.name.startswith(prefix) for action in test.actions
+            for prefix in partition.action_name_prefixes)
+    ]
 
 
 def compare_and_print_tests_to_remove_and_add(
@@ -51,52 +46,190 @@ def compare_and_print_tests_to_remove_and_add(
     Note: This does NOT support moving tests between partition files. If a test
     was found in any partition file, then it is ignored.
     """
-    def print_tests(filename: str, tests: List[CoverageTest],
-                    partition: TestPartitionDescription, add_to_file: bool):
-        new_test_str: str = ""
-        for test in tests:
-            new_test_str += ("\n" + test.generate_browsertest(partition) +
-                             "\n")
+
+    def write_tests(filename: str, tests: List[CoverageTest],
+                    partition: TestPartitionDescription,
+                    ordered_tests: List[CoverageTest]):
+
+        def update_existing_generated_test_block(existing_block: str,
+                                                 new_block: str) -> str:
+            """Replace helper_ body; preserve existing header when possible."""
+            existing_body_match = re.search(r'(?m)^[ \t]*helper_\.',
+                                            existing_block)
+            new_body_match = re.search(r'(?m)^[ \t]*helper_\.', new_block)
+            existing_body_start = (existing_body_match.start()
+                                   if existing_body_match else -1)
+            new_body_start = (new_body_match.start() if new_body_match else -1)
+            existing_body_end = existing_block.rfind("\n}")
+            new_body_end = new_block.rfind("\n}")
+            if min(existing_body_start, new_body_start, existing_body_end,
+                   new_body_end) == -1:
+                return new_block
+            return (existing_block[:existing_body_start] +
+                    new_block[new_body_start:new_body_end] +
+                    existing_block[existing_body_end:])
+
+        def shared_name_segments(test_name_a: str, test_name_b: str) -> int:
+            shared_segments = 0
+            for segment_a, segment_b in zip(test_name_a.split("_"),
+                                            test_name_b.split("_")):
+                if segment_a != segment_b:
+                    break
+                shared_segments += 1
+            return shared_segments
+
+        def find_generated_matches(test_file: str) -> List[re.Match[str]]:
+            """Return regex matches for generated test blocks appearing
+            after the '// Generated tests:' marker, or in the whole file
+            if the marker is absent."""
+            generated_tests_start = test_file.find("// Generated tests:")
+            if generated_tests_start == -1:
+                generated_tests_start = 0
+            return [
+                match for match in re.finditer(
+                    'IN_PROC_BROWSER_TEST_[PF][\\(\\w\\s,]+'
+                    f'{CoverageTest.TEST_ID_PREFIX}([a-zA-Z0-9._-]+)\\)'
+                    '\\s*{\\n(?:\\s*\\/\\/.*\\n)+((?:[^;^}}]+;\\n)+)}',
+                    test_file) if match.start() > generated_tests_start
+            ]
+
+        new_test_str = "\n\n".join(
+            test.generate_browsertest(partition) for test in tests)
         if add_to_file:
             if os.path.exists(filename):
-                with open(filename, "r") as f:
+                with open(filename, "r", encoding="utf-8") as f:
                     test_file = f.read()
-                # Find the last test in the test file
-                matches = list(
-                    re.finditer(r"IN_PROC_BROWSER_TEST_[PF](.|\n)*?}\n",
-                                test_file))
-                if matches:
-                    last_test_end_index = matches[-1].end()
-                else:
-                    # If no tests found, try to insert before the last closing brace
-                    # (which is usually the closing namespace).
-                    last_brace_index = test_file.rfind("}")
-                    if last_brace_index != -1:
-                        # Find the start of the line with the last brace to be clean.
-                        last_test_end_index = test_file.rindex(
-                            '\n', 0, last_brace_index) + 1
+                generated_matches = find_generated_matches(test_file)
+                existing_matches_by_name = {
+                    match.group(1): match
+                    for match in generated_matches
+                }
+                tests_by_name = {
+                    test.generate_test_name(): test
+                    for test in tests
+                }
+
+                if generated_matches:
+                    # Phase 1: Update tests that already exist by name.
+                    # Process in reverse file order so earlier match positions
+                    # remain valid after each replacement.
+                    replacement_names = [
+                        test_name for test_name in tests_by_name
+                        if test_name in existing_matches_by_name
+                    ]
+                    for test_name in sorted(
+                            replacement_names,
+                            key=lambda name: existing_matches_by_name[
+                                name].start(),
+                            reverse=True):
+                        match = existing_matches_by_name[test_name]
+                        new_block = tests_by_name[
+                            test_name].generate_browsertest(partition)
+                        updated_block = update_existing_generated_test_block(
+                            match.group(0), new_block)
+                        test_file = (test_file[:match.start()] +
+                                     updated_block + test_file[match.end():])
+                    if replacement_names:
+                        generated_matches = find_generated_matches(test_file)
+                        existing_matches_by_name = {
+                            match.group(1): match
+                            for match in generated_matches
+                        }
+
+                    # Phase 2: Insert new tests near the most similar existing
+                    # test by name prefix.
+                    insertion_names = [
+                        test.generate_test_name() for test in ordered_tests
+                        if test.generate_test_name() in tests_by_name
+                        and test.generate_test_name() not in replacement_names
+                    ]
+                    for test_name in insertion_names:
+                        insertion_position = (generated_matches[-1].end()
+                                              if generated_matches else
+                                              len(test_file))
+                        max_shared_segments = 0
+                        most_similar_name = None
+                        for existing_name in existing_matches_by_name:
+                            shared_segments = shared_name_segments(
+                                existing_name, test_name)
+                            if (shared_segments > max_shared_segments
+                                    or (shared_segments == max_shared_segments
+                                        and shared_segments > 0)):
+                                max_shared_segments = shared_segments
+                                most_similar_name = existing_name
+                        if max_shared_segments >= 1:
+                            insertion_position = existing_matches_by_name[
+                                most_similar_name].end()
+                        insertion_block = tests_by_name[
+                            test_name].generate_browsertest(partition)
+                        # Add spacing: prepend newlines when inserting after
+                        # a test block; otherwise append newlines after insertion.
+                        inserts_after_existing_test = (
+                            (generated_matches and insertion_position
+                             == generated_matches[-1].end()) or
+                            (most_similar_name is not None
+                             and insertion_position ==
+                             existing_matches_by_name[most_similar_name].end())
+                        )
+                        if inserts_after_existing_test:
+                            insertion_str = f"\n\n{insertion_block}"
+                        else:
+                            insertion_str = f"{insertion_block}\n\n"
+                        test_file = (test_file[:insertion_position] +
+                                     insertion_str +
+                                     test_file[insertion_position:])
+                        generated_matches = find_generated_matches(test_file)
+                        existing_matches_by_name = {
+                            match.group(1): match
+                            for match in generated_matches
+                        }
+
+                # Fallback to adding the tests to the end of the file instead
+                # of the smarter approach.
+                if not generated_matches:
+                    # Find the last test in the test file
+                    matches = list(
+                        re.finditer(r"IN_PROC_BROWSER_TEST_[PF](.|\n)*?}\n",
+                                    test_file))
+                    if matches:
+                        last_test_end_index = matches[-1].end()
                     else:
-                        last_test_end_index = len(test_file)
-                new_content = (test_file[:last_test_end_index] + new_test_str +
-                               test_file[last_test_end_index:])
-                with open(filename, "w") as f:
-                    f.write(new_content)
+                        # If no tests found, try to insert before the last closing brace
+                        # (which is usually the closing namespace).
+                        last_brace_index = test_file.rfind("}")
+                        if last_brace_index != -1:
+                            # Find the start of the line with the last brace to be clean.
+                            last_test_end_index = test_file.rindex(
+                                '\n', 0, last_brace_index) + 1
+                        else:
+                            last_test_end_index = len(test_file)
+                    test_file = (test_file[:last_test_end_index] + "\n" +
+                                 new_test_str + "\n" +
+                                 test_file[last_test_end_index:])
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write(test_file)
             else:
                 print(f"\n\nCreate a new test file: {filename}\n"
                       "Remember to add the new test file to the BUILD file.\n"
                       "Add the following tests to the new test file:\n"
-                      f"{new_test_str}")
+                      f"\n{new_test_str}\n")
         else:
             print(f"\n\nAdd the following tests to {filename}:\n"
-                  f"{new_test_str}")
+                  f"\n{new_test_str}\n")
 
-    test_ids_to_keep: TestIdsByPlatformSet = defaultdict(lambda: set())
+    test_ids_to_keep: Dict[frozenset[TestPlatform],
+                           Set[TestId]] = defaultdict(set)
+    test_names_to_keep: Dict[frozenset[TestPlatform],
+                             Set[str]] = defaultdict(set)
     for platforms, tests in required_tests.items():
         tests_to_add: List[CoverageTest] = []
         for test in tests:
+            test_names_to_keep[platforms].add(test.generate_test_name())
             if platforms in existing_tests:
-                existing_test_set = set(
-                    [test_id for (test_id, _) in existing_tests[platforms]])
+                existing_test_set = {
+                    test_id
+                    for (test_id, _) in existing_tests[platforms]
+                }
                 if test.id not in existing_test_set:
                     tests_to_add.append(test)
                 else:
@@ -117,8 +250,10 @@ def compare_and_print_tests_to_remove_and_add(
                         "Cannot have a test written to multiple test files.")
                 tests_added_to_partition.add(test.id)
             filename = partition.generate_browsertest_filepath(platforms)
-            print_tests(filename, tests_to_add_partition, partition,
-                        add_to_file)
+            ordered_partition_tests = filter_tests_for_partition(
+                tests, partition)
+            write_tests(filename, tests_to_add_partition, partition,
+                        ordered_partition_tests)
 
         # All remaining tests go into the default partition
         default_tests: List[CoverageTest] = [
@@ -128,7 +263,11 @@ def compare_and_print_tests_to_remove_and_add(
         if not default_tests:
             continue
         filename = default_partition.generate_browsertest_filepath(platforms)
-        print_tests(filename, default_tests, default_partition, add_to_file)
+        ordered_default_tests = [
+            test for test in tests if test.id not in tests_added_to_partition
+        ]
+        write_tests(filename, default_tests, default_partition,
+                    ordered_default_tests)
     # Print out all tests to remove. To keep the algorithm simple the partition
     # is not kept track of.
     for platforms, test_ids_names in existing_tests.items():
@@ -139,13 +278,17 @@ def compare_and_print_tests_to_remove_and_add(
         if platforms not in test_ids_to_keep:
             prompt_str = (f"\n\nRemove ALL tests from the file for the "
                           f"platforms [{nice_platform_str}]:\n")
-            tests_to_remove = [test_name for (_, test_name) in test_ids_names]
+            tests_to_remove = [
+                test_name for (_, test_name) in test_ids_names
+                if test_name not in test_names_to_keep[platforms]
+            ]
         else:
             prompt_str = (f"\n\nRemove these tests from the file for the "
                           f"platforms [{nice_platform_str}]:\n")
             tests_to_remove = [
                 test_name for (test_id, test_name) in test_ids_names
                 if test_id not in test_ids_to_keep[platforms]
+                and test_name not in test_names_to_keep[platforms]
             ]
 
         if not tests_to_remove:
@@ -212,10 +355,7 @@ def expand_parameterized_tests(coverage_tests: List[CoverageTest]
 def filter_coverage_tests_for_platform(tests: List[CoverageTest],
                                        platform: TestPlatform
                                        ) -> List[CoverageTest]:
-    def IsSupportedOnPlatform(test: CoverageTest):
-        return platform in test.platforms
-
-    return list(filter(IsSupportedOnPlatform, tests))
+    return [test for test in tests if platform in test.platforms]
 
 
 def partition_framework_tests_per_platform_combination(

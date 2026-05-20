@@ -72,8 +72,6 @@ namespace internal {
 
 class TaskQueueImpl;
 class DefaultWakeUpQueue;
-class SequenceManagerImpl;
-class ThreadControllerImpl;
 
 // A private factory method for SequenceManagerThreadDelegate which is
 // equivalent to sequence_manager::CreateUnboundSequenceManager() but returns
@@ -111,7 +109,6 @@ class BASE_EXPORT SequenceManagerImpl
 
   // SequenceManager implementation:
   void BindToCurrentThread() override;
-  scoped_refptr<SequencedTaskRunner> GetTaskRunnerForCurrentTask() override;
   void BindToMessagePump(std::unique_ptr<MessagePump> message_pump) override;
   void SetObserver(Observer* observer) override;
   void AddTaskTimeObserver(TaskTimeObserver* task_time_observer) override;
@@ -120,8 +117,9 @@ class BASE_EXPORT SequenceManagerImpl
   void ResetTimeDomain() override;
   const TickClock* GetTickClock() const override;
   TimeTicks NowTicks() const override;
-  void SetDefaultTaskRunner(
-      scoped_refptr<SingleThreadTaskRunner> task_runner) override;
+  void SetDefaultTaskQueue(TaskQueue* task_queue) override;
+  void SetDefaultTaskRunner(scoped_refptr<SingleThreadTaskRunner> task_runner,
+                            TaskQueue::QueuePriority priority) override;
   void ReclaimMemory() override;
   bool GetAndClearSystemIsQuiescentBit() override;
   void SetWorkBatchSize(int work_batch_size) override;
@@ -161,9 +159,7 @@ class BASE_EXPORT SequenceManagerImpl
   [[nodiscard]] CallbackListSubscription RegisterOnNextIdleCallback(
       OnceClosure on_next_idle_callback);
 
-  // Sets / returns the default TaskRunner. Thread-safe.
-  void SetTaskRunner(scoped_refptr<SingleThreadTaskRunner> task_runner);
-  scoped_refptr<SingleThreadTaskRunner> GetTaskRunner();
+  scoped_refptr<SingleThreadTaskRunner> GetDefaultTaskRunner();
 
   bool IsBoundToCurrentThread() const;
   MessagePump* GetMessagePump() const override;
@@ -202,15 +198,7 @@ class BASE_EXPORT SequenceManagerImpl
   // How frequently to perform housekeeping tasks (sweeping canceled tasks etc).
   static constexpr TimeDelta kReclaimMemoryInterval = Seconds(30);
 
-  // Allows SingleThreadTaskRunner to find the best-effort task queue for the
-  // current thread. Returns nullptr if there isn't one.
-  static scoped_refptr<SingleThreadTaskRunner> GetCurrentBestEffortTaskRunner(
-      PassKey<SingleThreadTaskRunner>);
-
  protected:
-  static std::unique_ptr<ThreadControllerImpl>
-  CreateThreadControllerImplForCurrentThread(const TickClock* clock);
-
   // Create a task queue manager where |controller| controls the thread
   // on which the tasks are eventually run.
   SequenceManagerImpl(std::unique_ptr<internal::ThreadController> controller,
@@ -235,9 +223,6 @@ class BASE_EXPORT SequenceManagerImpl
   friend class ::base::CurrentThread;
 
   // Factory friends to call into private creation methods.
-  friend std::unique_ptr<SequenceManager>
-      sequence_manager::CreateSequenceManagerOnCurrentThread(
-          SequenceManager::Settings);
   friend std::unique_ptr<SequenceManager>
   sequence_manager::CreateSequenceManagerOnCurrentThreadWithPump(
       std::unique_ptr<MessagePump> message_pump,
@@ -325,8 +310,9 @@ class BASE_EXPORT SequenceManagerImpl
     internal::TaskQueueSelector selector;
     // RAW_PTR_EXCLUSION: Performance reasons(based on analysis of
     // speedometer3).
-    ObserverList<TaskObserver>::UncheckedAndRawPtrExcluded task_observers;
-    ObserverList<TaskTimeObserver> task_time_observers;
+    ReentrantObserverList<TaskObserver>::UncheckedAndRawPtrExcluded
+        task_observers;
+    ReentrantObserverList<TaskTimeObserver> task_time_observers;
     const raw_ptr<const base::TickClock> default_clock;
     raw_ptr<TimeDomain> time_domain = nullptr;
 
@@ -475,10 +461,6 @@ class BASE_EXPORT SequenceManagerImpl
   // task.
   TaskQueue::TaskTiming InitializeTaskTiming(
       internal::TaskQueueImpl* task_queue);
-
-  // Returns the priority to use for CreateBestEffortTaskQueueEnabledVoters(),
-  // or nullopt if there's no appropriate priority defined.
-  std::optional<TaskQueue::QueuePriority> GetBestEffortPriority() const;
 
   const scoped_refptr<AssociatedThreadId> associated_thread_;
 

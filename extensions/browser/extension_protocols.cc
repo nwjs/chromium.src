@@ -54,6 +54,8 @@
 #include "content/public/browser/navigation_ui_data.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/common/child_process_id.h"
+#include "content/public/common/content_features.h"
 #include "extensions/browser/content_verifier/content_verifier.h"
 #include "extensions/browser/content_verifier/content_verify_job.h"
 #include "extensions/browser/extension_navigation_ui_data.h"
@@ -221,7 +223,10 @@ bool AllowExtensionResourceLoad(const network::ResourceRequest& request,
   // process to request each other's resources. We can't do a more precise
   // check, since the renderer can lie about which extension has made the
   // request.
-  if (process_map.Contains(request.url.GetHost(), child_id)) {
+  // TODO(crbug.com/379869738) Remove FromUnsafeValue.
+  if (process_map.Contains(
+          request.url.GetHost(),
+          content::ChildProcessId::FromUnsafeValue(child_id))) {
     return true;
   }
 
@@ -237,6 +242,34 @@ bool AllowExtensionResourceLoad(const network::ResourceRequest& request,
        destination == network::mojom::RequestDestination::kSharedWorker ||
        destination == network::mojom::RequestDestination::kScript ||
        destination == network::mojom::RequestDestination::kServiceWorker)) {
+    // If a feature-guarded same-origin check is required (e.g. for worker
+    // main scripts), verify that the request URL matches the initiator origin
+    // stored in `upstream_url`.
+    //
+    // We specifically exclude frame navigations from this check to avoid
+    // breaking existing functionality like Declarative Net Request redirects,
+    // which are already handled by other security mechanisms like
+    // ExtensionNavigationThrottle.
+    if (base::FeatureList::IsEnabled(
+            features::kEnforceDedicatedWorkerSameOriginCheck) &&
+        !upstream_url.is_empty() &&
+        !blink::IsRequestDestinationFrame(destination)) {
+      url::Origin upstream_origin = url::Origin::Create(upstream_url);
+      url::Origin target_origin = url::Origin::Create(request.url);
+      if (upstream_origin != target_origin) {
+        // Only enforce the check if either side is an IWA or Extension.
+        //
+        // We use a hardcoded scheme name for IWA here to avoid a dependency
+        // from the extensions layer.
+        constexpr char kIsolatedAppScheme[] = "isolated-app";
+        if (upstream_origin.scheme() == kIsolatedAppScheme ||
+            upstream_origin.scheme() == kExtensionScheme ||
+            target_origin.scheme() == kIsolatedAppScheme ||
+            target_origin.scheme() == kExtensionScheme) {
+          return false;
+        }
+      }
+    }
     return true;
   }
 
@@ -555,14 +588,15 @@ class ExtensionURLLoader : public network::mojom::URLLoader {
       const network::ResourceRequest& request,
       bool is_web_view_request,
       int render_process_id,
-      content::BrowserContext* browser_context) {
+      content::BrowserContext* browser_context,
+      const std::optional<url::Origin>& initiator_origin) {
     DCHECK(browser_context);
     // A raw `new` is okay because `ExtensionURLLoader` is "self-owned". It
     // will delete itself when needed (when the request is completed, or when
     // the URLLoader or the URLLoaderClient connection gets dropped).
     auto* url_loader = new ExtensionURLLoader(
         std::move(loader), std::move(client), request, is_web_view_request,
-        render_process_id, browser_context);
+        render_process_id, browser_context, initiator_origin);
     url_loader->Start();
   }
 
@@ -596,11 +630,18 @@ class ExtensionURLLoader : public network::mojom::URLLoader {
       const network::ResourceRequest& request,
       bool is_web_view_request,
       int render_process_id,
-      content::BrowserContext* browser_context)
+      content::BrowserContext* browser_context,
+      const std::optional<url::Origin>& initiator_origin)
       : request_(request),
         browser_context_(browser_context),
         is_web_view_request_(is_web_view_request),
         render_process_id_(render_process_id) {
+    if (base::FeatureList::IsEnabled(
+            features::kEnforceDedicatedWorkerSameOriginCheck)) {
+      if (initiator_origin && initiator_origin->scheme() == kExtensionScheme) {
+        upstream_url_ = initiator_origin->GetURL();
+      }
+    }
     client_.Bind(std::move(client));
     loader_.Bind(std::move(loader));
     loader_.set_disconnect_handler(base::BindOnce(
@@ -968,7 +1009,8 @@ class ExtensionURLLoaderFactory : public network::SelfDeletingURLLoaderFactory {
   static mojo::PendingRemote<network::mojom::URLLoaderFactory> Create(
       content::BrowserContext* browser_context,
       bool is_web_view_request,
-      int render_process_id) {
+      int render_process_id,
+      std::optional<url::Origin> initiator_origin = std::nullopt) {
     DCHECK(browser_context);
 
     mojo::PendingRemote<network::mojom::URLLoaderFactory> pending_remote;
@@ -987,6 +1029,7 @@ class ExtensionURLLoaderFactory : public network::SelfDeletingURLLoaderFactory {
     // Manages its own lifetime.
     new ExtensionURLLoaderFactory(
         browser_context, is_web_view_request, render_process_id,
+        std::move(initiator_origin),
         pending_remote.InitWithNewPipeAndPassReceiver());
 
     return pending_remote;
@@ -1007,11 +1050,13 @@ class ExtensionURLLoaderFactory : public network::SelfDeletingURLLoaderFactory {
       content::BrowserContext* browser_context,
       bool is_web_view_request,
       int render_process_id,
+      std::optional<url::Origin> initiator_origin,
       mojo::PendingReceiver<network::mojom::URLLoaderFactory> factory_receiver)
       : network::SelfDeletingURLLoaderFactory(std::move(factory_receiver)),
         browser_context_(browser_context),
         is_web_view_request_(is_web_view_request),
-        render_process_id_(render_process_id) {
+        render_process_id_(render_process_id),
+        initiator_origin_(std::move(initiator_origin)) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
     // base::Unretained is safe below, because lifetime of
@@ -1038,9 +1083,9 @@ class ExtensionURLLoaderFactory : public network::SelfDeletingURLLoaderFactory {
       override {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
     DCHECK_EQ(kExtensionScheme, request.url.GetScheme());
-    ExtensionURLLoader::CreateAndStart(std::move(loader), std::move(client),
-                                       request, is_web_view_request_,
-                                       render_process_id_, browser_context_);
+    ExtensionURLLoader::CreateAndStart(
+        std::move(loader), std::move(client), request, is_web_view_request_,
+        render_process_id_, browser_context_, initiator_origin_);
   }
 
   void OnBrowserContextDestroyed() {
@@ -1056,6 +1101,8 @@ class ExtensionURLLoaderFactory : public network::SelfDeletingURLLoaderFactory {
   // avoid holding on to stale pointers if we get requests past the lifetime of
   // the objects.
   const int render_process_id_;
+
+  const std::optional<url::Origin> initiator_origin_;
 
   base::CallbackListSubscription browser_context_shutdown_subscription_;
 };
@@ -1077,11 +1124,12 @@ CreateExtensionNavigationURLLoaderFactory(
 
 mojo::PendingRemote<network::mojom::URLLoaderFactory>
 CreateExtensionWorkerMainResourceURLLoaderFactory(
-    content::BrowserContext* browser_context) {
+    content::BrowserContext* browser_context,
+    const std::optional<url::Origin>& request_initiator) {
   return ExtensionURLLoaderFactory::Create(
       browser_context,
       /*is_web_view_request=*/false,
-      content::ChildProcessHost::kInvalidUniqueID);
+      content::ChildProcessHost::kInvalidUniqueID, request_initiator);
 }
 
 mojo::PendingRemote<network::mojom::URLLoaderFactory>

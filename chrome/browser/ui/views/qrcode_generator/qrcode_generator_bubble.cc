@@ -14,8 +14,8 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
 #include "chrome/browser/ui/qrcode_generator/qrcode_generator_bubble_controller.h"
@@ -111,7 +111,8 @@ void QRCodeGeneratorBubble::Show() {
   textfield_url_->SelectAll(false);
   UpdateQRContent();
   ShowForReason(USER_GESTURE);
-  BrowserWindowInterface* browser = chrome::FindLastActive();
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
   if (browser) {
     qrcode_action_item_ =
         actions::ActionManager::Get()
@@ -441,9 +442,11 @@ void QRCodeGeneratorBubble::DownloadButtonPressed() {
 
   CHECK(web_contents_);
 
-  Browser* browser = chrome::FindBrowserWithTab(web_contents_.get());
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          web_contents_.get());
   content::DownloadManager* download_manager =
-      browser->profile()->GetDownloadManager();
+      browser->GetProfile()->GetDownloadManager();
   net::NetworkTrafficAnnotationTag traffic_annotation =
       net::DefineNetworkTrafficAnnotation("qr_code_save", R"(
       semantics {

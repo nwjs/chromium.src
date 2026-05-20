@@ -34,7 +34,6 @@ import org.chromium.components.messages.MessageDispatcher;
 import org.chromium.components.messages.MessageIdentifier;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.AccountUtils;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.ui.base.ImmutableWeakReference;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -117,6 +116,10 @@ public class SigninSurveyController implements Destroyable {
      */
     public static void registerTrigger(
             @Nullable Profile profile, @SigninSurveyType int surveyType) {
+        // Do not register trigger for testing unless explicitly enabled.
+        if (BuildConfig.IS_FOR_TEST && !sEnableForTesting) {
+            return;
+        }
         if (profile == null || profile.isOffTheRecord()) {
             return;
         }
@@ -129,6 +132,14 @@ public class SigninSurveyController implements Destroyable {
                 surveyType,
                 SigninSurveyType.MAX_VALUE);
         controller.mRegisteredTrigger = surveyType;
+
+        if (surveyType == SigninSurveyType.WEB
+                || surveyType == SigninSurveyType.NTP_SIGNIN_BUTTON
+                || surveyType == SigninSurveyType.NTP_PROMO) {
+            // These access points don't use a separate activity to sign-in and use
+            // ChromeTabbedActivity. So try to show the survey here.
+            controller.maybeShowSurvey();
+        }
     }
 
     // Enables triggering the survey in tests and a delay after which the survey will be shown.
@@ -174,7 +185,7 @@ public class SigninSurveyController implements Destroyable {
     }
 
     private void maybeShowSurvey() {
-        if (mRegisteredTrigger == null || mAlreadyTriedShowing) {
+        if (mRegisteredTrigger == null || mActivityHolder == null || mAlreadyTriedShowing) {
             return;
         }
 
@@ -260,7 +271,7 @@ public class SigninSurveyController implements Destroyable {
         psd.put("Number of Google Accounts", String.valueOf(numberOfAccounts));
         boolean isSignedIn =
                 assertNonNull(IdentityServicesProvider.get().getIdentityManager(mProfile))
-                        .hasPrimaryAccount(ConsentLevel.SIGNIN);
+                        .hasPrimaryAccount();
         psd.put("Sign-in Status", isSignedIn ? "Signed In" : "Signed Out");
         return psd;
     }

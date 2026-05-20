@@ -24,6 +24,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/sync/data_type_store_service_factory.h"
 #include "chrome/browser/web_applications/commands/fetch_manifest_and_update_result.h"
 #include "chrome/browser/web_applications/commands/web_app_command.h"
 #include "chrome/browser/web_applications/extensions_manager.h"
@@ -33,11 +34,13 @@
 #include "chrome/browser/web_applications/isolated_web_apps/install/isolated_web_app_dev_install_manager.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_user_installed_manager.h"
 #include "chrome/browser/web_applications/isolated_web_apps/update/isolated_web_app_update_manager.h"
+#include "chrome/browser/web_applications/jobs/uninstall/remove_web_app_job.h"
 #include "chrome/browser/web_applications/manifest_update_manager.h"
 #include "chrome/browser/web_applications/navigation_capturing_log.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/os_integration/web_app_file_handler_manager.h"
 #include "chrome/browser/web_applications/os_integration/web_app_protocol_handler_manager.h"
+#include "chrome/browser/web_applications/os_integration/web_app_shortcut.h"
 #include "chrome/browser/web_applications/policy/web_app_policy_manager.h"
 #include "chrome/browser/web_applications/preinstalled_web_app_manager.h"
 #include "chrome/browser/web_applications/visited_manifest_manager.h"
@@ -45,6 +48,7 @@
 #include "chrome/browser/web_applications/web_app_audio_focus_id_map.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
+#include "chrome/browser/web_applications/web_app_database.h"
 #include "chrome/browser/web_applications/web_app_database_factory.h"
 #include "chrome/browser/web_applications/web_app_filter.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
@@ -62,7 +66,10 @@
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/browser/web_applications/web_contents/web_contents_manager.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/common/pref_names.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/prefs/pref_service.h"
+#include "components/sync/model/data_type_store_service.h"
 #include "components/webapps/common/manifest_id_constants.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/browser_thread.h"
@@ -84,7 +91,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/web_applications/os_integration/mac/apps_folder_support.h"
 #include "chrome/browser/web_applications/os_integration/mac/web_app_shortcut_creator.h"
-#include "chrome/browser/web_applications/os_integration/web_app_shortcut.h"
 #include "chrome/browser/web_applications/web_app_registry_update.h"
 #endif
 namespace webapps {
@@ -121,7 +127,8 @@ WebAppProvider* WebAppProvider::GetForTest(Profile* profile) {
     return provider;
   }
 
-  base::RunLoop run_loop;
+  // Nestable is required for the tasks scheduled in the database recovery code.
+  base::RunLoop run_loop(base::RunLoop::Type::kNestableTasksAllowed);
   provider->on_registry_ready().Post(FROM_HERE, run_loop.QuitClosure());
   run_loop.Run();
   return provider;
@@ -464,6 +471,8 @@ void WebAppProvider::ConnectSubsystems() {
   generated_icon_fix_manager_->SetProvider(pass_key, *this);
   profile_deletion_manager_->SetProvider(pass_key, *this);
 
+  web_contents_manager_->SetProvider(this);
+
   connected_ = true;
 }
 
@@ -472,12 +481,32 @@ void WebAppProvider::StartSyncBridge() {
       base::BindOnce(&WebAppProvider::OnSyncBridgeReady, AsWeakPtr()));
 }
 
-void WebAppProvider::OnSyncBridgeReady() {
+void WebAppProvider::OnSyncBridgeReady(
+    WebAppDatabaseOpenResult open_result,
+    std::vector<std::pair<webapps::AppId, GURL>> salvaged_apps) {
   DCHECK(!on_registry_ready_.is_signaled());
+  base::UmaHistogramEnumeration("WebApp.Database.OpenResult", open_result);
 
-  // Perform database migrations once the sync bridge is ready, but before
-  // starting the rest of the subsystems and notifying that the registry is
-  // ready.
+  switch (open_result) {
+    case WebAppDatabaseOpenResult::kSuccess:
+      break;
+    case WebAppDatabaseOpenResult::kOpenError:
+    case WebAppDatabaseOpenResult::kReadError:
+      // TODO(crbug.com/506131577): Handle read/open errors properly.
+      return;
+    case WebAppDatabaseOpenResult::kDowngradeDetected:
+      ui_manager_->ShowProfileErrorDialogForCorruptDB();
+
+      RemoveWebAppJob::RemoveForCorruptDatabase(
+          *this, std::move(salvaged_apps),
+          base::BindOnce(&WebAppProvider::OnDatabaseCorruptionRecovered,
+                         AsWeakPtr()));
+      return;
+  }
+
+    // Perform database migrations once the sync bridge is ready, but before
+    // starting the rest of the subsystems and notifying that the registry is
+    // ready.
 #if BUILDFLAG(IS_CHROMEOS)
   web_app::migrations::MigrateAdobeExpressFromOemInstallToDefault(
       sync_bridge_.get());
@@ -547,6 +576,13 @@ void WebAppProvider::OnSyncBridgeReady() {
           base::RandTimeDeltaUpTo(base::Minutes(20)));
 }
 
+void WebAppProvider::OnDatabaseCorruptionRecovered() {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  sync_bridge_ = std::make_unique<WebAppSyncBridge>(registrar_.get());
+  sync_bridge_->SetProvider(base::PassKey<WebAppProvider>(), *this);
+  StartSyncBridge();
+}
+
 void WebAppProvider::CheckIsConnected() const {
   DCHECK(connected_) << "Attempted to access Web App subsystem while "
                         "WebAppProvider is not connected. You may need to wait "
@@ -560,24 +596,27 @@ void WebAppProvider::DoDelayedPostStartupWork() {
 
   const std::optional<PreinstalledAppForUpdating>& app_to_update =
       preinstalled_web_app_manager().preinstalled_app_for_updating();
-  webapps::AppId preinstalled_app_id = GenerateAppIdFromManifestId(
-      app_to_update.value_or(PreinstalledAppForUpdating()).manifest_id);
   if (base::FeatureList::IsEnabled(features::kWebAppPeriodicPreinstallUpdate) &&
-      app_to_update.has_value() &&
-      !guardrails.IsBlockedByGuardrails(preinstalled_app_id)) {
-    GURL::Replacements add_query;
-    add_query.SetQueryStr("usp=chrome_preinstall_update");
-    GURL install_url = app_to_update->install_url.ReplaceComponents(add_query);
-    // The unsafe registrar is checked to prevent wasting resources loading the
-    // install_url. If the app isn't installed, do not bother.
-    if (registrar_unsafe().AppMatches(preinstalled_app_id,
-                                      WebAppFilter::InstalledInChrome())) {
-      scheduler().FetchManifestAndUpdate(
-          install_url, app_to_update->manifest_id,
-          /*previous_time_for_silent_icon_update=*/std::nullopt,
-          /*force_trusted_silent_update=*/true,
-          base::BindOnce(&WebAppProvider::OnDefaultAppUpdateComplete,
-                         weak_ptr_factory_.GetWeakPtr(), preinstalled_app_id));
+      app_to_update.has_value()) {
+    webapps::AppId preinstalled_app_id =
+        GenerateAppIdFromManifestId(app_to_update->manifest_id);
+    if (!guardrails.IsBlockedByGuardrails(preinstalled_app_id)) {
+      GURL::Replacements add_query;
+      add_query.SetQueryStr("usp=chrome_preinstall_update");
+      GURL install_url =
+          app_to_update->install_url.ReplaceComponents(add_query);
+      // The unsafe registrar is checked to prevent wasting resources loading
+      // the install_url. If the app isn't installed, do not bother.
+      if (registrar_unsafe().AppMatches(preinstalled_app_id,
+                                        WebAppFilter::InstalledInChrome())) {
+        scheduler().FetchManifestAndUpdate(
+            install_url, app_to_update->manifest_id,
+            /*previous_time_for_silent_icon_update=*/std::nullopt,
+            /*force_trusted_silent_update=*/true,
+            base::BindOnce(&WebAppProvider::OnDefaultAppUpdateComplete,
+                           weak_ptr_factory_.GetWeakPtr(),
+                           preinstalled_app_id));
+      }
     }
   }
 

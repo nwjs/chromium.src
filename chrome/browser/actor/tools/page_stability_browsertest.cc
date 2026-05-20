@@ -11,7 +11,6 @@
 #include "base/test/test_timeouts.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
-#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_test_util.h"
@@ -23,7 +22,9 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/chrome_test_utils.h"
+#include "components/actor/core/actor_features.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
+#include "components/page_content_annotations/content/mojom/page_stability.mojom.h"
 #include "content/public/browser/navigation_throttle_registry.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -85,8 +86,8 @@ class ActorPageStabilityTestBase : public PageStabilityTest {
     return *actor_keyed_service()->GetTask(task_id_);
   }
 
-  mojo::Remote<mojom::PageStabilityMonitor> CreatePageStabilityMonitor(
-      bool uses_paint_stability) {
+  mojo::Remote<page_content_annotations::mojom::PageStabilityMonitor>
+  CreatePageStabilityMonitor(bool uses_paint_stability) {
     return PageStabilityTest::CreatePageStabilityMonitor(uses_paint_stability);
   }
 
@@ -341,7 +342,8 @@ class ActorGeneralPageStabilityTest
          {"glic-actor-page-stability-timeout", "30000ms"}});
   }
 
-  mojo::Remote<mojom::PageStabilityMonitor> CreatePageStabilityMonitor() {
+  mojo::Remote<page_content_annotations::mojom::PageStabilityMonitor>
+  CreatePageStabilityMonitor() {
     // Some tools don't support paint stability, therefore need test coverage
     // for both cases.
     return ActorPageStabilityTestBase::CreatePageStabilityMonitor(
@@ -374,7 +376,7 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest, WaitOnNetworkFetch) {
   ASSERT_TRUE(
       content::NavigateToURL(web_contents(), GetPageStabilityTestURL()));
 
-  mojo::Remote<mojom::PageStabilityMonitor> monitor =
+  mojo::Remote<page_content_annotations::mojom::PageStabilityMonitor> monitor =
       CreatePageStabilityMonitor();
 
   ASSERT_EQ(GetOutputText(), "INITIAL");
@@ -406,7 +408,7 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest, WaitOnMainThread) {
 
   ASSERT_EQ(GetOutputText(), "INITIAL");
 
-  mojo::Remote<mojom::PageStabilityMonitor> monitor =
+  mojo::Remote<page_content_annotations::mojom::PageStabilityMonitor> monitor =
       CreatePageStabilityMonitor();
 
   ASSERT_TRUE(ExecJs(
@@ -439,7 +441,7 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest,
   ASSERT_TRUE(
       content::NavigateToURL(web_contents(), GetPageStabilityTestURL()));
 
-  mojo::Remote<mojom::PageStabilityMonitor> monitor =
+  mojo::Remote<page_content_annotations::mojom::PageStabilityMonitor> monitor =
       CreatePageStabilityMonitor();
 
   TestFuture<void> result;
@@ -467,7 +469,7 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest, NavigationBeforeNotify) {
   ASSERT_TRUE(
       content::NavigateToURL(web_contents(), GetPageStabilityTestURL()));
 
-  mojo::Remote<mojom::PageStabilityMonitor> monitor =
+  mojo::Remote<page_content_annotations::mojom::PageStabilityMonitor> monitor =
       CreatePageStabilityMonitor();
 
   TestFuture<void> result;
@@ -495,7 +497,7 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest,
   ASSERT_TRUE(
       content::NavigateToURL(web_contents(), GetPageStabilityTestURL()));
 
-  mojo::Remote<mojom::PageStabilityMonitor> monitor =
+  mojo::Remote<page_content_annotations::mojom::PageStabilityMonitor> monitor =
       CreatePageStabilityMonitor();
 
   // Start and cancel a navigation before querying the monitor.
@@ -539,7 +541,7 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest,
   ASSERT_TRUE(
       content::NavigateToURL(web_contents(), GetPageStabilityTestURL()));
 
-  mojo::Remote<mojom::PageStabilityMonitor> monitor =
+  mojo::Remote<page_content_annotations::mojom::PageStabilityMonitor> monitor =
       CreatePageStabilityMonitor();
 
   // Start a navigation but don't let it proceed to cancelation yet, it's
@@ -553,7 +555,7 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest,
   // Start waiting for the monitor. Sleep to ensure the monitor is waiting on
   // the navigation to complete/fail.
   TestFuture<void> result;
-  monitor->NotifyWhenStable(/*observation_delay=*/base::TimeDelta(),
+  monitor->NotifyWhenStable(/*observation_delay=*/base::Seconds(2),
                             result.GetCallback());
   Sleep(base::Seconds(1));
   EXPECT_FALSE(result.IsReady());
@@ -584,7 +586,7 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest,
   ASSERT_TRUE(
       content::NavigateToURL(web_contents(), GetPageStabilityTestURL()));
 
-  mojo::Remote<mojom::PageStabilityMonitor> monitor =
+  mojo::Remote<page_content_annotations::mojom::PageStabilityMonitor> monitor =
       CreatePageStabilityMonitor();
 
   // Wait for stability. Use a long observation_delay to ensure the navigation
@@ -609,7 +611,7 @@ IN_PROC_BROWSER_TEST_P(ActorGeneralPageStabilityTest,
   ASSERT_TRUE(
       content::NavigateToURL(web_contents(), GetPageStabilityTestURL()));
 
-  mojo::Remote<mojom::PageStabilityMonitor> monitor =
+  mojo::Remote<page_content_annotations::mojom::PageStabilityMonitor> monitor =
       CreatePageStabilityMonitor();
 
   // Start a network request to block the monitor from completing.
@@ -648,11 +650,12 @@ class ActorPageStabilityMinWaitTest
         {{"glic-actor-page-stability-min-wait", min_wait}});
   }
 
-  mojo::Remote<mojom::PageStabilityMonitor> CreatePageStabilityMonitor() {
+  mojo::Remote<page_content_annotations::mojom::PageStabilityMonitor>
+  CreatePageStabilityMonitor() {
     // Some tools don't support paint stability, therefore need test coverage
     // for both cases.
     return ActorPageStabilityTestBase::CreatePageStabilityMonitor(
-        /*paint_stability_mode=*/GetParam());
+        /*uses_paint_stability=*/GetParam());
   }
 
  private:
@@ -665,7 +668,7 @@ IN_PROC_BROWSER_TEST_P(ActorPageStabilityMinWaitTest, MinWaitTimeRespected) {
 
   base::ElapsedTimer timer;
 
-  mojo::Remote<actor::mojom::PageStabilityMonitor> monitor =
+  mojo::Remote<page_content_annotations::mojom::PageStabilityMonitor> monitor =
       CreatePageStabilityMonitor();
 
   TestFuture<void> result;

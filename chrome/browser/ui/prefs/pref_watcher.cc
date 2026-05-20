@@ -10,7 +10,7 @@
 
 #include "base/check.h"
 #include "base/functional/bind.h"
-#include "base/memory/singleton.h"
+#include "base/no_destructor.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
@@ -52,6 +52,7 @@ const char* const kWebPrefsToObserve[] = {
     prefs::kDefaultCharset,
     prefs::kDisable3DAPIs,
     prefs::kEnableHyperlinkAuditing,
+    prefs::kSubresourceFilterHighlightAds,
     prefs::kWebKitAllowRunningInsecureContent,
     prefs::kWebKitDefaultFixedFontSize,
     prefs::kWebKitDefaultFontSize,
@@ -118,7 +119,7 @@ class PrimaryPastePrefHelper : public ui::PrimaryPastePrefObserver {
 
 // Watching all these settings per tab is slow when a user has a lot of tabs and
 // and they use session restore. So watch them once per profile.
-// http://crbug.com/452693
+// http://crbug.com/41154242
 PrefWatcher::PrefWatcher(Profile* profile) : profile_(profile) {
   native_theme_observation_.Observe(ui::NativeTheme::GetInstanceForWeb());
 
@@ -226,7 +227,8 @@ PrefWatcher* PrefWatcherFactory::GetForProfile(Profile* profile) {
 
 // static
 PrefWatcherFactory* PrefWatcherFactory::GetInstance() {
-  return base::Singleton<PrefWatcherFactory>::get();
+  static base::NoDestructor<PrefWatcherFactory> instance;
+  return instance.get();
 }
 
 PrefWatcherFactory::PrefWatcherFactory()

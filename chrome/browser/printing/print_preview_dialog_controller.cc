@@ -18,8 +18,8 @@
 #include "chrome/browser/printing/print_view_manager_base.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/webui/constrained_web_dialog_ui.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
 #include "chrome/common/webui_url_constants.h"
@@ -38,7 +38,7 @@
 #include "ui/web_dialogs/web_dialog_delegate.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/ash/arc/print_spooler/print_session_impl.h"  // nogncheck crbug.com/1125897
+#include "chrome/browser/ash/arc/print_spooler/print_session_impl.h"  // nogncheck crbug.com/40147906
 #endif
 
 using content::NavigationController;
@@ -131,11 +131,10 @@ void PrintPreviewDialogDelegate::GetDialogSize(gfx::Size* size) const {
     return;
 
   BrowserWindowInterface* browser =
-      chrome::FindBrowserWithTab(outermost_web_contents);
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          outermost_web_contents);
   if (browser)
-    host = browser->GetBrowserForMigrationOnly()
-               ->window()
-               ->GetWebContentsModalDialogHost();
+    host = browser->GetWebContentsModalDialogHostForWindow();
 
   if (host)
     size->SetToMax(host->GetMaximumDialogSize());

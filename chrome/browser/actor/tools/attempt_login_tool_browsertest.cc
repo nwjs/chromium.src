@@ -7,7 +7,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
-#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/execution_engine.h"
@@ -24,6 +23,8 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/actor/core/actor_features.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/affiliations/core/browser/mock_affiliation_service.h"
 #include "components/favicon/core/test/mock_favicon_service.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
@@ -143,8 +144,6 @@ class ActorAttemptLoginToolTest : public ActorToolsTest {
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/
         {password_manager::features::kActorLogin,
-         password_manager::features::
-             kActorLoginPermissionsUseStrongAffiliations,
          password_manager::features::kActorLoginQualityLogs,
          features::kGlicActor},
         // TODO(crbug.com/480920277): Remove the FedCM flag once the prototyping

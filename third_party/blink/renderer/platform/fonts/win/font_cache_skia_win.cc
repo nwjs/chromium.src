@@ -434,8 +434,7 @@ const FontPlatformData* FontCache::CreateFontPlatformData(
 
   std::string name;
 
-  if (alternate_font_name == AlternateFontName::kLocalUniqueFace &&
-      RuntimeEnabledFeatures::FontSrcLocalMatchingEnabled()) {
+  if (alternate_font_name == AlternateFontName::kLocalUniqueFace) {
     typeface = CreateTypefaceFromUniqueName(creation_params);
 
     // We do not need to try any heuristic around the font name, as below, for

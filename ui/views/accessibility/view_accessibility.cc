@@ -12,6 +12,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/notimplemented.h"
 #include "base/strings/utf_string_conversions.h"
+#include "build/build_config.h"
 #include "build/buildflag.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_enums.mojom.h"
@@ -805,10 +806,11 @@ void ViewAccessibility::SetIsEnabled(bool is_enabled) {
   OnIntAttributeChanged(ax::mojom::IntAttribute::kRestriction,
                         static_cast<int32_t>(data_.GetRestriction()));
 
-  // TODO(crbug.com/40896388): We need a specific enabled-changed event for
-  // this. Some platforms have specific state-changed events and this generic
-  // event does not suggest what changed.
-  NotifyEvent(ax::mojom::Event::kStateChanged, true);
+  // Ignored nodes are not exposed to the platform accessibility tree. Firing state-change
+  // events on them is incorrect and produces noise that may confuse assistive technologies.
+  if (!GetIsIgnored()) {
+    NotifyEvent(ax::mojom::Event::kEnabledChanged, true);
+  }
   NotifyDataChanged();
 }
 
@@ -1169,12 +1171,14 @@ void ViewAccessibility::SetIsSelected(bool selected) {
   data_.AddBoolAttribute(ax::mojom::BoolAttribute::kSelected, selected);
 
   OnBoolAttributeChanged(ax::mojom::BoolAttribute::kSelected, selected);
+  NotifyEvent(ax::mojom::Event::kSelection, true);
 
-  // We only want to send the notification if the view gets selected,
-  // this is since the event serves to notify of a selection being made, not of
-  // a selection being unmade.
-  if (selected) {
-    NotifyEvent(ax::mojom::Event::kSelection, true);
+  for (ViewAccessibility* ancestor = GetViewAccessibilityParent(); ancestor;
+       ancestor = ancestor->GetViewAccessibilityParent()) {
+    if (ui::IsContainerWithSelectableChildren(ancestor->GetCachedRole())) {
+      ancestor->NotifyEvent(ax::mojom::Event::kSelectedChildrenChanged, true);
+      break;
+    }
   }
 
   NotifyDataChanged();
@@ -1468,11 +1472,16 @@ void ViewAccessibility::SetValue(const std::string& value) {
     OnStringAttributeChanged(ax::mojom::StringAttribute::kValue, value);
     NotifyEvent(ax::mojom::Event::kValueChanged, true);
 
-    // Only fire a text changed event on text fields and select elements to
-    // mimic what is done in the web content.
+    // TODO(crbug.com/40672441): Remove this once ViewsAX is enabled on
+    // Windows. Only fire a text changed event on text fields and select
+    // elements on Windows so that UIA fires UIA_Text_TextChangedEventId.
+    // On macOS and Linux, this incorrectly maps to title/name-changed
+    // events rather than value-changed events.
+#if BUILDFLAG(IS_WIN)
     if (data_.IsTextField() || ui::IsSelectElement(data_.role)) {
       NotifyEvent(ax::mojom::Event::kTextChanged, true);
     }
+#endif
   }
 
   NotifyDataChanged();
@@ -1497,6 +1506,36 @@ void ViewAccessibility::RemoveValue() {
 std::u16string ViewAccessibility::GetValue() const {
   return base::UTF8ToUTF16(
       data_.GetStringAttribute(ax::mojom::StringAttribute::kValue));
+}
+
+void ViewAccessibility::SetValueForRange(float value) {
+  if (data_.HasFloatAttribute(ax::mojom::FloatAttribute::kValueForRange) &&
+      data_.GetFloatAttribute(ax::mojom::FloatAttribute::kValueForRange) ==
+          value) {
+    return;
+  }
+  data_.AddFloatAttribute(ax::mojom::FloatAttribute::kValueForRange, value);
+  NotifyDataChanged();
+}
+
+void ViewAccessibility::SetMinValueForRange(float value) {
+  if (data_.HasFloatAttribute(ax::mojom::FloatAttribute::kMinValueForRange) &&
+      data_.GetFloatAttribute(ax::mojom::FloatAttribute::kMinValueForRange) ==
+          value) {
+    return;
+  }
+  data_.AddFloatAttribute(ax::mojom::FloatAttribute::kMinValueForRange, value);
+  NotifyDataChanged();
+}
+
+void ViewAccessibility::SetMaxValueForRange(float value) {
+  if (data_.HasFloatAttribute(ax::mojom::FloatAttribute::kMaxValueForRange) &&
+      data_.GetFloatAttribute(ax::mojom::FloatAttribute::kMaxValueForRange) ==
+          value) {
+    return;
+  }
+  data_.AddFloatAttribute(ax::mojom::FloatAttribute::kMaxValueForRange, value);
+  NotifyDataChanged();
 }
 
 void ViewAccessibility::SetDefaultActionVerb(

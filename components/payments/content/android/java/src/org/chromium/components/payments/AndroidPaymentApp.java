@@ -428,13 +428,14 @@ public class AndroidPaymentApp extends PaymentApp
         }
     }
 
-    private void notifyErrorInvokingPaymentApp(String errorMessage) {
+    private void notifyErrorInvokingPaymentApp(PaymentAppError error) {
         assert mInstrumentDetailsCallback != null : "Callback should be invoked only once";
         mHandler.post(
                 () -> {
                     assert mInstrumentDetailsCallback != null
                             : "Callback should be invoked only once";
-                    mInstrumentDetailsCallback.onInstrumentDetailsError(errorMessage);
+                    mInstrumentDetailsCallback.onInstrumentDetailsError(
+                            error.responseType, error.errorMessage);
                     mInstrumentDetailsCallback = null;
                 });
     }

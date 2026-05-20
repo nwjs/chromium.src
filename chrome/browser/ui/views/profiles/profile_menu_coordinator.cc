@@ -16,7 +16,6 @@
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
-#include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
 #include "chrome/browser/ui/views/profiles/incognito_menu_view.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_view_base.h"
 #include "components/feature_engagement/public/feature_constants.h"
@@ -70,6 +69,13 @@ void ProfileMenuCoordinator::ShowWithPromoResults(
     signin::ProfileMenuAvatarButtonPromoInfo promo_info
 #endif
 ) {
+  // Results are asynchronous, which can cause the menu to be already shown
+  // before receiving them. If this happens, ignore the second request as the
+  // menu is already shown.
+  if (IsShowing()) {
+    return;
+  }
+
   signin_ui_util::RecordProfileMenuViewShown(GetProfile());
   // Close any existing IPH bubble for the profile menu.
   BrowserUserEducationInterface::From(GetBrowser())

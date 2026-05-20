@@ -11,9 +11,9 @@
 #include "chrome/browser/data_sharing/data_sharing_service_factory.h"
 #include "chrome/browser/image_fetcher/image_fetcher_service_factory.h"
 #include "chrome/browser/profiles/profile_key.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_tab_data.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
@@ -189,9 +189,9 @@ void InstantMessageQueueProcessor::MaybeShowInstantMessage() {
       GetMessageInterval());
 }
 
-Browser* InstantMessageQueueProcessor::GetBrowser(
+BrowserWindowInterface* InstantMessageQueueProcessor::GetBrowser(
     const InstantMessage& message) {
-  Browser* browser = nullptr;
+  BrowserWindowInterface* browser = nullptr;
 
   const bool is_tab_removed_message =
       message.collaboration_event == CollaborationEvent::TAB_REMOVED &&
@@ -214,7 +214,8 @@ Browser* InstantMessageQueueProcessor::GetBrowser(
     // In the case of TAB_GROUP_REMOVED, the group may or may not be open.
     // Find a fallback browser for this profile.
     if (!browser) {
-      browser = chrome::FindLastActiveWithProfile(profile_);
+      browser = ProfileBrowserCollection::GetForProfile(profile_)
+                    ->GetLastActiveBrowser();
     }
   }
 
@@ -222,7 +223,7 @@ Browser* InstantMessageQueueProcessor::GetBrowser(
 }
 
 bool InstantMessageQueueProcessor::MaybeShowToastInBrowser(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     std::optional<ToastParams> params) {
   if (!browser) {
     // Browser state does not support showing this message or this is
@@ -235,8 +236,7 @@ bool InstantMessageQueueProcessor::MaybeShowToastInBrowser(
     return false;
   }
 
-  ToastController* toast_controller =
-      browser->browser_window_features()->toast_controller();
+  ToastController* toast_controller = browser->GetFeatures().toast_controller();
   if (!toast_controller) {
     // Encountered an issue with the toast controller for this browser.
     return false;

@@ -414,8 +414,8 @@ Readability.prototype = {
       if (sibling === candidate) {
         return false;
       }
-      if (sibling.readability) {
-        return sibling.readability.contentScore >= threshold;
+      if (sibling.readability && sibling.readability.contentScore >= threshold) {
+        return true;
       }
       return sibling.textContent.trim().length > 25;
     });
@@ -831,6 +831,22 @@ Readability.prototype = {
       replacement.setAttributeNode(node.attributes[i].cloneNode());
     }
     return replacement;
+  },
+
+  /**
+   * Clone an element node.
+   *
+   * Note: We use createElement and innerHTML instead of cloneNode(true)
+   * because the minimal JSDOMParser implementation that comes with
+   * Readability.js does not implement cloneNode() for Element nodes.
+   *
+   * @param {Element} el - The element to clone.
+   * @return {Element}
+   */
+  _cloneElement(el) {
+    const clone = this._doc.createElement(el.tagName);
+    clone.innerHTML = el.innerHTML;
+    return clone;
   },
 
   /**
@@ -2040,12 +2056,14 @@ Readability.prototype = {
 
     let score = 0;
     // Boost element with favorable names.
-    if (el.className.includes('hero') || el.id.includes('hero')) {
+    const className = el.className || '';
+    const id = el.id || '';
+    if (className.includes('hero') || id.includes('hero')) {
       score += 100;
     }
     // Penalize element with unfavorable names.
-    if (this.REGEXPS.negative.test(el.className) ||
-        this.REGEXPS.negative.test(el.id)) {
+    if (this.REGEXPS.negative.test(className) ||
+        this.REGEXPS.negative.test(id)) {
       score -= 50;
     }
 
@@ -2085,10 +2103,21 @@ Readability.prototype = {
    */
   _rateLeadCaptionIn(el) {
     // Prefer <figcaption> since it has  to clear semantic.
-    const figcaption = el.querySelector('figcaption');
+    const figcaption = this._getAllNodesWithTag(el, ['figcaption'])[0];
     if (figcaption) {
       // Return `captionFun` to avoid useless work.
-      return {score: 100, captionFun: () => figcaption.cloneNode(true)};
+      return {score: 100, captionFun: () => this._cloneElement(figcaption)};
+    }
+
+    // Also prefer <cite> as it is often used for image credits/captions.
+    const citeList = Array.from(el.getElementsByTagName('cite'));
+    const citeString = citeList.map((c) => c.textContent).join(' ');
+    if (citeString.length > 0) {
+      return {score: 95, captionFun: () => {
+        const figcaption = this._doc.createElement('figcaption');
+        figcaption.textContent = citeString;
+        return figcaption;
+      }};
     }
 
     // Synthesize caption from <p> tags.
@@ -2099,7 +2128,7 @@ Readability.prototype = {
       if (/\b(credit|source|photo:)\b/i.test(pString)) {
         score = 95;
       }
-      return {score: score, captionFun: () => {
+    return {score: score, captionFun: () => {
         const figcaption = this._doc.createElement('figcaption');
         figcaption.textContent = pString;
         return figcaption;
@@ -2140,11 +2169,11 @@ Readability.prototype = {
     // Second pass: Find the best caption from the relevant slice.
     const captionCandidates = leadCandidates.slice(0, bestImageRatingIndex + 1);
     const captionRatings =
-        captionCandidates.map((el) => this._rateLeadCaptionIn(el));
+      captionCandidates.map((el) => this._rateLeadCaptionIn(el));
     const [bestCaptionRating, bestCaptionRatingIndex] =
         this._argmax(captionRatings, (rating) => rating?.score ?? -1);
 
-    const imageUrl = bestImageRating.bestImg.getAttribute('src');
+    const imageUrl = bestImageRating.bestImg.src;
     const captionHtml = bestCaptionRating?.captionFun().innerHTML;
 
     const affectedElements = new Set();
@@ -2782,7 +2811,7 @@ Readability.prototype = {
       // Handle <label for="id-of-removed-input">.
       if (tag === 'label') {
         const forId = node.getAttribute('for');
-        if (forId && !e.querySelector('#' + CSS.escape(forId))) {
+        if (forId && !this._doc.getElementById(forId)) {
           return true;
         }
       }

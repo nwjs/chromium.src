@@ -14,10 +14,17 @@ import static org.chromium.components.tab_groups.TabGroupColorPickerUtils.getTab
 import static org.chromium.ui.listmenu.BasicListMenu.buildMenuDivider;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.res.Resources;
+import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
+import android.util.TypedValue;
+import android.view.ContextThemeWrapper;
+import android.view.View;
 import android.view.View.OnClickListener;
+import android.widget.TextView;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.IdRes;
@@ -38,7 +45,6 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.multiwindow.InstanceInfo;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
-import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -130,13 +136,15 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         }
     }
 
-    @SuppressWarnings("HidingField")
-    private final Supplier<TabModel> mTabModelSupplier;
-
     private final TabGroupModelFilter mTabGroupModelFilter;
     private final TabGroupCreationCallback mTabGroupCreationCallback;
     private final WindowAndroid mWindowAndroid;
     private final Activity mActivity;
+    private final int mCircleSize;
+    private final int mIconSize;
+    private final int mRowHeight;
+    private final float mVisualCenterOfTextY;
+    private final float mVisualCenterOfTextYIncognito;
 
     private TabContextMenuCoordinator(
             Supplier<TabModel> tabModelSupplier,
@@ -166,11 +174,74 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                 collaborationService,
                 activity,
                 reorderFunction);
-        mTabModelSupplier = tabModelSupplier;
         mTabGroupModelFilter = tabGroupModelFilter;
         mTabGroupCreationCallback = tabGroupCreationCallback;
         mWindowAndroid = windowAndroid;
         mActivity = activity;
+
+        mCircleSize = getDimensionPixelSize(R.dimen.tab_group_nested_menu_color_icon_size);
+
+        Context themedContext =
+                new ContextThemeWrapper(mActivity, R.style.OverflowMenuThemeOverlay);
+        TypedValue value = new TypedValue();
+        themedContext.getTheme().resolveAttribute(R.attr.listItemIconSize, value, true);
+        mIconSize =
+                TypedValue.complexToDimensionPixelSize(
+                        value.data, mActivity.getResources().getDisplayMetrics());
+
+        themedContext.getTheme().resolveAttribute(R.attr.listItemHeight, value, true);
+        mRowHeight =
+                TypedValue.complexToDimensionPixelSize(
+                        value.data, mActivity.getResources().getDisplayMetrics());
+
+        mVisualCenterOfTextY =
+                calculateVisualCenterOfTextY(
+                        themedContext,
+                        R.style.TextAppearance_BrowserUIListMenuItem,
+                        mIconSize,
+                        mRowHeight);
+        mVisualCenterOfTextYIncognito =
+                calculateVisualCenterOfTextY(
+                        themedContext,
+                        R.style.TextAppearance_DensityAdaptive_TextLarge_Primary_Baseline_Light,
+                        mIconSize,
+                        mRowHeight);
+    }
+
+    /**
+     * Calculates the visual center of a text appearance relative to the icon area.
+     *
+     * @param context The {@link Context} to use.
+     * @param textAppearance The style resource for the text.
+     * @param iconSize The size of the icon area.
+     * @param rowHeight The height of the menu item row.
+     * @return The Y coordinate of the visual center of the text.
+     */
+    private static float calculateVisualCenterOfTextY(
+            Context context, int textAppearance, int iconSize, int rowHeight) {
+        TextView textView = new TextView(context);
+        textView.setTextAppearance(textAppearance);
+        // Set text to ensure measure() and getBaseline() return accurate values.
+        textView.setText("x");
+
+        Rect bounds = new Rect();
+        textView.getPaint().getTextBounds("x", 0, 1, bounds);
+        // Visual center of text relative to its baseline.
+        float visualCenterOffset = (bounds.top + bounds.bottom) / 2.0f;
+
+        textView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        int tvBaseline = textView.getBaseline();
+        int tvHeight = textView.getMeasuredHeight();
+
+        // Android's LinearLayout with center_vertical floors the top margin.
+        float textTopInRow = (float) Math.floor((rowHeight - tvHeight) / 2.0f);
+        float iconTopInRow = (float) Math.floor((rowHeight - iconSize) / 2.0f);
+
+        // Visual center relative to the row top.
+        float visualCenterInRow = textTopInRow + tvBaseline + visualCenterOffset;
+
+        // Return visual center relative to the icon area top.
+        return (float) Math.floor(visualCenterInRow - iconTopInRow);
     }
 
     /**
@@ -235,7 +306,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             TabModel tabModel = tabModelSupplier.get();
             List<Tab> tabs = TabModelUtils.getTabsById(tabIds, tabModel, /* allowClosing= */ false);
             assert !tabs.isEmpty() : "Empty tab list provided";
-            recordMenuAction(menuId, tabs.size() > 1);
+            recordMenuAction(menuId, tabs.size() > 1, tabModel.isIncognitoBranded());
 
             if (menuId == R.id.add_to_tab_group) {
                 tabGroupListBottomSheetCoordinator.showBottomSheet(tabs);
@@ -299,13 +370,47 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                                         .tabClosingSource(TabClosingSource.TABLET_TAB_STRIP)
                                         .build(),
                                 /* allowDialog= */ true);
+            } else if (menuId == R.id.close_other_tabs_menu_id) {
+                List<Tab> otherTabs = new ArrayList<>();
+                for (Tab tab : tabModel) {
+                    if (!tabIds.contains(tab.getId())) {
+                        otherTabs.add(tab);
+                    }
+                }
+                tabModel.getTabRemover()
+                        .closeTabs(
+                                TabClosureParams.closeTabs(otherTabs)
+                                        .hideTabGroups(true)
+                                        .tabClosingSource(TabClosingSource.TABLET_TAB_STRIP)
+                                        .build(),
+                                /* allowDialog= */ true);
+            } else if (menuId == R.id.close_tabs_to_the_right_menu_id) {
+                List<Tab> otherTabs = new ArrayList<>();
+                boolean foundPivot = false;
+                for (Tab tab : tabModel) {
+                    if (tabIds.contains(tab.getId())) {
+                        foundPivot = true;
+                        // New pivot is to the right of the old pivot. Clear previously accumulated
+                        // tabs.
+                        otherTabs.clear();
+                    } else if (foundPivot) {
+                        otherTabs.add(tab);
+                    }
+                }
+                tabModel.getTabRemover()
+                        .closeTabs(
+                                TabClosureParams.closeTabs(otherTabs)
+                                        .hideTabGroups(true)
+                                        .tabClosingSource(TabClosingSource.TABLET_TAB_STRIP)
+                                        .build(),
+                                /* allowDialog= */ true);
             }
         };
     }
 
     @VisibleForTesting
     boolean areAllTabsMuted(List<Tab> tabs) {
-        TabModel tabModel = mTabModelSupplier.get();
+        TabModel tabModel = getTabModel();
         for (Tab tab : tabs) {
             GURL url = tab.getUrl();
             if (url.isEmpty()) continue;
@@ -347,7 +452,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
     protected void buildMenuActionItems(ModelList itemList, AnchorInfo anchorInfo) {
         List<Integer> ids = anchorInfo.getAllTabIds();
         assert !ids.isEmpty() : "Empty tab id list provided";
-        TabModel tabModel = mTabModelSupplier.get();
+        TabModel tabModel = getTabModel();
         List<Tab> tabs = TabModelUtils.getTabsById(ids, tabModel, /* allowClosing= */ false);
         assert !tabs.isEmpty() : "Empty tab list provided";
         boolean isIncognito = tabModel.isIncognitoBranded();
@@ -360,7 +465,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
 
     @Override
     protected boolean canItemMoveTowardStart(AnchorInfo anchorInfo) {
-        TabModel tabModel = mTabModelSupplier.get();
+        TabModel tabModel = getTabModel();
         @Nullable Tab tab = tabModel.getTabById(anchorInfo.getAllTabIds().get(0));
         if (tab == null) return false;
         int idx = tabModel.indexOf(tab);
@@ -370,13 +475,20 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
     @Override
     protected boolean canItemMoveTowardEnd(AnchorInfo anchorInfo) {
         List<Integer> tabs = anchorInfo.getAllTabIds();
-        TabModel tabModel = mTabModelSupplier.get();
+        TabModel tabModel = getTabModel();
         @Nullable Tab tab = tabModel.getTabById(tabs.get(tabs.size() - 1));
         if (tab == null) return false;
         int idx = tabModel.indexOf(tab);
         return tab.getIsPinned()
                 ? idx < tabModel.findFirstNonPinnedTabIndex() - 1
                 : idx < tabModel.getCount() - 1;
+    }
+
+    private boolean canCloseTabsToTheRight(AnchorInfo anchorInfo) {
+        List<Integer> tabIds = anchorInfo.getAllTabIds();
+        TabModel tabModel = getTabModel();
+        Tab lastTab = tabModel.getTabAt(tabModel.getCount() - 1);
+        return lastTab != null && !tabIds.contains(lastTab.getId());
     }
 
     private void buildMenuActionItemsForSingleTab(
@@ -396,7 +508,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             // Share is only available for single tab selection.
             itemList.add(createShareItem(isIncognito));
         }
-        if (ChromeFeatureList.sAndroidContextMenuDuplicateTabs.isEnabled()) {
+        if (ChromeFeatureList.sAndroidContextMenuNewActions.isEnabled()) {
             itemList.add(createDuplicateTabsItem(isIncognito));
         }
         itemList.add(createPinUnpinTabItem(tabs, isIncognito));
@@ -405,6 +517,14 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         }
         itemList.add(createCloseItem(isIncognito));
         itemList.add(createCloseAllTabsItem(isIncognito));
+        if (ChromeFeatureList.sAndroidContextMenuNewActions.isEnabled()) {
+            if (tabs.size() > 1) {
+                itemList.add(createCloseOtherTabsItem(isIncognito));
+            }
+            if (canCloseTabsToTheRight(anchorInfo)) {
+                itemList.add(createCloseTabsToTheRightItem(isIncognito));
+            }
+        }
     }
 
     private void buildMenuActionItemsForMultipleTabs(
@@ -419,7 +539,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         List<ListItem> reorderItems = createReorderItems(anchorInfo, isIncognito);
         if (!reorderItems.isEmpty()) itemList.addAll(reorderItems);
         itemList.add(buildMenuDivider(isIncognito));
-        if (ChromeFeatureList.sAndroidContextMenuDuplicateTabs.isEnabled()) {
+        if (ChromeFeatureList.sAndroidContextMenuNewActions.isEnabled()) {
             itemList.add(createDuplicateTabsItem(isIncognito));
         }
         itemList.add(createPinUnpinTabItem(tabs, isIncognito));
@@ -427,6 +547,14 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             itemList.add(createMuteUnmuteSiteItem(tabs, isIncognito));
         }
         itemList.add(createCloseItem(isIncognito));
+        if (ChromeFeatureList.sAndroidContextMenuNewActions.isEnabled()) {
+            if (tabs.size() > anchorInfo.getAllTabIds().size()) {
+                itemList.add(createCloseOtherTabsItem(isIncognito));
+            }
+            if (canCloseTabsToTheRight(anchorInfo)) {
+                itemList.add(createCloseTabsToTheRightItem(isIncognito));
+            }
+        }
     }
 
     private static ListItem buildListItem(
@@ -446,8 +574,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                         ? getIncognitoTabGroups(tabs, groupToNotBeIncluded)
                         : getRegularTabGroups(tabs, groupToNotBeIncluded);
 
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.SUBMENUS_TAB_CONTEXT_MENU_LFF_TAB_STRIP)
-                || potentialGroups.isEmpty()) {
+        if (potentialGroups.isEmpty()) {
             String title =
                     mActivity
                             .getResources()
@@ -469,7 +596,9 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                         .withClickListener(
                                 (v) -> {
                                     recordMenuAction(
-                                            R.id.add_to_new_group_sub_menu_id, tabs.size() > 1);
+                                            R.id.add_to_new_group_sub_menu_id,
+                                            tabs.size() > 1,
+                                            isIncognito);
                                     createNewGroupForTabs(
                                             tabs,
                                             mTabGroupModelFilter,
@@ -493,8 +622,11 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
 
     private boolean shouldShowMoveToWindowItem(List<Tab> tabs, AnchorInfo anchorInfo) {
         if (TabGroupUtils.isAnyTabInGroup(tabs)) return false;
-        if (MultiWindowUtils.getInstanceCount(PersistedInstanceType.ACTIVE) == 1
-                && (mTabModelSupplier.get().getTabCountSupplier().get()
+        if (MultiWindowUtils.getInstanceCount(
+                                getActiveInstanceTypeForProfileType(
+                                        tabs.get(0).isIncognitoBranded()))
+                        == 1
+                && (getTabModel().getTabCountSupplier().get()
                         == anchorInfo.getAllTabIds().size())) {
             return false;
         }
@@ -515,13 +647,17 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
 
     private ListItem createMoveToWindowItem(AnchorInfo anchorInfo, boolean isIncognito) {
         assumeNonNull(mMultiInstanceManager);
+        int totalTabCount = getTabModel().getTabCountSupplier().get();
+        int moveTabCount = anchorInfo.getAllTabIds().size();
+        boolean allowMoveToNewWindow = totalTabCount > moveTabCount;
         return createMoveToWindowItem(
                 anchorInfo,
                 isIncognito,
-                anchorInfo.getAllTabIds().size() > 1
+                moveTabCount > 1
                         ? R.plurals.move_tabs_to_another_window
                         : R.plurals.move_tab_to_another_window,
-                R.id.move_to_other_window_menu_id);
+                R.id.move_to_other_window_menu_id,
+                allowMoveToNewWindow);
     }
 
     private ListItem createShareItem(boolean isIncognito) {
@@ -534,6 +670,25 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         return new ListItemBuilder()
                 .withTitle(title)
                 .withMenuId(R.id.duplicate_tab_menu_id)
+                .withIsIncognito(isIncognito)
+                .build();
+    }
+
+    private ListItem createCloseTabsToTheRightItem(boolean isIncognito) {
+        String title =
+                mActivity.getResources().getString(R.string.close_tabs_to_the_right_menu_item);
+        return new ListItemBuilder()
+                .withTitle(title)
+                .withMenuId(R.id.close_tabs_to_the_right_menu_id)
+                .withIsIncognito(isIncognito)
+                .build();
+    }
+
+    private ListItem createCloseOtherTabsItem(boolean isIncognito) {
+        String title = mActivity.getResources().getString(R.string.close_other_tabs_menu_item);
+        return new ListItemBuilder()
+                .withTitle(title)
+                .withMenuId(R.id.close_other_tabs_menu_id)
                 .withIsIncognito(isIncognito)
                 .build();
     }
@@ -590,7 +745,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         return buildListItem(stringRes, menuRes, isIncognito);
     }
 
-    private static void recordMenuAction(int menuId, boolean isMultipleTabs) {
+    private static void recordMenuAction(int menuId, boolean isMultipleTabs, boolean isIncognito) {
         if (menuId == R.id.add_to_tab_group) {
             recordUserAction("AddToTabGroup", isMultipleTabs);
         } else if (menuId == R.id.add_to_new_tab_group) {
@@ -598,7 +753,8 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
         } else if (menuId == R.id.remove_from_tab_group) {
             recordUserAction("RemoveTabFromTabGroup", isMultipleTabs);
         } else if (menuId == R.id.move_to_other_window_menu_id) {
-            if (MultiWindowUtils.getInstanceCount(PersistedInstanceType.ACTIVE) == 1) {
+            if (MultiWindowUtils.getInstanceCount(getActiveInstanceTypeForProfileType(isIncognito))
+                    == 1) {
                 recordUserAction("MoveTabToNewWindow", isMultipleTabs);
             } else {
                 recordUserAction("MoveTabsToOtherWindow", isMultipleTabs);
@@ -631,6 +787,10 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             recordUserAction("CloseAllTabs", /* isMultipleTabs= */ false);
         } else if (menuId == R.id.close_all_incognito_tabs_menu_id) {
             recordUserAction("CloseAllIncognitoTabs", /* isMultipleTabs= */ false);
+        } else if (menuId == R.id.close_other_tabs_menu_id) {
+            recordUserAction("CloseOtherTabs", isMultipleTabs);
+        } else if (menuId == R.id.close_tabs_to_the_right_menu_id) {
+            recordUserAction("CloseTabsToTheRight", isMultipleTabs);
         } else {
             assert false : "Unknown menu id: " + menuId;
         }
@@ -679,7 +839,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                             tabWindowManager, groupId, /* isIncognito= */ false);
             OnClickListener clickListener =
                     (v) -> {
-                        recordMenuAction(R.id.add_to_group_sub_menu_id, tabs.size() > 1);
+                        recordMenuAction(R.id.add_to_group_sub_menu_id, tabs.size() > 1, false);
                         if (isGroupInCurrentWindow) {
                             // If the tab is already in the current window,
                             // then just merge it to the group.
@@ -703,6 +863,7 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                             .withClickListener(clickListener)
                             .withIsIncognito(false)
                             .withStartIconDrawable(getCircleDrawable(colorId, false))
+                            .withStartIconWidth(mCircleSize)
                             .withShouldTintIcon(false)
                             .build());
         }
@@ -720,7 +881,8 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
             int tabIdInGroup = mTabGroupModelFilter.getGroupLastShownTabId(groupId);
             OnClickListener clickListener =
                     (v) -> {
-                        recordMenuAction(R.id.add_to_group_incognito_sub_menu_id, tabs.size() > 1);
+                        recordMenuAction(
+                                R.id.add_to_group_incognito_sub_menu_id, tabs.size() > 1, true);
                         mergeTabsToDest(
                                 tabs,
                                 tabIdInGroup,
@@ -737,23 +899,35 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
                             .withStartIconDrawable(
                                     getCircleDrawable(
                                             mTabGroupModelFilter.getTabGroupColor(groupId), true))
+                            .withStartIconWidth(mCircleSize)
                             .withShouldTintIcon(false)
                             .build());
         }
         return result;
     }
 
-    private @Nullable GradientDrawable getCircleDrawable(
+    private @Nullable Drawable getCircleDrawable(
             @TabGroupColorId int colorId, boolean isIncognito) {
         Drawable sourceDrawable = mActivity.getDrawable(R.drawable.tab_group_dialog_color_icon);
 
-        GradientDrawable circleDrawable = null;
-        if (sourceDrawable != null) {
-            circleDrawable = (GradientDrawable) sourceDrawable.mutate();
-            @ColorInt int color = getTabGroupColorPickerItemColor(mActivity, colorId, isIncognito);
-            circleDrawable.setColor(color);
-        }
-        return circleDrawable;
+        if (sourceDrawable == null) return null;
+
+        GradientDrawable circleDrawable = (GradientDrawable) sourceDrawable.mutate();
+        @ColorInt int color = getTabGroupColorPickerItemColor(mActivity, colorId, isIncognito);
+        circleDrawable.setColor(color);
+
+        circleDrawable.setSize(mCircleSize, mCircleSize);
+
+        // Center the circle on the appropriate visual center.
+        float visualCenterOfTextY =
+                isIncognito ? mVisualCenterOfTextYIncognito : mVisualCenterOfTextY;
+        float topInsetFloat = visualCenterOfTextY - (mCircleSize / 2.0f);
+        int topInset = (int) Math.floor(topInsetFloat);
+        int bottomInset = (int) Math.ceil(mIconSize - (topInsetFloat + mCircleSize));
+        int leftInset = 0;
+        int rightInset = 0;
+
+        return new InsetDrawable(circleDrawable, leftInset, topInset, rightInset, bottomInset);
     }
 
     @Override
@@ -767,8 +941,8 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
     @Override
     protected @Nullable String getCollaborationIdOrNull(AnchorInfo anchorInfo) {
         List<Integer> tabIds = anchorInfo.getAllTabIds();
-        if (tabIds.isEmpty() || tabIds.size() > 1) return null;
-        var tab = mTabModelSupplier.get().getTabById(tabIds.get(0));
+        if (tabIds.size() != 1) return null;
+        var tab = getTabModel().getTabById(tabIds.get(0));
         if (tab == null) return null;
         return TabShareUtils.getCollaborationIdOrNull(tab.getTabGroupId(), mTabGroupSyncService);
     }
@@ -778,11 +952,14 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
     protected void moveToNewWindow(AnchorInfo anchorInfo) {
         List<Integer> tabIds = anchorInfo.getAllTabIds();
         if (tabIds.isEmpty()) return;
-        TabModel tabModel = mTabModelSupplier.get();
+        TabModel tabModel = getTabModel();
         List<Tab> tabs = TabModelUtils.getTabsById(tabIds, tabModel, /* allowClosing= */ false);
         if (tabs.isEmpty()) return;
         ungroupTabs(tabs);
-        recordMenuAction(R.id.move_to_new_window_sub_menu_id, tabs.size() > 1);
+        recordMenuAction(
+                R.id.move_to_new_window_sub_menu_id,
+                tabs.size() > 1,
+                tabModel.isIncognitoBranded());
         moveAndCleanupSource(
                 mMultiInstanceManager,
                 () ->
@@ -795,11 +972,14 @@ public class TabContextMenuCoordinator extends TabStripReorderingHelper<AnchorIn
     protected void moveToWindow(InstanceInfo instanceInfo, AnchorInfo anchorInfo) {
         List<Integer> tabIds = anchorInfo.getAllTabIds();
         if (tabIds.isEmpty()) return;
-        TabModel tabModel = mTabModelSupplier.get();
+        TabModel tabModel = getTabModel();
         List<Tab> tabs = TabModelUtils.getTabsById(tabIds, tabModel, /* allowClosing= */ false);
         if (tabs.isEmpty()) return;
         ungroupTabs(tabs);
-        recordMenuAction(R.id.move_to_other_window_sub_menu_id, tabs.size() > 1);
+        recordMenuAction(
+                R.id.move_to_other_window_sub_menu_id,
+                tabs.size() > 1,
+                tabModel.isIncognitoBranded());
         moveAndCleanupSource(
                 mMultiInstanceManager,
                 () ->

@@ -27,6 +27,7 @@
 #include "chrome/browser/ui/webui/webui_toolbar/browser_controls_service.h"
 #include "chrome/browser/ui/webui/webui_toolbar/toolbar_ui_service.h"
 #include "chrome/browser/ui/webui/webui_toolbar/utils/split_tabs_utils.h"
+#include "chrome/browser/ui/webui/webui_toolbar/utils/toolbar_button_utils.h"
 #include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_layout_css_helper.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
@@ -90,6 +91,8 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
                      features::IsWebUIBackForwardButtonEnabled());
   source->AddBoolean("enablePinnedToolbarActions",
                      features::IsWebUIPinnedToolbarActionsEnabled());
+  source->AddBoolean("enableAvatarButton",
+                     features::IsWebUIAvatarButtonEnabled());
 
   BrowserWindowInterface* browser =
       webui::GetBrowserWindowInterface(web_ui->GetWebContents());
@@ -109,7 +112,9 @@ WebUIToolbarConfig::WebUIToolbarConfig()
 
 bool WebUIToolbarConfig::IsWebUIEnabled(
     content::BrowserContext* browser_context) {
-  return features::IsWebUIToolbarEnabled();
+  return features::IsWebUIToolbarEnabled() ||
+         base::FeatureList::IsEnabled(
+             features::kWebUIToolbarProcessOverheadExperiment);
 }
 
 bool WebUIToolbarConfig::ShouldKeepVisibleUntilFirstVisuallyNonEmptyPaint() {
@@ -148,9 +153,9 @@ void WebUIToolbarUI::BindInterface(
 }
 
 void WebUIToolbarUI::OnNavigationControlsStateChanged(
-    toolbar_ui_api::mojom::NavigationControlsStatePtr state) {
+    const toolbar_ui_api::mojom::NavigationControlsState& state) {
   if (toolbar_ui_service_) {
-    toolbar_ui_service_->OnNavigationControlsStateChanged(std::move(state));
+    toolbar_ui_service_->OnNavigationControlsStateChanged(state);
   }
 }
 
@@ -236,13 +241,18 @@ void WebUIToolbarUI::PopulateLocalResourceLoaderConfig(
 
 const std::vector<ui::ElementIdentifier>
 WebUIToolbarUI::GetKnownElementIdentifiers() {
-  return {kLocationBarElementId,
-          kOmniboxElementId,
-          kReloadButtonElementId,
-          kToolbarSplitTabsToolbarButtonElementId,
-          kToolbarHomeButtonElementId,
-          kToolbarBackButtonElementId,
-          kToolbarForwardButtonElementId,
-          kSharedTabGroupFeedbackElementId,
-          kSharedTabGroupCommentsActionElementId};
+  static const base::NoDestructor<std::vector<ui::ElementIdentifier>> ids(
+      {kLocationBarElementId, kLocationIconElementId, kOmniboxElementId,
+       kReloadButtonElementId, kToolbarSplitTabsToolbarButtonElementId,
+       kToolbarHomeButtonElementId, kToolbarBackButtonElementId,
+       kToolbarForwardButtonElementId, kSharedTabGroupFeedbackElementId,
+       kSharedTabGroupCommentsActionElementId,
+       kPinnedToolbarActionShowSidePanelLensOverlayResultsElementId,
+       kPinnedToolbarActionShowSidePanelBookmarksElementId,
+       kPinnedToolbarActionSendTabToSelfElementId,
+       kToolbarAvatarButtonElementId});
+  auto pinned_ids = webui_toolbar::GetPinnedToolbarActionElementIds();
+  pinned_ids.reserve(pinned_ids.size() + ids->size());
+  pinned_ids.insert(pinned_ids.end(), ids->begin(), ids->end());
+  return pinned_ids;
 }

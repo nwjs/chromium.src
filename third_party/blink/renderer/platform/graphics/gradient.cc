@@ -39,8 +39,6 @@
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/skia/include/core/SkMatrix.h"
-#include "third_party/skia/include/core/SkShader.h"
-#include "third_party/skia/include/effects/SkGradient.h"
 #include "ui/gfx/geometry/clamp_float_geometry.h"
 
 namespace blink {
@@ -51,9 +49,9 @@ Gradient::Gradient(Type type,
                    DegenerateHandling degenerate_handling)
     : type_(type),
       spread_method_(spread_method),
-      premultiplied_alpha_(premultiplied_alpha),
-      degenerate_handling_(degenerate_handling),
-      stops_sorted_(true) {}
+      premultiplied_alpha_(premultiplied_alpha ==
+                           PremultipliedAlpha::kPremultiplied),
+      allow_degenerate_(degenerate_handling == DegenerateHandling::kAllow) {}
 
 Gradient::~Gradient() = default;
 
@@ -71,6 +69,10 @@ void Gradient::AddColorStop(const Gradient::ColorStop& stop) {
 
   stops_.push_back(stop);
   cached_shader_.reset();
+}
+
+void Gradient::AddColorStop(double value, const Color& color) {
+  AddColorStop(ColorStop(gfx::ClampFloatGeometry(value), color));
 }
 
 void Gradient::AddColorStops(const Vector<Gradient::ColorStop>& stops) {
@@ -283,10 +285,9 @@ SkGradient::Interpolation Gradient::ResolveSkInterpolation() const {
       sk_interpolation.fHueMethod = sk_hue_method::kShorter;
   }
 
-  sk_interpolation.fInPremul =
-      (premultiplied_alpha_ == PremultipliedAlpha::kPremultiplied)
-          ? SkGradient::Interpolation::InPremul::kYes
-          : SkGradient::Interpolation::InPremul::kNo;
+  sk_interpolation.fInPremul = premultiplied_alpha_
+                                   ? SkGradient::Interpolation::InPremul::kYes
+                                   : SkGradient::Interpolation::InPremul::kNo;
 
   return sk_interpolation;
 }

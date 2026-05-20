@@ -60,12 +60,16 @@ void CreditCardFormEventLogger::OnDidFetchSuggestion(
     bool with_cvc,
     bool with_card_info_retrieval_enrolled,
     bool with_pay_later_tab_suggestion,
+    bool with_externally_saved_card,
+    bool with_never_used_card,
     bool is_virtual_card_standalone_cvc_field,
     CardMetadataLoggingContext metadata_logging_context) {
   suggestion_contains_card_with_cvc_ = with_cvc;
   suggestion_contains_card_info_retrieval_enrolled_card_ =
       with_card_info_retrieval_enrolled;
   suggestion_contains_pay_later_tab_entry_ = with_pay_later_tab_suggestion;
+  suggestion_contains_externally_saved_card_ = with_externally_saved_card;
+  suggestion_contains_never_used_card_ = with_never_used_card;
   is_virtual_card_standalone_cvc_field_ = is_virtual_card_standalone_cvc_field;
   // A new metadata logging context is received every time a suggestion is
   // fetched, i.e. when a form field is focused and provides suggestions. The
@@ -155,13 +159,29 @@ void CreditCardFormEventLogger::OnDidShowSuggestions(
       payments::IsEligibleForBnpl(owner_->client())) {
     if (base::FeatureList::IsEnabled(
             features::kAutofillEnablePayNowPayLaterTabs)) {
-      LogSuggestionShownForPayLaterTab(
-          suggestion_contains_pay_later_tab_entry_);
+      LogSuggestionShownForPayLaterTab(suggestion_contains_pay_later_tab_entry_,
+                                       driver().GetPageUkmSourceId());
     } else {
       LogBnplFormEvent(BnplFormEvent::kSuggestionsShownOnBnplEligiblePage);
     }
 
     has_logged_suggestions_shown_on_bnpl_eligible_merchant_ = true;
+  }
+
+  if (suggestion_contains_externally_saved_card_) {
+    Log(FORM_EVENT_SUGGESTION_FOR_EXTERNALLY_SAVED_CARD_SHOWN, form);
+    if (!has_logged_suggestion_for_externally_saved_card_shown_) {
+      Log(FORM_EVENT_SUGGESTION_FOR_EXTERNALLY_SAVED_CARD_SHOWN_ONCE, form);
+    }
+    has_logged_suggestion_for_externally_saved_card_shown_ = true;
+  }
+
+  if (suggestion_contains_never_used_card_) {
+    Log(FORM_EVENT_SUGGESTION_FOR_NEVER_USED_CARD_SHOWN, form);
+    if (!has_logged_suggestion_for_never_used_card_shown_) {
+      Log(FORM_EVENT_SUGGESTION_FOR_NEVER_USED_CARD_SHOWN_ONCE, form);
+    }
+    has_logged_suggestion_for_never_used_card_shown_ = true;
   }
 }
 
@@ -306,6 +326,25 @@ void CreditCardFormEventLogger::OnDidSelectCardSuggestion(
       CardMetadataLoggingEvent::kSelected, metadata_logging_context_,
       HasBeenLogged(has_logged_suggestion_with_metadata_selected_));
   has_logged_suggestion_with_metadata_selected_ = true;
+
+  // Log if the selected suggestion was for an externally-saved card.
+  if (credit_card.card_creation_source() ==
+      CreditCard::CardCreationSource::kCreationSourceNonChromePayments) {
+    Log(FORM_EVENT_SUGGESTION_FOR_EXTERNALLY_SAVED_CARD_SELECTED, form);
+    if (!has_logged_suggestion_for_externally_saved_card_selected_) {
+      Log(FORM_EVENT_SUGGESTION_FOR_EXTERNALLY_SAVED_CARD_SELECTED_ONCE, form);
+    }
+    has_logged_suggestion_for_externally_saved_card_selected_ = true;
+  }
+
+  //  Log if the selected suggestion was for a never used card.
+  if (credit_card.usage_history().use_count() == 1) {
+    Log(FORM_EVENT_SUGGESTION_FOR_NEVER_USED_CARD_SELECTED, form);
+    if (!has_logged_suggestion_for_never_used_card_selected_) {
+      Log(FORM_EVENT_SUGGESTION_FOR_NEVER_USED_CARD_SELECTED_ONCE, form);
+    }
+    has_logged_suggestion_for_never_used_card_selected_ = true;
+  }
 }
 
 void CreditCardFormEventLogger::OnDidFillFormFillingSuggestion(
@@ -554,7 +593,7 @@ void CreditCardFormEventLogger::LogCardUnmaskAuthenticationPromptCompleted(
 void CreditCardFormEventLogger::OnUserDecisionToUseBnpl() {
   if (!has_logged_user_decision_to_use_bnpl_) {
     if (suggestion_contains_pay_later_tab_entry_) {
-      LogPayLaterTabsFormEvent(PayLaterTabsFormEvent::kSwitchedToPayLaterTab);
+      LogPayLaterTabSelected(driver().GetPageUkmSourceId());
     } else {
       LogBnplSuggestionAccepted(driver().GetPageUkmSourceId());
     }
@@ -593,7 +632,10 @@ CreditCardFormEventLogger::GetCreditCardSuggestionSummaryForTesting() const {
   return CreditCardSuggestionSummary{
       suggestion_contains_card_with_cvc_,
       suggestion_contains_card_info_retrieval_enrolled_card_,
-      suggestion_contains_pay_later_tab_entry_, metadata_logging_context_};
+      suggestion_contains_pay_later_tab_entry_,
+      suggestion_contains_externally_saved_card_,
+      suggestion_contains_never_used_card_,
+      metadata_logging_context_};
 }
 
 void CreditCardFormEventLogger::RecordParseForm() {
@@ -862,18 +904,6 @@ void CreditCardFormEventLogger::RecordCardUnmaskFlowEvent(
       base::StrCat({"Autofill.BetterAuth.FlowEvents", flow_type_suffix,
                     card_type_suffix}),
       event);
-}
-
-bool CreditCardFormEventLogger::DoesCardHaveOffer(
-    const CreditCard& credit_card) {
-  auto* offer_manager =
-      client().GetPaymentsAutofillClient()->GetAutofillOfferManager();
-  if (!offer_manager)
-    return false;
-
-  auto card_linked_offer_map = offer_manager->GetCardLinkedOffersMap(
-      client().GetLastCommittedPrimaryMainFrameURL());
-  return card_linked_offer_map.contains(credit_card.guid());
 }
 
 bool CreditCardFormEventLogger::DoSuggestionsIncludeVirtualCard() {

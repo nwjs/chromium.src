@@ -6,12 +6,12 @@
 
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/files/file.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/singleton.h"
 #include "base/no_destructor.h"
 #include "base/posix/unix_domain_socket.h"
 #include "base/task/sequenced_task_runner.h"
@@ -25,10 +25,10 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "mojo/public/cpp/system/platform_handle.h"
+#include "services/tracing/public/cpp/perfetto/perfetto_data_source_names.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_traced_process.h"
 #include "services/tracing/public/cpp/perfetto/system_trace_writer.h"
 #include "services/tracing/public/mojom/constants.mojom.h"
-#include "services/tracing/public/mojom/perfetto_service.mojom.h"
 
 namespace arc {
 
@@ -49,11 +49,12 @@ class ArcTracingBridgeFactory
   static constexpr const char* kName = "ArcTracingBridgeFactory";
 
   static ArcTracingBridgeFactory* GetInstance() {
-    return base::Singleton<ArcTracingBridgeFactory>::get();
+    static base::NoDestructor<ArcTracingBridgeFactory> instance;
+    return instance.get();
   }
 
  private:
-  friend base::DefaultSingletonTraits<ArcTracingBridgeFactory>;
+  friend base::NoDestructor<ArcTracingBridgeFactory>;
   ArcTracingBridgeFactory() = default;
   ~ArcTracingBridgeFactory() override = default;
 };
@@ -107,11 +108,11 @@ class ArcTracingDataSource
       tracing::SystemTraceWriter<std::string, DataSourceProxy>;
 
   ArcTracingDataSource()
-      : DataSourceBase(tracing::mojom::kArcTraceDataSourceName),
+      : DataSourceBase(tracing::kArcTraceDataSourceName),
         perfetto_task_runner_(
             tracing::PerfettoTracedProcess::DataSourceBase::GetTaskRunner()) {
     perfetto::DataSourceDescriptor dsd;
-    dsd.set_name(tracing::mojom::kArcTraceDataSourceName);
+    dsd.set_name(tracing::kArcTraceDataSourceName);
     DataSourceProxy::Register(dsd, this);
   }
 
@@ -262,6 +263,8 @@ class ArcTracingDataSource
 
 }  // namespace
 
+BASE_FEATURE(kArcTracingDataSource, base::FEATURE_DISABLED_BY_DEFAULT);
+
 struct ArcTracingBridge::Category {
   // The name used by Android to trigger tracing.
   std::string name;
@@ -411,7 +414,9 @@ void ArcTracingBridge::OnArcTracingStopped(StopCallback callback,
 
 // static
 void ArcTracingBridge::EnsureFactoryBuilt() {
-  ArcTracingBridgeFactory::GetInstance();
+  if (base::FeatureList::IsEnabled(kArcTracingDataSource)) {
+    ArcTracingBridgeFactory::GetInstance();
+  }
 }
 
 }  // namespace arc

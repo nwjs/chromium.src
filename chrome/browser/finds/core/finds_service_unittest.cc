@@ -19,7 +19,10 @@
 #include "chrome/browser/notifications/scheduler/test/mock_notification_schedule_service.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
 #include "components/history/core/browser/history_service.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
+#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/proto/features/finds.pb.h"
+#include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -58,6 +61,8 @@ class FindsServiceTest : public testing::Test {
   ~FindsServiceTest() override = default;
 
   void SetUp() override {
+    optimization_guide::model_execution::prefs::RegisterProfilePrefs(
+        prefs_.registry());
     FindsService::RegisterProfilePrefs(prefs_.registry());
     opt_guide_service_ = std::make_unique<
         testing::NiceMock<MockOptimizationGuideKeyedService>>();
@@ -90,10 +95,8 @@ class FindsServiceTest : public testing::Test {
 
 TEST_F(FindsServiceTest, VerifyNotificationCooldownPref) {
   EXPECT_EQ(0, prefs_.GetInt64(prefs::kFindsModelExecutionLastTimestamp));
-  finds::MarkNotificationShown(&prefs_);
+  finds::MarkModelExecutionLastTimestamp(&prefs_);
   EXPECT_NE(0, prefs_.GetInt64(prefs::kFindsModelExecutionLastTimestamp));
-  histogram_tester_.ExpectUniqueSample(
-      "Notifications.ChromeFinds.NotificationShown", true, 1);
 }
 
 TEST_F(FindsServiceTest, VerifyThemeNotInterestedCooldownPref) {
@@ -290,13 +293,14 @@ TEST_F(FindsServiceTest, Success) {
         callback_called = true;
       }));
   EXPECT_TRUE(callback_called);
+  EXPECT_NE(0, prefs_.GetInt64(prefs::kFindsModelExecutionLastTimestamp));
   histogram_tester_.ExpectUniqueSample(
       "Finds.Result", FindsService::Result::Status::kSuccess, 1);
 }
 
 TEST_F(FindsServiceTest, ExecutionCooldownNotPassed) {
   // Set the last execution timestamp to now.
-  finds::MarkNotificationShown(&prefs_);
+  finds::MarkModelExecutionLastTimestamp(&prefs_);
 
   // Fast forward time just before the cooldown is set to expire.
   task_environment_.FastForwardBy(base::Days(
@@ -316,7 +320,7 @@ TEST_F(FindsServiceTest, ExecutionCooldownNotPassed) {
 
 TEST_F(FindsServiceTest, ExecutionCooldownPassed) {
   // Set the last execution timestamp to now.
-  finds::MarkNotificationShown(&prefs_);
+  finds::MarkModelExecutionLastTimestamp(&prefs_);
 
   // Fast forward enough to pass the cooldown.
   task_environment_.FastForwardBy(
@@ -926,6 +930,19 @@ TEST_F(FindsServiceTest, ScheduleNotificationForInternalsPage) {
   EXPECT_EQ("https://www.google.com",
             scheduled_params->notification_data
                 .custom_data[notifications::kChromeFindsNotificationsUrl]);
+  EXPECT_NE(0, prefs_.GetInt64(prefs::kFindsModelExecutionLastTimestamp));
+}
+
+TEST_F(FindsServiceTest, ClearNotificationsBeforeScheduling) {
+  testing::InSequence enforce_call_order;
+  EXPECT_CALL(
+      *notification_schedule_service_,
+      DeleteNotifications(notifications::SchedulerClientType::kChromeFinds))
+      .Times(1);
+  EXPECT_CALL(*notification_schedule_service_, Schedule(_)).Times(1);
+
+  bool success = service_->ScheduleNotificationForInternalsPage();
+  EXPECT_TRUE(success);
 }
 
 TEST_F(FindsServiceTest, MaybeRescheduleNotifications_Empty_NoOp) {
@@ -957,6 +974,65 @@ TEST_F(FindsServiceTest, MaybeRescheduleNotifications_Reschedules) {
   EXPECT_CALL(*notification_schedule_service_, Schedule(_)).Times(1);
 
   service_->MaybeRescheduleNotifications();
+}
+
+TEST_F(FindsServiceTest, TestExecuteModelEnterprisePolicyDisabled) {
+  prefs_.SetInteger(
+      optimization_guide::prefs::kFindsEnterprisePolicyAllowed,
+      static_cast<int>(optimization_guide::model_execution::prefs::
+                           ModelExecutionEnterprisePolicyValue::kDisable));
+
+  base::RunLoop run_loop;
+  service_->ExecuteModelAndScheduleNotification(base::BindOnce(
+      [](base::OnceClosure quit_closure, FindsService::Result result) {
+        EXPECT_EQ(result.status,
+                  FindsService::Result::Status::kDisabledByEnterprisePolicy);
+        EXPECT_EQ(result.message,
+                  "Error: Feature disabled by enterprise policy.");
+        std::move(quit_closure).Run();
+      },
+      run_loop.QuitClosure()));
+  run_loop.Run();
+}
+
+TEST_F(FindsServiceTest, TestRecordThemeURLVisitedEnterprisePolicyDisabled) {
+  prefs_.SetInteger(
+      optimization_guide::prefs::kFindsEnterprisePolicyAllowed,
+      static_cast<int>(optimization_guide::model_execution::prefs::
+                           ModelExecutionEnterprisePolicyValue::kDisable));
+
+  testing::NiceMock<MockFindsServiceObserver> observer;
+  service_->AddObserver(&observer);
+
+  EXPECT_CALL(observer, OnOptInCriteriaFulfilled()).Times(0);
+
+  // Threshold is 3.
+  service_->RecordThemeURLVisited(
+      optimization_guide::proto::FindsMetadata::SHOPPING);
+  service_->RecordThemeURLVisited(
+      optimization_guide::proto::FindsMetadata::SHOPPING);
+  service_->RecordThemeURLVisited(
+      optimization_guide::proto::FindsMetadata::SHOPPING);
+
+  EXPECT_TRUE(theme_url_visit_count().empty());
+
+  service_->RemoveObserver(&observer);
+}
+
+TEST_F(FindsServiceTest, TestSRPBackNavigationEnterprisePolicyDisabled) {
+  prefs_.SetInteger(
+      optimization_guide::prefs::kFindsEnterprisePolicyAllowed,
+      static_cast<int>(optimization_guide::model_execution::prefs::
+                           ModelExecutionEnterprisePolicyValue::kDisable));
+
+  testing::NiceMock<MockFindsServiceObserver> observer;
+  service_->AddObserver(&observer);
+
+  EXPECT_CALL(observer, OnOptInCriteriaFulfilled()).Times(0);
+
+  service_->SRPBackNavigationCountForOptInReached();
+
+  service_->RemoveObserver(&observer);
 }
 
 }  // namespace finds

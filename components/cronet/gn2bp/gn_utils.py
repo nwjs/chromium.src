@@ -668,7 +668,11 @@ class GnParser:
                 # While the arguments might differ, an action should always use the same script for every
                 # architecture. (gen_android_bp's get_action_sanitizer actually relies on this fact.
                 target.script = desc['script']
-                target.arch[arch].args = desc['args']
+                # Soong treats '$' as a special character for substitutions.
+                # Escape it to ensure it is handled as a literal.
+                target.arch[arch].args = [
+                    arg.replace('$', '$$') for arg in desc['args']
+                ]
             target.arch[
                 arch].response_file_contents = self._get_response_file_contents(
                     desc)
@@ -680,10 +684,12 @@ class GnParser:
             # JNI java sources are embedded as metadata inside `jni_headers` targets.
             # See https://source.chromium.org/chromium/chromium/src/+/main:third_party/jni_zero/jni_zero.gni;l=421;drc=78e8e27142ed3fddf04fbcd122507517a87cb9ad
             # for more details
-            target.transitive_jni_java_sources.update(
-                metadata.get("jni_source_files", set()))
-            self.jni_java_sources.update(
-                metadata.get("jni_source_files", set()))
+            jni_metadata = metadata.get("jni_targets", [])
+            for item in jni_metadata:
+                sources = item.get("java_files", [])
+                sources = [s.replace('../../', '//', 1) for s in sources]
+                target.transitive_jni_java_sources.update(sources)
+                self.jni_java_sources.update(sources)
             if gn2bp_common.is_rust_build_script(target.script):
 
                 def _extract_crate_path(args):

@@ -10,6 +10,7 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/html/parser/fragment_parser.h"
 #include "third_party/blink/renderer/core/html/parser/html_document_parser.h"
+#include "third_party/blink/renderer/core/sanitizer/sanitizer.h"
 #include "third_party/blink/renderer/core/sanitizer/sanitizer_api.h"
 #include "third_party/blink/renderer/core/streams/underlying_sink_base.h"
 #include "third_party/blink/renderer/core/streams/writable_stream.h"
@@ -68,6 +69,8 @@ class HTMLSink : public UnderlyingSinkBase {
     // TODO(nrosenthal): use an inert document to avoid pre-sanitization side
     // effects.
     CustomElementRegistry* registry = context_element->customElementRegistry();
+
+    target->GetDocument().setAllowDeclarativeShadowRoots(true);
 
     parser = MakeGarbageCollected<HTMLDocumentParser>(
         target->GetDocument().createDocumentFragment(), context_element,

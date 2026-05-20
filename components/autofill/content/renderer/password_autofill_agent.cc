@@ -301,8 +301,8 @@ std::string GetAlternativeFormSignatureAsString(const FormData& form_data) {
 void SetAttributeInternal(WebElement target,
                           const std::string& attribute_utf8,
                           const std::string& value_utf8) {
-  target.SetAttribute(WebString::FromUTF8(attribute_utf8),
-                      WebString::FromUTF8(value_utf8));
+  target.SetAttribute(WebString::FromUtf8(attribute_utf8),
+                      WebString::FromUtf8(value_utf8));
 }
 
 // Posts an async task to call SetAttributeInternal.
@@ -452,7 +452,7 @@ void AnnotateFieldWithParsingResult(
 
   element.SetAttribute(
       kHtmlAttributeForAutofillTooltip,
-      WebString::FromUTF8(
+      WebString::FromUtf8(
           base::StrCat({element.GetAttribute(kDebugAttributeForAutofill).Utf8(),
                         "\n", kDebugAttributeForParserAnnotations, ": ",
                         password_managers_annotation})));
@@ -491,20 +491,6 @@ bool HasDocumentWithValidFrame(const WebInputElement& element) {
     }
   }
   return fields;
-}
-
-size_t GetIndexOfElement(const FormData& form_data,
-                         const WebInputElement& element) {
-  if (!element) {
-    return form_data.fields().size();
-  }
-  for (size_t i = 0; i < form_data.fields().size(); ++i) {
-    if (form_data.fields()[i].renderer_id() ==
-        form_util::GetFieldRendererId(element)) {
-      return i;
-    }
-  }
-  return form_data.fields().size();
 }
 
 bool HasTextInputs(const FormData& form_data) {
@@ -598,10 +584,6 @@ class PasswordAutofillAgent::DeferringPasswordManagerDriver
     DeferMsg(&mojom::PasswordManagerDriver::UserModifiedNonPasswordField,
              renderer_id, value, autocomplete_attribute_has_username,
              is_likely_otp);
-  }
-  void ShowPasswordSuggestions(
-      const PasswordSuggestionRequest& request) override {
-    DeferMsg(&mojom::PasswordManagerDriver::ShowPasswordSuggestions, request);
   }
   void CheckSafeBrowsingReputation(const GURL& form_action,
                                    const GURL& frame_url) override {
@@ -1187,18 +1169,17 @@ PasswordAutofillAgent::CreateSuggestionRequest(
                              &username_element, &password_element,
                              &password_info);
 
-  // These could be form.field.size() when the request is for fallback data.
-  const size_t username_field_index =
-      GetIndexOfElement(form_and_field->first, username_element);
-  const size_t password_field_index =
-      GetIndexOfElement(form_and_field->first, password_element);
-
   return PasswordSuggestionRequest(
       TriggeringField(*form_and_field->second, trigger_source, typed_username,
                       gfx::RectF(render_frame()->ConvertViewportToWindow(
                           user_input.BoundsInWidget()))),
-      std::move(form_and_field->first), username_field_index,
-      password_field_index);
+      std::move(form_and_field->first),
+      {.frame_token = {},
+       .renderer_id = username_element ? GetFieldRendererId(username_element)
+                                       : FieldRendererId()},
+      {.frame_token = {},
+       .renderer_id = password_element ? GetFieldRendererId(password_element)
+                                       : FieldRendererId()});
 }
 
 bool PasswordAutofillAgent::FindPasswordInfoForElement(

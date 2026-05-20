@@ -66,7 +66,6 @@
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/login/login_manager_test.h"
 #include "chrome/browser/ash/login/test/login_manager_mixin.h"
-#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
@@ -82,12 +81,12 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -100,8 +99,8 @@
 #include "components/prefs/pref_service.h"
 #include "components/services/app_service/public/cpp/app_launch_params.h"
 #include "components/services/app_service/public/cpp/package_id.h"
+#include "components/session_manager/core/session.h"
 #include "components/session_manager/core/session_manager.h"
-#include "components/user_manager/test_helper.h"
 #include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_names.h"
 #include "components/user_manager/user_type.h"
@@ -300,20 +299,26 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest, CreateNewWindow) {
   AppListControllerDelegate* controller = client;
   ASSERT_TRUE(controller);
 
-  EXPECT_EQ(1U, chrome::GetBrowserCount(browser()->profile()));
-  EXPECT_EQ(0U,
-            chrome::GetBrowserCount(browser()->profile()->GetPrimaryOTRProfile(
-                /*create_if_needed=*/true)));
+  EXPECT_EQ(
+      1U,
+      ProfileBrowserCollection::GetForProfile(browser()->profile())->GetSize());
+  EXPECT_EQ(0U, ProfileBrowserCollection::GetForProfile(
+                    browser()->profile()->GetPrimaryOTRProfile(
+                        /*create_if_needed=*/true))
+                    ->GetSize());
 
   controller->CreateNewWindow(/*incognito=*/false,
                               /*should_trigger_session_restore=*/true);
-  EXPECT_EQ(2U, chrome::GetBrowserCount(browser()->profile()));
+  EXPECT_EQ(
+      2U,
+      ProfileBrowserCollection::GetForProfile(browser()->profile())->GetSize());
 
   controller->CreateNewWindow(/*incognito=*/true,
                               /*should_trigger_session_restore=*/true);
-  EXPECT_EQ(1U,
-            chrome::GetBrowserCount(browser()->profile()->GetPrimaryOTRProfile(
-                /*create_if_needed=*/true)));
+  EXPECT_EQ(1U, ProfileBrowserCollection::GetForProfile(
+                    browser()->profile()->GetPrimaryOTRProfile(
+                        /*create_if_needed=*/true))
+                    ->GetSize());
 }
 
 // When getting activated, SelfDestroyAppItem has itself removed from the
@@ -856,8 +861,9 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest,
   extensions::ExtensionPrefs* prefs = extensions::ExtensionPrefs::Get(profile);
 
   // Starting with just one regular browser.
-  EXPECT_EQ(1U, chrome::GetBrowserCount(profile));
-  EXPECT_EQ(0U, chrome::GetBrowserCount(profile_otr));
+  EXPECT_EQ(1U, ProfileBrowserCollection::GetForProfile(profile)->GetSize());
+  EXPECT_EQ(0U,
+            ProfileBrowserCollection::GetForProfile(profile_otr)->GetSize());
 
   // First browser launch time should be recorded.
   const base::Time time_recorded1 =
@@ -868,14 +874,16 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest,
   // exiting the test.
   controller->CreateNewWindow(/*incognito=*/true,
                               /*should_trigger_session_restore=*/true);
-  EXPECT_EQ(1U, chrome::GetBrowserCount(profile_otr));
+  EXPECT_EQ(1U,
+            ProfileBrowserCollection::GetForProfile(profile_otr)->GetSize());
   // Creating incognito browser should not update the launch time.
   EXPECT_EQ(time_recorded1,
             prefs->GetLastLaunchTime(app_constants::kChromeAppId));
 
   // Close the regular browser.
-  CloseBrowserSynchronously(chrome::FindBrowserWithProfile(profile));
-  EXPECT_EQ(0U, chrome::GetBrowserCount(profile));
+  CloseBrowserSynchronously(
+      ProfileBrowserCollection::GetForProfile(profile)->GetLastActiveBrowser());
+  EXPECT_EQ(0U, ProfileBrowserCollection::GetForProfile(profile)->GetSize());
   // Recorded the launch time should not update.
   EXPECT_EQ(time_recorded1,
             prefs->GetLastLaunchTime(app_constants::kChromeAppId));
@@ -885,7 +893,7 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest,
   controller->CreateNewWindow(/*incognito=*/false,
                               /*should_trigger_session_restore=*/true);
   const base::Time time_after_launch = base::Time::Now();
-  EXPECT_EQ(1U, chrome::GetBrowserCount(profile));
+  EXPECT_EQ(1U, ProfileBrowserCollection::GetForProfile(profile)->GetSize());
 
   const base::Time time_recorded2 =
       prefs->GetLastLaunchTime(app_constants::kChromeAppId);
@@ -895,7 +903,7 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest,
   // Creating a second regular browser should not update the launch time.
   controller->CreateNewWindow(/*incognito=*/false,
                               /*should_trigger_session_restore=*/true);
-  EXPECT_EQ(2U, chrome::GetBrowserCount(profile));
+  EXPECT_EQ(2U, ProfileBrowserCollection::GetForProfile(profile)->GetSize());
   EXPECT_EQ(time_recorded2,
             prefs->GetLastLaunchTime(app_constants::kChromeAppId));
 }
@@ -1263,7 +1271,6 @@ class AppListClientNewUserTest : public InProcessBrowserTest,
   AppListClientNewUserTest() = default;
   ~AppListClientNewUserTest() override = default;
 
- public:
   // Returns the event to signal when the first app list sync in the session has
   // been completed.
   base::OneShotEvent& on_first_sync() { return on_first_sync_; }
@@ -1273,73 +1280,32 @@ class AppListClientNewUserTest : public InProcessBrowserTest,
   // test parameterization.
   bool was_first_sync_ever() const { return GetParam(); }
 
-  // Returns the `AccountId` for the primary `profile()`.
-  const AccountId& account_id() const { return account_id_; }
+  // Returns the `AccountId` for the primary user.
+  const AccountId& account_id() const {
+    return session_manager::SessionManager::Get()
+        ->GetPrimarySession()
+        ->account_id();
+  }
 
  private:
   // InProcessBrowserTest:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    InProcessBrowserTest::SetUpCommandLine(command_line);
-    // Disable automatic login.
-    command_line->AppendSwitch(ash::switches::kLoginManager);
-  }
+  void SetUpBrowserContextKeyedServices(
+      content::BrowserContext* browser_context) override {
+    InProcessBrowserTest::SetUpBrowserContextKeyedServices(browser_context);
 
-  void SetUpOnMainThread() override {
-    SetUpEnvironment();
-    InProcessBrowserTest::SetUpOnMainThread();
-  }
-
-  // Sets up profile and user manager. Should be called only once on test setup.
-  void SetUpEnvironment() {
-    ash::ProfileHelper::SetProfileToUserForTestingEnabled(true);
-    account_id_ =
-        AccountId::FromUserEmailGaiaId("test@test-user", GaiaId("gaia-id"));
-    auto* user = user_manager::TestHelper(user_manager::UserManager::Get())
-                     .AddRegularUser(account_id_);
-    ASSERT_TRUE(user);
-    session_manager::SessionManager::Get()->CreateSession(
-        account_id_, user_manager::TestHelper::GetFakeUsernameHash(account_id_),
-        /*new_user=*/false,
-        /*has_active_session=*/false);
-
-    TestingProfile::Builder profile_builder;
-    profile_builder.AddTestingFactory(
-        app_list::AppListSyncableServiceFactory::GetInstance(),
+    app_list::AppListSyncableServiceFactory::GetInstance()->SetTestingFactory(
+        browser_context,
         base::BindLambdaForTesting([&](content::BrowserContext* browser_context)
                                        -> std::unique_ptr<KeyedService> {
           return std::make_unique<AppListSyncableServiceFake>(
               Profile::FromBrowserContext(browser_context),
               was_first_sync_ever(), &on_first_sync_);
         }));
-    profile_builder.SetProfileName("test@test-user");
-    profile_builder.SetPath(
-        ash::BrowserContextHelper::Get()->GetBrowserContextPathByUserIdHash(
-            user_manager::FakeUserManager::GetFakeUsernameHash(account_id_)));
-
-    std::unique_ptr<TestingProfile> testing_profile = profile_builder.Build();
-    profile_ = testing_profile.get();
-    g_browser_process->profile_manager()->RegisterTestingProfile(
-        std::move(testing_profile), true);
-
-    user_manager::UserManager::Get()->OnUserProfileCreated(
-        account_id_, profile_->GetPrefs());
-    ash::ProfileHelper::Get()->SetUserToProfileMappingForTesting(user,
-                                                                 profile_);
-  }
-
-  void TearDownOnMainThread() override {
-    user_manager::UserManager::Get()->OnUserProfileWillBeDestroyed(account_id_);
-    profile_ = nullptr;
-    base::RunLoop().RunUntilIdle();
-    InProcessBrowserTest::TearDownOnMainThread();
-    ash::ProfileHelper::SetProfileToUserForTestingEnabled(false);
   }
 
   // The event to signal when the first app list sync in the session has been
   // completed.
   base::OneShotEvent on_first_sync_;
-  raw_ptr<TestingProfile> profile_;
-  AccountId account_id_;
 };
 
 INSTANTIATE_TEST_SUITE_P(All, AppListClientNewUserTest, testing::Bool());

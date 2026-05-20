@@ -29,8 +29,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
-
 import android.content.Intent;
 import android.graphics.Rect;
 import android.os.Build;
@@ -71,6 +69,7 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkEditActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
@@ -92,7 +91,6 @@ import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.page.WebPageStation;
@@ -311,13 +309,12 @@ public class SelectableTabListEditorTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     ArrayList<Tab> tabs = new ArrayList<>();
-                    TabModel model = mTabModelSelector.getCurrentModel();
-                    TabGroupModelFilter filter = mTabModelSelector.getCurrentTabGroupModelFilter();
-                    for (int i = model.getCount() - urls.size(); i < model.getCount(); i++) {
-                        tabs.add(model.getTabAt(i));
+                    TabModel tabModel = mTabModelSelector.getCurrentModel();
+                    for (int i = tabModel.getCount() - urls.size(); i < tabModel.getCount(); i++) {
+                        tabs.add(tabModel.getTabAt(i));
                     }
                     // Don't notify to avoid snackbar appearing.
-                    filter.mergeListOfTabsToGroup(
+                    tabModel.mergeListOfTabsToGroup(
                             tabs.subList(1, tabs.size()),
                             tabs.get(0),
                             /* notify= */ TabGroupModelFilter.MergeNotificationType.DONT_NOTIFY);
@@ -876,7 +873,7 @@ public class SelectableTabListEditorTest {
 
     @Test
     @MediumTest
-    @DisableIf.Build(sdk_is_greater_than = VERSION_CODES.R, message = "crbug.com/1511804")
+    @DisableIf.Build(sdk_is_greater_than = VERSION_CODES.R, message = "crbug.com/41484386")
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
     public void testToolbarMenuItem_BookmarkActionSingleTab() {
         prepareBlankTab(1, false);
@@ -1080,7 +1077,7 @@ public class SelectableTabListEditorTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
+    @Restriction(DeviceFormFactor.PHONE)
     public void testGridViewAppearance() throws IOException {
         prepareBlankTabWithThumbnail(3, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
@@ -1118,7 +1115,7 @@ public class SelectableTabListEditorTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
+    @Restriction(DeviceFormFactor.PHONE)
     public void testGridViewAppearance_oneSelectedTab() throws IOException {
         prepareBlankTabWithThumbnail(3, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
@@ -1158,7 +1155,7 @@ public class SelectableTabListEditorTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
+    @Restriction(DeviceFormFactor.PHONE)
     public void testSelectionAction_Toggle() throws IOException {
         prepareBlankTabWithThumbnail(3, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
@@ -1221,7 +1218,6 @@ public class SelectableTabListEditorTest {
     @MediumTest
     @Feature({"RenderTest"})
     @Restriction(DeviceFormFactor.PHONE)
-    @DisabledTest(message = "Was restricted to low end devices, crbug.com/489156901")
     public void testListViewAppearance() throws IOException {
         prepareBlankTab(2, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
@@ -1249,7 +1245,6 @@ public class SelectableTabListEditorTest {
     @MediumTest
     @Feature({"RenderTest"})
     @Restriction(DeviceFormFactor.PHONE)
-    @DisabledTest(message = "Was restricted to low end devices, crbug.com/489156901")
     public void testListViewV2Shows() {
         prepareBlankTab(2, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
@@ -1263,7 +1258,6 @@ public class SelectableTabListEditorTest {
     @MediumTest
     @Feature({"RenderTest"})
     @Restriction(DeviceFormFactor.PHONE)
-    @DisabledTest(message = "Was restricted to low end devices, crbug.com/489156901")
     public void testListViewAppearance_oneSelectedTab() throws IOException {
         prepareBlankTab(2, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
@@ -1292,7 +1286,6 @@ public class SelectableTabListEditorTest {
     @Test
     @MediumTest
     @Restriction(DeviceFormFactor.PHONE)
-    @DisabledTest(message = "Was restricted to low end devices, crbug.com/489156901")
     public void testListView_select() {
         prepareBlankTab(2, false);
         List<Tab> tabs = getTabsInCurrentTabModel();
@@ -1490,7 +1483,7 @@ public class SelectableTabListEditorTest {
         Espresso.pressBack();
     }
 
-    // This is a regression test for crbug.com/1132478.
+    // This is a regression test for crbug.com/40721968.
     @Test
     @MediumTest
     public void testTabListEditorContentDescription() {
@@ -1715,9 +1708,9 @@ public class SelectableTabListEditorTest {
                 () -> {
                     List<Tab> tabs = new ArrayList<>();
 
-                    TabGroupModelFilter filter = mTabModelSelector.getCurrentTabGroupModelFilter();
-                    for (int i = 0; i < filter.getIndividualTabAndGroupCount(); i++) {
-                        tabs.add(filter.getRepresentativeTabAt(i));
+                    TabModel tabModel = mTabModelSelector.getCurrentModel();
+                    for (int i = 0; i < tabModel.getIndividualTabAndGroupCount(); i++) {
+                        tabs.add(tabModel.getRepresentativeTabAt(i));
                     }
 
                     return tabs;

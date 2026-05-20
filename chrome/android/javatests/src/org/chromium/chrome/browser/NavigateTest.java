@@ -40,6 +40,7 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UrlUtils;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.back_press.BackPressMetrics;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
@@ -51,7 +52,6 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
@@ -517,9 +517,6 @@ public class NavigateTest {
         final ToolbarManager toolbarManager = mActivityTestRule.getActivity().getToolbarManager();
 
         for (int i = 0; i < repeats; i++) {
-            Assert.assertNull(
-                    "Back button is invisible in phone toolbar",
-                    mActivityTestRule.getActivity().findViewById(R.id.back_button));
             Assert.assertEquals(
                     "Tab should be able to be navigated back",
                     true,
@@ -533,9 +530,6 @@ public class NavigateTest {
                 "Tab should be unable to be navigated back",
                 false,
                 toolbarManager.getHandleBackPressChangedSupplier().get());
-        Assert.assertNull(
-                "Back button is invisible in phone toolbar",
-                mActivityTestRule.getActivity().findViewById(R.id.back_button));
     }
 
     /** Test back and forward buttons. */
@@ -763,7 +757,7 @@ public class NavigateTest {
     }
 
     @Test
-    @DisableIf.Build(hardware_is = "sprout", message = "fails on android-one: crbug.com/540723")
+    @DisableIf.Build(hardware_is = "sprout", message = "fails on android-one: crbug.com/40439157")
     @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/376375165
     @MediumTest
     @Feature({"Navigation"})
@@ -848,7 +842,7 @@ public class NavigateTest {
     @Test
     @MediumTest
     @Feature({"Navigation"})
-    @DisabledTest(message = "crbug.com/1130419")
+    @DisabledTest(message = "crbug.com/40720772")
     public void testRendererInitiatedIntentNavigate() throws Exception {
         final String finalUrl =
                 mTestServer.getURL("/chrome/test/data/android/renderer_initiated/final.html");

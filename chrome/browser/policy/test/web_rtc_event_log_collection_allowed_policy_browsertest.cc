@@ -113,7 +113,7 @@ IN_PROC_BROWSER_TEST_P(WebRtcEventLogCollectionAllowedPolicyTest, RunTest) {
 
   {
     base::RunLoop run_loop;
-    webrtc_event_log_manager->OnPeerConnectionSessionIdSet(
+    webrtc_event_log_manager->OnSessionIdSetForPeerConnection(
         frame_id, kLid, kSessionId,
         BlockingBoolExpectingReply(&run_loop, true));
     run_loop.Run();
@@ -130,7 +130,7 @@ IN_PROC_BROWSER_TEST_P(WebRtcEventLogCollectionAllowedPolicyTest, RunTest) {
     // TODO(crbug.com/379869738) Remove GetUnsafeValue.
     webrtc_event_log_manager->StartRemoteLogging(
         frame_id.child_id.GetUnsafeValue(), kSessionId, kMaxFileSizeBytes,
-        kOutputPeriodMs, kWebAppId,
+        kOutputPeriodMs, kWebAppId, std::nullopt,
         BlockingBoolExpectingReplyWithExtras(&run_loop,
                                              remote_logging_allowed));
     run_loop.Run();

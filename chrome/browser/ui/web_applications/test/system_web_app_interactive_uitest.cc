@@ -41,10 +41,10 @@
 #include "chrome/browser/ui/ash/login/user_adding_screen.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
-#include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
@@ -127,7 +127,7 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
       FindSystemWebAppBrowser(browser()->profile(), GetAppType());
   EXPECT_TRUE(app_browser);
   ui_test_utils::BrowserActivationWaiter(app_browser).WaitForActivation();
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
   EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
 }
@@ -149,7 +149,7 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest, OmniboxPasteAndGo) {
       FindSystemWebAppBrowser(browser()->profile(), GetAppType());
   EXPECT_TRUE(app_browser);
   ui_test_utils::BrowserActivationWaiter(app_browser).WaitForActivation();
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
   EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
 }
@@ -159,7 +159,8 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest, AnchorLinkClick) {
 
   content::WebContents* initiating_web_contents = CreateInitiatingWebContents();
   const GURL& initiating_url = initiating_web_contents->GetLastCommittedURL();
-  size_t starting_browser_count = chrome::GetTotalBrowserCount();
+  size_t starting_browser_count =
+      GlobalBrowserCollection::GetInstance()->GetSize();
 
   const std::string kAnchorTargets[] = {"", "_blank", "_self"};
   const std::string kAnchorRelValues[] = {"", "noreferrer", "noopener",
@@ -189,7 +190,8 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest, AnchorLinkClick) {
           FindSystemWebAppBrowser(browser()->profile(), GetAppType());
       EXPECT_TRUE(app_browser);
       ui_test_utils::BrowserActivationWaiter(app_browser).WaitForActivation();
-      EXPECT_EQ(1 + starting_browser_count, chrome::GetTotalBrowserCount());
+      EXPECT_EQ(1 + starting_browser_count,
+                GlobalBrowserCollection::GetInstance()->GetSize());
       EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
       EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
       ui_test_utils::BrowserDestroyedObserver destroyed_observer(app_browser);
@@ -234,7 +236,7 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
       FindSystemWebAppBrowser(browser()->profile(), GetAppType());
   EXPECT_TRUE(app_browser);
   ui_test_utils::BrowserActivationWaiter(app_browser).WaitForActivation();
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
   EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
   ui_test_utils::BrowserDestroyedObserver destroyed_observer(app_browser);
@@ -280,7 +282,7 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
       FindSystemWebAppBrowser(browser()->profile(), GetAppType());
   EXPECT_TRUE(app_browser);
   ui_test_utils::BrowserActivationWaiter(app_browser).WaitForActivation();
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
   EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
   ui_test_utils::BrowserDestroyedObserver destroyed_observer(app_browser);
@@ -299,7 +301,8 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest, ChangeLocationHref) {
 
   content::WebContents* initiating_web_contents = CreateInitiatingWebContents();
   const GURL& initiating_url = initiating_web_contents->GetLastCommittedURL();
-  size_t starting_browser_count = chrome::GetTotalBrowserCount();
+  size_t starting_browser_count =
+      GlobalBrowserCollection::GetInstance()->GetSize();
 
   content::TestNavigationObserver observer(GetStartUrl());
   observer.StartWatchingNewWebContents();
@@ -312,7 +315,8 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest, ChangeLocationHref) {
       FindSystemWebAppBrowser(browser()->profile(), GetAppType());
   EXPECT_TRUE(app_browser);
   ui_test_utils::BrowserActivationWaiter(app_browser).WaitForActivation();
-  EXPECT_EQ(1 + starting_browser_count, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1 + starting_browser_count,
+            GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
   EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
 
@@ -325,7 +329,8 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest, WindowOpen) {
 
   content::WebContents* initiating_web_contents = CreateInitiatingWebContents();
   const GURL& initiating_url = initiating_web_contents->GetLastCommittedURL();
-  size_t starting_browser_count = chrome::GetTotalBrowserCount();
+  size_t starting_browser_count =
+      GlobalBrowserCollection::GetInstance()->GetSize();
 
   const std::string kWindowOpenTargets[] = {"", "_blank"};
   const std::string kWindowOpenFeatures[] = {"", "noreferrer", "noopener",
@@ -347,7 +352,8 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest, WindowOpen) {
           FindSystemWebAppBrowser(browser()->profile(), GetAppType());
       EXPECT_TRUE(app_browser);
       ui_test_utils::BrowserActivationWaiter(app_browser).WaitForActivation();
-      EXPECT_EQ(1 + starting_browser_count, chrome::GetTotalBrowserCount());
+      EXPECT_EQ(1 + starting_browser_count,
+                GlobalBrowserCollection::GetInstance()->GetSize());
       EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
       EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
       ui_test_utils::BrowserDestroyedObserver destroyed_observer(app_browser);
@@ -389,7 +395,7 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
 
       // There should be three browsers: the default one (new tab page), the
       // initiating system app, the link capturing system app.
-      EXPECT_EQ(3U, chrome::GetTotalBrowserCount());
+      EXPECT_EQ(3U, GlobalBrowserCollection::GetInstance()->GetSize());
       EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
       EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
       ui_test_utils::BrowserDestroyedObserver destroyed_observer(app_browser);
@@ -456,7 +462,7 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLinkCaptureBrowserTest,
       incognito_browser->profile()->GetOriginalProfile(), GetAppType());
   EXPECT_TRUE(app_browser);
   ui_test_utils::BrowserActivationWaiter(app_browser).WaitForActivation();
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(Browser::TYPE_APP, app_browser->type());
   EXPECT_FALSE(app_browser->app_controller()->ShouldShowCustomTabBar());
 }
@@ -620,7 +626,7 @@ IN_PROC_BROWSER_TEST_F(SystemWebAppManagerMultiDesktopLaunchBrowserTest,
       browser1->window()->GetNativeWindow(), account_id1_));
 
   EXPECT_NE(browser1, browser2);
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   // Switch to user 2, then launch the app. SWAs reuse their window, so it
   // should bring `browser2` to user 2 (the active) desktop.
@@ -666,7 +672,7 @@ IN_PROC_BROWSER_TEST_F(SystemWebAppManagerMultiDesktopLaunchBrowserTest,
   {
     web_app::WebAppProvider* provider =
         web_app::WebAppProvider::GetForLocalAppsUnchecked(profile2);
-    base::test::TestFuture<base::WeakPtr<Browser>,
+    base::test::TestFuture<base::WeakPtr<BrowserWindowInterface>,
                            base::WeakPtr<content::WebContents>,
                            apps::LaunchContainer>
         future;
@@ -682,7 +688,7 @@ IN_PROC_BROWSER_TEST_F(SystemWebAppManagerMultiDesktopLaunchBrowserTest,
   {
     web_app::WebAppProvider* provider =
         web_app::WebAppProvider::GetForLocalAppsUnchecked(profile1);
-    base::test::TestFuture<base::WeakPtr<Browser>,
+    base::test::TestFuture<base::WeakPtr<BrowserWindowInterface>,
                            base::WeakPtr<content::WebContents>,
                            apps::LaunchContainer>
         future;
@@ -728,7 +734,7 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLaunchProfileBrowserTest,
 
   Profile* signin_profile = ash::ProfileHelper::GetSigninProfile();
 
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   LaunchSystemWebAppAsync(signin_profile, GetAppType());
 
@@ -740,7 +746,7 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppLaunchProfileBrowserTest,
   // launch).
   base::RunLoop().RunUntilIdle();
 
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
 }
 #endif  // !DCHECK_IS_ON()
 
@@ -833,11 +839,13 @@ class TestActivationObserver : public wm::ActivationChangeObserver {
   void OnWindowActivated(ActivationReason reason,
                          aura::Window* gained_active,
                          aura::Window* lost_active) override {
-    Browser* browser = chrome::FindBrowserWithWindow(gained_active);
+    BrowserWindowInterface* browser =
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithWindow(
+            gained_active);
     // Check that the activated window is actually a browser.
     EXPECT_TRUE(browser);
     // Check also that the browser is actually an app.
-    EXPECT_TRUE(browser->is_type_app());
+    EXPECT_TRUE(browser->GetType() == BrowserWindowInterface::Type::TYPE_APP);
     run_loop_.Quit();
   }
 
@@ -877,7 +885,7 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppManagerCloseFromScriptsTest, WindowClose) {
                       "window.close();"));
 
   observer.Wait();
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
 }
 
 class SystemWebAppManagerShouldNotCloseFromScriptsTest
@@ -914,7 +922,7 @@ IN_PROC_BROWSER_TEST_P(SystemWebAppManagerShouldNotCloseFromScriptsTest,
                       "window.close();"));
 
   ASSERT_TRUE(console_observer.Wait());
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
 }
 
 class SystemWebAppNewWindowMenuItemTest

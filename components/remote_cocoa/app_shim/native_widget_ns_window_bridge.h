@@ -196,6 +196,7 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   NativeWidgetMacNSWindow* ns_window();
 
   remote_cocoa::DragDropClient* drag_drop_client();
+  ui::mojom::ModalType modal_type() const { return modal_type_; }
   bool is_translucent_window() const { return is_translucent_window_; }
 
   // The parent widget specified in Widget::InitParams::parent. If non-null, the
@@ -212,7 +213,6 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   bool target_fullscreen_state() const {
     return fullscreen_controller_.GetTargetFullscreenState();
   }
-  bool window_visible() const { return window_visible_; }
   bool wants_to_be_visible() const { return wants_to_be_visible_; }
   bool in_fullscreen_transition() const {
     return fullscreen_controller_.IsInFullscreenTransition();
@@ -310,7 +310,7 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   void SetActivationIndependence(bool independence) override;
   void SetAspectRatio(const gfx::SizeF& aspect_ratio,
                       const gfx::Size& excluded_margin) override;
-  void SetCALayerParams(const gfx::CALayerParams& ca_layer_params) override;
+  void SetCALayerParams(gfx::CALayerParams ca_layer_params) override;
   void SetWindowTitle(const std::u16string& title) override;
   void SetIgnoresMouseEvents(bool ignores_mouse_events) override;
   void MakeFirstResponder() override;
@@ -474,21 +474,6 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
 
   // Manager of fullscreen state transitions.
   NativeWidgetNSWindowFullscreenController fullscreen_controller_{this};
-
-  // Stores the value last read from -[NSWindow isVisible], to detect visibility
-  // changes.
-  bool window_visible_ = false;
-
-  // Stores the value last read from -[NSWindow isOnActiveSpace].
-  bool window_on_active_space_ = false;
-
-  // Stores the value last read from -[NSWindow isZoomed], to detect zoomed
-  // state changes.
-  bool window_zoomed_ = false;
-
-  // Stores the value last read from -[NSWindow collectionBehavior], to detect
-  // "visible on all spaces" state changes.
-  bool visible_on_all_spaces_ = false;
 
   // If true, the window is either visible, or wants to be visible but is
   // currently hidden due to having a hidden parent.

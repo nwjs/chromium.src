@@ -5,13 +5,15 @@
 navigator.webkitPersistentStorage.requestQuota(1, pass, fail);
 
 function pass() {
-  console.log('PASS');
-  if (window.chrome && chrome.test && chrome.test.succeed)
+  console.info('PASS');
+  if (window.chrome && chrome.test && chrome.test.succeed) {
     chrome.test.succeed();
+  }
 }
 
 function fail() {
-  console.log('FAIL');
-  if (window.chrome && chrome.test && chrome.test.fail)
+  console.info('FAIL');
+  if (window.chrome && chrome.test && chrome.test.fail) {
     chrome.test.fail();
+  }
 }

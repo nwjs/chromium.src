@@ -19,6 +19,7 @@
 #include "base/unguessable_token.h"
 #include "base/version_info/channel.h"
 #include "components/contextual_search/internal/test_composebox_query_controller.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/lens/contextual_input.h"
 #include "components/lens/lens_bitmap_processing.h"
 #include "components/lens/lens_features.h"
@@ -153,6 +154,10 @@ class ComposeboxQueryControllerTest
     } else {
       disabled_features.push_back(lens::features::kLensSendRawFileMediaTypes);
     }
+    // TODO(crbug.com/503732217): Fix tests to support lazy fetching of cluster
+    // info and enable this feature by default in tests.
+    disabled_features.push_back(
+        contextual_tasks::kContextualTasksLazyFetchClusterInfo);
     scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
 
     // Create the config params.
@@ -576,7 +581,27 @@ class ComposeboxQueryControllerTest
 };
 
 TEST_F(ComposeboxQueryControllerTest,
-       InitializeIfNeededIssuesClusterInfoRequest) {
+       InitializeIfNeededDoesNotIssueClusterInfoRequest) {
+  // Arrange: Enable the lazy fetch feature.
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeature(
+      contextual_tasks::kContextualTasksLazyFetchClusterInfo);
+
+  // Act: Start the session.
+  controller().InitializeIfNeeded();
+
+  // Assert: No cluster info request is made.
+  EXPECT_TRUE(controller_state_future_.IsEmpty());
+  EXPECT_EQ(QueryControllerState::kOff, controller().query_controller_state());
+}
+
+TEST_F(ComposeboxQueryControllerTest,
+       InitializeIfNeededIssuesClusterInfoRequestWhenLazyFetchDisabled) {
+  // Arrange: Disable the lazy fetch feature.
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndDisableFeature(
+      contextual_tasks::kContextualTasksLazyFetchClusterInfo);
+
   // Act: Start the session.
   controller().InitializeIfNeeded();
 
@@ -584,18 +609,19 @@ TEST_F(ComposeboxQueryControllerTest,
   WaitForClusterInfo();
 }
 
-TEST_F(ComposeboxQueryControllerTest, InitializeIfNeededSecondTimeDoesNothing) {
-  // Act: Start the session.
-  controller().InitializeIfNeeded();
+TEST_F(ComposeboxQueryControllerTest,
+       StartFileUploadFlowIssuesClusterInfoRequestIfOff) {
+  // Arrange: Enable the lazy fetch feature.
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeature(
+      contextual_tasks::kContextualTasksLazyFetchClusterInfo);
+
+  // Act: Start file upload flow without calling InitializeIfNeeded.
+  const base::UnguessableToken file_token = base::UnguessableToken::Create();
+  StartPdfFileUploadFlow(file_token, /*file_data=*/std::vector<uint8_t>());
 
   // Assert: Validate cluster info request and state changes.
   WaitForClusterInfo();
-
-  // Act: Start the session again.
-  controller().InitializeIfNeeded();
-
-  // Assert: No cluster info request is made.
-  EXPECT_TRUE(controller_state_future_.IsEmpty());
 }
 
 TEST_F(ComposeboxQueryControllerTest,
@@ -4773,6 +4799,7 @@ TEST_F(ComposeboxQueryControllerTest,
       std::make_unique<CreateClientToAimRequestInfo>();
   create_client_to_aim_request_info->query_text = "test query";
   create_client_to_aim_request_info->file_tokens = {file_token};
+  create_client_to_aim_request_info->overlay_token = file_token;
   create_client_to_aim_request_info
       ->force_include_latest_interaction_request_data = true;
 
@@ -4847,6 +4874,7 @@ TEST_F(
       std::make_unique<CreateClientToAimRequestInfo>();
   create_client_to_aim_request_info->query_text = "test query";
   create_client_to_aim_request_info->file_tokens = {file_token};
+  create_client_to_aim_request_info->overlay_token = file_token;
   create_client_to_aim_request_info
       ->force_include_latest_interaction_request_data = true;
 
@@ -4907,6 +4935,95 @@ TEST_F(ComposeboxQueryControllerTest,
             lens::LensOverlayInteractionRequestMetadata::PDF_QUERY);
   // PDFs do not have a zoomed crop by default.
   EXPECT_FALSE(interaction_data.has_zoomed_crop());
+}
+
+TEST_F(ComposeboxQueryControllerTest,
+       CreateClientToAimRequest_RegionInteractionAttachesOnlyToOverlayToken) {
+  // Act: Start the session.
+  controller().InitializeIfNeeded();
+  WaitForClusterInfo();
+
+  // Act: Start the file upload flow for an Overlay token.
+  const base::UnguessableToken overlay_token = base::UnguessableToken::Create();
+  std::unique_ptr<lens::ContextualInputData> overlay_input =
+      std::make_unique<lens::ContextualInputData>();
+  overlay_input->primary_content_type = lens::MimeType::kUnknown;
+  controller().StartFileUploadFlow(overlay_token, std::move(overlay_input),
+                                   std::nullopt);
+  WaitForFileUpload(overlay_token, lens::MimeType::kUnknown);
+
+  // Act: Start the file upload flow for a PDF tab.
+  const base::UnguessableToken pdf_token = base::UnguessableToken::Create();
+  StartPdfFileUploadFlow(pdf_token, /*file_data=*/std::vector<uint8_t>());
+  WaitForFileUpload(pdf_token, lens::MimeType::kPdf);
+
+  // Act: Send interaction request via CreateSearchUrl on the overlay token.
+  std::unique_ptr<CreateSearchUrlRequestInfo> search_url_request_info =
+      std::make_unique<CreateSearchUrlRequestInfo>();
+  search_url_request_info->query_text = "hello";
+  search_url_request_info->file_tokens.push_back(overlay_token);
+  search_url_request_info->query_start_time = kTestQueryStartTime;
+  search_url_request_info->lens_overlay_selection_type =
+      lens::LensOverlaySelectionType::REGION_SEARCH;
+
+  search_url_request_info->image_crop = lens::ImageCrop();
+  auto* zoomed_crop =
+      search_url_request_info->image_crop->mutable_zoomed_crop();
+  zoomed_crop->set_zoom(2.0);
+  auto* crop = zoomed_crop->mutable_crop();
+  crop->set_center_x(0.25);
+  crop->set_center_y(0.25);
+  crop->set_width(0.5);
+  crop->set_height(0.5);
+  crop->set_coordinate_type(lens::CoordinateType::NORMALIZED);
+
+  base::RunLoop run_loop;
+  controller().AddEndpointFetcherCreatedCallback(
+      base::BindLambdaForTesting([&]() { run_loop.Quit(); }));
+
+  base::test::TestFuture<GURL> url_future;
+  controller().CreateSearchUrl(std::move(search_url_request_info),
+                               url_future.GetCallback());
+  run_loop.Run();
+  ASSERT_TRUE(url_future.Wait());
+
+  // Now create ClientToAimRequest with force = true, including both tokens.
+  auto create_client_to_aim_request_info =
+      std::make_unique<CreateClientToAimRequestInfo>();
+  create_client_to_aim_request_info->query_text = "test query";
+  create_client_to_aim_request_info->file_tokens = {overlay_token, pdf_token};
+  create_client_to_aim_request_info->overlay_token = overlay_token;
+  create_client_to_aim_request_info
+      ->force_include_latest_interaction_request_data = true;
+
+  auto client_to_aim_message = controller().CreateClientToAimRequest(
+      std::move(create_client_to_aim_request_info));
+
+  ASSERT_EQ(client_to_aim_message.submit_query()
+                .payload()
+                .lens_image_query_data_size(),
+            2);
+
+  // Verify that overlay_token (lens_image_query_data 0) gets the region search
+  // interaction.
+  const auto& interaction_data_0 = client_to_aim_message.submit_query()
+                                       .payload()
+                                       .lens_image_query_data(0)
+                                       .visual_search_interaction_data();
+  EXPECT_EQ(interaction_data_0.interaction_type(),
+            lens::LensOverlayInteractionRequestMetadata::REGION_SEARCH);
+  EXPECT_TRUE(interaction_data_0.has_zoomed_crop());
+  EXPECT_FLOAT_EQ(interaction_data_0.zoomed_crop().zoom(), 2.0);
+
+  // Verify that pdf_token (lens_image_query_data 1) keeps its default PDF_QUERY
+  // interaction.
+  const auto& interaction_data_1 = client_to_aim_message.submit_query()
+                                       .payload()
+                                       .lens_image_query_data(1)
+                                       .visual_search_interaction_data();
+  EXPECT_EQ(interaction_data_1.interaction_type(),
+            lens::LensOverlayInteractionRequestMetadata::PDF_QUERY);
+  EXPECT_FALSE(interaction_data_1.has_zoomed_crop());
 }
 
 TEST_F(ComposeboxQueryControllerTest, CreateClientToAimRequest_NoInteraction) {
@@ -5634,8 +5751,6 @@ TEST_F(ComposeboxQueryControllerTest, UploadModalityChipSuccess) {
   ASSERT_TRUE(file_info->input_data);
   ASSERT_TRUE(file_info->input_data->modality_chip_props.has_value());
   EXPECT_EQ(file_info->input_data->modality_chip_props->id(), "test_chip_id");
-  EXPECT_EQ(controller().FindTokenForInjectedInput("test_chip_id").value(),
-            file_token);
 
   // Verify that no network requests were sent for the chip upload.
   EXPECT_EQ(controller().num_file_upload_requests_sent(), 0);

@@ -17,6 +17,7 @@
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_service_factory.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
+#include "chrome/browser/glic/test_support/mock_glic_keyed_service.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser.h"
@@ -94,24 +95,16 @@ class NavigationParamsObserver : public content::WebContentsObserver {
 
 }  // namespace
 
-class MockGlicKeyedService : public GlicKeyedService {
- public:
-  explicit MockGlicKeyedService(content::BrowserContext* context)
-      : GlicKeyedService(
-            Profile::FromBrowserContext(context),
-            IdentityManagerFactory::GetForProfile(
-                Profile::FromBrowserContext(context)),
-            g_browser_process->profile_manager(),
-            GlicProfileManager::GetInstance(),
-            ContextualCueingServiceFactory::GetForProfile(
-                Profile::FromBrowserContext(context)),
-            actor::ActorKeyedServiceFactory::GetActorKeyedService(context)) {}
-  MOCK_METHOD(void, Invoke, (tabs::TabInterface*, GlicInvokeOptions), ());
-};
-
 std::unique_ptr<KeyedService> CreateMockGlicKeyedService(
     content::BrowserContext* context) {
-  return std::make_unique<MockGlicKeyedService>(context);
+  return std::make_unique<MockGlicKeyedService>(
+      context,
+      IdentityManagerFactory::GetForProfile(
+          Profile::FromBrowserContext(context)),
+      g_browser_process->profile_manager(), GlicProfileManager::GetInstance(),
+      ContextualCueingServiceFactory::GetForProfile(
+          Profile::FromBrowserContext(context)),
+      actor::ActorKeyedServiceFactory::GetActorKeyedService(context));
 }
 
 void NavigateToURL(Browser* browser, const GURL& url) {
@@ -184,11 +177,10 @@ IN_PROC_BROWSER_TEST_F(GlicNavigationThrottleBrowserTest,
 
   EXPECT_CALL(
       *mock_service,
-      Invoke(
-          _,
-          AllOf(Field(&GlicInvokeOptions::invocation_source,
-                      Eq(glic::mojom::InvocationSource::kNavigationCapture)),
-                Field(&GlicInvokeOptions::conversation, conversation_matcher))))
+      Invoke(AllOf(Field(&GlicInvokeOptions::invocation_source,
+                         Eq(glic::mojom::InvocationSource::kNavigationCapture)),
+                   Field(&GlicInvokeOptions::target,
+                         Field(&Target::conversation, conversation_matcher)))))
       .Times(1);
 
   NavigateToURL(browser(), continue_url);
@@ -208,7 +200,7 @@ IN_PROC_BROWSER_TEST_F(GlicNavigationThrottleBrowserTest, Metrics_CIDTooLong) {
                                                    /*create=*/true));
   ASSERT_TRUE(mock_service);
 
-  EXPECT_CALL(*mock_service, Invoke(_, _)).Times(0);
+  EXPECT_CALL(*mock_service, Invoke(_)).Times(0);
 
   GURL target_url("https://www.google.com/");
   std::string long_cid(features::kGlicWebContinuityMaxCIDLength.Get() + 1, 'a');
@@ -229,7 +221,7 @@ IN_PROC_BROWSER_TEST_F(GlicNavigationThrottleBrowserTest,
                                                    /*create=*/true));
   ASSERT_TRUE(mock_service);
 
-  EXPECT_CALL(*mock_service, Invoke(_, _)).Times(0);
+  EXPECT_CALL(*mock_service, Invoke(_)).Times(0);
 
   std::string long_target_url(
       features::kGlicWebContinuityMaxTargetUrlLength.Get() + 1, 'a');
@@ -250,7 +242,7 @@ IN_PROC_BROWSER_TEST_F(GlicNavigationThrottleBrowserTest, Metrics_InvalidUrl) {
                                                    /*create=*/true));
   ASSERT_TRUE(mock_service);
 
-  EXPECT_CALL(*mock_service, Invoke(_, _)).Times(0);
+  EXPECT_CALL(*mock_service, Invoke(_)).Times(0);
 
   GURL continue_url = BuildContinueUrl(GURL("invalidurl"), "123", std::nullopt);
 
@@ -269,7 +261,7 @@ IN_PROC_BROWSER_TEST_F(GlicNavigationThrottleBrowserTest,
                                                    /*create=*/true));
   ASSERT_TRUE(mock_service);
 
-  EXPECT_CALL(*mock_service, Invoke(_, _)).Times(0);
+  EXPECT_CALL(*mock_service, Invoke(_)).Times(0);
 
   std::string long_turn_id(
       features::kGlicWebContinuityMaxTurnIdLength.Get() + 1, 'a');
@@ -291,7 +283,7 @@ IN_PROC_BROWSER_TEST_F(GlicNavigationThrottleBrowserTest,
                                                    /*create=*/true));
   ASSERT_TRUE(mock_service);
 
-  EXPECT_CALL(*mock_service, Invoke(_, _)).Times(0);
+  EXPECT_CALL(*mock_service, Invoke(_)).Times(0);
 
   GURL target_url("http://www.example.com/");
   GURL continue_url = BuildContinueUrl(target_url, "123", std::nullopt);
@@ -311,7 +303,7 @@ IN_PROC_BROWSER_TEST_F(GlicNavigationThrottleBrowserTest,
                                                    /*create=*/true));
   ASSERT_TRUE(mock_service);
 
-  EXPECT_CALL(*mock_service, Invoke(_, _)).Times(0);
+  EXPECT_CALL(*mock_service, Invoke(_)).Times(0);
 
   GURL continue_url = GURL(
       features::kGlicWebContinuityUrl.Get() +
@@ -439,11 +431,10 @@ IN_PROC_BROWSER_TEST_F(GlicNavigationThrottleBrowserTestWithPref,
 
   EXPECT_CALL(
       *mock_service,
-      Invoke(
-          _,
-          AllOf(Field(&GlicInvokeOptions::invocation_source,
-                      Eq(glic::mojom::InvocationSource::kNavigationCapture)),
-                Field(&GlicInvokeOptions::conversation, conversation_matcher))))
+      Invoke(AllOf(Field(&GlicInvokeOptions::invocation_source,
+                         Eq(glic::mojom::InvocationSource::kNavigationCapture)),
+                   Field(&GlicInvokeOptions::target,
+                         Field(&Target::conversation, conversation_matcher)))))
       .Times(1);
 
   content::TestNavigationObserver observer(
@@ -481,7 +472,7 @@ IN_PROC_BROWSER_TEST_F(GlicNavigationThrottleBrowserTest,
   NavigationParamsObserver observer(
       browser()->tab_strip_model()->GetActiveWebContents(), target_url);
 
-  EXPECT_CALL(*mock_service, Invoke(_, _)).Times(1);
+  EXPECT_CALL(*mock_service, Invoke(_)).Times(1);
 
   content::NavigationController::LoadURLParams params(continue_url);
   url::Origin expected_origin = url::Origin::Create(

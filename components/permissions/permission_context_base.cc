@@ -26,6 +26,7 @@
 #include "base/not_fatal_until.h"
 #include "base/observer_list.h"
 #include "base/strings/strcat.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -174,8 +175,8 @@ void PermissionContextBase::RequestPermission(
   }
 
   bool status_ignorable = PermissionUtil::CanPermissionRequestIgnoreStatus(
-      request_data, result.source);
-
+      request_data, result.source, result.status,
+      content::WebContents::FromRenderFrameHost(rfh));
   if (!status_ignorable && (result.status == PermissionStatus::GRANTED ||
                             result.status == PermissionStatus::DENIED)) {
     static constexpr char kResetInstructions[] =
@@ -296,9 +297,10 @@ void PermissionContextBase::RequestPermission(
   }
   // Status is either {ASK} or it's {GRANT/DENY and ignorable}.
   if (content_settings_type_ == ContentSettingsType::GEOLOCATION_WITH_OPTIONS) {
-    if (request_data->requested_geolocation_accuracy.has_value() &&
-        *request_data->requested_geolocation_accuracy ==
-            GeolocationAccuracy::kApproximate) {
+    std::optional<GeolocationAccuracy> requested_geolocation_accuracy =
+        request_data->GetRequestedGeolocationAccuracy();
+    CHECK(requested_geolocation_accuracy.has_value());
+    if (*requested_geolocation_accuracy == GeolocationAccuracy::kApproximate) {
       request_data->WithGeolocationPromptType(
           GeolocationPromptType::kApproximateOnly);
     } else {
@@ -371,7 +373,9 @@ content::PermissionResult PermissionContextBase::GetPermissionStatus(
         PermissionStatus::GRANTED,
         content::PermissionStatusSource::HEURISTIC_GRANT);
   }
-  return GetPermissionStatus(*request_data.resolver, render_frame_host,
+  std::unique_ptr<PermissionResolver> resolver =
+      CreatePermissionResolver(request_data.permission_descriptor);
+  return GetPermissionStatus(*resolver, render_frame_host,
                              request_data.requesting_origin,
                              request_data.embedding_origin);
 }
@@ -576,13 +580,33 @@ PermissionContextBase::UpdatePermissionStatusWithDeviceStatus(
     content::PermissionResult result,
     const GURL& requesting_origin,
     const GURL& embedding_origin) {
-  MaybeUpdateCachedHasDevicePermission(web_contents);
-
-  // If the site content setting is ASK/BLOCKED the device-level permission
-  // won't affect it.
+  // If the site content setting is ASK or DENIED, device-level permission has
+  // no effect on the current result. However, we still need to refresh the
+  // cached device permission state because a change (e.g. user toggling the
+  // OS-level permission) must invalidate cached state for *all* origins via
+  // the wildcard observer notification in MaybeUpdateCachedHasDevicePermission.
+  //
+  // Since this code is reached from navigation hot paths (e.g. on macOS, where
+  // the OS permission query can be expensive), post the refresh asynchronously
+  // in the non-GRANTED case so the hot path is not blocked, while still
+  // preserving the cross-origin observer-notification correctness.
   if (result.status != blink::mojom::PermissionStatus::GRANTED) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(
+                       [](base::WeakPtr<PermissionContextBase> self,
+                          base::WeakPtr<content::WebContents> wc) {
+                         if (!self) {
+                           return;
+                         }
+                         self->MaybeUpdateCachedHasDevicePermission(wc.get());
+                       },
+                       weak_factory_.GetWeakPtr(),
+                       web_contents ? web_contents->GetWeakPtr()
+                                    : base::WeakPtr<content::WebContents>()));
     return result;
   }
+
+  MaybeUpdateCachedHasDevicePermission(web_contents);
 
   // If the device-level permission is granted, it has no effect on the result.
   if (last_has_device_permission_result_.has_value() &&
@@ -822,9 +846,10 @@ void PermissionContextBase::NotifyPermissionSet(
   // status may have changed in the meantime
   PermissionSetting previous_value = GetPermissionStatusInternal(
       rfh, request_data.requesting_origin, request_data.embedding_origin);
+  std::unique_ptr<PermissionResolver> resolver =
+      CreatePermissionResolver(request_data.permission_descriptor);
   PermissionSetting new_value =
-      request_data.resolver->ComputePermissionDecisionResult(previous_value,
-                                                             decision);
+      resolver->ComputePermissionDecisionResult(previous_value, decision);
 
   if (persist) {
     // Clone new value, because we need it again for the callback.
@@ -888,12 +913,17 @@ void PermissionContextBase::CleanUpRequestEmbeddedPermissionElement(
 
 void PermissionContextBase::UpdateSetting(
     const PermissionRequestData& request_data,
-    PermissionSetting setting,
+    const PermissionSetting& setting,
     bool is_one_time) {
-  DCHECK_EQ(request_data.requesting_origin,
-            request_data.requesting_origin.DeprecatedGetOriginAsURL());
-  DCHECK_EQ(request_data.embedding_origin,
-            request_data.embedding_origin.DeprecatedGetOriginAsURL());
+  auto* info = content_settings::PermissionSettingsRegistry::GetInstance()->Get(
+      content_settings_type_);
+  CHECK(info);
+  CHECK(!info->delegate().IsUndecided(setting));
+
+  CHECK_EQ(request_data.requesting_origin,
+           request_data.requesting_origin.DeprecatedGetOriginAsURL());
+  CHECK_EQ(request_data.embedding_origin,
+           request_data.embedding_origin.DeprecatedGetOriginAsURL());
 
   content_settings::ContentSettingConstraints constraints;
   constraints.set_session_model(
@@ -902,11 +932,9 @@ void PermissionContextBase::UpdateSetting(
 
   // The unused permissions module in Safety check will revoke unused site
   // permissions after a finite amount of time if the permission can be revoked.
-  auto* info = content_settings::PermissionSettingsRegistry::GetInstance()->Get(
-      content_settings_type_);
-  if (info && content_settings::CanBeAutoRevokedAsUnusedPermission(
-                  content_settings_type(), info->delegate().ToValue(setting),
-                  is_one_time)) {
+  if (content_settings::CanBeAutoRevokedAsUnusedPermission(
+          content_settings_type(), info->delegate().ToValue(setting),
+          is_one_time)) {
     constraints.set_track_last_visit_for_autoexpiration(true);
   }
 

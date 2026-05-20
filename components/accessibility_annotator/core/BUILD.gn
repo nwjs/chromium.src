@@ -14,6 +14,7 @@ source_set("core") {
     "accessibility_query_service.h",
     "accessibility_query_service_delegate.cc",
     "accessibility_query_service_delegate.h",
+    "country_type.h",
     "direct_server_entity_provider.cc",
     "direct_server_entity_provider.h",
     "entity_data_provider.h",
@@ -21,25 +22,56 @@ source_set("core") {
   ]
 
   public_deps = [
+    ":prefs",
     "//base",
     "//components/accessibility_annotator/core/annotation_reducer",
+    "//components/accessibility_annotator/core/annotation_reducer:one_p_resolver",
     "//components/accessibility_annotator/core/data_models",
     "//components/accessibility_annotator/core/storage",
     "//components/account_settings",
     "//components/history/core/browser",
     "//components/keyed_service/core",
     "//components/optimization_guide/core",
+    "//components/prefs",
     "//components/signin/public/identity_manager",
+    "//components/subscription_eligibility",
     "//url",
   ]
 }
 
 source_set("features") {
   sources = [
+    "accessibility_annotator_debug_features.cc",
+    "accessibility_annotator_debug_features.h",
     "accessibility_annotator_features.cc",
     "accessibility_annotator_features.h",
   ]
   deps = [ "//base" ]
+}
+
+source_set("prefs") {
+  sources = [
+    "prefs.cc",
+    "prefs.h",
+  ]
+  deps = [
+    "//base",
+    "//components/prefs",
+  ]
+}
+
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "accessibility_annotator_enablement_service_impl_test_api.h",
+    "mock_accessibility_query_service.cc",
+    "mock_accessibility_query_service.h",
+  ]
+  deps = [
+    ":core",
+    "//base",
+    "//testing/gmock",
+  ]
 }
 
 source_set("unit_tests") {
@@ -53,14 +85,21 @@ source_set("unit_tests") {
 
   deps = [
     ":core",
+    ":test_support",
     "//base",
     "//base/test:test_support",
     "//components/accessibility_annotator/core/annotation_reducer:unit_tests",
+    "//components/accessibility_annotator/core/content_annotator:unit_tests",
     "//components/accessibility_annotator/core/data_models:unit_tests",
     "//components/accessibility_annotator/core/storage:test_support",
     "//components/accessibility_annotator/core/storage:unit_tests",
+    "//components/account_settings",
+    "//components/account_settings:test_support",
+    "//components/prefs:test_support",
     "//components/signin/public/identity_manager:test_support",
+    "//components/subscription_eligibility",
     "//components/sync:test_support",
+    "//components/sync_preferences:test_support",
     "//testing/gmock",
     "//testing/gtest",
   ]

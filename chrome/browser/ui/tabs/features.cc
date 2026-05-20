@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/tabs/features.h"
 
+#include "base/feature.h"
 #include "base/feature_list.h"
 #include "base/time/time.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -17,7 +18,13 @@ BASE_FEATURE(kSessionRestoreShowThrobberOnVisible,
 
 BASE_FEATURE(kVerticalTabs, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kVerticalTabsLaunch, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kVerticalTabsLaunch,
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 BASE_FEATURE_PARAM(bool,
                    kVerticalTabsToggleInTabContextMenu,
                    &kVerticalTabsLaunch,
@@ -26,7 +33,13 @@ BASE_FEATURE_PARAM(bool,
 
 BASE_FEATURE(kVerticalTabsPreviewBadge, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kVerticalTabsNewBadge, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kVerticalTabsNewBadge,
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 BASE_FEATURE(kVerticalTabsExpandOnHover, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(bool,
@@ -51,6 +64,11 @@ BASE_FEATURE_PARAM(bool,
                    &kVerticalTabsExpandOnHover,
                    "expand_on_hover_use_velocity_heuristic",
                    false);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kVerticalTabsExpandOnHoverVelocityHeuristicDelay,
+                   &kVerticalTabsExpandOnHover,
+                   "expand_on_hover_velocity_heuristic_delay",
+                   base::Milliseconds(0));
 BASE_FEATURE_PARAM(int,
                    kVerticalTabsExpandOnHoverVelocityHeuristicMinSamples,
                    &kVerticalTabsExpandOnHover,
@@ -66,10 +84,20 @@ BASE_FEATURE_PARAM(double,
                    &kVerticalTabsExpandOnHover,
                    "expand_on_hover_velocity_heuristic_threshold",
                    0.1);
+BASE_FEATURE_PARAM(int,
+                   kVerticalTabsExpandOnHoverVelocityHeuristicDistanceFromEdge,
+                   &kVerticalTabsExpandOnHover,
+                   "expand_on_hover_velocity_heuristic_distance_from_edge",
+                   0);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kVerticalTabsExpandOnHoverVelocityHeuristicEdgeDelay,
+                   &kVerticalTabsExpandOnHover,
+                   "expand_on_hover_velocity_heuristic_edge_delay",
+                   base::Milliseconds(0));
 
 BASE_FEATURE(kTabSelectionByPointer, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kHorizontalTabStripComboButton, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kHorizontalTabStripComboButton, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(bool,
                    kHorizontalTabStripComboButtonShowStartOnly,
                    &kHorizontalTabStripComboButton,
@@ -83,7 +111,6 @@ BASE_FEATURE(kBackToOpener, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsVerticalTabsFeatureEnabled() {
   return base::FeatureList::IsEnabled(kVerticalTabs) ||
          base::FeatureList::IsEnabled(kVerticalTabsLaunch);
-  ;
 }
 
 bool IsVerticalTabsExpandOnHoverFeatureEnabled() {

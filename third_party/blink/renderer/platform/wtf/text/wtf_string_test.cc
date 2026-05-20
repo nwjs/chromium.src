@@ -108,51 +108,51 @@ TEST(StringTest, ASCII) {
 
 namespace {
 
-void TestNumberToStringECMAScript(double number, const char* reference) {
-  EXPECT_EQ(reference, String::NumberToStringECMAScript(number));
+void TestNumberToStringEcmaScript(double number, const char* reference) {
+  EXPECT_EQ(reference, String::NumberToStringEcmaScript(number));
 }
 
 }  // anonymous namespace
 
-TEST(StringTest, NumberToStringECMAScriptBoundaries) {
+TEST(StringTest, NumberToStringEcmaScriptBoundaries) {
   typedef std::numeric_limits<double> Limits;
 
   // Infinity.
-  TestNumberToStringECMAScript(Limits::infinity(), "Infinity");
-  TestNumberToStringECMAScript(-Limits::infinity(), "-Infinity");
+  TestNumberToStringEcmaScript(Limits::infinity(), "Infinity");
+  TestNumberToStringEcmaScript(-Limits::infinity(), "-Infinity");
 
   // NaN.
-  TestNumberToStringECMAScript(-Limits::quiet_NaN(), "NaN");
+  TestNumberToStringEcmaScript(-Limits::quiet_NaN(), "NaN");
 
   // Zeros.
-  TestNumberToStringECMAScript(0, "0");
-  TestNumberToStringECMAScript(-0, "0");
+  TestNumberToStringEcmaScript(0, "0");
+  TestNumberToStringEcmaScript(-0, "0");
 
   // Min-Max.
-  TestNumberToStringECMAScript(Limits::min(), "2.2250738585072014e-308");
-  TestNumberToStringECMAScript(Limits::max(), "1.7976931348623157e+308");
+  TestNumberToStringEcmaScript(Limits::min(), "2.2250738585072014e-308");
+  TestNumberToStringEcmaScript(Limits::max(), "1.7976931348623157e+308");
 }
 
-TEST(StringTest, NumberToStringECMAScriptRegularNumbers) {
+TEST(StringTest, NumberToStringEcmaScriptRegularNumbers) {
   // Pi.
-  TestNumberToStringECMAScript(kPiDouble, "3.141592653589793");
-  TestNumberToStringECMAScript(kPiFloat, "3.1415927410125732");
-  TestNumberToStringECMAScript(kPiOverTwoDouble, "1.5707963267948966");
-  TestNumberToStringECMAScript(kPiOverTwoFloat, "1.5707963705062866");
-  TestNumberToStringECMAScript(kPiOverFourDouble, "0.7853981633974483");
-  TestNumberToStringECMAScript(kPiOverFourFloat, "0.7853981852531433");
+  TestNumberToStringEcmaScript(kPiDouble, "3.141592653589793");
+  TestNumberToStringEcmaScript(kPiFloat, "3.1415927410125732");
+  TestNumberToStringEcmaScript(kPiOverTwoDouble, "1.5707963267948966");
+  TestNumberToStringEcmaScript(kPiOverTwoFloat, "1.5707963705062866");
+  TestNumberToStringEcmaScript(kPiOverFourDouble, "0.7853981633974483");
+  TestNumberToStringEcmaScript(kPiOverFourFloat, "0.7853981852531433");
 
   // e.
   const double kE = 2.71828182845904523536028747135266249775724709369995;
-  TestNumberToStringECMAScript(kE, "2.718281828459045");
+  TestNumberToStringEcmaScript(kE, "2.718281828459045");
 
   // c, speed of light in m/s.
   const double kC = 299792458;
-  TestNumberToStringECMAScript(kC, "299792458");
+  TestNumberToStringEcmaScript(kC, "299792458");
 
   // Golen ratio.
   const double kPhi = 1.6180339887498948482;
-  TestNumberToStringECMAScript(kPhi, "1.618033988749895");
+  TestNumberToStringEcmaScript(kPhi, "1.618033988749895");
 }
 
 TEST(StringTest, erase) {
@@ -249,32 +249,32 @@ TEST(WTF, LengthWithStrippedWhiteSpace) {
   EXPECT_EQ(only_spaces.LengthWithStrippedWhiteSpace(), 0u);
 }
 
-TEST(StringTest, Substring) {
+TEST(StringTest, DeprecatedSubstring) {
   String str8("abc");
-  EXPECT_EQ(u"abc", str8.Substring(0));
-  EXPECT_EQ("abc", str8.Substring(0));
-  EXPECT_EQ("bc", str8.Substring(1));
-  EXPECT_EQ("c", str8.Substring(2));
-  EXPECT_EQ("", str8.Substring(3));
-  EXPECT_EQ("", str8.Substring(4));
-  EXPECT_EQ("", str8.Substring(3, 1));
-  EXPECT_EQ("ab", str8.Substring(0, 2));
-  EXPECT_EQ("abc", str8.Substring(0, 3));
-  EXPECT_EQ("abc", str8.Substring(0, 4));
-  EXPECT_EQ("b", str8.Substring(1, 1));
+  EXPECT_EQ(u"abc", str8.DeprecatedSubstring(0));
+  EXPECT_EQ("abc", str8.DeprecatedSubstring(0));
+  EXPECT_EQ("bc", str8.DeprecatedSubstring(1));
+  EXPECT_EQ("c", str8.DeprecatedSubstring(2));
+  EXPECT_EQ("", str8.DeprecatedSubstring(3));
+  EXPECT_EQ("", str8.DeprecatedSubstring(4));
+  EXPECT_EQ("", str8.DeprecatedSubstring(3, 1));
+  EXPECT_EQ("ab", str8.DeprecatedSubstring(0, 2));
+  EXPECT_EQ("abc", str8.DeprecatedSubstring(0, 3));
+  EXPECT_EQ("abc", str8.DeprecatedSubstring(0, 4));
+  EXPECT_EQ("b", str8.DeprecatedSubstring(1, 1));
 
   String str16(u"abc");
-  EXPECT_EQ("abc", str16.Substring(0));
-  EXPECT_EQ(u"abc", str16.Substring(0));
-  EXPECT_EQ(u"bc", str16.Substring(1));
-  EXPECT_EQ(u"c", str16.Substring(2));
-  EXPECT_EQ(u"", str16.Substring(3));
-  EXPECT_EQ(u"", str16.Substring(4));
-  EXPECT_EQ(u"", str16.Substring(3, 1));
-  EXPECT_EQ(u"ab", str16.Substring(0, 2));
-  EXPECT_EQ(u"abc", str8.Substring(0, 3));
-  EXPECT_EQ(u"abc", str8.Substring(0, 4));
-  EXPECT_EQ(u"b", str16.Substring(1, 1));
+  EXPECT_EQ("abc", str16.DeprecatedSubstring(0));
+  EXPECT_EQ(u"abc", str16.DeprecatedSubstring(0));
+  EXPECT_EQ(u"bc", str16.DeprecatedSubstring(1));
+  EXPECT_EQ(u"c", str16.DeprecatedSubstring(2));
+  EXPECT_EQ(u"", str16.DeprecatedSubstring(3));
+  EXPECT_EQ(u"", str16.DeprecatedSubstring(4));
+  EXPECT_EQ(u"", str16.DeprecatedSubstring(3, 1));
+  EXPECT_EQ(u"ab", str16.DeprecatedSubstring(0, 2));
+  EXPECT_EQ(u"abc", str8.DeprecatedSubstring(0, 3));
+  EXPECT_EQ(u"abc", str8.DeprecatedSubstring(0, 4));
+  EXPECT_EQ(u"b", str16.DeprecatedSubstring(1, 1));
 }
 
 TEST(StringTest, Substr) {
@@ -394,6 +394,66 @@ TEST(StringTest, SplitByString) {
   EXPECT_EQ("", result[0]);
   EXPECT_EQ("foo", result[1]);
   EXPECT_EQ(" bar", result[2]);
+}
+
+TEST(StringTest, SplitByFinder) {
+  // Test splitting by zero-length separator (split into characters)
+  auto result = String("abc").Split(
+      [](const StringView&, string_size_t pos) -> std::optional<string_size_t> {
+        if (pos > 0) {
+          return 0u;
+        }
+        return std::nullopt;
+      });
+  EXPECT_EQ(3u, result.size());
+  EXPECT_EQ("a", result[0]);
+  EXPECT_EQ("b", result[1]);
+  EXPECT_EQ("c", result[2]);
+
+  // Test splitting by character simulation
+  result = String("foo,,bar")
+               .Split([](const StringView& str,
+                         string_size_t pos) -> std::optional<string_size_t> {
+                 // SAFETY: Split() guarantees that pos is always in bounds.
+                 if (UNSAFE_BUFFERS(str[pos]) == ',') {
+                   return 1u;
+                 }
+                 return std::nullopt;
+               });
+  EXPECT_EQ(3u, result.size());
+  EXPECT_EQ("foo", result[0]);
+  EXPECT_EQ("", result[1]);
+  EXPECT_EQ("bar", result[2]);
+
+  // Test splitting by \n or \r\n
+  auto eol_finder = [](const StringView& str,
+                       string_size_t pos) -> std::optional<string_size_t> {
+    auto sub = str.subview(pos);
+    if (sub.starts_with('\n')) {
+      return 1u;
+    }
+    if (sub.starts_with("\r\n")) {
+      return 2u;
+    }
+    return std::nullopt;
+  };
+  result = String("foo\n\r\nbaz").Split(eol_finder);
+  EXPECT_EQ(3u, result.size());
+  EXPECT_EQ("foo", result[0]);
+  EXPECT_EQ("", result[1]);
+  EXPECT_EQ("baz", result[2]);
+  result = String("foo\n\r\nbaz\n").Split(eol_finder);
+  EXPECT_EQ(4u, result.size());
+  EXPECT_EQ("foo", result[0]);
+  EXPECT_EQ("", result[1]);
+  EXPECT_EQ("baz", result[2]);
+  EXPECT_EQ("", result[3]);
+
+  // Test SplitSkippingEmpty by finder
+  result = String("foo\n\r\nbaz\n").SplitSkippingEmpty(eol_finder);
+  EXPECT_EQ(2u, result.size());
+  EXPECT_EQ("foo", result[0]);
+  EXPECT_EQ("baz", result[1]);
 }
 
 TEST(StringTest, StartsWithIgnoringUnicodeCase) {

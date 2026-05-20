@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.payments;
 
+import android.os.Build;
+
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -19,13 +21,13 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.autofill.AutofillTestHelper;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.payments.PaymentRequestTestRule.AppPresence;
 import org.chromium.chrome.browser.payments.PaymentRequestTestRule.FactorySpeed;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.components.autofill.AutofillProfile;
 import org.chromium.components.payments.Event2;
@@ -252,6 +254,9 @@ public class PaymentRequestMetricsTest {
     @Test
     @MediumTest
     @Feature({"Payments"})
+    @DisableIf.Build(
+            sdk_is_less_than = Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
+            message = "https://crbug.com/502914394")
     public void testAbortMetrics_UserAborted_TabClosed() throws TimeoutException {
         // Install the apps so the user can complete the Payment Request.
         mPaymentRequestTestRule.addPaymentAppFactory(
@@ -446,7 +451,7 @@ public class PaymentRequestMetricsTest {
     @Feature({"Payments"})
     @DisabledTest(
             message =
-                    "crbug.com/1260121 - The test deterministically fails in local run. "
+                    "crbug.com/40798033 - The test deterministically fails in local run. "
                             + "Efforts are needed to fix the test or the implementation code.")
     public void testShownLoggedOnlyOnce() throws TimeoutException {
         // Initiate a payment request.

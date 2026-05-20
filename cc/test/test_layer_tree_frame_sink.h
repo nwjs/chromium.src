@@ -83,6 +83,7 @@ class TestLayerTreeFrameSink : public LayerTreeFrameSink,
   void SetDisplayColorSpace(const gfx::ColorSpace& output_color_space);
 
   viz::Display* display() const { return display_.get(); }
+  viz::CompositorFrameSinkSupport* support() const;
   void UnregisterBeginFrameSource();
 
   // LayerTreeFrameSink implementation.
@@ -116,7 +117,7 @@ class TestLayerTreeFrameSink : public LayerTreeFrameSink,
       viz::AggregatedRenderPassList* render_passes) override;
   void DisplayDidDrawAndSwap() override;
   void DisplayDidReceiveCALayerParams(
-      const gfx::CALayerParams& ca_layer_params) override;
+      gfx::CALayerParams ca_layer_params) override;
   void DisplayDidCompleteSwapWithSize(const gfx::Size& pixel_size) override;
   void DisplayAddChildWindowToBrowser(gpu::SurfaceHandle child_window) override;
   void SetWideColorEnabled(bool enabled) override {}

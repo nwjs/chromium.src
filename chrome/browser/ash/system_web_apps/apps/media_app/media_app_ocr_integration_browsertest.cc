@@ -20,6 +20,8 @@
 #include "chrome/browser/ash/system_web_apps/test_support/system_web_app_integration_test.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/services/app_service/public/cpp/app_launch_params.h"
@@ -60,8 +62,9 @@ class MediaAppOcrIntegrationTest : public ash::SystemWebAppIntegrationTest {
 
 // Waits for the number of active Browsers in the test process to reach `count`.
 void WaitForBrowserCount(size_t count) {
-  EXPECT_LE(chrome::GetTotalBrowserCount(), count) << "Too many browsers";
-  while (chrome::GetTotalBrowserCount() < count) {
+  EXPECT_LE(GlobalBrowserCollection::GetInstance()->GetSize(), count)
+      << "Too many browsers";
+  while (GlobalBrowserCollection::GetInstance()->GetSize() < count) {
     ui_test_utils::WaitForBrowserToOpen();
   }
 }
@@ -90,9 +93,10 @@ void WaitForFirstFileLoadInActiveWindow(const std::string& filename) {
       })();
   )";
 
-  Browser* app_browser = chrome::FindBrowserWithActiveWindow();
+  BrowserWindowInterface* app_browser =
+      GlobalBrowserCollection::GetInstance()->GetActiveBrowser();
   content::WebContents* web_ui =
-      app_browser->tab_strip_model()->GetActiveWebContents();
+      app_browser->GetTabStripModel()->GetActiveWebContents();
   MediaAppUiBrowserTest::PrepareAppForTest(web_ui);
 
   EXPECT_EQ("loaded",
@@ -114,7 +118,7 @@ IN_PROC_BROWSER_TEST_P(MediaAppOcrIntegrationTest, MediaAppLaunchPdfMulti) {
   pdf_params_window1.launch_paths = {TestFile(kFilePdfImg)};
   LaunchAndWait(pdf_params_window1);
   WaitForBrowserCount(2);  // 1 extra for the browser test browser.
-  EXPECT_EQ(chrome::GetTotalBrowserCount(), 2u);
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 2u);
 
   WaitForFirstFileLoadInActiveWindow(kFilePdfImg);
   // There should be one service after one PDF window is opened. If it's in the
@@ -126,7 +130,7 @@ IN_PROC_BROWSER_TEST_P(MediaAppOcrIntegrationTest, MediaAppLaunchPdfMulti) {
   pdf_params_window2.launch_paths = {TestFile(kFilePdfTall)};
   LaunchAndWait(pdf_params_window2);
   WaitForBrowserCount(3);  // 1 extra for the browser test browser.
-  EXPECT_EQ(chrome::GetTotalBrowserCount(), 3u);
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 3u);
 
   WaitForFirstFileLoadInActiveWindow(kFilePdfTall);
   // There should be a second service after a second PDF window is opened.

@@ -7,12 +7,17 @@
 #include <algorithm>
 
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/lifetime/application_lifetime_desktop.h"
+#include "chrome/browser/lifetime/browser_shutdown.h"
+#include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/printing/background_printing_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_destroyer.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "components/keep_alive_registry/keep_alive_registry.h"
+#include "components/keep_alive_registry/keep_alive_types.h"
 #include "printing/buildflags/buildflags.h"
 
 BrowserManagerService::BrowserManagerService(Profile* profile)
@@ -101,10 +106,10 @@ void BrowserManagerService::DeleteBrowser(Browser* removed_browser) {
   // false, while the user manager window is still opened. This cannot be fixed
   // in ProfileDestroyer::DestroyProfileWhenAppropriate(), because the
   // ProfileManager needs to be able to destroy all profiles when it is
-  // destroyed. See crbug.com/527035
+  // destroyed. See crbug.com/40433858
   //
   // Non-primary OffTheRecord profiles should not be destroyed directly by
-  // Browser (e.g. for offscreen tabs, https://crbug.com/664351).
+  // Browser (e.g. for offscreen tabs, https://crbug.com/41285708).
   //
   // TODO(crbug.com/40159237): Use ScopedProfileKeepAlive for Incognito too,
   // instead of separate logic for Incognito and regular profiles.
@@ -115,13 +120,28 @@ void BrowserManagerService::DeleteBrowser(Browser* removed_browser) {
     // The Printing Background Manager holds onto preview dialog WebContents
     // whose corresponding print jobs have not yet fully spooled. Make sure
     // these get destroyed before tearing down the incognito profile so that
-    // their RenderFrameHosts can exit in time - see crbug.com/579155
+    // their RenderFrameHosts can exit in time - see crbug.com/41235373
     g_browser_process->background_printing_manager()
         ->DeletePreviewContentsForBrowserContext(&profile_.get());
 #endif
     // An incognito profile is no longer needed, this indirectly frees
     // its cache and cookies once it gets destroyed at the appropriate time.
     ProfileDestroyer::DestroyOTRProfileWhenAppropriate(&profile_.get());
+  }
+
+  // If we're exiting, send out the APP_TERMINATING notification to allow other
+  // modules to shut themselves down.
+  if (!KeepAliveRegistry::GetInstance()->IsOriginRegistered(
+          KeepAliveOrigin::BROWSER) &&
+      (browser_shutdown::IsTryingToQuit() ||
+       g_browser_process->IsShuttingDown())) {
+    // Last browser has just closed, and this is a user-initiated quit or there
+    // is no module keeping the app alive, so send out our notification. No need
+    // to call ProfileManager::ShutdownSessionServices() as part of the
+    // shutdown, because Browser::WindowClosing() already makes sure that the
+    // SessionService is created and notified.
+    browser_shutdown::NotifyAppTerminating();
+    chrome::OnAppExiting();
   }
 }
 
@@ -157,28 +177,36 @@ void BrowserManagerService::AddBrowserForTesting(
 BrowserCollection::BrowserVector BrowserManagerService::GetBrowsers(
     Order order) {
   CHECK(order == Order::kCreation || order == Order::kActivation);
+  BrowserCollection::BrowserVector browsers;
   if (order == Order::kActivation) {
-    return browsers_activation_order_;
+    browsers.reserve(browsers_activation_order_.size());
+    for (raw_ptr<BrowserWindowInterface>& browser :
+         browsers_activation_order_) {
+      if (!browser->IsDeleteScheduled()) {
+        browsers.push_back(browser);
+      }
+    }
+    return browsers;
   }
 
-  BrowserCollection::BrowserVector browsers;
   CHECK(browsers_and_subscriptions_.empty() ||
         browsers_and_subscriptions_for_testing_.empty());
   if (!browsers_and_subscriptions_for_testing_.empty()) {
     CHECK(browsers_and_subscriptions_.empty());
     browsers.reserve(browsers_and_subscriptions_for_testing_.size());
-    std::ranges::transform(browsers_and_subscriptions_for_testing_,
-                           std::back_inserter(browsers),
-                           [](const auto& browser_and_subscriptions) {
-                             return browser_and_subscriptions.browser.get();
-                           });
+    for (auto& browser_and_subscription :
+         browsers_and_subscriptions_for_testing_) {
+      if (!browser_and_subscription.browser->IsDeleteScheduled()) {
+        browsers.push_back(browser_and_subscription.browser.get());
+      }
+    }
   } else {
     browsers.reserve(browsers_and_subscriptions_.size());
-    std::ranges::transform(browsers_and_subscriptions_,
-                           std::back_inserter(browsers),
-                           [](const auto& browser_and_subscriptions) {
-                             return browser_and_subscriptions.browser.get();
-                           });
+    for (auto& browser_and_subscription : browsers_and_subscriptions_) {
+      if (!browser_and_subscription.browser->IsDeleteScheduled()) {
+        browsers.push_back(browser_and_subscription.browser.get());
+      }
+    }
   }
 
   return browsers;

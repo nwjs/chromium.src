@@ -35,9 +35,10 @@ import org.chromium.chrome.browser.crypto.CipherFactory;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.MockTab;
+import org.chromium.chrome.browser.tab.StorageLoadWarningCode;
 import org.chromium.chrome.browser.tab.StorageLoadedData;
 import org.chromium.chrome.browser.tab.StorageLoadedData.LoadedTabState;
-import org.chromium.chrome.browser.tab.StorageLoadingStatus;
+import org.chromium.chrome.browser.tab.StorageLoadedData.StorageLoadWarning;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabState;
@@ -49,13 +50,11 @@ import org.chromium.chrome.browser.tabmodel.PersistentStoreMigrationManager;
 import org.chromium.chrome.browser.tabmodel.PersistentStoreMigrationManager.StoreType;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
-import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabPersistencePolicy;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStore.TabPersistentStoreObserver;
 
-import java.util.Arrays;
 import java.util.List;
 
 /** Unit tests for {@link TabStateStore}. */
@@ -83,7 +82,6 @@ public class TabStateStoreUnitTest {
     @Mock private TabCountTracker mTabCountTracker;
     @Mock private StorageLoadedData mRegularData;
     @Mock private StorageLoadedData mIncognitoData;
-    @Mock private TabList mComprehensiveTabList;
     @Captor private ArgumentCaptor<Callback<StorageLoadedData>> mCallbackCaptor;
 
     private final ModelTrackingOrchestrator.Factory mModelTrackingOrchestratorFactory =
@@ -131,15 +129,16 @@ public class TabStateStoreUnitTest {
                         mTabCountTracker,
                         mModelTrackingOrchestratorFactory,
                         mActiveTabCacheFactory,
-                        /* isAuthoritative= */ true);
+                        /* isAuthoritative= */ true,
+                        /* isFromRecreating= */ false);
         mTabStateStore.addObserver(mObserver);
 
         when(mRegularTabModel.getCurrentTabSupplier()).thenReturn(mRegularTabSupplier);
         when(mIncognitoTabModel.getCurrentTabSupplier()).thenReturn(mIncognitoTabSupplier);
 
-        when(mRegularData.getLoadingStatus()).thenReturn(StorageLoadingStatus.SUCCESS);
+        when(mRegularData.getWarnings()).thenReturn(new StorageLoadWarning[0]);
         when(mRegularData.getLoadedTabStates()).thenReturn(new LoadedTabState[0]);
-        when(mIncognitoData.getLoadingStatus()).thenReturn(StorageLoadingStatus.SUCCESS);
+        when(mIncognitoData.getWarnings()).thenReturn(new StorageLoadWarning[0]);
         when(mIncognitoData.getLoadedTabStates()).thenReturn(new LoadedTabState[0]);
     }
 
@@ -180,7 +179,8 @@ public class TabStateStoreUnitTest {
                         mTabCountTracker,
                         mModelTrackingOrchestratorFactory,
                         mActiveTabCacheFactory,
-                        /* isAuthoritative= */ true);
+                        /* isAuthoritative= */ true,
+                        /* isFromRecreating= */ false);
         when(mMigrationManager.shouldRazeStoreForWindow(true)).thenReturn(true);
 
         mTabStateStore.onNativeLibraryReady();
@@ -205,7 +205,8 @@ public class TabStateStoreUnitTest {
                         mTabCountTracker,
                         mModelTrackingOrchestratorFactory,
                         mActiveTabCacheFactory,
-                        /* isAuthoritative= */ true);
+                        /* isAuthoritative= */ true,
+                        /* isFromRecreating= */ false);
         when(mMigrationManager.shouldRazeStoreForWindow(true)).thenReturn(false);
 
         mTabStateStore.onNativeLibraryReady();
@@ -230,7 +231,8 @@ public class TabStateStoreUnitTest {
                         mTabCountTracker,
                         mModelTrackingOrchestratorFactory,
                         mActiveTabCacheFactory,
-                        /* isAuthoritative= */ false);
+                        /* isAuthoritative= */ false,
+                        /* isFromRecreating= */ false);
         when(mMigrationManager.shouldRazeStoreForWindow(false)).thenReturn(true);
 
         mTabStateStore.onNativeLibraryReady();
@@ -255,7 +257,8 @@ public class TabStateStoreUnitTest {
                         mTabCountTracker,
                         mModelTrackingOrchestratorFactory,
                         mActiveTabCacheFactory,
-                        /* isAuthoritative= */ false);
+                        /* isAuthoritative= */ false,
+                        /* isFromRecreating= */ false);
         when(mMigrationManager.shouldRazeStoreForWindow(false)).thenReturn(false);
 
         mTabStateStore.onNativeLibraryReady();
@@ -297,7 +300,8 @@ public class TabStateStoreUnitTest {
                         mTabCountTracker,
                         mModelTrackingOrchestratorFactory,
                         mActiveTabCacheFactory,
-                        /* isAuthoritative= */ true);
+                        /* isAuthoritative= */ true,
+                        /* isFromRecreating= */ false);
         mTabStateStore.onNativeLibraryReady();
 
         verify(mCipherFactory).setKeyForTabStateStorage(newKey);
@@ -389,7 +393,7 @@ public class TabStateStoreUnitTest {
     }
 
     @Test
-    public void testLoadState_Failure() {
+    public void testLoadStateFailure_Authoritative() {
         mTabStateStore.onNativeLibraryReady();
         mTabStateStore.loadState(false);
 
@@ -398,8 +402,56 @@ public class TabStateStoreUnitTest {
 
         Callback<StorageLoadedData> regularCallback = mCallbackCaptor.getAllValues().get(0);
 
-        when(mRegularData.getLoadingStatus()).thenReturn(StorageLoadingStatus.PARSE_ERROR);
-        when(mRegularData.getErrorMessage()).thenReturn("error");
+        when(mRegularData.getWarnings())
+                .thenReturn(
+                        new StorageLoadWarning[] {
+                            new StorageLoadWarning(StorageLoadWarningCode.PARSE_ERROR, "error")
+                        });
+
+        TabState tabState = new TabState();
+        tabState.contentsState = mock(WebContentsState.class);
+        LoadedTabState loadedTabState = new LoadedTabState(0, tabState);
+        when(mRegularData.getLoadedTabStates()).thenReturn(new LoadedTabState[] {loadedTabState});
+
+        regularCallback.onResult(mRegularData);
+
+        verify(mTabStateStorageService, never())
+                .clearUnusedNodesForWindow(any(), anyBoolean(), any());
+        verify(mTabCountTracker, never()).clearTabCount(anyBoolean());
+        verify(mActiveTabCache, never()).clearActiveTab(anyBoolean());
+        verify(mMigrationManager, never()).onShadowStoreRazed();
+    }
+
+    @Test
+    public void testLoadStateFailure_NonAuthoritative() {
+        mTabStateStore =
+                new TabStateStore(
+                        mTabModelSelector,
+                        WINDOW_TAG,
+                        mTabCreatorManager,
+                        mTabPersistencePolicy,
+                        mMigrationManager,
+                        mCipherFactory,
+                        mTabCountTracker,
+                        mModelTrackingOrchestratorFactory,
+                        mActiveTabCacheFactory,
+                        /* isAuthoritative= */ false,
+                        /* isFromRecreating= */ false);
+        mTabStateStore.addObserver(mObserver);
+
+        mTabStateStore.onNativeLibraryReady();
+        mTabStateStore.loadState(false);
+
+        verify(mTabStateStorageService, times(2))
+                .loadAllData(eq(WINDOW_TAG), anyBoolean(), mCallbackCaptor.capture());
+
+        Callback<StorageLoadedData> regularCallback = mCallbackCaptor.getAllValues().get(0);
+
+        when(mRegularData.getWarnings())
+                .thenReturn(
+                        new StorageLoadWarning[] {
+                            new StorageLoadWarning(StorageLoadWarningCode.PARSE_ERROR, "error")
+                        });
 
         TabState tabState = new TabState();
         tabState.contentsState = mock(WebContentsState.class);
@@ -413,6 +465,27 @@ public class TabStateStoreUnitTest {
         verify(mActiveTabCache).clearActiveTab(false);
         verify(tabState.contentsState).destroy();
         verify(mRegularData).destroy();
+    }
+
+    @Test
+    public void testOnAuthoritativeStateLoaded() {
+        mTabStateStore =
+                new TabStateStore(
+                        mTabModelSelector,
+                        WINDOW_TAG,
+                        mTabCreatorManager,
+                        mTabPersistencePolicy,
+                        mMigrationManager,
+                        mCipherFactory,
+                        mTabCountTracker,
+                        mModelTrackingOrchestratorFactory,
+                        mActiveTabCacheFactory,
+                        /* isAuthoritative= */ false,
+                        /* isFromRecreating= */ false);
+
+        mTabStateStore.onNativeLibraryReady();
+        mTabStateStore.onAuthoritativeStateLoaded();
+        verify(mModelTrackingOrchestrator).onAuthoritativeStateLoaded();
     }
 
     @Test
@@ -478,12 +551,12 @@ public class TabStateStoreUnitTest {
         List<Callback<StorageLoadedData>> callbacks = mCallbackCaptor.getAllValues();
 
         StorageLoadedData regularData = mock(StorageLoadedData.class);
-        when(regularData.getLoadingStatus()).thenReturn(StorageLoadingStatus.SUCCESS);
+        when(regularData.getWarnings()).thenReturn(new StorageLoadWarning[0]);
         when(regularData.getLoadedTabStates()).thenReturn(new LoadedTabState[0]);
         callbacks.get(0).onResult(regularData);
 
         StorageLoadedData incognitoData = mock(StorageLoadedData.class);
-        when(incognitoData.getLoadingStatus()).thenReturn(StorageLoadingStatus.SUCCESS);
+        when(incognitoData.getWarnings()).thenReturn(new StorageLoadWarning[0]);
         when(incognitoData.getLoadedTabStates()).thenReturn(new LoadedTabState[0]);
         callbacks.get(1).onResult(incognitoData);
 
@@ -514,7 +587,8 @@ public class TabStateStoreUnitTest {
                         mTabCountTracker,
                         mModelTrackingOrchestratorFactory,
                         mActiveTabCacheFactory,
-                        /* isAuthoritative= */ false);
+                        /* isAuthoritative= */ false,
+                        /* isFromRecreating= */ false);
         mTabStateStore.addObserver(mObserver);
 
         mTabStateStore.onNativeLibraryReady();
@@ -533,12 +607,12 @@ public class TabStateStoreUnitTest {
         List<Callback<StorageLoadedData>> callbacks = mCallbackCaptor.getAllValues();
 
         StorageLoadedData regularData = mock(StorageLoadedData.class);
-        when(regularData.getLoadingStatus()).thenReturn(StorageLoadingStatus.SUCCESS);
+        when(regularData.getWarnings()).thenReturn(new StorageLoadWarning[0]);
         when(regularData.getLoadedTabStates()).thenReturn(new LoadedTabState[0]);
         callbacks.get(0).onResult(regularData);
 
         StorageLoadedData incognitoData = mock(StorageLoadedData.class);
-        when(incognitoData.getLoadingStatus()).thenReturn(StorageLoadingStatus.SUCCESS);
+        when(incognitoData.getWarnings()).thenReturn(new StorageLoadWarning[0]);
         when(incognitoData.getLoadedTabStates()).thenReturn(new LoadedTabState[0]);
         callbacks.get(1).onResult(incognitoData);
 
@@ -556,36 +630,19 @@ public class TabStateStoreUnitTest {
     }
 
     @Test
-    public void testSaveCleanTabOnRegistration_Authoritative() {
-        Tab tab = createMockTabWithParentCollection(1, mProfile);
-        TabStateAttributes.createForTab(tab, TabCreationState.LIVE_IN_FOREGROUND);
-        when(mRegularTabModel.getCount()).thenReturn(1);
-        when(mRegularTabModel.getTabAt(0)).thenReturn(tab);
-        when(mIncognitoTabModel.getCount()).thenReturn(0);
-
+    public void testDoNotSaveCleanTabOnRegistration_Authoritative() {
         mTabStateStore.onNativeLibraryReady();
-        when(mCipherFactory.getKeyForTabStateStorage()).thenReturn(new byte[1]);
-        when(mTabModelSelector.getModels())
-                .thenReturn(Arrays.asList(mRegularTabModel, mIncognitoTabModel));
-        when(mRegularTabModel.getComprehensiveModel()).thenReturn(mComprehensiveTabList);
-        when(mIncognitoTabModel.getComprehensiveModel()).thenReturn(mComprehensiveTabList);
-        when(mComprehensiveTabList.iterator()).thenReturn(List.of(tab).iterator());
 
-        mTabStateStore.loadState(false);
+        Tab tab = createMockTabWithParentCollection(1, mProfile);
+        TabStateAttributes.createForTab(tab, TabCreationState.FROZEN_ON_RESTORE);
 
-        verify(mTabStateStorageService, times(2))
-                .loadAllData(eq(WINDOW_TAG), anyBoolean(), mCallbackCaptor.capture());
+        mTabStateStore.onTabRegistered(tab);
 
-        List<Callback<StorageLoadedData>> callbacks = mCallbackCaptor.getAllValues();
-
-        callbacks.get(0).onResult(mRegularData);
-        callbacks.get(1).onResult(mIncognitoData);
-
-        verify(mModelTrackingOrchestrator).saveTab(tab);
+        verify(mModelTrackingOrchestrator, never()).saveTab(tab);
     }
 
     @Test
-    public void testDoNotSaveCleanTabOnRegistration_NonAuthoritative() {
+    public void testSaveCleanTabOnRegistration_NonAuthoritative() {
         mTabStateStore =
                 new TabStateStore(
                         mTabModelSelector,
@@ -597,31 +654,18 @@ public class TabStateStoreUnitTest {
                         mTabCountTracker,
                         mModelTrackingOrchestratorFactory,
                         mActiveTabCacheFactory,
-                        /* isAuthoritative= */ false);
+                        /* isAuthoritative= */ false,
+                        /* isFromRecreating= */ false);
         mTabStateStore.addObserver(mObserver);
 
         mTabStateStore.onNativeLibraryReady();
-        when(mCipherFactory.getKeyForTabStateStorage()).thenReturn(new byte[1]);
 
         Tab tab = createMockTabWithParentCollection(1, mProfile);
-        TabStateAttributes.createForTab(tab, TabCreationState.LIVE_IN_FOREGROUND);
-        when(mRegularTabModel.getCount()).thenReturn(1);
-        when(mRegularTabModel.getTabAt(0)).thenReturn(tab);
+        TabStateAttributes.createForTab(tab, TabCreationState.FROZEN_ON_RESTORE);
 
-        mTabStateStore.loadState(false);
+        mTabStateStore.onTabRegistered(tab);
 
-        verify(mTabStateStorageService, times(2))
-                .loadAllData(eq(WINDOW_TAG), anyBoolean(), mCallbackCaptor.capture());
-
-        List<Callback<StorageLoadedData>> callbacks = mCallbackCaptor.getAllValues();
-
-        callbacks.get(0).onResult(mRegularData);
-        callbacks.get(1).onResult(mIncognitoData);
-
-        mTabStateStore.restoreTabs(true);
-        ShadowLooper.runUiThreadTasks();
-
-        verify(mModelTrackingOrchestrator, never()).saveTab(tab);
+        verify(mModelTrackingOrchestrator).saveTab(tab);
     }
 
     @Test
@@ -667,7 +711,8 @@ public class TabStateStoreUnitTest {
                         mTabCountTracker,
                         mModelTrackingOrchestratorFactory,
                         mActiveTabCacheFactory,
-                        /* isAuthoritative= */ true);
+                        /* isAuthoritative= */ true,
+                        /* isFromRecreating= */ false);
         noCipherTabStateStore.addObserver(mObserver);
         noCipherTabStateStore.onNativeLibraryReady();
 
@@ -705,7 +750,8 @@ public class TabStateStoreUnitTest {
                         mTabCountTracker,
                         mModelTrackingOrchestratorFactory,
                         mActiveTabCacheFactory,
-                        /* isAuthoritative= */ false);
+                        /* isAuthoritative= */ false,
+                        /* isFromRecreating= */ false);
 
         mTabStateStore.onNativeLibraryReady();
         mTabStateStore.clearCurrentWindow();

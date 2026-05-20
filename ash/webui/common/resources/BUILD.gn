@@ -127,6 +127,7 @@ web_component_files_ts = [
 ]
 
 ts_files_ts = [
+  "accessibility/braille_table.ts",
   "accessibility/macro_names.ts",
   "accessibility/facial_gestures.ts",
   "bluetooth/bluetooth_metrics_utils.ts",
@@ -732,7 +733,7 @@ js_library("web_ui_listener_behavior") {
 }
 
 js_library("webui_resource_test") {
-  externs_list = [ "//ui/webui/resources/js/dom_automation_controller.js" ]
+  externs_list = [ "dom_automation_controller.js" ]
 }
 
 js_library("util") {

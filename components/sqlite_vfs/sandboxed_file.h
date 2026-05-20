@@ -7,36 +7,21 @@
 
 #include <stdint.h>
 
+#include <memory>
+#include <optional>
+#include <vector>
+
 #include "base/component_export.h"
 #include "base/files/file.h"
-#include "base/memory/shared_memory_safety_checker.h"
-#include "base/memory/unsafe_shared_memory_region.h"
+#include "base/files/memory_mapped_file.h"
 #include "components/sqlite_vfs/lock_state.h"
+#include "components/sqlite_vfs/shared_locks.h"
 #include "sql/sandboxed_vfs_file.h"
 
 namespace sqlite_vfs {
 
 enum class Client;
 enum class FileType;
-
-// The lock shared state is encoded over 32-bits:
-//   3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
-//   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
-//  +---+-+-+-----------------------+-------------------------------+
-//  |A|P|R|0|                     SHARED COUNT                      |
-//  +---+-+-+-----------------------+-------------------------------+
-//
-// Where
-//
-//   SHARED COUNT: The number of SHARED locks held by readers.
-//   A: Whether the lock is abandoned. If set no further use is permitted.
-//   R: The RESERVED lock is held. New shared locks are still permitted.
-//   P: The PENDING lock is held. No new shared locks are permitted while any
-//      process holds the PENDING lock.
-//
-// A process holds the EXCLUSIVE lock when it holds the PENDING lock and the
-// SHARED COUNT is zero.
-using SharedAtomicLock = base::subtle::SharedAtomic<uint32_t>;
 
 // Represents a file to be exposed to sql::Database via
 // SqliteSandboxedVfsDelegate.
@@ -49,12 +34,16 @@ class COMPONENT_EXPORT(SQLITE_VFS) SandboxedFile
  public:
   enum class AccessRights { kReadWrite, kReadOnly };
 
+  // `shared_locks` must be specified only for the main database file, and only
+  // when the database supports multiple connections. `wal_index_file` must be
+  // specified only for the main database file, and only when a WAL-mode
+  // database supports multiple connections.
   SandboxedFile(Client client,
                 FileType file_type,
                 base::File file,
                 AccessRights access_rights,
-                base::WritableSharedMemoryMapping mapped_shared_lock =
-                    base::WritableSharedMemoryMapping());
+                std::optional<SharedLocks> shared_locks = std::nullopt,
+                base::File wal_index_file = {});
   SandboxedFile(SandboxedFile& other) = delete;
   SandboxedFile& operator=(const SandboxedFile& other) = delete;
   SandboxedFile(SandboxedFile&& other) = delete;
@@ -94,6 +83,9 @@ class COMPONENT_EXPORT(SQLITE_VFS) SandboxedFile
   const base::File& GetFile() const;
   base::File& GetFile();
 
+  // Returns a reference to the instance's WAL-index file handle if valid.
+  const base::File& GetWalIndexFile() const { return wal_index_file_; }
+
   // sqlite3_file implementation.
   int Close() override;
   int Read(void* buffer, int size, sqlite3_int64 offset) override;
@@ -119,21 +111,14 @@ class COMPONENT_EXPORT(SQLITE_VFS) SandboxedFile
 
   int LockModeForTesting() const { return sqlite_lock_mode_; }
 
-  // Marks this instance as not suitable for use anymore. Once called the effect
-  // is permanent. After this call `Lock()` will not succeed anymore and
-  // communicate the abandonment through the error code returned which
-  // lets code using the class observe the change. Returns the type of lock
-  // holder left over after abandonment.
+  // Permanently marks this database as no longer suitable for use by any
+  // connection. See `SqliteVfsFileSet::Abandon()` for details.
   LockState Abandon();
 
  private:
   // Returns true if this instance is likely opened for exclusive access.
   // Take care: this is only valid for FileType::kMainDb files.
-  bool is_single_connection() const { return !mapped_shared_lock_.IsValid(); }
-
-  // Returns a pointer to the lock state, which is shared across other instances
-  // of SandboxedFile via shared memory.
-  SharedAtomicLock& GetSharedAtomicLock();
+  bool is_single_connection() const { return !shared_locks_; }
 
   // Acquire/release a lock on the underlying file. This is used when the
   // creator wishes this to be the only connection allowed to the database.
@@ -153,10 +138,18 @@ class COMPONENT_EXPORT(SQLITE_VFS) SandboxedFile
   // state of this connection (see: https://www.sqlite.org/lockingv3.html).
   int sqlite_lock_mode_ = SQLITE_LOCK_NONE;
 
-  // If valid, the cross-process shared lock by which the SQLite locking
-  // algorithm is implemented. Otherwise, this file is opened in exclusive mode
-  // so no shared lock is required.
-  base::WritableSharedMemoryMapping mapped_shared_lock_;
+  // If valid, the cross-process shared locks by which the SQLite locking
+  // protocols are implemented. Otherwise, this file is opened in exclusive mode
+  // so no shared locks are required. Only used for the main database file.
+  std::optional<SharedLocks> shared_locks_;
+
+  // The WAL-index file. Only used for the main database file, and only when
+  // opened for sharing (exclusive locking mode off).
+  base::File wal_index_file_;
+
+  // Mapped pages of the WAL-index file. Only used for the main database file,
+  // and only when opened for sharing (exclusive locking mode off).
+  std::vector<std::unique_ptr<base::MemoryMappedFile>> shm_mappings_;
 };
 
 }  // namespace sqlite_vfs

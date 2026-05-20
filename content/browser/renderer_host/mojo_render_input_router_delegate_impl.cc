@@ -71,4 +71,9 @@ void MojoRenderInputRouterDelegateImpl::RendererInputResponsivenessChanged(
   }
 }
 
+void MojoRenderInputRouterDelegateImpl::OnInputRouterActive() {
+  is_active_ = true;
+  host_->OnVizInputRouterActive();
+}
+
 }  // namespace content

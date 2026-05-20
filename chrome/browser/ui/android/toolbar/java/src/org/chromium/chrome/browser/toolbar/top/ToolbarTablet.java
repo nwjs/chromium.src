@@ -5,8 +5,6 @@
 package org.chromium.chrome.browser.toolbar.top;
 
 import static org.chromium.build.NullUtil.assertNonNull;
-import static org.chromium.chrome.browser.toolbar.top.ToolbarUtils.isToolbarTabletResizeRefactorEnabled;
-import static org.chromium.ui.accessibility.KeyboardFocusUtil.setFocusOnFirstFocusableDescendant;
 
 import android.animation.Animator;
 import android.animation.AnimatorSet;
@@ -25,7 +23,6 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.ColorRes;
 import androidx.annotation.DimenRes;
 import androidx.annotation.DrawableRes;
-import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.view.ViewCompat;
 import androidx.core.widget.ImageViewCompat;
@@ -69,7 +66,8 @@ import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.animation.CancelAwareAnimatorListener;
 import org.chromium.components.feature_engagement.Tracker;
-import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.components.signin.SigninFeatureMap;
+import org.chromium.ui.accessibility.KeyboardFocusUtil;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -114,6 +112,8 @@ public class ToolbarTablet extends ToolbarLayout {
 
     private final @Nullable ToolbarWidthConsumer[] mToolbarWidthConsumers =
             new ToolbarWidthConsumer[ToolbarComponentId.COUNT];
+
+    private boolean mIsDestroyed;
 
     /**
      * Constructs a ToolbarTablet object.
@@ -439,6 +439,11 @@ public class ToolbarTablet extends ToolbarLayout {
         mToolbarWidthConsumers[ToolbarComponentId.ADAPTIVE_BUTTON] =
                 new OptionalButtonToolbarWidthConsumer();
         mToolbarWidthConsumers[ToolbarComponentId.SIGNIN_BUTTON] = signinButtonCoordinator;
+        if (signinButtonCoordinator != null) {
+            signinButtonCoordinator.setShowOnAllPages(
+                    SigninFeatureMap.sProfileDiscOnAllPages.isEnabled());
+            signinButtonCoordinator.showAvatarWhenSignedOut(true);
+        }
         mToolbarWidthConsumers[ToolbarComponentId.TAB_SWITCHER] = tabSwitcherButtonCoordinator;
         mToolbarWidthConsumers[ToolbarComponentId.MENU] = menuButtonCoordinator;
         mToolbarWidthConsumers[ToolbarComponentId.PADDING] =
@@ -461,6 +466,8 @@ public class ToolbarTablet extends ToolbarLayout {
 
     @Override
     public void destroy() {
+        mIsDestroyed = true;
+
         super.destroy();
         mCallbackController.destroy();
         if (mButtonVisibilityAnimators != null) {
@@ -503,35 +510,20 @@ public class ToolbarTablet extends ToolbarLayout {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        int width = MeasureSpec.getSize(widthMeasureSpec);
-        if (isToolbarTabletResizeRefactorEnabled()) {
-            allocateAvailableToolbarWidth(
-                    mToolbarWidthConsumers, width, widthMeasureSpec, heightMeasureSpec);
-        } else {
-            // Hide or show toolbar buttons if needed. With the introduction of multi-window on
-            // Android N, the Activity can be < 600dp, in which case the toolbar buttons need to be
-            // moved into the menu so that the location bar is usable. The buttons must be shown
-            // in onMeasure() so that the location bar is usable.
-            setToolbarButtonsVisible(
-                    width >= DeviceFormFactor.getNonMultiDisplayMinimumTabletWidthPx(getContext()));
-        }
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        assert !mIsDestroyed;
 
-        // Trigger a second update if the incognito indicator was measured at a different width than
-        // originally expected, requiring another pass at allocating toolbar width.
-        // TODO(crbug.com/444068280): Revisit this approach to re-allocating width for variable
-        //  width components.
-        if (isToolbarTabletResizeRefactorEnabled()
-                && mIncognitoIndicatorCoordinator.needsUpdateBeforeShowing()) {
-            allocateAvailableToolbarWidth(
-                    mToolbarWidthConsumers, width, widthMeasureSpec, heightMeasureSpec);
-            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        }
+        int width = MeasureSpec.getSize(widthMeasureSpec);
+        allocateAvailableToolbarWidth(
+                mToolbarWidthConsumers, width, widthMeasureSpec, heightMeasureSpec);
+
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
     }
 
     @Override
     public void onWidthConsumerVisibilityChanged() {
-        if (!isToolbarTabletResizeRefactorEnabled()) return;
+        assert !mIsDestroyed;
+
+        if (!ToolbarUtils.isToolbarTabletResizeRefactorEnabled()) return;
 
         // Re-allocate width to account for a change in a width consumer's visibility.
         int unspecifiedSpec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED);
@@ -547,7 +539,6 @@ public class ToolbarTablet extends ToolbarLayout {
      * @param widthMeasureSpec The width measure spec to be used for measurement.
      * @param heightMeasureSpec The height measure spec to be used for measurement.
      */
-    @VisibleForTesting
     static void allocateAvailableToolbarWidth(
             @Nullable ToolbarWidthConsumer[] toolbarWidthConsumer,
             int availableWidthDp,
@@ -562,6 +553,11 @@ public class ToolbarTablet extends ToolbarLayout {
                     widthConsumer.updateVisibility(
                             availableWidthDp, widthMeasureSpec, heightMeasureSpec);
         }
+    }
+
+    @Override
+    public void updateMenuButtonVisibility() {
+        mMenuButtonCoordinator.setVisibility(true);
     }
 
     @Override
@@ -681,7 +677,7 @@ public class ToolbarTablet extends ToolbarLayout {
 
         @Override
         public int updateVisibility(int availableWidth) {
-            assert isToolbarTabletResizeRefactorEnabled();
+            assert ToolbarUtils.isToolbarTabletResizeRefactorEnabled();
             return Math.min(
                     availableWidth,
                     (int)
@@ -704,7 +700,7 @@ public class ToolbarTablet extends ToolbarLayout {
 
         @Override
         public int updateVisibility(int availableWidth) {
-            assert isToolbarTabletResizeRefactorEnabled();
+            assert ToolbarUtils.isToolbarTabletResizeRefactorEnabled();
             if (mOptionalButtonForciblyHidden) {
                 setOptionalButtonVisibility(false);
                 return 0;
@@ -729,11 +725,13 @@ public class ToolbarTablet extends ToolbarLayout {
 
     @Override
     public void requestKeyboardFocus() {
-        setFocusOnFirstFocusableDescendant(this);
+        KeyboardFocusUtil.setFocusOnFirstFocusableDescendant(this);
         // TODO(crbug.com/360423850): Replace this setFocus(mLocationBar) when omnibox keyboard
         // behavior is fixed.
     }
 
+    @SuppressWarnings("UnusedMethod")
+    // TODO(crbug.com/501137241): Clean up this method and related logic.
     private void setToolbarButtonsVisible(boolean visible) {
         if (mToolbarButtonsVisible == visible) return;
 
@@ -853,14 +851,12 @@ public class ToolbarTablet extends ToolbarLayout {
         mToolbarButtonsVisible = value;
     }
 
-    @VisibleForTesting
-    void setReloadButtonCoordinator(ReloadButtonCoordinator coordinator) {
+    void setReloadButtonCoordinatorForTesting(ReloadButtonCoordinator coordinator) {
         mReloadButtonCoordinator = coordinator;
         mToolbarWidthConsumers[ToolbarComponentId.RELOAD] = mReloadButtonCoordinator;
     }
 
-    @VisibleForTesting
-    void setBackButtonCoordinator(BackButtonCoordinator coordinator) {
+    void setBackButtonCoordinatorForTesting(BackButtonCoordinator coordinator) {
         mBackButtonCoordinator = coordinator;
         mToolbarWidthConsumers[ToolbarComponentId.BACK] = mBackButtonCoordinator;
     }

@@ -13,9 +13,11 @@
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
 #include "base/check_deref.h"
 #include "base/compiler_specific.h"
 #include "base/containers/fixed_flat_map.h"
+#include "base/json/string_escape.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/metrics_hashes.h"
 #include "base/notreached.h"
@@ -86,6 +88,9 @@ constexpr char kUndeterminedLocale[] = "und";
 // The number of seconds to wait before distilling after a user has stopped
 // entering text into a richly editable text field.
 const double kPostInputDistillSeconds = 1.5;
+
+// The amount of time after a distillation for a PDF to wait before drawing.
+const int kPdfDrawDebounceMs = 500;
 
 // The following methods convert v8::Value types to an AXTreeUpdate. This is not
 // a complete conversion (thus way gin::Converter<ui::AXTreeUpdate> is not used
@@ -438,6 +443,11 @@ ReadAnythingAppController::ReadAnythingAppController(
       base::BindRepeating(&ReadAnythingAppController::Draw,
                           weak_ptr_factory_.GetWeakPtr(),
                           /* recompute_display_nodes= */ true));
+  pdf_draw_debouncer_ = std::make_unique<base::RetainingOneShotTimer>(
+      FROM_HERE, base::Milliseconds(kPdfDrawDebounceMs),
+      base::BindRepeating(&ReadAnythingAppController::Draw,
+                          weak_ptr_factory_.GetWeakPtr(),
+                          /* recompute_display_nodes= */ false));
   renderer_load_triggered_time_ms_ = base::TimeTicks::Now();
   distiller_ = std::make_unique<AXTreeDistiller>(
       render_frame,
@@ -448,11 +458,6 @@ ReadAnythingAppController::ReadAnythingAppController(
   content::RenderThread::Get()->BindHostReceiver(
       factory.BindNewPipeAndPassReceiver());
   ukm_recorder_ = ukm::MojoUkmRecorder::Create(*factory);
-  if (features::IsDataCollectionModeForScreen2xEnabled()) {
-    model_.SetDataCollectionForScreen2xCallback(
-        base::BindOnce(&ReadAnythingAppController::DistillAndScreenshot,
-                       weak_ptr_factory_.GetWeakPtr()));
-  }
 
   model_observer_.Observe(&model_);
   self_ = this;
@@ -460,6 +465,7 @@ ReadAnythingAppController::ReadAnythingAppController(
 
 ReadAnythingAppController::~ReadAnythingAppController() {
   post_user_entry_draw_timer_->Stop();
+  pdf_draw_debouncer_->Stop();
 }
 
 void ReadAnythingAppController::OnDestruct() {
@@ -480,6 +486,12 @@ void ReadAnythingAppController::OnNodeWillBeDeleted(ui::AXTree* tree,
 
 void ReadAnythingAppController::OnNodeDeleted(ui::AXTree* tree,
                                               ui::AXNodeID node_id) {
+  // Ignore node deletions for Readability as there is no mapping to the
+  // AXTree for this distillation method.
+  if (model_.is_readability_next_distillation_method()) {
+    return;
+  }
+
   if (!displayed_nodes_pending_deletion_.contains(node_id)) {
     return;
   }
@@ -601,25 +613,26 @@ void ReadAnythingAppController::AccessibilityEventReceived(
     const std::vector<ui::AXTreeUpdate>& updates,
     const std::vector<ui::AXEvent>& events) {
   model_.PrepareForAXTreeUpdates(tree_id);
-  if (model_.should_apply_accessibility_updates_for_readability_links()) {
-    ApplyAccessibilityUpdatesForReadabilityLinks(tree_id, updates, events);
-    return;
-  }
-
-  // Remove the const-ness of the data here so that subsequent methods can move
-  // the data.
-  if (tree_id == model_.active_tree_id() && IsUpdateProcessingPaused()) {
-    VLOG(1)
-        << "In AccessibilityEventReceived. Calling QueueAccessibilityUpdates "
-           "because distiller should not run yet.";
-
-    model_.QueueAccessibilityUpdates(
-        tree_id, const_cast<std::vector<ui::AXTreeUpdate>&>(updates),
-        const_cast<std::vector<ui::AXEvent>&>(events));
+  // We need to keep the accessibility tree in sync with the page content
+  // for Readability features like text selection and links.
+  if (model_.should_apply_accessibility_updates_for_readability()) {
+    ApplyAccessibilityUpdatesForReadability(tree_id, updates, events);
   } else {
-    model_.ApplyAccessibilityUpdates(
-        tree_id, const_cast<std::vector<ui::AXTreeUpdate>&>(updates),
-        const_cast<std::vector<ui::AXEvent>&>(events));
+    // Remove the const-ness of the data here so that subsequent methods can
+    // move the data.
+    if (tree_id == model_.active_tree_id() && IsUpdateProcessingPaused()) {
+      VLOG(1)
+          << "In AccessibilityEventReceived. Calling QueueAccessibilityUpdates "
+             "because distiller should not run yet.";
+
+      model_.QueueAccessibilityUpdates(
+          tree_id, const_cast<std::vector<ui::AXTreeUpdate>&>(updates),
+          const_cast<std::vector<ui::AXEvent>&>(events));
+    } else {
+      model_.ApplyAccessibilityUpdates(
+          tree_id, const_cast<std::vector<ui::AXTreeUpdate>&>(updates),
+          const_cast<std::vector<ui::AXEvent>&>(events));
+    }
   }
 
   // From this point onward, `updates` and `events` should not be accessed.
@@ -627,14 +640,38 @@ void ReadAnythingAppController::AccessibilityEventReceived(
     return;
   }
 
-  ProcessModelUpdates();
+  // Trigger model updates for Screen2x or for Readability when the select text
+  // feature is enabled.
+  if (features::IsReadAnythingReadabilitySelectTextEnabled() ||
+      !model_.is_readability_next_distillation_method()) {
+    ProcessModelUpdates();
+    return;
+  }
 }
 
 void ReadAnythingAppController::ProcessModelUpdates() {
+  // When the Readability feature is enabled as standalone, treat readability
+  // distilation as static and ignore model updates.
+  if (model_.is_readability_next_distillation_method() &&
+      !features::IsReadAnythingReadabilitySelectTextEnabled()) {
+    return;
+  }
+
+  // TODO: crbug.com/505770261 - Implement selection_mode for readability.
+  // If IsReadAnythingReadabilitySelectTextEnabled, Readability should
+  // only be able to trigger PostProcessSelection.
+  if (model_.is_readability_next_distillation_method()) {
+    DCHECK(!model_.requires_distillation())
+        << "Readability should not trigger Screen2x distillation.";
+    DCHECK(!model_.redraw_required())
+        << "Readability should not trigger a re-draw.";
+    DCHECK(!model_.reset_draw_timer())
+        << "Readability should not reset the draw timer.";
+    DCHECK(!model_.reset_distillation_delay_timer())
+        << "Readability should not reset the distillation delay timer.";
+  }
+
   if (model_.requires_distillation()) {
-    if (model_.is_readability_next_distillation_method()) {
-      return;
-    }
     Distill();
   }
 
@@ -654,6 +691,13 @@ void ReadAnythingAppController::ProcessModelUpdates() {
   if (model_.reset_draw_timer()) {
     post_user_entry_draw_timer_->Reset();
     model_.set_reset_draw_timer(false);
+  }
+
+  // If a subtree was created in a PDF, this value will be true and it will
+  // reset the timer to distill.
+  if (model_.reset_distillation_delay_timer()) {
+    pdf_draw_debouncer_->Reset();
+    model_.set_reset_distillation_delay_timer(false);
   }
 }
 
@@ -715,10 +759,12 @@ void ReadAnythingAppController::SetDistillationState(
   model_.set_distillation_state(state);
   // Ensure that we always clear the AXTree anchors when a new
   // distillation occurs.
-  if (IsReadabilityWithLinksEnabled() &&
-      state == read_anything::mojom::ReadAnythingDistillationState::
+  if (state == read_anything::mojom::ReadAnythingDistillationState::
                    kDistillationInProgress) {
     model_.set_should_extract_anchors_from_tree_for_readability(false);
+    if (IsReadabilitySelectTextEnabled()) {
+      model_.set_should_map_rendered_text_to_tree_for_readability(false);
+    }
     model_.ResetAXTreeAnchors();
   }
 }
@@ -741,10 +787,14 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
 
   // Cancel any running draw timers.
   post_user_entry_draw_timer_->Stop();
+  pdf_draw_debouncer_->Stop();
 
   model_.SetRootTreeId(tree_id);
   model_.SetUkmSourceIdForTree(tree_id, ukm_source_id);
   model_.set_is_pdf(is_pdf);
+  if (is_pdf) {
+    pdf_draw_debouncer_->Reset();
+  }
 
   if (read_aloud_model_.speech_playing()) {
     model_.SetUrlInformationCallback(
@@ -767,8 +817,8 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
   // starts with the flag-determined distillation method before potentially
   // falling back to Screen2x if needed. If the new page is a PDF, the
   // distillation method is set to Screen2x directly.
-  // We also update |next_distillation_method| since showLoading will clear the
-  // previous active distillation in case there's any.
+  // We also update |current_content_distillation_method| since showLoading will
+  // clear the previous active distillation in case there's any.
   auto initial_method = GetInitialDistillationMethod(is_pdf);
   model_.set_next_distillation_method(initial_method);
   model_.set_current_content_distillation_method(initial_method);
@@ -868,25 +918,7 @@ void ReadAnythingAppController::OnAXTreeDestroyed(const ui::AXTreeID& tree_id) {
   model_.OnAXTreeDestroyed(tree_id);
 }
 
-void ReadAnythingAppController::DistillAndScreenshot() {
-  // For screen2x data generation mode, chrome is opened from the CLI to a
-  // specific URL. The caller monitors for a dump of the distilled proto written
-  // to a local file. Distill should only be called once the page finished
-  // loading and is stable, so the proto represents the entire webpage.
-  CHECK(features::IsDataCollectionModeForScreen2xEnabled());
-  CHECK(model_.PageFinishedLoadingForDataCollection());
-  CHECK(model_.ScreenAIServiceReadyForDataCollection());
-
-  Distill(/*for_training_data=*/true);
-  page_handler_->OnScreenshotRequested();
-}
-
-void ReadAnythingAppController::Distill(bool for_training_data) {
-  if (!for_training_data &&
-      features::IsDataCollectionModeForScreen2xEnabled()) {
-    return;
-  }
-
+void ReadAnythingAppController::Distill() {
   if (IsUpdateProcessingPaused()) {
     // When distillation is in progress, the model may have queued up tree
     // updates. In those cases, assume we eventually get to `OnAXTreeDistilled`,
@@ -954,11 +986,6 @@ void ReadAnythingAppController::OnAXTreeDistilled(
   // is needed for the IsUpdateProcessingPaused check below, because it will
   // consider the processing pipeline paused if distillation is in progress.
   model_.set_screen2x_distiller_running(false);
-
-  // Update active distillation method now that screen2x distillation has
-  // finished.
-  model_.set_current_content_distillation_method(
-      ReadAnythingAppModel::DistillationMethod::kScreen2x);
 
   // If speech is playing, we don't want to redraw and disrupt speech. We will
   // re-distill once speech pauses.
@@ -1036,10 +1063,11 @@ void ReadAnythingAppController::OnAXTreeDistilled(
   }
 
   if (model_.is_empty()) {
-    // For Google Docs, the initial AXTree may be empty while the document is
-    // loading. Therefore, to avoid displaying an empty side panel, wait for
-    // Google Docs to finish loading.
-    if (!IsGoogleDocs() || model_.page_finished_loading()) {
+    // For Google Docs and PDFs, the initial AXTree may be empty while the
+    // document is loading. Therefore, to avoid displaying an empty side panel,
+    // wait for the page to finish loading.
+    if (!pdf_draw_debouncer_->IsRunning() &&
+        (!IsGoogleDocs() || model_.page_finished_loading())) {
       if (features::IsImmersiveReadAnythingEnabled()) {
         SetDistillationState(
             read_anything::mojom::ReadAnythingDistillationState::
@@ -1113,8 +1141,14 @@ bool ReadAnythingAppController::PostProcessSelection() {
 }
 
 void ReadAnythingAppController::Draw(bool recompute_display_nodes) {
+  // Draw is only used for the Screen2x distillation path. Readability
+  // distillation uses UpdateContent instead.
+  DCHECK(!model_.is_readability_next_distillation_method())
+      << "Draw called during Readability distillation path.";
+
   // For Google Docs, do not show any text before the doc finishing loading.
-  if (IsGoogleDocs() && !model_.page_finished_loading()) {
+  if (pdf_draw_debouncer_->IsRunning() ||
+      (IsGoogleDocs() && !model_.page_finished_loading())) {
     return;
   }
 
@@ -1136,6 +1170,12 @@ void ReadAnythingAppController::Draw(bool recompute_display_nodes) {
     VLOG(1) << "Not recomputing display nodes, content node size: "
             << model_.content_node_ids().size();
   }
+
+  // Update the current distillation method to Screen2x now that the content is
+  // about to be drawn.
+  model_.set_current_content_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
+
   // This call should check that the active tree isn't in an undistilled state
   // -- that is, it is awaiting distillation or never requested distillation.
   ExecuteJavaScript("chrome.readingMode.updateContent();");
@@ -1156,6 +1196,16 @@ void ReadAnythingAppController::DrawSelection() {
 }
 
 void ReadAnythingAppController::DrawEmptyState() {
+  // Draw is only used for the Screen2x distillation path. Readability
+  // distillation uses UpdateContent instead.
+  DCHECK(!model_.is_readability_next_distillation_method())
+      << "DrawEmptyState called during Readability distillation path.";
+
+  // Update the current distillation method to Screen2x now that the content is
+  // about to be drawn.
+  model_.set_current_content_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
+
   ExecuteJavaScript("chrome.readingMode.showEmpty();");
 }
 
@@ -1196,9 +1246,6 @@ void ReadAnythingAppController::OnSettingsRestoredFromPrefs(
 }
 
 void ReadAnythingAppController::ScreenAIServiceReady() {
-  if (features::IsDataCollectionModeForScreen2xEnabled()) {
-    model_.SetScreenAIServiceReadyForDataCollection();
-  }
   distiller_->ScreenAIServiceReady();
 }
 
@@ -1311,14 +1358,16 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetProperty("isGoogleDocs", &ReadAnythingAppController::IsGoogleDocs)
       .SetProperty("isImmersiveEnabled",
                    &ReadAnythingAppController::IsImmersiveEnabled)
+      .SetProperty("isImprovedReadAloudEnabled",
+                   &ReadAnythingAppController::IsImprovedReadAloudEnabled)
       .SetProperty("isReadabilityEnabled",
                    &ReadAnythingAppController::IsReadabilityEnabled)
+      .SetProperty("isReadabilitySelectTextEnabled",
+                   &ReadAnythingAppController::IsReadabilitySelectTextEnabled)
       .SetProperty("activeDistillationMethod",
                    &ReadAnythingAppController::GetDistillationMethod)
       .SetProperty("isLineFocusEnabled",
                    &ReadAnythingAppController::IsLineFocusEnabled)
-      .SetProperty("isReadabilityWithLinksEnabled",
-                   &ReadAnythingAppController::IsReadabilityWithLinksEnabled)
       .SetProperty("isChromeOsAsh", &ReadAnythingAppController::IsChromeOsAsh)
       .SetProperty("baseLanguageForSpeech",
                    &ReadAnythingAppController::GetLanguageCodeForSpeech)
@@ -1466,8 +1515,12 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetMethod("togglePinState", &ReadAnythingAppController::TogglePinState)
       .SetMethod("sendPinStateRequest",
                  &ReadAnythingAppController::SendPinStateRequest)
+      .SetMethod("onSpeechEngineFirstStall",
+                 &ReadAnythingAppController::OnSpeechEngineFirstStall)
       .SetMethod("onSpeechEngineStalled",
-                 &ReadAnythingAppController::OnSpeechEngineStalled);
+                 &ReadAnythingAppController::OnSpeechEngineStalled)
+      .SetMethod("onRenderedTextBlocksAvailable",
+                 &ReadAnythingAppController::OnRenderedTextBlocksAvailable);
 }
 
 ui::AXNodeID ReadAnythingAppController::RootId() const {
@@ -1892,8 +1945,9 @@ void ReadAnythingAppController::OnGetVoicePackInfo(
                 voice_pack_info->pack_state->get_installation_state())
           : base::ToString(voice_pack_info->pack_state->get_error_code());
 
-  ExecuteJavaScript("chrome.readingMode.updateVoicePackStatus(\'" +
-                    voice_pack_info->language + "\', \'" + status + "\');");
+  ExecuteJavaScript("chrome.readingMode.updateVoicePackStatus(" +
+                    base::GetQuotedJSONString(voice_pack_info->language) +
+                    ", " + base::GetQuotedJSONString(status) + ");");
 }
 
 void ReadAnythingAppController::SendInstallVoicePackRequest(
@@ -1947,6 +2001,10 @@ bool ReadAnythingAppController::IsImmersiveEnabled() const {
   return features::IsImmersiveReadAnythingEnabled();
 }
 
+bool ReadAnythingAppController::IsImprovedReadAloudEnabled() const {
+  return features::IsImprovedReadAloudEnabled();
+}
+
 // Returns true if the experimental flag allowing testing with alternative
 // distillation methods such as Readability.js is enabled.
 bool ReadAnythingAppController::IsReadabilityEnabled() const {
@@ -1954,12 +2012,12 @@ bool ReadAnythingAppController::IsReadabilityEnabled() const {
          !features::IsReadAnythingReadAloudPhraseHighlightingEnabled();
 }
 
-bool ReadAnythingAppController::IsLineFocusEnabled() const {
-  return features::IsReadAnythingLineFocusEnabled();
+bool ReadAnythingAppController::IsReadabilitySelectTextEnabled() const {
+  return features::IsReadAnythingReadabilitySelectTextEnabled();
 }
 
-bool ReadAnythingAppController::IsReadabilityWithLinksEnabled() const {
-  return features::IsReadAnythingWithReadabilityAllowLinksEnabled();
+bool ReadAnythingAppController::IsLineFocusEnabled() const {
+  return features::IsReadAnythingLineFocusEnabled();
 }
 
 bool ReadAnythingAppController::IsChromeOsAsh() const {
@@ -2356,7 +2414,6 @@ void ReadAnythingAppController::OnSelectionChange(ui::AXNodeID anchor_node_id,
   // clears the selection, so we should tell the main page to clear too.
   if ((anchor_offset == focus_offset) && (anchor_node_id == focus_node_id)) {
     if (model_.has_selection()) {
-      model_.increment_selections_from_reading_mode();
       OnCollapseSelection();
     }
     return;
@@ -2397,7 +2454,8 @@ void ReadAnythingAppController::OnSelectionChange(ui::AXNodeID anchor_node_id,
                                    anchor_offset, focus_node_id, focus_offset);
 }
 
-void ReadAnythingAppController::OnCollapseSelection() const {
+void ReadAnythingAppController::OnCollapseSelection() {
+  model_.increment_selections_from_reading_mode();
   if (model_.is_pdf()) {
     // CollapseSelection does nothing in pdfs, so just set an empty selection
     // instead.
@@ -2499,7 +2557,12 @@ void ReadAnythingAppController::OnReadingModeHidden(bool tab_active) {
   RecordSessionMetricsIfShownOrRecentlyHidden(/*just_hidden=*/true);
 }
 
+void ReadAnythingAppController::OnSpeechEngineFirstStall() {
+  DUMP_WILL_BE_CHECK(false) << "Speech engine stalled after 10 seconds";
+}
+
 void ReadAnythingAppController::OnSpeechEngineStalled() {
+  DUMP_WILL_BE_CHECK(false) << "Speech engine stalled after recovery timeout";
   page_handler_->OnSpeechEngineStalled();
 }
 
@@ -2565,6 +2628,14 @@ void ReadAnythingAppController::SetContentForTesting(
   AccessibilityEventReceived(snapshot.tree_data.tree_id, {snapshot}, {});
   OnActiveAXTreeIDChanged(snapshot.tree_data.tree_id, ukm::kInvalidSourceId,
                           false);
+
+  // Set the distillation method to Screen2x before calling OnAXTreeDistilled.
+  // This satisfies the DCHECK in Draw().
+  model_.set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
+  model_.set_current_content_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
+
   OnAXTreeDistilled(snapshot.tree_data.tree_id, content_node_ids);
 
   // Trigger a selection event (for testing selections).
@@ -2838,7 +2909,7 @@ std::string ReadAnythingAppController::GetDomDistillerContentHtml() const {
 
 v8::Local<v8::Value> ReadAnythingAppController::GetDomDistillerAnchors() const {
   v8::Isolate* isolate = v8::Isolate::GetCurrent();
-  if (!IsReadabilityEnabled() || !IsReadabilityWithLinksEnabled() || !isolate) {
+  if (!IsReadabilityEnabled() || !isolate) {
     return v8::Undefined(isolate);
   }
 
@@ -2896,13 +2967,6 @@ void ReadAnythingAppController::UpdateContent(const std::string& title,
   dom_distiller_title_ = title;
   dom_distiller_content_html_ = content;
 
-  // Readability distillation uses the DOM and Google docs rendering is
-  // canvas-based instead of DOM, so display empty.
-  if (IsGoogleDocs()) {
-    DrawEmptyState();
-    return;
-  }
-
   // If readability distillation returns empty content, consider distillation as
   // failure and default to Screen2X distillation.
   if (dom_distiller_content_html_.empty()) {
@@ -2924,14 +2988,24 @@ void ReadAnythingAppController::UpdateContent(const std::string& title,
       ReadAnythingAppModel::DistillationMethod::kReadability);
   model_.set_current_content_distillation_method(
       ReadAnythingAppModel::DistillationMethod::kReadability);
+
+  if (IsReadabilitySelectTextEnabled()) {
+    // Reset text blocks when content is updated and reset should map flag to
+    // not trigger a false positive when rendered text is not ready.
+    model_.set_readability_text_blocks({});
+    model_.set_should_map_rendered_text_to_tree_for_readability(false);
+  }
   ExecuteJavaScript("chrome.readingMode.updateContent();");
 
-  if (IsReadabilityWithLinksEnabled()) {
-    model_.set_should_extract_anchors_from_tree_for_readability(true);
-    bool didProcessAnchors = model_.ProcessAXTreeAnchors();
-    if (didProcessAnchors) {
-      ExecuteJavaScript("chrome.readingMode.onAnchorsReadyForReadability();");
-    }
+  if (IsReadabilitySelectTextEnabled() && !IsUpdateProcessingPaused() &&
+      model_.ContainsActiveTree()) {
+    PostProcessSelection();
+  }
+
+  model_.set_should_extract_anchors_from_tree_for_readability(true);
+  bool didProcessAnchors = model_.ProcessAXTreeAnchors();
+  if (didProcessAnchors) {
+    ExecuteJavaScript("chrome.readingMode.onAnchorsReadyForReadability();");
   }
 }
 
@@ -2945,18 +3019,50 @@ void ReadAnythingAppController::OnReadabilityDistillationStateChanged(
   SetDistillationState(new_state);
 }
 
-void ReadAnythingAppController::ApplyAccessibilityUpdatesForReadabilityLinks(
+void ReadAnythingAppController::ApplyAccessibilityUpdatesForReadability(
     const ui::AXTreeID& tree_id,
     const std::vector<ui::AXTreeUpdate>& updates,
     const std::vector<ui::AXEvent>& events) {
   model_.ApplyAccessibilityUpdates(
       tree_id, const_cast<std::vector<ui::AXTreeUpdate>&>(updates),
       const_cast<std::vector<ui::AXEvent>&>(events));
-  // If the tree is not ready, ProcessAXTreeAnchors will do an early return
-  // and wait for the next update until it is able to process the tree.
+  // If the tree is not ready, ProcessAXTreeAnchors and MapRenderedTextToTree
+  // will do an early return and wait for the next update until they are able to
+  // process the tree.
   bool didProcessAnchors = model_.ProcessAXTreeAnchors();
   if (didProcessAnchors) {
     ExecuteJavaScript("chrome.readingMode.onAnchorsReadyForReadability();");
+  }
+
+  // Check if we should perform text mapping for readability text selection.
+  MaybeMapRenderedTextToTree();
+}
+
+void ReadAnythingAppController::OnRenderedTextBlocksAvailable(
+    const std::vector<std::string>& blocks) {
+  if (!IsReadabilitySelectTextEnabled()) {
+    return;
+  }
+  model_.set_readability_text_blocks(blocks);
+  model_.set_should_map_rendered_text_to_tree_for_readability(true);
+
+  // Check if we should perform text mapping for readability text selection.
+  MaybeMapRenderedTextToTree();
+}
+
+void ReadAnythingAppController::MaybeMapRenderedTextToTree() {
+  if (!IsReadabilitySelectTextEnabled()) {
+    return;
+  }
+
+  // Only attempt mapping if we have text blocks from the WebUI.
+  if (model_.readability_text_blocks().empty()) {
+    return;
+  }
+
+  if (model_.MapRenderedTextToTree(model_.readability_text_blocks())) {
+    // TODO(crbug.com/507447796): Notify frontend that readability text has been
+    // mapped to create readability nodestore.
   }
 }
 

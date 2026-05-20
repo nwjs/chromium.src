@@ -35,23 +35,23 @@ function clobber(obj, name, qualifiedName) {
   // Clobbering toString is annoying.
   // Clobbering __proto__ breaks in ways that grep can't find.
   // Clobbering function name will break because
-  // SafeBuiltins does not support getters yet. See crbug.com/463526.
+  // SafeBuiltins does not support getters yet. See crbug.com/41160531.
   // Clobbering Function.call would make it impossible to implement these tests.
   // Clobbering Object.valueOf breaks v8.
   // Clobbering %FunctionPrototype%.caller and .arguments will break because
   // these properties are poisoned accessors in ES6.
-  if (name == 'constructor' ||
-      name == 'toString' ||
-      name == '__proto__' ||
-      name == 'name' && typeof obj == 'function' ||
-      qualifiedName == 'Function.call' ||
-      (obj !== Function && qualifiedName == 'Function.caller') ||
-      (obj !== Function && qualifiedName == 'Function.arguments') ||
-      qualifiedName == 'Object.valueOf') {
+  if (name === 'constructor' || name === 'toString' || name === '__proto__' ||
+      name === 'name' && typeof obj === 'function' ||
+      qualifiedName === 'Function.call' ||
+      (obj !== Function && qualifiedName === 'Function.caller') ||
+      (obj !== Function && qualifiedName === 'Function.arguments') ||
+      qualifiedName === 'Object.valueOf') {
     return;
   }
   const desc = getOwnPropertyDescriptor(obj, name);
-  if (!desc.configurable) return;
+  if (!desc.configurable) {
+    return;
+  }
   let newDesc;
   if (desc.get || desc.set || typeof desc.value !== 'function') {
     newDesc = {
@@ -66,7 +66,7 @@ function clobber(obj, name, qualifiedName) {
     newDesc = {
       value: function() {
         throw new Error(`Clobbered ${qualifiedName} function`);
-      }
+      },
     };
   }
   defineProperty(obj, name, newDesc);
@@ -83,8 +83,9 @@ forEach.call(builtinTypes, function(builtin) {
   forEach.call(getOwnPropertyNames(builtin), function(name) {
     clobber(builtin, name, `${typename}.${name}`);
   });
-  if (builtin.name)
+  if (builtin.name) {
     clobber(window, builtin.name, `window.${builtin.name}`);
+  }
 });
 
 // Codes for test results. Must match ExternallyConnectableMessagingTest::Result
@@ -119,7 +120,7 @@ const kCouldNotEstablishConnection =
 // expect to be told.
 let tabLocationHref = null;
 
-if (parent == window) {
+if (parent === window) {
   tabLocationHref = document.location.href;
 } else {
   window.addEventListener('message', function listener(event) {
@@ -129,7 +130,7 @@ if (parent == window) {
 }
 
 function throwResultError(errorMessage) {
-  if (errorMessage == kCouldNotEstablishConnection) {
+  if (errorMessage === kCouldNotEstablishConnection) {
     throw new ResultError(results.COULD_NOT_ESTABLISH_CONNECTION_ERROR);
   }
   throw new ResultError(results.OTHER_ERROR);
@@ -147,7 +148,7 @@ function checkResponse(response, expectedMessage, isApp) {
       console.warn('Expected a tab, got none');
       incorrectSender = true;
     }
-    if (response.sender.tab.url != tabLocationHref) {
+    if (response.sender.tab.url !== tabLocationHref) {
       console.warn(
           `Expected tab url ${tabLocationHref} got ${response.sender.tab.url}`);
       incorrectSender = true;
@@ -157,7 +158,7 @@ function checkResponse(response, expectedMessage, isApp) {
     console.warn(`Expected no id, got "${response.sender.id}"`);
     incorrectSender = true;
   }
-  if (response.sender.url != document.location.href) {
+  if (response.sender.url !== document.location.href) {
     console.warn(
         `Expected url ${document.location.href} got ${response.sender.url}`);
     incorrectSender = true;
@@ -169,8 +170,9 @@ function checkResponse(response, expectedMessage, isApp) {
   // Check the correct content was echoed.
   const expectedJson = stringify(expectedMessage);
   const actualJson = stringify(response.message);
-  if (actualJson == expectedJson)
+  if (actualJson === expectedJson) {
     return;
+  }
   console.warn(`Expected message ${expectedJson} got ${actualJson}`);
   throw new ResultError(results.INCORRECT_RESPONSE_MESSAGE);
 }
@@ -195,13 +197,15 @@ function checkRuntime() {
 
 function checkTlsChannelIdResponse(response) {
   if (chrome.runtime.lastError) {
-    if (chrome.runtime.lastError.message == kCouldNotEstablishConnection)
+    if (chrome.runtime.lastError.message === kCouldNotEstablishConnection) {
       return sendToBrowserForTlsChannelId(
           results.COULD_NOT_ESTABLISH_CONNECTION_ERROR);
+    }
     return sendToBrowserForTlsChannelId(results.OTHER_ERROR);
   }
-  if (response.sender.tlsChannelId !== undefined)
+  if (response.sender.tlsChannelId !== undefined) {
     return sendToBrowserForTlsChannelId(response.sender.tlsChannelId);
+  }
   return sendToBrowserForTlsChannelId('');
 }
 
@@ -219,7 +223,7 @@ window.actions = {
       iframe.src = src;
       document.body.appendChild(iframe);
     });
-  }
+  },
 };
 
 window.assertions = {
@@ -233,14 +237,14 @@ window.assertions = {
 
       async function canSendMessage() {
         const response = await new Promise((resolve, reject) => {
-          chrome.runtime.sendMessage(
-              extensionId, message, function(response) {
-                if (chrome.runtime.lastError) {
-                  reject(chrome.runtime.lastError.message);
-                }
-                resolve(response);
-              });
-        }).catch(throwResultError);
+                           chrome.runtime.sendMessage(
+                               extensionId, message, function(response) {
+                                 if (chrome.runtime.lastError) {
+                                   reject(chrome.runtime.lastError.message);
+                                 }
+                                 resolve(response);
+                               });
+                         }).catch(throwResultError);
         checkResponse(response, message, isApp);
       }
 
@@ -253,7 +257,7 @@ window.assertions = {
           port.onMessage.addListener(function(response) {
             pendingResponses--;
             checkResponse(response, message, isApp);
-            if (pendingResponses == 0) {
+            if (pendingResponses === 0) {
               return resolve(results.OK);
             }
           });
@@ -291,7 +295,7 @@ window.assertions = {
 
   tryIllegalArguments: function() {
     // Tests that illegal arguments to messaging functions throw exceptions.
-    // Regression test for crbug.com/472700, where they crashed the renderer.
+    // Regression test for crbug.com/40412063, where they crashed the renderer.
     function runIllegalFunction(fun) {
       try {
         fun();
@@ -303,27 +307,27 @@ window.assertions = {
     }
     return runIllegalFunction(chrome.runtime.connect) &&
         runIllegalFunction(function() {
-          chrome.runtime.connect('');
-        }) &&
+             chrome.runtime.connect('');
+           }) &&
         runIllegalFunction(function() {
-          chrome.runtime.connect(42);
-        }) &&
+             chrome.runtime.connect(42);
+           }) &&
         runIllegalFunction(function() {
-          chrome.runtime.connect('', 42);
-        }) &&
+             chrome.runtime.connect('', 42);
+           }) &&
         runIllegalFunction(function() {
-          chrome.runtime.connect({name: 'noname'});
-        }) &&
+             chrome.runtime.connect({name: 'noname'});
+           }) &&
         runIllegalFunction(chrome.runtime.sendMessage) &&
         runIllegalFunction(function() {
-          chrome.runtime.sendMessage('');
-        }) &&
+             chrome.runtime.sendMessage('');
+           }) &&
         runIllegalFunction(function() {
-          chrome.runtime.sendMessage(42);
-        }) &&
+             chrome.runtime.sendMessage(42);
+           }) &&
         runIllegalFunction(function() {
-          chrome.runtime.sendMessage('', 42);
-        });
+             chrome.runtime.sendMessage('', 42);
+           });
   },
 
   areAnyRuntimePropertiesDefined: function(names) {
@@ -331,7 +335,7 @@ window.assertions = {
     if (chrome.runtime) {
       forEach.call(names, function(name) {
         if (chrome.runtime[name]) {
-          console.log(`runtime.${name} is defined`);
+          console.info(`runtime.${name} is defined`);
           result = true;
         }
       });
@@ -350,15 +354,17 @@ window.assertions = {
       throw err;
     }
 
-    if (!message)
+    if (!message) {
       message = kMessage;
+    }
 
     const port = chrome.runtime.connect(
         extensionId, {includeTlsChannelId: includeTlsChannelId});
     return new Promise(resolve => {
-      port.onMessage.addListener(resolve);
-      port.postMessage(message);
-    }).then(checkTlsChannelIdResponse);
+             port.onMessage.addListener(resolve);
+             port.postMessage(message);
+           })
+        .then(checkTlsChannelIdResponse);
   },
 
   getTlsChannelIdFromSendMessage: function(
@@ -372,8 +378,9 @@ window.assertions = {
       throw err;
     }
 
-    if (!message)
+    if (!message) {
       message = kMessage;
+    }
 
     return new Promise(resolve => {
              chrome.runtime.sendMessage(
@@ -381,7 +388,6 @@ window.assertions = {
                  {includeTlsChannelId: includeTlsChannelId}, resolve);
            })
         .then(checkTlsChannelIdResponse);
-  }
+  },
 };
-
 }());

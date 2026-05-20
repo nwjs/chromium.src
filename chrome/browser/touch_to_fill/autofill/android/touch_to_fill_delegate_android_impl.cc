@@ -24,6 +24,7 @@
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/form_types.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
@@ -300,16 +301,16 @@ bool TouchToFillDelegateAndroidImpl::TryToShowTouchToFill(
       SuggestionHidingReason::kOverlappingWithTouchToFillSurface);
   if (std::get_if<std::vector<CreditCard>>(&dry_run.items_to_suggest)) {
     manager_->DidShowSuggestions({Suggestion(SuggestionType::kCreditCardEntry)},
-                                 form, field.global_id(),
+                                 form.global_id(), field.global_id(),
                                  /*update_suggestions_callback=*/{});
   } else if (std::get_if<std::vector<LoyaltyCard>>(&dry_run.items_to_suggest)) {
     manager_->DidShowSuggestions(
-        {Suggestion(SuggestionType::kLoyaltyCardEntry)}, form,
+        {Suggestion(SuggestionType::kLoyaltyCardEntry)}, form.global_id(),
         field.global_id(),
         /*update_suggestions_callback=*/{});
   } else {
-    manager_->DidShowSuggestions({Suggestion(SuggestionType::kIbanEntry)}, form,
-                                 field.global_id(),
+    manager_->DidShowSuggestions({Suggestion(SuggestionType::kIbanEntry)},
+                                 form.global_id(), field.global_id(),
                                  /*update_suggestions_callback=*/{});
   }
   return true;
@@ -337,7 +338,7 @@ bool TouchToFillDelegateAndroidImpl::ShowTouchToFillForAllLoyaltyCards(
   manager_->client().HideAutofillSuggestions(
       SuggestionHidingReason::kOverlappingWithTouchToFillSurface);
   manager_->DidShowSuggestions({Suggestion(SuggestionType::kLoyaltyCardEntry)},
-                               form, field.global_id(),
+                               form.global_id(), field.global_id(),
                                /*update_suggestions_callback=*/{});
   return true;
 }
@@ -456,7 +457,7 @@ void TouchToFillDelegateAndroidImpl::IbanSuggestionSelected(
                       mojom::ActionPersistence::kFill,
                       mojom::FieldActionType::kReplaceAll,
                       delegate->query_form_, delegate->query_field_, value,
-                      SuggestionType::kIbanEntry, IBAN_VALUE);
+                      FillingProduct::kIban, IBAN_VALUE);
                 }
               },
               GetWeakPtr()));
@@ -470,7 +471,7 @@ void TouchToFillDelegateAndroidImpl::LoyaltyCardSuggestionSelected(
       mojom::ActionPersistence::kFill, mojom::FieldActionType::kReplaceAll,
       query_form_, query_field_,
       base::UTF8ToUTF16(loyalty_card.loyalty_card_number()),
-      SuggestionType::kLoyaltyCardEntry, LOYALTY_MEMBERSHIP_ID);
+      FillingProduct::kLoyaltyCard, LOYALTY_MEMBERSHIP_ID);
   ValuablesDataManager* vdm = manager_->client().GetValuablesDataManager();
   CHECK(vdm);
   manager_->LogAndRecordLoyaltyCardFill(loyalty_card, query_form_.global_id(),

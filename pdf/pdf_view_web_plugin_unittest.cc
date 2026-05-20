@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include <array>
 #include <functional>
 #include <memory>
 #include <string>
@@ -118,6 +119,7 @@ using ::testing::InSequence;
 using ::testing::IsEmpty;
 using ::testing::IsFalse;
 using ::testing::IsTrue;
+using ::testing::Matcher;
 using ::testing::MockFunction;
 using ::testing::NiceMock;
 using ::testing::Pair;
@@ -409,8 +411,8 @@ class PdfViewWebPluginWithoutInitializeTest : public testing::Test {
   static void AddToPluginParams(std::string_view name,
                                 std::string_view value,
                                 blink::WebPluginParams& params) {
-    params.attribute_names.push_back(blink::WebString::FromUTF8(name));
-    params.attribute_values.push_back(blink::WebString::FromUTF8(value));
+    params.attribute_names.push_back(blink::WebString::FromUtf8(name));
+    params.attribute_values.push_back(blink::WebString::FromUtf8(value));
   }
 
   void SetUpPlugin(std::string_view document_url,
@@ -1713,7 +1715,7 @@ TEST_F(PdfViewWebPluginTest, ChangeTextSelection) {
 
   static constexpr char kSelectedText[] = "1234";
   EXPECT_CALL(*client_ptr_,
-              TextSelectionChanged(blink::WebString::FromUTF8(kSelectedText), 0,
+              TextSelectionChanged(blink::WebString(kSelectedText), 0,
                                    gfx::Range(0, 4)));
 
   plugin_->SetSelectedText(kSelectedText);
@@ -1722,9 +1724,8 @@ TEST_F(PdfViewWebPluginTest, ChangeTextSelection) {
   EXPECT_EQ(kSelectedText, plugin_->SelectionAsMarkup().Utf8());
 
   static constexpr char kEmptyText[] = "";
-  EXPECT_CALL(*client_ptr_,
-              TextSelectionChanged(blink::WebString::FromUTF8(kEmptyText), 0,
-                                   gfx::Range(0, 0)));
+  EXPECT_CALL(*client_ptr_, TextSelectionChanged(blink::WebString(kEmptyText),
+                                                 0, gfx::Range(0, 0)));
   plugin_->SetSelectedText(kEmptyText);
   EXPECT_FALSE(plugin_->HasSelection());
   EXPECT_TRUE(plugin_->SelectionAsText().IsEmpty());
@@ -2963,10 +2964,10 @@ class PdfViewWebPluginInkTest
     // setup in PdfViewWebPluginTest::SetUp().
     feature_list_.InitAndEnableFeatureWithParameters(
         chrome_pdf::features::kPdfInk2,
-        {{features::kPdfInk2TextAnnotations.name,
-          base::ToString(UseTextAnnotations())},
-         {features::kPdfInk2TextHighlighting.name,
-          base::ToString(UseTextHighlighting())}});
+        {
+            {features::kPdfInk2TextAnnotations.name,
+             base::ToString(UseTextAnnotations())},
+        });
 
     PdfViewWebPluginTest::SetUp();
   }
@@ -2984,7 +2985,6 @@ class PdfViewWebPluginInkTest
   };
 
   bool UseTextAnnotations() const { return GetParam().use_text_annotations; }
-  bool UseTextHighlighting() const { return GetParam().use_text_highlighting; }
 
   void SetUpWithTrivialInkStrokes() {
     // Set up the engine so the plugin can draw strokes. The exact strokes do
@@ -3587,6 +3587,38 @@ TEST_P(PdfViewWebPluginInkTest, DrawInProgressStrokeWithPenWithPressure) {
       events.end_event);
 }
 
+TEST_P(PdfViewWebPluginInkTest, AddFont) {
+  static constexpr FontId kFontId(1);
+  static constexpr auto kSerializedTypeface =
+      std::to_array<const uint8_t>({1, 2, 3});
+
+  EXPECT_CALL(*engine_ptr_, AddFont(kFontId, Matcher<base::span<const uint8_t>>(
+                                                 kSerializedTypeface)));
+
+  plugin_->ink_module_client_for_testing()->AddFont(kFontId,
+                                                    kSerializedTypeface);
+}
+
+TEST_P(PdfViewWebPluginInkTest, DrawText) {
+  static constexpr int kPageIndex = 0;
+  static constexpr InkTextId kTextId(1);
+  static constexpr double kZoom = 1.5;
+
+  EXPECT_CALL(*engine_ptr_, DrawText(kPageIndex, kTextId, _, kZoom, _));
+
+  const InkTextBoxAttributes text_box_attributes(
+      /*rect=*/gfx::RectF(20.0f, 20.0f, 100.0f, 100.0f),
+      /*color=*/SK_ColorBLACK,
+      /*css_font_size=*/10.0f,
+      /*typeface=*/TextTypeface::kSansSerif,
+      /*alignment=*/TextAlignment::kLeft,
+      /*orientation=*/0,
+      /*is_bold=*/true,
+      /*is_italic=*/false);
+  plugin_->ink_module_client_for_testing()->DrawText(
+      kPageIndex, kTextId, {}, kZoom, text_box_attributes);
+}
+
 class PdfViewWebPluginInkTextHighlightTest : public PdfViewWebPluginInkTest {
  public:
   static constexpr TestAnnotationBrushMessageParams kLightGreenBrushParams{
@@ -3789,10 +3821,9 @@ INSTANTIATE_TEST_SUITE_P(All,
 INSTANTIATE_TEST_SUITE_P(All,
                          PdfViewWebPluginInkMetricTest,
                          testing::ValuesIn(GetAllInkTestVariations()));
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    PdfViewWebPluginInkTextHighlightTest,
-    testing::ValuesIn(GetInkTestVariationsWithTextHighlighting()));
+INSTANTIATE_TEST_SUITE_P(All,
+                         PdfViewWebPluginInkTextHighlightTest,
+                         testing::ValuesIn(GetAllInkTestVariations()));
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
 class PdfViewWebPluginAnnotationAgentContainerTest

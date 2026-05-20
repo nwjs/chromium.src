@@ -24,13 +24,13 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.data_sharing.DataSharingTabManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.sync.SyncTestRule;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
-import org.chromium.chrome.test.R;
 import org.chromium.components.data_sharing.GroupMember;
 import org.chromium.components.data_sharing.member_role.MemberRole;
 import org.chromium.components.signin.base.AccountInfo;
@@ -40,8 +40,6 @@ import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.url.GURL;
 
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -189,11 +187,9 @@ public class CollaborationTestUtils {
     /** Signs in and sets selected types for tab groups. */
     public void setUpSyncAndSignIn() {
         mSyncTestRule.setUpAccountAndSignInForTesting();
-        mSyncTestRule.setSelectedTypes(
-                true,
-                new HashSet<>(
-                        Arrays.asList(
-                                UserSelectableType.TABS, UserSelectableType.SAVED_TAB_GROUPS)));
+        mSyncTestRule.setSelectedType(UserSelectableType.HISTORY, true);
+        mSyncTestRule.setSelectedType(UserSelectableType.TABS, true);
+        mSyncTestRule.setSelectedType(UserSelectableType.SAVED_TAB_GROUPS, true);
     }
 
     /** Returns the local tab group id. */

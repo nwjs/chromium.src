@@ -270,7 +270,7 @@ std::optional<bool> Configurator::IsMachineExternallyManaged() const {
 
 scoped_refptr<PolicyService> Configurator::GetPolicyService() const {
   // The policy service is accessed by RPC on a different sequence and this
-  // function can't enforce the sequence check for now: crbug.com/1517079.
+  // function can't enforce the sequence check for now: crbug.com/41490062.
   return policy_service_;
 }
 
@@ -301,6 +301,13 @@ scoped_refptr<update_client::CrxCache> Configurator::GetCrxCache() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return crx_cache_;
 }
+
+#if BUILDFLAG(CHROME_FOR_TESTING)
+std::vector<std::string> Configurator::GetRequiredComponents() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return {};
+}
+#endif
 
 bool Configurator::IsConnectionMetered() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);

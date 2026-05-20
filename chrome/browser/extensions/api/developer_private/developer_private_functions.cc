@@ -34,7 +34,6 @@
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/install_verifier_factory.h"
-#include "chrome/browser/extensions/manifest_v2_experiment_manager.h"
 #include "chrome/browser/extensions/sync/account_extension_tracker.h"
 #include "chrome/browser/extensions/sync/extension_sync_util.h"
 #include "chrome/browser/extensions/updater/extension_updater.h"
@@ -49,6 +48,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/sync/base/features.h"
 #include "content/public/common/drop_data.h"
 #include "extensions/browser/crx_installer.h"
 #include "extensions/browser/disable_reason.h"
@@ -60,6 +60,7 @@
 #include "extensions/browser/file_highlighter.h"
 #include "extensions/browser/install_verifier.h"
 #include "extensions/browser/management_policy.h"
+#include "extensions/browser/manifest_v2_experiment_manager.h"
 #include "extensions/browser/path_util.h"
 #include "extensions/browser/permissions/permissions_updater.h"
 #include "extensions/browser/permissions/scripting_permissions_modifier.h"
@@ -92,12 +93,12 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/types/expected.h"
 #include "base/uuid.h"
-#include "chrome/browser/extensions/mv2_experiment_stage.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_constants.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -114,6 +115,7 @@
 #include "extensions/browser/api/file_handlers/app_file_handler_util.h"
 #include "extensions/browser/error_map.h"
 #include "extensions/browser/extension_util.h"
+#include "extensions/browser/mv2_experiment_stage.h"
 #include "extensions/browser/process_manager_factory.h"
 #include "extensions/browser/ui_util.h"
 #include "extensions/browser/updater/extension_downloader_types.h"
@@ -124,7 +126,7 @@
 #include "extensions/common/feature_switch.h"
 #include "extensions/common/install_warning.h"
 #include "extensions/common/manifest.h"
-#include "extensions/common/manifest_url_handlers.h"
+#include "extensions/common/manifest_handlers/manifest_url_handlers.h"
 #include "extensions/common/mojom/context_type.mojom.h"
 #include "extensions/common/url_pattern.h"
 #include "extensions/common/url_pattern_set.h"
@@ -2113,7 +2115,8 @@ ExtensionFunction::ResponseAction DeveloperPrivateOpenDevToolsFunction::Run() {
   }
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   // Once we open the inspector, we focus on the appropriate tab...
-  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents);
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents);
 
   // ... but some pages (popups and apps) don't have tabs, and some (background
   // pages) don't have an associated browser. For these, the inspector opens in
@@ -2211,9 +2214,13 @@ DeveloperPrivateUploadExtensionToAccountFunction::Run() {
   //   disabled.
   // - the extension is already associated with the signed in user's account.
   // - the extension is not syncable (for example, if it's unpacked).
-  if (!switches::IsExtensionsExplicitBrowserSigninEnabled() ||
-      !AccountExtensionTracker::Get(profile_)->CanUploadAsAccountExtension(
-          *extension)) {
+  if (!AccountExtensionTracker::Get(profile_)->CanUploadAsAccountExtension(
+          *extension)
+#if BUILDFLAG(IS_CHROMEOS)
+      ||
+      !base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos)
+#endif
+  ) {
     return RespondNow(Error(ErrorUtils::FormatErrorMessage(
         kCannotUploadExtensionToAccount, extension_id_)));
   }
@@ -2592,8 +2599,10 @@ DeveloperPrivateDismissMv2DeprecationNoticeForExtensionFunction::Run() {
         return AlreadyResponded();
       }
 
-      BrowserWindowInterface* const browser = chrome::FindLastActiveWithProfile(
-          Profile::FromBrowserContext(browser_context()));
+      BrowserWindowInterface* const browser =
+          ProfileBrowserCollection::GetForProfile(
+              Profile::FromBrowserContext(browser_context()))
+              ->GetLastActiveBrowser();
       if (!browser) {
         return RespondNow(Error(kCouldNotFindWebContentsError));
       }

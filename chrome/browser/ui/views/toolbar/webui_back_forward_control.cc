@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/toolbar/webui_back_forward_control.h"
 
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/toolbar/back_forward_menu_model.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
@@ -30,10 +31,20 @@ void WebUIBackForwardControl::HandleContextMenu(
     views::Widget* widget,
     const gfx::Rect& screen_rect,
     ui::mojom::MenuSourceType source) {
-  menu_runner_ = std::make_unique<views::MenuRunner>(
-      &menu_model_, views::MenuRunner::HAS_MNEMONICS,
+  // Reset the menu runner first so that it doesn't hold a dangling pointer
+  // to the old menu model adapter when it is being destroyed.
+  menu_runner_.reset();
+
+  menu_model_adapter_ = std::make_unique<views::MenuModelAdapter>(
+      &menu_model_,
       base::BindRepeating(&WebUIToolbarWebView::OnBackForwardStateChanged,
                           base::Unretained(webui_toolbar_web_view_)));
+  std::unique_ptr<views::MenuItemView> root = menu_model_adapter_->CreateMenu();
+  root->SetSubmenuId(direction_ == BackForwardButton::Direction::kBack
+                         ? kToolbarBackButtonMenuElementId
+                         : kToolbarForwardButtonMenuElementId);
+  menu_runner_ = std::make_unique<views::MenuRunner>(
+      std::move(root), views::MenuRunner::HAS_MNEMONICS);
   menu_runner_->RunMenuAt(webui_toolbar_web_view_->GetWidget(), nullptr,
                           screen_rect, views::MenuAnchorPosition::kTopLeft,
                           source);
@@ -41,28 +52,28 @@ void WebUIBackForwardControl::HandleContextMenu(
 }
 
 void WebUIBackForwardControl::SetEnabled(bool enabled) {
+  if (enabled_ == enabled) {
+    return;
+  }
   enabled_ = enabled;
   webui_toolbar_web_view_->OnBackForwardStateChanged();
 }
 
-void WebUIBackForwardControl::SetVisible(bool visible) {
-  visible_ = visible;
+void WebUIBackForwardControl::SetIsPinned(bool is_pinned) {
+  if (is_pinned_ == is_pinned) {
+    return;
+  }
+  is_pinned_ = is_pinned;
   webui_toolbar_web_view_->OnBackForwardStateChanged();
 }
 
-bool WebUIBackForwardControl::GetVisible() const {
-  return visible_;
-}
-
-void WebUIBackForwardControl::SetLeadingMargin(int margin) {
-  if (direction_ == BackForwardButton::Direction::kBack) {
-    webui_toolbar_web_view_->SetBackButtonLeadingMargin(margin);
-  }
+bool WebUIBackForwardControl::IsPinned() const {
+  return is_pinned_;
 }
 
 toolbar_ui_api::mojom::BackForwardButtonStatePtr
 WebUIBackForwardControl::GetButtonState() const {
   return toolbar_ui_api::mojom::BackForwardButtonState::New(
-      /*enabled=*/enabled_, /*visible=*/visible_,
+      /*enabled=*/enabled_, /*should_be_shown=*/is_pinned_,
       /*is_context_menu_visible=*/menu_runner_ && menu_runner_->IsRunning());
 }

@@ -37,7 +37,6 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
@@ -302,7 +301,7 @@ public class TabStripTest {
     @LargeTest
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @Feature({"TabStrip"})
-    @DisabledTest(message = "crbug.com/1348310")
+    @DisabledTest(message = "crbug.com/40855224")
     public void testCloseTabWithTwoTabs() throws Exception {
         ChromeTabUtils.newTabFromMenu(
                 InstrumentationRegistry.getInstrumentation(), mActivityTestRule.getActivity());
@@ -349,7 +348,7 @@ public class TabStripTest {
     @LargeTest
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @Feature({"TabStrip"})
-    @DisabledTest(message = "crbug.com/1348310")
+    @DisabledTest(message = "crbug.com/40855224")
     public void testCloseTabWithManyTabs() throws Exception {
         ChromeTabUtils.newTabsFromMenu(
                 InstrumentationRegistry.getInstrumentation(), mActivityTestRule.getActivity(), 4);
@@ -821,7 +820,6 @@ public class TabStripTest {
     @DisableFeatures({
         ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW,
     })
-    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/480150165
     public void testTabSelectionViewDoesNotBreakModelSwitch() {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         Assert.assertFalse(
@@ -1000,7 +998,7 @@ public class TabStripTest {
     @LargeTest
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @Feature({"TabStrip"})
-    @DisabledTest(message = "crbug.com/1348310")
+    @DisabledTest(message = "crbug.com/40855224")
     public void testScrollingStripStackersWithMiddleTabSelected() throws Exception {
         // Open enough regular tabs to cause the tab strip to scroll.
         ChromeTabUtils.newTabsFromMenu(
@@ -1122,7 +1120,7 @@ public class TabStripTest {
     @LargeTest
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @Feature({"TabStrip"})
-    @DisabledTest(message = "crbug.com/1348310")
+    @DisabledTest(message = "crbug.com/40855224")
     public void testScrollingStripStackerTabOffsets() throws Exception {
         // Check scrolling tab strip
         checkTabStrips();

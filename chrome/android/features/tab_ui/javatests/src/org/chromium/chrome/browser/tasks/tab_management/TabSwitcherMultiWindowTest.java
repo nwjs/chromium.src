@@ -10,7 +10,6 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
 import static org.chromium.chrome.browser.multiwindow.MultiWindowTestHelper.moveActivityToFront;
 import static org.chromium.chrome.browser.multiwindow.MultiWindowTestHelper.waitForSecondChromeTabbedActivity;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.clickFirstCardFromTabSwitcher;
@@ -39,11 +38,11 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.page.WebPageStation;
@@ -57,8 +56,8 @@ import org.chromium.ui.base.UiAndroidFeatures;
     ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
     ChromeSwitches.DISABLE_TAB_MERGING_FOR_TESTING
 })
-@Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
-@DisableIf.Build(sdk_is_greater_than = VERSION_CODES.R) // https://crbug.com/1297370
+@Restriction(DeviceFormFactor.PHONE)
+@DisableIf.Build(sdk_is_greater_than = VERSION_CODES.R) // https://crbug.com/40215137
 @DisableFeatures(UiAndroidFeatures.USE_NEW_ETC1_ENCODER) // https://crbug.com/400962657
 // TODO(crbug.com/344669867): Failing when batched, batch this again.
 public class TabSwitcherMultiWindowTest {
@@ -171,14 +170,14 @@ public class TabSwitcherMultiWindowTest {
                 ThreadUtils.runOnUiThreadBlocking(
                         () ->
                                 mCta1.getTabModelSelector()
-                                        .getTabGroupModelFilter(true)
+                                        .getModel(true)
                                         .getIndividualTabAndGroupCount());
         assertThat(tabAndGroupCount1, is(0));
         int tabAndGroupCount2 =
                 ThreadUtils.runOnUiThreadBlocking(
                         () ->
                                 mCta2.getTabModelSelector()
-                                        .getTabGroupModelFilter(true)
+                                        .getModel(true)
                                         .getIndividualTabAndGroupCount());
         assertThat(tabAndGroupCount2, is(1));
     }

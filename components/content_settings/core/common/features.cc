@@ -59,11 +59,11 @@ const base::FeatureParam<base::TimeDelta> kUserBypassUIReloadTime{
 const base::FeatureParam<base::TimeDelta> kUserBypassUIReloadBubbleTimeout{
     &kUserBypassUI, "reload-bubble-timeout", base::Seconds(5)};
 
-BASE_FEATURE(kUserBypassFeedback, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kUserBypassFeedback, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUserBypassUxSimplification, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLeftHandSideActivityIndicators, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kTrackingProtection3pcd, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kBlockV8OptimizerOnUnfamiliarSitesSetting,
              base::FEATURE_ENABLED_BY_DEFAULT);

@@ -17,7 +17,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import static org.chromium.base.ThreadUtils.runOnUiThreadBlocking;
-import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
 import static org.chromium.chrome.test.util.ChromeTabUtils.getTabCountOnUiThread;
 import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
@@ -45,12 +44,14 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UrlUtils;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.layouts.LayoutTestUtils;
@@ -68,7 +69,6 @@ import org.chromium.chrome.browser.tabpersistence.TabStateDirectory;
 import org.chromium.chrome.browser.tabpersistence.TabStateFileManager;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.ntp.IncognitoNewTabPageStation;
@@ -102,7 +102,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @DisableFeatures({ContentFeatures.ANDROID_DESKTOP_ZOOM_SCALING})
 @DoNotBatch(
         reason =
-                "https://crbug.com/1347598: Side effects are causing flakes in CI and failures"
+                "https://crbug.com/40854790: Side effects are causing flakes in CI and failures"
                         + " locally. Unbatched to isolate flakes before batching again.")
 public class TabsTest {
     @Rule
@@ -160,7 +160,6 @@ public class TabsTest {
     @Test
     @LargeTest
     @Feature({"Navigation"})
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     @CommandLineFlags.Add(ContentSwitches.DISABLE_POPUP_BLOCKING)
     // TODO(crbug.com/457847264): Change to @Restriction(DeviceFormFactor.PHONE) after launch
     @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
@@ -397,7 +396,7 @@ public class TabsTest {
 
     /**
      * Verify that the selection is collapsed when switching to the tab-switcher mode then switching
-     * back. https://crbug.com/697756
+     * back. https://crbug.com/40508949
      */
     @Test
     @MediumTest
@@ -418,7 +417,7 @@ public class TabsTest {
 
     /**
      * Verify that opening a new tab and navigating immediately sets a size on the newly created
-     * renderer. https://crbug.com/434477.
+     * renderer. https://crbug.com/41143678.
      */
     @Test
     @SmallTest
@@ -499,7 +498,7 @@ public class TabsTest {
     @Test
     @MediumTest
     @Restriction(DeviceFormFactor.PHONE)
-    @DisabledTest(message = "https://crbug.com/1347598")
+    @DisabledTest(message = "https://crbug.com/40854790")
     public void testQuickSwitchBetweenTabAndSwitcherMode() {
         final String[] urls = {
             getUrl("/chrome/test/data/android/navigate/one.html"),
@@ -547,7 +546,6 @@ public class TabsTest {
     @Test
     @MediumTest
     @Feature({"Android-TabSwitcher"})
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testOrientationChangeCausesLiveTabReflowInNormalView()
             throws InterruptedException, TimeoutException {
         mActivityTestRule
@@ -635,10 +633,10 @@ public class TabsTest {
         }
     }
 
-    // Regression test for https://crbug.com/1394372.
+    // Regression test for https://crbug.com/40881554.
     @Test
     @MediumTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
+    @Restriction(DeviceFormFactor.PHONE)
     @Feature({"Android-TabSwitcher"})
     @DisabledTest(message = "https://crbug.com/373446108")
     public void testRequestFocusOnCloseTab() throws Exception {
@@ -742,7 +740,7 @@ public class TabsTest {
 
     @Test
     @MediumTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
+    @Restriction(DeviceFormFactor.PHONE)
     @Feature({"Android-TabSwitcher"})
     public void testRequestFocusOnSwitchTab() {
         final TabModel model =
@@ -878,7 +876,7 @@ public class TabsTest {
     @Test
     @MediumTest
     @Feature({"Android-TabSwitcher"})
-    @DisabledTest(message = "https://crbug.com/471243722")
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/471243722
     public void testIncognitoTabsNotRestoredAfterSwipe() throws Exception {
         mActivityTestRule.loadUrl(getUrl(TEST_PAGE_FILE_PATH));
 

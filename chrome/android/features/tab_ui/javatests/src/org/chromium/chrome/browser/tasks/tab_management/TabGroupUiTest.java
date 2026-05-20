@@ -53,6 +53,7 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -61,13 +62,11 @@ import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter.MergeNotificationType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.ntp.RegularNewTabPageStation;
@@ -316,11 +315,10 @@ public class TabGroupUiTest {
                                             TabLaunchType.FROM_SYNC_BACKGROUND,
                                             null,
                                             TabModel.INVALID_TAB_INDEX);
-                    TabGroupModelFilter filter =
-                            cta.getTabModelSelector().getTabGroupModelFilter(false);
-                    filter.mergeListOfTabsToGroup(
+                    TabModel tabModel = cta.getTabModelSelector().getModel(false);
+                    tabModel.mergeListOfTabsToGroup(
                             List.of(tab),
-                            filter.getRepresentativeTabAt(0),
+                            tabModel.getRepresentativeTabAt(0),
                             /* notify= */ MergeNotificationType.DONT_NOTIFY);
                 });
         ViewUtils.waitForVisibleView(
@@ -365,11 +363,10 @@ public class TabGroupUiTest {
                                             TabLaunchType.FROM_SYNC_BACKGROUND,
                                             null,
                                             TabModel.INVALID_TAB_INDEX);
-                    TabGroupModelFilter filter =
-                            cta.getTabModelSelector().getTabGroupModelFilter(false);
-                    filter.mergeListOfTabsToGroup(
+                    TabModel tabModel = cta.getTabModelSelector().getModel(false);
+                    tabModel.mergeListOfTabsToGroup(
                             List.of(tab),
-                            filter.getRepresentativeTabAt(0),
+                            tabModel.getRepresentativeTabAt(0),
                             /* notify= */ MergeNotificationType.DONT_NOTIFY);
                 });
         ViewUtils.waitForVisibleView(
@@ -407,8 +404,7 @@ public class TabGroupUiTest {
                             mActivityTestRule.getActivity().getTabModelSelector();
                     TabModel model = selector.getCurrentModel();
                     Tab tab = model.getTabAt(0);
-                    TabGroupModelFilter filter = selector.getTabGroupModelFilter(false);
-                    filter.createSingleTabGroup(tab);
+                    model.createSingleTabGroup(tab);
                 });
 
         finishActivity(mActivityTestRule.getActivity());
@@ -451,8 +447,7 @@ public class TabGroupUiTest {
                             mActivityTestRule.getActivity().getTabModelSelector();
                     TabModel model = selector.getCurrentModel();
                     Tab tab = model.getTabAt(0);
-                    TabGroupModelFilter filter = selector.getTabGroupModelFilter(false);
-                    filter.createSingleTabGroup(tab);
+                    model.createSingleTabGroup(tab);
                 });
 
         finishActivity(mActivityTestRule.getActivity());

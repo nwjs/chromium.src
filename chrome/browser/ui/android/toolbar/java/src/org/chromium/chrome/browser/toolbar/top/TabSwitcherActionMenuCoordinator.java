@@ -4,9 +4,6 @@
 
 package org.chromium.chrome.browser.toolbar.top;
 
-import static org.chromium.build.NullUtil.assumeNonNull;
-import static org.chromium.ui.listmenu.BasicListMenu.buildMenuDivider;
-
 import android.content.Context;
 import android.view.View;
 import android.view.View.OnLongClickListener;
@@ -26,7 +23,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.MenuBuilderHelper;
 import org.chromium.chrome.browser.toolbar.R;
@@ -226,8 +223,8 @@ public class TabSwitcherActionMenuCoordinator {
         if (ChromeFeatureList.sTabModelInitFixes.isEnabled()) {
             TabModelSelector selector = mTabModelSelectorSupplier.get();
             if (selector == null || !selector.isTabStateInitialized()) return;
-            TabGroupModelFilter filter = selector.getCurrentTabGroupModelFilter();
-            if (filter == null || !filter.isTabModelRestored()) return;
+            TabModel tabModel = selector.getCurrentModel();
+            if (!tabModel.isTabModelRestored()) return;
         }
 
         if (doTabGroupsExist()) {
@@ -301,17 +298,15 @@ public class TabSwitcherActionMenuCoordinator {
                         .build();
             case MenuItemType.DIVIDER:
             default:
-                return buildMenuDivider(mProfile.isIncognitoBranded());
+                return BasicListMenu.buildMenuDivider(mProfile.isIncognitoBranded());
         }
     }
 
     private boolean doTabGroupsExist() {
         TabModelSelector tabModelSelector = mTabModelSelectorSupplier.get();
         if (tabModelSelector != null) {
-            TabGroupModelFilter currentTabGroupModelFilter =
-                    tabModelSelector.getCurrentTabGroupModelFilter();
-            assumeNonNull(currentTabGroupModelFilter);
-            return currentTabGroupModelFilter.getTabGroupCount() != 0;
+            TabModel tabModel = tabModelSelector.getCurrentModel();
+            return tabModel.getTabGroupCount() != 0;
         }
         return false;
     }

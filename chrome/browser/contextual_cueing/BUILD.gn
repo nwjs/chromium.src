@@ -5,17 +5,24 @@
 source_set("contextual_cueing") {
   sources = [
     "contextual_cueing_controller.h",
+    "contextual_cueing_enums.h",
     "contextual_cueing_service.h",
     "contextual_cueing_service_factory.h",
+    "contextual_cueing_web_contents_observer.h",
     "cue_target.h",
+    "cueing_log.h",
     "features.h",
+    "nudge_cap_tracker.h",
   ]
 
   public_deps = [
     "//base",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/actions:actions_headers",
     "//components/page_content_annotations/core",
     "//components/sessions",
+    "//components/tabs:public",
+    "//url",
   ]
 }
 
@@ -27,21 +34,48 @@ source_set("impl") {
 
   sources = [
     "contextual_cueing_controller.cc",
+    "contextual_cueing_menu_model.cc",
+    "contextual_cueing_menu_model.h",
+    "contextual_cueing_metrics.cc",
+    "contextual_cueing_metrics.h",
     "contextual_cueing_service.cc",
     "contextual_cueing_service_factory.cc",
+    "contextual_cueing_web_contents_observer.cc",
+    "cue_target.cc",
     "features.cc",
+    "nudge_cap_tracker.cc",
   ]
 
   deps = [
     ":contextual_cueing",
+    "//chrome/browser:primitives",
     "//chrome/browser/optimization_guide",
     "//chrome/browser/page_content_annotations",
+    "//chrome/browser/search_engines",
+    "//chrome/browser/sync",
     "//chrome/browser/tab_list",
+    "//chrome/browser/ui",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/side_panel",
+    "//chrome/browser/ui/side_panel:side_panel_ui_provider",
+    "//chrome/browser/ui/side_panel:side_panel_views_dependent",
+    "//chrome/browser/ui/tabs:tabs_public",
+    "//components/infobars/content",
     "//components/keyed_service/core",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/strings:components_strings",
+    "//components/sync/service",
+    "//components/vector_icons",
     "//content/public/browser",
+    "//ui/menus",
   ]
+
+  if (!is_android) {
+    deps += [
+      "//chrome/browser/ui/user_education",
+      "//chrome/browser/ui/views/page_action",
+    ]
+  }
 }
 
 if (!is_android) {
@@ -50,16 +84,40 @@ if (!is_android) {
     sources = [
       "contextual_cueing_controller_browsertest.cc",
       "contextual_cueing_service_browsertest.cc",
+      "test_cue_target.cc",
+      "test_cue_target.h",
     ]
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
     deps = [
       ":contextual_cueing",
       "//base/test:test_support",
+      "//chrome/browser/optimization_guide:test_support",
+      "//chrome/browser/sync",
       "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/side_panel",
+      "//chrome/browser/ui/side_panel:side_panel_ui_provider",
+      "//chrome/browser/ui/side_panel:side_panel_views_dependent",
+      "//chrome/browser/ui/user_education",
+      "//chrome/browser/ui/views/infobars",
       "//chrome/test:test_support",
+      "//components/infobars/content",
       "//content/public/browser",
       "//testing/gmock",
       "//testing/gtest",
     ]
   }
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "contextual_cueing_service_unittest.cc",
+    "nudge_cap_tracker_unittest.cc",
+  ]
+  deps = [
+    ":contextual_cueing",
+    ":impl",
+    "//base/test:test_support",
+    "//testing/gtest",
+  ]
 }

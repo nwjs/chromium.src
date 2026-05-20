@@ -48,6 +48,7 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Matchers;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.app.metrics.LaunchCauseMetrics;
 import org.chromium.chrome.browser.app.tabmodel.TabModelOrchestrator;
@@ -206,6 +207,11 @@ public class TabPersistentStoreTest {
         public boolean isTabModelRestored() {
             return true;
         }
+
+        @Override
+        public @Nullable Profile getProfile(boolean offTheRecord) {
+            return getModel(offTheRecord).getProfile();
+        }
     }
 
     static class MockTabPersistentStoreObserver implements TabPersistentStoreObserver {
@@ -268,7 +274,8 @@ public class TabPersistentStoreTest {
                         ModalDialogManager modalDialogManager,
                         OneshotSupplier<ProfileProvider> profileProviderSupplier,
                         TabCreatorManager tabCreatorManager,
-                        NextTabPolicySupplier nextTabPolicySupplier) {
+                        NextTabPolicySupplier nextTabPolicySupplier,
+                        int supportedProfileType) {
                     try {
                         return new TestTabModelSelector(
                                 context, profileProviderSupplier, tabCreatorManager);
@@ -442,7 +449,10 @@ public class TabPersistentStoreTest {
         return ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     return new TabbedModeTabPersistencePolicy(
-                            selectorIndex, mergeTabs, tabMergingEnabled);
+                            selectorIndex,
+                            mergeTabs,
+                            tabMergingEnabled,
+                            ObservableSuppliers.createNonNull(false));
                 });
     }
 
@@ -1411,7 +1421,8 @@ public class TabPersistentStoreTest {
                                                     tabCreatorManager,
                                                     null,
                                                     mismatchedIndicesHandler,
-                                                    windowId)
+                                                    windowId,
+                                                    SupportedProfileType.MIXED)
                                             .second;
                         });
 

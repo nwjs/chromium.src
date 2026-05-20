@@ -158,10 +158,6 @@ void SVGAElement::DefaultEventHandler(Event& event) {
       }
 
       NavigationPolicy navigation_policy = NavigationPolicyFromEvent(&event);
-      if (navigation_policy == kNavigationPolicyLinkPreview) {
-        // TODO(b:302649777): Support LinkPreview for SVG <a> element.
-        return;
-      }
 
       const KURL& resolved_url = GetDocument().CompleteURL(url);
       ResourceRequest request(resolved_url);
@@ -233,7 +229,6 @@ void SVGAElement::DefaultEventHandler(Event& event) {
 }
 
 bool SVGAElement::IsValidInterestInvoker(Element& target) const {
-  DCHECK(RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled());
   // Anchor elements that don't have the `href` attribute are not interactive,
   // so they can't support `interestfor`.
   return IsLink();

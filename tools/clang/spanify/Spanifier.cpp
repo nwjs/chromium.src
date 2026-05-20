@@ -26,12 +26,14 @@
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Refactoring.h"
+#include "dawn_project.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/TargetSelect.h"
 #include "partition_alloc_project.h"
 #include "project.h"
 #include "skia_project.h"
+#include "webrtc_project.h"
 
 namespace {
 
@@ -43,6 +45,7 @@ enum class ProjectName {
   kDawn,
   kSkia,
   kAngle,
+  kWebrtc,
 };
 
 ProjectName g_project;
@@ -52,6 +55,8 @@ const Project* GetProject() {
   static constexpr ChromeProject kChromeProject;
   static constexpr PartitionAllocProject kPartitionAllocProject;
   static constexpr SkiaProject kSkiaProject;
+  static constexpr DawnProject kDawnProject;
+  static constexpr WebrtcProject kWebrtcProject;
   switch (g_project) {
     case ProjectName::kChrome:
       return &kChromeProject;
@@ -59,6 +64,10 @@ const Project* GetProject() {
       return &kPartitionAllocProject;
     case ProjectName::kSkia:
       return &kSkiaProject;
+    case ProjectName::kDawn:
+      return &kDawnProject;
+    case ProjectName::kWebrtc:
+      return &kWebrtcProject;
     default:
       llvm_unreachable("Unhandled project type in GetProject()");
   }
@@ -564,6 +573,8 @@ std::string GetReplacementDirective(const clang::SourceRange& replacement_range,
                        precedence, replacement_text);
 }
 
+// TODO(crbug.com/364338808): Set `is_system_include_path` to true when
+// `include_path` is "<span>".
 std::string GetIncludeDirective(
     const clang::SourceRange replacement_range,
     const clang::SourceManager& source_manager,
@@ -972,7 +983,8 @@ std::string getNodeFromDecl(const clang::DeclaratorDecl* decl,
 
   std::string replacement_text =
       qualifiers.str() +
-      llvm::formatv("{0}<{1}>", GetProject()->GetSpanRelativePath(result), type)
+      llvm::formatv("{0}<{1}> ", GetProject()->GetSpanRelativePath(result),
+                    type)
           .str();
 
   // Since the `type` might be clang deduced type, this node is keyed by the
@@ -2876,8 +2888,7 @@ void RewriteFunctionParamAndReturnType(const MatchFinder::MatchResult& result) {
   if (const clang::Decl* previous_decl = fct_decl->getPreviousDecl()) {
     const std::string& previous_key =
         NodeKey(previous_decl, source_manager, parm_or_return_id);
-    if (raw_ptr_plugin::isNodeInThirdPartyLocation(*previous_decl,
-                                                   source_manager)) {
+    if (GetProject()->IsExcludedFromProject(*previous_decl)) {
       // A declaration in third party codebase is found, so we do not want to
       // rewrite the parameter/return type in a third party function. This one-
       // way edge prevents making a flow from a source to a sink, hence the
@@ -2906,8 +2917,7 @@ void RewriteFunctionParamAndReturnType(const MatchFinder::MatchResult& result) {
     for (auto* overridden_method_decl : method_decl->overridden_methods()) {
       const std::string& overridden_method_key =
           NodeKey(overridden_method_decl, source_manager, parm_or_return_id);
-      if (raw_ptr_plugin::isNodeInThirdPartyLocation(*overridden_method_decl,
-                                                     source_manager)) {
+      if (GetProject()->IsExcludedFromProject(*overridden_method_decl)) {
         // A declaration in third party codebase is found, so we do not want to
         // rewrite the parameter/return type in a third party function. This
         // one-way edge prevents making a flow from a source to a sink, hence
@@ -3117,13 +3127,8 @@ AST_MATCHER_P(clang::Expr,
   return InnerMatcher.matches(Node, Finder, Builder);
 }
 
-AST_MATCHER_P(clang::Decl,
-              isExcludedFromProject,
-              const raw_ptr_plugin::FilterFile*,
-              excluded_paths) {
-  using namespace clang::ast_matchers;
-  return GetProject()->IsExcludedFromProject(Node, Finder, Builder,
-                                             excluded_paths);
+AST_MATCHER(clang::Decl, isExcludedFromProject) {
+  return GetProject()->IsExcludedFromProject(Node);
 }
 
 class Spanifier {
@@ -3139,7 +3144,7 @@ class Spanifier {
         raw_ptr_plugin::isInExternCContext(),
 
         // 2. Project-Specific Exclusions
-        isExcludedFromProject(&paths_to_exclude_));
+        isExcludedFromProject());
 
     // Standard exclusions include `raw_ptr` and `span`.
     auto exclusions = anyOf(
@@ -3858,7 +3863,6 @@ class Spanifier {
     match_callbacks_.push_back(std::move(match_callback));
   }
 
-  raw_ptr_plugin::FilterFile paths_to_exclude_ = GetProject()->PathsToExclude();
   MatchFinder& match_finder_;
   std::vector<std::unique_ptr<MatchCallback>> match_callbacks_;
 };
@@ -3880,7 +3884,8 @@ static llvm::cl::opt<ProjectName> g_project_opt(
                    "The PartitionAlloc project."),
         clEnumValN(ProjectName::kDawn, "dawn", "The Dawn project."),
         clEnumValN(ProjectName::kSkia, "skia", "The Skia project."),
-        clEnumValN(ProjectName::kAngle, "angle", "The Angle project.")),
+        clEnumValN(ProjectName::kAngle, "angle", "The Angle project."),
+        clEnumValN(ProjectName::kWebrtc, "webrtc", "The WebRTC project.")),
     llvm::cl::init(ProjectName::kChrome),
     llvm::cl::cat(g_spanifier_category));
 

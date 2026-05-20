@@ -55,7 +55,6 @@
 <translation id="1594928384848033697">Chromium 想刪除你的「密碼管理工具」資料。如果允許，請輸入 Windows 密碼。</translation>
 <translation id="1607715478322902680">{COUNT,plural, =0{管理員要求您重新啟動 Chromium，以套用更新}=1{管理員要求您重新啟動 Chromium，以套用更新。您的無痕式視窗不會重新開啟。}other{管理員要求您重新啟動 Chromium，以套用更新。您的 # 個無痕式視窗不會重新開啟。}}</translation>
 <translation id="1625909126243026060">查看 Chromium 中重要的私隱和安全控制項</translation>
-<translation id="1639380494700489405">如想問「AI 模式」有關分頁的問題而不離開頁面，請登入 Chromium。你也可在你的所有裝置上取得密碼和其他資料。</translation>
 <translation id="1640672724030957280">正在下載…</translation>
 <translation id="1680687534629375545">問「圖片搜尋」關於此頁面的問題</translation>
 <translation id="1708414395296835197">你可以隨時使用 Chromium 開啟訊息、文件和其他應用程式中的連結，瀏覽器也會固定在工作列。</translation>
@@ -218,6 +217,7 @@
 
 <ph name="EXTENSION_NAME" /></translation>
 <translation id="3185330573522821672">自訂您的新 Chromium 設定檔</translation>
+<translation id="3189205223539394158">無需切換分頁，也可繼續與「AI 模式」對話。如要開始使用，請登入 Chromium。你也可在你的所有裝置上取得密碼和其他資料。</translation>
 <translation id="3224847870593914902">如要從 Chromium 中移除 Google 帳戶，請前往「設定」頁面登出 Chromium</translation>
 <translation id="3234316605225071811">日後 Chromium 可詢問你是否要使用已儲存的資料自動填入表格</translation>
 <translation id="3258596308407688501">Chromium 無法讀取及寫入數據目錄：
@@ -510,6 +510,7 @@
 <translation id="6542839706527980775">每個設定檔都會保存本身專屬的 Chromium 資料，例如書籤、記錄、密碼等</translation>
 <translation id="6563921047760808519">進一步瞭解 <ph name="BEGIN_LINK" />Chromium 如何確保你的資料保密<ph name="END_LINK" /></translation>
 <translation id="6564039629497156115">此設定變更會在 Chromium 重新啟動後套用。</translation>
+<translation id="6567032987737689854">如要管理擴充功能，只需按一下 Chromium 主選單中的 [擴充功能] 即可。</translation>
 <translation id="656935081669708576">您可切換查看其他 Chromium 個人檔案的密碼</translation>
 <translation id="6570579332384693436">為修正拼字錯誤，Chromium 會將您在文字欄中輸入的文字傳送給 Google</translation>
 <translation id="6598877126913850652">前往 Chromium 通知設定</translation>

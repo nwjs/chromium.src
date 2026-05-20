@@ -376,9 +376,6 @@ void MetricsStateManager::ForceClientIdCreation() {
 #if 0
   DCHECK(enabled_state_provider_->IsConsentGiven() ||
          IsMetricsReportingForceEnabled() || IsMetricsRecordingOnlyEnabled());
-#if BUILDFLAG(IS_CHROMEOS)
-  std::string previous_client_id = client_id_;
-#endif  // BUILDFLAG(IS_CHROMEOS)
 #endif
   {
     std::string client_id_from_prefs = ReadClientId(local_state_);

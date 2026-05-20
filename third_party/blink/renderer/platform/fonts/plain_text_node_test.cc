@@ -4,8 +4,11 @@
 
 #include "third_party/blink/renderer/platform/fonts/plain_text_node.h"
 
+#include "base/test/scoped_feature_list.h"
+#include "build/build_config.h"
 #include "skia/ext/font_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/platform/fonts/font.h"
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_test_info.h"
@@ -46,7 +49,15 @@ class PlainTextNodeTest : public testing::Test {
   static constexpr bool kNormalizeSpace = true;
   static constexpr bool kSupportsBidi = true;
 
-  void SetUp() override { skia::InitializeFontRendering(); }
+  void SetUp() override {
+    skia::InitializeFontRendering();
+#if BUILDFLAG(IS_ANDROID)
+    feature_list_.InitAndDisableFeature(features::kGMSCoreEmoji);
+#endif
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 TEST_F(PlainTextNodeTest, NormalizeSpacesAndMaybeBidiNoConversion) {
@@ -480,7 +491,9 @@ TEST_F(PlainTextNodeTest, SegmentEmojiSequences) {
       // Signs of horns with skin tone modifier
       "\U0001f918\U0001f3fb",
       // Man, dark skin tone, red hair
-      "\U0001f468\U0001f3ff\u200D\U0001f9b0"};
+      "\U0001f468\U0001f3ff\u200D\U0001f9b0",
+      // Broken chain
+      "\u26D3\uFE0F\u200D\U0001f4a5"};
 
   for (auto test_string : test_strings) {
     String emoji_string = String::FromUtf8(test_string);

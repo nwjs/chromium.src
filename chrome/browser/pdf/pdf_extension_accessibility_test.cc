@@ -335,7 +335,7 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionAccessibilityTestWithOopifOverride,
   ASSERT_MULTILINE_STREQ(kExpectedPDFAXTree, ax_tree_dump);
 }
 
-// Flaky on ChromiumOS MSan. See https://crbug.com/1484869.
+// Flaky on ChromiumOS MSan. See https://crbug.com/40932967.
 // Flaky on Mac: https://crbug.com/334099836.
 #if (BUILDFLAG(IS_CHROMEOS) && defined(MEMORY_SANITIZER)) || BUILDFLAG(IS_MAC)
 #define MAYBE_PdfAccessibilityWordBoundaries \
@@ -1295,6 +1295,15 @@ class PdfSearchifyIntegrationTest
     }
 
     EnableScreenReader();
+
+    base::test::TestFuture<bool> future;
+    auto* router =
+        screen_ai::ScreenAIServiceRouterFactory::GetForBrowserContext(
+            browser()->profile());
+    router->GetServiceStateAsync(
+        screen_ai::ScreenAIServiceRouter::Service::kOCR, future.GetCallback());
+    ASSERT_TRUE(future.Wait());
+    ASSERT_EQ(future.Get(), IsOcrAvailable());
   }
 
   void TearDownOnMainThread() override {
@@ -1446,14 +1455,7 @@ IN_PROC_BROWSER_TEST_P(PdfSearchifyIntegrationTest, EnsureScreenAIInitializes) {
   // Since screen reader is on, library download is triggered and if it is
   // successful, initialization of Screen AI OCR service will be successful.
 
-  // Wait for Screen AI OCR service to either get ready or fail.
-  base::test::TestFuture<bool> future;
-  auto* router = screen_ai::ScreenAIServiceRouterFactory::GetForBrowserContext(
-      browser()->profile());
-  router->GetServiceStateAsync(screen_ai::ScreenAIServiceRouter::Service::kOCR,
-                               future.GetCallback());
-  ASSERT_TRUE(future.Wait());
-  ASSERT_EQ(future.Get(), IsOcrAvailable());
+  // OCR service readiness is already checked in SetUpOnMainThread().
 
   // Library download state should not depend on OcrService availability.
   screen_ai::ScreenAIInstallState::State expected_state =
@@ -1466,7 +1468,13 @@ IN_PROC_BROWSER_TEST_P(PdfSearchifyIntegrationTest, EnsureScreenAIInitializes) {
 
 // TODO(crbug.com/360803943): Add a test case with more than one image.
 
-IN_PROC_BROWSER_TEST_P(PdfSearchifyIntegrationTest, HelloWorld) {
+// TODO(crbug.com/501805516): Flaky on Linux and Mac.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+#define MAYBE_HelloWorld DISABLED_HelloWorld
+#else
+#define MAYBE_HelloWorld HelloWorld
+#endif
+IN_PROC_BROWSER_TEST_P(PdfSearchifyIntegrationTest, MAYBE_HelloWorld) {
   base::HistogramTester histograms;
   RunPDFAXTreeDumpTest("hello-world-in-image.pdf", "Page 1");
 
@@ -1486,7 +1494,13 @@ IN_PROC_BROWSER_TEST_P(PdfSearchifyIntegrationTest, HelloWorld) {
       /*sample=*/true, expected_count);
 }
 
-IN_PROC_BROWSER_TEST_P(PdfSearchifyIntegrationTest, ThreePagePDF) {
+// TODO(crbug.com/501805516): Flaky on Linux and Mac.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+#define MAYBE_ThreePagePDF DISABLED_ThreePagePDF
+#else
+#define MAYBE_ThreePagePDF ThreePagePDF
+#endif
+IN_PROC_BROWSER_TEST_P(PdfSearchifyIntegrationTest, MAYBE_ThreePagePDF) {
   base::HistogramTester histograms;
   RunPDFAXTreeDumpTest("inaccessible-text-in-three-page.pdf", "Page 3");
 
@@ -1497,8 +1511,14 @@ IN_PROC_BROWSER_TEST_P(PdfSearchifyIntegrationTest, ThreePagePDF) {
       /*sample=*/true, expected_count);
 }
 
+// TODO(crbug.com/501805516): Flaky on Linux and Mac.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
+#define MAYBE_NoOcrResultOnBlankImagePdf DISABLED_NoOcrResultOnBlankImagePdf
+#else
+#define MAYBE_NoOcrResultOnBlankImagePdf NoOcrResultOnBlankImagePdf
+#endif
 IN_PROC_BROWSER_TEST_P(PdfSearchifyIntegrationTest,
-                       NoOcrResultOnBlankImagePdf) {
+                       MAYBE_NoOcrResultOnBlankImagePdf) {
   RunPDFAXTreeDumpTest("blank_image.pdf", "Page 1");
 
 // Notifications are flaky on Linux screen reader (crbug.com/348626870),

@@ -719,8 +719,7 @@ void LayoutObject::AddChild(LayoutObject* new_child,
     LayoutObject* table = nullptr;
     LayoutObject* after_child =
         before_child ? before_child->PreviousSibling() : children->LastChild();
-    if (after_child && after_child->IsAnonymous() && after_child->IsTable() &&
-        !after_child->IsBeforeContent()) {
+    if (after_child && after_child->IsAnonymous() && after_child->IsTable()) {
       table = after_child;
     } else {
       table = LayoutTable::CreateAnonymousWithParent(*this);
@@ -1829,11 +1828,14 @@ const LayoutBox* LayoutObject::ContainingScrollContainer(
   return nullptr;
 }
 
-LayoutObject* LayoutObject::NonAnonymousContainingBlock() const {
+LayoutObject* LayoutObject::ContainingBlockForTextOverflow() const {
   NOT_DESTROYED();
   LayoutObject* block = ContainingBlock();
   if (block && block->IsAnonymous()) {
     block = block->Parent();
+  }
+  if (block && !block->BehavesLikeBlockContainer()) {
+    return nullptr;
   }
   return block;
 }
@@ -1996,7 +1998,8 @@ PhysicalRect LayoutObject::AbsoluteBoundingBoxRectForScrollIntoView() const {
       return originating_object->AbsoluteBoundingBoxRectForScrollIntoView();
     }
     // This is a ::column::scroll-marker
-    if (const auto* scroller = originating_element.GetLayoutBoxForScrolling()) {
+    if (const auto* scroller = originating_element.GetLayoutBoxForScrolling();
+        scroller && scroller->GetScrollableArea()->ScrollableAxes()) {
       // The originating element (the multicol container) is also the scrollable
       // container.
       PhysicalRect bounds = column_pseudo->ColumnRect();
@@ -2232,37 +2235,6 @@ String LayoutObject::DebugName() const {
     name.Append(node->DebugName());
   }
   return name.ToString();
-}
-
-void LayoutObject::DumpForBug478682594() const {
-  // Dump only once per instance. Might become noisy otherwise.
-  static bool has_dumped;
-
-  if (has_dumped) {
-    return;
-  }
-  has_dumped = true;
-
-  StringBuilder value_builder;
-  for (const LayoutObject* obj = this; obj; obj = obj->Parent()) {
-    unsigned needs_layout_flags =
-        obj->bitfields_.SelfNeedsFullLayout() |
-        (obj->bitfields_.ChildNeedsFullLayout() << 1) |
-        (obj->bitfields_.NeedsSimplifiedLayout() << 2);
-
-    value_builder.AppendNumber(needs_layout_flags);
-    value_builder.Append(" ");
-    value_builder.Append(obj->DecoratedName());
-    if (obj->IsRelayoutBoundary()) {
-      value_builder.Append("(RELAYOUT-BOUNDARY)");
-    }
-    value_builder.Append("; ");
-  }
-
-  auto* key = base::debug::AllocateCrashKeyString(
-      "Bug478682594-layout-tree", base::debug::CrashKeySize::Size1024);
-  base::debug::SetCrashKeyString(key, value_builder.ToString().Ascii().c_str());
-  base::debug::DumpWithoutCrashing();
 }
 
 DOMNodeId LayoutObject::OwnerNodeId(bool is_internal_content) const {
@@ -2772,30 +2744,6 @@ const ComputedStyle& LayoutObject::SlowEffectiveStyle(
   NOTREACHED();
 }
 
-// Called when an object that was floating or positioned becomes a normal flow
-// object again. We have to make sure the layout tree updates as needed to
-// accommodate the new normal flow object.
-static inline void HandleDynamicFloatPositionChange(LayoutObject* object) {
-  DCHECK(!RuntimeEnabledFeatures::LayoutReinsertOnInFlowStateChangeEnabled());
-  // We have gone from not affecting the inline status of the parent flow to
-  // suddenly having an impact.  See if there is a mismatch between the parent
-  // flow's childrenInline() state and our state.
-  object->SetInline(object->StyleRef().IsDisplayInlineType());
-  if (object->IsInline() != object->Parent()->ChildrenInline()) {
-    if (!object->IsInline()) {
-      To<LayoutBoxModelObject>(object->Parent())->ChildBecameNonInline(object);
-    } else {
-      // An anonymous block must be made to wrap this inline.
-      LayoutBlock* block =
-          To<LayoutBlock>(object->Parent())->CreateAnonymousBlock();
-      LayoutObjectChildList* childlist = object->Parent()->VirtualChildren();
-      childlist->InsertChildNode(object->Parent(), block, object);
-      block->Children()->AppendChildNode(
-          block, childlist->RemoveChildNode(object->Parent(), object));
-    }
-  }
-}
-
 StyleDifference LayoutObject::AdjustStyleDifference(
     StyleDifference diff) const {
   NOT_DESTROYED();
@@ -2854,7 +2802,7 @@ void LayoutObject::SetPseudoElementStyle(const LayoutObject& owner,
          pseudo_style->StyleType() == kPseudoIdAfter ||
          pseudo_style->StyleType() == kPseudoIdExpandIcon ||
          pseudo_style->StyleType() == kPseudoIdPickerIcon ||
-         pseudo_style->StyleType() == kPseudoIdInterestHint ||
+         pseudo_style->StyleType() == kPseudoIdInterestButton ||
          pseudo_style->StyleType() == kPseudoIdMarker ||
          pseudo_style->StyleType() == kPseudoIdFirstLetter ||
          pseudo_style->StyleType() == kPseudoIdScrollMarkerGroup ||
@@ -3176,6 +3124,8 @@ void LayoutObject::StyleWillChange(StyleDifference diff,
                                    const ComputedStyle& new_style,
                                    StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
+  DCHECK(!IsText());
+
   if (style_) {
     bool visibility_changed = style_->Visibility() != new_style.Visibility();
     // If our z-index changes value or our visibility changes,
@@ -3209,12 +3159,6 @@ void LayoutObject::StyleWillChange(StyleDifference diff,
       }
     }
 
-    if (visibility_changed || style_->IsInert() != new_style.IsInert()) {
-      if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache()) {
-        cache->StyleChanged(this, /*visibility_or_inertness_changed*/ true);
-      }
-    }
-
     // Keep layer hierarchy visibility bits up to date if visibility changes.
     if (visibility_changed) {
       // We might not have an enclosing layer yet because we might not be in the
@@ -3223,21 +3167,6 @@ void LayoutObject::StyleWillChange(StyleDifference diff,
         layer->DirtyVisibleContentStatus();
       GetDocument().GetFrame()->GetInputMethodController().DidChangeVisibility(
           *this);
-    }
-
-    style_change_context.became_normal_flow =
-        IsFloatingOrOutOfFlowPositioned() &&
-        ((!new_style.IsFloating() ||
-          new_style.IsInsideDisplayIgnoringFloatingChildren()) &&
-         !new_style.HasOutOfFlowPosition()) &&
-        Parent() &&
-        (Parent()->IsLayoutBlockFlow() || Parent()->IsLayoutInline());
-
-    // Clearing these bits is required to avoid leaving stale layoutObjects.
-    // FIXME: We shouldn't need that hack if our logic was totally correct.
-    if (diff.NeedsFullLayout()) {
-      SetFloating(false);
-      ClearPositionedState();
     }
   }
 
@@ -3255,8 +3184,7 @@ void LayoutObject::StyleWillChange(StyleDifference diff,
       style_ ? (style_->EffectiveTouchAction() == TouchAction::kAuto) : true;
   const bool is_new_touch_action_auto =
       new_style.EffectiveTouchAction() == TouchAction::kAuto;
-  if (GetNode() && !IsText() &&
-      is_old_touch_action_auto != is_new_touch_action_auto) {
+  if (GetNode() && is_old_touch_action_auto != is_new_touch_action_auto) {
     EventHandlerRegistry& registry =
         GetDocument().GetFrame()->GetEventHandlerRegistry();
     if (is_new_touch_action_auto) {
@@ -3267,11 +3195,6 @@ void LayoutObject::StyleWillChange(StyleDifference diff,
                                   EventHandlerRegistry::kTouchAction);
     }
     MarkEffectiveAllowedTouchActionChanged();
-  }
-  if (IsDocumentElement() && style_ && style_->Opacity() == 0.0f &&
-      new_style.Opacity() != 0.0f) {
-    if (LocalFrameView* frame_view = GetFrameView())
-      frame_view->GetPaintTimingDetector().ReportIgnoredContent();
   }
 }
 
@@ -3316,7 +3239,6 @@ static void ClearAncestorScrollAnchors(LayoutObject* layout_object) {
 
 void LayoutObject::UpdateAfterReinsert(const ComputedStyle& old_style) {
   NOT_DESTROYED();
-  DCHECK(RuntimeEnabledFeatures::LayoutReinsertOnInFlowStateChangeEnabled());
 
   // Now that we are in the layout-tree, disable scroll-anchoring on our scroll
   // container as per:
@@ -3369,45 +3291,7 @@ void LayoutObject::StyleDidChange(
   // it's not affected.
   SetOutlineMayBeAffectedByDescendants(style_->HasOutline());
 
-  if (!RuntimeEnabledFeatures::LayoutReinsertOnInFlowStateChangeEnabled() &&
-      style_change_context.became_normal_flow) {
-    HandleDynamicFloatPositionChange(this);
-  }
-
   if (diff.NeedsFullLayout()) {
-    // If the in-flow state of an element is changed, disable scroll
-    // anchoring on the containing scroller.
-    //
-    // TODO(layout-dev): Move this code down to LayoutBox. Only those can become
-    // out-of-flow or spanners.
-    if (!RuntimeEnabledFeatures::LayoutReinsertOnInFlowStateChangeEnabled()) {
-      if (old_style->HasOutOfFlowPosition() != style_->HasOutOfFlowPosition()) {
-        SetScrollAnchorDisablingStyleChangedOnAncestor();
-        MarkParentForSpannerOrOutOfFlowPositionedChange();
-        if (old_style->HasOutOfFlowPosition()) {
-          if (auto* box = DynamicTo<LayoutBox>(this)) {
-            box->NotifyContainingDisplayLocksForAnchorPositioning(
-                box->DisplayLocksAffectedByAnchors(), nullptr);
-          }
-        }
-      }
-    }
-
-    if (IsBox() &&
-        To<LayoutBox>(this)->IsValidColumnSpannerInTree(*old_style) !=
-            To<LayoutBox>(this)->IsValidColumnSpannerInTree(*style_)) {
-      MarkParentForSpannerOrOutOfFlowPositionedChange();
-    }
-
-    // If the object already needs layout, then setNeedsLayout won't do
-    // any work. But if the containing block has changed, then we may need
-    // to mark the new containing blocks for layout. The change that can
-    // directly affect the containing block of this object is a change to
-    // the position style.
-    if (NeedsLayout() && old_style->GetPosition() != style_->GetPosition()) {
-      MarkContainerChainForLayout();
-    }
-
     SetNeedsLayoutAndIntrinsicWidthsRecalc(
         layout_invalidation_reason::kStyleChange);
   } else if (diff.NeedsPositionedLayout()) {
@@ -3420,8 +3304,21 @@ void LayoutObject::StyleDidChange(
     }
   }
 
+  if (diff.ax_visibility_or_inert_changed) {
+    if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache()) {
+      cache->StyleChanged(this, /*visibility_or_inertness_changed*/ true);
+    }
+  }
+
   if (diff.disable_scroll_anchoring) {
     SetScrollAnchorDisablingStyleChanged(true);
+  }
+
+  if (diff.opacity_changed && IsDocumentElement() &&
+      old_style->Opacity() == 0.f && style_->Opacity() != 0.f) {
+    if (const LocalFrameView* frame_view = GetFrameView()) {
+      frame_view->GetPaintTimingDetector().ReportIgnoredContent();
+    }
   }
 
   // Don't check for paint invalidation here; we need to wait until the layer
@@ -3901,7 +3798,7 @@ PhysicalOffset LayoutObject::OffsetFromOverscrollContainer(
   // scroll of all overscroll areas, and each individual overscroll area is
   // shifted by each one before it.
   wtf_size_t affecting_overscroll_areas =
-      IsPseudoElementContent(kPseudoIdOverscrollAreaParent)
+      IsOverscrollAreaParent()
           ? overscroll_areas.Find(
                 &To<PseudoElement>(GetNode())->UltimateOriginatingElement())
           : overscroll_areas.size();
@@ -4149,7 +4046,6 @@ void LayoutObject::WillBeRemovedFromTree() {
   }
 
   if (LocalFrameView* frame_view = GetFrameView()) {
-    frame_view->GetPaintTimingDetector().LayoutObjectWillBeDestroyed(*this);
     frame_view->SetIntersectionObservationState(LocalFrameView::kDesired);
   }
 }
@@ -4320,16 +4216,36 @@ Node* LayoutObject::NodeForHitTest() const {
   if (Node* node = GetNode())
     return node;
 
-  // If we hit the anonymous layoutObjects inside generated content we should
+  const LayoutObject* parent = Parent();
+  if (!parent) {
+    return nullptr;
+  }
+
+  // If we hit the anonymous layout-objects within generated content we should
   // actually hit the generated content so walk up to the PseudoElement.
-  if (const LayoutObject* parent = Parent()) {
-    if (parent->IsBeforeOrAfterContent() || parent->IsMarkerContent() ||
-        parent->IsScrollButtonOrMarkerContent() ||
-        parent->IsInterestHintContent() ||
-        parent->StyleRef().StyleType() == kPseudoIdFirstLetter) {
-      for (; parent; parent = parent->Parent()) {
-        if (Node* node = parent->GetNode())
-          return node;
+  const bool use_parent_node = ([&]() {
+    switch (parent->StyleRef().StyleType()) {
+      case kPseudoIdAfter:
+      case kPseudoIdBefore:
+      case kPseudoIdFirstLetter:
+      case kPseudoIdInterestButton:
+      case kPseudoIdMarker:
+      case kPseudoIdScrollButton:
+      case kPseudoIdScrollButtonBlockStart:
+      case kPseudoIdScrollButtonInlineStart:
+      case kPseudoIdScrollButtonInlineEnd:
+      case kPseudoIdScrollButtonBlockEnd:
+      case kPseudoIdScrollMarker:
+        return true;
+      default:
+        return false;
+    }
+  })();
+
+  if (use_parent_node) {
+    for (; parent; parent = parent->Parent()) {
+      if (Node* node = parent->GetNode()) {
+        return node;
       }
     }
   }
@@ -4375,15 +4291,17 @@ const ComputedStyle* LayoutObject::FirstLineStyleWithoutFallback() const {
   NOT_DESTROYED();
   DCHECK(GetDocument().GetStyleEngine().UsesFirstLineRules());
 
-  // Normal markers don't use ::first-line styles in Chromium, so be consistent
-  // and return null for content markers. This may need to change depending on
-  // https://github.com/w3c/csswg-drafts/issues/4506
-  if (IsMarkerContent())
-    return nullptr;
   if (IsText()) {
     if (!Parent())
       return nullptr;
     return Parent()->FirstLineStyleWithoutFallback();
+  }
+
+  // Normal markers don't use ::first-line styles in Chromium, so be consistent
+  // and return null for content markers. This may need to change depending on
+  // https://github.com/w3c/csswg-drafts/issues/4506
+  if (StyleRef().StyleType() == kPseudoIdMarker) {
+    return nullptr;
   }
 
   if (BehavesLikeBlockContainer()) {
@@ -4474,7 +4392,7 @@ const ComputedStyle* LayoutObject::GetCachedPseudoElementStyle(
   DCHECK_NE(pseudo, kPseudoIdAfter);
   DCHECK_NE(pseudo, kPseudoIdExpandIcon);
   DCHECK_NE(pseudo, kPseudoIdPickerIcon);
-  DCHECK_NE(pseudo, kPseudoIdInterestHint);
+  DCHECK_NE(pseudo, kPseudoIdInterestButton);
   if (!GetNode())
     return nullptr;
 
@@ -4493,7 +4411,7 @@ const ComputedStyle* LayoutObject::GetUncachedPseudoElementStyle(
   DCHECK_NE(request.pseudo_id, kPseudoIdAfter);
   DCHECK_NE(request.pseudo_id, kPseudoIdExpandIcon);
   DCHECK_NE(request.pseudo_id, kPseudoIdPickerIcon);
-  DCHECK_NE(request.pseudo_id, kPseudoIdInterestHint);
+  DCHECK_NE(request.pseudo_id, kPseudoIdInterestButton);
   if (!GetNode())
     return nullptr;
 

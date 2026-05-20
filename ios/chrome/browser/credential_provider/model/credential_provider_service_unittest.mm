@@ -19,12 +19,14 @@
 #import "base/test/task_environment.h"
 #import "components/affiliations/core/browser/fake_affiliation_service.h"
 #import "components/password_manager/core/browser/password_form.h"
+#import "components/password_manager/core/browser/password_store/password_form_converters.h"
 #import "components/password_manager/core/browser/password_store/password_store_change.h"
 #import "components/password_manager/core/browser/password_store/test_password_store.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
 #import "components/prefs/pref_registry_simple.h"
 #import "components/prefs/pref_service.h"
 #import "components/prefs/testing_pref_service.h"
+#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/identity_manager/identity_test_environment.h"
 #import "components/signin/public/identity_manager/tribool.h"
 #import "components/sync/base/user_selectable_type.h"
@@ -539,7 +541,8 @@ TEST_F(CredentialProviderServiceTest, OnLoginsChanged_SingleOperation) {
 
   password_manager::PasswordStoreChangeList change_list;
   change_list.emplace_back(password_manager::PasswordStoreChange(
-      password_manager::PasswordStoreChange::ADD, test_form));
+      password_manager::PasswordStoreChange::ADD,
+      password_manager::FromPasswordForm(test_form)));
 
   credential_provider_service_->OnLoginsChanged(password_store_.get(),
                                                 change_list);
@@ -554,7 +557,8 @@ TEST_F(CredentialProviderServiceTest, OnLoginsChanged_SingleOperation) {
   test_form.password_value = u"54321";
   change_list.clear();
   password_manager::PasswordStoreChange change(
-      password_manager::PasswordStoreChange::UPDATE, test_form,
+      password_manager::PasswordStoreChange::UPDATE,
+      password_manager::FromPasswordForm(test_form),
       /*password_changed=*/true);
   change_list.emplace_back(change);
 
@@ -570,7 +574,8 @@ TEST_F(CredentialProviderServiceTest, OnLoginsChanged_SingleOperation) {
   // Test deleting a password.
   change_list.clear();
   change_list.emplace_back(password_manager::PasswordStoreChange(
-      password_manager::PasswordStoreChange::REMOVE, test_form));
+      password_manager::PasswordStoreChange::REMOVE,
+      password_manager::FromPasswordForm(test_form)));
 
   credential_provider_service_->OnLoginsChanged(password_store_.get(),
                                                 change_list);

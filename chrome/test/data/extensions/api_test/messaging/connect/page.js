@@ -4,9 +4,9 @@
 
 // For complex connect tests.
 chrome.runtime.onConnect.addListener(function onConnect(port) {
-  console.log('connected');
+  console.info('connected');
   port.onMessage.addListener(function(msg) {
-    console.log(`got ${JSON.stringify(msg)}`);
+    console.info(`got ${JSON.stringify(msg)}`);
     if (msg.testPostMessage) {
       port.postMessage({success: true});
     } else if (msg.testPostMessageFromTab) {
@@ -57,7 +57,7 @@ chrome.runtime.onConnect.addListener(function onConnect(port) {
         window.location = 'about:blank';
       });
     } else if (msg.testPortName) {
-      port.postMessage({portName:port.name});
+      port.postMessage({portName: port.name});
     } else if (msg.testSendMessageFromTabError) {
       testSendMessageFromTabError();
     } else if (msg.testConnectFromTabError) {
@@ -72,8 +72,9 @@ function testPostMessageFromTab(origPort) {
   const port = chrome.runtime.connect({name: portName});
   port.postMessage({testPostMessageFromTab: true});
   port.onMessage.addListener(function(msg) {
-    origPort.postMessage({success: (msg.success && (msg.portName == portName))});
-    console.log(`testPostMessageFromTab sent ${msg.success}`);
+    origPort.postMessage(
+        {success: (msg.success && (msg.portName === portName))});
+    console.info(`testPostMessageFromTab sent ${msg.success}`);
     port.disconnect();
   });
 }
@@ -82,7 +83,7 @@ function testPostMessageFromTab(origPort) {
 function testSendMessageFromTab() {
   chrome.runtime.sendMessage({step: 1}, function(response) {
     if (response.nextStep) {
-      console.log('testSendMessageFromTab sent');
+      console.info('testSendMessageFromTab sent');
       chrome.runtime.sendMessage({step: 2});
     }
   });
@@ -152,8 +153,8 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       {
         id: chrome.runtime.id,
         url: chrome.runtime.getURL('_generated_background_page.html'),
-        origin: extensionOrigin
+        origin: extensionOrigin,
       },
       sender);
-  sendResponse({success: (request.step2 == 1)});
+  sendResponse({success: (request.step2 === 1)});
 });

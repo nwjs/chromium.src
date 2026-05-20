@@ -56,9 +56,9 @@
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller.h"
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller_util.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/services/assistant/public/cpp/assistant_browser_delegate.h"
@@ -302,11 +302,6 @@ void AppListClientImpl::OpenSearchResult(int profile_id,
 
   if (launch_as_default) {
     RecordDefaultSearchResultOpenTypeHistogram(result->metrics_type());
-  }
-
-  if (!last_query_length &&
-      launched_from == ash::AppListLaunchedFrom::kLaunchedFromSearchBox) {
-    RecordZeroStateSuggestionOpenTypeHistogram(result->metrics_type());
   }
 
   if (launched_from == ash::AppListLaunchedFrom::kLaunchedFromSearchBox) {

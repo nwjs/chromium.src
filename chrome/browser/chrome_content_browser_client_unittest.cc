@@ -82,6 +82,7 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_controller.h"
+#include "content/public/common/child_process_id.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_task_environment.h"
@@ -90,6 +91,7 @@
 #include "content/public/test/test_web_ui.h"
 #include "content/public/test/web_contents_tester.h"
 #include "crypto/crypto_buildflags.h"
+#include "device/fido/public/features.h"
 #include "extensions/buildflags/buildflags.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "media/media_buildflags.h"
@@ -110,7 +112,6 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
@@ -136,6 +137,7 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/android/tab_web_contents_delegate_android.h"
+#include "chrome/browser/android/web_contents_theme_client.h"
 
 #if BUILDFLAG(ENABLE_GUEST_VIEW) && !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "chrome/browser/android/guest_view/chrome_guest_view_manager_delegate.h"
@@ -247,8 +249,7 @@ TEST_F(ChromeContentBrowserClientIsPopupBypassAllowedTest, ExtensionProcess) {
 
   scoped_refptr<const extensions::Extension> extension =
       extensions::ExtensionBuilder("Test").Build();
-  process_map->Insert(extension->id(),
-                      main_rfh()->GetProcess()->GetID().value());
+  process_map->Insert(extension->id(), main_rfh()->GetProcess()->GetID());
   extensions::ExtensionRegistry::Get(profile())->AddEnabled(extension);
 
   EXPECT_TRUE(client.IsPopupBypassAllowed(main_rfh()));
@@ -269,8 +270,7 @@ TEST_F(ChromeContentBrowserClientIsPopupBypassAllowedTest, PrivilegedWebPage) {
 
   extensions::ExtensionRegistry::Get(profile())->AddEnabled(hosted_app);
   auto* process_map = extensions::ProcessMap::Get(profile());
-  process_map->Insert(hosted_app->id(),
-                      main_rfh()->GetProcess()->GetID().value());
+  process_map->Insert(hosted_app->id(), main_rfh()->GetProcess()->GetID());
 
   EXPECT_TRUE(client.IsPopupBypassAllowed(main_rfh()));
 }
@@ -425,7 +425,7 @@ TEST_F(ChromeContentBrowserClientWindowTest, OverrideNavigationParams) {
   transition = ui::PAGE_TRANSITION_LINK;
   is_renderer_initiated = true;
   initiator_origin = url::Origin::Create(GURL("https://www.example.com"));
-  client.OverrideNavigationParams(GURL(chrome::kChromeUINewTabPageURL),
+  client.OverrideNavigationParams(chrome::ChromeUINewTabPageURLAsGURL(),
                                   &transition, &is_renderer_initiated,
                                   &referrer, &initiator_origin);
   EXPECT_TRUE(ui::PageTransitionCoreTypeIs(ui::PAGE_TRANSITION_AUTO_BOOKMARK,
@@ -435,7 +435,7 @@ TEST_F(ChromeContentBrowserClientWindowTest, OverrideNavigationParams) {
 
   // No change for transitions that are not PAGE_TRANSITION_LINK.
   transition = ui::PAGE_TRANSITION_TYPED;
-  client.OverrideNavigationParams(GURL(chrome::kChromeUINewTabPageURL),
+  client.OverrideNavigationParams(chrome::ChromeUINewTabPageURLAsGURL(),
                                   &transition, &is_renderer_initiated,
                                   &referrer, &initiator_origin);
   EXPECT_TRUE(
@@ -563,7 +563,8 @@ TEST_F(ChromeContentBrowserClientWindowTest,
   EXPECT_EQ(result->platform, "webapp");
   EXPECT_FALSE(result->url.has_value());
   EXPECT_FALSE(result->version.has_value());
-  EXPECT_EQ(result->id, registrar.GetAppManifestId(app_id));
+  EXPECT_TRUE(registrar.GetAppManifestId(app_id).has_value());
+  EXPECT_EQ(result->id, registrar.GetAppManifestId(app_id)->value());
 }
 
 TEST_F(ChromeContentBrowserClientWindowTest,
@@ -809,7 +810,7 @@ class InstantNTPURLRewriteTest : public BrowserWithTestWindowTest {
 };
 
 TEST_F(InstantNTPURLRewriteTest, UberURLHandler_InstantExtendedNewTabPage) {
-  const GURL url_original(chrome::kChromeUINewTabURL);
+  const GURL& url_original = chrome::ChromeUINewTabURLAsGURL();
   const GURL url_rewritten("https://www.example.com/newtab");
   InstallTemplateURLWithNewTabPage(url_rewritten);
   ASSERT_TRUE(base::FieldTrialList::CreateFieldTrial(
@@ -1758,7 +1759,7 @@ TEST_F(DisableWebAuthnWithBrokenCertsTest, SecurityLevelAcceptable) {
       main_rfh(), url::Origin::Create(url)));
 }
 
-// Regression test for crbug.com/1421174.
+// Regression test for crbug.com/40896115.
 TEST_F(DisableWebAuthnWithBrokenCertsTest, IgnoreCertificateErrorsFlag) {
   base::test::ScopedCommandLine scoped_command_line;
   scoped_command_line.GetProcessCommandLine()->AppendSwitch(
@@ -1776,6 +1777,45 @@ TEST_F(DisableWebAuthnWithBrokenCertsTest, IgnoreCertificateErrorsFlag) {
   EXPECT_TRUE(client.IsSecurityLevelAcceptableForWebAuthn(
       main_rfh(), url::Origin::Create(url)));
 }
+
+#if BUILDFLAG(IS_CHROMEOS)
+class IWAWebAuthnTest : public ChromeRenderViewHostTestHarness {
+ protected:
+  static constexpr char kTestIsolatedAppOrigin[] =
+      "isolated-app://aerugqztij5biqquuk3mfwpsaibuegaqcitgfchwuosuofdjabzqaaic";
+};
+
+TEST_F(IWAWebAuthnTest, IWASupportedWithPolicyOn) {
+  // Enabling the kWebAuthnIWARemoteDesktopAllowedOriginsPolicy.
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {device::kWebAuthnIWARemoteDesktopAllowedOriginsPolicy,
+       features::kIsolatedWebApps},
+      {});
+
+  TestChromeContentBrowserClient client;
+
+  // For IWA accepted level for webauthn calls requires
+  // device::kWebAuthnIWARemoteDesktopAllowedOriginsPolicy to be enabled.
+  EXPECT_TRUE(client.IsSecurityLevelAcceptableForWebAuthn(
+      main_rfh(), url::Origin::Create(GURL(kTestIsolatedAppOrigin))));
+}
+
+TEST_F(IWAWebAuthnTest, IWANotSupportedWithoutPolicy) {
+  // Disabling the kWebAuthnIWARemoteDesktopAllowedOriginsPolicy.
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {features::kIsolatedWebApps},
+      {device::kWebAuthnIWARemoteDesktopAllowedOriginsPolicy});
+
+  TestChromeContentBrowserClient client;
+
+  // For IWA accepted level for webauthn calls requires
+  // device::kWebAuthnIWARemoteDesktopAllowedOriginsPolicy to be enabled.
+  EXPECT_FALSE(client.IsSecurityLevelAcceptableForWebAuthn(
+      main_rfh(), url::Origin::Create(GURL(kTestIsolatedAppOrigin))));
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 TEST_F(ChromeContentBrowserClientTest, ShouldUseSpareRenderProcessHost) {
   using SpareProcessRefusedByEmbedderReason =
@@ -1928,18 +1968,6 @@ TEST_F(WillComputeSiteForNavigationTest,
 
 #if BUILDFLAG(IS_ANDROID)
 
-class MockTabWebContentsDelegateAndroid
-    : public android::TabWebContentsDelegateAndroid {
- public:
-  MockTabWebContentsDelegateAndroid()
-      : android::TabWebContentsDelegateAndroid(
-            base::android::AttachCurrentThread(),
-            base::android::ScopedJavaLocalRef<jobject>()) {}
-  ~MockTabWebContentsDelegateAndroid() override = default;
-
-  MOCK_METHOD(bool, IsNightModeEnabled, (), (const, override));
-};
-
 class ChromeContentBrowserClientPreferredColorSchemeAndroidTest
     : public ChromeRenderViewHostTestHarness,
       public testing::WithParamInterface<bool> {
@@ -1963,10 +1991,8 @@ TEST_P(ChromeContentBrowserClientPreferredColorSchemeAndroidTest,
                                                         tab.get());
 
   bool is_dark_mode = IsDarkMode();
-  auto delegate = std::make_unique<MockTabWebContentsDelegateAndroid>();
-  EXPECT_CALL(*delegate, IsNightModeEnabled())
-      .WillRepeatedly(testing::Return(is_dark_mode));
-  web_contents->SetDelegate(delegate.get());
+  night_mode::WebContentsThemeClient::SetIsNightModeEnabledForTesting(
+      web_contents, is_dark_mode);
 
   blink::web_pref::WebPreferences web_preferences;
   content::SiteInstance* site_instance = web_contents->GetSiteInstance();
@@ -2000,10 +2026,8 @@ TEST_P(ChromeContentBrowserClientPreferredColorSchemeAndroidTest,
 
   // Set Color Scheme in Owner
   bool is_dark_mode = IsDarkMode();
-  auto delegate = std::make_unique<MockTabWebContentsDelegateAndroid>();
-  EXPECT_CALL(*delegate, IsNightModeEnabled())
-      .WillRepeatedly(testing::Return(is_dark_mode));
-  owner_contents->SetDelegate(delegate.get());
+  night_mode::WebContentsThemeClient::SetIsNightModeEnabledForTesting(
+      owner_contents, is_dark_mode);
 
   // Create Guest WebContents
   std::unique_ptr<content::WebContents> guest_contents =

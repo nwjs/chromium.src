@@ -54,6 +54,7 @@
 #include "components/input/native_web_keyboard_event.h"
 #include "components/input/render_input_router.mojom.h"
 #include "components/input/render_widget_host_input_event_router.h"
+#include "components/input/switches.h"
 #include "components/input/timeout_monitor.h"
 #include "components/input/utils.h"
 #include "components/viz/common/features.h"
@@ -93,15 +94,18 @@
 #include "content/common/input/synthetic_gesture_target.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/device_service.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
 #include "content/public/browser/peak_gpu_memory_tracker_factory.h"
 #include "content/public/browser/render_frame_metadata_provider.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_process_host_priority_client.h"
 #include "content/public/browser/render_widget_host_iterator.h"
 #include "content/public/browser/render_widget_host_observer.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/tracked_element_observer.h"
+#include "content/public/common/content_client.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
@@ -145,6 +149,7 @@
 #include "ui/events/event.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/gfx/color_space.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/geometry/vector2d_conversions.h"
 #include "ui/gfx/geometry/vector2d_f.h"
@@ -163,6 +168,11 @@
 #include "services/device/public/mojom/wake_lock_provider.mojom.h"
 #include "ui/accelerated_widget_mac/window_resize_helper_mac.h"
 #include "ui/base/cocoa/cursor_accessibility_scale_factor.h"
+#endif
+
+#if BUILDFLAG(IS_WIN)
+#include "ui/aura/window.h"
+#include "ui/aura/window_tree_host.h"
 #endif
 
 using blink::DragOperationsMask;
@@ -586,7 +596,7 @@ void RenderWidgetHostImpl::SetView(RenderWidgetHostViewBase* view) {
   GetRenderInputRouter()->SetView(view);
 }
 
-RenderProcessHost* RenderWidgetHostImpl::GetProcess() {
+RenderProcessHost* RenderWidgetHostImpl::GetProcess() const {
   return agent_scheduling_group_->GetProcess();
 }
 
@@ -2102,6 +2112,12 @@ void RenderWidgetHostImpl::InsertVisualStateCallback(
       mojo::WrapCallbackWithDefaultInvokeIfNotRun(std::move(callback), false)));
 }
 
+void RenderWidgetHostImpl::SetReadyForInputCallbackForTesting(  // IN-TEST
+    base::OnceClosure callback) {
+  ready_for_input_callback_for_testing_ = std::move(callback);
+  MaybeNotifyReadyForInput();
+}
+
 void RenderWidgetHostImpl::SetHungRendererDelay(const base::TimeDelta& delay) {
   hung_renderer_delay_ = delay;
   GetRenderInputRouter()->SetHungRendererDelay(delay);
@@ -2634,10 +2650,31 @@ void RenderWidgetHostImpl::ForwardDelegatedInkPoint(
     return;
   }
 
-  TRACE_EVENT("delegated_ink_trails",
-              "Forwarding delegated ink point from browser.",
-              perfetto::Flow::Global(delegated_ink_point.trace_id()),
-              "delegated point", delegated_ink_point.ToString());
+  TRACE_EVENT(
+      "delegated_ink_trails",
+      "RenderWidgetHostImpl::ForwardDelegatedInkPoint - forwarding "
+      "delegated ink point from browser.",
+      perfetto::Flow::Global(delegated_ink_point.trace_id()),
+      [&](perfetto::EventContext ctx) {
+        ctx.AddDebugAnnotation("delegated point",
+                               delegated_ink_point.ToString());
+#if BUILDFLAG(IS_WIN)
+        aura::Window* root_window = view_->GetNativeView()->GetRootWindow();
+        if (root_window) {
+          const HWND hwnd = root_window->GetHost()->GetAcceleratedWidget();
+          POINT client_pt = {
+              static_cast<LONG>(delegated_ink_point.point().x()),
+              static_cast<LONG>(delegated_ink_point.point().y())};
+          ::ClientToScreen(hwnd, &client_pt);
+          const gfx::PointF screen_point =
+              gfx::PointF(client_pt.x, client_pt.y);
+          ctx.AddDebugAnnotation("screen point", screen_point.ToString());
+        } else {
+          ctx.AddDebugAnnotation(
+              "screen point", "Can't convert to screen point - no root window");
+        }
+#endif
+      });
 
   // Calling this will result in IPC calls to get |delegated_ink_point| to
   // viz. The decision to do this here was made with the understanding that
@@ -2658,8 +2695,7 @@ void RenderWidgetHostImpl::ResetDelegatedInkPointPrediction(
     // Let viz know that the most recent point it received from us is probably
     // the last point the user is inking, so it shouldn't predict anything
     // beyond it.
-    TRACE_EVENT_INSTANT0("delegated_ink_trails", "Delegated ink trail ended",
-                         TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT("delegated_ink_trails", "Delegated ink trail ended");
     delegated_ink_point_renderer->ResetPrediction();
     ended_delegated_ink_trail = true;
   }
@@ -2709,6 +2745,15 @@ void RenderWidgetHostImpl::NotifyObserversOfInputEventAcks(
 bool RenderWidgetHostImpl::PreHandleGestureEvent(
     const blink::WebGestureEvent& event) {
   return delegate()->PreHandleGestureEvent(event);
+}
+
+bool RenderWidgetHostImpl::IsPinchToZoomEnabled() const {
+  if (!input::switches::IsPinchToZoomEnabled()) {
+    return false;
+  }
+
+  return GetContentClient()->browser()->IsPinchToZoomAllowed(
+      GetProcess()->GetBrowserContext());
 }
 
 std::unique_ptr<viz::PeakGpuMemoryTracker>
@@ -3212,6 +3257,32 @@ void RenderWidgetHostImpl::OnUnconfirmedTapConvertedToTap() {
   }
 }
 
+void RenderWidgetHostImpl::OnInputRouterActive() {
+  MaybeNotifyReadyForInput();
+}
+
+void RenderWidgetHostImpl::OnVizInputRouterActive() {
+  MaybeNotifyReadyForInput();
+}
+
+void RenderWidgetHostImpl::MaybeNotifyReadyForInput() {
+  if (!ready_for_input_callback_for_testing_) {
+    return;
+  }
+
+  // With InputViz touch and gesture events are routed to the viz process, so
+  // we need to wait for the InputRouter in both browser and viz processes to
+  // be active.
+  const bool ready =
+      input::InputUtils::IsTransferInputToVizSupported()
+          ? input_router()->IsActive() && mojo_rir_delegate()->is_active()
+          : input_router()->IsActive();
+
+  if (ready) {
+    std::move(ready_for_input_callback_for_testing_).Run();
+  }
+}
+
 void RenderWidgetHostImpl::UpdateElementFocusForStylusWriting(
 #if BUILDFLAG(IS_WIN)
     const gfx::Rect& focus_widget_rect_in_dips
@@ -3290,6 +3361,17 @@ void RenderWidgetHostImpl::RequestMouseLock(
     bool from_user_gesture,
     bool unadjusted_movement,
     input::InputRouterImpl::RequestMouseLockCallback response) {
+  // Browser-side enforcement of the kPointerLock sandbox flag.
+  // The renderer correctly blocks this via PointerLockController, but a
+  // compromised renderer can bypass that check via direct Mojo IPC.
+  // Note: crbug.com/492211919
+  if (delegate_ && delegate_->IsPointerLockSandboxedForWidget(this)) {
+    bad_message::ReceivedBadMessage(
+        GetProcess(), bad_message::RWH_POINTER_LOCK_FROM_SANDBOXED_FRAME);
+    std::move(response).Run(blink::mojom::PointerLockResult::kPermissionDenied,
+                            mojo::NullRemote());
+    return;
+  }
   if (IsPointerLocked()) {
     std::move(response).Run(blink::mojom::PointerLockResult::kAlreadyLocked,
                             /*context=*/mojo::NullRemote());
@@ -3992,6 +4074,13 @@ void RenderWidgetHostImpl::AnimateDoubleTapZoomInMainFrame(
     return;
   }
 
+  gfx::Rect view_local_bounds(view_->GetViewBounds().size());
+  if (!view_local_bounds.IsEmpty() &&
+      (!view_local_bounds.Contains(point) ||
+       !view_local_bounds.Intersects(rect_to_zoom))) {
+    return;
+  }
+
   auto* root_view = view_->GetRootView();
   gfx::Point transformed_point(point);
   gfx::Rect transformed_rect_to_zoom(rect_to_zoom);
@@ -4001,13 +4090,23 @@ void RenderWidgetHostImpl::AnimateDoubleTapZoomInMainFrame(
     return;
   }
 
-  auto* root_rvhi = RenderViewHostImpl::From(root_view->GetRenderWidgetHost());
-  root_rvhi->AnimateDoubleTapZoom(transformed_point, transformed_rect_to_zoom);
+  auto* root_rwhi =
+      RenderWidgetHostImpl::From(root_view->GetRenderWidgetHost());
+  if (root_rwhi && root_rwhi->owner_delegate()) {
+    root_rwhi->owner_delegate()->AnimateDoubleTapZoom(transformed_point,
+                                                      transformed_rect_to_zoom);
+  }
 }
 
 void RenderWidgetHostImpl::ZoomToFindInPageRectInMainFrame(
     const gfx::Rect& rect_to_zoom) {
   if (!view_) {
+    return;
+  }
+
+  gfx::Rect view_local_bounds(view_->GetViewBounds().size());
+  if (!view_local_bounds.IsEmpty() &&
+      !view_local_bounds.Intersects(rect_to_zoom)) {
     return;
   }
 
@@ -4018,8 +4117,11 @@ void RenderWidgetHostImpl::ZoomToFindInPageRectInMainFrame(
     return;
   }
 
-  auto* root_rvhi = RenderViewHostImpl::From(root_view->GetRenderWidgetHost());
-  root_rvhi->ZoomToFindInPageRect(transformed_rect_to_zoom);
+  auto* root_rwhi =
+      RenderWidgetHostImpl::From(root_view->GetRenderWidgetHost());
+  if (root_rwhi && root_rwhi->owner_delegate()) {
+    root_rwhi->owner_delegate()->ZoomToFindInPageRect(transformed_rect_to_zoom);
+  }
 }
 
 void RenderWidgetHostImpl::SetHasTouchEventConsumers(

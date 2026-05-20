@@ -4,10 +4,11 @@
 
 package org.chromium.chrome.browser.omnibox;
 
+import android.content.Context;
+
 import org.chromium.base.Callback;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.UserData;
-import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.OneShotCallback;
 import org.chromium.build.annotations.NullMarked;
@@ -23,6 +24,7 @@ import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.ToolModeUtils;
+import org.chromium.content_public.browser.WebContents;
 
 import java.util.Optional;
 
@@ -71,6 +73,7 @@ public class FuseboxSessionState implements UserData {
     private @Nullable AutocompleteController mAutocomplete;
     private @Nullable FuseboxAttachmentModelList mFuseboxAttachmentModelList;
     private @Nullable OneShotCallback<Profile> mPendingProfileCallback;
+    private @Nullable WebContents mWebContents;
     private boolean mIsActive;
 
     /**
@@ -84,10 +87,9 @@ public class FuseboxSessionState implements UserData {
     public static @Nullable FuseboxSessionState from(LocationBarDataProvider dataProvider) {
         if (sInstanceForTesting != null) return sInstanceForTesting.orElse(null);
 
-        var userDataHost = dataProvider.getUserDataHost();
-        if (userDataHost == null) return null;
+        var state = dataProvider.getFuseboxSessionState();
+        if (state == null) return null;
 
-        var state = getSessionForTab(userDataHost);
         // Re-apply page metadata in case of ephemeral session, background reload etc.
         state.mAutocompleteInput.setPageClassification(dataProvider.getPageClassification(false));
         state.mAutocompleteInput.setPageUrl(dataProvider.getCurrentGurl());
@@ -95,26 +97,16 @@ public class FuseboxSessionState implements UserData {
         return state;
     }
 
-    /**
-     * Returns session state for the supplied tab.
-     *
-     * @param userDataHost The tab to retrieve the session state for.
-     * @return FuseboxSessionState for the supplied UserDataHost.
-     */
-    private static FuseboxSessionState getSessionForTab(UserDataHost userDataHost) {
-        FuseboxSessionState state = userDataHost.getUserData(FuseboxSessionState.class);
-        if (state == null) {
-            state = new FuseboxSessionState();
-            userDataHost.setUserData(FuseboxSessionState.class, state);
-        }
-        return state;
-    }
-
     /** Constructs a new, empty FuseboxSessionState. */
-    private FuseboxSessionState() {
+    public FuseboxSessionState() {
         if (OmniboxFeatures.sShowModelPicker.getValue()) {
             mAutocompleteInput.getRequestTypeSupplier().addSyncObserver(mOnRequestTypeChanged);
         }
+    }
+
+    /** Returns the WebContents of the contextual tasks WebUI associated with the fusebox. */
+    public @Nullable WebContents getContextualTasksWebContents() {
+        return mWebContents;
     }
 
     /** Returns the current {@link Profile} for this session. */
@@ -129,12 +121,17 @@ public class FuseboxSessionState implements UserData {
      * initialize all required session controllers. The caller may supply an optional {@link
      * Runnable} to be notified when the session is fully set up.
      *
+     * @param context The context appropriate for the current Activity window.
+     * @param webContents The WebContents of the contextual tasks WebUI.
      * @param profileSupplier The supplier for the {@link Profile} object.
      * @param onFullyActivated Optional runnable to be invoked when the session is fully activated.
      */
     public void activate(
+            Context context,
+            @Nullable WebContents webContents,
             MonotonicObservableSupplier<Profile> profileSupplier,
             @Nullable Runnable onFullyActivated) {
+        mWebContents = webContents;
         if (mIsActive) {
             // This session is being re-activated. It has already been fully initialized so simply
             // emit the event.
@@ -149,7 +146,7 @@ public class FuseboxSessionState implements UserData {
         // Use current URL if the Retention is active as the starting input.
         // On eligible LFF devices the Omnibox should, by default, present the
         // current page URL (if the URL is eligible for display).
-        if (OmniboxFeatures.shouldRetainOmniboxOnFocus()
+        if (OmniboxFeatures.hasDesktopExperience(context)
                 && UrlBarData.shouldShowUrl(mAutocompleteInput.getPageUrl(), false)) {
             var editUrl = UrlUtilities.stripScheme(mAutocompleteInput.getPageUrl().getSpec());
             mAutocompleteInput.setInitialUserText(editUrl);
@@ -162,7 +159,7 @@ public class FuseboxSessionState implements UserData {
             mAutocompleteInput
                     .setUserText(mAutocompleteInput.getInitialUserText())
                     .setSelection(
-                            OmniboxFeatures.shouldRetainOmniboxOnFocus() ? 0 : Integer.MAX_VALUE,
+                            OmniboxFeatures.hasDesktopExperience(context) ? 0 : Integer.MAX_VALUE,
                             Integer.MAX_VALUE);
         }
 
@@ -187,6 +184,7 @@ public class FuseboxSessionState implements UserData {
 
         mAutocompleteInput.reset();
         tearDownSessionControllers();
+        mWebContents = null;
         mIsActive = false;
     }
 
@@ -213,10 +211,12 @@ public class FuseboxSessionState implements UserData {
         // explicit destruction.
         mAutocomplete = AutocompleteController.getForProfile(mProfile);
 
-        mComposeBoxQueryControllerBridge =
-                ComposeboxQueryControllerBridge.createForProfile(mProfile);
+        if (mComposeBoxQueryControllerBridge == null) {
+            mComposeBoxQueryControllerBridge =
+                    ComposeboxQueryControllerBridge.create(mProfile, mWebContents);
+        }
 
-        if (mComposeBoxQueryControllerBridge != null) {
+        if (mComposeBoxQueryControllerBridge != null && mFuseboxAttachmentModelList == null) {
             // Composebox Controller may not be instantiated if locale or policies prohibit AIM.
             mMetrics = new FuseboxMetrics();
             // Create attachments list only if allowed.
@@ -233,14 +233,19 @@ public class FuseboxSessionState implements UserData {
 
     @Override
     public void destroy() {
+        if (mIsActive) {
+            deactivate();
+        }
         tearDownSessionControllers();
         if (OmniboxFeatures.sShowModelPicker.getValue()) {
             mAutocompleteInput.getRequestTypeSupplier().removeObserver(mOnRequestTypeChanged);
         }
     }
 
-    /** Tear down session controllers. */
-    private void tearDownSessionControllers() {
+    /** Unlinks and destroys session controllers. */
+    protected void tearDownSessionControllers() {
+        unlinkSessionControllers();
+
         if (mFuseboxAttachmentModelList != null) {
             mFuseboxAttachmentModelList.removeAttachmentChangeListener(
                     mFuseboxAttachmentChangeListener);
@@ -248,15 +253,13 @@ public class FuseboxSessionState implements UserData {
             mFuseboxAttachmentModelList = null;
         }
 
-        unlinkSessionControllers();
-
         if (mComposeBoxQueryControllerBridge != null) {
             mComposeBoxQueryControllerBridge.destroy();
+            mComposeBoxQueryControllerBridge = null;
         }
 
-        mComposeBoxQueryControllerBridge = null;
-        mMetrics = null;
         mAutocomplete = null;
+        mMetrics = null;
         mProfile = null;
     }
 

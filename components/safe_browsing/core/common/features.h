@@ -53,10 +53,22 @@ extern const base::FeatureParam<int>
 // Enables Bundled Security Settings UI on chrome://settings/security.
 BASE_DECLARE_FEATURE(kBundledSecuritySettings);
 
+// Enables Ask-Before-HTTP / HTTPS-First Mode integration into the Enhanced
+// Security settings bundle.
+BASE_DECLARE_FEATURE(kBundledSecuritySettingsAskBeforeHttp);
+
 // Enables new Secure DNS V2 UI in Bundled Security Settings UI on the
 // chrome://settings/security page. Requires that kBundledSecuritySettings is
 // also enabled.
 BASE_DECLARE_FEATURE(kBundledSecuritySettingsSecureDnsV2);
+
+// Allows a list of ClientSideDetectionType to bypass the priority tier check.
+BASE_DECLARE_FEATURE(kClientSideDetectionBypassTiers);
+// The tier list below will be in form of the integer value of the
+// ClientSideDetectionType which will bypass the system. Example: "1,2" will
+// allow trigger type FORCE_REQUEST and TRIGGER_MODELS to bypass all others.
+extern const base::FeatureParam<std::string>
+    kClientSideDetectionBypassTiersList;
 
 // Expand CSPP beyond phishing and trigger when clipboard copy API is called on
 // the page.
@@ -83,6 +95,8 @@ extern const base::FeatureParam<double> kCsdCreditCardFormSampleRate;
 // If the user has visited more times than this max, then the CSD ping is
 // blocked.
 extern const base::FeatureParam<int> kCsdCreditCardFormMaxUserVisit;
+// Sets the lookback period in minutes for determining the site visit count.
+extern const base::FeatureParam<int> kCsdCreditCardFormUserVisitLookback;
 // Specifies whether to filter credit card CSD pings based on whether the user
 // is on a new site.
 extern const base::FeatureParam<bool> kCsdCreditCardFormEnableNewSiteFilter;
@@ -92,6 +106,12 @@ extern const base::FeatureParam<bool> kCsdCreditCardFormEnableHeuristicFilter;
 // Specifies whether to filter credit card CSD pings based on the referring app.
 extern const base::FeatureParam<bool>
     kCsdCreditCardFormEnableReferringAppFilter;
+// Specifies whether to enable triggering on interaction with a credit card
+// form field.
+extern const base::FeatureParam<bool>
+    kCsdCreditCardFormEnableInteractionTrigger;
+// Specifies whether to enable triggering on detection of a credit card form.
+extern const base::FeatureParam<bool> kCsdCreditCardFormEnableDetectionTrigger;
 
 // Deprecate the DOM model and do not onboard to renderer.
 BASE_DECLARE_FEATURE(kClientSideDetectionDeprecateDOMModel);
@@ -114,11 +134,6 @@ extern const base::FeatureParam<bool>
 // while we fix the root cause. This will also halt the model distribution from
 // OptimizationGuide.
 BASE_DECLARE_FEATURE(kClientSideDetectionKillswitch);
-
-// Inquire the on device model when the forced llama trigger info in
-// RTLookupResponse asks to scan the page.
-BASE_DECLARE_FEATURE(
-    kClientSideDetectionLlamaForcedTriggerInfoForScamDetection);
 
 // The observers that trigger the image classification have been tweaked with a
 // more defined page loading state check.
@@ -144,33 +159,26 @@ extern const base::FeatureParam<int> kClientSideDetectionRetryLimitTime;
 BASE_DECLARE_FEATURE(kClientSideDetectionSamplePing);
 
 #if BUILDFLAG(IS_ANDROID)
-// Send IntelligentScanInfo in CSD pings on Android.
-BASE_DECLARE_FEATURE(kClientSideDetectionSendIntelligentScanInfoAndroid);
-#endif
-
-// Pass the LlamaTriggerRuleInfo from RTLookupResponse to ClientPhishingRequest
-// if it exists and the force request mechanism occurs.
-BASE_DECLARE_FEATURE(kClientSideDetectionSendLlamaForcedTriggerInfo);
-
-#if BUILDFLAG(IS_ANDROID)
 // Inquire the server-side model instead of the on-device model for scam
 // detection.
 BASE_DECLARE_FEATURE(kClientSideDetectionServerModelForScamDetectionAndroid);
 extern const base::FeatureParam<int>
     kClientSideDetectionServerModelMaxScansPerDay;
-#endif
 
-// Show a warning to the user based on the
-// IntelligentScanVerdict::SCAM_EXPERIMENT_VERDICT_2.
-BASE_DECLARE_FEATURE(kClientSideDetectionShowLlamaScamVerdictWarning);
-
-#if BUILDFLAG(IS_ANDROID)
-// Show a warning to the user that factors in the IntelligentScanVerdict from
-// ClientPhishingResponse on Android.
-BASE_DECLARE_FEATURE(kClientSideDetectionShowScamVerdictWarningAndroid);
+// Dedicated long-lived feature flag to control future server model rollout and
+// set the model version. This flag should not be cleaned up after the server
+// model is launched. See go/mes-config-rollouts#roll-out-via-finch on the
+// recommended way to control rollouts.
+BASE_DECLARE_FEATURE(kClientSideDetectionServerModelRolloutAndroid);
+// Note for future finch config: Set an arbitrary integer value associated with
+// the model version (e.g. 1001). Update go/slams-mapping accordingly.
+extern const base::FeatureParam<int>
+    kClientSideDetectionServerModelRolloutVersionAndroid;
 #endif
 
 BASE_DECLARE_FEATURE(kClientSideDetectionSkipErrorPage);
+
+BASE_DECLARE_FEATURE(kClientSideDetectionTierSystem);
 
 // Set a RESIZE_BEST preference for image resizing algorithm in Client Side
 // Detection renderer processes for both image classification and image
@@ -346,17 +354,6 @@ BASE_DECLARE_FEATURE(kMigrateEnhancedSbUserToEnhancedBundle);
 // be eligible for the migration.
 BASE_DECLARE_FEATURE(kMigrateToBlockV8OptimizerOnUnfamiliarSites);
 
-// TODO(crbug.com/449960661): Remove this flag once the MigrateAccountPrefs
-// feature is launched and the regression of users with ESB enhanced protection
-// is resolved.
-//  When enabled, this feature fixes a flaw in the Tailored Security service's
-//  handling of failed requests for the Enhanced Safe Browsing (ESB) setting.
-//  Previously, a network error would cause the service to incorrectly assume
-//  ESB was disabled. With this fix, the service preserves the last known state
-//  of the ESB bit during a failed request, preventing transient errors from
-//  disabling user protection.
-BASE_DECLARE_FEATURE(kModifiedESBFetchErrorHandling);
-
 // When enabled, the Password Leak detection toggle is moved out from under the
 // 'Standard protection' Safe Browsing option to the top-level 'Privacy and
 // security' page.
@@ -380,6 +377,12 @@ extern const base::FeatureParam<double>
 extern const base::FeatureParam<int> kNotificationTelemetrySwbPollingInterval;
 // Determines whether CSBRRs are sent to Safe Browsing.
 extern const base::FeatureParam<bool> kNotificationTelemetrySwbSendReports;
+
+// Enables proactive password protection, which triggers a CSD scan when
+// focusing on a password field.
+BASE_DECLARE_FEATURE(kProactivePasswordProtection);
+extern const base::FeatureParam<double>
+    kCsdProactivePasswordProtectionSampleRate;
 
 // Enables HaTS surveys for users encountering red warnings.
 BASE_DECLARE_FEATURE(kRedWarningSurvey);

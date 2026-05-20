@@ -40,13 +40,6 @@ class AddressDataCleaner : public AddressDataManager::Observer,
   AddressDataCleaner(const AddressDataCleaner&) = delete;
   AddressDataCleaner& operator=(const AddressDataCleaner&) = delete;
 
-  // Determines whether the cleanups should run depending on the sync state and
-  // runs them if applicable. Ensures that the cleanups are run at most once
-  // over multiple invocations of the functions.
-  // Deduplication is particularly expensive, since it runs in O(#profiles^2).
-  // For this reason, it is only run once per milestone.
-  void MaybeCleanupAddressData();
-
   // Computes the `comparator.NonMergeableSettingVisibleTypes()` between
   // `profile` and every element of `other_profiles`. Returns the subset of them
   // that have minimum size combined with a profile that was used to obtain
@@ -69,18 +62,10 @@ class AddressDataCleaner : public AddressDataManager::Observer,
  private:
   friend class AddressDataCleanerTestApi;
 
-  // Deduplicates the PDMs profiles, by merging profile pairs where one is a
-  // subset of the other. Account profiles are never deduplication.
-  // Virtual for testing.
-  virtual void ApplyDeduplicationRoutine();
-
-  // Migrates the phonetic names that were stored in the regular name fields to
-  // alternative name fields.
-  // TODO(crbug.com/359768803): Remove this method once the migration is done.
-  virtual void MigratePhoneticNames();
-
-  // Delete profiles unused for at least `kDisusedDataModelDeletionTimeDelta`.
-  void DeleteDisusedAddresses();
+  // Depending on the feature flag
+  // `kAutofillEnableDeduplicationOnBackgroundThread`, either initiates the
+  // cleanup on a background thread or directly on the current thread.
+  void MaybeCleanupAddressData();
 
   // AddressDataManager::Observer
   void OnAddressDataChanged() override;

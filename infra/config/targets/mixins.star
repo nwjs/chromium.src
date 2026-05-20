@@ -80,7 +80,7 @@ android_emulator_mixin("15-tablet-x64-emulator", "android_35_google_apis_x64_tab
 android_emulator_mixin("15-tablet-landscape-x64-emulator", "android_35_google_apis_x64_tablet_landscape.textpb")
 android_emulator_mixin("15-x64-emulator", "android_35_google_apis_x64.textpb")
 android_emulator_mixin("16-x64-emulator", "android_36_google_apis_x64.textpb")
-android_emulator_mixin("17-beta-x64-emulator", "android_cinnamonbun_google_apis_ps16k_x64.textpb")
+android_emulator_mixin("17-beta-x64-emulator", "android_37_google_apis_ps16k_x64.textpb")
 android_emulator_mixin("canary-x64-emulator", "android_canary_google_apis_x64.textpb")
 
 # The following emulator mixins are deprecated on the chromium side. But they
@@ -251,20 +251,6 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "tfc-exclude-public",
-    skylab = targets.skylab(
-        cros_test_names_exclude_from_file = ["chromeos/tast_control_disabled_tests.txt", "chromeos/tast_control_disabled_tests_public_builders.txt"],
-    ),
-)
-
-targets.mixin(
-    name = "tfc-run-public",
-    skylab = targets.skylab(
-        cros_test_names_from_file = ["chromeos/tast_control_disabled_tests.txt", "chromeos/tast_control_disabled_tests_public_builders.txt"],
-    ),
-)
-
-targets.mixin(
     name = "tfc-cq-tast",
     skylab = targets.skylab(
         cros_test_names_from_file = ["chromeos/tast_control_cq_tests.txt"],
@@ -331,19 +317,6 @@ targets.mixin(
             ),
         ],
     ),
-)
-
-targets.mixin(
-    name = "chromeos-tast-public-builder",
-    args = [
-        # FieldTrial is disabled on ChromeOS builders but not in this builder.
-        # Notify Tast to handle the different UI by that.
-        "setup.FieldTrialConfig=enable",
-
-        # Tests using the default gaia pool cannot be run by public builders.
-        # These variables are fed by private bundles, thus not for public builders.
-        "-maybemissingvars=ui\\.(gaiaPoolDefault|signinProfileTestExtensionManifestKey)|uidetection\\.(key|key_type|server)",
-    ],
 )
 
 targets.mixin(
@@ -833,7 +806,8 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "display_attached": "1",
-            "gpu": "1002:7340-25.0.7",
+            "display_server": "x11",
+            "gpu": "1002:7340-25.2.8",
             "os": "Ubuntu-24.04",
             "pool": "chromium.tests.gpu",
         },
@@ -848,6 +822,7 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "display_attached": "1",
+            "display_server": "x11",
             "gpu": "1002:13c0",
             "os": "Ubuntu",
             "pool": "chromium.tests.gpu.experimental",
@@ -872,6 +847,7 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "display_attached": "1",
+            "display_server": "x11",
             "gpu": "8086:64a0",
             "os": "Ubuntu",
             "pool": "chromium.tests.gpu.experimental",
@@ -1029,14 +1005,6 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "ios_custom_webkit",
-    args = [
-        "--args-json",
-        "{\"test_args\": [\"--run-with-custom-webkit\"]}",
-    ],
-)
-
-targets.mixin(
     name = "ios_output_disabled_tests",
     args = [
         "--output-disabled-tests",
@@ -1107,12 +1075,12 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "ios_runtime_cache_26_4",
+    name = "ios_runtime_cache_26_5",
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "runtime_ios_26_4",
-                path = "Runtime-ios-26.4",
+                name = "runtime_ios_26_5",
+                path = "Runtime-ios-26.5",
             ),
         ],
     ),
@@ -1208,6 +1176,7 @@ targets.mixin(
             "gpu": "1002:1900-25.2.2",
             "os": "Ubuntu-24.04",
             "display_attached": "1",
+            "display_server": "x11",
             "pool": "chromium.tests.gpu.experimental",
         },
     ),
@@ -1220,6 +1189,7 @@ targets.mixin(
             "gpu": "1002:150e-25.0.7",
             "os": "Ubuntu-24.04",
             "display_attached": "1",
+            "display_server": "x11",
             "pool": "chromium.tests.gpu.experimental",
         },
     ),
@@ -1229,9 +1199,10 @@ targets.mixin(
     name = "linux_amd_rx_5500_xt",
     swarming = targets.swarming(
         dimensions = {
-            "gpu": "1002:7340-23.2.1",
-            "os": "Ubuntu-22.04",
+            "gpu": "1002:7340-23.2.1|1002:7340-25.2.8",
+            "os": "Ubuntu-22.04|Ubuntu-24.04",
             "display_attached": "1",
+            "display_server": "x11",
             "pool": "chromium.tests.gpu",
         },
     ),
@@ -1244,6 +1215,7 @@ targets.mixin(
             "gpu": "1002:7480-25.0.7",
             "os": "Ubuntu-24.04",
             "display_attached": "1",
+            "display_server": "x11",
             "pool": "chromium.tests.gpu",
         },
     ),
@@ -1256,6 +1228,7 @@ targets.mixin(
             "gpu": "8086:9bc5-23.2.1",
             "os": "Ubuntu-22.04.5",
             "display_attached": "1",
+            "display_server": "x11",
             "pool": "chromium.tests.gpu",
         },
     ),
@@ -1267,6 +1240,7 @@ targets.mixin(
         dimensions = {
             "gpu": "8086:9bc5-23.2.1",
             "os": "Ubuntu-22.04",
+            "display_server": "x11",
             "pool": "chromium.tests.gpu",
         },
     ),
@@ -1279,6 +1253,7 @@ targets.mixin(
             "gpu": "8086:4680-23.2.1",
             "os": "Ubuntu-22.04",
             "display_attached": "1",
+            "display_server": "x11",
             "pool": "chromium.tests.gpu",
         },
     ),
@@ -1288,6 +1263,7 @@ targets.mixin(
     name = "linux_nvidia_gtx_1660_experimental",
     swarming = targets.swarming(
         dimensions = {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu",
@@ -1299,6 +1275,7 @@ targets.mixin(
     name = "linux_nvidia_gtx_1660_stable",
     swarming = targets.swarming(
         dimensions = {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu",
@@ -1310,6 +1287,7 @@ targets.mixin(
     name = "linux_nvidia_rtx_4070_super_stable",
     swarming = targets.swarming(
         dimensions = {
+            "display_server": "x11",
             "gpu": "10de:2783-580.95.05",
             "os": "Ubuntu-24.04",
             "pool": "chromium.tests.gpu",
@@ -1896,6 +1874,13 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "use-ios-simulator-cache",
+    args = [
+        "--use-simulator-cache",
+    ],
+)
+
+targets.mixin(
     name = "vaapi_unittest_args",
     args = [
         "--stop-ui",
@@ -2181,22 +2166,6 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "win11_qualcomm_adreno_690_stable",
-    swarming = targets.swarming(
-        dimensions = {
-            "display_attached": "1",
-            # Screen scaling is mostly to ensure that pixel test output is
-            # consistent.
-            "screen_scaling_percent": "100",
-            "cpu": "arm64",
-            "gpu": "qcom:043a-27.20.1870.0",
-            "os": "Windows-11-22631",
-            "pool": "chromium.tests",
-        },
-    ),
-)
-
-targets.mixin(
     name = "win11",
     swarming = targets.swarming(
         dimensions = {
@@ -2241,22 +2210,6 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "xcode_15_beta",
-    args = [
-        "--xcode-build-version",
-        "15f31d",
-    ],
-    swarming = targets.swarming(
-        named_caches = [
-            swarming.cache(
-                name = "xcode_ios_15f31d",
-                path = "Xcode.app",
-            ),
-        ],
-    ),
-)
-
-targets.mixin(
     name = "xcode_16_main",
     args = [
         "--xcode-build-version",
@@ -2273,31 +2226,15 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "xcode_16_beta",
-    args = [
-        "--xcode-build-version",
-        "16f6",
-    ],
-    swarming = targets.swarming(
-        named_caches = [
-            swarming.cache(
-                name = "xcode_ios_16f6",
-                path = "Xcode.app",
-            ),
-        ],
-    ),
-)
-
-targets.mixin(
     name = "xcode_26_beta",
     args = [
         "--xcode-build-version",
-        "17e192",
+        "17f5032f",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_17e192",
+                name = "xcode_ios_17f5032f",
                 path = "Xcode.app",
             ),
         ],

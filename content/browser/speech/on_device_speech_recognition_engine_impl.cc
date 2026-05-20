@@ -12,6 +12,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
+#include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/speech_recognition_session_config.h"
 #include "content/public/common/content_client.h"
@@ -44,8 +45,7 @@ OnDeviceSpeechRecognitionEngine::OnDeviceSpeechRecognitionEngine(
       FROM_HERE,
       base::BindOnce(&OnDeviceSpeechRecognitionEngine::CreateModelClientOnUI,
                      weak_factory_.GetWeakPtr(),
-                     config_.initial_context.render_process_id,
-                     config_.initial_context.render_frame_id));
+                     config_.initial_context.global_id));
 }
 
 OnDeviceSpeechRecognitionEngine::~OnDeviceSpeechRecognitionEngine() = default;
@@ -128,11 +128,9 @@ int OnDeviceSpeechRecognitionEngine::GetDesiredAudioChunkDurationMs() const {
 }
 
 void OnDeviceSpeechRecognitionEngine::CreateModelClientOnUI(
-    int render_process_id,
-    int render_frame_id) {
+    GlobalRenderFrameHostId global_id) {
   RenderFrameHost* rfh =
-      RenderFrameHost::FromID(config_.initial_context.render_process_id,
-                              config_.initial_context.render_frame_id);
+      RenderFrameHost::FromID(config_.initial_context.global_id);
   if (!rfh) {
     return;
   }
@@ -141,15 +139,18 @@ void OnDeviceSpeechRecognitionEngine::CreateModelClientOnUI(
       GetContentClient()->browser()->CreateModelBrokerClient(
           rfh->GetBrowserContext());
 
+  optimization_guide::mojom::OnDeviceFeature feature =
+      config_.quality == media::mojom::SpeechRecognitionQuality::kDictation
+          ? optimization_guide::mojom::OnDeviceFeature::
+                kSpeechRecognitionSmallExpertModel
+          : optimization_guide::mojom::OnDeviceFeature::
+                kOnDeviceSpeechRecognition;
+
   if (core_->model_broker_client) {
-    core_->model_broker_client->RequestAssetsFor(
-        optimization_guide::mojom::OnDeviceFeature::kOnDeviceSpeechRecognition);
-    core_->model_broker_client
-        ->GetSubscriber(optimization_guide::mojom::OnDeviceFeature::
-                            kOnDeviceSpeechRecognition)
-        .WaitForClient(base::BindOnce(
-            &OnDeviceSpeechRecognitionEngine::OnModelClientAvailable,
-            weak_factory_.GetWeakPtr()));
+    core_->model_broker_client->RequestAssetsFor(feature);
+    core_->model_broker_client->GetSubscriber(feature).WaitForClient(
+        base::BindOnce(&OnDeviceSpeechRecognitionEngine::OnModelClientAvailable,
+                       weak_factory_.GetWeakPtr()));
   }
 }
 
@@ -197,10 +198,23 @@ void OnDeviceSpeechRecognitionEngine::OnAsrStreamCreated(
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_checker_);
   asr_stream_.Bind(std::move(asr_stream));
   asr_stream_responder_.Bind(std::move(asr_stream_responder));
+  asr_stream_responder_.set_disconnect_with_reason_handler(base::BindOnce(
+      &OnDeviceSpeechRecognitionEngine::OnResponderDisconnectedWithReason,
+      weak_factory_.GetWeakPtr()));
 }
 
 void OnDeviceSpeechRecognitionEngine::OnRecognizerDisconnected() {
+  OnResponderDisconnectedWithReason(0, "");
+}
+
+void OnDeviceSpeechRecognitionEngine::OnResponderDisconnectedWithReason(
+    uint32_t custom_reason,
+    const std::string& description) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_checker_);
+  media::mojom::SpeechRecognitionError error;
+  error.code = media::mojom::SpeechRecognitionErrorCode::kServiceNotAllowed;
+  error.details = media::mojom::SpeechAudioErrorDetails::kNone;
+  delegate_->OnSpeechRecognitionEngineError(error);
   EndRecognition();
 }
 
@@ -211,7 +225,8 @@ OnDeviceSpeechRecognitionEngine::ConvertAccumulatedAudioData() {
   auto signed_buffer = on_device_model::mojom::AudioData::New();
   signed_buffer->channel_count = audio_parameters_.channels();
   signed_buffer->sample_rate = audio_parameters_.sample_rate();
-  signed_buffer->frame_count = accumulated_audio_data_.size();
+  signed_buffer->frame_count =
+      base::checked_cast<int32_t>(accumulated_audio_data_.size());
 
   // Normalization factor for converting int16_t audio samples to float.
   constexpr float kInt16ToFloatNormalizer = 32768.0f;

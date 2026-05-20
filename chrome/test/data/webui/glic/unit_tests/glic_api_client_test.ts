@@ -2,11 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {ObservableSetByTabIdDelegate} from 'chrome://glic/glic_api_impl/client/glic_api_client.js';
-import {IdGenerator, ObservableSetByTabId} from 'chrome://glic/glic_api_impl/client/glic_api_client.js';
-import type {PostMessageRequestSender, RequestMessage} from 'chrome://glic/glic_api_impl/post_message_transport.js';
-import {PostMessageRouter} from 'chrome://glic/glic_api_impl/post_message_transport.js';
-import {assertEquals, assertNotEquals} from 'chrome://webui-test/chai_assert.js';
+import type {ObservableSetByTabIdDelegate, PostMessageRequestSender, RequestMessage} from 'chrome://glic/glic.js';
+import {IdGenerator, ObservableSetByTabId, PostMessageRouter} from 'chrome://glic/glic.js';
+import {assertEquals, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 
 class StubSender {
   sentMessages: RequestMessage[] = [];
@@ -100,7 +98,7 @@ suite('ObservableSetByTabId', () => {
     assertEquals(env.delegate.observations[0]!.tabId, '123');
 
     env.obs.completeObservable(env.delegate.observations[0]!.observationId);
-    assertEquals(completed, true, 'complete() was not called');
+    assertTrue(completed, 'complete() was not called');
     // wait for prune
     await sleep(env.delegate.unsubscribeDelay + 1);
     await sleep(0);

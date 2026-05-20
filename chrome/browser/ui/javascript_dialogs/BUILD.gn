@@ -19,7 +19,6 @@ source_set("javascript_dialogs") {
   } else {
     sources += [ "javascript_tab_modal_dialog_manager_delegate_desktop.h" ]
     public_deps += [
-      "//chrome/browser/ui:browser_list",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip_model_observer",
       "//chrome/browser/ui/tabs:tabs_public",
@@ -59,6 +58,20 @@ source_set("impl") {
 }
 
 if (!is_android) {
+  source_set("unit_tests") {
+    testonly = true
+    sources =
+        [ "javascript_tab_modal_dialog_manager_delegate_desktop_unittest.cc" ]
+    deps = [
+      ":impl",
+      ":javascript_dialogs",
+      "//chrome/test:test_support",
+      "//components/tabs:public",
+      "//content/test:test_support",
+      "//testing/gtest",
+    ]
+  }
+
   source_set("browser_tests") {
     testonly = true
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]

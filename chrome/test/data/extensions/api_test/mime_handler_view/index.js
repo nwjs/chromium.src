@@ -49,8 +49,8 @@ function checkStreamDetails(name, embedded) {
   checkStreamDetailsNoFile();
   chrome.test.assertEq(embedded, streamDetails.embedded);
   chrome.test.assertNe(-1, streamDetails.originalUrl.indexOf(name));
-  chrome.test.assertEq('text/csv',
-                       streamDetails.responseHeaders['Content-Type']);
+  chrome.test.assertEq(
+      'text/csv', streamDetails.responseHeaders['Content-Type']);
 }
 
 function checkStreamDetailsNoFile() {
@@ -59,8 +59,7 @@ function checkStreamDetailsNoFile() {
 }
 
 // The following helper methods are used in BrowserPlugin-specific tests.
-function dummyTouchStartHandler(e) {
-}
+function dummyTouchStartHandler(e) {}
 
 function ensurePageIsScrollable() {
   document.body.style = ' width: 100%; height: 100%; overflow: scroll;';
@@ -107,10 +106,9 @@ const tests = [
 
   function testNonAsciiHeaders() {
     checkStreamDetails('testNonAsciiHeaders.csv', false);
-    chrome.test.assertEq(undefined,
-                         streamDetails.responseHeaders['Content-Disposition']);
-    chrome.test.assertEq(undefined,
-                         streamDetails.responseHeaders['ü']);
+    chrome.test.assertEq(
+        undefined, streamDetails.responseHeaders['Content-Disposition']);
+    chrome.test.assertEq(undefined, streamDetails.responseHeaders['ü']);
     chrome.test.succeed();
   },
 
@@ -118,15 +116,15 @@ const tests = [
     const expectedMessages = ['hey', 100, 25.0];
     let messagesReceived = 0;
     function handleMessage(event) {
-      if (event.data == 'succeed' &&
-          messagesReceived == expectedMessages.length) {
+      if (event.data === 'succeed' &&
+          messagesReceived === expectedMessages.length) {
         chrome.test.succeed();
-      } else if (event.data == 'fail') {
+      } else if (event.data === 'fail') {
         chrome.test.fail();
-      } else if (event.data == expectedMessages[messagesReceived]) {
+      } else if (event.data === expectedMessages[messagesReceived]) {
         event.source.postMessage(event.data, '*');
         messagesReceived++;
-      } else if (event.data != 'initBeforeUnload') {
+      } else if (event.data !== 'initBeforeUnload') {
         chrome.test.fail(`unexpected message ${event.data}`);
       }
     }
@@ -160,7 +158,7 @@ const tests = [
     function waitForFullscreenAnimation() {
       return new Promise(resolve => {
         chrome.runtime.getPlatformInfo(info => {
-          if (info.os != 'mac') {
+          if (info.os !== 'mac') {
             resolve();
             return;
           }
@@ -194,8 +192,8 @@ const tests = [
           chrome.test.assertEq(null, document.webkitFullscreenElement);
           await waitForFullscreenAnimation();
           chrome.windows.get(windowId, currentWindow => {
-            chrome.test.assertFalse('fullscreen' == currentWindow.state,
-                                    currentWindow.state);
+            chrome.test.assertFalse(
+                'fullscreen' === currentWindow.state, currentWindow.state);
             chrome.test.runWithUserGesture(
                 () => document.body.webkitRequestFullscreen());
           });
@@ -219,6 +217,8 @@ const tests = [
             chrome.test.succeed();
           });
           break;
+        default:
+          // Unexpected, but nothing we can do -- the test already passed.
       }
       calls++;
     });
@@ -231,16 +231,18 @@ const tests = [
     let calls = 0;
     let windowId;
     window.addEventListener('webkitfullscreenchange', async e => {
-      switch(calls) {
-        case 0: // On fullscreen entered.
+      switch (calls) {
+        case 0:  // On fullscreen entered.
           chrome.test.assertTrue(document.webkitIsFullScreen);
           chrome.test.assertEq(document.body, document.webkitFullscreenElement);
           break;
-        case 1: // On fullscreen exited.
+        case 1:  // On fullscreen exited.
           chrome.test.assertFalse(document.webkitIsFullScreen);
           chrome.test.assertEq(null, document.webkitFullscreenElement);
           chrome.test.succeed();
           break;
+        default:
+          // Unexpected, but nothing we can do -- the test already passed.
       }
       calls++;
     });
@@ -304,8 +306,9 @@ for (let i = 0; i < tests.length; i++) {
 }
 
 chrome.mimeHandlerPrivate.getStreamInfo(function(streamInfo) {
-  if (!streamInfo)
+  if (!streamInfo) {
     return;
+  }
 
   // If the name of the file we're handling matches the name of a test, run that
   // test.

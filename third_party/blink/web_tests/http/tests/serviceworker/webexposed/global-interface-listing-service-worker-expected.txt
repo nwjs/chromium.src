@@ -993,6 +993,10 @@ interface GPUUncapturedErrorEvent : Event
 interface GPUValidationError : GPUError
     attribute @@toStringTag
     method constructor
+interface GeolocationPermissionStatus : PermissionStatus
+    attribute @@toStringTag
+    getter accuracyMode
+    method constructor
 interface Headers
     attribute @@toStringTag
     method @@iterator
@@ -3516,6 +3520,7 @@ interface WebSocketStream
 interface WebTransport
     attribute @@toStringTag
     getter closed
+    getter congestionControl
     getter datagrams
     getter incomingBidirectionalStreams
     getter incomingUnidirectionalStreams
@@ -3555,6 +3560,14 @@ interface WebTransportSendGroup
     attribute @@toStringTag
     method constructor
     method getStats
+interface WebTransportSendStream : WritableStream
+    attribute @@toStringTag
+    getter sendGroup
+    getter sendOrder
+    method constructor
+    method getStats
+    setter sendGroup
+    setter sendOrder
 interface WindowClient : Client
     attribute @@toStringTag
     getter focused

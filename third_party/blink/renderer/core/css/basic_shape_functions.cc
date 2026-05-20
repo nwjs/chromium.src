@@ -529,6 +529,10 @@ CSSValue* ValueForBasicShape(const ComputedStyle& style,
           MakeGarbageCollected<cssvalue::CSSBasicShapePolygonValue>();
 
       polygon_value->SetWindRule(polygon->GetWindRule());
+      if (polygon->HasRoundingRadius()) {
+        polygon_value->SetRoundingRadius(CSSPrimitiveValue::CreateFromLength(
+            polygon->RoundingRadius(), style.EffectiveZoom()));
+      }
       const Vector<Length>& values = polygon->Values();
       for (unsigned i = 0; i < values.size(); i += 2) {
         polygon_value->AppendPoint(
@@ -542,16 +546,15 @@ CSSValue* ValueForBasicShape(const ComputedStyle& style,
     case BasicShape::kBasicShapeInsetType: {
       const BasicShapeInset* inset = To<BasicShapeInset>(basic_shape);
       cssvalue::CSSBasicShapeInsetValue* inset_value =
-          MakeGarbageCollected<cssvalue::CSSBasicShapeInsetValue>();
-
-      inset_value->SetTop(CSSPrimitiveValue::CreateFromLength(
-          inset->Top(), style.EffectiveZoom()));
-      inset_value->SetRight(CSSPrimitiveValue::CreateFromLength(
-          inset->Right(), style.EffectiveZoom()));
-      inset_value->SetBottom(CSSPrimitiveValue::CreateFromLength(
-          inset->Bottom(), style.EffectiveZoom()));
-      inset_value->SetLeft(CSSPrimitiveValue::CreateFromLength(
-          inset->Left(), style.EffectiveZoom()));
+          MakeGarbageCollected<cssvalue::CSSBasicShapeInsetValue>(
+              CSSPrimitiveValue::CreateFromLength(inset->Top(),
+                                                  style.EffectiveZoom()),
+              CSSPrimitiveValue::CreateFromLength(inset->Right(),
+                                                  style.EffectiveZoom()),
+              CSSPrimitiveValue::CreateFromLength(inset->Bottom(),
+                                                  style.EffectiveZoom()),
+              CSSPrimitiveValue::CreateFromLength(inset->Left(),
+                                                  style.EffectiveZoom()));
 
       InitializeBorderRadius(inset_value, style, inset);
       return inset_value;
@@ -584,7 +587,7 @@ static BasicShapeCenterCoordinate ConvertToCenterCoordinate(
     const StyleResolverState& state,
     const CSSValue* value) {
   BasicShapeCenterCoordinate::Direction direction;
-  Length offset = Length::Fixed(0);
+  std::optional<Length> offset;
 
   CSSValueID keyword = CSSValueID::kTop;
   if (!value) {
@@ -616,7 +619,18 @@ static BasicShapeCenterCoordinate ConvertToCenterCoordinate(
       NOTREACHED();
   }
 
-  return BasicShapeCenterCoordinate(direction, offset);
+  if (RuntimeEnabledFeatures::
+          CSSShapeEllipseCirclePositionSerializationEnabled()) {
+    offset = offset.value_or(Length::Percent(0));
+    if (direction == BasicShapeCenterCoordinate::kBottomRight) {
+      offset = offset->SubtractFromOneHundredPercent();
+      direction = BasicShapeCenterCoordinate::kTopLeft;
+    }
+  } else {
+    offset = offset.value_or(Length::Fixed(0));
+  }
+
+  return BasicShapeCenterCoordinate(direction, *offset);
 }
 
 static BasicShapeRadius CssValueToBasicShapeRadius(
@@ -678,6 +692,10 @@ BasicShape* BasicShapeForValue(const StyleResolverState& state,
     BasicShapePolygon* polygon = MakeGarbageCollected<BasicShapePolygon>();
 
     polygon->SetWindRule(polygon_value->GetWindRule());
+    if (polygon_value->RoundingRadius()) {
+      polygon->SetRoundingRadius(
+          ConvertToLength(state, polygon_value->RoundingRadius()));
+    }
     const HeapVector<Member<CSSPrimitiveValue>>& values =
         polygon_value->Values();
     for (unsigned i = 0; i < values.size(); i += 2) {

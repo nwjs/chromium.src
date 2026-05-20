@@ -169,7 +169,7 @@ void CoreExtensionsRendererAPIProvider::PopulateSourceMap(
     int id = 0;
   };
   std::vector<JsResourceInfo> js_resources = {
-#if BUILDFLAG(ENABLE_PLATFORM_APPS)
+#if BUILDFLAG(IS_CHROMEOS)
       {"appView", IDR_APP_VIEW_JS},
       {"appViewDeny", IDR_APP_VIEW_DENY_JS},
       {"appViewElement", IDR_APP_VIEW_ELEMENT_JS},
@@ -277,6 +277,7 @@ void CoreExtensionsRendererAPIProvider::PopulateSourceMap(
     js_resources.push_back({"nw.Window",    IDR_NWAPI_WINDOW_JS});
   }
   js_resources.push_back({"nw.currentWindowInternal",    IDR_NWAPI_WINDOW_INTERNAL_JS});
+
   for (const auto& resource : js_resources) {
     source_map->RegisterSource(resource.name, resource.id);
   }

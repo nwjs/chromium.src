@@ -135,15 +135,22 @@
   background-color: var(--google-blue-500);
   display: none;
   height: 24px;
+  left: anchor(end);
   pointer-events: none;
   position: absolute;
-  top: -2px;
+  position-anchor: --cursor-char;
+  top: calc(anchor(top) - 2px);
   width: 2px;
+  z-index: 1;
+}
+
+#caret.at-start {
+  left: anchor(start);
 }
 
 :host([entrypoint-name='Omnibox']) #caret {
   height: 18px;
-  top: 0;
+  top: anchor(top);
 }
 
 #caret.animating {
@@ -200,9 +207,7 @@
   left: 0;
 }
 
-/* Fallback for when smartComposeInlineHint is empty or not set. Note that the
-   html checks this, but we keep this css logic just in case. */
-:host(:not([smart-compose-inline-hint])) #smartCompose {
+:host(:not([smart-compose-enabled])) #smartCompose {
   display: none;
 }
 
@@ -222,11 +227,15 @@
   border-radius: 8px;
   box-sizing: border-box;
   color: var(--color-composebox-type-ahead-chip);
+  display: inline-flex;
   font-size: 12px;
   font-weight: 700;
-  line-height: 24px;
-  margin-left: 4px;
-  padding: 6px 8px;
+  height: 24px;
+  justify-content: center;
+  line-height: 18px;
+  margin-inline-start: 4px;
+  padding: 0;
+  width: 38px;
 }
 
 :host-context([expanding_]) #input,

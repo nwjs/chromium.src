@@ -246,6 +246,7 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Server requested termination"/>
   <int value="6" label="Invalid session params"/>
   <int value="7" label="Fatal error during refresh"/>
+  <int value="8" label="Deleted via DevTools"/>
 </enum>
 
 <!-- LINT.ThenChange(//services/network/public/mojom/device_bound_sessions.mojom:DeviceBoundSessionDeletionReason) -->
@@ -274,6 +275,7 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Refresh quota exceeded"/>
   <int value="5" label="Fatal error"/>
   <int value="6" label="Signing exceeded"/>
+  <int value="7" label="Refreshed as waiter"/>
 </enum>
 
 <!-- LINT.ThenChange(//net/device_bound_sessions/refresh_result.h:DeviceBoundSessionRefreshResult) -->
@@ -604,26 +606,6 @@ chromium-metrics-reviews@google.com.
   <int value="16" label="QuicHandshakeFailed"/>
   <int value="17" label="QuicGoawayRequestCanBeRetried"/>
   <int value="18" label="QuicProtocolError"/>
-</enum>
-
-<enum name="HttpRequestStsState">
-  <summary>
-    Tracks whether main frame requests are protected by HSTS, which maps closely
-    to whether they're vulnerable to a downgrade attack.
-  </summary>
-  <int value="0" label="kUnknown">Unknown state</int>
-  <int value="1" label="kUnprotectedHttps">
-    The request used HTTPS, but was not protected by HSTS.
-  </int>
-  <int value="2" label="kProtectedHttps">
-    The request used HTTPS and was protected by HSTS.
-  </int>
-  <int value="3" label="kUnprotectedHttp">
-    The request used HTTP and was unprotected by HSTS.
-  </int>
-  <int value="4" label="kProtectedHttp">
-    The request used HTTP and was redirected due to HSTS.
-  </int>
 </enum>
 
 <!-- LINT.IfChange(HttpsNotAttemptedReason) -->
@@ -2900,15 +2882,6 @@ Called by update_net_trust_anchors.py.-->
   <int value="2" label="SCT_FROM_OCSP_RESPONSE"/>
 </enum>
 
-<enum name="SCTVerifyStatus">
-  <int value="0" label="SCT_STATUS_NONE"/>
-  <int value="1" label="SCT_STATUS_LOG_UNKNOWN"/>
-  <int value="2" label="DEPRECATED: SCT_STATUS_INVALID"/>
-  <int value="3" label="SCT_STATUS_OK"/>
-  <int value="4" label="SCT_STATUS_INVALID_SIGNATURE"/>
-  <int value="5" label="SCT_STATUS_INVALID_TIMESTAMP"/>
-</enum>
-
 <!-- LINT.IfChange(SecureDnsModeDetails) -->
 
 <enum name="SecureDnsModeDetails">
@@ -3162,6 +3135,26 @@ Called by update_net_trust_anchors.py.-->
 </enum>
 
 <!-- LINT.ThenChange(//net/disk_cache/sql/sql_persistent_store.h:SqlDiskCacheStoreError) -->
+
+<!-- LINT.IfChange(SqlSharedCacheIndexDatabaseResult) -->
+
+<enum name="SqlSharedCacheIndexDatabaseResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="NotFound"/>
+  <int value="2" label="FailedForTesting"/>
+  <int value="3" label="FailedToOpenDatabase"/>
+  <int value="4" label="FailedToRazeIncompatibleDatabase"/>
+  <int value="5" label="FailedToStartTransaction"/>
+  <int value="6" label="FailedToInitializeMetaTable"/>
+  <int value="7" label="FailedToCommitTransaction"/>
+  <int value="8" label="FailedToExecute"/>
+  <int value="9" label="InvalidNetworkIsolationKey"/>
+  <int value="10" label="FailedToCreateDirectory"/>
+  <int value="11" label="FailedToCreateStoragesTable"/>
+  <int value="12" label="FailedToCreateUniqueIndex"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/disk_cache/sql/sql_shared_cache_index_database.h:SqlSharedCacheIndexDatabaseResult) -->
 
 <enum name="SSLECHResult">
   <summary>The result of a TLS connection that offered ECH</summary>

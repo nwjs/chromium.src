@@ -32,10 +32,9 @@
 #include "chrome/browser/offline_items_collection/offline_content_aggregator_factory.h"
 #include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service.h"
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service_factory.h"
 #include "chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.h"
@@ -95,32 +94,31 @@ DownloadBubbleUIController* DownloadBubbleUIController::GetForDownload(
   DownloadBubbleUIController* controller = nullptr;
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
       [&](BrowserWindowInterface* browser) {
-        if (IsForDownload(browser, item) &&
-            browser->GetFeatures().download_toolbar_ui_controller() &&
-            browser->GetFeatures()
-                .download_toolbar_ui_controller()
-                ->bubble_controller()) {
-          controller = browser->GetFeatures()
-                           .download_toolbar_ui_controller()
-                           ->bubble_controller();
-          return false;  // stop iterating
+        if (IsForDownload(browser, item)) {
+          DownloadToolbarUIController* toolbar_controller =
+              DownloadToolbarUIController::From(browser);
+          if (toolbar_controller && toolbar_controller->bubble_controller()) {
+            controller = toolbar_controller->bubble_controller();
+            return false;  // stop iterating
+          }
         }
         return true;  // continue iterating
       });
   return controller;
 }
 
-DownloadBubbleUIController::DownloadBubbleUIController(Browser* browser)
+DownloadBubbleUIController::DownloadBubbleUIController(
+    BrowserWindowInterface* browser)
     : DownloadBubbleUIController(
           browser,
           DownloadBubbleUpdateServiceFactory::GetForProfile(
-              browser->profile())) {}
+              browser->GetProfile())) {}
 
 DownloadBubbleUIController::DownloadBubbleUIController(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     DownloadBubbleUpdateService* update_service)
     : browser_(browser),
-      profile_(browser->profile()),
+      profile_(browser->GetProfile()),
       update_service_(update_service),
       offline_manager_(
           OfflineItemModelManagerFactory::GetForBrowserContext(profile_)) {
@@ -182,7 +180,8 @@ void DownloadBubbleUIController::OnOfflineItemUpdated(const OfflineItem& item) {
   OfflineItemModel model(offline_manager_, item);
   bool may_show_details =
       model.ShouldShowInBubble() &&
-      (browser_ == chrome::FindLastActiveWithProfile(profile_.get()));
+      (browser_ == ProfileBrowserCollection::GetForProfile(profile_.get())
+                       ->GetLastActiveBrowser());
   // Consider dangerous in-progress downloads to be completed.
   bool is_done = model.IsDone() ||
                  (model.GetState() == download::DownloadItem::IN_PROGRESS &&
@@ -195,7 +194,8 @@ void DownloadBubbleUIController::OnDownloadItemUpdated(
   DownloadItemModel model(item);
   bool may_show_details =
       model.ShouldShowInBubble() &&
-      (browser_ == chrome::FindLastActiveWithProfile(profile_.get()));
+      (browser_ == ProfileBrowserCollection::GetForProfile(profile_.get())
+                       ->GetLastActiveBrowser());
   // Consider dangerous in-progress downloads to be completed.
   bool is_done = item->IsDone() ||
                  (item->GetState() == download::DownloadItem::IN_PROGRESS &&
@@ -213,7 +213,7 @@ std::vector<DownloadUIModelPtr> DownloadBubbleUIController::GetDownloadUIModels(
     return all_items;
   }
   update_service_->GetAllModelsToDisplay(
-      all_items, GetWebAppIdForBrowser(browser_),
+      all_items, GetWebAppIdForBrowser(browser_->GetBrowserForMigrationOnly()),
       /*force_backfill_download_items=*/true);
   std::vector<DownloadUIModelPtr> items_to_return;
   for (auto& model : all_items) {
@@ -234,6 +234,11 @@ std::vector<DownloadUIModelPtr> DownloadBubbleUIController::GetMainView() {
   last_partial_view_shown_time_ = std::nullopt;
   last_primary_view_was_partial_ = false;
   return GetDownloadUIModels(/*is_main_view=*/true);
+}
+
+void DownloadBubbleUIController::SetLastPartialViewShownTimeForTesting(
+    std::optional<base::Time> time) {
+  last_partial_view_shown_time_ = time;
 }
 
 std::vector<DownloadUIModelPtr> DownloadBubbleUIController::GetPartialView() {
@@ -302,7 +307,7 @@ void DownloadBubbleUIController::ProcessDownloadButtonPress(
     case DownloadCommands::REVIEW:
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
       model->ReviewScanningVerdict(
-          browser_->tab_strip_model()->GetActiveWebContents());
+          browser_->GetTabStripModel()->GetActiveWebContents());
 #endif
       break;
     case DownloadCommands::RETRY:
@@ -428,7 +433,7 @@ void DownloadBubbleUIController::RecordDangerousDownloadShownToUser(
     download::DownloadItem* download) {
   feature_engagement::Tracker* tracker =
       feature_engagement::TrackerFactory::GetForBrowserContext(
-          browser_->profile());
+          browser_->GetProfile());
   tracker->NotifyEvent("download_bubble_dangerous_download_detected");
 
   // Schedule a survey to be shown if the user ignores the survey for the whole

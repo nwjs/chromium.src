@@ -47,6 +47,7 @@ export class TracingScenariosConfigElement extends CrLitElement {
       privacyFilterEnabled_: {type: Boolean},
       toastMessage_: {type: String},
       // <if expr="is_win">
+      securityShieldIconUrl_: {type: String},
       tracingServiceSupported_: {type: Boolean},
       tracingServiceRegistered_: {type: Boolean},
       // </if>
@@ -67,7 +68,7 @@ export class TracingScenariosConfigElement extends CrLitElement {
   // <if expr="is_win">
   protected accessor tracingServiceSupported_: boolean = false;
   protected accessor tracingServiceRegistered_: boolean = false;
-  protected securityShieldIconUrl_: string = '';
+  protected accessor securityShieldIconUrl_: string = '';
   // </if>
 
   override connectedCallback(): void {
@@ -198,8 +199,7 @@ export class TracingScenariosConfigElement extends CrLitElement {
       return handler.setScenariosConfigFromString(text);
     } else {
       const bytes = await file.arrayBuffer();
-      const buffer: BigBuffer = {bytes: Array.from(new Uint8Array(bytes))} as
-          any;
+      const buffer: BigBuffer = {bytes: Array.from(new Uint8Array(bytes))};
       return handler.setScenariosConfigFromBuffer(buffer);
     }
   }

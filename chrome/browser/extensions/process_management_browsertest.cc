@@ -25,6 +25,7 @@
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/child_process_id.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
@@ -204,13 +205,13 @@ IN_PROC_BROWSER_TEST_F(ProcessManagementTest, ProcessOverflow) {
   // Create multiple tabs for each type of renderer that might exist.
   // Tab 0: NTP 1.
   ASSERT_TRUE(
-      NavigateToURL(GetActiveWebContents(), GURL(chrome::kChromeUINewTabURL)));
+      NavigateToURL(GetActiveWebContents(), chrome::ChromeUINewTabURLAsGURL()));
   // Tab 1: Hosted app 1.
   NavigateToURLInNewTab(base_url.Resolve("hosted_app/main.html"));
   // Tab 2: Web page 1.
   NavigateToURLInNewTab(base_url.Resolve("test_file.html"));
   // Tab 3: NTP 2.
-  NavigateToURLInNewTab(GURL(chrome::kChromeUINewTabURL));
+  NavigateToURLInNewTab(chrome::ChromeUINewTabURLAsGURL());
   // Tab 4: Hosted app 2.
   NavigateToURLInNewTab(
       base_url.Resolve("api_test/app_process/path1/empty.html"));
@@ -551,7 +552,7 @@ IN_PROC_BROWSER_TEST_P(ChromeWebStoreProcessTest,
       web_contents->GetPrimaryMainFrame()->GetProcess();
   if (GetParam() == kWebstoreURL) {
     EXPECT_TRUE(extensions::ProcessMap::Get(profile())->Contains(
-        extensions::kWebStoreAppId, new_process_host->GetDeprecatedID()));
+        extensions::kWebStoreAppId, new_process_host->GetID()));
   }
 
   // Verify that Webstore is isolated in a separate renderer process.
@@ -585,8 +586,16 @@ IN_PROC_BROWSER_TEST_P(ChromeWebStoreInIsolatedOriginTest,
 
   // Double-check that the page has access to the restricted APIs we expect to
   // be available to the Webstore.
-  EXPECT_EQ(true, content::EvalJs(web_contents,
-                                  "!!chrome && !!chrome.webstorePrivate"));
+
+  // We only expect the API to be available to the new (or overridden) URLs.
+  // The old URL was granted access via the component hosted app, which is no
+  // longer supported.
+  bool expect_private_api =
+      GetParam() == kNewWebstoreURL || GetParam() == kWebstoreURLOverride;
+
+  EXPECT_EQ(
+      expect_private_api,
+      content::EvalJs(web_contents, "!!chrome && !!chrome.webstorePrivate"));
 
   // Verify that we have the Webstore hosted app loaded into the Web Contents if
   // this is for the old Webstore URL. Note: The new Webstore and the Webstore
@@ -596,7 +605,7 @@ IN_PROC_BROWSER_TEST_P(ChromeWebStoreInIsolatedOriginTest,
     content::RenderProcessHost* render_process_host =
         web_contents->GetPrimaryMainFrame()->GetProcess();
     EXPECT_TRUE(extensions::ProcessMap::Get(profile())->Contains(
-        extensions::kWebStoreAppId, render_process_host->GetDeprecatedID()));
+        extensions::kWebStoreAppId, render_process_host->GetID()));
   }
 }
 

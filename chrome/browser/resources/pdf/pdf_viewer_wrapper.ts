@@ -24,8 +24,10 @@ export type {Attachment, Point, Rect} from './constants.js';
 export {SaveToDriveBubbleRequestType, SaveToDriveState} from './constants.js';
 // </if>
 export {PluginController} from './controller.js';
+export type {SaveMessage} from './controller.js';
 // <if expr="enable_pdf_ink2">
 export {PluginControllerEventType} from './controller.js';
+export type {AnnotationBrushMessage} from './controller.js';
 export {HIGHLIGHTER_COLORS, InkAnnotationBrushMixin, PEN_COLORS} from './elements/ink_annotation_brush_mixin.js';
 export {InkAnnotationTextMixin, TEXT_COLORS, TEXT_SIZES} from './elements/ink_annotation_text_mixin.js';
 export {InkBrushSelectorElement} from './elements/ink_brush_selector.js';
@@ -66,7 +68,7 @@ export {GestureDetector} from './gesture_detector.js';
 export type {PinchEventDetail} from './gesture_detector.js';
 // <if expr="enable_pdf_ink2">
 export {DEFAULT_TEXTBOX_WIDTH, Ink2Manager, MIN_TEXTBOX_SIZE_PX} from './ink2_manager.js';
-export type {TextBoxInit} from './ink2_manager.js';
+export type {TextBoxInit, ViewportParams} from './ink2_manager.js';
 // </if>
 export type {PdfPluginElement} from './internal_plugin.js';
 export {record, recordFitTo, resetForTesting, UserAction} from './metrics.js';

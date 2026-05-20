@@ -29,13 +29,13 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.CriteriaNotSatisfiedException;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.InfoBarTestAnimationListener;
 import org.chromium.chrome.test.util.InfoBarUtil;
 import org.chromium.components.browser_ui.modaldialog.ModalDialogView;
@@ -55,6 +55,7 @@ import org.chromium.ui.test.util.ViewUtils;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.concurrent.TimeoutException;
 
 /**
  * TestRule for permissions UI testing on Android.
@@ -419,12 +420,12 @@ public class PermissionTestRule extends ChromeTabbedActivityTestRule {
      * @param contentSettingsType The ContentSettingsType to check.
      * @param pageUrl The origin URL of the page.
      */
-    public @ContentSetting int getPermissionSettingForOrigin(
+    public @ContentSetting int getPermissionSettingWithEmbargo(
             @ContentSettingsType.EnumType int contentSettingsType, String pageUrl) {
         String url = getURL(pageUrl);
         return ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    return WebsitePreferenceBridge.getPermissionSettingForOrigin(
+                    return WebsitePreferenceBridge.getContentSettingWithEmbargo(
                             /* browserContextHandle= */ ProfileManager.getLastUsedRegularProfile(),
                             /* contentSettingsType= */ contentSettingsType,
                             /* origin= */ url,
@@ -443,7 +444,6 @@ public class PermissionTestRule extends ChromeTabbedActivityTestRule {
                 () -> {
                     return WebsitePreferenceBridge.getGeolocationSettingForOrigin(
                             /* browserContextHandle= */ ProfileManager.getLastUsedRegularProfile(),
-                            /* contentSettingsType= */ ContentSettingsType.GEOLOCATION_WITH_OPTIONS,
                             /* origin= */ url,
                             /* embedder= */ url);
                 });
@@ -465,7 +465,7 @@ public class PermissionTestRule extends ChromeTabbedActivityTestRule {
                 () -> {
                     @ContentSetting
                     int currentSetting =
-                            getPermissionSettingForOrigin(contentSettingsType, pageUrl);
+                            getPermissionSettingWithEmbargo(contentSettingsType, pageUrl);
                     Assert.assertEquals(expectedSetting, currentSetting);
                 });
     }
@@ -648,7 +648,7 @@ public class PermissionTestRule extends ChromeTabbedActivityTestRule {
     }
 
     public void runJavaScriptCodeInCurrentTabWithGesture(String javascript)
-            throws java.util.concurrent.TimeoutException {
+            throws TimeoutException {
         runJavaScriptCodeInCurrentTab("functionToRun = '" + javascript + "'");
         TouchCommon.singleClickView(getActivityTab().getView());
     }

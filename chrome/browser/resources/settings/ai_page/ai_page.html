@@ -10,14 +10,6 @@
         sub-label="$i18n{passwordChangeSettingSubLabel}"
         on-click="onPasswordChangeRowClick_" external>
     </cr-link-row>
-    <cr-link-row id="aiModeSearchRow" class="hr"
-        hidden="[[!enableAiModeSearchSetting_]]"
-        start-icon="settings20:search-spark"
-        label="$i18n{stsSettingsEntrypointAiModeSearch}"
-        sub-label="$i18n{stsSettingsEntrypointGetResponsesWithContext}"
-        role-description="$i18n{subpageArrowRoleDescription}"
-        on-click="onAiModeSearchRowClick_">
-    </cr-link-row>
     <cr-link-row id="historySearchRowV2" class="hr"
         hidden="[[!showHistorySearchControl_]]"
         start-icon="settings20:search-spark"
@@ -34,6 +26,14 @@
         sub-label="$i18n{aiComposeSublabelV2}"
         role-description="$i18n{subpageArrowRoleDescription}"
         on-click="onComposeRowClick_">
+    </cr-link-row>
+    <cr-link-row id="aiSuggestionsRow" class="hr"
+        hidden="[[!showAiSuggestionsControl_]]"
+        start-icon="settings20:button-auto"
+        label="$i18n{aiSuggestionsLabel}"
+        sub-label="$i18n{aiSuggestionsSublabel}"
+        role-description="$i18n{subpageArrowRoleDescription}"
+        on-click="onAiSuggestionsRowClick_">
     </cr-link-row>
   </div>
 </settings-section>

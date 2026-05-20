@@ -132,8 +132,8 @@ TEST_F(ActorLoginDuplicatePermissionCleanerTest,
 
   // Wait for store to add logins.
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return store()->stored_passwords().count(kSignonRealm) > 0 &&
-           store()->stored_passwords().at(kSignonRealm).size() == 2;
+    return GetAllLoginsSync(store()).count(kSignonRealm) > 0 &&
+           GetAllLoginsSync(store()).at(kSignonRealm).size() == 2;
   }));
 
   EXPECT_CALL(*permission_service(), ListPermissions(kOrigin, _))
@@ -156,6 +156,7 @@ TEST_F(ActorLoginDuplicatePermissionCleanerTest,
   credential.request_origin = kOrigin;
   credential.username = kExcludeUser;
   credential.type = CredentialType::kPassword;
+  credential.signon_realm = kSignonRealm;
 
   EXPECT_CALL(*permission_service(),
               DeletePermission(kOrigin, Eq(base::UTF16ToUTF8(kExcludeUser)), _))
@@ -169,13 +170,13 @@ TEST_F(ActorLoginDuplicatePermissionCleanerTest,
 
   base::test::TestFuture<void> future;
 
-  cleaning_service()->ClearConflictingPermissions(credential, kSignonRealm,
+  cleaning_service()->ClearConflictingPermissions(credential,
                                                   future.GetCallback());
   EXPECT_TRUE(future.Wait());
 
   // All updates are guaranteed to be finished here.
   EXPECT_THAT(
-      store()->stored_passwords().at(kSignonRealm),
+      GetAllLoginsSync(store()).at(kSignonRealm),
       UnorderedElementsAre(
           AllOf(Field(&password_manager::PasswordForm::username_value,
                       kExcludeUser),
@@ -230,8 +231,8 @@ TEST_F(ActorLoginDuplicatePermissionCleanerTest,
 
   // Wait for store to add login.
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return store()->stored_passwords().count(kSignonRealm) > 0 &&
-           store()->stored_passwords().count(kAffiliatedRealm) > 0;
+    return GetAllLoginsSync(store()).count(kSignonRealm) > 0 &&
+           GetAllLoginsSync(store()).count(kAffiliatedRealm) > 0;
   }));
 
   EXPECT_CALL(mock_affiliation_service(), GetAffiliationsAndBranding)
@@ -277,15 +278,22 @@ TEST_F(ActorLoginDuplicatePermissionCleanerTest,
       });
 
   base::test::TestFuture<void> future;
-  cleaning_service()->ClearConflictingPermissions(credential, std::nullopt,
+  cleaning_service()->ClearConflictingPermissions(credential,
                                                   future.GetCallback());
   EXPECT_TRUE(future.Wait());
 
   // All updates are guaranteed to be finished here.
   EXPECT_TRUE(
-      store()->stored_passwords().at(kSignonRealm)[0].actor_login_approved);
+      GetAllLoginsSync(store()).at(kSignonRealm)[0].actor_login_approved);
+#if !BUILDFLAG(IS_ANDROID)
+  // On Android, the `FakePasswordStoreBackend` ignores web affiliations due to
+  // the C++ filter in `AffiliatedMatchHelper` (which is dead code in prod but
+  // active in tests). So the affiliated credential is not cleared in the test.
+  // TODO(crbug.com/504896739): Update the test once the fake backend supports
+  // affiliation without the helper on Android.
   EXPECT_FALSE(
-      store()->stored_passwords().at(kAffiliatedRealm)[0].actor_login_approved);
+      GetAllLoginsSync(store()).at(kAffiliatedRealm)[0].actor_login_approved);
+#endif
 }
 
 // Tests that when a new permission is saved for a federated credential
@@ -310,9 +318,8 @@ TEST_F(ActorLoginDuplicatePermissionCleanerTest,
   store()->AddLogin(form1);
 
   // Wait for store to add login.
-  ASSERT_TRUE(base::test::RunUntil([&]() {
-    return store()->stored_passwords().count(kAffiliatedRealm) > 0;
-  }));
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return GetAllLoginsSync(store()).count(kAffiliatedRealm) > 0; }));
   EXPECT_CALL(mock_affiliation_service(), GetAffiliationsAndBranding)
       .WillOnce(base::test::RunOnceCallback<1>(
           affiliations::AffiliatedFacets{affiliations::Facet(
@@ -355,13 +362,13 @@ TEST_F(ActorLoginDuplicatePermissionCleanerTest,
       });
 
   base::test::TestFuture<void> future;
-  cleaning_service()->ClearConflictingPermissions(credential, std::nullopt,
+  cleaning_service()->ClearConflictingPermissions(credential,
                                                   future.GetCallback());
   EXPECT_TRUE(future.Wait());
 
   // All updates are guaranteed to be finished here.
   EXPECT_THAT(
-      store()->stored_passwords().at(kAffiliatedRealm),
+      GetAllLoginsSync(store()).at(kAffiliatedRealm),
       UnorderedElementsAre(AllOf(
           Field(&password_manager::PasswordForm::username_value, kExcludedUser),
           Field(&password_manager::PasswordForm::actor_login_approved, true))));
@@ -387,13 +394,14 @@ TEST_F(ActorLoginDuplicatePermissionCleanerTest,
   form2.url = GURL("https://affiliated.com/login");
   form2.signon_realm = kOtherSignonRealm;
   form2.username_value = kExcludeUser;
+  form2.password_value = u"pass2";
   form2.actor_login_approved = true;
   form2.match_type = password_manager::PasswordForm::MatchType::kAffiliated;
   store()->AddLogin(form2);
 
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return store()->stored_passwords().count(kExcludedSignonRealm) > 0 &&
-           store()->stored_passwords().count(kOtherSignonRealm) > 0;
+    return GetAllLoginsSync(store()).count(kExcludedSignonRealm) > 0 &&
+           GetAllLoginsSync(store()).count(kOtherSignonRealm) > 0;
   }));
 
   EXPECT_CALL(mock_affiliation_service(), GetAffiliationsAndBranding)
@@ -412,20 +420,25 @@ TEST_F(ActorLoginDuplicatePermissionCleanerTest,
   credential.request_origin = kOrigin;
   credential.username = kExcludeUser;
   credential.type = CredentialType::kPassword;
+  credential.signon_realm = kExcludedSignonRealm;
 
   base::test::TestFuture<void> future;
-  cleaning_service()->ClearConflictingPermissions(
-      credential, kExcludedSignonRealm, future.GetCallback());
+  cleaning_service()->ClearConflictingPermissions(credential,
+                                                  future.GetCallback());
   EXPECT_TRUE(future.Wait());
 
-  EXPECT_TRUE(store()
-                  ->stored_passwords()
+  EXPECT_TRUE(GetAllLoginsSync(store())
                   .at(kExcludedSignonRealm)[0]
                   .actor_login_approved);
-  EXPECT_FALSE(store()
-                   ->stored_passwords()
-                   .at(kOtherSignonRealm)[0]
-                   .actor_login_approved);
+#if !BUILDFLAG(IS_ANDROID)
+  // On Android, the `FakePasswordStoreBackend` ignores web affiliations due to
+  // the C++ filter in `AffiliatedMatchHelper` (which is dead code in prod but
+  // active in tests). So the affiliated credential is not cleared in the test.
+  // TODO(crbug.com/504896739): Update the test once the fake backend supports
+  // affiliation without the helper on Android.
+  EXPECT_FALSE(
+      GetAllLoginsSync(store()).at(kOtherSignonRealm)[0].actor_login_approved);
+#endif
 }
 
 TEST_F(ActorLoginDuplicatePermissionCleanerTest,
@@ -452,8 +465,8 @@ TEST_F(ActorLoginDuplicatePermissionCleanerTest,
 
   // Wait for store to add logins.
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return store()->stored_passwords().count("https://psl.example.com/") > 0 &&
-           store()->stored_passwords().count("https://grouped.com/") > 0;
+    return GetAllLoginsSync(store()).count("https://psl.example.com/") > 0 &&
+           GetAllLoginsSync(store()).count("https://grouped.com/") > 0;
   }));
 
   EXPECT_CALL(mock_affiliation_service(), GetGroupingInfo)
@@ -474,19 +487,18 @@ TEST_F(ActorLoginDuplicatePermissionCleanerTest,
   credential.request_origin = kOrigin;
   credential.username = u"user1";
   credential.type = CredentialType::kPassword;
+  credential.signon_realm = kSignonRealm;
 
   base::test::TestFuture<void> future;
-  cleaning_service()->ClearConflictingPermissions(credential, kSignonRealm,
+  cleaning_service()->ClearConflictingPermissions(credential,
                                                   future.GetCallback());
   EXPECT_TRUE(future.Wait());
 
   // PSL and grouped matches should NOT be touched.
-  EXPECT_TRUE(store()
-                  ->stored_passwords()
+  EXPECT_TRUE(GetAllLoginsSync(store())
                   .at("https://psl.example.com/")[0]
                   .actor_login_approved);
-  EXPECT_TRUE(store()
-                  ->stored_passwords()
+  EXPECT_TRUE(GetAllLoginsSync(store())
                   .at("https://grouped.com/")[0]
                   .actor_login_approved);
 }

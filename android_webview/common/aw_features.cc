@@ -35,7 +35,7 @@ BASE_FEATURE(kWebViewContentRestrictionSupport,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, defers GMS calls to after Chromium startup.
-BASE_FEATURE(kWebViewDeferStartupGmsCalls, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebViewDeferStartupGmsCalls, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable JS FileSystemAccess API.
 // This flag is set by WebView internal code based on an app's targetSdkVersion.
@@ -128,7 +128,7 @@ const base::FeatureParam<bool> kWebViewPrefetchFromRenderer{
     &kWebViewPrefetchNativeLibrary, "WebViewPrefetchFromRenderer", true};
 
 // This enables to start main resource prefetch request from off the main thread
-// for WebView Prefetch API. See crbug.com/452406598, crbug.com//452389538 for
+// for WebView Prefetch API. See crbug.com/452406598, crbug.com/452389538 for
 // more details.
 BASE_FEATURE(kWebViewPrefetchOffTheMainThread,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -146,7 +146,7 @@ BASE_FEATURE(kWebViewWebauthn, base::FEATURE_ENABLED_BY_DEFAULT);
 // This enables RenderDocument in WebView. Note that this will only take effect
 // iff both this feature flag and the content/public kRenderDocument flag is
 // enabled.
-BASE_FEATURE(kWebViewRenderDocument, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebViewRenderDocument, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, webview chromium initialization uses the startup tasks logic
 // where it runs the startup tasks asynchronously if startup is triggered from a
@@ -194,29 +194,25 @@ BASE_FEATURE(kWebViewConnectToComponentProviderInBackground,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables phase 2 of using startup tasks logic for webview chromium
-// initialization which starts browser process asynchronously, when starting
-// webview asynchronously.
+// initialization which also starts browser process asynchronously, when
+// starting webview asynchronously.
 // Note: This also enables the same behaviour as WebViewUseStartupTasksLogic and
 // WebViewStartupTasksYieldToNative with minor differences.
 BASE_FEATURE(kWebViewUseStartupTasksLogicP2, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Stop browser startup in isMultiProcessEnabled.
-BASE_FEATURE(kWebViewStopBrowserStartupInIsMultiProcessEnabled,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables running native startup tasks asynchronously if WebView startup is
 // asynchronous.
 // Note:This also enables the same behaviour as WebViewUseStartupTasksLogic and
 // WebViewUseStartupTasksLogicP2, with minor additions.
 BASE_FEATURE(kWebViewStartupTasksYieldToNative,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This results in the metric logging being run on a separate thread and
 // blocking until the results are retrieved.
 // When this is disabled, logging is initiated on the main thread and a success
 // status is reported to the chromium metrics service immediately.
 BASE_FEATURE(kAndroidMetricsAsyncMetricLogging,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Reduce when the app's copy of the finch seed expires. This makes WebView more
 // aggressive in requesting a new copy of its finch seed.
@@ -320,5 +316,25 @@ BASE_FEATURE(kWebViewSkipFaviconJavaCopyUntilNeeded,
 // When enabled, a null will always be passed as the favicon in the
 // onPageStarted method.
 BASE_FEATURE(kWebViewPassNullFaviconToOnPageStarted,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables non-blocking WebView constructor.
+BASE_FEATURE(kStartupNonBlockingWebViewConstructor,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Post Chromium startup in the WebView constructor. Only has any effect
+// when kStartupNonBlockingWebViewConstructor is enabled.
+BASE_FEATURE(kPostChromiumStartupInWebViewConstructor,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, HttpServerProperties will be persisted to disk across
+// app restarts.
+BASE_FEATURE(kWebViewPersistHttpServerProperties,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, binds FrameSinkManager as a DirectReceiver, allowing IPCs
+// targeting that interface, and any other interfaces passed through it to
+// arrive without the intermediate I/O thread hop.
+BASE_FEATURE(kWebViewVizDirectCompositorThreadIpcFrameSinkManager,
              base::FEATURE_DISABLED_BY_DEFAULT);
 }  // namespace android_webview::features

@@ -12,9 +12,9 @@
 
 const allTests = [
   function testUpdateRelatedNamesAndDescriptions() {
-    let cats = rootNode.find({ role: 'checkBox'});
-    let apples = rootNode.find({ role: 'main' } );
-    let butter = rootNode.find({ role: 'group' } );
+    const cats = rootNode.find({role: 'checkBox'});
+    const apples = rootNode.find({role: 'main'});
+    const butter = rootNode.find({role: 'group'});
     // TODO(aleventhal) why are we getting the wrong objects for these?
     // let cats = findById('input');
     // let apples = findById('main');
@@ -24,14 +24,14 @@ const allTests = [
     assertEq('butter', butter.description);
 
     chrome.automation.addTreeChangeObserver('allTreeChanges', function(change) {
-      if (change.type == 'textChanged') {
+      if (change.type === 'textChanged') {
         // TODO(aleventhal) Why is timeout necessary to avoid uncaught exception
         // "Error in event handler for automationInternal.onTreeChange:
         // ReferenceError: treeChange is not defined" ?
         setTimeout(function() {
-          const dogs = rootNode.find({ role: 'checkBox'});
-          const oranges = rootNode.find({ role: 'main' } );
-          const margarine = rootNode.find({ role: 'group'} );
+          const dogs = rootNode.find({role: 'checkBox'});
+          const oranges = rootNode.find({role: 'main'});
+          const margarine = rootNode.find({role: 'group'});
           assertEq('dogs', dogs.name);
           assertEq('oranges', oranges.name);
           assertEq('margarine', margarine.description);
@@ -40,7 +40,7 @@ const allTests = [
       }
     });
 
-    const button = rootNode.find({ attributes: { name: 'Change' }});
+    const button = rootNode.find({attributes: {name: 'Change'}});
     button.doDefault();
   },
 ];

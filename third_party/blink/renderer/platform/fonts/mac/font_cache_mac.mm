@@ -408,8 +408,7 @@ const FontPlatformData* FontCache::CreateFontPlatformData(
   }
 
   ScopedCFTypeRef<CTFontRef> matched_font;
-  if (alternate_name == AlternateFontName::kLocalUniqueFace &&
-      RuntimeEnabledFeatures::FontSrcLocalMatchingEnabled()) {
+  if (alternate_name == AlternateFontName::kLocalUniqueFace) {
     matched_font = MatchUniqueFont(creation_params.Family(), size);
   } else if (creation_params.Family() == font_family_names::kSystemUi) {
     matched_font =

@@ -4,7 +4,9 @@
 
 #include "chrome/browser/ui/views/media_router/media_remoting_dialog_view.h"
 
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/actions/chrome_action_id.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/media_router/media_router_ui_service.h"
 #include "chrome/browser/ui/toolbar/cast/cast_toolbar_button_controller.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
@@ -37,14 +39,16 @@ bool MediaRemotingDialogCoordinatorViews::Show(
 
   Hide();  // Close the previous dialog if it is still showing.
 
-  Browser* const browser = chrome::FindBrowserWithTab(web_contents_);
+  BrowserWindowInterface* const browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents_);
   if (!browser) {
     std::move(permission_callback).Run(false);
     return false;
   }
-  views::View* const icon_view = BrowserView::GetBrowserViewForBrowser(browser)
-                                     ->toolbar()
-                                     ->GetCastButton();
+  auto anchor = BrowserView::GetBrowserViewForBrowser(browser)
+                    ->toolbar_button_provider()
+                    ->GetPinnedToolbarActions()
+                    ->GetBubbleAnchor(kActionRouteMedia);
   Profile* const profile =
       Profile::FromBrowserContext(web_contents_->GetBrowserContext());
   PrefService* const pref_service = profile->GetPrefs();
@@ -52,8 +56,7 @@ bool MediaRemotingDialogCoordinatorViews::Show(
       MediaRouterUIService::Get(profile)->action_controller();
 
   auto remoting_dialog = std::make_unique<MediaRemotingDialogView>(
-      icon_view, pref_service, action_controller,
-      std::move(permission_callback));
+      anchor, pref_service, action_controller, std::move(permission_callback));
   tracker_.SetView(remoting_dialog.get());
   views::BubbleDialogDelegateView::CreateBubble(std::move(remoting_dialog))
       ->Show();
@@ -71,11 +74,11 @@ bool MediaRemotingDialogCoordinatorViews::IsShowing() const {
 }
 
 MediaRemotingDialogView::MediaRemotingDialogView(
-    views::View* anchor_view,
+    views::BubbleAnchor anchor,
     PrefService* pref_service,
     CastToolbarButtonController* action_controller,
     MediaRemotingDialogCoordinator::PermissionCallback callback)
-    : BubbleDialogDelegateView(anchor_view, views::BubbleBorder::TOP_RIGHT),
+    : BubbleDialogDelegateView(anchor, views::BubbleBorder::TOP_RIGHT),
       pref_service_(pref_service),
       action_controller_(action_controller),
       permission_callback_(std::move(callback)) {

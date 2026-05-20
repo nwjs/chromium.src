@@ -93,7 +93,6 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chromeos/ash/components/audio/cras_audio_handler.h"
 #include "content/browser/gpu/chromeos/video_capture_dependencies.h"
 #include "media/capture/video/chromeos/camera_hal_dispatcher_impl.h"
 #include "media/capture/video/chromeos/jpeg_accelerator_provider.h"
@@ -135,20 +134,6 @@ namespace {
 void FilterAudioEffects(const StreamControls& controls, int* effects) {
   DCHECK(effects);
   // TODO(ajm): Should we handle ECHO_CANCELLER here?
-}
-
-// Unlike other effects, hotword is off by default, so turn it on if it's
-// requested and available.
-void EnableHotwordEffect(const StreamControls& controls, int* effects) {
-  DCHECK(effects);
-  if (controls.hotword_enabled) {
-#if BUILDFLAG(IS_CHROMEOS)
-    // Only enable if a hotword device exists.
-    if (ash::CrasAudioHandler::Get()->HasHotwordDevice()) {
-      *effects |= media::AudioParameters::HOTWORD;
-    }
-#endif
-  }
 }
 
 // Gets raw |device_id| and |group_id| when given a hashed device_id
@@ -775,7 +760,6 @@ class MediaStreamManager::DeviceRequest {
   void DisableAudioSharing() {
     SetAudioType(MediaStreamType::NO_SERVICE);
     stream_controls_.audio.stream_type = MediaStreamType::NO_SERVICE;
-    stream_controls_.hotword_enabled = false;
     stream_controls_.disable_local_echo = false;
     stream_controls_.suppress_local_audio_playback = false;
     stream_controls_.restrict_own_audio = false;
@@ -2274,7 +2258,7 @@ void MediaStreamManager::StartEnumeration(DeviceRequest* request,
     start_mode = MediaDevicesManager::DeviceStartMonitoringMode::kStartVideo;
   }
   // Start monitoring the requested devices when doing the first enumeration.
-  media_devices_manager_->StartMonitoring(0, start_mode);
+  media_devices_manager_->StartMonitoringAndPopulateCache(0, start_mode);
 
   // Start enumeration for devices of all requested device types.
   if (request_audio_input) {
@@ -3025,7 +3009,6 @@ bool MediaStreamManager::FindExistingRequestedDevice(
             // is set to and not what the capabilities are.
             int effects = existing_device->input.effects();
             FilterAudioEffects(request->stream_controls(), &effects);
-            EnableHotwordEffect(request->stream_controls(), &effects);
             existing_device->input.set_effects(effects);
             *existing_request_state = request->state(device.type);
             return true;
@@ -3394,7 +3377,6 @@ void MediaStreamManager::Opened(
               // what the request asks for.
               int effects = device.input.effects();
               FilterAudioEffects(request->stream_controls(), &effects);
-              EnableHotwordEffect(request->stream_controls(), &effects);
               device.input.set_effects(effects);
             }
           }
@@ -3493,6 +3475,24 @@ void MediaStreamManager::Aborted(
   SendLogMessage(base::StringPrintf(
       "Aborted({stream_type=%s}, {session_id=%s})",
       StreamTypeToString(stream_type), capture_session_id.ToString().c_str()));
+
+  // If the video for a screen capture is aborted, the corresponding
+  // audio must also be stopped.
+  if (blink::IsVideoScreenCaptureMediaType(stream_type)) {
+    DeviceRequest* const request =
+        FindRequestByVideoSessionId(capture_session_id);
+    if (request) {
+      for (const auto& stream_devices_ptr :
+           request->stream_devices_set.stream_devices) {
+        if (stream_devices_ptr->audio_device.has_value()) {
+          VLOG(1) << "MSM::Aborted: Stopping associated audio device";
+          StopDevice(stream_devices_ptr->audio_device->type,
+                     stream_devices_ptr->audio_device->session_id());
+        }
+      }
+    }
+  }
+
   StopDevice(stream_type, capture_session_id);
 }
 
@@ -4199,6 +4199,48 @@ void MediaStreamManager::OnCaptureConfigurationChanged(
         continue;
       }
       request->OnCaptureConfigurationChanged(label, *device_ptr);
+    }
+  }
+}
+
+void MediaStreamManager::OpenNativeScreenCapturePicker(
+    DesktopMediaID::Type type,
+    base::OnceCallback<void(DesktopMediaID::Id)> created_callback,
+    base::OnceCallback<void(webrtc::DesktopCapturer::Source)> picker_callback,
+    base::OnceCallback<void()> cancel_callback,
+    base::OnceCallback<void()> error_callback) {
+  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+
+  base::OnceCallback<void(DesktopMediaID::Id)> stop_audio_callback =
+      base::BindPostTask(
+          GetIOThreadTaskRunner({}),
+          base::BindOnce(&MediaStreamManager::StopAudioForPickerSessionId,
+                         weak_ptr_factory_.GetWeakPtr()));
+
+  video_capture_manager()->OpenNativeScreenCapturePicker(
+      type, std::move(created_callback), std::move(picker_callback),
+      std::move(cancel_callback), std::move(error_callback),
+      std::move(stop_audio_callback));
+}
+
+void MediaStreamManager::StopAudioForPickerSessionId(
+    DesktopMediaID::Id picker_session_id) {
+  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+
+  for (const auto& [label, request] : requests_) {
+    for (const auto& stream_devices_ptr :
+         request->stream_devices_set.stream_devices) {
+      if (stream_devices_ptr->video_device.has_value() &&
+          blink::IsDesktopCaptureMediaType(
+              stream_devices_ptr->video_device->type) &&
+          DesktopMediaID::Parse(stream_devices_ptr->video_device->id).id ==
+              picker_session_id) {
+        if (stream_devices_ptr->audio_device.has_value()) {
+          StopDevice(stream_devices_ptr->audio_device->type,
+                     stream_devices_ptr->audio_device->session_id());
+        }
+        return;
+      }
     }
   }
 }

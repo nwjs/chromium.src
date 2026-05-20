@@ -61,8 +61,9 @@ function run() {
    * @param {string} errorMessage The error message to be send.
    */
   function onError(errorMessage) {
-    if (done)
+    if (done) {
       return;
+    }
 
     chrome.test.notifyFail(errorMessage);
     // there should be at most one notifyFail call.
@@ -77,8 +78,9 @@ function run() {
    * @param {boolean} success Whether the function succeeded.
    */
   function onExecuteTask(entry, success) {
-    if (!success)
+    if (!success) {
       onError(`Failed to execute task for ${entry.fullPath}`);
+    }
   }
 
   /**
@@ -97,14 +99,14 @@ function run() {
       return;
     }
     const tasks = resultingTasks.tasks;
-    if (tasks.length != 1) {
+    if (tasks.length !== 1) {
       onError(`Got invalid number of tasks for '${entry.fullPath}': ${
           tasks.length}`);
     }
     // Task could be default from an explicit file extension match
     // but if matched on MIME type we need to set the task as default
     chrome.fileManagerPrivate.setDefaultTask(
-      tasks[0].descriptor, [entry], [], function() {
+        tasks[0].descriptor, [entry], [], function() {
           if (chrome.runtime.lastError) {
             const {appId, taskType, actionId} = tasks[0].descriptor;
             onError(`Failed to set a task to default: ${appId}|${taskType}|${
@@ -132,7 +134,7 @@ function run() {
     }
     const tasks = resultingTasks.tasks;
 
-    if (tasks.length != 1) {
+    if (tasks.length !== 1) {
       onError(`Got invalid number of tasks for '${entry.fullPath}': ${
           tasks.length}`);
     }
@@ -144,9 +146,10 @@ function run() {
 
     foundTasks.push({descriptor: tasks[0].descriptor, entry: entry});
 
-    if (foundTasks.length == TEST_PATHS.length) {
+    if (foundTasks.length === TEST_PATHS.length) {
       foundTasks.forEach(function(task) {
-        chrome.fileManagerPrivate.executeTask(task.descriptor, [task.entry],
+        chrome.fileManagerPrivate.executeTask(
+            task.descriptor, [task.entry],
             onExecuteTask.bind(null, task.entry));
       });
     }
@@ -163,10 +166,9 @@ function run() {
     // TODO(mtomasz): Remove this hack after migrating chrome.fileManagerPrivate
     // API to isolated context.
     chrome.fileManagerPrivate.resolveIsolatedEntries(
-        [isolatedEntry],
-        function(externalEntries) {
+        [isolatedEntry], function(externalEntries) {
           resolvedEntries.push(externalEntries[0]);
-          if (resolvedEntries.length == TEST_PATHS.length) {
+          if (resolvedEntries.length === TEST_PATHS.length) {
             resolvedEntries.forEach(function(entry) {
               chrome.fileManagerPrivate.getFileTasks(
                   [entry], [''], onGotNonDefaultTasks.bind(null, entry));
@@ -183,7 +185,7 @@ function run() {
    * @param {string} volumeType Type of the volume.
    */
   function onGotFileSystem(fileSystem, volumeType) {
-    const isOnDrive = volumeType == 'drive';
+    const isOnDrive = volumeType === 'drive';
     TEST_PATHS.forEach(function(filePath) {
       fileSystem.root.getFile(
           `${isOnDrive ? 'root/' : ''}${filePath}`, {}, onGotEntry.bind(null),
@@ -197,19 +199,18 @@ function run() {
     const sortedVolumeMetadataList =
         volumeMetadataList
             .filter(function(volume) {
-              return possibleVolumeTypes.indexOf(volume.volumeType) != -1;
+              return possibleVolumeTypes.indexOf(volume.volumeType) !== -1;
             })
             .sort(function(volumeA, volumeB) {
               return possibleVolumeTypes.indexOf(volumeA.volumeType) -
                   possibleVolumeTypes.indexOf(volumeB.volumeType);
             });
-    if (sortedVolumeMetadataList.length == 0) {
+    if (sortedVolumeMetadataList.length === 0) {
       onError('No volumes available, which could be used for testing.');
       return;
     }
     chrome.fileSystem.requestFileSystem(
-        {volumeId: sortedVolumeMetadataList[0].volumeId},
-        function(fileSystem) {
+        {volumeId: sortedVolumeMetadataList[0].volumeId}, function(fileSystem) {
           if (!fileSystem) {
             onError('Failed to acquire the testing volume.');
             return;

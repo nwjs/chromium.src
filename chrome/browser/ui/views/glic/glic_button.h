@@ -71,7 +71,6 @@ inline constexpr ui::ColorId kForegroundOnAltBackground =
 inline constexpr int kCollapsedWidth = 41;
 inline constexpr int kSplitFlatEdgetRadius = 2;
 inline constexpr int kSplitRoundedEdgeRadius = 10;
-inline constexpr int kIconSize = 20;
 
 template <typename T>
   requires std::derived_from<T, views::LabelButton>
@@ -181,6 +180,7 @@ class GlicButton : public GlicBaseShim<T>,
                       base::RepeatingClosure mouse_down_callback,
                       base::RepeatingClosure expansion_animation_done_callback,
                       const std::u16string& tooltip,
+                      const int icon_size,
                       BaseArgs&&... base_args)
       : GlicBaseShim<T>(std::move(base_args)...),
         browser_window_interface_(browser_window_interface),
@@ -190,8 +190,8 @@ class GlicButton : public GlicBaseShim<T>,
                      : nullptr),
         hovered_callback_(std::move(hovered_callback)),
         mouse_down_callback_(std::move(mouse_down_callback)),
-        normal_icon_(GetNormalIcon()),
-        icon_for_highlight_(GetIconForHighlight()) {
+        normal_icon_(GetNormalIcon(icon_size)),
+        icon_for_highlight_(GetIconForHighlight(icon_size)) {
     Init(expansion_animation_done_callback, tooltip);
   }
 
@@ -239,7 +239,7 @@ class GlicButton : public GlicBaseShim<T>,
     const base::TimeDelta kNudgeFadeInStart = DurationMs(50);
     const base::TimeDelta kNudgeFadeInDuration = DurationMs(50);
     views::AnimationBuilder()
-        .OnEnded(base::BindOnce(&GlicButton::ApplyTextAndFadeIn,
+        .OnEnded(base::BindOnce(&GlicButton<T>::ApplyTextAndFadeIn,
                                 weak_ptr_factory_.GetWeakPtr(),
                                 std::make_optional(GetLabelText()),
                                 /*delay=*/DurationMs(0), kNudgeFadeInDuration))
@@ -250,19 +250,18 @@ class GlicButton : public GlicBaseShim<T>,
   }
 
   void SetNudgeLabel(std::string label) {
-    if (!EntrypointVariationsEnabled()) {
-      start_width_ = PreferredSize().width();
-      return SetText(base::UTF8ToUTF16(label));
-    }
     // Store the new label text until the right moment in the animation to
     // update the view.
     pending_text_ = base::UTF8ToUTF16(label);
+
+    if (width_state_ == WidthState::kNudge) {
+      end_width_ = CalculateExpandedWidth();
+      SetText(*pending_text_);
+      this->PreferredSizeChanged();
+    }
   }
 
   void RestoreDefaultLabel() {
-    if (!EntrypointVariationsEnabled()) {
-      return SetText(GetLabelText());
-    }
     // Store the new label text until the right moment in the animation to
     // update the view.
     pending_text_ = GetLabelText();
@@ -304,10 +303,6 @@ class GlicButton : public GlicBaseShim<T>,
     this->PreferredSizeChanged();
   }
 
-  bool GetIsShowingNudge() const override {
-    return width_state_ == WidthState::kNudge;
-  }
-
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override {
     const int current_preferred_width =
@@ -323,12 +318,6 @@ class GlicButton : public GlicBaseShim<T>,
     // Button must always be at least as wide as it is tall.
     int start = std::max(start_width_, height);
     int end = std::max(end_width_, height);
-
-    // TODO(crbug.com/469850069): Remove.
-    if (!EntrypointVariationsEnabled()) {
-      start = kCollapsedWidth;
-      end = current_preferred_width;
-    }
 
     // Interpolate based on animation value.
     const int width = std::lerp(start, end, GetWidthFactor());
@@ -349,7 +338,6 @@ class GlicButton : public GlicBaseShim<T>,
   }
 
   void AddedToWidget() override {
-    if (EntrypointVariationsEnabled()) {
       // Both TabStripControlButton and parent LabelButton set up similar logic
       // here for drawing the button as enabled or disabled when window
       // activation changes. Use LabelButton's as TabStripControlButton fails to
@@ -357,7 +345,6 @@ class GlicButton : public GlicBaseShim<T>,
       // TODO(crbug.com/452116005): Make this behavior configurable on
       // TabStripControlButton.
       views::LabelButton::AddedToWidget();
-    }
 
     T::AddedToWidget();
     // Button starts in WidthState::kNormal. Measure that state's width and set
@@ -445,14 +432,6 @@ class GlicButton : public GlicBaseShim<T>,
 
   // Called when the slide animation finishes.
   void OnAnimationEnded() {
-    // TODO(crbug.com/469850069): Remove.
-    if (!EntrypointVariationsEnabled()) {
-      if (GetWidthFactor() == 0) {
-        RestoreDefaultLabel();
-      }
-      return;
-    }
-
     if (IsHidingNudge()) {
       SetCloseButtonVisible(false);
     }
@@ -461,7 +440,6 @@ class GlicButton : public GlicBaseShim<T>,
     OnLabelVisibilityChanged();
   }
 
-  // virtual gfx::SlideAnimation* GetExpansionAnimationForTesting();
   bool GetLabelEnabledForTesting() const { return this->label()->GetEnabled(); }
 
   // Updates the background painter to match the current border insets.
@@ -490,16 +468,11 @@ class GlicButton : public GlicBaseShim<T>,
     UpdateColors();
   }
 
-  float GetWidthFactor() const override { return width_factor_; }
+  // Subclasses should override GetWidthFactor with their own implementation of
+  // width_factor_.
+  float GetWidthFactor() const override { return 0.0f; }
 
   virtual int GetSplitRoundedEdgeRadius() { return kSplitRoundedEdgeRadius; }
-
-  virtual int GetGlicIconSize() { return kIconSize; }
-
-  void SetWidthFactor(float factor) {
-    width_factor_ = factor;
-    this->PreferredSizeChanged();
-  }
 
  protected:
   virtual void Init(base::RepeatingClosure expansion_animation_done_callback,
@@ -515,15 +488,10 @@ class GlicButton : public GlicBaseShim<T>,
     this->SetPaintToLayer();
     this->layer()->SetFillsBoundsOpaquely(false);
 
-    UpdateIcon();
-    OnLabelVisibilityChanged();
     auto* image_view =
         static_cast<views::ImageView*>(this->image_container_view());
-    image_view->SetImageSize({GetGlicIconSize(), GetGlicIconSize()});
     image_view->SetPaintToLayer();
     image_view->layer()->SetFillsBoundsOpaquely(false);
-    image_view->SetProperty(views::kMarginsKey,
-                            gfx::Insets().set_left(kIconLeftMargin));
 
     this->label()->SetPaintToLayer();
     this->label()->layer()->SetFillsBoundsOpaquely(false);
@@ -540,13 +508,12 @@ class GlicButton : public GlicBaseShim<T>,
           gfx::Insets().set_left_right(0, kCloseButtonMargin));
       SetCloseButtonVisible(false);
     }
-    SetLabelMargins();
 
     this->SetTooltipText(tooltip);
     this->GetViewAccessibility().SetName(tooltip);
 
     SetDefaultColors();
-    UpdateColors();
+
     this->SetVisible(true);
 
     this->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
@@ -620,6 +587,28 @@ class GlicButton : public GlicBaseShim<T>,
     return l10n_util::GetStringUTF16(IDS_GLIC_BUTTON_ENTRYPOINT_LABEL);
   }
 
+  bool IsAnimatingTextVisibility() const {
+    return width_state_ == WidthState::kCollapsed ||
+           last_width_state_ == WidthState::kCollapsed;
+  }
+
+  void SetLeftRightCornerRadii(int left, int right) override {
+    GlicBaseShim<T>::SetLeftRightCornerRadii(left, right);
+  }
+
+  virtual void SetLabelMargins() {
+    int right = kLabelRightMargin;
+    if ((!close_button() || !close_button()->GetVisible())) {
+      right += 4;
+    }
+    this->label()->SetProperty(views::kMarginsKey,
+                               gfx::Insets().set_right(right));
+  }
+
+  // Must be implemented by any subclass that does not have T implementing the
+  // class.
+  void UpdateColors() override { GlicBaseShim<T>::UpdateColors(); }
+
   const raw_ptr<BrowserWindowInterface> browser_window_interface_;
 
   // The model adapter for the context menu.
@@ -637,14 +626,19 @@ class GlicButton : public GlicBaseShim<T>,
   // Profile corresponding to the browser that this button is on.
   raw_ptr<Profile> profile_;
 
+  // Icon size for Gemini Button.
+  const int icon_size_ = 20;
+
+  std::unique_ptr<WidthAnimationController> width_animation_controller_;
+
+  WidthState width_state_ = WidthState::kNormal;
+
  private:
   // views::LabelButton:
   void SetText(std::u16string_view text) override {
     T::SetText(text);
-
     // Setting label text seems to clear the margin. Set it again.
-    this->label()->SetProperty(views::kMarginsKey,
-                               gfx::Insets().set_right(kLabelRightMargin));
+    SetLabelMargins();
   }
 
   void NotifyClick(const ui::Event& event) override {
@@ -669,17 +663,9 @@ class GlicButton : public GlicBaseShim<T>,
     return model;
   }
 
-  // Must be implemented by any subclass that does not have T implementing the
-  // class.
-  void UpdateColors() override { GlicBaseShim<T>::UpdateColors(); }
-
   void SetCloseButtonFocusBehavior(
       views::View::FocusBehavior focus_behavior) override {
     GlicBaseShim<T>::SetCloseButtonFocusBehavior(focus_behavior);
-  }
-
-  void SetLeftRightCornerRadii(int left, int right) override {
-    GlicBaseShim<T>::SetLeftRightCornerRadii(left, right);
   }
 
   void SetInkdropHoverColorId(const ChromeColorIds new_color_id) override {
@@ -696,10 +682,6 @@ class GlicButton : public GlicBaseShim<T>,
   }
 
   void UpdateTextAndBackgroundColors() {
-    if (!EntrypointVariationsEnabled()) {
-      return;
-    }
-
     SetBackgroundFrameActiveColorId(ui::kColorSysBase);
     SetForegroundFrameActiveColorId(kForegroundOnAltBackground);
     this->SetTextColor(views::Button::STATE_DISABLED, kTextDisabled);
@@ -722,15 +704,6 @@ class GlicButton : public GlicBaseShim<T>,
     this->PreferredSizeChanged();
   }
 
-  void SetLabelMargins() {
-    int right = kLabelRightMargin;
-    if ((!close_button() || !close_button()->GetVisible())) {
-      right += 4;
-    }
-    this->label()->SetProperty(views::kMarginsKey,
-                               gfx::Insets().set_right(right));
-  }
-
   void ShowNudge() {
     WidthState old_width_state = width_state_;
     collapsed_before_nudge_shown_ = width_state_ == WidthState::kCollapsed;
@@ -739,12 +712,6 @@ class GlicButton : public GlicBaseShim<T>,
       return;
     }
     SetWidthState(WidthState::kNudge);
-
-    if (!EntrypointVariationsEnabled()) {
-      // If flag is disabled, the parent drives the animation. Just update the
-      // close button.
-      return SetCloseButtonVisible(true);
-    }
 
     // Remember the button's original width before changing the text and showing
     // the close button.
@@ -760,7 +727,7 @@ class GlicButton : public GlicBaseShim<T>,
     views::AnimationBuilder()
         .OnEnded(base::BindOnce(&GlicButton<T>::ApplyTextAndFadeIn,
                                 weak_ptr_factory_.GetWeakPtr(),
-                                std::move(pending_text_),
+                                /*text=*/std::nullopt,
                                 /*delay=*/DurationMs(0), kNudgeFadeInDuration))
         .Once()
         .At(kNudgeFadeInStart - kLabelFadeOutDuration)
@@ -782,12 +749,6 @@ class GlicButton : public GlicBaseShim<T>,
 
     // If the button wasn't collapsed, it must be transitioning back to kNormal.
     SetWidthState(WidthState::kNormal);
-
-    if (!EntrypointVariationsEnabled()) {
-      // If flag is disabled, the parent drives the animation. Just update the
-      // close button.
-      return SetCloseButtonVisible(false);
-    }
 
     start_width_ = PreferredSize().width();
     end_width_ = normal_width_;
@@ -859,11 +820,6 @@ class GlicButton : public GlicBaseShim<T>,
     return new_width;
   }
 
-  bool IsAnimatingTextVisibility() const {
-    return width_state_ == WidthState::kCollapsed ||
-           last_width_state_ == WidthState::kCollapsed;
-  }
-
   bool IsHidingNudge() const {
     return (width_state_ == WidthState::kNormal ||
             width_state_ == WidthState::kCollapsed) &&
@@ -883,23 +839,19 @@ class GlicButton : public GlicBaseShim<T>,
 
   virtual void OnLabelVisibilityChanged() {}
 
-  static bool EntrypointVariationsEnabled() {
-    return base::FeatureList::IsEnabled(features::kGlicEntrypointVariations);
-  }
-
   static const gfx::VectorIcon& GlicVectorIcon() {
     return GlicVectorIconManager::GetVectorIcon(IDR_GLIC_BUTTON_VECTOR_ICON);
   }
 
-  ui::ImageModel GetNormalIcon() {
+  ui::ImageModel GetNormalIcon(const int icon_size) {
     return ui::ImageModel::FromImageSkia(
         *ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
             IDR_GLIC_BUTTON_ALT_ICON));
   }
 
-  ui::ImageModel GetIconForHighlight() {
+  ui::ImageModel GetIconForHighlight(const int icon_size) {
     return ui::ImageModel::FromVectorIcon(GlicVectorIcon(), kForeground,
-                                          GetGlicIconSize());
+                                          icon_size);
   }
 
   // Helper for making animation durations instant if animations are disabled.
@@ -933,17 +885,12 @@ class GlicButton : public GlicBaseShim<T>,
   // Width of the button when in WidthState::kNormal, set in AddedToWidget().
   int normal_width_ = 0;
   WidthState last_width_state_ = WidthState::kNormal;
-  WidthState width_state_ = WidthState::kNormal;
   // Whether or not the button was collapsed before the nudge was shown.
   bool collapsed_before_nudge_shown_ = false;
-
-  std::unique_ptr<WidthAnimationController> width_animation_controller_;
 
   // Window active and inactive subscriptions for changing the hover color.
   base::CallbackListSubscription window_did_become_active_subscription_;
   base::CallbackListSubscription window_did_become_inactive_subscription_;
-
-  float width_factor_ = 0;
 
   base::WeakPtrFactory<GlicButton> weak_ptr_factory_{this};
 };

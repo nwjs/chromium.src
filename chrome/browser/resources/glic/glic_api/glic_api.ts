@@ -89,6 +89,12 @@ export declare interface AdditionalContextPart {
   pendingRegion?: PendingCapturedRegion;
 }
 
+/** Configuration to override the default ZSS behavior for the invocation. */
+export declare interface ZssConfig {
+  /** Additional content to inject into the body of the ZSS message. */
+  additionalContent?: string;
+}
+
 /** Options for invoking Glic. */
 export declare interface InvokeOptions {
   /** Source that triggered this invocation. */
@@ -101,10 +107,21 @@ export declare interface InvokeOptions {
   autoSubmit: boolean;
   /** Feature mode to switch to. */
   featureMode: FeatureMode;
+  /** Target for actuation. */
+  actuationTarget?: ActuationTarget;
   /** Whether to suppress Zero State Suggestions. */
   disableZeroStateSuggestions: boolean;
   /** Skill ID to trigger. */
   skillId?: string;
+  /** Configuration to override the default ZSS behavior for the invocation. */
+  zssConfig?: ZssConfig;
+}
+
+/** An update sent from the web client to the host. */
+export declare interface ExperimentalTriggeringUpdate {
+  type: ExperimentalTriggeringUpdateType;
+  /** Content associated with an update, such as log data or response text. */
+  data: string;
 }
 
 /**
@@ -154,7 +171,7 @@ export declare interface GlicWebClient {
    * `panelOpeningData` in these cases.
    */
   notifyPanelWillOpen?
-      (panelOpeningData: PanelOpeningData&PanelState): Promise<OpenPanelInfo>;
+    (panelOpeningData: PanelOpeningData & PanelState): Promise<OpenPanelInfo>;
 
   /**
    * Called right after the panel was hidden away and is not visible to
@@ -196,6 +213,16 @@ export declare interface GlicWebClient {
    * and the result will be cached for the lifetime of the web client.
    */
   getClientCapabilities?(): Set<ClientCapabilities>;
+
+  /*
+   * Returns an observable that emits all the glic updates for this instance.
+   * A terminal `ExperimentalTriggeringUpdateType` in the
+   * `ExperimentalTriggeringUpdate` payload should be followed by the completion
+   * of the observable to ensure proper unsubscribing and cleanup operations
+   * take place.
+   */
+  getExperimentalTriggeringUpdates?
+      (): Observable2<ExperimentalTriggeringUpdate>;
 
   // !!! ATTENTION !!!
   // Avoid adding new methods to this interface! Instead, to push information to
@@ -241,7 +268,7 @@ export declare interface GlicBrowserHost {
    * expect that the provided values may not be applied verbatim.
    */
   resizeWindow(width: number, height: number, options?: ResizeWindowOptions):
-      Promise<void>;
+    Promise<void>;
 
   /**
    * Set the state of the panel's user drag-to-resize capability, or if the
@@ -295,7 +322,7 @@ export declare interface GlicBrowserHost {
    * @throws {Error} on failure.
    */
   getContextFromFocusedTab?
-      (options: TabContextOptions): Promise<TabContextResult>;
+    (options: TabContextOptions): Promise<TabContextResult>;
 
   /**
    * Similar to `getContextFromFocusedTab`, but returns context from the tab
@@ -304,7 +331,7 @@ export declare interface GlicBrowserHost {
    * @throws {Error} on failure.
    */
   getContextFromTab?
-      (tabId: string, options: TabContextOptions): Promise<TabContextResult>;
+    (tabId: string, options: TabContextOptions): Promise<TabContextResult>;
 
   /**
    * Similar to `getContextFromTab`, but for actors. Skips the focus check.
@@ -312,7 +339,7 @@ export declare interface GlicBrowserHost {
    * @throws {Error} on failure.
    */
   getContextForActorFromTab?
-      (tabId: string, options: TabContextOptions): Promise<TabContextResult>;
+    (tabId: string, options: TabContextOptions): Promise<TabContextResult>;
 
   /**
    * Sets the maximum number of supported pinned tabs. Should not be called
@@ -334,7 +361,7 @@ export declare interface GlicBrowserHost {
    * @throws {ActInFocusedTabError} on failure.
    */
   actInFocusedTab?
-      (params: ActInFocusedTabParams): Promise<ActInFocusedTabResult>;
+    (params: ActInFocusedTabParams): Promise<ActInFocusedTabResult>;
 
   /**
    * Creates a task and returns its ID. The optional @param taskOptions
@@ -395,8 +422,8 @@ export declare interface GlicBrowserHost {
    *
    */
   pauseActorTask?
-      (taskId: number, pauseReason?: ActorTaskPauseReason, tabId?: string):
-          void;
+    (taskId: number, pauseReason?: ActorTaskPauseReason, tabId?: string):
+    void;
 
   /**
    * Resumes a previously paused actor task with the given ID.
@@ -408,7 +435,7 @@ export declare interface GlicBrowserHost {
    *
    */
   resumeActorTask?(taskId: number, tabContextOptions: TabContextOptions):
-      Promise<ResumeActorTaskResult>;
+    Promise<ResumeActorTaskResult>;
 
   /**
    * Interrupts the actor task with the given ID in the browser if it exists.
@@ -421,7 +448,7 @@ export declare interface GlicBrowserHost {
    * @param interruptReason The reason for why the interrupt was initiated.
    */
   interruptActorTask?
-      (taskId: number, interruptReason?: ActorTaskInterruptReason): void;
+    (taskId: number, interruptReason?: ActorTaskInterruptReason): void;
 
   /**
    * Indicates a task is no longer interrupted with the given ID in the browser
@@ -448,7 +475,7 @@ export declare interface GlicBrowserHost {
    * isn't associated with the task until an action is performed on the tab.
    */
   createActorTab?(taskId: number, createActorTabOptions: CreateActorTabOptions):
-      Promise<TabData>;
+    Promise<TabData>;
 
   /**
    * Returns the observable state of TabData for the given tab.
@@ -468,7 +495,7 @@ export declare interface GlicBrowserHost {
    * not found with the given ID. If the tab has no favicon, the observable
    * will emit undefined.
    */
-  getTabFaviconById?(tabId: string): ObservableValue<Blob|undefined>;
+  getTabFaviconById?(tabId: string): ObservableValue<Blob | undefined>;
 
   /**
    * Makes the given tab the active tab in its window and activates its window.
@@ -493,6 +520,8 @@ export declare interface GlicBrowserHost {
    * Starts a user-interactive process to select content from a tab. The user
    * can select multiple regions.
    *
+   * Uses the optional `params` to control the capture behavior and target tab.
+   *
    * The returned observable will emit a value for each region captured. The
    * client can cancel this operation by unsubscribing from the observable,
    * which will cause the observable to be completed.
@@ -509,7 +538,8 @@ export declare interface GlicBrowserHost {
    * the same or a different client instance), the existing capture session will
    * be terminated and a new one will begin.
    */
-  captureRegion?(): ObservableValue<CaptureRegionResult>;
+  captureRegion?
+      (params?: CaptureRegionParams): ObservableValue<CaptureRegionResult>;
 
   /**
    * Deletes a captured region.
@@ -575,6 +605,8 @@ export declare interface GlicBrowserHost {
   /**
    * Requests that the web client's panel be detached from a browser window
    * (floats free).
+   *
+   * @throws {Error} If NO_LIVE_MODE is enabled.
    */
   detachPanel?(): void;
 
@@ -654,7 +686,7 @@ export declare interface GlicBrowserHost {
   getOsLocationPermissionState?(): ObservableValue<boolean>;
 
   /** Returns the state of the OS hotkey. */
-  getOsHotkeyState?(): ObservableValue<{hotkey: string}>;
+  getOsHotkeyState?(): ObservableValue<{ hotkey: string }>;
 
   /** Returns the state of the glic closed captioning setting. */
   getClosedCaptioningSetting?(): ObservableValue<boolean>;
@@ -671,6 +703,13 @@ export declare interface GlicBrowserHost {
    * returned observable will be updated when the global setting changes.
    */
   getDefaultTabContextPermissionState?(): ObservableValue<boolean>;
+
+  /**
+   * Returns the zoom level of the Glic webview.
+   * The client should subscribe to this to be notified of zoom level changes.
+   * The value is a float representing the zoom factor (e.g., 1.5 for 150%).
+   */
+  getZoomLevel?(): ObservableValue<number>;
 
   /**
    * Set the state of the microphone permission in settings. Returns a promise
@@ -798,7 +837,7 @@ export declare interface GlicBrowserHost {
    * ZeroStateSuggestions tabId and url before using it.
    */
   getZeroStateSuggestionsForFocusedTab?
-      (is_first_run?: boolean): Promise<ZeroStateSuggestions>;
+    (is_first_run?: boolean): Promise<ZeroStateSuggestions>;
 
   /**
    * Called when the client believes that the user's status may have changed.
@@ -861,7 +900,7 @@ export declare interface GlicBrowserHost {
    * subscribed only while it is required.
    */
   getPinCandidates?
-      (options: GetPinCandidatesOptions): ObservableValue<PinCandidate[]>;
+    (options: GetPinCandidatesOptions): ObservableValue<PinCandidate[]>;
 
   /**
    * Returns an observable unique to the supplied options that emits zero state
@@ -872,7 +911,7 @@ export declare interface GlicBrowserHost {
    * observer to stop emitting.
    */
   getZeroStateSuggestions?(options?: ZeroStateSuggestionsOptions):
-      ObservableValue<ZeroStateSuggestionsV2>;
+    ObservableValue<ZeroStateSuggestionsV2>;
 
   /**
    * Creates a skill. The request contains a prompt or an empty string.
@@ -951,7 +990,7 @@ export declare interface GlicBrowserHost {
    * When the tab is destroyed, the observable will complete.
    */
   getPageMetadata?
-      (tabId: string, names: string[]): ObservableValue<PageMetadata>;
+    (tabId: string, names: string[]): ObservableValue<PageMetadata>;
 
   /**
    * Returns an observable that emits when the browser wants the web client to
@@ -967,7 +1006,7 @@ export declare interface GlicBrowserHost {
    * up the UI elements when the task is no longer active.
    */
   selectCredentialDialogRequestHandler?
-      (): Observable<SelectCredentialDialogRequest>;
+    (): Observable<SelectCredentialDialogRequest>;
 
   /**
    * Returns an observable that emits when the browser wants the web client to
@@ -983,7 +1022,7 @@ export declare interface GlicBrowserHost {
    * up the UI elements when the task is no longer active.
    */
   selectUserConfirmationDialogRequestHandler?
-      (): Observable<UserConfirmationDialogRequest>;
+    (): Observable<UserConfirmationDialogRequest>;
 
   /**
    * Returns an observable that emits when the browser wants the web client to
@@ -999,7 +1038,7 @@ export declare interface GlicBrowserHost {
    * up the UI elements when the task is no longer active.
    */
   selectNavigationConfirmationRequestHandler?
-      (): Observable<NavigationConfirmationRequest>;
+    (): Observable<NavigationConfirmationRequest>;
 
   /**
    * Returns an observable that emits when the browser wants the web client to
@@ -1016,7 +1055,7 @@ export declare interface GlicBrowserHost {
    * up the UI elements when the task is no longer active.
    */
   selectAutofillSuggestionsDialogRequestHandler?
-      (): Observable<SelectAutofillSuggestionsDialogRequest>;
+    (): Observable<SelectAutofillSuggestionsDialogRequest>;
 
   /**
    * Switches to a use a different instance that shows the conversation
@@ -1058,14 +1097,6 @@ export declare interface GlicBrowserHost {
   getActOnWebCapability?(): ObservableValue<boolean>;
 
   /**
-   * @todo Not yet implemented: https://crbug.com/458761731.
-   *
-   * Load and extract content from given urls.
-   */
-  loadAndExtractContent?(urls: string[], options: TabContextOptions[]):
-      Promise<TabContextResult[]>;
-
-  /**
    * Called when the user has completed the onboarding flow.
    */
   setOnboardingCompleted?(): void;
@@ -1088,6 +1119,16 @@ export declare interface GlicBrowserHost {
    * Called when the microphone status changes in the web client.
    */
   onMicrophoneStatusChange?(status: MicrophoneStatus): void;
+
+  /**
+   * Informs Chrome of whether an error dialog is showing. Used for metrics,
+   * and may cause Chrome to eventually reload the page if the GiC panel is
+   * backgrounded.
+   *
+   * @param shownDialogType The type of error dialog that is showing. If
+   *   `undefined`, no error dialog is showing.
+   */
+  setErrorDialogState?(shownDialogType?: ClientErrorDialogType): void;
 }
 
 /** Information about a conversation. */
@@ -1110,7 +1151,7 @@ export declare interface ConversationInfo {
 }
 
 /** Fields of interest from the system settings page. */
-export type OsPermissionType = 'media'|'geolocation';
+export type OsPermissionType = 'media' | 'geolocation';
 
 /** Optional parameters for the openGlicSettingsPage function. */
 export declare interface OpenSettingsOptions {
@@ -1260,6 +1301,14 @@ export declare interface Rect {
 }
 
 /**
+ * A point with x and y coordinates. All coordinate values are in pixels.
+ */
+export declare interface Point {
+  x: number;
+  y: number;
+}
+
+/**
  * A region captured by the user from a document in a tab.
  *
  * This is a union of different possible region shapes. Currently only
@@ -1284,6 +1333,17 @@ export declare interface CapturedRegion {
    * document's bounds.
    */
   rect?: Rect;
+  /**
+   * A polyline captured from a document in a tab.
+   *
+   * The coordinate system is relative to the top-left corner of the document.
+   * The units are in pixels and match screenshot pixel dimensions.
+   *
+   * The polyline is represented by an ordered array of points. The line formed
+   * by these points is not required to be closed, and it represents a shape
+   * (path), not necessarily a region.
+   */
+  polyline?: Point[];
 }
 
 /** The captured region with an ID. */
@@ -1303,6 +1363,11 @@ export declare interface CaptureRegionResult {
    * polygons in the future.
    */
   region?: CapturedRegion;
+}
+
+export declare interface CaptureRegionParams {
+  tabId: string;
+  options: TabContextOptions;
 }
 
 /** An encoded journal. */
@@ -1330,8 +1395,8 @@ export declare interface GlicBrowserHostJournal {
    * endAsyncEvent must be called to terminate this event.
    */
   beginAsyncEvent(
-      asynEventId: number, taskId: number, event: string,
-      details: string): void;
+    asynEventId: number, taskId: number, event: string,
+    details: string): void;
 
   /**
    * Clears the contents of a started journal. No-op if a journal was not
@@ -1386,7 +1451,7 @@ export declare interface OpenPanelInfo {
    * open event. See documentation on `resizeWindow` for how the provided
    * arguments will be used.
    */
-  resizeParams?: {width: number, height: number, options?: ResizeWindowOptions};
+  resizeParams?: { width: number, height: number, options?: ResizeWindowOptions };
 
   /**
    * Whether the panel should start out resizable by the user. The panel is
@@ -1723,7 +1788,7 @@ export declare interface TabData {
    * Favicons may be omitted if the client capability
    * `IGNORES_TAB_DATA_FAVICONS` is present on this instance.
    */
-  favicon?(): Promise<Blob|undefined>;
+  favicon?(): Promise<Blob | undefined>;
   /**
    * The favicon URL. Only available if the page is loaded enough and it
    * specifies a favicon.
@@ -1819,7 +1884,7 @@ export declare interface FocusedTabDataHasNoFocus {
  * Note: This will be updated in the future when we have a solution worked out
  * for annotating the captured screenshots.
  */
-export declare interface ImageOriginAnnotations {}
+export declare interface ImageOriginAnnotations { }
 
 /**
  * An encoded screenshot image and associated metadata.
@@ -1880,7 +1945,7 @@ export type WebClientInitializeError = ErrorWithReason<'webClientInitialize'>;
 
 /** Error implementation with a typed generic reason attached. */
 export declare interface ErrorWithReason<
-    T extends keyof ErrorReasonTypes> extends Error {
+  T extends keyof ErrorReasonTypes> extends Error {
   /** A tag that identifies the reason type. */
   reasonType: T;
   /** The reason for the error. */
@@ -2069,6 +2134,28 @@ export declare interface Observable<T> {
 }
 
 /**
+ * A generic interface for observing a stream of values.
+ *
+ * Unlike `Observable`, `subscribeObserver` is required and in the future the
+ * two related Observable interfaces will be merged into one.
+ *
+ * Subscriptions should be kept only while necessary, as they incur some cost.
+ * When not needed anymore, call Subscriber.unsubscribe() on the instance
+ * returned by subscribe.
+ */
+export declare interface Observable2<T> {
+  /** Receive updates for value changes. */
+  subscribe(change: (newValue: T) => void): Subscriber;
+
+  /**
+   * Subscribe with an Observer.
+   * This API was added in later, and is not supported by all versions of
+   * Chrome.
+   */
+  subscribeObserver(observer: Observer<T>): Subscriber;
+}
+
+/**
  * An observable value that may change over time. A subscriber is guaranteed to
  * be called once with the value, and again anytime the value changes. Note that
  * the subscriber may or may not be invoked immediately upon calling
@@ -2081,7 +2168,7 @@ export declare interface ObservableValue<T> extends Observable<T> {
    * Provides synchronous access to the current value. Returns undefined if the
    * initial value has not yet been populated.
    */
-  getCurrentValue(): T|undefined;
+  getCurrentValue(): T | undefined;
 }
 
 /** Allows control of a subscription to an Observable. */
@@ -2094,7 +2181,7 @@ export declare interface Observer<T> {
   /** Called when the Observable emits a value. */
   next?(value: T): void;
   /** Called if the Observable emits an error. */
-  error?(err: any): void;
+  error?(err: unknown): void;
   /** Called when the Observable completes. */
   complete?(): void;
 }
@@ -2105,7 +2192,7 @@ export declare interface UserProfileInfo {
    * Returns the avatar icon for the profile, if available. Encoded as a PNG
    * image.
    */
-  avatarIcon(): Promise<Blob|undefined>;
+  avatarIcon(): Promise<Blob | undefined>;
   /** The full name displayed for this profile. */
   displayName: string;
   /** The given name for this profile. */
@@ -2287,7 +2374,7 @@ export declare interface SelectCredentialDialogRequest {
 
   // The WebClient must call this function to respond back to the browser when
   // the dialog is closed.
-  onDialogClosed(result: {response: SelectCredentialDialogResponse}): void;
+  onDialogClosed(result: { response: SelectCredentialDialogResponse }): void;
 }
 
 export declare interface SelectCredentialDialogResponse {
@@ -2317,7 +2404,7 @@ export declare interface UserConfirmationDialogRequest {
 
   // The WebClient must call this function to respond back to the browser when
   // the dialog is closed.
-  onDialogClosed(result: {response: UserConfirmationDialogResponse}): void;
+  onDialogClosed(result: { response: UserConfirmationDialogResponse }): void;
 }
 
 export declare interface UserConfirmationDialogResponse {
@@ -2333,8 +2420,8 @@ export declare interface NavigationConfirmationRequest {
 
   // The WebClient must call this function to respond back to the browser when
   // the confirmation request has a decision.
-  onConfirmationDecision(result: {response: NavigationConfirmationResponse}):
-      void;
+  onConfirmationDecision(result: { response: NavigationConfirmationResponse }):
+    void;
 }
 
 export declare interface NavigationConfirmationResponse {
@@ -2406,11 +2493,11 @@ export declare interface SelectAutofillSuggestionsDialogRequest {
    * The WebClient must call this function to respond back to the browser when
    * the dialog is closed.
    */
-  onDialogClosed(result: {response: SelectAutofillSuggestionsDialogResponse}):
-      void;
+  onDialogClosed(result: { response: SelectAutofillSuggestionsDialogResponse }):
+    void;
 
   /** Called when a form's suggestions are presented in the UI. */
-  onFormPresented?(params: {formFillingRequestIndex: number}): void;
+  onFormPresented?(params: { formFillingRequestIndex: number }): void;
 
   /**
    * Called when a preview is requested (e.g. by hovering over a suggestion).
@@ -2830,6 +2917,7 @@ export enum PanelStateKind {
 // Represents an override of the First Run Experience (FRE).
 export enum FreOverride {
   UNSPECIFIED = 0,
+  // Deprecated: No longer used.
   // Variation that requires text input from the user to unlock full client.
   TRUST_FIRST_TEXT = 1,
   // Variation that requires mouse click from the user to unlock full client.
@@ -2896,6 +2984,11 @@ export enum InvocationSource {
   TEXT_SELECTION_WIDGET = 25,
   // Automatic summarization upon opening.
   ZERO_STATE_AUTO_SUMMARIZE = 26,
+  // From the universal cart.
+  UNIVERSAL_CART = 27,
+  // Used exclusively for invocations originating from the
+  // GlicExperimentalTriggeringMessageHandler.
+  EXPERIMENTAL_TRIGGERING = 28,
 }
 
 ///////////////////////////////////////////////
@@ -2904,7 +2997,25 @@ export enum InvocationSource {
 export enum FeatureMode {
   UNSPECIFIED = 0,
   IMAGE_GENERATION = 1,
-  BLUEDOG = 2,
+  ACTUATION = 2,
+  // Client feature mode to initiate actuation for Experimental Triggering.
+  EXPERIMENTAL_TRIGGERING = 3,
+  // Client feature mode to initiate actuation for Universal Cart.
+  UNIVERSAL_CART = 4,
+}
+
+///////////////////////////////////////////////
+// WARNING - GENERATED FROM MOJOM, DO NOT EDIT.
+// Target for actuation.
+export enum ActuationTarget {
+  // Will default to the agent if the target is unknown.
+  UNKNOWN = 0,
+  // Agent infers the best location based on the prompt.
+  AGENT_DECIDES = 1,
+  // Forces actuation on the initiating tab.
+  CURRENT_TAB = 2,
+  // Forces actuation in a new tab.
+  NEW_TAB = 3,
 }
 
 ///////////////////////////////////////////////
@@ -2945,6 +3056,20 @@ export enum WebUseCounter {
   SUBMIT_PROMPT_WITH_AUTO_MODE = 1,
   TASK_INTERRUPTED_FOR_USER_CONFIRMATION = 2,
   TASK_INTERRUPTED_FOR_USER_CLARIFICATION = 3,
+  SELECTION_TOGGLED_VIA_SHARED_MENU = 4,
+  SELECTION_TOGGLED_VIA_HOT_KEY = 5,
+}
+
+///////////////////////////////////////////////
+// WARNING - GENERATED FROM MOJOM, DO NOT EDIT.
+// Client error dialog types.
+export enum ClientErrorDialogType {
+  UNKNOWN = 0,
+  DISABLED_BY_ORGANIZATION = 1,
+  GENERIC_AVAILABILITY = 2,
+  INELIGIBLE_ACCOUNT = 3,
+  SIGNOUT = 4,
+  UNSUPPORTED_LOCATION = 5,
 }
 
 ///////////////////////////////////////////////
@@ -2954,6 +3079,24 @@ export enum AdditionalContextSource {
   SHARE_CONTEXT_MENU = 0,
   REGION_SELECTION = 1,
   TEXT_SELECTION = 3,
+}
+
+///////////////////////////////////////////////
+// WARNING - GENERATED FROM MOJOM, DO NOT EDIT.
+// Types of updates that may be relayed back by the web client.
+export enum ExperimentalTriggeringUpdateType {
+  // An unknown, non-terminal update type.
+  UNKNOWN = 0,
+  // A log entry describing internal steps or "thought" process.
+  WORKLOG = 1,
+  // The interaction was paused.
+  PAUSED = 2,
+  // A final status update or metadata about the completed task.
+  TERMINAL_COMPLETION = 3,
+  // The interaction was stopped or cancelled.
+  TERMINAL_STOPPED = 4,
+  // The interaction failed.
+  TERMINAL_FAILED = 5,
 }
 
 ///////////////////////////////////////////////
@@ -3014,6 +3157,10 @@ export enum HostCapability {
   // Indicates that the host supports auto browse attempting login using Sign in
   // with Google.
   AUTO_LOGIN_SIGN_IN_WITH_GOOGLE = 10,
+  // Indicates that the host supports sharing images via the invoke mechanism.
+  SHARE_IMAGE_VIA_INVOKE = 11,
+  // Indicates that the host supports image drag and drop from the web
+  IMG_WEB_DRAG_DROP = 12,
 }
 
 ///////////////////////////////////////////////

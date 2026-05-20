@@ -708,7 +708,7 @@ ui::ImageModel OmniboxContextMenuController::GetIconForInputType(
     case omnibox::InputType::INPUT_TYPE_DRIVE:
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
       return ui::ImageModel::FromVectorIcon(
-          vector_icons::kGoogleDriveIcon, ui::kColorMenuIcon,
+          vector_icons::kGoogleDriveMonochromeIcon, ui::kColorMenuIcon,
           ui::SimpleMenuModel::kDefaultIconSize);
 #else
       return ui::ImageModel();
@@ -913,9 +913,9 @@ void OmniboxContextMenuController::ExecuteCommand(int id, int event_flags) {
       if (auto it = input_type_for_command_id_.find(id);
           it != input_type_for_command_id_.end()) {
         if (it->second == omnibox::InputType::INPUT_TYPE_DRIVE) {
-          // TODO: Invoke DriveHandler.<open_drive_picker>() here.
-          // Note: The first step in that method should be to check the
-          // disclaimer using go/fpop footprints.
+          if (composebox_handler) {
+            composebox_handler->OnDriveUploadClicked();
+          }
           return;
         }
         file_selector_->OpenFileUploadDialog(

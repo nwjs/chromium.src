@@ -6,8 +6,8 @@
 import 'chrome://resources/cr_elements/cr_lottie/cr_lottie.js';
 
 import type {CrLottieElement} from 'chrome://resources/cr_elements/cr_lottie/cr_lottie.js';
-import {assertEquals, assertNotEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import type { MockMethod} from 'chrome://webui-test/mock_controller.js';
+import {assertDeepEquals, assertEquals, assertNotEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import type {MockMethod} from 'chrome://webui-test/mock_controller.js';
 import {MockController} from 'chrome://webui-test/mock_controller.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 // clang-format on
@@ -42,8 +42,8 @@ suite('cr_lottie_test', function() {
   let container: HTMLElement;
   let canvas: HTMLCanvasElement;
 
-  let waitForInitializeEvent: Promise<void>;
-  let waitForPlayingEvent: Promise<void>;
+  let waitForInitializeEvent: Promise<Event>;
+  let waitForPlayingEvent: Promise<Event>;
 
   const defaultWidth = 300;
   const defaultHeight = 200;
@@ -56,7 +56,7 @@ suite('cr_lottie_test', function() {
     mockController.reset();
   });
 
-  function createLottieElement(autoplay: boolean = true) {
+  function createLottieElement(autoplay: boolean) {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     crLottieElement = document.createElement('cr-lottie');
     crLottieElement.animationUrl = SAMPLE_LOTTIE_GREEN;
@@ -153,7 +153,8 @@ suite('cr_lottie_test', function() {
 
     // First resize event after loading the animation.
     const firstResizeEventAfterLoad =
-        eventToPromise('cr-lottie-resized', crLottieElement);
+        eventToPromise<CustomEvent<{height: number, width: number}>>(
+            'cr-lottie-resized', crLottieElement);
     const firstResizeEvent = await firstResizeEventAfterLoad;
     assertEquals(firstResizeEvent.detail.height, defaultHeight);
     assertEquals(firstResizeEvent.detail.width, defaultWidth);
@@ -164,7 +165,8 @@ suite('cr_lottie_test', function() {
     container.style.width = newWidth + 'px';
     container.style.height = newHeight + 'px';
     const resizeEventAfterExplicitResize =
-        eventToPromise('cr-lottie-resized', crLottieElement);
+        eventToPromise<CustomEvent<{height: number, width: number}>>(
+            'cr-lottie-resized', crLottieElement);
     const resizeEvent = await resizeEventAfterExplicitResize;
 
     assertEquals(resizeEvent.detail.height, newHeight);
@@ -181,7 +183,8 @@ suite('cr_lottie_test', function() {
     const newHeight = 300;
     const newWidth = 400;
     const waitForResizeEvent =
-        eventToPromise('cr-lottie-resized', crLottieElement);
+        eventToPromise<CustomEvent<{height: number, width: number}>>(
+            'cr-lottie-resized', crLottieElement);
     // Update size of parent div container to see if the canvas is resized.
     container.style.width = newWidth + 'px';
     container.style.height = newHeight + 'px';
@@ -253,6 +256,33 @@ suite('cr_lottie_test', function() {
         eventToPromise('cr-lottie-paused', crLottieElement);
     await waitForInitializeEvent;
     await waitForPauseEvent;
+  });
+
+  test('TestPlaySegments', async () => {
+    createLottieElement(/*autoplay=*/ false);
+    await waitForInitializeEvent;
+
+    const waitForPlaying =
+        eventToPromise<CustomEvent<{segments: [number, number] | null}>>(
+            'cr-lottie-playing', crLottieElement);
+    crLottieElement.playSegments([0, 10]);
+
+    const event = await waitForPlaying;
+    assertDeepEquals([0, 10], event.detail.segments);
+  });
+
+  test('TestPlaySegmentsBeforeInit', async () => {
+    createLottieElement(/*autoplay=*/ false);
+    assertFalse(crLottieElement.autoplay);
+
+    const waitForPlaying =
+        eventToPromise<CustomEvent<{segments: [number, number] | null}>>(
+            'cr-lottie-playing', crLottieElement);
+    crLottieElement.playSegments([0, 10]);
+
+    await waitForInitializeEvent;
+    const event = await waitForPlaying;
+    assertDeepEquals([0, 10], event.detail.segments);
   });
 
   test('TestRenderFrame', async function() {

@@ -15,6 +15,7 @@
 #include "chrome/browser/glic/host/glic.mojom-shared.h"
 #include "chrome/browser/glic/service/metrics/metrics_types.h"
 #include "chrome/common/chrome_features.h"
+#include "components/metrics/profile_metrics_service.h"
 #include "components/skills/public/skills_metrics.h"
 #include "components/split_tabs/split_tab_id.h"
 #include "components/tabs/public/mock_tab_interface.h"
@@ -39,12 +40,23 @@ class GlicInstanceMetricsTest : public testing::Test {
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   base::HistogramTester histogram_tester_;
   ukm::TestAutoSetUkmRecorder ukm_tester_;
-  GlicInstanceMetrics metrics_;
+  metrics::ProfileMetricsService profile_metrics_service_;
+  GlicInstanceMetrics metrics_{&profile_metrics_service_};
   tabs::MockTabInterface mock_tab_;
   ui::UnownedUserDataHost unowned_user_data_host_;
   base::UserActionTester user_action_tester_;
   base::test::ScopedFeatureList scoped_feature_list_{
       features::kGlicCaptureRegion};
+};
+
+class GlicInstanceMetricsTestWithPolyline : public GlicInstanceMetricsTest {
+ public:
+  GlicInstanceMetricsTestWithPolyline() {
+    feature_list_.InitAndEnableFeature(features::kGlicRegionSelectionLine);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 TEST_F(GlicInstanceMetricsTest, OnActivationChanged_LogsTimeSinceLastActive) {
@@ -492,7 +504,7 @@ TEST_F(GlicInstanceMetricsTest, ActuationResponseStopTime) {
 
 TEST_F(GlicInstanceMetricsTest, InputModesUsed_IgnoresUnknown) {
   {
-    GlicInstanceMetrics metrics;
+    GlicInstanceMetrics metrics(&profile_metrics_service_);
     metrics.OnVisibilityChanged(true);
     metrics.OnUserInputSubmitted(mojom::WebClientMode::kUnknown);
     metrics.OnUserInputSubmitted(mojom::WebClientMode::kAudio);
@@ -503,7 +515,7 @@ TEST_F(GlicInstanceMetricsTest, InputModesUsed_IgnoresUnknown) {
                                       InputModesUsed::kOnlyAudio, 1);
 
   {
-    GlicInstanceMetrics metrics;
+    GlicInstanceMetrics metrics(&profile_metrics_service_);
     metrics.OnVisibilityChanged(true);
     metrics.OnUserInputSubmitted(mojom::WebClientMode::kUnknown);
   }
@@ -525,17 +537,18 @@ TEST_F(GlicInstanceMetricsTest, OnTurnCompleted_LogsHistograms) {
                                            base::Milliseconds(200), 1);
 }
 
-TEST_F(GlicInstanceMetricsTest, OnReaction_LogsUserActions) {
+TEST_F(GlicInstanceMetricsTest, ScrollToMetrics) {
+  base::test::ScopedFeatureList features(features::kGlicScrollTo);
   metrics_.OnVisibilityChanged(true);
   metrics_.OnUserInputSubmitted(mojom::WebClientMode::kText);
   metrics_.OnResponseStarted();
+  metrics_.OnGlicScrollAttempt();
+  task_environment_.FastForwardBy(base::Milliseconds(400));
   metrics_.OnResponseStopped(mojom::ResponseStopCause::kUnknown);
+  metrics_.OnGlicScrollComplete(true);
 
-  metrics_.OnReaction(mojom::MetricUserInputReactionType::kCanned);
-  EXPECT_EQ(1, user_action_tester_.GetActionCount("GlicReactionCanned"));
-
-  metrics_.OnReaction(mojom::MetricUserInputReactionType::kModel);
-  EXPECT_EQ(1, user_action_tester_.GetActionCount("GlicReactionModelled"));
+  histogram_tester_.ExpectUniqueTimeSample(
+      "Glic.ScrollTo.UserPromptToScrollTime.Text", base::Milliseconds(400), 1);
 }
 
 TEST_F(GlicInstanceMetricsTest, SelectionUsed) {
@@ -557,6 +570,38 @@ TEST_F(GlicInstanceMetricsTest, SelectionUsed) {
       "Glic.Instance.InputSubmitted.SelectionCount", 0, 1);
   histogram_tester_.ExpectBucketCount(
       "Glic.Instance.InputSubmitted.SelectionCount", 2, 2);
+}
+
+TEST_F(GlicInstanceMetricsTestWithPolyline, PolylineSelectionUsed) {
+  metrics_.OnVisibilityChanged(true);
+  metrics_.OnPolylinePointsChanged({4, 10});
+  metrics_.OnUserInputSubmitted(mojom::WebClientMode::kText);
+
+  histogram_tester_.ExpectBucketCount(
+      "Glic.Instance.InputSubmitted.Selection.PolylinePointCount", 4, 1);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.Instance.InputSubmitted.Selection.PolylinePointCount", 10, 1);
+  histogram_tester_.ExpectTotalCount(
+      "Glic.Instance.InputSubmitted.Selection.PolylinePointCount", 2);
+
+  // Check that it's NOT reset after submission (Persistence)
+  metrics_.OnPolylinePointsChanged({4, 8, 8, 10});
+  metrics_.OnUserInputSubmitted(mojom::WebClientMode::kText);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.Instance.InputSubmitted.Selection.PolylinePointCount", 4, 2);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.Instance.InputSubmitted.Selection.PolylinePointCount", 8, 2);
+  histogram_tester_.ExpectBucketCount(
+      "Glic.Instance.InputSubmitted.Selection.PolylinePointCount", 10, 2);
+  histogram_tester_.ExpectTotalCount(
+      "Glic.Instance.InputSubmitted.Selection.PolylinePointCount", 6);
+
+  // Check that it can be cleared
+  metrics_.OnPolylinePointsChanged({});
+  metrics_.OnUserInputSubmitted(mojom::WebClientMode::kText);
+
+  histogram_tester_.ExpectTotalCount(
+      "Glic.Instance.InputSubmitted.Selection.PolylinePointCount", 6);
 }
 
 TEST_F(GlicInstanceMetricsTest, Floaty_OpenCloseClose_LogsError) {
@@ -696,6 +741,34 @@ TEST_F(GlicInstanceMetricsTest, RecordSkillsWebClientEvent_IsNoOpWhenUnknown) {
 
   // No metrics should be emitted.
   EXPECT_TRUE(histogram_tester_.GetTotalCountsForPrefix("Skills.").empty());
+}
+
+TEST_F(GlicInstanceMetricsTest, OnInstanceDestroyed_LogsPerProfileTurnCount) {
+  metrics::ProfileMetricsContext context = 1;  // Profile 1 -> .Profile1
+  metrics::ProfileMetricsService profile_metrics_service{context};
+  {
+    GlicInstanceMetrics metrics_with_profile(&profile_metrics_service);
+    metrics_with_profile.OnTurnCompleted(mojom::WebClientModel::kDefault,
+                                         base::Milliseconds(100));
+    metrics_with_profile.OnTurnCompleted(mojom::WebClientModel::kDefault,
+                                         base::Milliseconds(200));
+  }  // Destructor calls OnInstanceDestroyed
+
+  histogram_tester_.ExpectUniqueSample("Glic.Instance.TurnCount", 2, 1);
+  histogram_tester_.ExpectUniqueSample("Glic.Instance.TurnCount.Profile1", 2,
+                                       1);
+}
+
+TEST_F(GlicInstanceMetricsTest, ZoomChangeCount) {
+  {
+    GlicInstanceMetrics metrics(&profile_metrics_service_);
+    metrics.OnZoomLevelChange();
+    metrics.OnZoomLevelChange();
+    metrics.OnZoomLevelChange();
+    metrics.OnClose();
+  }  // Destructor calls OnInstanceDestroyed
+
+  histogram_tester_.ExpectUniqueSample("Glic.Instance.ZoomChangeCount", 3, 1);
 }
 
 }  // namespace glic

@@ -5,6 +5,17 @@
 #import "ios/chrome/browser/intelligence/page_action_menu/ui/page_action_menu_content_entry_point.h"
 
 #import "base/check.h"
+#import "ios/chrome/browser/intelligence/page_action_menu/utils/ai_hub_constants.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
+#import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/l10n/l10n_util.h"
+
+namespace {
+
+// The size of icons displayed in the footer.
+const CGFloat kIconSize = 20;
+
+}  // namespace
 
 @implementation PageActionMenuContentEntryPoint
 
@@ -26,22 +37,52 @@
 
 @implementation ContentEntryPointUnavailabilityItem
 
-- (instancetype)initWithText:(NSString*)text {
-  CHECK(text);
-  return [self initWithText:text icon:nil actionIdentifier:nil];
-}
-
 - (instancetype)initWithText:(NSString*)text
                         icon:(UIImage*)icon
-            actionIdentifier:(NSString*)actionIdentifier {
+            actionIdentifier:(NSString*)actionIdentifier
+            metricIdentifier:(IOSPageActionMenuFooterReason)metricIdentifier {
   CHECK(text);
   self = [super init];
   if (self) {
     _text = [text copy];
     _icon = icon;
     _actionIdentifier = [actionIdentifier copy];
+    _metricIdentifier = metricIdentifier;
   }
   return self;
 }
 
++ (instancetype)geminiEnterprise {
+  NSString* text = l10n_util::GetNSString(
+      IDS_IOS_AI_HUB_GEMINI_UNAVAILABLE_ENTERPRISE_LABEL);
+  UIImage* icon = [CustomSymbolWithPointSize(kEnterpriseSymbol, kIconSize)
+      imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+  return [[ContentEntryPointUnavailabilityItem alloc]
+          initWithText:text
+                  icon:icon
+      actionIdentifier:nil
+      metricIdentifier:IOSPageActionMenuFooterReason::kGeminiEnterprise];
+}
+
++ (instancetype)lensEnterprise {
+  NSString* text =
+      l10n_util::GetNSString(IDS_IOS_AI_HUB_LENS_UNAVAILABLE_ENTERPRISE_LABEL);
+  UIImage* icon = [CustomSymbolWithPointSize(kEnterpriseSymbol, kIconSize)
+      imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+  return [[ContentEntryPointUnavailabilityItem alloc]
+          initWithText:text
+                  icon:icon
+      actionIdentifier:nil
+      metricIdentifier:IOSPageActionMenuFooterReason::kLensEnterprise];
+}
+
++ (instancetype)lensSearchEngine {
+  NSString* text = l10n_util::GetNSString(
+      IDS_IOS_AI_HUB_LENS_UNAVAILABLE_SEARCH_ENGINE_LABEL);
+  return [[ContentEntryPointUnavailabilityItem alloc]
+          initWithText:text
+                  icon:nil
+      actionIdentifier:kSearchEngineSettingsActionIdentifier
+      metricIdentifier:IOSPageActionMenuFooterReason::kLensSearchEngine];
+}
 @end

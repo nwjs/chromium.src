@@ -15,11 +15,11 @@
 #include "base/task/single_thread_task_runner.h"
 #include "content/browser/accessibility/render_accessibility_host.h"
 #include "content/browser/attribution_reporting/attribution_host.h"
+#include "content/browser/back_forward_cache/back_forward_cache_impl.h"
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
 #include "content/browser/file_system/file_system_manager_impl.h"
 #include "content/browser/geolocation/geolocation_service_impl.h"
 #include "content/browser/manifest/manifest_manager_host.h"
-#include "content/browser/renderer_host/back_forward_cache_impl.h"
 #include "content/browser/renderer_host/page_lifecycle_state_manager.h"
 #include "content/browser/renderer_host/render_frame_host_delegate.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
@@ -92,7 +92,7 @@ class MessageFilterChain final : public mojo::MessageFilter {
 };
 
 // This class can be added as a MessageFilter to a mojo receiver to detect
-// messages received while the the associated frame is in the Back-Forward
+// messages received while the associated frame is in the Back-Forward
 // Cache. Documents that are in the bfcache should not be sending mojo messages
 // back to the browser.
 class BackForwardCacheMessageFilter : public mojo::MessageFilter {
@@ -144,7 +144,7 @@ class BackForwardCacheMessageFilter : public mojo::MessageFilter {
   void DidDispatchOrReject(mojo::Message* message, bool accepted) override {}
 
   // TODO(crbug.com/40147948): Remove once a well-behaved frozen
-  // RenderFrame never send IPCs messages, even if there are active pages in the
+  // RenderFrame never sends IPC messages, even if there are active pages in the
   // process.
   bool ProcessHoldsNonCachedPages() {
     return RenderViewHostImpl::HasNonBackForwardCachedInstancesForProcess(

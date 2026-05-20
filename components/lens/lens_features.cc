@@ -17,6 +17,8 @@ namespace lens::features {
 
 BASE_FEATURE(kLensStandalone, base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kShowContextualTasksMenuIcon, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kLensOverlay,
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -24,6 +26,8 @@ BASE_FEATURE(kLensOverlay,
              base::FEATURE_ENABLED_BY_DEFAULT
 #endif
 );
+
+BASE_FEATURE(kLensOverlayAndroid, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayTranslateButton, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -226,14 +230,6 @@ constexpr base::FeatureParam<bool> kIsOmniboxEntrypointAlwaysVisible{
 const base::FeatureParam<bool> kUseBrowserDarkModeSettingForLensOverlay{
     &kLensOverlay, "use-browser-dark-mode-setting", true};
 
-const base::FeatureParam<bool> kDynamicThemeForLensOverlay{
-    &kLensOverlay, "use-dynamic-theme", true};
-
-const base::FeatureParam<double> kDynamicThemeMinPopulationPct{
-    &kLensOverlay, "use-dynamic-theme-min-population-pct", 0.002f};
-
-const base::FeatureParam<double> kDynamicThemeMinChroma{
-    &kLensOverlay, "use-dynamic-theme-min-chroma", 3.0f};
 
 const base::FeatureParam<bool>
     kSendVisualSearchInteractionParamForLensTextQueries{
@@ -432,9 +428,6 @@ constexpr base::FeatureParam<base::TimeDelta> kSupportedLanguagesCacheTimeoutMs{
 constexpr base::FeatureParam<int> kRecentLanguagesAmount{
     &kLensOverlayTranslateLanguages, "recent-languages-amount", 5};
 
-constexpr base::FeatureParam<bool>
-    kLensOverlayVisualSelectionUpdatesEnableDynamicTheme{
-        &kLensOverlayVisualSelectionUpdates, "enable-dynamic-theme", false};
 
 constexpr base::FeatureParam<bool>
     kLensOverlayVisualSelectionUpdatesEnableBorderGlow{
@@ -868,13 +861,6 @@ bool UseBrowserDarkModeSettingForLensOverlay() {
   return kUseBrowserDarkModeSettingForLensOverlay.Get();
 }
 
-double DynamicThemeMinPopulationPct() {
-  return kDynamicThemeMinPopulationPct.Get();
-}
-
-double DynamicThemeMinChroma() {
-  return kDynamicThemeMinChroma.Get();
-}
 
 bool SendVisualSearchInteractionParamForLensTextQueries() {
   return kSendVisualSearchInteractionParamForLensTextQueries.Get();
@@ -1032,12 +1018,6 @@ bool IsLensOverlayVisualSelectionUpdatesEnabled() {
   return base::FeatureList::IsEnabled(kLensOverlayVisualSelectionUpdates);
 }
 
-bool IsDynamicThemeDetectionEnabled() {
-  if (IsLensOverlayVisualSelectionUpdatesEnabled()) {
-    return kLensOverlayVisualSelectionUpdatesEnableDynamicTheme.Get();
-  }
-  return kDynamicThemeForLensOverlay.Get();
-}
 
 bool GetVisualSelectionUpdatesEnableBorderGlow() {
   return IsLensOverlayVisualSelectionUpdatesEnabled() &&

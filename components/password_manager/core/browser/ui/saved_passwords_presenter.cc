@@ -21,13 +21,16 @@
 #include "base/location.h"
 #include "base/notreached.h"
 #include "base/observer_list.h"
+#include "base/strings/escape.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/types/strong_alias.h"
+#include "components/affiliations/core/browser/affiliation_utils.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/passkey_credential.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/ui/actor_login_permission.h"
 #include "components/password_manager/core/browser/ui/affiliated_group.h"
 #include "components/password_manager/core/browser/ui/credential_ui_entry.h"
@@ -96,7 +99,8 @@ password_manager::PasswordStoreChangeList GetChangesForAddedForms(
     const std::vector<password_manager::PasswordForm>& forms) {
   password_manager::PasswordStoreChangeList changes;
   for (const auto& form : forms) {
-    changes.emplace_back(password_manager::PasswordStoreChange::ADD, form);
+    changes.emplace_back(password_manager::PasswordStoreChange::ADD,
+                         FromPasswordForm(form));
   }
   return changes;
 }
@@ -440,6 +444,41 @@ base::flat_set<ActorLoginPermission>
 SavedPasswordsPresenter::GetActorLoginPermissions(
     const syncer::SyncService* sync_service) const {
   std::vector<ActorLoginPermission> permissions;
+#if BUILDFLAG(IS_ANDROID)
+  for (const CredentialUIEntry& credential : GetSavedCredentials()) {
+    std::vector<CredentialUIEntry::DomainInfo> affiliated_domains =
+        credential.GetAffiliatedDomains();
+    for (const PasswordForm& form : GetCorrespondingPasswordForms(credential)) {
+      if (form.actor_login_approved) {
+        auto form_domain_info_it = std::ranges::find_if(
+            affiliated_domains.begin(), affiliated_domains.end(),
+            [&form](const CredentialUIEntry::DomainInfo& domain_info) {
+              return form.signon_realm == domain_info.signon_realm;
+            });
+        // This can happen if a user has credentials stored for 2 app versions
+        // with the same app package name. Affiliated domains are unique per
+        // URL, which in the case of such 2 versions of an app, would be
+        // identical.
+        if (form_domain_info_it == affiliated_domains.end()) {
+          continue;
+        }
+
+        // Create fallback URL because currently we cannot use
+        // AffiliatedGroup::GetAllowedIconUrl on Android.
+        GURL favicon_url;
+        for (const CredentialFacet& facet : credential.facets) {
+          if (facet.url.SchemeIs(url::kHttpsScheme)) {
+            favicon_url = facet.url;
+            break;
+          }
+        }
+
+        permissions.emplace_back(*form_domain_info_it, form.username_value,
+                                 favicon_url);
+      }
+    }
+  }
+#else
   std::vector<AffiliatedGroup> groups =
       passwords_grouper_->GetAffiliatedGroupsWithGroupingInfo();
   for (const AffiliatedGroup& group : groups) {
@@ -466,14 +505,21 @@ SavedPasswordsPresenter::GetActorLoginPermissions(
       }
     }
   }
+#endif
   return base::flat_set<ActorLoginPermission>(std::move(permissions));
 }
 
 void SavedPasswordsPresenter::RevokeActorLoginPermission(
     const std::string& signon_realm,
     const std::string& username) {
-  for (const auto& credential : passwords_grouper_->GetAllCredentials()) {
-    for (const auto& form : GetCorrespondingPasswordForms(credential)) {
+  std::vector<CredentialUIEntry> credentials;
+#if BUILDFLAG(IS_ANDROID)
+  credentials = GetSavedCredentials();
+#else
+  credentials = passwords_grouper_->GetAllCredentials();
+#endif
+  for (const CredentialUIEntry& credential : credentials) {
+    for (const PasswordForm& form : GetCorrespondingPasswordForms(credential)) {
       if (form.signon_realm == signon_realm &&
           form.username_value == base::UTF8ToUTF16(username)) {
         PasswordForm updated_form = form;
@@ -539,14 +585,14 @@ void SavedPasswordsPresenter::OnLoginsChanged(
   for (const PasswordStoreChange& change : changes) {
     switch (change.type()) {
       case PasswordStoreChange::ADD:
-        forms_to_add.push_back(change.form());
+        forms_to_add.push_back(ToPasswordForm(change.credential()));
         break;
       case PasswordStoreChange::UPDATE:
-        forms_to_remove.push_back(change.form());
-        forms_to_add.push_back(change.form());
+        forms_to_remove.push_back(ToPasswordForm(change.credential()));
+        forms_to_add.push_back(ToPasswordForm(change.credential()));
         break;
       case PasswordStoreChange::REMOVE:
-        forms_to_remove.push_back(change.form());
+        forms_to_remove.push_back(ToPasswordForm(change.credential()));
         break;
     }
   }
@@ -592,24 +638,19 @@ void SavedPasswordsPresenter::OnPasskeyModelShuttingDown() {
 
 void SavedPasswordsPresenter::OnPasskeyModelIsReady(bool is_ready) {}
 
-void SavedPasswordsPresenter::OnGetPasswordStoreResults(
-    std::vector<std::unique_ptr<PasswordForm>> results) {
-  // This class overrides OnGetPasswordStoreResultsFrom() (the version of this
-  // method that also receives the originating store), so the store-less version
-  // never gets called.
-  NOTREACHED();
-}
-
-void SavedPasswordsPresenter::OnGetPasswordStoreResultsFrom(
+void SavedPasswordsPresenter::OnGetPasswordStoreResultsOrErrorFrom(
     PasswordStoreInterface* store,
-    std::vector<std::unique_ptr<PasswordForm>> results) {
+    LoginsResultOrError results_or_error) {
   pending_store_updates_--;
   DCHECK_GE(pending_store_updates_, 0);
 
-  std::vector<PasswordForm> forms;
-  for (auto& form : results) {
-    forms.push_back(std::move(*form));
+  if (std::holds_alternative<PasswordStoreBackendError>(results_or_error)) {
+    NotifySavedPasswordsChanged(PasswordStoreChangeList());
+    return;
   }
+  auto results = std::get<LoginsResult>(std::move(results_or_error));
+  std::vector<PasswordForm> forms = ToPasswordForms(std::move(results));
+
   AddForms(forms,
            base::BindOnce(&SavedPasswordsPresenter::NotifySavedPasswordsChanged,
                           weak_ptr_factory_.GetWeakPtr(),

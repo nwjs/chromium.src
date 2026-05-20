@@ -7,8 +7,10 @@
 
 #include "ui/views/view.h"
 
+class BrowserView;
+
 // This view primarily serves to paint and style the background of the browser
-// when visible (e.g. toolbar height side panel is active).
+// when visible (e.g. side panel is active).
 class MainBackgroundRegionView : public views::View {
   METADATA_HEADER(MainBackgroundRegionView, views::View)
 

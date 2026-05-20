@@ -3449,12 +3449,7 @@ IN_PROC_BROWSER_TEST_F(
   SetupUrlRealTimeVerdictInCacheManager(prerender_url, browser()->profile(),
                                         RTLookupResponse::ThreatInfo::SAFE,
                                         /*threat_type=*/std::nullopt);
-  content::PrerenderHostId host_id =
-      prerender_helper().AddPrerender(prerender_url);
-  content::RenderFrameHost* prerender_render_frame_host =
-      prerender_helper().GetPrerenderedMainFrameHost(host_id);
-  EXPECT_NE(prerender_render_frame_host, nullptr);
-  EXPECT_EQ(prerender_url, prerender_render_frame_host->GetLastCommittedURL());
+  prerender_helper().AddPrerenderAsync(prerender_url);
 
   // Return unsafe for the Safe Browsing lookup, which displays a post-commit
   // interstitial.
@@ -3829,7 +3824,7 @@ IN_PROC_BROWSER_TEST_P(SafeBrowsingBlockingPageAsyncChecksTimingTest,
 
 // Tests that commands work in a post commit interstitial if a pre commit
 // interstitial has been shown previously on the same webcontents. Regression
-// test for crbug.com/1021334
+// test for crbug.com/40657015
 #if BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER)
 // TODO(crbug.com/325491320): re-enable test
 #define MAYBE_PostCommitInterstitialProceedAfterPreCommitInterstitial \

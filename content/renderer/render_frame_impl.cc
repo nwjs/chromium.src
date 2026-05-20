@@ -119,6 +119,7 @@
 #include "ipc/constants.mojom.h"
 #include "media/mojo/mojom/audio_processing.mojom.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
+#include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -166,6 +167,7 @@
 #include "third_party/blink/public/common/page_state/page_state.h"
 #include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
+#include "third_party/blink/public/common/tracing_support.h"
 #include "third_party/blink/public/mojom/blob/blob.mojom.h"
 #include "third_party/blink/public/mojom/blob/blob_url_store.mojom.h"
 #include "third_party/blink/public/mojom/choosers/file_chooser.mojom.h"
@@ -220,7 +222,6 @@
 #include "third_party/blink/public/web/web_frame_serializer.h"
 #include "third_party/blink/public/web/web_frame_widget.h"
 #include "third_party/blink/public/web/web_input_method_controller.h"
-#include "third_party/blink/public/web/web_link_preview_triggerer.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_navigation_control.h"
 #include "third_party/blink/public/web/web_navigation_policy.h"
@@ -505,7 +506,7 @@ void FillNavigationParamsRequest(
   if (common_params.referrer->url.is_valid()) {
     WebString referrer = WebSecurityPolicy::GenerateReferrerHeader(
         common_params.referrer->policy, common_params.url,
-        WebString::FromUTF8(common_params.referrer->url.spec()));
+        WebString::FromUtf8(common_params.referrer->url.spec()));
     navigation_params->referrer = referrer;
     navigation_params->referrer_policy = common_params.referrer->policy;
   }
@@ -687,7 +688,7 @@ RenderFrameImpl::CreateRenderFrameImplFunction g_create_render_frame_impl =
 
 WebString ConvertRelativePathToHtmlAttribute(const base::FilePath& path) {
   DCHECK(!path.IsAbsolute());
-  return WebString::FromUTF8(
+  return WebString::FromUtf8(
       std::string("./") +
       path.NormalizePathSeparatorsTo(FILE_PATH_LITERAL('/')).AsUTF8Unsafe());
 }
@@ -971,7 +972,7 @@ void FillMiscNavigationParams(
 
   if (commit_params.internal_scroll_to_text_fragment) {
     navigation_params->internal_scroll_to_text_fragment =
-        blink::WebString::FromUTF8(
+        blink::WebString::FromUtf8(
             *commit_params.internal_scroll_to_text_fragment);
   }
 
@@ -1140,7 +1141,8 @@ void CallClientDeferMediaLoad(base::WeakPtr<RenderFrameImpl> frame,
 
 void LogCommitHistograms(base::TimeTicks commit_sent,
                          bool is_main_frame,
-                         const GURL& new_page_url) {
+                         const GURL& new_page_url,
+                         const blink::LocalFrameToken& frame_token) {
   if (!base::TimeTicks::IsConsistentAcrossProcesses())
     return;
 
@@ -1175,18 +1177,19 @@ void LogCommitHistograms(base::TimeTicks commit_sent,
     is_first_commit = false;
     if (run_loop_start_time <= now && new_page_url.is_valid() &&
         new_page_url.SchemeIsHTTPOrHTTPS()) {
+      const auto track = perfetto::NamedTrack(
+          "Navigation: RendererRunLoopStartToFirstCommitNavigation", 0,
+          blink::GetLocalFrameTracingTrack(frame_token, is_main_frame));
+      TRACE_EVENT_BEGIN("navigation",
+                        "RendererRunLoopStartToFirstCommitNavigation", track,
+                        run_loop_start_time, "url", new_page_url);
+      TRACE_EVENT_END("navigation", track, now);
       const char* const name =
           is_main_frame
               ? "Navigation.RendererRunLoopStartToFirstCommitNavigation2."
                 "MainFrame"
               : "Navigation.RendererRunLoopStartToFirstCommitNavigation2."
                 "Subframe";
-      const auto trace_id = perfetto::NamedTrack(
-          perfetto::StaticString(name),
-          reinterpret_cast<uintptr_t>(RenderThreadImpl::current()));
-      TRACE_EVENT_BEGIN("navigation", perfetto::StaticString(name), trace_id,
-                        run_loop_start_time, "url", new_page_url);
-      TRACE_EVENT_END("navigation", trace_id, now);
       base::UmaHistogramLongTimes(name, now - run_loop_start_time);
     }
   }
@@ -1634,7 +1637,7 @@ RenderFrameImpl* RenderFrameImpl::CreateMainFrame(
       ToWebPolicyContainer(std::move(params->policy_container)), opener,
       // This conversion is a little sad, as this often comes from a
       // WebString...
-      WebString::FromUTF8(replication_state->name),
+      WebString::FromUtf8(replication_state->name),
       replication_state->frame_policy.sandbox_flags, base_url,
       params->sandbox_origin_token ? std::make_unique<base::UnguessableToken>(
                                          params->sandbox_origin_token.value())
@@ -1776,7 +1779,7 @@ void RenderFrameImpl::CreateFrame(
     if (opener_frame_token)
       opener = WebFrame::FromFrameToken(opener_frame_token.value());
     web_frame = parent_web_frame->ToWebRemoteFrame()->CreateLocalChild(
-        tree_scope_type, WebString::FromUTF8(replicated_state->name),
+        tree_scope_type, WebString::FromUtf8(replicated_state->name),
         replicated_state->frame_policy, render_frame,
         render_frame->blink_interface_registry_.get(),
         previous_sibling_web_frame,
@@ -1821,7 +1824,7 @@ void RenderFrameImpl::CreateFrame(
         render_frame, render_frame->blink_interface_registry_.get(),
         std::move(browser_interface_broker), frame_token, previous_web_frame,
         replicated_state->frame_policy,
-        WebString::FromUTF8(replicated_state->name), web_view);
+        WebString::FromUtf8(replicated_state->name), web_view);
     // The new |web_frame| is a main frame iff the previous frame was.
     DCHECK_EQ(!previous_web_frame->Parent(), !web_frame->Parent());
     // Clone the current unique name so web tests that log frame unique names
@@ -2636,7 +2639,7 @@ void RenderFrameImpl::CommitNavigation(
   DCHECK(!blink::IsRendererDebugURL(common_params->url));
   DCHECK(!NavigationTypeUtils::IsSameDocument(common_params->navigation_type));
   LogCommitHistograms(commit_params->commit_sent, is_main_frame_,
-                      common_params->url);
+                      common_params->url, frame_token_);
 
   // Clear the `redirects` array to ensure it is not accidentally used somewhere
   // downstream of this code.
@@ -2710,10 +2713,10 @@ void RenderFrameImpl::CommitNavigation(
     navigation_params->isolated_app_policy = base::ToVector(
         commit_params->isolated_app_policy.value(), [](const auto& ptr) {
           return blink::IsolatedAppPermissionPolicyEntry{
-              .feature = WebString::FromUTF8(ptr->feature),
+              .feature = WebString::FromUtf8(ptr->feature),
               .allowed_origins =
                   base::ToVector(ptr->allowed_origins, [](const auto& origin) {
-                    return WebString::FromUTF8(origin);
+                    return WebString::FromUtf8(origin);
                   })};
         });
   }
@@ -2774,8 +2777,8 @@ void RenderFrameImpl::CommitNavigation(
     // relative URLs, etc).
     navigation_params->url = base_url;
     WebNavigationParams::FillStaticResponse(navigation_params.get(),
-                                            WebString::FromUTF8(mime_type),
-                                            WebString::FromUTF8(charset), data);
+                                            WebString::FromUtf8(mime_type),
+                                            WebString::FromUtf8(charset), data);
     std::move(commit_with_params).Run(std::move(navigation_params));
     return;
   }
@@ -2793,8 +2796,8 @@ void RenderFrameImpl::CommitNavigation(
                    << common_params->url.possibly_invalid_spec();
     }
     WebNavigationParams::FillStaticResponse(navigation_params.get(),
-                                            WebString::FromUTF8(mime_type),
-                                            WebString::FromUTF8(charset), data);
+                                            WebString::FromUtf8(mime_type),
+                                            WebString::FromUtf8(charset), data);
   } else {
     blink::WebNavigationBodyLoader::FillNavigationParamsResponseAndBodyLoader(
         std::move(common_params), std::move(commit_params), request_id,
@@ -4408,12 +4411,12 @@ void RenderFrameImpl::DidChangeSelection(bool is_empty_selection,
   SyncSelectionIfRequired(force_sync);
 }
 
-void RenderFrameImpl::OnMainFrameIntersectionChanged(
-    const gfx::Rect& main_frame_intersection_rect) {
-  if (main_frame_intersection_rect != main_frame_intersection_rect_) {
-    main_frame_intersection_rect_ = main_frame_intersection_rect;
+void RenderFrameImpl::OnMainFrameRectangleChanged(
+    const gfx::Rect& main_frame_rect) {
+  if (main_frame_rect != main_frame_rect_) {
+    main_frame_rect_ = main_frame_rect;
     for (auto& observer : observers_) {
-      observer.OnMainFrameIntersectionChanged(main_frame_intersection_rect);
+      observer.OnMainFrameRectangleChanged(main_frame_rect);
     }
   }
 }
@@ -4494,7 +4497,7 @@ void RenderFrameImpl::FinalizeRequestInternal(
     ui::PageTransition transition_type) {
   if (GetWebView()->GetRendererPreferences().enable_do_not_track) {
     request.SetHttpHeaderField(
-        blink::WebString::FromUTF8(blink::kDoNotTrackHeader), "1");
+        blink::WebString::FromUtf8(blink::kDoNotTrackHeader), "1");
   }
 
   // The request's extra data may indicate that we should set a custom user
@@ -4782,10 +4785,10 @@ blink::WebEncryptedMediaClient* RenderFrameImpl::EncryptedMediaClient() {
 blink::WebString RenderFrameImpl::UserAgentOverride() {
   std::string user_agent;
   if (nw::GetUserAgentFromManifest(&user_agent))
-    return WebString::FromUTF8(user_agent);
+    return WebString::FromUtf8(user_agent);
 
   if (ShouldUseUserAgentOverride()) {
-    return WebString::FromUTF8(GetWebView()
+    return WebString::FromUtf8(GetWebView()
                                    ->GetRendererPreferences()
                                    .user_agent_override.ua_string_override);
   }
@@ -5147,7 +5150,7 @@ void RenderFrameImpl::UpdateNavigationHistory(
 
   GetWebFrame()->UpdateCurrentHistoryItem();
   GetWebFrame()->SetTargetToCurrentHistoryItem(
-      blink::WebString::FromUTF8(unique_name_helper_.value()));
+      blink::WebString::FromUtf8(unique_name_helper_.value()));
 
   bool is_new_navigation = commit_type == blink::kWebStandardCommit;
   blink::WebView* webview = GetWebView();
@@ -5263,7 +5266,7 @@ void RenderFrameImpl::DidCommitNavigationInternal(
   // Ensure we will propagate the main frame and viewport rect when the main
   // frame commits even if the rect does not change across navigations.
   if (IsMainFrame()) {
-    main_frame_intersection_rect_.reset();
+    main_frame_rect_.reset();
     main_frame_viewport_rect_.reset();
   }
 
@@ -5276,7 +5279,8 @@ void RenderFrameImpl::DidCommitNavigationInternal(
       navigation_state->commit_params().navigation_metrics_token,
       navigation_state->common_params().url,
       navigation_state->common_params().actual_navigation_start,
-      navigation_state->commit_params().commit_sent, IsMainFrame());
+      navigation_state->commit_params().commit_sent, IsMainFrame(),
+      frame_token_);
   // Add any new code above the ProcessNavigationCommit call.
 }
 
@@ -5768,7 +5772,7 @@ void RenderFrameImpl::SerializeAsMHTML(mojom::SerializeAsMHTMLParamsPtr params,
 
   // Unpack payload.
   const WebString mhtml_boundary =
-      WebString::FromUTF8(params->mhtml_boundary_marker);
+      WebString::FromUtf8(params->mhtml_boundary_marker);
   DCHECK(!mhtml_boundary.IsEmpty());
 
   // Holds WebThreadSafeData instances for some or all of header, contents and
@@ -5776,6 +5780,13 @@ void RenderFrameImpl::SerializeAsMHTML(mojom::SerializeAsMHTMLParamsPtr params,
   std::vector<WebThreadSafeData> mhtml_contents;
   auto delegate =
       std::make_unique<MHTMLPartsGenerationDelegateImpl>(std::move(params));
+
+  // Wrap the callback so that if it is destroyed without being run (e.g., if
+  // GenerateMHTMLParts drops it or RenderFrameImpl is destroyed), it will be
+  // run with default arguments to ensure a response is always sent.
+  auto wrapped_callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+      std::move(callback), mojom::MhtmlSaveStatus::kRenderProcessExited,
+      std::vector<std::string>());
 
   // Generate MHTML header if needed.
   if (IsMainFrame()) {
@@ -5797,7 +5808,7 @@ void RenderFrameImpl::SerializeAsMHTML(mojom::SerializeAsMHTMLParamsPtr params,
       mhtml_boundary, GetWebFrame(), delegate_ptr,
       base::BindOnce(&RenderFrameImpl::OnSerializeMHTMLComplete,
                      weak_factory_.GetWeakPtr(), std::move(delegate),
-                     std::move(callback), std::move(mhtml_contents)));
+                     std::move(wrapped_callback), std::move(mhtml_contents)));
 }
 
 void RenderFrameImpl::OnSerializeMHTMLComplete(
@@ -6245,8 +6256,8 @@ void RenderFrameImpl::BeginNavigationInternal(
           info->url_request.HasUserGesture(),
           /*started_by_ad=*/
           (info->initiator_frame_is_ad || info->is_ad_script_in_stack),
-          info->is_container_initiated, info->storage_access_api_status,
-          info->has_rel_opener);
+          info->is_container_initiated, info->has_rel_opener,
+          info->script_tool_invocation_id);
 
   bool current_frame_has_download_sandbox_flag = !frame_->IsAllowedToDownload();
   bool has_download_sandbox_flag =
@@ -6370,6 +6381,7 @@ void RenderFrameImpl::BeginNavigationInternal(
         DVLOG(0) << "Ignoring duplicate navigation to " << common_params->url
                  << " due to the short interval of " << nav_start_diff
                  << " since the previous one.";
+        navigation_client_impl_->DidIgnoreDuplicateNavigation();
         return;
       }
     }
@@ -6382,14 +6394,20 @@ void RenderFrameImpl::BeginNavigationInternal(
       begin_params.Clone(), common_params.Clone(), is_duplicate_navigation);
   mojo::PendingReceiver<mojom::NavigationRendererCancellationListener>
       renderer_cancellation_listener_receiver;
+  mojo::PendingReceiver<
+      mojom::NavigationRendererIgnoreDuplicateNavigationListener>
+      renderer_ignore_duplicate_navigation_listener_receiver;
   navigation_client_impl_->SetUpRendererInitiatedNavigation(
-      renderer_cancellation_listener_receiver.InitWithNewPipeAndPassRemote());
+      renderer_cancellation_listener_receiver.InitWithNewPipeAndPassRemote(),
+      renderer_ignore_duplicate_navigation_listener_receiver
+          .InitWithNewPipeAndPassRemote());
 
   GetFrameHost()->BeginNavigation(
       std::move(common_params), std::move(begin_params),
       std::move(blob_url_token), std::move(navigation_client_remote),
       std::move(initiator_navigation_state_keep_alive_handle),
       std::move(renderer_cancellation_listener_receiver),
+      std::move(renderer_ignore_duplicate_navigation_listener_receiver),
       std::move(resume_defer_commit_listener));
 }
 
@@ -6665,7 +6683,7 @@ void RenderFrameImpl::LoadHTMLStringForTesting(std::string_view html,
   auto navigation_params = std::make_unique<WebNavigationParams>();
   navigation_params->url = base_url;
   WebNavigationParams::FillStaticResponse(navigation_params.get(), "text/html",
-                                          WebString::FromUTF8(text_encoding),
+                                          WebString::FromUtf8(text_encoding),
                                           html);
   navigation_params->unreachable_url = unreachable_url;
   navigation_params->frame_load_type =
@@ -6729,7 +6747,7 @@ void RenderFrameImpl::AddMessageToConsoleImpl(
     blink::mojom::ConsoleMessageLevel level,
     const std::string& message,
     bool discard_duplicates) {
-  blink::WebConsoleMessage wcm(level, WebString::FromUTF8(message));
+  blink::WebConsoleMessage wcm(level, WebString::FromUtf8(message));
   frame_->AddMessageToConsole(wcm, discard_duplicates);
 }
 
@@ -6812,8 +6830,8 @@ WebView* RenderFrameImpl::CreateNewWindow(
         GetWebView()->GetSessionStorageNamespaceId();
   }
 
-  const std::string& frame_name_utf8 = frame_name.Utf8(
-      WebString::UTF8ConversionMode::kStrictReplacingErrorsWithFFFD);
+  const std::string& frame_name_utf8 =
+      frame_name.Utf8(WebString::Utf8ConversionMode::kStrictReplacingErrors);
   params->frame_name = frame_name_utf8;
   params->opener_suppressed = features.noopener;
   params->disposition = NavigationPolicyToDisposition(policy);
@@ -7041,11 +7059,6 @@ WebView* RenderFrameImpl::CreateNewWindow(
   }
 
   return web_view;
-}
-
-std::unique_ptr<blink::WebLinkPreviewTriggerer>
-RenderFrameImpl::CreateLinkPreviewTriggerer() {
-  return GetContentClient()->renderer()->CreateLinkPreviewTriggerer();
 }
 
 base::ScopedClosureRunner

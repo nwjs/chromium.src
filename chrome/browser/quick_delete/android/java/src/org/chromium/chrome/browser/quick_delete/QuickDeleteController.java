@@ -20,6 +20,7 @@ import org.chromium.chrome.browser.browsing_data.TimePeriodUtils;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.layouts.LayoutType;
+import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherUtils;
@@ -49,7 +50,7 @@ public class QuickDeleteController {
     // Null when declutter is disabled.
     private final @Nullable QuickDeleteTabsFilter mDeleteArchivedTabsFilter;
     private final SnackbarManager mSnackbarManager;
-    private final LayoutManager mLayoutManager;
+    private final @Nullable LayoutManager mLayoutManager;
     private final Profile mProfile;
     private final TabModel mTabModel;
     private final QuickDeleteMediator mQuickDeleteMediator;
@@ -73,7 +74,7 @@ public class QuickDeleteController {
             QuickDeleteDelegate delegate,
             ModalDialogManager modalDialogManager,
             SnackbarManager snackbarManager,
-            LayoutManager layoutManager,
+            @Nullable LayoutManager layoutManager,
             TabModelSelector tabModelSelector,
             @Nullable TabModelSelector archivedTabModelSelector) {
         mContext = context;
@@ -102,6 +103,9 @@ public class QuickDeleteController {
                         .with(
                                 QuickDeleteProperties.HAS_MULTI_WINDOWS,
                                 delegate.isInMultiWindowMode())
+                        .with(
+                                QuickDeleteProperties.IS_HISTORY_DELETION_ALLOWED,
+                                UserPrefs.get(mProfile).getBoolean(Pref.ALLOW_DELETING_BROWSER_HISTORY))
                         .build();
         mPropertyModelChangeProcessor =
                 PropertyModelChangeProcessor.create(

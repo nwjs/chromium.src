@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
 
+#include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/frozen_array.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_file_formdata_usvstring.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_validity_state_flags.h"
@@ -19,8 +20,11 @@
 #include "third_party/blink/renderer/core/html/forms/form_data.h"
 #include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_submit_button_behavior.h"
 #include "third_party/blink/renderer/core/html/forms/validity_state.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
+#include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "ui/accessibility/ax_enums.mojom-blink.h"
 
 namespace blink {
 
@@ -410,6 +414,7 @@ const FrozenArray<Element>* ElementInternals::GetElementArrayAttribute(
 
 const FrozenArray<ElementBehavior>& ElementInternals::behaviors() const {
   DCHECK(RuntimeEnabledFeatures::ElementInternalsBehaviorsEnabled());
+
   if (!behaviors_) {
     DEFINE_STATIC_LOCAL(Persistent<FrozenArray<ElementBehavior>>, empty,
                         (MakeGarbageCollected<FrozenArray<ElementBehavior>>()));
@@ -418,10 +423,22 @@ const FrozenArray<ElementBehavior>& ElementInternals::behaviors() const {
   return *behaviors_;
 }
 
+ax::mojom::blink::Role ElementInternals::BehaviorBasedDefaultRole() const {
+  if (!behaviors_ || behaviors_->size() == 0) {
+    return ax::mojom::blink::Role::kUnknown;
+  }
+  ax::mojom::blink::Role role =
+      (*behaviors_)[behaviors_->size() - 1]->DefaultAriaRole();
+  CHECK_NE(role, ax::mojom::blink::Role::kUnknown);
+  return role;
+}
+
 void ElementInternals::SetBehaviors(
     HeapVector<Member<ElementBehavior>> behaviors,
     ExceptionState& exception_state) {
   DCHECK(RuntimeEnabledFeatures::ElementInternalsBehaviorsEnabled());
+  UseCounter::Count(Target().GetDocument(),
+                    WebFeature::kElementInternalsWithBehaviors);
 
   HashSet<String> seen_names;
   for (ElementBehavior* behavior : behaviors) {
@@ -447,6 +464,20 @@ void ElementInternals::SetBehaviors(
   }
   behaviors_ =
       MakeGarbageCollected<FrozenArray<ElementBehavior>>(std::move(behaviors));
+}
+
+ElementBehavior* ElementInternals::FindBehaviorByType(
+    const WrapperTypeInfo* type) const {
+  CHECK(RuntimeEnabledFeatures::ElementInternalsBehaviorsEnabled());
+  if (!behaviors_) {
+    return nullptr;
+  }
+  for (ElementBehavior* behavior : behaviors_->AsVector()) {
+    if (behavior->GetWrapperTypeInfo() == type) {
+      return behavior;
+    }
+  }
+  return nullptr;
 }
 
 const FrozenArray<Element>* ElementInternals::ariaControlsElements() const {
@@ -536,15 +567,31 @@ bool ElementInternals::IsEnumeratable() const {
 }
 
 void ElementInternals::AppendToFormData(FormData& form_data) {
-  if (Target().IsDisabledFormControl())
+  if (Target().IsDisabledFormControl()) {
     return;
+  }
 
-  if (!value_)
+  // Elements with HTMLSubmitButtonBehavior contribute their submitter
+  // name/value pair only when activated (mirroring native submit buttons'
+  // is_activated_submit_ pattern). The setFormValue() path is skipped to
+  // avoid duplicate entries.
+  if (RuntimeEnabledFeatures::ElementInternalsBehaviorsEnabled()) {
+    if (auto* behavior = FindBehavior<HTMLSubmitButtonBehavior>()) {
+      if (behavior->IsActivatedSubmit() && !behavior->name().empty()) {
+        form_data.AppendFromElement(behavior->name(), behavior->value());
+      }
+      return;
+    }
+  }
+
+  if (!value_) {
     return;
+  }
 
   const AtomicString& name = Target().FastGetAttribute(html_names::kNameAttr);
-  if (!value_->IsFormData() && name.empty())
+  if (!value_->IsFormData() && name.empty()) {
     return;
+  }
 
   switch (value_->GetContentType()) {
     case V8ControlValue::ContentType::kFile: {

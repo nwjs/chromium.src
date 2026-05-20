@@ -23,10 +23,8 @@ namespace android_webview {
 //
 // - Can be created on any thread, and then owned by `AwPrefetchManager`.
 // - All non-special member functions (currently getter only) can be called from
-//   any thread. Note that `prefetch_handle_` is UI thread bound, not thread
-//   safe, and won't be accessed after construction.
-// - Can be destroyed on any thread, but `prefetch_handle_` should be properly
-//   destroyed on the UI thread.
+//   any thread.
+// - Can be destroyed on any thread.
 //
 // Under `kWebViewPrefetchOffTheMainThread` being enabled, the deduplication is
 // performed solely by `AwPrefetchManager`'s `url_` and
@@ -37,20 +35,77 @@ namespace android_webview {
 class AwPrefetchHandleWrapper final
     : public content::PrefetchDeduplicationEntry {
  public:
+  // Creates an empty reserved wrapper with no handles, which sets the state to
+  // `kReserved`.
+  AwPrefetchHandleWrapper(
+      const GURL& url,
+      std::optional<net::HttpNoVarySearchData> expected_no_vary_search);
+
+  // Commits a `PrefetchHandle` or `PrePrefetchHandle`, which transitions the
+  // state from `kReserved` to `kPrefetchHandleCommitted` or
+  // `kPrePrefetchHandleCommitted` respectively.
+  void CommitInitialPrePrefetchHandle(
+      std::unique_ptr<content::PrePrefetchHandle> pre_prefetch_handle);
+  void CommitInitialPrefetchHandle(
+      std::unique_ptr<content::PrefetchHandle> prefetch_handle);
+
+  // A legacy ctor directly committing a PrefetchHandle. Only used when
+  // `kWebViewPrefetchOffTheMainThread` is disabled.
   AwPrefetchHandleWrapper(
       const GURL& url,
       std::optional<net::HttpNoVarySearchData> expected_no_vary_search,
       std::unique_ptr<content::PrefetchHandle> prefetch_handle);
-  AwPrefetchHandleWrapper(
-      const GURL& url,
-      std::optional<net::HttpNoVarySearchData> expected_no_vary_search,
-      std::unique_ptr<content::PrePrefetchHandle> pre_prefetch_handle);
+
   ~AwPrefetchHandleWrapper() override;
 
   AwPrefetchHandleWrapper(const AwPrefetchHandleWrapper&) = delete;
   AwPrefetchHandleWrapper& operator=(const AwPrefetchHandleWrapper&) = delete;
   AwPrefetchHandleWrapper(AwPrefetchHandleWrapper&&) = delete;
   AwPrefetchHandleWrapper& operator=(AwPrefetchHandleWrapper&&) = delete;
+
+  // Represents a valid state of `this`.
+  // Please see `SetState()` and `CheckState()` for the actual transitions and
+  // `prefetch_handle_` / `pre_prefetch_handle_` states.
+  enum class State {
+    // Initial state for an empty wrapper with no handles.
+    // The wrapper should hold:
+    // - `prefetch_handle_` is null.
+    // - `pre_prefetch_handle_` is null.
+    kReserved,
+
+    // State after PrePrefetchHandle is committed.
+    // The wrapper should hold:
+    // - `prefetch_handle_` is null.
+    // - `pre_prefetch_handle_` is non-null.
+    kPrePrefetchHandleCommitted,
+
+    // The wrapper's `pre_prefetch_handle_` is currently being consumed to start
+    // a regular Prefetch.
+    // The wrapper should hold:
+    // - `prefetch_handle_` is null.
+    // - `pre_prefetch_handle_` is null.
+    kPrePrefetchConsumeStarted,
+
+    // Final state for PrePrefetch, and initial state and final state for a
+    // Prefetch. No further transitions are allowed.
+    // The wrapper should hold:
+    // - `prefetch_handle_` is non-null.
+    // - `pre_prefetch_handle_` is null.
+    kPrefetchHandleCommitted,
+  };
+
+  // Returns true if `pre_prefetch_handle_` can be taken for consume.
+  bool CanTakePrePrefetchHandleForConsume() const;
+
+  // Takes `pre_prefetch_handle_` for consume, which transitions the state from
+  // `kPrePrefetchHandleCommitted` to `kPrePrefetchConsumeStarted`.
+  std::unique_ptr<content::PrePrefetchHandle> TakePrePrefetchHandleForConsume();
+
+  // Commits `prefetch_handle_` after `pre_prefetch_handle_` was consumed by
+  // `TakePrePrefetchHandleForConsume()`, which transitions the state from
+  // `kPrePrefetchConsumeStarted` to `kPrefetchHandleCommitted`.
+  void CommitPrefetchHandleAfterConsume(
+      std::unique_ptr<content::PrefetchHandle> prefetch_handle);
 
   // content::PrefetchDeduplicationEntry:
   const GURL& GetURL() const override;
@@ -59,14 +114,17 @@ class AwPrefetchHandleWrapper final
   bool IsPrefetchStale() const override;
 
  private:
+  void CheckState() const;
+  void SetState(State new_state);
+
   const GURL url_;
   const std::optional<net::HttpNoVarySearchData> expected_no_vary_search_;
 
-  // Must be destructed and dereferenced only on the UI thread.
-  std::unique_ptr<content::PrefetchHandle> prefetch_handle_;
+  std::unique_ptr<content::CrossThreadPrefetchHandle> prefetch_handle_;
 
-  // Can be destructed on any thread.
-  const std::unique_ptr<content::PrePrefetchHandle> pre_prefetch_handle_;
+  std::unique_ptr<content::PrePrefetchHandle> pre_prefetch_handle_;
+
+  State state_;
 };
 
 }  // namespace android_webview

@@ -434,6 +434,8 @@ public class HomeModulesCoordinator implements ModuleDelegate, OnViewCreatedCall
                     mHomeModulesContextMenuManager.displayMenu(view, moduleProvider);
                 });
 
+        group.setFocusable(true);
+
         moduleProvider.onViewCreated();
 
         assumeNonNull(mAdapter);
@@ -470,6 +472,12 @@ public class HomeModulesCoordinator implements ModuleDelegate, OnViewCreatedCall
         if (mCallbackController != null) {
             mCallbackController.destroy();
             mCallbackController = null;
+        }
+        if (mSnapHelper != null) {
+            mSnapHelper = null;
+        }
+        if (mOnScrollListener != null) {
+            mOnScrollListener = null;
         }
     }
 

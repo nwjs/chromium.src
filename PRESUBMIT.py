@@ -599,6 +599,8 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             r'^base/memory/memory_pressure_listener\.(cc|h)$',
             r'^base/memory/memory_pressure_listener_unittest\.cc$',
             r'^base/memory/mock_memory_pressure_listener\.(cc|h)$',
+            r'^content/browser/back_forward_cache/'
+            r'back_forward_cache_impl\.(cc|h)$',
         ),
     ),
     BanRule(
@@ -977,6 +979,10 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             r'third_party/blink/renderer/platform/webrtc/webrtc_video_frame_adapter\.cc',
             r'third_party/blink/renderer/platform/webrtc/webrtc_video_frame_adapter\.h',
 
+            # Needed to implement Dawn wire interfaces.
+            r'gpu/command_buffer/client/dawn_client_memory_transfer_service\.cc',
+            r'gpu/command_buffer/service/dawn_service_memory_transfer_service\.cc',
+
             # Clang tools do not depend on //base. Some are even emitting
             # std::span rewrite for non chromium projects.
             r'^tools/clang/.*',
@@ -990,6 +996,9 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         ('absl::StatusOr is banned. Use base::expected instead.', ),
         True,
         [
+            # Needed to use MediaPipe API.
+            r'components/media_effects/.*\.cc',
+
             # Needed to use liburlpattern API.
             r'components/url_pattern/.*',
             r'services/network/shared_dictionary/simple_url_pattern_matcher\.cc',
@@ -999,8 +1008,9 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             # Needed to use QUICHE API.
             r'net/quic/dedicated_web_transport_http3_client\.cc',
 
-            # Needed to use MediaPipe API.
-            r'components/media_effects/.*\.cc',
+            # Needed to use Ink API.
+            r'pdf/.*_ink.*\.cc',
+
             # Not an error in third_party folders.
             _THIRD_PARTY_EXCEPT_BLINK
         ],
@@ -1813,7 +1823,7 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             'Please use TRACE_EVENT_BEGIN/END/INSTANT macros instead of ',
             'TRACE_EVENT_ASYNC_.. and TRACE_EVENT_NESTABLE_ASYNC_... (crbug.com/432427382).',
         ),
-        False,
+        True,
         (
             r'^base/trace_event/.*',
             r'^base/tracing/.*',
@@ -1825,7 +1835,7 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             'Please use perfetto::Flow instead of TRACE_EVENT_WITH_FLOW.. ',
             '(crbug.com/432427382).',
         ),
-        False,
+        True,
         (
             r'^base/trace_event/.*',
             r'^base/tracing/.*',
@@ -1835,6 +1845,19 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         r'/\bTRACE_EVENT_SCOPE_',
         ('Please use perfetto Track API instead of '
          'TRACE_EVENT_SCOPE_GLOBAL/PROCESS/THREAD (crbug.com/432427382).', ),
+        False,
+        (
+            r'^base/trace_event/.*',
+            r'^base/tracing/.*',
+        ),
+    ),
+    BanRule(
+        r'/\bperfetto::Track::Global',
+        ('Creating new global tracks is discouraged and should be reserved ',
+        'for high level, user visible state. Consider using scoped tracks ',
+        'instead, see ',
+        'https://chromium.googlesource.com/chromium/src.git/+/main/docs/trace_events.md#named-tracks',
+        ),
         False,
         (
             r'^base/trace_event/.*',
@@ -2100,8 +2123,7 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
         treat_as_error=False,
     ),
     BanRule(
-        pattern=(r'/FindBrowserWithUiElementContext|'
-                 r'FindBrowserWithTab|'
+        pattern=(r'/FindBrowserWithTab|'
                  r'FindBrowserWithGroup|'
                  r'FindTabbedBrowser|'
                  r'FindAnyBrowser|'
@@ -2229,7 +2251,6 @@ _BANNED_CPP_FUNCTIONS: Sequence[BanRule] = (
             r'^chromeos/ash/experiences/arc/session/serial_number_util_unittest\.cc',
             r'^components/history/core/browser/visit_annotations_database\.cc',
             r'^components/history/core/browser/visit_annotations_database_unittest\.cc',
-            r'^components/os_crypt/sync/os_crypt_unittest\.cc',
             r'^components/password_manager/core/browser/credentials_cleaner_unittest\.cc',
             r'^content/browser/file_system_access/file_system_access_file_writer_impl_unittest\.cc',
             r'^net/cookies/parsed_cookie_unittest\.cc',
@@ -2411,30 +2432,6 @@ _DEPRECATED_SYNC_CONSENT_CPP_FUNCTIONS: Sequence[BanRule] = (
     ),
 )
 
-# Java functions related to signin::ConsentLevel::kSync which are deprecated.
-_DEPRECATED_SYNC_CONSENT_JAVA_FUNCTIONS: Sequence[BanRule] = (
-    BanRule(
-        'hasSyncConsent',
-        _DEPRECATED_SYNC_CONSENT_FUNCTION_WARNING,
-        False,
-    ),
-    BanRule(
-        'canSyncFeatureStart',
-        _DEPRECATED_SYNC_CONSENT_FUNCTION_WARNING,
-        False,
-    ),
-    BanRule(
-        'isSyncFeatureEnabled',
-        _DEPRECATED_SYNC_CONSENT_FUNCTION_WARNING,
-        False,
-    ),
-    BanRule(
-        'isSyncFeatureActive',
-        _DEPRECATED_SYNC_CONSENT_FUNCTION_WARNING,
-        False,
-    ),
-)
-
 _BANNED_MOJOM_PATTERNS: Sequence[BanRule] = (
     BanRule(
         'handle<shared_buffer>',
@@ -2554,7 +2551,6 @@ _GENERIC_PYDEPS_FILES = [
     'build/android/gyp/tracereferences.pydeps',
     'build/android/gyp/turbine.pydeps',
     'build/android/gyp/unused_resources.pydeps',
-    'build/android/gyp/validate_static_library_dex_references.pydeps',
     'build/android/gyp/write_build_config.pydeps',
     'build/android/gyp/write_native_libraries_java.pydeps',
     'build/android/gyp/zip.pydeps',
@@ -2569,6 +2565,7 @@ _GENERIC_PYDEPS_FILES = [
     'chrome/test/chromedriver/log_replay/client_replay_unittest.pydeps',
     'chrome/test/chromedriver/test/run_py_tests.pydeps',
     'chrome/test/media/performance/openscreen_cast_performance_test.pydeps',
+    'chrome/test/media/performance/openscreen_remoting_performance_test.pydeps',
     'chrome/test/media/performance/videostack_performance_test.pydeps',
     'chromecast/resource_sizes/chromecast_resource_sizes.pydeps',
     'components/cronet/tools/check_combined_proguard_file.pydeps',
@@ -3220,12 +3217,6 @@ def CheckNoBannedPatterns(input_api, output_api):
     for f in input_api.AffectedFiles(file_filter=file_filter):
         for line_num, line in f.ChangedContents():
             for ban_rule in _DEPRECATED_SYNC_CONSENT_CPP_FUNCTIONS:
-                CheckForMatch(f, line_num, line, ban_rule)
-
-    file_filter = lambda f: f.LocalPath().endswith(('.java'))
-    for f in input_api.AffectedFiles(file_filter=file_filter):
-        for line_num, line in f.ChangedContents():
-            for ban_rule in _DEPRECATED_SYNC_CONSENT_JAVA_FUNCTIONS:
                 CheckForMatch(f, line_num, line, ban_rule)
 
     file_filter = lambda f: f.LocalPath().endswith(('.mojom'))

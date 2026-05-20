@@ -33,6 +33,7 @@ import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.lifetime.Destroyable;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.util.AdvancedMockContext;
@@ -107,7 +108,8 @@ public class TabbedModeTabPersistencePolicyTest {
                             ModalDialogManager modalDialogManager,
                             OneshotSupplier<ProfileProvider> profileProviderSupplier,
                             TabCreatorManager tabCreatorManager,
-                            NextTabPolicySupplier nextTabPolicySupplier) {
+                            NextTabPolicySupplier nextTabPolicySupplier,
+                            @SupportedProfileType int supportedProfileType) {
                         return new MockTabModelSelector(mProfile, mIncognitoProfile, 0, 0, null);
                     }
 
@@ -197,7 +199,11 @@ public class TabbedModeTabPersistencePolicyTest {
                             profileProviderSupplier.set(mProfileProvider);
                             TabbedModeTabModelOrchestrator tmpOrchestrator =
                                     new TabbedModeTabModelOrchestrator(
-                                            false, mActivityLifecycleDispatcher, mCipherFactory);
+                                            false,
+                                            mActivityLifecycleDispatcher,
+                                            mCipherFactory,
+                                            ObservableSuppliers.createNonNull(false),
+                                            /* isFromRecreating= */ false);
                             tmpOrchestrator.createTabModels(
                                     new ChromeTabbedActivity(),
                                     mModalDialogManager,
@@ -205,7 +211,8 @@ public class TabbedModeTabPersistencePolicyTest {
                                     null,
                                     null,
                                     mMismatchedIndicesHandler,
-                                    0);
+                                    0,
+                                    SupportedProfileType.MIXED);
                             TabModelSelector selector = tmpOrchestrator.getTabModelSelector();
                             ((MockTabModelSelector) selector)
                                     .initializeTabModels(normalTabModel, incognitoTabModel);

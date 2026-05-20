@@ -18,6 +18,8 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/page_actions/page_action_controller.h"
+#include "chrome/browser/ui/page_actions/page_action_triggers.h"
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_entry_point_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
@@ -31,8 +33,6 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/page_action/page_action_controller.h"
-#include "chrome/browser/ui/views/page_action/page_action_triggers.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/user_education/interactive_feature_promo_test.h"
@@ -724,6 +724,39 @@ IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
 
     ExpectPageActionStateImmediate(false);
   }
+}
+
+IN_PROC_BROWSER_TEST_P(ReadAnythingOmniboxControllerBrowserTest,
+                       OnDiscardContents_ResetsState) {
+  RegisterPageActionObserver();
+  NavigateToDistillablePage();
+  WaitForPageActionShowing(true);
+
+  // Switch to a new tab to background the first tab, so it can be discarded.
+  chrome::NewTab(browser());
+  browser()->tab_strip_model()->ActivateTabAt(1);
+
+  // Discard the first tab.
+  std::unique_ptr<content::WebContents> new_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(browser()->profile()));
+
+  browser()->tab_strip_model()->DiscardWebContentsAt(0,
+                                                     std::move(new_contents));
+
+  // Switch back to the discarded tab.
+  browser()->tab_strip_model()->ActivateTabAt(0);
+
+  // The chip should be hidden now because was_page_checked_ was reset.
+  // It will eventually show again once the new contents finishes loading and
+  // the debounce timer fires.
+  ExpectPageActionStateImmediate(false);
+
+  // Verify that it eventually shows again on the new contents.
+  // We need to navigate to a distillable page again because the discarded tab
+  // starts at about:blank or similar.
+  NavigateToDistillablePage();
+  WaitForPageActionShowing(true);
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

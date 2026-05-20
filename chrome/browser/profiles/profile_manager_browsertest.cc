@@ -40,6 +40,8 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -51,6 +53,7 @@
 #include "components/keep_alive_registry/scoped_keep_alive.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/password_manager/core/browser/password_form.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_consumer.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/policy/core/common/policy_map.h"
@@ -76,8 +79,8 @@ void ProfileCreationComplete(base::OnceClosure completion_callback,
                              Profile* profile) {
   ASSERT_TRUE(profile);
   // No browser should have been created for this profile yet.
-  EXPECT_EQ(chrome::GetBrowserCount(profile), 0U);
-  EXPECT_EQ(chrome::GetTotalBrowserCount(), 1U);
+  EXPECT_EQ(ProfileBrowserCollection::GetForProfile(profile)->GetSize(), 0U);
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1U);
   std::move(completion_callback).Run();
 }
 
@@ -196,10 +199,18 @@ class ProfileRemovalObserver : public ProfileAttributesStorage::Observer {
 class PasswordStoreConsumerVerifier
     : public password_manager::PasswordStoreConsumer {
  public:
-  void OnGetPasswordStoreResults(
-      std::vector<std::unique_ptr<password_manager::PasswordForm>> results)
-      override {
-    password_entries_.swap(results);
+  void OnGetPasswordStoreResultsOrErrorFrom(
+      password_manager::PasswordStoreInterface* store,
+      password_manager::LoginsResultOrError results_or_error) override {
+    if (std::holds_alternative<password_manager::PasswordStoreBackendError>(
+            results_or_error)) {
+      ADD_FAILURE() << "Error from password store";
+      password_entries_ = std::vector<password_manager::PasswordForm>();
+    } else {
+      password_entries_ = password_manager::ToPasswordForms(
+          std::get<password_manager::LoginsResult>(
+              std::move(results_or_error)));
+    }
     run_loop_.Quit();
   }
 
@@ -207,8 +218,7 @@ class PasswordStoreConsumerVerifier
     run_loop_.Run();
   }
 
-  const std::vector<std::unique_ptr<password_manager::PasswordForm>>&
-  GetPasswords() const {
+  const std::vector<password_manager::PasswordForm>& GetPasswords() const {
     return password_entries_;
   }
 
@@ -218,8 +228,7 @@ class PasswordStoreConsumerVerifier
 
  private:
   base::RunLoop run_loop_;
-  std::vector<std::unique_ptr<password_manager::PasswordForm>>
-      password_entries_;
+  std::vector<password_manager::PasswordForm> password_entries_;
   base::WeakPtrFactory<PasswordStoreConsumerVerifier> weak_ptr_factory_{this};
 };
 
@@ -249,7 +258,7 @@ class ProfileManagerBrowserTestBase : public InProcessBrowserTest {
  protected:
   void SetUp() override {
     // Shortcut deletion delays tests shutdown on Win-7 and results in time out.
-    // See crbug.com/1073451.
+    // See crbug.com/40686320.
 #if BUILDFLAG(IS_WIN)
     AppShortcutManager::SuppressShortcutsForTesting();
 #endif
@@ -394,7 +403,7 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest, DeleteCurrentProfile) {
   EXPECT_EQ(new_last_used_path, last_used->GetPath());
 }
 
-// Test is flaky. https://crbug.com/1206184
+// Test is flaky. https://crbug.com/40180805
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 #define MAYBE_DeleteAllProfiles DISABLED_DeleteAllProfiles
 #else
@@ -546,7 +555,7 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest, SwitchToProfile) {
   base::FilePath path_profile1 = GetFirstNonSigninProfile(&storage);
 
   ASSERT_NE(0U, initial_profile_count);
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   // Create an additional profile.
   base::FilePath path_profile2 =
@@ -554,11 +563,11 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest, SwitchToProfile) {
   profiles::testing::CreateProfileSync(profile_manager, path_profile2);
 
   ASSERT_EQ(initial_profile_count + 1U, storage.GetNumberOfProfiles());
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   // Open a browser window for the first profile.
   profiles::SwitchToProfile(path_profile1, false);
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
   BrowserWindowInterface* const browser_profile1 =
       GetLastActiveBrowserWindowInterfaceWithAnyProfile();
   EXPECT_EQ(path_profile1, browser_profile1->GetProfile()->GetPath());
@@ -568,12 +577,12 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest, SwitchToProfile) {
   profiles::SwitchToProfile(path_profile2, false);
   BrowserWindowInterface* const browser_profile2 =
       browser_created_observer.Wait();
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(path_profile2, browser_profile2->GetProfile()->GetPath());
 
   // Switch to the first profile without opening a new window.
   profiles::SwitchToProfile(path_profile1, false);
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   EXPECT_EQ(path_profile1, browser_profile1->GetProfile()->GetPath());
   EXPECT_EQ(path_profile2, browser_profile2->GetProfile()->GetPath());
@@ -590,28 +599,28 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest, PRE_AddMultipleProfiles) {
 
   base::FilePath path_profile1 = GetFirstNonSigninProfile(&storage);
   ASSERT_NE(0U, initial_profile_count);
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
   base::FilePath path_profile2 =
       profile_manager->GenerateNextProfileDirectoryPath();
   // Create an additional profile.
   profiles::testing::CreateProfileSync(profile_manager, path_profile2);
 
   ASSERT_EQ(initial_profile_count + 1U, storage.GetNumberOfProfiles());
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   // Open a browser window for the first profile.
   base::test::TestFuture<Browser*> browser1_future;
   profiles::SwitchToProfile(path_profile1, false,
                             browser1_future.GetCallback());
   EXPECT_TRUE(browser1_future.Wait());
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(path_profile1, browser1_future.Get()->profile()->GetPath());
   // Open a browser window for the second profile.
   base::test::TestFuture<Browser*> browser2_future;
   profiles::SwitchToProfile(path_profile2, false,
                             browser2_future.GetCallback());
   EXPECT_TRUE(browser2_future.Wait());
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(path_profile2, browser2_future.Get()->profile()->GetPath());
 }
 
@@ -619,7 +628,7 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest, AddMultipleProfiles) {
   // Verifies that the browser doesn't crash when it is restarted.
 }
 
-// Regression test for https://crbug.com/1472849
+// Regression test for https://crbug.com/40069557
 IN_PROC_BROWSER_TEST_F(ProfileManagerBrowserTestBase,
                        ConcurrentCreationAsyncAndSync) {
   ProfileManager* profile_manager = g_browser_process->profile_manager();
@@ -655,7 +664,7 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest, MAYBE_EphemeralProfile) {
   base::FilePath path_profile1 = GetFirstNonSigninProfile(&storage);
 
   ASSERT_NE(0U, initial_profile_count);
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   // Create an ephemeral profile.
   base::FilePath path_profile2 =
@@ -670,7 +679,7 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest, MAYBE_EphemeralProfile) {
   }
 
   ASSERT_EQ(initial_profile_count + 1U, storage.GetNumberOfProfiles());
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
   BrowserWindowInterface* const browser_profile1 =
       GetLastActiveBrowserWindowInterfaceWithAnyProfile();
 
@@ -679,14 +688,14 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest, MAYBE_EphemeralProfile) {
   profiles::SwitchToProfile(path_profile2, false);
   BrowserWindowInterface* const browser_profile2 =
       browser_created_observer.Wait();
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(path_profile2, browser_profile2->GetProfile()->GetPath());
 
   // Create a second window for the ephemeral profile.
   profiles::SwitchToProfile(path_profile2, true);
   BrowserWindowInterface* const browser_profile2_ephemeral =
       browser_created_observer.Wait();
-  EXPECT_EQ(3U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(3U, GlobalBrowserCollection::GetInstance()->GetSize());
 
   EXPECT_EQ(path_profile1, browser_profile1->GetProfile()->GetPath());
   EXPECT_EQ(path_profile2, browser_profile2->GetProfile()->GetPath());
@@ -694,27 +703,22 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest, MAYBE_EphemeralProfile) {
 
   // Closing the first window of the ephemeral profile should not delete it.
   CloseBrowserSynchronously(browser_profile2_ephemeral);
-  EXPECT_EQ(2U, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2U, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(initial_profile_count + 1U, storage.GetNumberOfProfiles());
 
   // The second should though.
   ProfileDeletionObserver observer;
-  CloseBrowserSynchronously(browser_profile2);
-  observer.Wait();
-
-  EXPECT_EQ(1U, chrome::GetTotalBrowserCount());
-  EXPECT_EQ(initial_profile_count, storage.GetNumberOfProfiles());
+  bool watch_started = false;
+  base::ScopedAllowBlockingForTesting allow_blocking;
+  base::FilePathWatcher watcher;
+  base::RunLoop run_loop;
 
 // The following check is flaky on Windows.
-// TODO(crbug.com/40756611): re-enable this check when the profile
-// directory deletion works more reliably on Windows.
+// TODO(crbug.com/40756611): re-enable this check when the profile directory
+// deletion works more reliably on Windows.
 #if !BUILDFLAG(IS_WIN)
   if (base::FeatureList::IsEnabled(features::kDestroyProfileOnBrowserClose)) {
-    // Check that NukeProfileFromDisk() works correctly.
-    base::ScopedAllowBlockingForTesting allow_blocking;
-    base::FilePathWatcher watcher;
-    base::RunLoop run_loop;
-    ASSERT_TRUE(watcher.Watch(
+    watch_started = watcher.Watch(
         path_profile2, base::FilePathWatcher::Type::kNonRecursive,
         base::BindLambdaForTesting([&run_loop, &path_profile2](
                                        const base::FilePath& path, bool error) {
@@ -723,11 +727,23 @@ IN_PROC_BROWSER_TEST_P(ProfileManagerBrowserTest, MAYBE_EphemeralProfile) {
           EXPECT_FALSE(error);
           if (!base::PathExists(path))
             run_loop.Quit();
-        })));
-    run_loop.Run();
-    EXPECT_FALSE(base::PathExists(path_profile2));
+        }));
+    ASSERT_TRUE(watch_started);
   }
 #endif  // !BUILDFLAG(IS_WIN)
+
+  CloseBrowserSynchronously(browser_profile2);
+  observer.Wait();
+
+  EXPECT_EQ(1U, GlobalBrowserCollection::GetInstance()->GetSize());
+  EXPECT_EQ(initial_profile_count, storage.GetNumberOfProfiles());
+
+  if (watch_started) {
+    if (base::PathExists(path_profile2)) {
+      run_loop.Run();
+    }
+    EXPECT_FALSE(base::PathExists(path_profile2));
+  }
 }
 
 // The test makes sense on those platforms where the keychain exists.

@@ -16,6 +16,7 @@
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_element.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_updater.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/chrome_overlay_window/chrome_overlay_container_view.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -26,9 +27,6 @@ namespace {
 
 // The height assigned to a detent that isn't in the list.
 constexpr NSInteger kInvalidDetentHeight = -1;
-
-// The height of the top area that responds to the pan gesture.
-constexpr CGFloat kGestureTopAreaHeight = 44.0;
 
 // The maximum width of the sheet container on iPad devices.
 constexpr CGFloat kAssistantSheetMaxWidth = 700.0;
@@ -57,6 +55,7 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
 }  // namespace
 
 @interface AssistantContainerViewController () <FullscreenUIElement,
+                                                LayoutStateObserver,
                                                 UIGestureRecognizerDelegate>
 @end
 
@@ -87,6 +86,8 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
   std::optional<AssistantContainerDetent> _activeDetent;
   // The height of the container when the gesture started.
   CGFloat _initialConstraintHeight;
+  // Tracks whether the active gesture is currently dragging the container.
+  BOOL _isDraggingContainer;
   // Whether the view has appeared.
   BOOL _hasAppeared;
 
@@ -94,6 +95,10 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
   UIPanGestureRecognizer* _headerPanGesture;
   // Observer for the fullscreen controller.
   std::unique_ptr<FullscreenUIUpdater> _fullscreenUIUpdater;
+
+  // An array of unowned scroll views, modeled through provider blocks that
+  // capture weak references to the views in question.
+  NSMutableArray<UIScrollView* (^)()>* _disabledScrollViews;
 }
 
 @synthesize isAnimating = _isAnimating;
@@ -102,6 +107,7 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
   self = [super initWithNibName:nil bundle:nil];
   if (self) {
     _childViewController = viewController;
+    _disabledScrollViews = [[NSMutableArray alloc] init];
     _detents = {
         AssistantContainerDetent::kMinimized,
         AssistantContainerDetent::kMedium,
@@ -116,7 +122,6 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
   // which prevents excessive layout passes in the parent view when resizing
   // the Assistant container.
   self.view = [[ChromeOverlayContainerView alloc] init];
-
   [self setupDimmingView];
 
   _assistantContainerView = [[AssistantContainerView alloc] init];
@@ -134,8 +139,7 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
   [self
       registerForTraitChanges:
           @[ UITraitHorizontalSizeClass.class, UITraitVerticalSizeClass.class ]
-                   withAction:@selector
-                   (updatePresentationContextFromTraitCollection)];
+                   withAction:@selector(onTraitChange)];
 
   // Apply pending configuration.
   if (_childViewController) {
@@ -146,6 +150,8 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
                        _assistantContainerView.contentView);
     [_childViewController didMoveToParentViewController:self];
   }
+
+  [self updateAccessibilityIdentifier];
 
   // Create and activate the height constraint.
   CGFloat initialHeight =
@@ -202,19 +208,17 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
            (id<UIViewControllerTransitionCoordinator>)coordinator {
   [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
 
+  AssistantContainerDetent detentBeforeRotation = _activeDetent.value();
+
   __weak __typeof(self) weakSelf = self;
   [coordinator
       animateAlongsideTransition:^(
           id<UIViewControllerTransitionCoordinatorContext> context) {
-        __typeof(self) strongSelf = weakSelf;
-        if (!strongSelf) {
-          return;
-        }
-        if (strongSelf->_hasAppeared) {
-          [strongSelf updateHeightConstraint];
-        }
+        // Do nothing here to avoid snapping during transition.
       }
-                      completion:nil];
+      completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        [weakSelf completeOrientationTransitionWithDetent:detentBeforeRotation];
+      }];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -285,6 +289,20 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
 }
 
 #pragma mark - Properties
+
+- (void)setLayoutState:(LayoutState*)layoutState {
+  if (_layoutState == layoutState) {
+    return;
+  }
+  [_layoutState removeObserver:self];
+  _layoutState = layoutState;
+  [_layoutState addObserver:self];
+
+  if (_layoutState) {
+    [self updatePresentationContextForSupportedState:
+              _layoutState.containedLayoutSupported];
+  }
+}
 
 - (void)setPresentationContext:
     (AssistantPresentationContext)presentationContext {
@@ -372,24 +390,35 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
 #pragma mark - UIGestureRecognizerDelegate
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer*)gestureRecognizer
-       shouldReceiveTouch:(UITouch*)touch {
+    shouldRecognizeSimultaneouslyWithGestureRecognizer:
+        (UIGestureRecognizer*)otherGestureRecognizer {
   if (gestureRecognizer != _headerPanGesture) {
     return YES;
   }
-  CGPoint location = [touch locationInView:_assistantContainerView];
-  // Restrict the gesture to the top area.
-  return location.y <= kGestureTopAreaHeight;
-}
 
-- (BOOL)gestureRecognizer:(UIGestureRecognizer*)gestureRecognizer
-    shouldBeRequiredToFailByGestureRecognizer:
-        (UIGestureRecognizer*)otherGestureRecognizer {
-  if (gestureRecognizer == _headerPanGesture) {
-    // Ensures the container's resizing pan gesture has absolute priority over
-    // other gestures, like an embedded UIScrollView's content pan.
-    return
-        [otherGestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]];
+  if ([otherGestureRecognizer.view isKindOfClass:[UIScrollView class]]) {
+    UIScrollView* scrollView =
+        static_cast<UIScrollView*>(otherGestureRecognizer.view);
+
+    // If the scroll view is not part of the assistant content, pause it.
+    BOOL inAssistantContent = [scrollView isDescendantOfView:self.view];
+    if (!inAssistantContent) {
+      [self pauseScrollView:scrollView];
+      return YES;
+    }
+
+    if ([self.delegate
+            respondsToSelector:@selector(assistantContainer:
+                                      shouldPauseScrollView:forGesture:)]) {
+      if ([self.delegate assistantContainer:self
+                      shouldPauseScrollView:scrollView
+                                 forGesture:otherGestureRecognizer]) {
+        [self pauseScrollView:scrollView];
+        return YES;
+      }
+    }
   }
+
   return NO;
 }
 
@@ -414,6 +443,34 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
 
 #pragma mark - Private
 
+// Completes the orientation transition by animating to the active detent.
+- (void)completeOrientationTransitionWithDetent:
+    (AssistantContainerDetent)detent {
+  [self animateToDetent:detent
+               duration:kAssistantSheetSpringDuration
+                  curve:UIViewAnimationCurveEaseInOut];
+}
+
+// Resumes all the previously paused scroll views.
+- (void)resumeAllScrollViews {
+  for (UIScrollView* (^scrollViewProvider)() in _disabledScrollViews) {
+    UIScrollView* scrollView = scrollViewProvider();
+    scrollView.scrollEnabled = YES;
+  }
+  [_disabledScrollViews removeAllObjects];
+}
+
+// Pauses scrolling on the given scroll view.
+- (void)pauseScrollView:(UIScrollView*)scrollView {
+  if (scrollView.scrollEnabled) {
+    __weak UIScrollView* weakScrollView = scrollView;
+    [_disabledScrollViews addObject:^{
+      return weakScrollView;
+    }];
+    scrollView.scrollEnabled = NO;
+  }
+}
+
 // Configures and adds the background dimming view.
 - (void)setupDimmingView {
   _dimmingView = [[UIView alloc] init];
@@ -433,6 +490,12 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
 // Dynamically updates the bounding constraints and border radius based on
 // scale.
 - (void)updateContainerStylingForHeight:(CGFloat)height {
+  if (_presentationContext == AssistantPresentationContext::kPanel) {
+    // The SceneViewController handles its UI layout in Panel mode.
+    [_assistantContainerView updateTopCornerRadius:0 bottomCornerRadius:0];
+    return;
+  }
+
   CGFloat minimizedHeight =
       _detentHeights[AssistantContainerDetent::kMinimized];
   CGFloat mediumHeight = _detentHeights[AssistantContainerDetent::kMedium];
@@ -458,12 +521,38 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
   _dimmingView.alpha = constraints.background_dimming_alpha;
 }
 
+// Updates the accessibility identifier of the container view based on the
+// current detent.
+- (void)updateAccessibilityIdentifier {
+  if (!_assistantContainerView) {
+    return;
+  }
+  AssistantContainerDetent detent =
+      _activeDetent.value_or(self.detents.front());
+  switch (detent) {
+    case AssistantContainerDetent::kMinimized:
+      _assistantContainerView.accessibilityIdentifier =
+          kAssistantContainerDetentMinimizedIdentifier;
+      break;
+    case AssistantContainerDetent::kMedium:
+      _assistantContainerView.accessibilityIdentifier =
+          kAssistantContainerDetentMediumIdentifier;
+      break;
+    case AssistantContainerDetent::kLarge:
+      _assistantContainerView.accessibilityIdentifier =
+          kAssistantContainerDetentLargeIdentifier;
+      break;
+  }
+}
+
 // Notifies the delegate of a detent change if it differs from the previously
 // notified active detent.
 - (void)notifyDelegateOfDetentChangeIfNeeded:
     (AssistantContainerDetent)newDetent {
-  if (!_activeDetent.has_value() || _activeDetent.value() != newDetent) {
+  if (_activeDetent != newDetent) {
     _activeDetent = newDetent;
+    [self updateAccessibilityIdentifier];
+
     if ([self.delegate respondsToSelector:@selector(assistantContainer:
                                                        didChangeDetent:)]) {
       [self.delegate assistantContainer:self didChangeDetent:newDetent];
@@ -519,21 +608,26 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
   _assistantContainerView.grabberButton.enabled = YES;
 }
 
-// Handles the tap on the grabber button to toggle container size.
+// Handles the tap on the grabber button to cycle through detents.
 - (void)handleGrabberButtonTapped:(UIButton*)sender {
   if (self.isAnimating) {
     return;
   }
 
-  AssistantContainerDetent minDetent = self.detents.front();
-  AssistantContainerDetent maxDetent = self.detents.back();
+  std::vector<AssistantContainerDetent> currentDetents = self.detents;
 
-  if (minDetent == maxDetent) {
-    return;
+  AssistantContainerDetent currentDetent =
+      _activeDetent.value_or(currentDetents.front());
+  auto it =
+      std::find(currentDetents.begin(), currentDetents.end(), currentDetent);
+
+  size_t nextIndex = 0;
+  if (it != currentDetents.end()) {
+    size_t currentIndex = std::distance(currentDetents.begin(), it);
+    nextIndex = (currentIndex + 1) % currentDetents.size();
   }
 
-  AssistantContainerDetent targetDetent =
-      _activeDetent.value() == maxDetent ? minDetent : maxDetent;
+  AssistantContainerDetent targetDetent = currentDetents[nextIndex];
 
   [self animateToDetent:targetDetent
                duration:kAssistantSheetSpringDuration
@@ -621,6 +715,14 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
   CGPoint translation = [gesture translationInView:superview];
   NSInteger newHeight = round(_initialConstraintHeight - translation.y);
 
+  // Transition to container dragging.
+  if (!_isDraggingContainer) {
+    _isDraggingContainer = YES;
+    [gesture setTranslation:CGPointZero inView:superview];
+    _initialConstraintHeight = _heightConstraint.constant;
+    newHeight = round(_initialConstraintHeight);
+  }
+
   if (round(_heightConstraint.constant) == newHeight) {
     return;
   }
@@ -652,26 +754,55 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
 - (void)handlePanGestureEnded:(UIPanGestureRecognizer*)gesture {
   CHECK(gesture == _headerPanGesture);
 
+  // Lock interaction and prevent height recalculations immediately.
+  self.isAnimating = YES;
+
+  [self resumeAllScrollViews];
+  _isDraggingContainer = NO;
+
   UIView* superview = self.view.superview;
   CGPoint velocity = [gesture velocityInView:superview];
 
   // Calculate target height based on gesture end state.
   CGFloat currentHeight = _heightConstraint.constant;
-  NSInteger targetHeight = [self targetHeightForCurrentHeight:currentHeight
-                                                     velocity:velocity];
+  AssistantContainerDetent targetDetent =
+      [self targetDetentForCurrentHeight:currentHeight velocity:velocity];
+  NSInteger targetHeight = _detentHeights[targetDetent];
 
   _heightConstraint.constant = targetHeight;
   [self updateContainerStylingForHeight:targetHeight];
 
-  // Current height from visual frame (approximate start of animation).
+  [self notifyDelegateOfDetentChangeIfNeeded:targetDetent];
+
+  [self animateSnapToTargetHeight:targetHeight gestureVelocity:velocity];
+}
+
+// Calculates spring velocity and triggers the snap animation.
+- (void)animateSnapToTargetHeight:(NSInteger)targetHeight
+                  gestureVelocity:(CGPoint)velocity {
   CGFloat currentFrameHeight = self.view.frame.size.height;
   CGFloat distance = targetHeight - currentFrameHeight;
+
+  // If the distance is very small, skip the animation to prevent UIKit from
+  // skipping the completion block and leaving isAnimating stuck at YES.
+  if (ABS(distance) <= 1.0) {
+    [self.view layoutIfNeeded];
+    self.isAnimating = NO;
+    return;
+  }
+
   CGFloat springVelocity = 0.0;
 
   // Invert velocity so positive values indicate upward expansion.
   CGFloat containerVelocity = -velocity.y;
 
-  if (ABS(distance) > 1.0) {
+  // If the velocity direction is opposite to the distance direction (e.g.,
+  // moving away from the target during an overshoot), set springVelocity to 0
+  // to ensure a smooth settle without wild bouncing.
+  if ((distance > 0 && containerVelocity < 0) ||
+      (distance < 0 && containerVelocity > 0)) {
+    springVelocity = 0;
+  } else if (ABS(distance) > 1.0) {
     springVelocity = containerVelocity / distance;
   }
 
@@ -681,12 +812,12 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
 
 // Calculates the target height based on the current height and velocity of the
 // gesture.
-- (NSInteger)targetHeightForCurrentHeight:(CGFloat)currentHeight
-                                 velocity:(CGPoint)velocity {
+- (AssistantContainerDetent)targetDetentForCurrentHeight:(CGFloat)currentHeight
+                                                velocity:(CGPoint)velocity {
   NSInteger maxHeight = [self effectiveMaxHeight];
   NSInteger minHeight = [self effectiveMinHeight];
 
-  NSInteger bestDetentValue = 0;
+  AssistantContainerDetent bestDetent = self.detents.front();
   NSInteger minDistance = NSIntegerMax;
 
   // Project height based on velocity to simulate momentum.
@@ -701,16 +832,17 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
     NSInteger diff = ABS(projectedHeight - val);
     if (diff < minDistance) {
       minDistance = diff;
-      bestDetentValue = val;
+      bestDetent = detent;
     }
   }
-  return bestDetentValue;
+  return bestDetent;
 }
 
 - (void)updateHeightConstraint {
   // If we are currently dragging, do not interfere with the constraint.
   if (_headerPanGesture.state == UIGestureRecognizerStateBegan ||
       _headerPanGesture.state == UIGestureRecognizerStateChanged ||
+      _headerPanGesture.state == UIGestureRecognizerStateEnded ||
       self.isAnimating) {
     return;
   }
@@ -724,8 +856,6 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
   NSInteger maxHeight = [self effectiveMaxHeight];
   NSInteger minHeight = [self effectiveMinHeight];
 
-  // If detents are available, use them to determine the target height.
-  // We snap to the nearest detent.
   NSInteger currentHeight = round(_heightConstraint.constant);
   NSInteger nearestDetentValue = 0;
   NSInteger minDistance = NSIntegerMax;
@@ -802,26 +932,40 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
 
   // Trigger initial adaptive layout once the view is successfully in the
   // hierarchy.
-  [self updatePresentationContextFromTraitCollection];
+  [self applyLayoutForPresentationContext];
+  [self
+      updatePresentationContextForSupportedState:self.layoutState
+                                                     .containedLayoutSupported];
 }
 
-// Updates the presentation context based on the current trait collection.
-- (void)updatePresentationContextFromTraitCollection {
+// Updates the presentation context based on the layout state.
+- (void)updatePresentationContextForSupportedState:(BOOL)supported {
   if (!self.view.window) {
     return;
   }
 
   AssistantPresentationContext targetContext =
-      IsSidePanelLayout(self.traitCollection)
-          ? AssistantPresentationContext::kPanel
-          : AssistantPresentationContext::kSheet;
+      supported ? AssistantPresentationContext::kPanel
+                : AssistantPresentationContext::kSheet;
 
   if (_presentationContext != targetContext) {
     self.presentationContext = targetContext;
-  } else if (_presentationContext == AssistantPresentationContext::kSheet) {
+  }
+}
+
+// Called when system traits change.
+- (void)onTraitChange {
+  if (_presentationContext == AssistantPresentationContext::kSheet) {
     // Re-evaluate sheet constraints on pure trait changes.
     [self applySheetLayoutConstraints];
   }
+}
+
+#pragma mark - LayoutStateObserver
+
+- (void)layoutState:(LayoutState*)layoutState
+    didChangeContainedLayoutSupported:(BOOL)supported {
+  [self updatePresentationContextForSupportedState:supported];
 }
 
 // Configures the constraints for the panel layout.
@@ -894,6 +1038,7 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
   [view setNeedsLayout];
 
   [self updateDetentHeights];
+
   if (_activeDetent.has_value()) {
     _heightConstraint.constant = _detentHeights[_activeDetent.value()];
   }
@@ -911,19 +1056,22 @@ NSInteger GetMediumDetentHeight(NSInteger absoluteMax) {
   CGFloat targetHeight = _heightConstraint.constant;
   CGFloat targetPercentage = [self expandPercentageForHeight:targetHeight];
 
+  self.isAnimating = YES;
+
   __weak __typeof(self) weakSelf = self;
 
   [UIView animateWithDuration:kAssistantSheetSpringDuration
-                        delay:0
-       usingSpringWithDamping:kAssistantSheetSpringDamping
-        initialSpringVelocity:velocity
-                      options:UIViewAnimationOptionCurveEaseOut |
-                              UIViewAnimationOptionBeginFromCurrentState
-                   animations:^{
-                     [weakSelf executeAlongsideAnimationWithPercentage:
-                                   targetPercentage];
-                   }
-                   completion:nil];
+      delay:0
+      usingSpringWithDamping:kAssistantSheetSpringDamping
+      initialSpringVelocity:velocity
+      options:UIViewAnimationOptionCurveEaseOut |
+              UIViewAnimationOptionBeginFromCurrentState
+      animations:^{
+        [weakSelf executeAlongsideAnimationWithPercentage:targetPercentage];
+      }
+      completion:^(BOOL finished) {
+        weakSelf.isAnimating = NO;
+      }];
 }
 
 // Recomputes and caches the heights for all active detents.

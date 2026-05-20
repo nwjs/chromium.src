@@ -319,6 +319,7 @@ apps::Readiness ConvertWebappUninstallSourceToReadiness(
     case webapps::WebappUninstallSource::kTestCleanup:
     case webapps::WebappUninstallSource::kDevtools:
     case webapps::WebappUninstallSource::kAppMigration:
+    case webapps::WebappUninstallSource::kToolbarPostInstall:
       return apps::Readiness::kUninstalledByUser;
     case webapps::WebappUninstallSource::kUninstallAndReplaceMigration:
     case webapps::WebappUninstallSource::kInternalPreinstalled:
@@ -1522,7 +1523,7 @@ void WebAppPublisherHelper::OnAppRegistrarDestroyed() {
 
 void WebAppPublisherHelper::OnWebAppLastLaunchTimeChanged(
     const std::string& app_id,
-    const base::Time& last_launch_time) {
+    const std::optional<base::Time>& last_launch_time) {
   const WebApp* web_app = GetWebApp(app_id);
   if (!web_app) {
     return;
@@ -2116,7 +2117,7 @@ void WebAppPublisherHelper::OnProtocolHandlerDialogCompleted(
   }
   provider_->scheduler().LaunchAppWithCustomParams(
       std::move(params),
-      base::BindOnce([](base::WeakPtr<Browser>,
+      base::BindOnce([](base::WeakPtr<BrowserWindowInterface>,
                         base::WeakPtr<content::WebContents> web_contents,
                         apps::LaunchContainer) {
         return web_contents.get();
@@ -2128,7 +2129,7 @@ void WebAppPublisherHelper::OnLaunchCompleted(
     bool is_system_web_app,
     std::optional<GURL> override_url,
     base::OnceCallback<void(content::WebContents*)> on_complete,
-    base::WeakPtr<Browser> browser,
+    base::WeakPtr<BrowserWindowInterface> browser,
     base::WeakPtr<content::WebContents> web_contents,
     apps::LaunchContainer container) {
 #if BUILDFLAG(IS_CHROMEOS)

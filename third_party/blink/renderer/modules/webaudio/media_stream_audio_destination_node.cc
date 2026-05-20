@@ -58,7 +58,7 @@ MediaStreamAudioDestinationNode::MediaStreamAudioDestinationNode(
     context.GetExecutionContext()->GetTaskRunner(TaskType::kInternalMedia));
   WebAudioMediaStreamSource* audio_source_ptr = audio_source.get();
 
-  String source_id = StrCat({"WebAudio-", CreateCanonicalUUIDString()});
+  String source_id = StrCat({"WebAudio-", CreateCanonicalUuidString()});
 
   MediaStreamSource::Capabilities capabilities;
   capabilities.device_id = source_id;
@@ -85,7 +85,8 @@ MediaStreamAudioDestinationNode::MediaStreamAudioDestinationNode(
 
   SetHandler(
       MediaStreamAudioDestinationHandler::Create(
-          *this, number_of_channels, audio_source_ptr));
+          *this, number_of_channels, audio_source_ptr->Consumer()));
+
   SendLogMessage(
       __func__,
       String::Format("({context.state=%s}, {context.sampleRate=%.0f}, "
@@ -147,10 +148,6 @@ void MediaStreamAudioDestinationNode::Trace(Visitor* visitor) const {
   visitor->Trace(stream_);
   visitor->Trace(source_);
   AudioNode::Trace(visitor);
-}
-
-void MediaStreamAudioDestinationNode::Dispose() {
-  GetOwnHandler().RemoveConsumer();
 }
 
 void MediaStreamAudioDestinationNode::ReportDidCreate() {

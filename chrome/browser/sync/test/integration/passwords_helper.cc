@@ -22,6 +22,7 @@
 #include "chrome/browser/sync/test/integration/sync_datatype_helper.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_consumer.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/password_manager/core/browser/sync/password_proto_utils.h"
@@ -52,16 +53,29 @@ class PasswordStoreConsumerHelper
   PasswordStoreConsumerHelper& operator=(const PasswordStoreConsumerHelper&) =
       delete;
 
-  void OnGetPasswordStoreResults(
-      std::vector<std::unique_ptr<PasswordForm>> results) override {
-    result_.swap(results);
+  void OnGetPasswordStoreResultsOrErrorFrom(
+      password_manager::PasswordStoreInterface* store,
+      password_manager::LoginsResultOrError results_or_error) override {
+    if (std::holds_alternative<password_manager::PasswordStoreBackendError>(
+            results_or_error)) {
+      result_ = std::vector<PasswordForm>();
+    } else {
+      result_ = password_manager::ToPasswordForms(
+          std::get<password_manager::LoginsResult>(
+              std::move(results_or_error)));
+    }
     run_loop_.Quit();
   }
 
   std::vector<std::unique_ptr<PasswordForm>> WaitForResult() {
     DCHECK(!run_loop_.running());
     run_loop_.Run();
-    return std::move(result_);
+    std::vector<std::unique_ptr<PasswordForm>> unique_results;
+    unique_results.reserve(result_.size());
+    for (auto& form : result_) {
+      unique_results.push_back(std::make_unique<PasswordForm>(std::move(form)));
+    }
+    return unique_results;
   }
 
   base::WeakPtr<password_manager::PasswordStoreConsumer> GetWeakPtr() {
@@ -74,7 +88,7 @@ class PasswordStoreConsumerHelper
   // TODO(crbug.com/41486990): consider changing this to PasswordStoreInterface
   // observer to avoid nested run loops.
   base::RunLoop run_loop_{base::RunLoop::Type::kNestableTasksAllowed};
-  std::vector<std::unique_ptr<PasswordForm>> result_;
+  std::vector<PasswordForm> result_;
   base::WeakPtrFactory<PasswordStoreConsumerHelper> weak_ptr_factory_{this};
 };
 
@@ -270,7 +284,8 @@ void InjectEncryptedServerPassword(
     const syncer::KeyDerivationParams& key_derivation_params,
     fake_server::FakeServer* fake_server) {
   sync_pb::PasswordSpecificsData password_data =
-      password_manager::SpecificsFromPassword(form, /*base_password_data=*/{})
+      password_manager::SpecificsFromStoredCredential(
+          password_manager::FromPasswordForm(form), /*base_password_data=*/{})
           .client_only_encrypted_data();
   InjectEncryptedServerPassword(password_data, encryption_passphrase,
                                 key_derivation_params, fake_server);
@@ -295,7 +310,8 @@ void InjectKeystoreEncryptedServerPassword(
     const password_manager::PasswordForm& form,
     fake_server::FakeServer* fake_server) {
   sync_pb::PasswordSpecificsData password_data =
-      password_manager::SpecificsFromPassword(form, /*base_password_data=*/{})
+      password_manager::SpecificsFromStoredCredential(
+          password_manager::FromPasswordForm(form), /*base_password_data=*/{})
           .client_only_encrypted_data();
   InjectKeystoreEncryptedServerPassword(password_data, fake_server);
 }
@@ -504,7 +520,8 @@ bool ServerPasswordsEqualityChecker::IsExitConditionSatisfied(
     }
     server_password_forms.push_back(
         std::make_unique<password_manager::PasswordForm>(
-            password_manager::PasswordFromSpecifics(decrypted)));
+            password_manager::ToPasswordForm(
+                password_manager::StoredCredentialFromSpecifics(decrypted))));
   }
 
   std::ostringstream mismatch_details_stream;

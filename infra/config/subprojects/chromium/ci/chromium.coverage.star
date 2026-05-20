@@ -6,7 +6,7 @@ load("@chromium-luci//args.star", "args")
 load("@chromium-luci//branches.star", "branches")
 load("@chromium-luci//builder_config.star", "builder_config")
 load("@chromium-luci//builder_health_indicators.star", "health_spec")
-load("@chromium-luci//builders.star", "cpu", "os")
+load("@chromium-luci//builders.star", "builders", "cpu", "os")
 load("@chromium-luci//ci.star", "ci")
 load("@chromium-luci//consoles.star", "consoles")
 load("@chromium-luci//gn_args.star", "gn_args")
@@ -1204,6 +1204,7 @@ coverage_builder(
     ),
     builderless = True,
     os = os.LINUX_DEFAULT,
+    free_space = builders.free_space.high,
     console_view_entry = [
         consoles.console_view_entry(
             category = "linux-fuzz",
@@ -1211,6 +1212,8 @@ coverage_builder(
         ),
     ],
     # TODO(crbug.com/449026537): Remove elevated timeout once performance improves.
+    # Note: execution timeout should be no different from what is defined below
+    # for linux-centipede-fuzz-coverage builder.
     execution_timeout = 48 * time.hour,
     notifies = ["chrome-fuzzing-core"],
     properties = {
@@ -1266,7 +1269,9 @@ coverage_builder(
     contact_team_email = "chrome-fuzzing-core@google.com",
     # TODO(crbug.com/449026537): Remove elevated timeout once performance
     # improves.
-    execution_timeout = 24 * time.hour,
+    # Note: execution timeout should be no different from what is defined above
+    # for linux-fuzz-coverage builder.
+    execution_timeout = 48 * time.hour,
     notifies = ["chrome-fuzzing-core"],
     properties = {
         "collect_fuzz_coverage": True,
@@ -1622,15 +1627,6 @@ coverage_builder(
             "content_unittests": targets.mixin(
                 swarming = targets.swarming(
                     hard_timeout_sec = 5400,
-                    shards = 2,
-                ),
-            ),
-            "extensions_browsertests": targets.mixin(
-                swarming = targets.swarming(
-                    dimensions = {
-                        "pool": "chromium.tests.coverage",
-                        "ssd": "1",
-                    },
                     shards = 2,
                 ),
             ),

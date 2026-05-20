@@ -18,6 +18,7 @@
 #import "ios/chrome/browser/composebox/ui/composebox_ui_constants.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_constants.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/tab_picker/ui/tab_picker_ui_constants.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_constants.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/test/tabs_egtest_util.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -117,10 +118,9 @@ void SelectTabWithTitle(NSString* title) {
 
   // Attempt to make the item visible by scrolling.
   if (error) {
-    [[EarlGrey
-        selectElementWithMatcher:
-            grey_accessibilityID(
-                kComposeboxTabPickerCollectionViewAccessibilityIdentifier)]
+    [[EarlGrey selectElementWithMatcher:
+                   grey_accessibilityID(
+                       kTabPickerCollectionViewAccessibilityIdentifier)]
         performAction:grey_swipeSlowInDirection(kGREYDirectionDown)];
     [[EarlGrey selectElementWithMatcher:tabMatcher]
         assertWithMatcher:grey_sufficientlyVisible()];
@@ -429,9 +429,9 @@ void RemoveAttachmentWithTitle(NSString* title) {
   OpenTabPicker();
 
   // Check that the tab picker is visible.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityID(
-                     kComposeboxTabPickerCollectionViewAccessibilityIdentifier)]
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_accessibilityID(kTabPickerCollectionViewAccessibilityIdentifier)]
       assertWithMatcher:grey_sufficientlyVisible()];
   [[EarlGrey selectElementWithMatcher:
                  grey_text(l10n_util::GetNSString(
@@ -497,9 +497,9 @@ void RemoveAttachmentWithTitle(NSString* title) {
   OpenTabPicker();
 
   // Check that the empty state view is visible.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityID(
-                     kComposeboxTabPickerEmptyStateViewAccessibilityIdentifier)]
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_accessibilityID(kTabPickerEmptyStateViewAccessibilityIdentifier)]
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Check that the Done button is disabled and Cancel is enabled.
@@ -514,16 +514,18 @@ void RemoveAttachmentWithTitle(NSString* title) {
       performAction:grey_tap()];
 
   // Check that the tab picker is not visible anymore.
-  [[EarlGrey selectElementWithMatcher:
-                 grey_accessibilityID(
-                     kComposeboxTabPickerCollectionViewAccessibilityIdentifier)]
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_accessibilityID(kTabPickerCollectionViewAccessibilityIdentifier)]
       assertWithMatcher:grey_notVisible()];
 }
 
 // Tests that multiple tabs selected from the tab picker are displayed in the
 // carousel, the attachment limit is respected, and the AIM button is visible.
+
 - (void)testAttachMultipleTabsAndLimit {
   [ComposeboxAppInterface setFuseboxEligible:YES];
+  [ComposeboxAppInterface setTabUploadAutoSucceed:YES];
   std::vector<GURL> URLS;
   NSUInteger totalNumberOfTabs = kAttachmentLimit + 1;
   [ChromeEarlGrey closeAllNormalTabs];
@@ -556,10 +558,9 @@ void RemoveAttachmentWithTitle(NSString* title) {
       assertWithMatcher:grey_sufficientlyVisible()
                   error:&error];
   if (error) {
-    [[EarlGrey
-        selectElementWithMatcher:
-            grey_accessibilityID(
-                kComposeboxTabPickerCollectionViewAccessibilityIdentifier)]
+    [[EarlGrey selectElementWithMatcher:
+                   grey_accessibilityID(
+                       kTabPickerCollectionViewAccessibilityIdentifier)]
         performAction:grey_scrollToContentEdge(kGREYContentEdgeBottom)];
     [[EarlGrey selectElementWithMatcher:TabWithTitle(currentPageTitle)]
         assertWithMatcher:grey_sufficientlyVisible()];

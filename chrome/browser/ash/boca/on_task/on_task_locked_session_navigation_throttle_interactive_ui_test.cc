@@ -28,8 +28,8 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
-#include "chrome/browser/ui/test/test_browser_closed_waiter.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -790,21 +790,24 @@ IN_PROC_BROWSER_TEST_F(OnTaskLockedSessionNavigationThrottleInteractiveUITest,
       LockedSessionWindowTrackerFactory::GetInstance()->GetForBrowserContext(
           profile());
   ASSERT_TRUE(window_tracker->CanOpenNewPopup());
-  const size_t original_browser_count = chrome::GetTotalBrowserCount();
+  const size_t original_browser_count =
+      GlobalBrowserCollection::GetInstance()->GetSize();
   Browser* const popup_browser = Browser::Create(Browser::CreateParams(
       Browser::TYPE_APP_POPUP, profile(), /*user_gesture=*/true));
   content::RunAllTasksUntilIdle();
-  ASSERT_EQ(chrome::GetTotalBrowserCount(), original_browser_count + 1);
+  ASSERT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(),
+            original_browser_count + 1);
   EXPECT_FALSE(window_tracker->CanOpenNewPopup());
 
-  TestBrowserClosedWaiter popup_closed_waiter(popup_browser);
+  ui_test_utils::BrowserDestroyedObserver popup_closed_observer(popup_browser);
   NavigateParams navigate_params(
       popup_browser, embedded_test_server()->GetURL(kTabUrl1Host, "/"),
       ui::PAGE_TRANSITION_LINK);
   navigate_params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
   ui_test_utils::NavigateToURL(&navigate_params);
-  ASSERT_TRUE(popup_closed_waiter.WaitUntilClosed());
-  EXPECT_EQ(chrome::GetTotalBrowserCount(), original_browser_count);
+  popup_closed_observer.Wait();
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(),
+            original_browser_count);
 }
 
 IN_PROC_BROWSER_TEST_F(OnTaskLockedSessionNavigationThrottleInteractiveUITest,
@@ -853,7 +856,8 @@ IN_PROC_BROWSER_TEST_F(OnTaskLockedSessionNavigationThrottleInteractiveUITest,
         return false;
       }));
 
-  const size_t original_browser_count = chrome::GetTotalBrowserCount();
+  const size_t original_browser_count =
+      GlobalBrowserCollection::GetInstance()->GetSize();
   auto* const window_tracker =
       LockedSessionWindowTrackerFactory::GetInstance()->GetForBrowserContext(
           profile());
@@ -871,21 +875,22 @@ IN_PROC_BROWSER_TEST_F(OnTaskLockedSessionNavigationThrottleInteractiveUITest,
 
   ui_test_utils::BrowserActivationWaiter popup_activation_waiter(popup_browser);
   popup_activation_waiter.WaitForActivation();
-  ASSERT_EQ(chrome::GetTotalBrowserCount(), original_browser_count + 1);
+  ASSERT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(),
+            original_browser_count + 1);
   EXPECT_FALSE(window_tracker->CanOpenNewPopup());
   ASSERT_TRUE(window_tracker->oauth_in_progress());
 
   // The oauth popup in reality should close once the login flow is complete.
   // This is normally done through a redirect with an auto close window query,
   // but we simulate this in the test.
-  TestBrowserClosedWaiter popup_closed_waiter(popup_browser);
+  ui_test_utils::BrowserDestroyedObserver popup_closed_observer(popup_browser);
   window_tracker->set_oauth_in_progress(false);
   ui_test_utils::NavigateToURLWithDisposition(
       popup_browser,
       embedded_test_server()->GetURL(kTabUrlRedirectHost,
                                      "/redirect?code=secret"),
       WindowOpenDisposition::CURRENT_TAB, ui_test_utils::BROWSER_TEST_NO_WAIT);
-  ASSERT_TRUE(popup_closed_waiter.WaitUntilClosed());
+  popup_closed_observer.Wait();
   EXPECT_TRUE(window_tracker->CanOpenNewPopup());
 }
 
@@ -942,7 +947,8 @@ IN_PROC_BROWSER_TEST_F(OnTaskLockedSessionNavigationThrottleInteractiveUITest,
         return false;
       }));
 
-  const size_t original_browser_count = chrome::GetTotalBrowserCount();
+  const size_t original_browser_count =
+      GlobalBrowserCollection::GetInstance()->GetSize();
   NavigateParams navigate_params(
       boca_app_browser,
       embedded_test_server()->GetURL(kTabUrlRedirectHost,
@@ -956,20 +962,21 @@ IN_PROC_BROWSER_TEST_F(OnTaskLockedSessionNavigationThrottleInteractiveUITest,
 
   ui_test_utils::BrowserActivationWaiter popup_activation_waiter(popup_browser);
   popup_activation_waiter.WaitForActivation();
-  ASSERT_EQ(chrome::GetTotalBrowserCount(), original_browser_count + 1);
+  ASSERT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(),
+            original_browser_count + 1);
   EXPECT_FALSE(window_tracker->CanOpenNewPopup());
 
   // The oauth popup in reality should close once the login flow is complete.
   // This is normally done through a redirect with an auto close window query,
   // but we simulate this in the test.
-  TestBrowserClosedWaiter popup_closed_waiter(popup_browser);
+  ui_test_utils::BrowserDestroyedObserver popup_closed_observer(popup_browser);
   window_tracker->set_oauth_in_progress(false);
   ui_test_utils::NavigateToURLWithDisposition(
       popup_browser,
       embedded_test_server()->GetURL(kTabUrlRedirectHost,
                                      "/redirect?code=secret"),
       WindowOpenDisposition::CURRENT_TAB, ui_test_utils::BROWSER_TEST_NO_WAIT);
-  ASSERT_TRUE(popup_closed_waiter.WaitUntilClosed());
+  popup_closed_observer.Wait();
   EXPECT_TRUE(window_tracker->CanOpenNewPopup());
 }
 

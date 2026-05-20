@@ -4,7 +4,7 @@ This file catalogs all of the actions that can be used to build critical user jo
 
 Existing documentation lives [here](/docs/webapps/integration-testing-framework.md).
 
-TODO(dmurph): Move more documentation here. https://crbug.com/1314822
+TODO(dmurph): Move more documentation here. https://crbug.com/40221544
 
 ## How this file is parsed
 
@@ -22,7 +22,7 @@ The tables in this file are parsed as action templates for critical user journey
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Site | Standalone* | MinimalUi | Tabbed | NotPromotable | StandaloneNestedA | StandaloneNestedB | Wco | Isolated | FileHandler | NotInstalled | StandaloneNotStartUrl | Screenshots | HasSubApps | SubApp1 | SubApp2 | TabbedWithHomeTab | TabbedNestedA | TabbedNestedB | TabbedNestedC | ChromeUrl | StandaloneMigratedSuggested | StandaloneMigratedForced |
 | InstallableSite | Standalone* | MinimalUi | Tabbed | StandaloneNestedA | StandaloneNestedB | Wco | NotInstalled | StandaloneNotStartUrl | Screenshots | HasSubApps | SubApp1 | SubApp2 | TabbedWithHomeTab | ChromeUrl |
-| Title | StandaloneOriginal | StandaloneUpdated | StandaloneMigratedSuggested | StandaloneMigratedForced |
+| Title | NotPromotableOriginal | NotPromotableUpdated | StandaloneOriginal | StandaloneUpdated | StandaloneMigratedSuggested | StandaloneMigratedForced |
 | Color | Red | Green | GreenSmallDiff |  |  |  |  |
 | ProfileClient | Client2* | Client1 |  |  |  |  |  |
 | UserDisplayPreference | Standalone | Browser |  |  |  |  |  |

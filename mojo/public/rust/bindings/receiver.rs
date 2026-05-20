@@ -30,7 +30,10 @@
 chromium::import! {
   "//mojo/public/rust/system";
   "//base:sequenced_task_runner";
+  "//mojo/public/rust/mojom_value_parser";
+  "//mojo/public/rust/mojom_value_parser:mojom_value_parser_core";
 }
+use mojom_value_parser_core::{MojomType, MojomValue};
 
 use std::marker::PhantomData;
 // TODO(crbug.com/470438844): Replace some/all Arc/Mutexes with the
@@ -65,8 +68,10 @@ use crate::message_pipe_watcher::{MessagePipeWatcher, ResponseSender};
 /// processed until it is bound. Once bound, the newly-created `Receiver`
 /// will immediately schedule processing of all pending messages.
 pub struct Receiver<StateTy: MojomInterface> {
-    endpoint_watcher: MessagePipeWatcher,
-    state: Arc<Mutex<StateTy>>,
+    // We never actually access either field after creation, we just need to
+    // to keep them alive while the receiver is alive.
+    _endpoint_watcher: MessagePipeWatcher,
+    _state: Arc<Mutex<StateTy>>,
 }
 
 /// This type represents one end of a Mojo pipe corresponding to with a
@@ -227,21 +232,7 @@ where
             MessagePipeWatcher::new_with_runner(endpoint, runner, handler, disconnect_handler)
                 .expect("System ran out of resources to create new mojo objects.");
 
-        Self { endpoint_watcher, state }
-    }
-
-    /// Unbind the remote, returning the contained state object and a
-    /// `PendingRemote` which can be re-bound later.
-    // This function is not `pub` because it's a dangerous operation, so we're
-    // restricting access until someone has a use-case. It's mostly included here
-    // for completeness. Before making it usable, we need to figure out the
-    // implications of unbinding, e.g. for already-posted tasks, when we can
-    // safely unwrap Arcs, etc.
-    #[allow(unused)]
-    fn unbind(self) -> (PendingReceiver<StateTy::DynTy>, StateTy) {
-        let state = Arc::into_inner(self.state).unwrap().into_inner().unwrap();
-        let endpoint = self.endpoint_watcher.into_endpoint();
-        (PendingReceiver::new(endpoint), state)
+        Self { _endpoint_watcher: endpoint_watcher, _state: state }
     }
 
     /// This is the function which is called by the endpoint watcher
@@ -249,7 +240,7 @@ where
     /// header, call the corresponding method on the state object, and then
     /// send a response back through the pipe (if the message expects one).
     fn incoming_message_handler(
-        raw_message: RawMojoMessage,
+        mut raw_message: RawMojoMessage,
         state_weak: &Weak<Mutex<StateTy>>,
         sender: ResponseSender,
     ) {
@@ -305,4 +296,43 @@ where
     // We deliberately do not implement `From` and `Into` for
     // `Receiver/PendingReceiver` pairs, because binding and unbinding are
     // stateful operations that should be done explicitly.
+}
+
+impl<T: DynMojomInterface + ?Sized> std::fmt::Debug for PendingReceiver<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PendingReceiver").field("endpoint", &self.endpoint).finish()
+    }
+}
+
+impl<T: DynMojomInterface + ?Sized> PartialEq for PendingReceiver<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.endpoint == other.endpoint
+    }
+}
+
+impl<T: DynMojomInterface + ?Sized> Eq for PendingReceiver<T> {}
+
+impl<T: DynMojomInterface + ?Sized> From<PendingReceiver<T>> for MojomValue {
+    fn from(val: PendingReceiver<T>) -> MojomValue {
+        MojomValue::PendingReceiver(val.into_endpoint())
+    }
+}
+
+impl<T: DynMojomInterface + ?Sized> TryFrom<MojomValue> for PendingReceiver<T> {
+    type Error = anyhow::Error;
+
+    fn try_from(value: MojomValue) -> Result<Self, Self::Error> {
+        match value {
+            MojomValue::PendingReceiver(handle) => Ok(PendingReceiver::new(handle)),
+            _ => anyhow::bail!("Expected PendingReceiver, got {:?}", value),
+        }
+    }
+}
+
+impl<T: DynMojomInterface + ?Sized + 'static> mojom_value_parser::MojomParse
+    for PendingReceiver<T>
+{
+    fn mojom_type() -> MojomType {
+        MojomType::PendingReceiver
+    }
 }

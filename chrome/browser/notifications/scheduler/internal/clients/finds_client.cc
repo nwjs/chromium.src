@@ -30,12 +30,18 @@ FindsClient::~FindsClient() = default;
 void FindsClient::BeforeShowNotification(
     std::unique_ptr<NotificationData> notification_data,
     NotificationDataCallback callback) {
+  if (!finds::IsAllowedByEnterprisePolicy(pref_service_)) {
+    std::move(callback).Run(nullptr);
+    return;
+  }
   std::move(callback).Run(std::move(notification_data));
 }
 
 void FindsClient::OnShowNotification(
     std::unique_ptr<NotificationData> notification_data) {
-  finds::MarkNotificationShown(pref_service_);
+  finds::RecordNotificationShown();
+  // This is a failsafe in case cooldown timestamp is not set during scheduling.
+  finds::MarkModelExecutionLastTimestamp(pref_service_);
 }
 
 void FindsClient::OnSchedulerInitialized(bool success,

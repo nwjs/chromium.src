@@ -287,21 +287,10 @@ void GeolocationPermissionContextTestsBase::RequestGeolocationPermission(
     bool user_gesture,
     bool embedded_permission_element_initiated,
     blink::mojom::PermissionName permission_name) {
-  std::unique_ptr<PermissionResolver> resolver =
-      geolocation_permission_context_->CreatePermissionResolver(
-          blink::mojom::PermissionDescriptor::New(permission_name,
-                                                  /*extension=*/nullptr));
   auto request_data = std::make_unique<permissions::PermissionRequestData>(
-      std::move(resolver), id, user_gesture, requesting_frame);
-
-  if (permission_name ==
-      blink::mojom::PermissionName::GEOLOCATION_APPROXIMATE) {
-    request_data->requested_geolocation_accuracy =
-        GeolocationAccuracy::kApproximate;
-  } else if (permission_name == blink::mojom::PermissionName::GEOLOCATION) {
-    request_data->requested_geolocation_accuracy =
-        GeolocationAccuracy::kPrecise;
-  }
+      blink::mojom::PermissionDescriptor::New(permission_name,
+                                              /*extension=*/nullptr),
+      id, user_gesture, requesting_frame);
 
   if (embedded_permission_element_initiated) {
     request_data->embedded_permission_request_descriptor =
@@ -655,6 +644,39 @@ TEST_P(GeolocationPermissionContextTests, SinglePermissionPrompt) {
   EXPECT_FALSE(HasActivePrompt());
   RequestGeolocationPermission(RequestID(0), requesting_frame, true);
   ASSERT_TRUE(HasActivePrompt());
+}
+
+TEST_P(GeolocationPermissionContextTests, ApproximatePermissionPropagated) {
+  GURL requesting_frame("https://www.example.com/geolocation");
+  NavigateAndCommit(requesting_frame);
+  RequestManagerDocumentLoadCompleted();
+
+  EXPECT_FALSE(HasActivePrompt());
+
+  // Request approximate location.
+  RequestGeolocationPermission(
+      RequestID(0), requesting_frame, /*user_gesture=*/true,
+      /*embedded_permission_element_initiated=*/false,
+      blink::mojom::PermissionName::GEOLOCATION_APPROXIMATE);
+
+  ASSERT_TRUE(HasActivePrompt());
+
+  PermissionRequestManager* manager =
+      PermissionRequestManager::FromWebContents(web_contents());
+  manager->Accept(
+      content_settings::GeolocationContentSettingsType() ==
+              ContentSettingsType::GEOLOCATION_WITH_OPTIONS
+          ? PromptOptions(GeolocationPromptOptions{
+                .selected_accuracy = GeolocationAccuracy::kApproximate})
+          : std::monostate());
+  EXPECT_FALSE(HasActivePrompt());
+
+  // On Android, if approximate location was requested, it should be granted
+  // for GEOLOCATION_APPROXIMATE.
+  CheckPermissionMessageSent(0, true);
+  EXPECT_EQ(PermissionStatus::GRANTED,
+            GetPermissionStatus(blink::PermissionType::GEOLOCATION_APPROXIMATE,
+                                requesting_frame));
 }
 
 TEST_F(ApproximateOnlyGeolocationPermissionContextTests,

@@ -8,6 +8,8 @@ source_set("testing") {
   sources = [
     "injector.cc",
     "injector.h",
+    "toy_tab_context_menu_adapter.cc",
+    "toy_tab_context_menu_adapter.h",
     "toy_tab_strip.cc",
     "toy_tab_strip.h",
     "toy_tab_strip_browser_adapter.cc",

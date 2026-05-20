@@ -64,9 +64,13 @@ proto::AdaptationRecipe AdaptationRecipe(const std::string& base_model_id,
   return recipe;
 }
 
-proto::SafetyModelRecipe SafetyModelRecipe(proto::FileReference weights_file) {
+proto::SafetyModelRecipe SafetyModelRecipe(
+    proto::FileReference weights_file,
+    proto::FileReference language_detection_model_file) {
   proto::SafetyModelRecipe recipe;
   *recipe.mutable_weights_file() = std::move(weights_file);
+  *recipe.mutable_language_detection_model_file() =
+      std::move(language_detection_model_file);
   return recipe;
 }
 
@@ -149,6 +153,24 @@ ManifestBuilder& ManifestBuilder::Add(const DeviceUseCase& use_case,
   return *this;
 }
 
+ManifestBuilder& ManifestBuilder::SetFeatureConfig(DeviceCategory device,
+                                                   const std::string& name,
+                                                   proto::Any config) {
+  proto::DeviceCategoryConfig& category_config =
+      (*manifest_.mutable_category_configs())[base::ToString(device)];
+  (*category_config.mutable_feature_configs())[name] = std::move(config);
+  return *this;
+}
+
+ManifestBuilder& ManifestBuilder::SetValidationTask(
+    DeviceCategory device,
+    proto::ValidationTask task) {
+  proto::DeviceCategoryConfig& category_config =
+      (*manifest_.mutable_category_configs())[base::ToString(device)];
+  *category_config.mutable_validations() = std::move(task);
+  return *this;
+}
+
 proto::Manifest ManifestBuilder::Build() {
   return manifest_;
 }
@@ -156,14 +178,20 @@ proto::Manifest ManifestBuilder::Build() {
 ManifestComponentDirectory::ManifestComponentDirectory(
     const proto::Manifest& manifest) {
   CHECK(temp_dir_.CreateUniqueTempDir());
-  CHECK(base::WriteFile(temp_dir_.GetPath().Append(kManifestFileName),
-                        manifest.SerializeAsString()));
+  Add(manifest);
 }
 ManifestComponentDirectory::~ManifestComponentDirectory() = default;
 
 ManifestComponentDirectory& ManifestComponentDirectory::Add(
+    const proto::Manifest& manifest) {
+  CHECK(base::WriteFile(temp_dir_.GetPath().Append(kManifestFileName),
+                        manifest.SerializeAsString()));
+  return *this;
+}
+
+ManifestComponentDirectory& ManifestComponentDirectory::Add(
     const std::string& filename,
-    proto::SolutionConfig& config) {
+    const proto::SolutionConfig& config) {
   CHECK(base::WriteFile(temp_dir_.GetPath().AppendASCII(filename),
                         config.SerializeAsString()));
   return *this;

@@ -25,7 +25,6 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/preloading.h"
 #include "content/public/browser/preloading_trigger_type.h"
-#include "content/public/browser/preview_cancel_reason.h"
 #include "content/public/browser/select_audio_output_request.h"
 #include "content/public/browser/serial_chooser.h"
 #include "content/public/browser/storage_partition_config.h"
@@ -38,6 +37,7 @@
 #include "third_party/blink/public/mojom/installedapp/related_application.mojom.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
+#include "third_party/blink/public/mojom/picture_in_picture/picture_in_picture.mojom-forward.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
 #include "ui/base/ui_base_types.h"
@@ -428,6 +428,12 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual void PrerenderWebContentsCreated(
       WebContents* prerender_web_contents) {}
 
+  // Called when a prerendered WebContents is about to be released from a
+  // PrerenderNewTabHandle for activation. This gives the delegate a chance to
+  // clean up any prerender-specific state.
+  virtual void PrerenderWebContentsReleased(
+      WebContents* prerender_web_contents) {}
+
   // Notification that one of the frames in the WebContents is hung. |source| is
   // the WebContents that is hung, and |render_widget_host| is the
   // RenderWidgetHost that, while routing events to it, discovered the hang.
@@ -768,6 +774,11 @@ class CONTENT_EXPORT WebContentsDelegate {
       const base::UnguessableToken& guid,
       RenderFrameHost* render_frame_host) {}
 
+  // Returns true if the OS currently prevents the creation of a Document
+  // Picture-in-Picture window. This is used as a synchronous pre-check to block
+  // window creation (e.g. when Android is in an app fullscreen state).
+  virtual bool IsDocumentPictureInPictureBlockedBySystem() const;
+
   // Notifies the Picture-in-Picture controller that there is a new player
   // entering Picture-in-Picture.
   // Returns the result of the enter request.
@@ -847,8 +858,6 @@ class CONTENT_EXPORT WebContentsDelegate {
   // WebContents.
   virtual bool IsPrivileged();
 
-  // Initiates previewing the given `url` within the given `web_contents`.
-  virtual void InitiatePreview(WebContents& web_contents, const GURL& url) {}
 
   // CloseWatcher web API support. If the currently focused frame has a
   // CloseWatcher registered in JavaScript, the CloseWatcher should receive the
@@ -858,11 +867,7 @@ class CONTENT_EXPORT WebContentsDelegate {
   // intercept.
   virtual void DidChangeCloseSignalInterceptStatus() {}
 
-  // Reports that cancellation occurred in preview navigation.
-  virtual void CancelPreview(PreviewCancelReason reason) {}
 
-  // Notifies the previewed page is activated.
-  virtual void DidActivatePreviewedPage() {}
 
   // Updates the draggable regions defined by the app-region CSS property.
   virtual void DraggableRegionsChanged(
@@ -945,6 +950,12 @@ class CONTENT_EXPORT WebContentsDelegate {
   // If this returns non-null, overrides the behavior of
   // WebContents::GetResponsibleWebContents.
   virtual WebContents* GetResponsibleWebContents(WebContents* web_contents);
+
+  // Returns true if Picture-in-Picture is enabled.
+  virtual bool IsPictureInPictureEnabled() const;
+
+  // Returns true if immersive playback is enabled.
+  virtual bool IsImmersivePlaybackEnabled() const;
 
  protected:
   virtual ~WebContentsDelegate();

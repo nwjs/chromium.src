@@ -12,4 +12,10 @@ namespace one_time_tokens::features {
 // TODO(crbug.com/452607505): Clean up when launched.
 BASE_FEATURE(kGmailOtpRetrievalService, base::FEATURE_DISABLED_BY_DEFAULT);
 
+const base::FeatureParam<std::string> kFetchEmailOneTimeTokenEndpointUrl{
+    &kGmailOtpRetrievalService,
+    /*name=*/"fetch-email-one-time-token-endpoint-url",
+    /*default_value=*/
+    "https://onetimetoken.pa.googleapis.com/v1/onetimetokens:fetchEmail"};
+
 }  // namespace one_time_tokens::features

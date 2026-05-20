@@ -43,7 +43,6 @@ import org.robolectric.shadows.ShadowAccessibilityManager;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.chrome.browser.omnibox.test.R;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.ui.accessibility.AccessibilityState;
 
@@ -52,7 +51,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A robolectric test for {@link AutocompleteEditText} class. TODO(changwan): switch to
- * ParameterizedRobolectricTest once crbug.com/733324 is fixed.
+ * ParameterizedRobolectricTest once crbug.com/40525786 is fixed.
  */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
@@ -1106,7 +1105,7 @@ public class AutocompleteEditTextTest {
         assertFalse(mAutocomplete.shouldAutocomplete());
         assertTexts("hello", "", "");
         // Make sure that we do not finish composing text for Samsung keyboard - it does not update
-        // its internal states when we ask this. (crbug.com/766888).
+        // its internal states when we ask this. (crbug.com/41345594).
         assertTrue(isComposing());
     }
 
@@ -1266,7 +1265,7 @@ public class AutocompleteEditTextTest {
         mInOrder.verifyNoMoreInteractions();
     }
 
-    // crbug.com/760013
+    // crbug.com/41341754
     @Test
     public void testOnSaveInstanceStateDoesNotCrash() {
         mInputConnection.setComposingText("h", 1);
@@ -1276,7 +1275,7 @@ public class AutocompleteEditTextTest {
         new SpannableString(mAutocomplete.getText());
     }
 
-    // crbug.com/759876
+    // crbug.com/40537418
 
     @Test
     public void testFocusInAndSelectAll() {
@@ -1312,7 +1311,7 @@ public class AutocompleteEditTextTest {
         mInOrder.verifyNoMoreInteractions();
     }
 
-    // crbug.com/764749
+    // crbug.com/40539855
     @Test
     public void testNonMatchingBatchEdit() {
         // beginBatchEdit() was not matched by endBatchEdit(), for some reason.
@@ -1327,7 +1326,7 @@ public class AutocompleteEditTextTest {
         assertTrue(mAutocomplete.shouldAutocomplete());
     }
 
-    // crbug.com/768323
+    // crbug.com/41346351
 
     @Test
     public void testFocusLossHidesCursor() {
@@ -1353,7 +1352,7 @@ public class AutocompleteEditTextTest {
         assertFalse(mAutocomplete.shouldAutocomplete());
     }
 
-    // crbug.com/783165
+    // crbug.com/41354371
     @Test
     public void testSetTextAndSelect() {
         // User types "h".
@@ -1373,7 +1372,7 @@ public class AutocompleteEditTextTest {
         assertEquals("abcde", mAutocomplete.getTextWithoutAutocomplete());
     }
 
-    // crbug.com/810704
+    // crbug.com/41369715
     @Test
     public void testPerformEditorAction() {
         // User types "goo".
@@ -1406,7 +1405,7 @@ public class AutocompleteEditTextTest {
         assertEquals("google.com", mAutocomplete.getText().toString());
     }
 
-    // crbug.com/810704
+    // crbug.com/41369715
     @Test
     public void testPerformEditorActionInBatchEdit() {
         // User types "goo".
@@ -1429,7 +1428,7 @@ public class AutocompleteEditTextTest {
         assertEquals("google.com", mAutocomplete.getText().toString());
     }
 
-    // crbug.com/759876
+    // crbug.com/40537418
 
     @Test
     public void testTextSelectionGetsAnnouncedAgainOnFocus() {
@@ -1473,7 +1472,7 @@ public class AutocompleteEditTextTest {
         mInOrder.verifyNoMoreInteractions();
     }
 
-    // crbug.com/759876
+    // crbug.com/40537418
     @Test
     public void testEndBatchEditCanReturnFalse() {
         assertTrue(mInputConnection.beginBatchEdit());

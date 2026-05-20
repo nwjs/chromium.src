@@ -22,7 +22,6 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "chrome/browser/global_features.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -1380,7 +1379,7 @@ class RelaunchNotificationControllerPlatformImplTest
   std::optional<RelaunchNotificationControllerPlatformImpl> impl_;
 };
 
-// Flaky on all platforms: https://crbug.com/1294032
+// Flaky on all platforms: https://crbug.com/40820313
 TEST_F(RelaunchNotificationControllerPlatformImplTest,
        DISABLED_SynchronousNotification) {
   // Make the UX visible to the user so that no delay will be incurred

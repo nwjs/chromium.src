@@ -15,7 +15,6 @@
 #include "base/time/time.h"
 #include "cc/base/features.h"
 #include "cc/metrics/scroll_jank_v4_frame.h"
-#include "cc/metrics/scroll_jank_v4_frame_stage.h"
 #include "cc/metrics/scroll_jank_v4_result.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 
@@ -25,36 +24,43 @@ namespace {
 
 using ScrollDamage = ScrollJankV4Frame::ScrollDamage;
 using DamagingFrame = ScrollJankV4Frame::DamagingFrame;
-using ScrollUpdates = ScrollJankV4FrameStage::ScrollUpdates;
+using ScrollUpdates = ScrollJankV4Frame::Stage::ScrollUpdates;
 
 }  // namespace
 
 ScrollJankV4Result ScrollJankV4Decider::DecideJankForFrameWithRealScrollUpdates(
-    const ScrollJankV4FrameStage::ScrollUpdates& updates,
+    const ScrollJankV4Frame::Stage::ScrollUpdates& updates,
     const ScrollJankV4Frame::ScrollDamage& damage,
     const ScrollJankV4Frame::BeginFrameArgsForScrollJank& args) {
   CHECK(updates.real().has_value());
-  return DecideJankForFrameWithScrollUpdates(updates, damage, args,
-                                             IsFastScroll(*updates.real()));
+  return DecideJankForFrameWithScrollUpdates(
+      updates, damage, args, IsFastScroll(*updates.real()),
+      IsSufficientlyFastFling(*updates.real()));
 }
 
 ScrollJankV4Result
 ScrollJankV4Decider::DecideJankForFrameWithSyntheticScrollUpdatesOnly(
-    const ScrollJankV4FrameStage::ScrollUpdates& updates,
+    const ScrollJankV4Frame::Stage::ScrollUpdates& updates,
     const ScrollJankV4Frame::ScrollDamage& damage,
     const ScrollJankV4Frame::BeginFrameArgsForScrollJank& args,
     bool future_real_frame_is_fast_scroll_or_sufficiently_fast_fling) {
   CHECK(!updates.real().has_value());
+  const bool is_fling = updates.synthetic()->has_inertial_input;
+  const bool is_fast =
+      future_real_frame_is_fast_scroll_or_sufficiently_fast_fling;
+
   return DecideJankForFrameWithScrollUpdates(
       updates, damage, args,
-      future_real_frame_is_fast_scroll_or_sufficiently_fast_fling);
+      /*treat_as_fast_scroll=*/!is_fling && is_fast,
+      /*treat_as_sufficiently_fast_fling=*/is_fling && is_fast);
 }
 
 ScrollJankV4Result ScrollJankV4Decider::DecideJankForFrameWithScrollUpdates(
     const ScrollUpdates& updates,
     const ScrollDamage& damage,
     const ScrollJankV4Frame::BeginFrameArgsForScrollJank& args,
-    bool treat_as_fast_scroll) {
+    bool treat_as_fast_scroll,
+    bool treat_as_sufficiently_fast_fling) {
   DCHECK(IsValidFrame(updates, damage, args));
   DCHECK(!prev_frame_data_.has_value() ||
          args.frame_time > prev_frame_data_->begin_frame_ts);
@@ -108,7 +114,8 @@ ScrollJankV4Result ScrollJankV4Decider::DecideJankForFrameWithScrollUpdates(
       JankReasonArray<int> missed_vsyncs_per_reason =
           CalculateMissedVsyncsPerReason(
               vsyncs_since_previous_frame, earliest_input_generation_ts,
-              updates, damage, args, treat_as_fast_scroll, result);
+              updates, damage, args, treat_as_fast_scroll,
+              treat_as_sufficiently_fast_fling, result);
 
       // A frame is janky if ANY of the rules decided that Chrome missed one or
       // more VSyncs.
@@ -190,7 +197,7 @@ ScrollJankV4Result ScrollJankV4Decider::DecideJankForFrameWithScrollUpdates(
 
 // static
 bool ScrollJankV4Decider::IsValidFrame(
-    const ScrollJankV4FrameStage::ScrollUpdates& updates,
+    const ScrollJankV4Frame::Stage::ScrollUpdates& updates,
     const ScrollJankV4Frame::ScrollDamage& damage,
     const ScrollJankV4Frame::BeginFrameArgsForScrollJank& args) {
   if (!args.interval.is_positive()) {
@@ -268,6 +275,7 @@ JankReasonArray<int> ScrollJankV4Decider::CalculateMissedVsyncsPerReason(
     const ScrollJankV4Frame::ScrollDamage& damage,
     const ScrollJankV4Frame::BeginFrameArgsForScrollJank& args,
     bool treat_as_fast_scroll,
+    bool treat_as_sufficiently_fast_fling,
     ScrollJankV4Result& result) const {
   DCHECK_GT(vsyncs_since_previous_frame, 1);
   DCHECK_LE(vsyncs_since_previous_frame,
@@ -337,11 +345,7 @@ JankReasonArray<int> ScrollJankV4Decider::CalculateMissedVsyncsPerReason(
   }
 
   // Rules 2 & 3: Fast scroll and fling continuity.
-  bool cur_is_sufficiently_fast_fling =
-      updates.real().has_value()
-          ? IsSufficientlyFastFling(*updates.real())
-          : (updates.synthetic()->has_inertial_input && treat_as_fast_scroll);
-  if (cur_is_sufficiently_fast_fling) {
+  if (treat_as_sufficiently_fast_fling) {
     if (prev_frame_data.has_inertial_input) {
       // Chrome missed one or more VSyncs in the middle of a fling.
       missed_vsyncs_per_reason[static_cast<int>(

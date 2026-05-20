@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//build/config/features.gni")
+import("//components/vrp_flags/features.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 import("//net/features.gni")
 import("//services/network/public/cpp/features.gni")
@@ -360,11 +361,12 @@ component("network_service") {
     "//components/network_session_configurator/browser",
     "//components/network_session_configurator/common",
     "//components/os_crypt/async/common",
-    "//components/os_crypt/sync",
     "//components/prefs",
     "//components/unexportable_keys/mojom:mojo_service",
     "//components/url_matcher",
     "//components/url_pattern",
+    "//components/variations/net",
+    "//components/vrp_flags:buildflags",
     "//components/web_package",
     "//components/webrtc:fake_ssl_socket",
     "//crypto",
@@ -383,7 +385,6 @@ component("network_service") {
     "//services/network/public/mojom",
     "//services/network/public/proto",
     "//services/network/shared_storage",
-    "//services/network/tpcd/metadata:manager",
     "//services/network/trust_tokens",
     "//services/service_manager/public/cpp",
     "//services/service_manager/public/mojom",
@@ -436,6 +437,10 @@ component("network_service") {
     deps += [ "//components/enterprise/platform_auth:enterprise_platform_auth" ]
   }
 
+  if (enable_vrp_flags) {
+    deps += [ "//components/vrp_flags" ]
+  }
+
   defines = [ "IS_NETWORK_SERVICE_IMPL" ]
 }
 
@@ -447,6 +452,7 @@ if (is_linux || is_chromeos) {
     ]
     deps = [
       "//base",
+      "//components/vrp_flags:buildflags",
       "//sandbox/linux:sandbox_services",
       "//sandbox/policy",
     ]
@@ -606,9 +612,10 @@ source_set("tests") {
     "//components/enterprise/buildflags",
     "//components/network_session_configurator/browser",
     "//components/os_crypt/async/browser:test_support",
-    "//components/os_crypt/sync:test_support",
     "//components/prefs:test_support",
     "//components/variations:test_support",
+    "//components/variations/net",
+    "//components/vrp_flags:buildflags",
     "//components/web_package",
     "//components/webrtc:fake_ssl_socket",
     "//crypto",
@@ -621,7 +628,6 @@ source_set("tests") {
     "//net:quic_test_tools",
     "//net:simple_quic_tools",
     "//net:test_support",
-    "//net/http:transport_security_state_unittest_data_default",
     "//services/network/attribution",
     "//services/network/attribution:tests",
     "//services/network/first_party_sets:first_party_sets_manager",
@@ -633,8 +639,6 @@ source_set("tests") {
     "//services/network/shared_storage",
     "//services/network/shared_storage:test_support",
     "//services/network/shared_storage:tests",
-    "//services/network/tpcd/metadata:manager",
-    "//services/network/tpcd/metadata:unit_tests",
     "//services/network/trust_tokens",
     "//services/network/trust_tokens:tests",
     "//services/service_manager/public/cpp",
@@ -734,6 +738,7 @@ source_set("test_support") {
   }
 
   public_deps = [
+    "//components/vrp_flags:buildflags",
     "//services/network:network_service",
     "//services/network/public/cpp",
     "//services/network/public/cpp:buildflags",
@@ -745,6 +750,7 @@ source_set("test_support") {
   deps = [
     "//base",
     "//components/cbor",
+    "//components/vrp_flags:buildflags",
     "//mojo/public/cpp/bindings",
     "//net",
     "//net:test_support",
@@ -760,6 +766,7 @@ fuzzer_test("network_content_security_policy_fuzzer") {
   sources = [ "content_security_policy_fuzzer.cc" ]
   deps = [
     "//base",
+    "//components/vrp_flags:buildflags",
     "//net",
     "//services/network:network_service",
     "//services/network/public/cpp",

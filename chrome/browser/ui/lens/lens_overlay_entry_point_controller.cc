@@ -26,12 +26,12 @@
 #include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/lens/lens_url_matcher.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
+#include "chrome/browser/ui/page_actions/page_action_controller.h"
+#include "chrome/browser/ui/page_actions/page_action_triggers.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/location_bar/lens_overlay_homework_page_action_controller.h"
-#include "chrome/browser/ui/views/page_action/page_action_controller.h"
-#include "chrome/browser/ui/views/page_action/page_action_triggers.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
@@ -73,7 +73,20 @@ bool IsNewTabPage(content::WebContents* const web_contents) {
 
 namespace lens {
 
-LensOverlayEntryPointController::LensOverlayEntryPointController() = default;
+DEFINE_USER_DATA(LensOverlayEntryPointController);
+
+// static
+LensOverlayEntryPointController* LensOverlayEntryPointController::From(
+    BrowserWindowInterface* browser_window_interface) {
+  return LensOverlayEntryPointController::Get(
+      browser_window_interface->GetUnownedUserDataHost());
+}
+
+LensOverlayEntryPointController::LensOverlayEntryPointController(
+    BrowserWindowInterface* browser_window_interface)
+    : scoped_unowned_user_data_(
+          browser_window_interface->GetUnownedUserDataHost(),
+          *this) {}
 
 void LensOverlayEntryPointController::Initialize(
     BrowserWindowInterface* browser_window_interface,
@@ -296,9 +309,9 @@ void LensOverlayEntryPointController::InvokeAction(
   // Toggle the Lens overlay. There's no need to show or hide the side
   // panel as the overlay controller will handle that.
   const auto* entry_point_controller =
-      active_tab->GetBrowserWindowInterface()
-          ->GetFeatures()
-          .lens_overlay_entry_point_controller();
+      lens::LensOverlayEntryPointController::From(
+          active_tab->GetBrowserWindowInterface());
+  CHECK(entry_point_controller);
   if (entry_point_controller->IsOverlayActive()) {
     search_controller->CloseLensAsync(
         lens::LensOverlayDismissalSource::kToolbar);

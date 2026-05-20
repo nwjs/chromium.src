@@ -13,6 +13,7 @@
 #include "base/memory_coordinator/utils.h"
 #include "base/time/clock.h"
 #include "base/time/default_clock.h"
+#include "net/base/features.h"
 #include "third_party/boringssl/src/include/openssl/ssl.h"
 
 namespace net {
@@ -222,19 +223,28 @@ void SSLClientSessionCache::OnUpdateMemoryLimit() {
     return;
   }
 
-  size_t target_size = config_.max_entries * memory_limit_ratio();
+  size_t target_size =
+      base::ScaleByMemoryLimit(config_.max_entries, memory_limit());
 
   // IMPORTANT: Ensure no memory is released during this call.
   // By using std::max, we ensure the new limit is at least the current size,
   // preventing growth without triggering immediate eviction.
-  size_t new_limit = std::max(cache_.size(), target_size);
-  cache_.UpdateMaxSize(new_limit);
+  cache_.UpdateMaxSize(std::max(cache_.size(), target_size));
 }
 
 void SSLClientSessionCache::OnReleaseMemory() {
+  if (base::FeatureList::IsEnabled(
+          features::kIgnoreMemoryPressureForSslClientSessionCache)) {
+    // We don't want to clear the SSL session cache because the entries in it
+    // are highly likely to be used again soon, and it causes more
+    // fragmentation and increases user latency to clear it, then spend
+    // additional roundtrips replacing all of the entries.
+    return;
+  }
   if (base::FeatureList::IsEnabled(base::kStatefulMemoryPressure)) {
     // Now we actually evict entries to reach the target size.
-    cache_.UpdateMaxSize(config_.max_entries * memory_limit_ratio());
+    cache_.UpdateMaxSize(
+        base::ScaleByMemoryLimit(config_.max_entries, memory_limit()));
     return;
   }
 

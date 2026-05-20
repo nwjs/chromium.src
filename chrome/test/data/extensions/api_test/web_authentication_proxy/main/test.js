@@ -7,7 +7,7 @@ import * as util from '/_test_resources/api_test/web_authentication_proxy/util.j
 const ERROR_INVALID_SENDER = 'Error: Invalid sender';
 const ERROR_INVALID_REQUEST_ID = 'Error: Invalid requestId';
 
-let availableTests = [
+const availableTests = [
   async function attachDetach() {
     await chrome.webAuthenticationProxy.attach();
     // Attaching the same extension again should be a no-op. (Attaching a
@@ -43,7 +43,7 @@ let availableTests = [
           receivedRequests++;
           chrome.test.assertTrue(receivedRequests <= 2);
           // We set the first request to false, and the second to true.
-          let isUvpaa = receivedRequests == 2;
+          const isUvpaa = receivedRequests === 2;
           await chrome.webAuthenticationProxy.completeIsUvpaaRequest(
               {requestId: requestInfo.requestId, isUvpaa});
           chrome.test.assertNoLastError();
@@ -128,7 +128,7 @@ let availableTests = [
         (canceledRequestId) => {
           chrome.test.assertFalse(canceled);
           canceled = true;
-          chrome.test.assertTrue(canceledRequestId == requestId);
+          chrome.test.assertTrue(canceledRequestId === requestId);
         });
     chrome.webAuthenticationProxy.onCreateRequest.addListener(
         async (request) => {
@@ -196,7 +196,7 @@ let availableTests = [
         (canceledRequestId) => {
           chrome.test.assertFalse(canceled);
           canceled = true;
-          chrome.test.assertTrue(canceledRequestId == requestId);
+          chrome.test.assertTrue(canceledRequestId === requestId);
         });
     chrome.webAuthenticationProxy.onGetRequest.addListener(async (request) => {
       chrome.test.assertFalse(canceled);
@@ -239,9 +239,9 @@ let availableTests = [
 
 chrome.test.getConfig((config) => {
   const tests = availableTests.filter((t) => {
-    return config.customArg == t.name;
+    return config.customArg === t.name;
   });
-  if (tests.length == 0) {
+  if (tests.length === 0) {
     // Log because the C++ side might stall rather than notice the call to
     // notifyFail.
     console.error('No test found');

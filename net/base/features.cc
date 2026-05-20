@@ -104,6 +104,9 @@ BASE_FEATURE(kEnableTLS13EarlyData, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNetworkQualityEstimator, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kNetworkQualityEstimatorIsPrivateHostCache,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 const base::FeatureParam<int> kRecentHTTPThresholdInSeconds{
     &kNetworkQualityEstimator, "RecentHTTPThresholdInSeconds", -1};
 const base::FeatureParam<int> kRecentTransportThresholdInSeconds{
@@ -225,10 +228,6 @@ BASE_FEATURE(kCookieDomainRejectNonASCII, base::FEATURE_DISABLED_BY_DEFAULT);
 // by the top level site to reduce fingerprinting.
 BASE_FEATURE(kThirdPartyStoragePartitioning, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kTpcdMetadataGrants, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kTpcdMetadataStageControl, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kAlpsParsing, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAlpsClientHintParsing, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -254,6 +253,8 @@ BASE_FEATURE_PARAM(int,
 BASE_FEATURE(kTcpPortReuseMetricsWin, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTcpSocketIoCompletionPortWin, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDeferConnectionTypeAtStartup, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(IS_MAC)
@@ -368,6 +369,8 @@ BASE_FEATURE(kDeviceBoundSessions, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kDeviceBoundSessions, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 BASE_FEATURE(kPersistDeviceBoundSessions, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kDeviceBoundSessionsBypassDeferralsForRefreshRequests,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(bool,
                    kDeviceBoundSessionsRefreshQuota,
                    &kDeviceBoundSessions,
@@ -575,12 +578,6 @@ BASE_FEATURE_PARAM(bool,
                    "persistence_enabled",
                    true);
 
-BASE_FEATURE_PARAM(bool,
-                   kHttpCacheNoVarySearchKeepNotSuitable,
-                   &kHttpCacheNoVarySearch,
-                   "keep_not_suitable",
-                   true);
-
 BASE_FEATURE(kHttpNoVarySearchDataUseNewAreEquivalent,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -606,6 +603,8 @@ BASE_FEATURE(kRestrictAbusePortsOnLocalhost, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTLSTrustAnchorIDs, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kTlsMldsaSignatures, base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
 BASE_FEATURE(kVerifyMTCs, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
@@ -618,12 +617,6 @@ BASE_FEATURE_PARAM(double,
                    &kTcpSocketPoolLimitRandomization,
                    "TcpSocketPoolLimitRandomizationBase",
                    0.000001);
-
-BASE_FEATURE_PARAM(int,
-                   kTcpSocketPoolLimitRandomizationCapacity,
-                   &kTcpSocketPoolLimitRandomization,
-                   "TcpSocketPoolLimitRandomizationCapacity",
-                   256);
 
 BASE_FEATURE_PARAM(double,
                    kTcpSocketPoolLimitRandomizationMinimum,
@@ -751,13 +744,13 @@ BASE_FEATURE_PARAM(size_t,
                    "cache_size",
                    64);
 
-BASE_FEATURE(kTryQuicByDefault, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kTryQuicByDefault, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(std::string,
                    kQuicOptions,
                    &kTryQuicByDefault,
                    "quic_options",
-                   "");
+                   "ORIG");
 
 BASE_FEATURE(kIgnoreIpMatching, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(std::string,
@@ -821,24 +814,33 @@ BASE_FEATURE(kPermitTcpSocketPoolConnectBackupJobs,
 
 BASE_FEATURE(kLocalNetworkPermissionCheck, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kTcpSocketPoolProxyLimit, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kTcpSocketPoolProxyLimit, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(int,
                    kTcpSocketPoolProxyLimitNormal,
                    &kTcpSocketPoolProxyLimit,
                    "TcpSocketPoolProxyLimitNormal",
-                   32);
+                   128);
 
 BASE_FEATURE_PARAM(int,
                    kTcpSocketPoolProxyLimitWebSocket,
                    &kTcpSocketPoolProxyLimit,
                    "TcpSocketPoolProxyLimitWebSocket",
-                   32);
+                   128);
+
+BASE_FEATURE(kIgnoreQuicCryptoConfigMemoryPressure,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kIgnoreQuicCryptoConfigMemoryPressureForDoh,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kIgnoreMemoryPressureForSslClientSessionCache,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kCookieParseRejectEmptyNameAmbiguous,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnablePrivateVerificationTokens,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace net::features

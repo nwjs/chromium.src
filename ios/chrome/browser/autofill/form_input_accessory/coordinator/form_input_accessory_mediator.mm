@@ -90,8 +90,8 @@ bool IsSuggestionRefreshAllowed() {
   // enabled.
   return base::FeatureList::IsEnabled(
              kThrottleFormInputAccessorySuggestionRefresh)
-             ? UIApplication.sharedApplication.applicationState ==
-                   UIApplicationStateActive
+             ? UIApplication.sharedApplication.applicationState !=
+                   UIApplicationStateBackground
              : true;
 }
 
@@ -388,6 +388,11 @@ bool IsStateless() {
   if (responder && responder.window) {
     [responder reloadInputViews];
   }
+}
+
+- (void)resetSuggestions {
+  [self.consumer showAccessorySuggestions:@[]];
+  [self updateSuggestionsIfNeeded];
 }
 
 #pragma mark - KeyboardNotification
@@ -753,7 +758,7 @@ bool IsStateless() {
         }];
 }
 
-// Post the passed `suggestions` to the consumer.
+// Posts the passed `suggestions` to the consumer.
 - (void)updateWithProvider:(id<FormInputSuggestionsProvider>)provider
                suggestions:(NSArray<FormSuggestion*>*)suggestions {
   FormSuggestion* firstSuggestion = suggestions.firstObject;
@@ -802,27 +807,10 @@ bool IsStateless() {
 // Logs information about what type of suggestion the user selected.
 - (void)logReauthenticationEvent:(ReauthenticationEvent)reauthenticationEvent
                    forSuggestion:(FormSuggestion*)suggestion {
-  SuggestionProviderType providerType =
-      [self getProviderTypeFromSuggestion:suggestion];
-
-  std::string histogramName;
-  if (providerType == SuggestionProviderTypePassword) {
-    histogramName = "IOS.Reauth.Password.Autofill";
-  } else if (providerType == SuggestionProviderTypeAutofill) {
-    switch (suggestion.type) {
-      case autofill::SuggestionType::kCreditCardEntry:
-      case autofill::SuggestionType::kVirtualCreditCardEntry:
-        histogramName = "IOS.Reauth.CreditCard.Autofill";
-        break;
-      case autofill::SuggestionType::kAddressEntry:
-        histogramName = "IOS.Reauth.Address.Autofill";
-        break;
-      default:
-        break;
-    }
-  }
-  if (!histogramName.empty()) {
-    UmaHistogramEnumeration(histogramName, reauthenticationEvent);
+  if ([self getProviderTypeFromSuggestion:suggestion] ==
+      SuggestionProviderTypePassword) {
+    UmaHistogramEnumeration("IOS.Reauth.Password.Autofill",
+                            reauthenticationEvent);
   }
 }
 

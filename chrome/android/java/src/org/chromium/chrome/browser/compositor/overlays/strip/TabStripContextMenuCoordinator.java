@@ -18,17 +18,16 @@ import android.view.View;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.MathUtils;
-import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.bookmarks.BookmarkAllTabsHandler;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.glic.GlicUtils;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.multiwindow.UiUtils.NameWindowDialogSource;
-import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
-import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModel.RecentlyClosedEntryType;
 import org.chromium.chrome.browser.tasks.tab_management.TabOverflowMenuCoordinator;
@@ -55,7 +54,7 @@ import java.util.Set;
 @NullMarked
 public class TabStripContextMenuCoordinator {
     private final Context mContext;
-    private final @Nullable TabModel mTabModel;
+    private final TabModel mTabModel;
     private final MultiInstanceManager mMultiInstanceManager;
     private final WindowAndroid mWindowAndroid;
     private final SnackbarManager mSnackbarManager;
@@ -63,7 +62,7 @@ public class TabStripContextMenuCoordinator {
     private @Nullable AnchoredPopupWindow mMenuWindow;
 
     public static TabStripContextMenuCoordinator createContextMenuCoordinator(
-            @Nullable TabModel tabModel,
+            TabModel tabModel,
             MultiInstanceManager multiInstanceManager,
             WindowAndroid windowAndroid,
             SnackbarManager snackbarManager,
@@ -73,7 +72,7 @@ public class TabStripContextMenuCoordinator {
     }
 
     private TabStripContextMenuCoordinator(
-            @Nullable TabModel tabModel,
+            TabModel tabModel,
             MultiInstanceManager multiInstanceManager,
             WindowAndroid windowAndroid,
             SnackbarManager snackbarManager,
@@ -159,10 +158,7 @@ public class TabStripContextMenuCoordinator {
                             .build());
             // Add "Reopen closed tab/tabs/group" option.
             @RecentlyClosedEntryType
-            int recentlyClosedEntryType =
-                    (mTabModel != null)
-                            ? mTabModel.getMostRecentlyClosedEntryType()
-                            : RecentlyClosedEntryType.NONE;
+            int recentlyClosedEntryType = mTabModel.getMostRecentlyClosedEntryType();
             if (recentlyClosedEntryType != RecentlyClosedEntryType.NONE) {
                 int titleRes = R.string.menu_reopen_closed_tab;
                 if (recentlyClosedEntryType == RecentlyClosedEntryType.TABS) {
@@ -178,7 +174,7 @@ public class TabStripContextMenuCoordinator {
                                 .build());
             }
             // Add "Bookmark all tabs" option.
-            if (!isIncognito && mTabModel != null && mTabModel.getCount() > 1) {
+            if (!isIncognito && mTabModel.getCount() > 1) {
                 itemList.add(
                         new ListItemBuilder()
                                 .withTitleRes(R.string.menu_bookmark_all_tabs)
@@ -203,11 +199,8 @@ public class TabStripContextMenuCoordinator {
             if (!isIncognito) {
                 itemList.add(BasicListMenu.buildMenuDivider(/* isIncognito= */ false));
 
-                boolean isPinned =
-                        ChromeSharedPreferences.getInstance()
-                                .readBoolean(
-                                        ChromePreferenceKeys.GLIC_BUTTON_PINNED,
-                                        /* defaultValue= */ true);
+                Profile profile = mTabModel.getProfile();
+                boolean isPinned = profile != null && GlicUtils.isButtonPinnedToTabStrip(profile);
                 if (isPinned) {
                     itemList.add(
                             new ListItemBuilder()
@@ -241,30 +234,22 @@ public class TabStripContextMenuCoordinator {
                 model.get(CLICK_LISTENER).onClick(contentView);
                 return;
             }
+            Profile profile = mTabModel.getProfile();
             if (model.get(MENU_ITEM_ID) == R.id.new_tab_menu_id) {
                 mOnNewTabClick.run();
             } else if (model.get(MENU_ITEM_ID) == R.id.reopen_closed_entry) {
                 RecordUserAction.record("Android.TabStripMenu.ReopenClosedEntry");
-                if (mTabModel != null) {
-                    RecordHistogram.recordBooleanHistogram(
-                            "Android.TabStripMenu.ReopenClosedEntry.Result", true);
-                    mTabModel.openMostRecentlyClosedEntry();
-                } else {
-                    RecordHistogram.recordBooleanHistogram(
-                            "Android.TabStripMenu.ReopenClosedEntry.Result", false);
-                }
+                mTabModel.openMostRecentlyClosedEntry();
             } else if (model.get(MENU_ITEM_ID) == R.id.bookmark_all_tabs) {
                 BookmarkAllTabsHandler.bookmarkAllTabs(mTabModel, mWindowAndroid, mSnackbarManager);
             } else if (model.get(MENU_ITEM_ID) == R.id.name_window) {
                 mMultiInstanceManager.showNameWindowDialog(NameWindowDialogSource.TAB_STRIP);
             } else if (model.get(MENU_ITEM_ID) == R.id.pin_glic) {
                 RecordUserAction.record("Android.TabStripMenu.PinGlic");
-                ChromeSharedPreferences.getInstance()
-                        .writeBoolean(ChromePreferenceKeys.GLIC_BUTTON_PINNED, true);
+                if (profile != null) GlicUtils.setButtonPinnedToTabStrip(profile, true);
             } else if (model.get(MENU_ITEM_ID) == R.id.unpin_glic) {
                 RecordUserAction.record("Android.TabStripMenu.UnpinGlic");
-                ChromeSharedPreferences.getInstance()
-                        .writeBoolean(ChromePreferenceKeys.GLIC_BUTTON_PINNED, false);
+                if (profile != null) GlicUtils.setButtonPinnedToTabStrip(profile, false);
             }
             assumeNonNull(mMenuWindow).dismiss();
         };

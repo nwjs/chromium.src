@@ -10,6 +10,7 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
+#include "crypto/hash.h"
 #include "crypto/secure_hash.h"
 #include "crypto/sha2.h"
 #include "net/base/hash_value.h"
@@ -28,7 +29,6 @@
 #include "services/network/test/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/boringssl/src/include/openssl/pool.h"
-#include "third_party/boringssl/src/include/openssl/sha.h"
 
 namespace network {
 
@@ -104,14 +104,10 @@ void MakeTestSCTAndStatus(
 // computes cache keys internally.
 net::HashValue ComputeCacheKey(
     net::SignedCertificateTimestampAndStatusList sct_list) {
-  net::HashValue cache_key(net::HASH_VALUE_SHA256);
-  SHA256_CTX ctx;
-  SHA256_Init(&ctx);
   std::string encoded_sct;
   net::ct::EncodeSignedCertificateTimestamp(sct_list.at(0).sct, &encoded_sct);
-  SHA256_Update(&ctx, encoded_sct.data(), encoded_sct.size());
-  SHA256_Final(cache_key.span().data(), &ctx);
-  return cache_key;
+  return net::HashValue(net::HASH_VALUE_SHA256,
+                        crypto::hash::Sha256(encoded_sct));
 }
 
 }  // namespace
@@ -140,7 +136,8 @@ TEST_F(SCTAuditingCacheTest, EvictLRUAfterCacheFull) {
   const net::HostPortPair host_port_pair2("example2.com", 443);
   const net::HostPortPair host_port_pair3("example3.com", 443);
 
-  net::HashValue first_key(net::HASH_VALUE_SHA256);
+  std::array<uint8_t, crypto::hash::kSha256Size> zero_hash = {0};
+  net::HashValue first_key(net::HASH_VALUE_SHA256, zero_hash);
   {
     net::SignedCertificateTimestampAndStatusList sct_list;
     MakeTestSCTAndStatus(net::ct::SignedCertificateTimestamp::SCT_EMBEDDED,

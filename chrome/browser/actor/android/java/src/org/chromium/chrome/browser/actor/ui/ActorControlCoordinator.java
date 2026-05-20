@@ -5,75 +5,353 @@
 package org.chromium.chrome.browser.actor.ui;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 
+import org.chromium.base.Callback;
+import org.chromium.base.Log;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.actor.ActorKeyedService;
+import org.chromium.chrome.browser.actor.ActorKeyedServiceFactory;
+import org.chromium.chrome.browser.actor.ActorTask;
+import org.chromium.chrome.browser.actor.ActorTaskId;
+import org.chromium.chrome.browser.actor.ActorTaskState;
+import org.chromium.chrome.browser.glic.GlicInstanceHelper;
+import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabSupplierObserver;
 import org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetManager;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
+import java.util.Set;
+
 /** The Coordinator for the Actor Control component. */
 @NullMarked
-public class ActorControlCoordinator {
-    private final Context mContext;
+public class ActorControlCoordinator
+        implements ActorKeyedService.Observer, GlicInstanceHelper.Observer {
+
+    /** Delegate for handling tab selection. */
+    @FunctionalInterface
+    public interface TabSelectionDelegate {
+        void switchToTab(int tabId);
+    }
+
+    private static final String TAG = "ActorControlCoordin";
+
     private final ActorControlMediator mMediator;
-    private @Nullable PropertyModelChangeProcessor mViewBinder;
-    private @Nullable ActorControlView mView;
+    private final Context mContext;
     private final PropertyModel mModel;
+    private final ActorControlView mView;
+    private final PropertyModelChangeProcessor mViewBinder;
+    private final Callback<Profile> mProfileObserver;
     private final TabBottomSheetManager mTabBottomSheetManager;
+    private final MonotonicObservableSupplier<Profile> mProfileSupplier;
+    private final TabSupplierObserver mTabObserver;
+    private final TabSelectionDelegate mTabSelectionDelegate;
+
+    private @Nullable ActorKeyedService mActorKeyedService;
+    private @Nullable GlicInstanceHelper mGlicInstanceHelper;
+
+    private String mActiveTaskTitle = "";
+    private String mConversationTitle = "";
+
+    // The ID of the currently active GLIC instance.
+    private String mActiveGlicConversationId = "";
+
+    // The conversation ID that the active task is associated with. This is used to determine
+    // whether the active task is associated with the current conversation or not.
+    private String mTaskGlicConversationId = "";
+
+    // The ID of the tab that Actor was last acting on. This is used to switch to the actuating tab
+    // when the user clicks the actor control button in the WAITING state.
+    private int mActuatedTabId = Tab.INVALID_TAB_ID;
 
     /**
      * Constructs a new {@link ActorControlCoordinator}.
      *
      * @param context The {@link Context} used to inflate the layout.
-     * @param playPauseListener The {@link View.OnClickListener} for the status button.
-     * @param closeListener The {@link View.OnClickListener} for the close button.
      * @param tabBottomSheetManager The {@link TabBottomSheetManager} for the tab bottom sheet.
+     * @param profileSupplier The {@link ObservableSupplier<Profile>} for the profile.
+     * @param tabSupplier The {@link NullableObservableSupplier<Tab>} for the tab. This supplies the
+     *     currently active tab in the current activity. It provides the active tab regardless of
+     *     mode (regular or incognito), updating when the user switches modes or tabs.
+     * @param tabSelectionDelegate The delegate to handle tab selection.
      */
     // TODO(crbug.com/491895203): Add render test for peek view.
     public ActorControlCoordinator(
             Context context,
-            View.OnClickListener playPauseListener,
-            View.OnClickListener closeListener,
-            TabBottomSheetManager tabBottomSheetManager) {
+            TabBottomSheetManager tabBottomSheetManager,
+            MonotonicObservableSupplier<Profile> profileSupplier,
+            NullableObservableSupplier<Tab> tabSupplier,
+            TabSelectionDelegate tabSelectionDelegate) {
         mContext = context;
         mTabBottomSheetManager = tabBottomSheetManager;
+        mProfileSupplier = profileSupplier;
+        mTabSelectionDelegate = tabSelectionDelegate;
+
         mModel =
                 new PropertyModel.Builder(ActorControlProperties.ALL_KEYS)
                         .with(ActorControlProperties.TASK_TITLE, "")
-                        .with(ActorControlProperties.TASK_STEP_DESCRIPTION, "")
+                        .with(ActorControlProperties.PEEK_VIEW_UI_STATE, PeekViewUiState.DEFAULT)
                         .with(
-                                ActorControlProperties.STATUS_ICON_RESOURCE,
-                                R.drawable.ic_pause_white_24dp)
-                        .with(ActorControlProperties.ON_PLAY_PAUSE_CLICKED, playPauseListener)
-                        .with(ActorControlProperties.ON_CLOSE_CLICKED, closeListener)
+                                ActorControlProperties.ON_ACTOR_CONTROL_CLICKED,
+                                this::onActorControlClicked)
+                        .with(ActorControlProperties.ON_CLOSE_CLICKED, this::onCloseClicked)
+                        .with(ActorControlProperties.ON_PEEK_VIEW_CLICKED, this::onPeekViewClicked)
                         .build();
 
         mMediator = new ActorControlMediator(mModel);
-    }
 
-    /**
-     * Initializes peek view, if it is not already initialized, and attaches it to the bottom sheet.
-     */
-    public void attachPeekView() {
-        assert mView == null;
-        if (!mTabBottomSheetManager.isSheetInitialized()) return;
+        mProfileObserver = this::onProfileAdded;
+        mProfileSupplier.addSyncObserverAndCallIfNonNull(mProfileObserver);
+
         mView =
                 (ActorControlView)
                         LayoutInflater.from(mContext)
                                 .inflate(R.layout.actor_control_layout, null, false);
-        mTabBottomSheetManager.attachPeekView(mView);
         mViewBinder =
                 PropertyModelChangeProcessor.create(mModel, mView, ActorControlViewBinder::bind);
+        setPeekViewContent("", PeekViewUiState.DEFAULT);
+        mTabBottomSheetManager.setPeekView(mView);
+
+        mTabObserver =
+                new TabSupplierObserver(tabSupplier, /* shouldTrigger= */ true) {
+                    @Override
+                    protected void onObservingDifferentTab(@Nullable Tab tab) {
+                        if (mGlicInstanceHelper != null) {
+                            mGlicInstanceHelper.removeObserver(ActorControlCoordinator.this);
+                        }
+                        if (tab != null && tab.isOffTheRecord()) {
+                            mGlicInstanceHelper = null;
+                            clearPeekViewContent();
+                            return;
+                        }
+                        mGlicInstanceHelper = tab != null ? GlicInstanceHelper.from(tab) : null;
+                        if (mGlicInstanceHelper != null) {
+                            mGlicInstanceHelper.addObserver(ActorControlCoordinator.this);
+                        }
+                        onInstanceChanged();
+                    }
+                };
+    }
+
+    private void onProfileAdded(Profile profile) {
+        if (mActorKeyedService != null) {
+            mActorKeyedService.removeObserver(this);
+            mActorKeyedService = null;
+        }
+        boolean isProfileValid =
+                profile != null && profile.isNativeInitialized() && !profile.isOffTheRecord();
+        if (!isProfileValid) {
+            clearPeekViewContent();
+            return;
+        }
+
+        mActorKeyedService = ActorKeyedServiceFactory.getForProfile(profile);
+        if (mActorKeyedService != null) {
+            mActorKeyedService.addObserver(this);
+        }
+        ActorTask activeTask =
+                mActorKeyedService != null ? mActorKeyedService.getCurrentActiveTask() : null;
+        if (activeTask != null) {
+            onTaskStateChanged(activeTask.getId(), activeTask.getState());
+        }
+    }
+
+    private void setPeekViewContent(String title, PeekViewUiState state) {
+        mMediator.setContent(title, state);
+    }
+
+    private void clearPeekViewContent() {
+        mMediator.setContent("", PeekViewUiState.DEFAULT);
+    }
+
+    private boolean isTaskCompleted(@ActorTaskState int newState) {
+        return newState == ActorTaskState.FINISHED
+                || newState == ActorTaskState.FAILED
+                || newState == ActorTaskState.CANCELLED;
+    }
+
+    /**
+     * Called when the state of the task changes.
+     *
+     * @param taskId The ID of the task that changed.
+     * @param newState The new state of the task.
+     */
+    @Override
+    public void onTaskStateChanged(@ActorTaskId int taskId, @ActorTaskState int newState) {
+        if (mActorKeyedService == null) {
+            return;
+        }
+
+        ActorTask activeTask = mActorKeyedService.getCurrentActiveTask();
+        // TODO(crbug.com/503370476): Use ActorUiStateManager to track when tasks are finished,
+        // instead of checking activeTask and the newState.
+        if (activeTask != null) {
+            mActiveTaskTitle = activeTask.getTitle();
+            mTaskGlicConversationId =
+                    TextUtils.isEmpty(mTaskGlicConversationId)
+                            ? mActiveGlicConversationId
+                            : mTaskGlicConversationId;
+
+            Set<Integer> tabs = activeTask.getLastActedTabs();
+            mActuatedTabId = tabs.isEmpty() ? Tab.INVALID_TAB_ID : tabs.iterator().next();
+        } else if (!isTaskCompleted(newState)) {
+            // If the active task is null but the task has not been completed, we are in an invalid
+            // state. Clear PeekView content and reset task-related variables.
+            mActiveTaskTitle = "";
+            mTaskGlicConversationId = "";
+            mActuatedTabId = Tab.INVALID_TAB_ID;
+            Log.w(
+                    TAG,
+                    "Active task is null but task has not been completed. newState: %d",
+                    newState);
+        }
+
+        updatePeekView(newState);
+
+        // Clean up state only after the UI has been updated to reflect task completion.
+        if (isTaskCompleted(newState)) {
+            mActiveTaskTitle = "";
+            mTaskGlicConversationId = "";
+        }
+    }
+
+    /** Called when the GLIC instance changes. */
+    @Override
+    public void onInstanceChanged() {
+        if (mGlicInstanceHelper == null) {
+            clearPeekViewContent();
+            return;
+        }
+
+        mConversationTitle = mGlicInstanceHelper.getConversationTitle();
+        mActiveGlicConversationId = mGlicInstanceHelper.getConversationId();
+
+        ActorTask activeTask =
+                mActorKeyedService != null ? mActorKeyedService.getCurrentActiveTask() : null;
+        updatePeekView(activeTask != null ? activeTask.getState() : null);
+    }
+
+    /**
+     * Updates the peek view content based on the current state.
+     *
+     * @param taskState The state of the task to consider.
+     */
+    private void updatePeekView(@Nullable @ActorTaskState Integer taskState) {
+        if (mActiveGlicConversationId.equals(mTaskGlicConversationId)
+                && !TextUtils.isEmpty(mActiveTaskTitle)
+                && taskState != null) {
+            switch (taskState) {
+                case ActorTaskState.CREATED:
+                case ActorTaskState.CANCELLED:
+                    setPeekViewContent(mActiveTaskTitle, PeekViewUiState.DEFAULT);
+                    break;
+                case ActorTaskState.ACTING:
+                case ActorTaskState.REFLECTING:
+                    setPeekViewContent(mActiveTaskTitle, PeekViewUiState.ACTING);
+                    break;
+                case ActorTaskState.PAUSED_BY_USER:
+                    setPeekViewContent(mActiveTaskTitle, PeekViewUiState.PAUSED);
+                    break;
+                case ActorTaskState.PAUSED_BY_ACTOR:
+                case ActorTaskState.WAITING_ON_USER:
+                case ActorTaskState.FINISHED:
+                case ActorTaskState.FAILED:
+                    setPeekViewContent(mActiveTaskTitle, PeekViewUiState.WAITING);
+                    break;
+                default:
+                    assert false : "Unhandled ActorTaskState " + taskState;
+                    clearPeekViewContent();
+                    break;
+            }
+        } else {
+            setPeekViewContent(mConversationTitle, PeekViewUiState.DEFAULT);
+        }
     }
 
     /** Cleans up component */
     public void destroy() {
-        if (mViewBinder != null) {
-            mViewBinder.destroy();
+        if (mActorKeyedService != null) {
+            mActorKeyedService.removeObserver(this);
         }
+        if (mGlicInstanceHelper != null) {
+            mGlicInstanceHelper.removeObserver(this);
+        }
+        if (mTabObserver != null) {
+            mTabObserver.destroy();
+        }
+        if (mProfileSupplier != null && mProfileObserver != null) {
+            mProfileSupplier.removeObserver(mProfileObserver);
+        }
+        mTabBottomSheetManager.removePeekView(mView);
+        mViewBinder.destroy();
+    }
+
+    /** Called when the actor control button is clicked. */
+    /* package */ void onActorControlClicked() {
+        assert mActorKeyedService != null;
+
+        // TODO(crbug.com/503370476): Use ActorUiStateManager to track when tasks are finished,
+        // instead of checking activeTask.
+        ActorTask activeTask = mActorKeyedService.getCurrentActiveTask();
+        if (activeTask == null) {
+            // When a task finishes, PeekView transitions to the "WAITING" state. It will remain in
+            // this state until the user dismisses it, so it is possible for a user to press the
+            // actor control button when there is no active task.
+            if (PeekViewUiState.WAITING.equals(
+                    mModel.get(ActorControlProperties.PEEK_VIEW_UI_STATE))) {
+                // In the WAITING state, the actor control button is the "View" button.
+                if (mActuatedTabId != Tab.INVALID_TAB_ID) {
+                    mTabSelectionDelegate.switchToTab(mActuatedTabId);
+                    mActuatedTabId = Tab.INVALID_TAB_ID;
+                }
+                mTabBottomSheetManager.setSheetExpanded(true);
+                setPeekViewContent(mConversationTitle, PeekViewUiState.DEFAULT);
+            } else {
+                Log.w(TAG, "onActorControlClicked: No active task and not in WAITING state.");
+                clearPeekViewContent();
+            }
+            return;
+        }
+
+        @ActorTaskState int currentState = activeTask.getState();
+        switch (currentState) {
+            case ActorTaskState.ACTING:
+            case ActorTaskState.REFLECTING:
+                activeTask.pause();
+                break;
+            case ActorTaskState.PAUSED_BY_USER:
+                activeTask.resume();
+                break;
+            case ActorTaskState.PAUSED_BY_ACTOR:
+            case ActorTaskState.WAITING_ON_USER:
+                mTabBottomSheetManager.setSheetExpanded(true);
+                break;
+            default:
+                Log.w(
+                        TAG,
+                        "onActorControlClicked: Unhandled state %d for task %d",
+                        currentState,
+                        activeTask.getId());
+                break;
+        }
+    }
+
+    /** Called when the close button is clicked. */
+    /* package */ void onCloseClicked() {
+        assert mTabBottomSheetManager.isSheetInitialized();
+        mTabBottomSheetManager.tryToCloseBottomSheet(/* animate= */ true);
+    }
+
+    /** Called when the peek view is clicked. */
+    /* package */ void onPeekViewClicked() {
+        mTabBottomSheetManager.setSheetExpanded(true);
     }
 
     /**

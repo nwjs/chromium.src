@@ -191,7 +191,8 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
     IncrementGenerationalCacheId();
 
     CHECK(FocusedObject());
-    DUMP_WILL_BE_CHECK(!IsDirty());
+    // TODO(crbug.com/500793607): Investigate and convert to CHECK.
+    DCHECK(!IsDirty());
   }
   void Thaw() override {
     CHECK_GE(frozen_count_, 1);
@@ -282,7 +283,8 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   // children, clear their children and set needs to update children on them.
   // In addition, ChildrenChanged() on an included ancestor that might contain
   // this child, if one exists.
-  void ChildrenChangedOnAncestorOf(AXObject*);
+  void ChildrenChangedOnAncestorOf(AXObject*,
+                                   bool allow_immediate_update = true);
 
   const Element* RootAXEditableElement(const Node*) override;
 
@@ -1204,9 +1206,8 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   // Helper method to notify a parent node that its children have changed.
   // The notify method depends on the phase we are in. Please see
   // `processing_deferred_events_` for more details.
-  void NotifyParentChildrenChanged(AXObject* parent);
-
-  void MaybeSendCanvasHasNonTrivialFallbackUKM(const AXObject* canvas);
+  void NotifyParentChildrenChanged(AXObject* parent,
+                                   bool allow_immediate_update = true);
 
   void IncrementGenerationalCacheId() { ++generational_cache_id_; }
 
@@ -1426,8 +1427,6 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
 
   // Whether or not the load event was sent in a previous serialization.
   bool load_sent_ = false;
-
-  bool has_emitted_canvas_fallback_ukm_ = false;
 
   // Used to determine if a previously computed attribute is from the same
   // serialization update.

@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/ai_prototyping/coordinator/ai_prototyping_mediator.h"
 
+#import <optional>
 #import <string>
 
 #import "base/base64.h"
@@ -33,7 +34,10 @@
 #import "ios/chrome/browser/ai_prototyping/utils/page_context_util.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_service.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_service_factory.h"
-#import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_error.h"
+#import "ios/chrome/browser/intelligence/actor/model/aggregated_journal.h"
+#import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool.h"
+#import "ios/chrome/browser/intelligence/actor/tools/public/actor_tool_types.h"
+#import "ios/chrome/browser/intelligence/actor/tools/utils/actor_tool_utils.h"
 #import "ios/chrome/browser/intelligence/enhanced_calendar/model/enhanced_calendar_service_impl.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/ios_smart_tab_grouping_request_wrapper.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper.h"
@@ -554,7 +558,6 @@
     return;
   }
 
-  optimization_guide::proto::Action action;
   NSString* jsonString = params[@"json"];
   if (jsonString.length == 0) {
     [self.consumer updateQueryResult:@"Error: No JSON provided."
@@ -564,37 +567,112 @@
   std::optional<base::Value> jsonVal = base::JSONReader::Read(
       base::SysNSStringToUTF8(jsonString), base::JSON_ALLOW_TRAILING_COMMAS);
 
-  if (!jsonVal || !jsonVal->is_dict()) {
+  if (!jsonVal) {
     [self.consumer updateQueryResult:@"Error: Invalid JSON."
                           forFeature:AIPrototypingFeature::kActorTools];
     return;
   }
 
-  // Try to parse the JSON to a known action optimization_guide::proto::Action.
-  if (!ai_prototyping::ParseActionFromDict(jsonVal->GetDict(), &action)) {
-    [self.consumer updateQueryResult:@"Error: Unknown action type in JSON."
-                          forFeature:AIPrototypingFeature::kActorTools];
+  std::vector<optimization_guide::proto::Action> actions;
+  if (jsonVal->is_dict()) {
+    optimization_guide::proto::Action action;
+    if (!ai_prototyping::ParseActionFromDict(jsonVal->GetDict(), &action)) {
+      [self.consumer updateQueryResult:@"Error: Unknown action type in JSON."
+                            forFeature:AIPrototypingFeature::kActorTools];
+      return;
+    }
+    actions.push_back(std::move(action));
+  } else if (jsonVal->is_list()) {
+    for (const auto& item : jsonVal->GetList()) {
+      if (!item.is_dict()) {
+        [self.consumer updateQueryResult:@"Error: Invalid JSON array element."
+                              forFeature:AIPrototypingFeature::kActorTools];
+        return;
+      }
+      optimization_guide::proto::Action action;
+      if (!ai_prototyping::ParseActionFromDict(item.GetDict(), &action)) {
+        [self.consumer
+            updateQueryResult:@"Error: Unknown action type in JSON array."
+                   forFeature:AIPrototypingFeature::kActorTools];
+        return;
+      }
+      actions.push_back(std::move(action));
+    }
+  } else {
+    [self.consumer
+        updateQueryResult:@"Error: JSON must be a dictionary or list."
+               forFeature:AIPrototypingFeature::kActorTools];
     return;
   }
 
   __weak __typeof(self) weakSelf = self;
-  actorService->ExecuteAction(
-      action, base::BindOnce(^(actor::ActorTool::ToolExecutionResult result) {
-        NSLog(@"[AIPrototypingMediator] Actor callback executed.");
-        if (result.has_value()) {
-          [weakSelf.consumer
-              updateQueryResult:@"Action executed successfully."
-                     forFeature:AIPrototypingFeature::kActorTools];
-        } else {
-          NSString* errorMsg = base::SysUTF8ToNSString(base::StringPrintf(
-              "Action failed: %s",
-              actor::GetActorToolErrorMessage(result.error()).c_str()));
-          NSLog(@"[AIPrototypingMediator] %@", errorMsg);
-          [weakSelf.consumer
-              updateQueryResult:errorMsg
-                     forFeature:AIPrototypingFeature::kActorTools];
-        }
+
+  actor::ActorTaskId task_id = actorService->CreateTask(
+      "AI Prototyping Test Task", /*allow_incognito_web_states=*/false);
+
+  actor::CreateActorToolsResult tools_result =
+      actorService->CreateActorTools(actions, task_id);
+
+  if (!tools_result.has_value()) {
+    NSString* errorMsg = base::SysUTF8ToNSString(base::StringPrintf(
+        "Failed to create tools: %s",
+        actor::GetToolExecutionResultMessage(tools_result.error()).c_str()));
+    [self.consumer updateQueryResult:errorMsg
+                          forFeature:AIPrototypingFeature::kActorTools];
+    actorService->StopTask(task_id, actor::ActorTaskStoppedReason::kModelError);
+    return;
+  }
+
+  actorService->PerformActions(
+      task_id, std::move(tools_result.value()),
+      "Executing AI Prototyping actions",
+      base::BindOnce(^(actor::PerformActionsResult result) {
+        [weakSelf onActionsPerformed:std::move(result.action_results)
+                         withActions:actions];
       }));
+}
+
+// Aggregates the results of actor actions and updates the consumer / UI.
+- (void)onActionsPerformed:(std::vector<actor::ActionResult>)results
+               withActions:
+                   (const std::vector<optimization_guide::proto::Action>&)
+                       actions {
+  actor::ActorService* actorService =
+      actor::ActorServiceFactory::GetForProfile(ProfileIOS::FromBrowserState(
+          _webStateList->GetActiveWebState()->GetBrowserState()));
+
+  NSString* result_text = @"";
+  std::string summary_str = "Action Results:\n";
+
+  for (size_t i = 0; i < results.size() && i < actions.size(); ++i) {
+    const auto& action = actions[i];
+    const auto& result = results[i];
+
+    std::optional<std::string> tool_name_opt =
+        actor::ActorActionCaseToToolName(action.action_case());
+    std::string tool_name = tool_name_opt.value_or("Unknown tool");
+
+    summary_str += " - " + tool_name + ": ";
+    if (result.tool_result.IsOk()) {
+      summary_str += "SUCCESS\n";
+    } else {
+      summary_str +=
+          "ERROR: " + actor::GetToolExecutionResultMessage(result.tool_result) +
+          "\n";
+    }
+  }
+
+  actor::AggregatedJournal* journal = actorService->GetJournal();
+  std::string json_str = journal->GetLogsAsJson();
+
+  result_text =
+      base::SysUTF8ToNSString(summary_str + "\nJSON journal:\n" + json_str);
+
+  __weak __typeof(self) weakSelf = self;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [weakSelf.consumer updateQueryResult:result_text
+                              forFeature:AIPrototypingFeature::kActorTools];
+  });
 }
 
 - (void)listTabs {
@@ -627,6 +705,7 @@
 // in a background thread, and the file path is displayed in the prototyping
 // menu.
 - (void)executeAPCExtractionWithRichExtraction:(BOOL)useRichExtraction
+                                actionableMode:(BOOL)actionableMode
                               includeDebugData:(BOOL)includeDebugData {
   web::WebState* activeWebState = _webStateList->GetActiveWebState();
   if (!activeWebState) {
@@ -638,9 +717,11 @@
     return;
   }
 
-  PageContextWrapperConfig config = PageContextWrapperConfigBuilder()
-                                        .SetUseRichExtraction(useRichExtraction)
-                                        .Build();
+  PageContextWrapperConfig config =
+      PageContextWrapperConfigBuilder()
+          .SetUseRichExtraction(useRichExtraction)
+          .SetUseRichExtractionWithActionable(actionableMode)
+          .Build();
 
   __weak __typeof(self) weakSelf = self;
   auto completion = base::BindOnce(^(

@@ -11,11 +11,14 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/views/frame/app_menu_button.h"
 #include "chrome/browser/ui/views/frame/app_menu_button_observer.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
+#include "chrome/browser/ui/views/toolbar/app_menu_control.h"
 #include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -27,8 +30,10 @@
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/views/focus/focus_manager.h"
+#include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/style/platform_style.h"
 #include "ui/views/view.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
 
 namespace {
@@ -207,8 +212,11 @@ void KeyboardAccessTest::TestMenuKeyboardAccess(bool alternate_key_sequence,
 
   BrowserView* browser_view = static_cast<BrowserView*>(browser()->window());
   SendKeysMenuListener menu_listener(
-      browser_view->toolbar_button_provider()->GetAppMenuButton(), browser(),
-      false);
+      views::AsViewClass<AppMenuButton>(
+          views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+              kToolbarAppMenuButtonElementId,
+              views::ElementTrackerViews::GetContextForView(browser_view))),
+      browser(), false);
 
   if (focus_omnibox) {
     browser()->window()->GetLocationBar()->FocusLocation(
@@ -383,8 +391,11 @@ void KeyboardAccessTest::TestMenuKeyboardAccessAndDismiss() {
 
   BrowserView* browser_view = static_cast<BrowserView*>(browser()->window());
   SendKeysMenuListener menu_listener(
-      browser_view->toolbar_button_provider()->GetAppMenuButton(), browser(),
-      true);
+      views::AsViewClass<AppMenuButton>(
+          views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+              kToolbarAppMenuButtonElementId,
+              views::ElementTrackerViews::GetContextForView(browser_view))),
+      browser(), true);
   browser()->window()->GetLocationBar()->FocusLocation(
       /*is_user_initiated=*/false, /*clear_focus_if_failed=*/false);
 
@@ -398,11 +409,11 @@ void KeyboardAccessTest::TestMenuKeyboardAccessAndDismiss() {
   ASSERT_EQ(1, menu_listener.menu_open_count());
 }
 
-// http://crbug.com/62310.
+// http://crbug.com/41260780.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_TestMenuKeyboardAccess DISABLED_TestMenuKeyboardAccess
 #elif BUILDFLAG(IS_MAC)
-// No keyboard shortcut for the Chrome menu on Mac: http://crbug.com/823952
+// No keyboard shortcut for the Chrome menu on Mac: http://crbug.com/41377766
 #define MAYBE_TestMenuKeyboardAccess DISABLED_TestMenuKeyboardAccess
 #else
 #define MAYBE_TestMenuKeyboardAccess TestMenuKeyboardAccess
@@ -412,11 +423,11 @@ IN_PROC_BROWSER_TEST_F(KeyboardAccessTest, MAYBE_TestMenuKeyboardAccess) {
   TestMenuKeyboardAccess(false, false, false);
 }
 
-// http://crbug.com/62310.
+// http://crbug.com/41260780.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_TestAltMenuKeyboardAccess DISABLED_TestAltMenuKeyboardAccess
 #elif BUILDFLAG(IS_MAC)
-// No keyboard shortcut for the Chrome menu on Mac: http://crbug.com/823952
+// No keyboard shortcut for the Chrome menu on Mac: http://crbug.com/41377766
 #define MAYBE_TestAltMenuKeyboardAccess DISABLED_TestAltMenuKeyboardAccess
 #else
 #define MAYBE_TestAltMenuKeyboardAccess TestAltMenuKeyboardAccess
@@ -425,7 +436,7 @@ IN_PROC_BROWSER_TEST_F(KeyboardAccessTest, MAYBE_TestAltMenuKeyboardAccess) {
   TestMenuKeyboardAccess(true, false, false);
 }
 
-// If this flakes, use http://crbug.com/62311.
+// If this flakes, use http://crbug.com/40474299.
 #if BUILDFLAG(IS_WIN)
 #define MAYBE_TestShiftAltMenuKeyboardAccess \
   DISABLED_TestShiftAltMenuKeyboardAccess
@@ -463,7 +474,7 @@ IN_PROC_BROWSER_TEST_F(KeyboardAccessTest, TestMenuKeyboardOpenDismiss) {
 // ctrl-t to open a new tab or ctrl-f4 to close a tab.
 // TODO(isherman): This test times out on ChromeOS.  We should merge it with
 // BrowserKeyEventsTest.ReservedAccelerators, but just disable for now.
-// If this flakes, use http://crbug.com/62311.
+// If this flakes, use http://crbug.com/40474299.
 IN_PROC_BROWSER_TEST_F(KeyboardAccessTest, ReserveKeyboardAccelerators) {
   const std::string kBadPage =
       "<html><script>"

@@ -76,7 +76,6 @@ chromium-metrics-reviews@google.com.
       label="Translate text in image with non-Google visual search provider"/>
   <int value="28" label="Translate text in image with Google Lens"/>
   <int value="29" label="Search web for... in new tab"/>
-  <int value="30" label="Open link in preview"/>
   <int value="31" label="Open link in split view"/>
   <int value="32" label="Create image with Gemini in Chrome"/>
 </enum>
@@ -336,7 +335,6 @@ chromium-metrics-reviews@google.com.
   <int value="141" label="IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS"/>
   <int value="142" label="IDC_CONTENT_CONTEXT_SEARCHLENSFORVIDEOFRAME"/>
   <int value="143" label="IDC_CONTENT_CONTEXT_SEARCHWEBFORVIDEOFRAME"/>
-  <int value="144" label="IDC_CONTENT_CONTEXT_OPENLINKPREVIEW"/>
   <int value="145" label="IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PLUS_ADDRESS"/>
   <int value="146"
       label="(Obsolete) IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS"/>
@@ -363,6 +361,8 @@ chromium-metrics-reviews@google.com.
   <int value="160" label="IDC_CONTENT_CONTEXT_INSPECTELEMENT_WITH_DEVTOOLS"/>
   <int value="161" label="IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AT_MEMORY"/>
   <int value="162" label="IDC_CONTENT_CONTEXT_GLIC"/>
+  <int value="163" label="IDC_CONTENT_CONTEXT_VIDEO_FRAME"/>
+  <int value="164" label="IDC_CONTENT_CONTEXT_LISTEN_TO_THIS_PAGE"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/renderer_context_menu/render_view_context_menu.cc:RenderViewContextMenuItem) -->
@@ -450,10 +450,10 @@ chromium-metrics-reviews@google.com.
   <int value="53" label="UMA_INCOGNITO_REAUTH_ENABLED_FROM_PROMO"/>
   <int value="54" label="UMA_PRIVACY_SANDBOX_ADD_SITE"/>
   <int value="55" label="UMA_PRIVACY_SANDBOX_REMOVE_SITE"/>
-  <int value="56" label="UMA_CREATOR_FOLLOW_SUCCESS"/>
-  <int value="57" label="UMA_CREATOR_FOLLOW_FAILURE"/>
-  <int value="58" label="UMA_CREATOR_UNFOLLOW_SUCCESS"/>
-  <int value="59" label="UMA_CREATOR_UNFOLLOW_FAILURE"/>
+  <int value="56" label="(Obsolete) UMA_CREATOR_FOLLOW_SUCCESS"/>
+  <int value="57" label="(Obsolete) UMA_CREATOR_FOLLOW_FAILURE"/>
+  <int value="58" label="(Obsolete) UMA_CREATOR_UNFOLLOW_SUCCESS"/>
+  <int value="59" label="(Obsolete) UMA_CREATOR_UNFOLLOW_FAILURE"/>
   <int value="60" label="UMA_QUICK_DELETE"/>
   <int value="61" label="UMA_AUTO_TRANSLATE"/>
   <int value="63" label="UMA_CLEAR_BROWSING_DATA"/>
@@ -480,6 +480,9 @@ chromium-metrics-reviews@google.com.
   <int value="84" label="UMA_CROSS_DEVICE_SETTING_REDO"/>
   <int value="85" label="UMA_CHROME_FINDS_OPT_IN"/>
   <int value="86" label="UMA_AUTOFILL_AI_LOCAL_SAVE_FALLBACK"/>
+  <int value="87" label="UMA_EXCLUSIVE_ACCESS_BUBBLE"/>
+  <int value="88" label="UMA_CONTEXTUAL_TASKS_BOTTOM_SHEET_CLOSED_UNDO"/>
+  <int value="89" label="UMA_ACTOR"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/messages/android/java/src/org/chromium/chrome/browser/ui/messages/snackbar/Snackbar.java:SnackbarIdentifier) -->
@@ -668,6 +671,7 @@ chromium-metrics-reviews@google.com.
 <enum name="WebUIUrlHashes">
   <int value="-2137891043" label="chrome-untrusted://scanner-feedback/"/>
   <int value="-2117475303" label="chrome://comments-side-panel.top-chrome/"/>
+  <int value="-2107365589" label="chrome://subresource-filter-internals/"/>
   <int value="-2103246641" label="chrome://signin-internals/"/>
   <int value="-2087891836" label="chrome://debug-webuis-disabled/"/>
   <int value="-2086395469" label="chrome://dlp-internals/"/>
@@ -816,6 +820,7 @@ chromium-metrics-reviews@google.com.
              Manager)"/>
   <int value="-623121238" label="chrome://arc-graphics-tracing/"/>
   <int value="-614294009" label="chrome://crostini-credits/"/>
+  <int value="-611540207" label="chrome://indigo-internals/"/>
   <int value="-606058756" label="chrome://accessibility/"/>
   <int value="-601472337" label="chrome://shimless-rma/"/>
   <int value="-566908909" label="chrome://suggestions/"/>
@@ -840,6 +845,7 @@ chromium-metrics-reviews@google.com.
   <int value="-359703631" label="chrome://slow_trace/"/>
   <int value="-336117866" label="chrome://focus-mode-media/"/>
   <int value="-332876060" label="chrome://autofill-ml-internals/"/>
+  <int value="-318424553" label="chrome-untrusted://drive-picker-host/"/>
   <int value="-251863235" label="chrome-untrusted://glic/"/>
   <int value="-245337017" label="chrome://user-actions/"/>
   <int value="-233401490" label="chrome://accessory-update/"/>
@@ -887,6 +893,7 @@ chromium-metrics-reviews@google.com.
   <int value="253258497" label="chrome://components/"/>
   <int value="260253931" label="chrome://devices/"/>
   <int value="275260142" label="chrome://eoc-internals/"/>
+  <int value="296063954" label="chrome://accessibility-annotator-info/"/>
   <int value="296428820" label="chrome-untrusted://lens-overlay/"/>
   <int value="325375649" label="chrome://settings-frame/"/>
   <int value="361250371" label="chrome://nearby/"/>
@@ -937,7 +944,9 @@ chromium-metrics-reviews@google.com.
   <int value="821023334" label="chrome://screenlock-icon/"/>
   <int value="858923205" label="chrome://cloud-upload/"/>
   <int value="864711974" label="chrome://emoji-picker/"/>
+  <int value="870607687" label="chrome://accessibility-annotator-internals/"/>
   <int value="890996135" label="chrome://enterprise-reporting/"/>
+  <int value="891296796" label="chrome://drive-picker-host/"/>
   <int value="894368493" label="chrome://internet-config-dialog/"/>
   <int value="911597664" label="chrome://multidevice-setup/"/>
   <int value="918960088" label="chrome://instant/"/>
@@ -1053,6 +1062,7 @@ chromium-metrics-reviews@google.com.
   <int value="2033331720" label="chrome-untrusted://os-feedback/"/>
   <int value="2040878656" label="chrome://bluetooth-internals/"/>
   <int value="2052019697" label="chrome://userimage/"/>
+  <int value="2065809529" label="chrome://feature-showcase/"/>
   <int value="2108016874" label="chrome-untrusted://projector/"/>
   <int value="2110022659" label="chrome-untrusted://ntp-microsoft-auth/"/>
   <int value="2111953935" label="chrome://topics-internals/"/>

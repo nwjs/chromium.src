@@ -5,6 +5,7 @@
 package org.chromium.ui.accessibility.testservice;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.Intent;
 import android.text.TextUtils;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -266,6 +267,13 @@ public class AccessibilityTestService extends AccessibilityService {
     static boolean eventMatches(AccessibilityEvent event, WaitForEventParams params) {
         if (event.getEventType() != params.eventType) return false;
 
+        // ContentChangeTypes are optional, but if a non-default value is provided, we should only
+        // match the events with the ContentChangeType requested.
+        if (params.contentChangeTypes != 0
+                && event.getContentChangeTypes() != params.contentChangeTypes) {
+            return false;
+        }
+
         AccessibilityNodeInfo source = event.getSource();
         CharSequence sourceClassName = source != null ? source.getClassName() : "";
         CharSequence sourceText = source != null ? source.getText() : "";
@@ -289,7 +297,7 @@ public class AccessibilityTestService extends AccessibilityService {
     }
 
     @Override
-    public boolean onUnbind(android.content.Intent intent) {
+    public boolean onUnbind(Intent intent) {
         Log.d(TAG, "onUnbind");
         sInstance = null;
         synchronized (sLock) {

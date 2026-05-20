@@ -27,6 +27,10 @@
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/global_keyboard_shortcuts_mac.h"
+#endif
+
 // Android chrome shortcuts are implemented in KeyboardShortcuts.java.
 static_assert(!BUILDFLAG(IS_ANDROID));
 
@@ -174,7 +178,7 @@ const AcceleratorMapping kAcceleratorMap[] = {
 #if BUILDFLAG(IS_CHROMEOS)
     // Chrome OS supports the print key, however XKB conflates the print
     // and printscreen keys together so it is not supported on Linux.
-    // See crbug.com/683097
+    // See crbug.com/41296059
     {ui::VKEY_PRINT, ui::EF_NONE, IDC_PRINT},
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
@@ -389,4 +393,24 @@ bool GetStandardAcceleratorForCommandId(int command_id,
 
 bool IsCommandRepeatable(int command_id) {
   return std::ranges::contains(kRepeatableCommandIds, command_id);
+}
+
+bool GetAcceleratorForCommandId(int command_id, ui::Accelerator* accelerator) {
+#if BUILDFLAG(IS_MAC)
+  if (GetDefaultMacAcceleratorForCommandId(command_id, accelerator)) {
+    return true;
+  }
+#else
+  if (GetStandardAcceleratorForCommandId(command_id, accelerator)) {
+    return true;
+  }
+
+  for (const auto& mapping : GetAcceleratorList()) {
+    if (mapping.command_id == command_id) {
+      *accelerator = ui::Accelerator(mapping.keycode, mapping.modifiers);
+      return true;
+    }
+  }
+#endif
+  return false;
 }

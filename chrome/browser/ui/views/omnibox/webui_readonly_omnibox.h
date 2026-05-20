@@ -28,8 +28,8 @@ class WebContents;
 
 // WebUI-implementation of OmniboxView, which happens to be readonly,
 // as it counts on the popup to handle the editing.
-// TODO(crbug.com/474060468): Rename it in a manner more consistent with other
-// classes here.
+// TODO(crbug.com/500653057): Rename it in a manner more consistent with other
+// classes here. It's also no longer read-only!
 class WebUIReadOnlyOmnibox : public OmniboxView {
  public:
   class UpdatePropagator {
@@ -51,6 +51,12 @@ class WebUIReadOnlyOmnibox : public OmniboxView {
   void OnTabChanged(const content::WebContents* web_contents);
   void ResetTabState(content::WebContents* web_contents);
 
+  // Updates the state of the display stored in `this` OmniboxView. Doesn't
+  // notify the OmniboxEditModel or the WebUI end.
+  void SetTextAndSelectedRange(const std::u16string& text,
+                               const std::u16string& inline_autocompletion,
+                               const gfx::Range& selection);
+
   // OmniboxView:
   void Update() override;
   std::u16string GetText() const override;
@@ -64,6 +70,7 @@ class WebUIReadOnlyOmnibox : public OmniboxView {
   bool IsSelectAll() const override;
   gfx::Range GetSelectionBounds() const override;
   void SelectAll(bool reversed) override;
+  void RevertAll() override;
   void UpdatePopup() override;
   void SetFocus(bool is_user_initiated) override;
   bool AimButtonVisible() const override;
@@ -89,12 +96,16 @@ class WebUIReadOnlyOmnibox : public OmniboxView {
 
  private:
   void RequestUpdateWebUI();
+  void ResetFormatting();
 
   raw_ref<UpdatePropagator> update_propagator_;
 
   // Text and selection (or caret) we were asked to display (e.g. via
   // SetWindowTextAndCaretPos()) by either the base class or OmniboxEditModel.
   std::u16string text_;
+
+  // Inline completion suggested by auto-complete.
+  std::u16string inline_autocompletion_;
 
   // Rich text formatting for `text`.
   gfx::BreakList<bool> text_strike_through_;
@@ -104,6 +115,14 @@ class WebUIReadOnlyOmnibox : public OmniboxView {
   // When start and end positions match, this represents a caret position;
   // if they don't, it's a selection.
   gfx::Range selection_;
+
+  // Selection saved when temporary text is being displayed, so it can be
+  // restored if the user presses `Esc` to cancel it.
+  gfx::Range saved_selection_for_temporary_text_;
+
+  // State of the world at the time of last call to `OnBeforePossibleChange()`;
+  // used in `OnAfterPossibleChange()` to figure out what changed.
+  State state_before_change_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_OMNIBOX_WEBUI_READONLY_OMNIBOX_H_

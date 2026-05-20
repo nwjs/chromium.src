@@ -359,14 +359,12 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
   [self registerForTraitChanges:@[ UITraitHorizontalSizeClass.class ]
                      withAction:@selector(sizeClassDidChange)];
 
-  if (base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdateV2)) {
-    _defaultSearchEngineIconView = [[UIImageView alloc] init];
-    _defaultSearchEngineIconView.translatesAutoresizingMaskIntoConstraints = NO;
-    _defaultSearchEngineIconView.contentMode = UIViewContentModeCenter;
-    AddSizeConstraints(
-        _defaultSearchEngineIconView,
-        CGSizeMake(kOmniboxLeadingImageSize + 12.0f, kOmniboxLeadingImageSize));
-  }
+  _defaultSearchEngineIconView = [[UIImageView alloc] init];
+  _defaultSearchEngineIconView.translatesAutoresizingMaskIntoConstraints = NO;
+  _defaultSearchEngineIconView.contentMode = UIViewContentModeCenter;
+  AddSizeConstraints(
+      _defaultSearchEngineIconView,
+      CGSizeMake(kOmniboxLeadingImageSize + 12.0f, kOmniboxLeadingImageSize));
 
   if (IsProactiveSuggestionsFrameworkEnabled()) {
     _locationBarSteadyView.pageActionMenuHandler = self.pageActionMenuHandler;
@@ -772,6 +770,11 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
     state = kNoButton;
   }
 
+  if (IsChromeNextIaEnabled() && !IsChromeNextIaShareIconVisible() &&
+      state == kShareButton) {
+    state = kNoButton;
+  }
+
   if (_trailingButtonState == state) {
     return;
   }
@@ -818,12 +821,8 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
 
 // Computes correct placeholder text.
 - (NSString*)searchOrTypeURLPlaceholderText {
-  if (base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdate)) {
-    return l10n_util::GetNSStringF(IDS_OMNIBOX_EMPTY_HINT_WITH_DSE_NAME,
-                                   self.searchProviderName.cr_UTF16String);
-  } else {
-    return l10n_util::GetNSString(IDS_OMNIBOX_EMPTY_HINT);
-  }
+  return l10n_util::GetNSStringF(IDS_OMNIBOX_EMPTY_HINT_WITH_DSE_NAME,
+                                 self.searchProviderName.cr_UTF16String);
 }
 
 #pragma mark - UIContextMenuInteractionDelegate
@@ -832,7 +831,8 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
   NSMutableArray<UIMenuElement*>* menuElements = [[NSMutableArray alloc] init];
   __weak __typeof__(self) weakSelf = self;
 
-  if (base::FeatureList::IsEnabled(kShareInOmniboxLongPress) &&
+  if ((base::FeatureList::IsEnabled(kShareInOmniboxLongPress) ||
+       (IsChromeNextIaEnabled() && !IsChromeNextIaShareIconVisible())) &&
       self.shareButtonEnabled) {
     base::UmaHistogramEnumeration("Mobile.ShareThisPage.Shown",
                                   ShareThisPageLocation::kOmniboxLongPress);
@@ -862,7 +862,15 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
         DefaultSymbolWithPointSize(kPasteActionSymbol, kSymbolActionPointSize);
 
     // Copy link action.
-    if (!self.locationBarSteadyView.hidden) {
+    BOOL canShowCopyLinkAction = NO;
+    if (IsChromeNextIaEnabled()) {
+      canShowCopyLinkAction =
+          !self.locationBarSteadyView.isHidden && !(_isNTP && self.incognito);
+    } else {
+      canShowCopyLinkAction = !self.locationBarSteadyView.isHidden;
+    }
+
+    if (canShowCopyLinkAction) {
       UIAction* copyAction = [UIAction
           actionWithTitle:l10n_util::GetNSString(IDS_IOS_COPY_LINK_ACTION_TITLE)
                     image:DefaultSymbolWithPointSize(kCopyActionSymbol,

@@ -4,12 +4,14 @@
 
 #include "base/test/metrics/user_action_tester.h"
 #include "build/build_config.h"
+#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/views/frame/system_menu_model_builder.h"
+#include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_top_container.h"
 #include "chrome/browser/ui/views/test/vertical_tabs_interactive_test_mixin.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -20,6 +22,7 @@
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/test/ui_controls.h"
 #include "ui/events/event_constants.h"
+#include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/interaction/interactive_views_test.h"
 
@@ -156,6 +159,71 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripTopContainerInteractiveUiTest,
         EXPECT_EQ(1, user_action_tester.GetActionCount(
                          "VerticalTabs_TabStrip_ButtonToggleUncollapsed"));
       }));
+}
+
+// This test checks that we can right click the collapse button to toggle
+// the expand on hover behavior.
+IN_PROC_BROWSER_TEST_F(VerticalTabStripTopContainerInteractiveUiTest,
+                       VerifyToggleExpandOnHoverWithCollapseButton) {
+  bool initial_state = false;
+  RunTestSequence(
+      WaitForShow(kVerticalTabStripTopContainerElementId),
+      EnsurePresent(kVerticalTabStripCollapseButtonElementId),
+      Do([this, &initial_state]() {
+        initial_state =
+            vertical_tab_strip_state_controller()->IsExpandOnHoverEnabled();
+      }),
+      MoveMouseTo(kVerticalTabStripCollapseButtonElementId),
+      MayInvolveNativeContextMenu(
+          ClickMouse(ui_controls::RIGHT),
+          WaitForShow(VerticalTabStripTopContainer::
+                          kToggleVerticalTabsExpandOnHoverElementId),
+          SelectMenuItem(VerticalTabStripTopContainer::
+                             kToggleVerticalTabsExpandOnHoverElementId),
+          CheckResult(
+              [this, &initial_state]() {
+                return vertical_tab_strip_state_controller()
+                           ->IsExpandOnHoverEnabled() != initial_state;
+              },
+              true)));
+}
+
+IN_PROC_BROWSER_TEST_F(VerticalTabStripTopContainerInteractiveUiTest,
+                       PixelTestUncollapsedState) {
+  RunTestSequence(
+      // Verify not collapsed
+      CheckResult(
+          [this]() {
+            return vertical_tab_strip_state_controller()->IsCollapsed();
+          },
+          false),
+      WaitForShow(kVerticalTabStripTopContainerElementId),
+      SetOnIncompatibleAction(
+          OnIncompatibleAction::kIgnoreAndContinue,
+          "Screenshots not supported in all testing environments."),
+      Screenshot(kVerticalTabStripTopContainerElementId,
+                 /*screenshot_name=*/"UncollapsedVerticalTabStripTopContainer",
+                 /*baseline_cl=*/"7797519"));
+}
+
+IN_PROC_BROWSER_TEST_F(VerticalTabStripTopContainerInteractiveUiTest,
+                       PixelTestCollapsedState) {
+  gfx::ScopedAnimationDurationScaleMode disable_animation(
+      gfx::ScopedAnimationDurationScaleMode::ZERO_DURATION);
+
+  RunTestSequence(
+      WaitForShow(kVerticalTabStripTopContainerElementId),
+      EnsurePresent(kVerticalTabStripCollapseButtonElementId),
+      // Press Collapse Button
+      PressButton(kVerticalTabStripCollapseButtonElementId),
+      WaitForEvent(kTabStripRegionElementId,
+                   kVerticalTabStripCollapsedCustomEventId),
+      SetOnIncompatibleAction(
+          OnIncompatibleAction::kIgnoreAndContinue,
+          "Screenshots not supported in all testing environments."),
+      Screenshot(kVerticalTabStripTopContainerElementId,
+                 /*screenshot_name=*/"CollapsedVerticalTabStripTopContainer",
+                 /*baseline_cl=*/"7797519"));
 }
 
 }  // namespace

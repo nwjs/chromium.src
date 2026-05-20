@@ -46,14 +46,9 @@
 #include "remoting/protocol/session_manager.h"
 #include "remoting/protocol/transport.h"
 #include "remoting/protocol/transport_context.h"
-#include "remoting/signaling/session_config.h"
 #include "remoting/signaling/signaling_id_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-
-#if BUILDFLAG(IS_WIN)
-#include <windows.h>
-#endif
 
 using ::remoting::protocol::MockClientStub;
 using ::remoting::protocol::MockConnectionToClientEventHandler;
@@ -102,7 +97,6 @@ class ChromotingHostTest : public testing::Test {
         /* secondary_session_manager */ nullptr,
         protocol::TransportContext::ForTests(protocol::TransportRole::SERVER),
         task_runner_,  // Audio
-        task_runner_,  // Video encode
         DesktopEnvironmentOptions::CreateDefault(), base::NullCallback(),
         &local_session_policies_provider_);
     host_->status_monitor()->AddStatusObserver(&host_status_observer_);
@@ -112,9 +106,7 @@ class ChromotingHostTest : public testing::Test {
     session2_ = new MockSession();
     session_unowned1_ = std::make_unique<MockSession>();
     session_unowned2_ = std::make_unique<MockSession>();
-    session_config1_ = SessionConfig::ForTest();
     session_jid1_ = "user@domain/rest-of-jid";
-    session_config2_ = SessionConfig::ForTest();
     session_jid2_ = "user@domain/rest-of-jid-2";
     session_unowned_jid1_ = "user3@doman/rest-of-jid";
     session_unowned_jid2_ = "user4@doman/rest-of-jid";
@@ -131,14 +123,6 @@ class ChromotingHostTest : public testing::Test {
     EXPECT_CALL(*session_unowned2_, SetEventHandler(_))
         .Times(AnyNumber())
         .WillRepeatedly(SaveArg<0>(&session_unowned2_event_handler_));
-    EXPECT_CALL(*session1_, config())
-        .WillRepeatedly(ReturnRef(*session_config1_));
-    EXPECT_CALL(*session2_, config())
-        .WillRepeatedly(ReturnRef(*session_config2_));
-    EXPECT_CALL(*session_unowned1_, config())
-        .WillRepeatedly(ReturnRef(*session_config1_));
-    EXPECT_CALL(*session_unowned2_, config())
-        .WillRepeatedly(ReturnRef(*session_config2_));
 
     connection1_ = std::make_unique<protocol::FakeConnectionToClient>(
         base::WrapUnique(session1_.get()));
@@ -279,42 +263,11 @@ class ChromotingHostTest : public testing::Test {
     host_->per_session_policies_validator_ = validator;
   }
 
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   mojo::Remote<mojom::ChromotingHostServices> BindChromotingHostServices() {
     mojo::Remote<mojom::ChromotingHostServices> remote;
-    // ChromotingHost::BindSessionServices calls ProcessIdToSessionId() on the
-    // IPC client's PID. The PID we know that always works is the current
-    // process' PID.
-    auto current_pid = base::GetCurrentProcId();
-    host_->BindChromotingHostServices(remote.BindNewPipeAndPassReceiver(),
-                                      current_pid);
+    host_->BindChromotingHostServices(remote.BindNewPipeAndPassReceiver());
     return remote;
-  }
-
-#if BUILDFLAG(IS_WIN)
-  // Simulates the IPC client's session ID for the session ID check in
-  // ChromotingHost::BindSessionServices.
-  //
-  // |is_remote_desktop_session_id|: True if the simulated session ID should be
-  // exactly the session ID of the fake desktop environment. If false, the
-  // simulated session ID is guaranteed to be different from the desktop
-  // environment's session ID.
-  void SimulateIpcClientSessionId(bool is_remote_desktop_session_id) {
-    // ChromotingHost::BindSessionServices calls ProcessIdToSessionId() on the
-    // IPC client's PID. The PID we know that always works is the current
-    // process' PID.
-    auto current_pid = base::GetCurrentProcId();
-    DWORD current_session_id;
-    bool success = ProcessIdToSessionId(current_pid, &current_session_id);
-    ASSERT_TRUE(success);
-    // The IPC client's session ID is exactly the current process' session ID
-    // at this point, so we change the fake desktop environment's session ID
-    // here.
-    if (is_remote_desktop_session_id) {
-      desktop_environment_factory_->set_desktop_session_id(current_session_id);
-    } else {
-      desktop_environment_factory_->set_desktop_session_id(current_session_id +
-                                                           1);
-    }
   }
 #endif
 
@@ -333,14 +286,12 @@ class ChromotingHostTest : public testing::Test {
   raw_ptr<ClientSession> client1_;  // Owned by |host_|.
   std::string session_jid1_;
   raw_ptr<MockSession> session1_;  // Owned by |connection1_|.
-  std::unique_ptr<SessionConfig> session_config1_;
   MockClientStub client_stub1_;
   MockHostStub host_stub1_;
   std::unique_ptr<protocol::FakeConnectionToClient> connection2_;
   raw_ptr<ClientSession> client2_;  // Owned by |host_|.
   std::string session_jid2_;
   raw_ptr<MockSession> session2_;  // Owned by |connection2_|.
-  std::unique_ptr<SessionConfig> session_config2_;
   MockClientStub client_stub2_;
   MockHostStub host_stub2_;
   std::unique_ptr<MockSession> session_unowned1_;  // Not owned by a connection.
@@ -484,7 +435,6 @@ TEST_F(ChromotingHostTest, SessionAcceptedWhenSecondarySessionManagerExists) {
       std::move(secondary_session_manager),
       protocol::TransportContext::ForTests(protocol::TransportRole::SERVER),
       task_runner_,  // Audio
-      task_runner_,  // Video encode
       DesktopEnvironmentOptions::CreateDefault(), base::NullCallback(),
       &local_session_policies_provider_);
   host_->status_monitor()->AddStatusObserver(&host_status_observer_);
@@ -521,8 +471,6 @@ TEST_F(ChromotingHostTest, LoginBackOffTriggersIfClientsDoNotAuthenticate) {
     // Set expectations and responses for the new session.
     auto session = std::make_unique<MockSession>();
     EXPECT_CALL(*session, jid()).WillRepeatedly(ReturnRef(session_jid1_));
-    EXPECT_CALL(*session, config())
-        .WillRepeatedly(ReturnRef(*session_config1_));
     EXPECT_CALL(*session, SetEventHandler(_))
         .Times(AnyNumber())
         .WillRepeatedly(SaveArg<0>(&session_event_handler));
@@ -568,8 +516,6 @@ TEST_F(ChromotingHostTest, LoginBackOffResetsIfClientsAuthenticate) {
     // Set expectations and responses for the new session.
     auto session = std::make_unique<MockSession>();
     EXPECT_CALL(*session, jid()).WillRepeatedly(ReturnRef(session_jid1_));
-    EXPECT_CALL(*session, config())
-        .WillRepeatedly(ReturnRef(*session_config1_));
     EXPECT_CALL(*session, SetEventHandler(_))
         .Times(AnyNumber())
         .WillRepeatedly(SaveArg<0>(&session_event_handler));
@@ -599,7 +545,6 @@ TEST_F(ChromotingHostTest, LoginBackOffResetsIfClientsAuthenticate) {
   auto session = std::make_unique<MockSession>();
   protocol::Session::EventHandler* session_event_handler;
   EXPECT_CALL(*session, jid()).WillRepeatedly(ReturnRef(session_jid1_));
-  EXPECT_CALL(*session, config()).WillRepeatedly(ReturnRef(*session_config1_));
   EXPECT_CALL(*session, SetEventHandler(_))
       .Times(AnyNumber())
       .WillRepeatedly(SaveArg<0>(&session_event_handler));
@@ -647,6 +592,7 @@ TEST_F(ChromotingHostTest, ExtraSessionPoliciesValidator) {
   SimulateClientConnection(0, /* authenticate= */ true, /* reject= */ true);
 }
 
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 TEST_F(ChromotingHostTest, BindSessionServicesWithNoConnectedSession_Rejected) {
   StartHost();
 
@@ -657,13 +603,12 @@ TEST_F(ChromotingHostTest, BindSessionServicesWithNoConnectedSession_Rejected) {
   host_->BindSessionServices(std::move(receiver));
   wait_for_disconnect_run_loop.Run();
 }
+#endif
 
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 TEST_F(ChromotingHostTest, BindSessionServicesWithConnectedSession_Accepted) {
   StartHost();
   auto host_services_remote = BindChromotingHostServices();
-#if BUILDFLAG(IS_WIN)
-  SimulateIpcClientSessionId(/* is_remote_desktop_session_id= */ true);
-#endif
   auto future = ExpectClientConnected(0);
   SimulateClientConnection(0, true, false);
   future->Get();
@@ -684,25 +629,6 @@ TEST_F(ChromotingHostTest, BindSessionServicesWithConnectedSession_Accepted) {
   // doesn't have the peer PID context.
   host_services_remote->BindSessionServices(std::move(receiver));
   wait_for_version_run_loop.Run();
-}
-
-#if BUILDFLAG(IS_WIN)
-TEST_F(ChromotingHostTest, BindSessionServicesWithWrongSession_Rejected) {
-  StartHost();
-  auto host_services_remote = BindChromotingHostServices();
-  SimulateIpcClientSessionId(/* is_remote_desktop_session_id= */ false);
-  auto future = ExpectClientConnected(0);
-  SimulateClientConnection(0, true, false);
-  future->Get();
-
-  mojo::Remote<mojom::ChromotingSessionServices> remote;
-  auto receiver = remote.BindNewPipeAndPassReceiver();
-  base::RunLoop wait_for_disconnect_run_loop;
-  remote.set_disconnect_handler(wait_for_disconnect_run_loop.QuitClosure());
-  // Note that we can't just call host_->BindSessionServices(), since that
-  // doesn't have the peer PID context.
-  host_services_remote->BindSessionServices(std::move(receiver));
-  wait_for_disconnect_run_loop.Run();
 }
 #endif
 

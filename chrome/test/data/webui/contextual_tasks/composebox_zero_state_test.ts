@@ -109,8 +109,12 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
     BrowserProxyImpl.setInstance(testProxy);
 
     mockComposeboxPageHandler = TestMock.fromClass(ComposeboxPageHandlerRemote);
+    mockComposeboxPageHandler.setResultFor(
+        'getSmartTabSharingActive', Promise.resolve({active: false}));
     mockSearchboxPageHandler = TestMock.fromClass(SearchboxPageHandlerRemote);
-
+    mockSearchboxPageHandler.setResultFor(
+        'getPageClassification',
+        Promise.resolve({metricSource: 'CO_BROWSING_COMPOSEBOX'}));
     const searchboxCallbackRouter = new SearchboxPageCallbackRouter();
     searchboxCallbackRouterRemote =
         searchboxCallbackRouter.$.bindNewPipeAndPassRemote();
@@ -438,7 +442,6 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
 
   test('SuggestionsHiddenWhenDropdownNotShown', async () => {
     loadTimeData.overrideValues({
-      composeboxShowTypedSuggestWithContext: false,
       enableNativeZeroStateSuggestions: true,
     });
 
@@ -510,7 +513,7 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
     await composebox.updateComplete;
 
     // show-dropdown should be false because we have a file and
-    // composeboxShowTypedSuggestWithContext is false.
+    // showTypedSuggestWithContext is false.
     assertFalse(
         composebox.hasAttribute('show-dropdown'),
         'Dropdown should hide when typing with' +

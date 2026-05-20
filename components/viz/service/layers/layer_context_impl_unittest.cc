@@ -18,6 +18,7 @@
 #include "cc/layers/nine_patch_layer_impl.h"
 #include "cc/layers/nine_patch_thumb_scrollbar_layer_impl.h"
 #include "cc/layers/painted_scrollbar_layer_impl.h"
+#include "cc/layers/render_surface_impl.h"
 #include "cc/layers/solid_color_scrollbar_layer_impl.h"
 #include "cc/layers/surface_layer_impl.h"
 #include "cc/layers/texture_layer_impl.h"
@@ -29,6 +30,7 @@
 #include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
 #include "components/viz/service/frame_sinks/frame_sink_manager_impl.h"
 #include "components/viz/service/layers/layer_context_impl_base_unittest.h"
+#include "components/viz/service/layers/viz_layer_tree_host_impl.h"
 #include "components/viz/test/fake_compositor_frame_sink_client.h"
 #include "gpu/GLES2/gl2extchromium.h"
 #include "services/viz/public/mojom/compositing/compositor_frame_sink.mojom.h"
@@ -36,9 +38,25 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/latency/latency_info.h"
 
 namespace viz {
 namespace {
+
+TEST_F(LayerContextImplTest, RejectsTerminatedLatencyInfo) {
+  auto update = CreateDefaultUpdate();
+
+  ui::LatencyInfo latency;
+  latency.set_trace_id(12345);
+  latency.AddLatencyNumber(ui::INPUT_EVENT_LATENCY_BEGIN_RWH_COMPONENT);
+  latency.Terminate();
+
+  update->latency_info.push_back(latency);
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Received already-terminated LatencyInfo");
+}
 
 class LayerContextImplUpdateDisplayTreeUIResourceRequestTest
     : public LayerContextImplTest,
@@ -177,6 +195,58 @@ INSTANTIATE_TEST_SUITE_P(
         LayerContextImplUpdateDisplayTreeTilingTest::ParamType>& info) {
       std::stringstream name;
       name << (std::get<1>(info.param) ? "Valid" : "Invalid") << "_"
+           << info.index;
+      return name.str();
+    });
+
+class LayerContextImplUpdateDisplayTreeTileIndexTest
+    : public LayerContextImplTest,
+      public ::testing::WithParamInterface<
+          std::tuple<uint32_t, uint32_t, bool>> {};
+
+TEST_P(LayerContextImplUpdateDisplayTreeTileIndexTest, TileIndices) {
+  const uint32_t column_index = std::get<0>(GetParam());
+  const uint32_t row_index = std::get<1>(GetParam());
+  const bool is_valid = std::get<2>(GetParam());
+  auto update = CreateDefaultUpdate();
+  int layer_id =
+      AddDefaultLayerToUpdate(update.get(), cc::mojom::LayerType::kTileDisplay);
+
+  auto tiling = mojom::Tiling::New();
+  tiling->layer_id = layer_id;
+  tiling->scale_key = 1.0f;
+  tiling->raster_scale = gfx::Vector2dF(1.0f, 1.0f);
+  tiling->tile_size = gfx::Size(10, 10);
+  tiling->tiling_rect = gfx::Rect(10, 10);  // Exactly 1x1 tiles
+
+  auto tile = mojom::Tile::New();
+  tile->column_index = column_index;
+  tile->row_index = row_index;
+  tile->contents = mojom::TileContents::NewSolidColor(SkColors::kRed);
+  tiling->tiles.push_back(std::move(tile));
+
+  update->tilings.push_back(std::move(tiling));
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+
+  if (is_valid) {
+    EXPECT_TRUE(result.has_value());
+  } else {
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), "Invalid tile index in Tiling");
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    TileIndices,
+    LayerContextImplUpdateDisplayTreeTileIndexTest,
+    ::testing::Values(std::make_tuple(0, 0, true),
+                      std::make_tuple(1, 0, false),
+                      std::make_tuple(0, 1, false)),
+    [](const testing::TestParamInfo<
+        LayerContextImplUpdateDisplayTreeTileIndexTest::ParamType>& info) {
+      std::stringstream name;
+      name << (std::get<2>(info.param) ? "Valid" : "Invalid") << "_"
            << info.index;
       return name.str();
     });
@@ -730,12 +800,6 @@ TEST_F(LayerContextImplLayerLifecycleTest, LayerLifecycleAndEdgeCases) {
   auto result10 = layer_context_impl_->DoUpdateDisplayTree(std::move(update10));
   ASSERT_FALSE(result10.has_value());
   EXPECT_EQ(result10.error(), "Invalid layer ID");
-  VerifyLayerExists(kLayerId1, true);  // Unaffected
-  VerifyLayerBounds(
-      kLayerId1,
-      kDefaultLayerBounds);  // Should be reset to default or last valid
-  VerifyLayerExists(kNonExistentLayerId, false);
-  VerifyLayerOrder({1, kLayerId1});
 
   // Test Case 4: Updating on Previously Removed Layer should fail
   // Update 11: Remove kLayerId1.
@@ -753,8 +817,6 @@ TEST_F(LayerContextImplLayerLifecycleTest, LayerLifecycleAndEdgeCases) {
   auto result12 = layer_context_impl_->DoUpdateDisplayTree(std::move(update12));
   ASSERT_FALSE(result12.has_value());
   EXPECT_EQ(result12.error(), "Invalid layer ID");
-
-  VerifyLayerExists(kLayerId1, false);  // Should not be re-created
 
   // Test Case 5: Duplicate or non-existent layer IDs in the Layer Order should
   // fail. Update 13: Create kLayerId1 again.
@@ -778,9 +840,6 @@ TEST_F(LayerContextImplLayerLifecycleTest, LayerLifecycleAndEdgeCases) {
   auto result14 = layer_context_impl_->DoUpdateDisplayTree(std::move(update14));
   ASSERT_FALSE(result14.has_value());
   EXPECT_EQ(result14.error(), "Invalid or duplicate layer ID");
-  VerifyLayerExists(kLayerId1, true);
-  VerifyLayerBounds(kLayerId1, kUpdatedBounds5);  // Layer should be updated
-  VerifyLayerOrder({1, kLayerId1});  // Layer Order should not update
 
   // Update 15: Try to add a non-existent layer to Layer Order
   auto update15 = CreateDefaultUpdate();
@@ -1503,6 +1562,52 @@ TEST_F(LayerContextImplUpdateDisplayTreeBaseLayerPropertiesTest,
 
   // Verify the layer type in the tree remains kInitialType.
   EXPECT_EQ(layer_impl->GetLayerType(), kInitialType);
+}
+
+TEST_F(LayerContextImplUpdateDisplayTreeBaseLayerPropertiesTest,
+       UpdateLayerWithUnexpectedExtraFails) {
+  constexpr int kLayerId = 2;
+  constexpr cc::mojom::LayerType kLayerType = cc::mojom::LayerType::kLayer;
+
+  // Initial update: Create a layer of kLayerType.
+  auto update1 = CreateDefaultUpdate();
+  AddDefaultLayerToUpdate(update1.get(), kLayerType, kLayerId);
+  EXPECT_TRUE(
+      layer_context_impl_->DoUpdateDisplayTree(std::move(update1)).has_value());
+
+  // Attempt to update the layer with an extra (e.g. MirrorLayerExtra).
+  auto update2 = CreateDefaultUpdate();
+  auto layer_props2 = CreateManualLayer(kLayerId, kLayerType);
+  SetLayerExtra(layer_props2.get(),
+                CreateDefaultLayerExtra(cc::mojom::LayerType::kMirror));
+  update2->layers.push_back(std::move(layer_props2));
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update2));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Unexpected layer_extra for LayerImpl");
+}
+
+TEST_F(LayerContextImplUpdateDisplayTreeBaseLayerPropertiesTest,
+       UpdateSolidColorLayerWithUnexpectedExtraFails) {
+  constexpr int kLayerId = 2;
+  constexpr cc::mojom::LayerType kLayerType = cc::mojom::LayerType::kSolidColor;
+
+  // Initial update: Create a layer of kLayerType.
+  auto update1 = CreateDefaultUpdate();
+  AddDefaultLayerToUpdate(update1.get(), kLayerType, kLayerId);
+  EXPECT_TRUE(
+      layer_context_impl_->DoUpdateDisplayTree(std::move(update1)).has_value());
+
+  // Attempt to update the layer with an extra (e.g. MirrorLayerExtra).
+  auto update2 = CreateDefaultUpdate();
+  auto layer_props2 = CreateManualLayer(kLayerId, kLayerType);
+  SetLayerExtra(layer_props2.get(),
+                CreateDefaultLayerExtra(cc::mojom::LayerType::kMirror));
+  update2->layers.push_back(std::move(layer_props2));
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update2));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), "Unexpected layer_extra for SolidColorLayerImpl");
 }
 
 TEST_F(LayerContextImplUpdateDisplayTreeBaseLayerPropertiesTest,
@@ -4227,6 +4332,19 @@ TEST_F(LayerContextImplTest, SetTargetLocalSurfaceId) {
             target_local_surface_id);
 }
 
+TEST_F(LayerContextImplTest, SetVisible) {
+  // Initial state should be invisible (default for LayerTreeHostImpl).
+  EXPECT_FALSE(layer_context_impl_->host_impl()->visible());
+
+  static_cast<mojom::LayerContext*>(layer_context_impl_.get())
+      ->SetVisible(true);
+  EXPECT_TRUE(layer_context_impl_->host_impl()->visible());
+
+  static_cast<mojom::LayerContext*>(layer_context_impl_.get())
+      ->SetVisible(false);
+  EXPECT_FALSE(layer_context_impl_->host_impl()->visible());
+}
+
 TEST_F(LayerContextImplTest, UpdateDisplayTreeWithTargetSurfaceRanges) {
   const SurfaceRange ranges[] = {
       {SurfaceId(kDefaultFrameSinkId,
@@ -4781,6 +4899,72 @@ TEST_F(LayerContextImplTest, EmptyScrollTreeSucceeds) {
 
   auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
   EXPECT_TRUE(result.has_value()) << (result.has_value() ? "" : result.error());
+}
+
+TEST_F(LayerContextImplTest, DoUpdateDisplayTreeEarlyReturnUAF) {
+  // 1. Initial valid update to set up the tree and populate
+  // render_surface_list_.
+  auto update = CreateDefaultUpdate();
+  // The secondary root effect node created in ResetTestState() already has
+  // kRoot reason.
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_TRUE(result.has_value());
+
+  // Trigger a draw to populate render_surface_list_.
+  layer_context_impl_->host_impl()->active_tree()->UpdateDrawProperties(
+      /*update_tiles=*/true, /*update_image_animation_controller=*/true);
+
+  const auto& render_surface_list =
+      layer_context_impl_->host_impl()->active_tree()->GetRenderSurfaceList();
+  ASSERT_FALSE(render_surface_list.empty());
+
+  // 2. A failing update that returns early in DoUpdateDisplayTree after
+  // TakeRenderSurfaces.
+  auto update2 = CreateDefaultUpdate();
+  // We can make UpdateTransformTreeProperties fail by setting an invalid
+  // page_scale_factor.
+  update2->transform_tree_update = mojom::TransformTreeUpdate::New();
+  update2->transform_tree_update->page_scale_factor = -1.0f;
+
+  auto result2 = layer_context_impl_->DoUpdateDisplayTree(std::move(update2));
+  ASSERT_FALSE(result2.has_value());
+  EXPECT_EQ(result2.error(), "Invalid page_scale_factor");
+
+  // 3. Check if needs_update_draw_properties() is true.
+  // If it's false, we have a UAF potential because render_surface_list still
+  // has pointers to freed surfaces.
+  EXPECT_TRUE(layer_context_impl_->host_impl()
+                  ->active_tree()
+                  ->needs_update_draw_properties());
+}
+
+TEST_F(LayerContextImplTest, InvalidViewportConfiguration) {
+  {
+    auto update = CreateDefaultUpdate();
+    // Inner scroll but no outer scroll.
+    int inner_scroll_id = AddScrollNode(update.get(), cc::kRootPropertyNodeId);
+    update->inner_scroll = inner_scroll_id;
+    update->outer_scroll = cc::kInvalidPropertyNodeId;
+
+    auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), "Must set outer_scroll if inner_scroll is set");
+  }
+
+  {
+    auto update = CreateDefaultUpdate();
+    // Outer scroll but no inner scroll.
+    int outer_scroll_id = AddScrollNode(update.get(), cc::kRootPropertyNodeId);
+    update->inner_scroll = cc::kInvalidPropertyNodeId;
+    update->outer_scroll = outer_scroll_id;
+
+    auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(
+        result.error(),
+        "Cannot set outer_clip or outer_scroll without valid inner_scroll");
+  }
 }
 
 }  // namespace

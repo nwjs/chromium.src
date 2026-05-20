@@ -67,6 +67,7 @@ chromium-metrics-reviews@google.com.
   <int value="46" label="ActionsBlockedByEnterprisePolicy"/>
   <int value="47" label="ActionsBlockedForScheme"/>
   <int value="48" label="ActionsBlockedOnErrorPage"/>
+  <int value="49" label="ActionBlockedByEnterpriseContentScan"/>
   <int value="100" label="NavigateInvalidUrl"/>
   <int value="101" label="NavigateFailedToStart"/>
   <int value="102" label="NavigateCommittedErrorPage"/>
@@ -118,6 +119,7 @@ chromium-metrics-reviews@google.com.
   <int value="917" label="LoginFederatedFrameNotActive"/>
   <int value="918" label="LoginFederatedExpectedAccountNotPresent"/>
   <int value="919" label="LoginFederatedTimeout"/>
+  <int value="920" label="LoginPasswordFillingPageChanged"/>
   <int value="1000" label="MediaControlNoMedia"/>
   <int value="1100" label="FormFillingAutofillUnavailable"/>
   <int value="1101" label="FormFillingNoSuggestionsAvailable"/>
@@ -139,7 +141,7 @@ chromium-metrics-reviews@google.com.
   <int value="1300" label="ActorUiError"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/common/actor.mojom:ActionResultCode) -->
+<!-- LINT.ThenChange(//components/actor/public/mojom/actor_types.mojom:ActionResultCode) -->
 
 <!-- LINT.IfChange(ActorEngineState) -->
 

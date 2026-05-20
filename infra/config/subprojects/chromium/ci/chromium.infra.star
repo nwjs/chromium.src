@@ -387,12 +387,6 @@ packager_builder(
                 "cipd_yaml": "third_party/android_sdk/cipd/system_images/android-36.0-CANARY/google_apis/x86_64.yaml",
                 "sdk_channel": "CANARY",
             },
-            # TODO(https://crbug.com/490498459): Remove when Android 17 is
-            # fully released.
-            {
-                "sdk_package_name": "system-images;android-CinnamonBun;google_apis_ps16k;x86_64",
-                "cipd_yaml": "third_party/android_sdk/cipd/system_images/android-CinnamonBun/google_apis_ps16k/x86_64.yaml",
-            },
         ],
     },
 )
@@ -408,41 +402,23 @@ ci.builder(
     notifies = ["chromium-android-device-flasher"],
     properties = {
         "flash_criteria": [
-            # Used by ci/Android Release (Nexus 5X)
+            # Used by ci/android-14-arm64-rel
             # This is mirrored by the CQ builder android-arm64-rel
             {
                 "pool": "chromium.tests",
-                "device_type": "bullhead",
-                "device_os": "N2G48C",
+                "device_type": "panther",
+                "device_os": "AP2A.240705.004",
                 "max_uid_threshold": 18000,
+                "min_disk_free_threshold": 10,
             },
-            {
-                "pool": "chromium.tests",
-                "device_type": "walleye",
-                "device_os": "OPM4.171019.021.P2",
-                "max_uid_threshold": 18000,
-            },
-            # Used by ci/android-pie-arm64-rel
+            # Used by ci/Android Release (Pixel 2)
             # This is mirrored by the CQ builder android-arm64-rel
-            {
-                "pool": "chromium.tests",
-                "device_type": "walleye",
-                "device_os": "PQ3A.190801.002",
-                "max_uid_threshold": 18000,
-            },
-            # Used by ci/android-pie-arm64-rel
-            # This is mirrored by the CQ builder android-arm64-rel
-            {
-                "pool": "chromium.tests",
-                "device_type": "sailfish",
-                "device_os": "PQ3A.190801.002",
-                "max_uid_threshold": 18000,
-            },
             {
                 "pool": "chromium.tests",
                 "device_type": "walleye",
                 "device_os": "QQ1A.191205.008",
                 "max_uid_threshold": 18000,
+                "min_disk_free_threshold": 10,
             },
             # Used by GPU team
             {
@@ -450,9 +426,33 @@ ci.builder(
                 "device_type": "oriole",
                 "device_os": "TP1A.220624.021",
                 "max_uid_threshold": 18000,
+                "min_disk_free_threshold": 10,
             },
         ],
     },
+)
+
+packager_builder(
+    name = "rts-model-packager",
+    description_html = "Builds and packages the Regression Test Selection (RTS) model daily.",
+    executable = "recipe:chromium_rts/create_model",
+    schedule = "0 9 * * *",  # at 1AM or 2AM PT (depending on DST), once a day.
+    triggered_by = [],
+    builderless = False,
+    cores = None,
+    console_view_entry = consoles.console_view_entry(
+        category = "packager|rts",
+        short_name = "create-model",
+    ),
+    contact_team_email = "chrome-test-infra-mx@google.com",
+    execution_timeout = 10 * time.hour,
+    notifies = [
+        luci.notifier(
+            name = "rts-model-packager-notifier",
+            notify_emails = ["chrome-test-infra-mx+alerts@google.com"],
+            on_occurrence = ["FAILURE", "INFRA_FAILURE"],
+        ),
+    ],
 )
 
 ci.builder(

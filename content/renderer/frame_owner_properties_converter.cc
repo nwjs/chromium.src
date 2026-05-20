@@ -11,10 +11,10 @@ TypeConverter<blink::WebFrameOwnerProperties,
               blink::mojom::FrameOwnerProperties>::
     Convert(const blink::mojom::FrameOwnerProperties& mojo_properties) {
   blink::WebFrameOwnerProperties result;
-  result.name = blink::WebString::FromUTF8(mojo_properties.name);
+  result.name = blink::WebString::FromUtf8(mojo_properties.name);
   result.scrollbar_mode = mojo_properties.scrollbar_mode;
   result.nwFakeTop = mojo_properties.nwfaketop;
-  result.nwuseragent = blink::WebString::FromUTF8(mojo_properties.nwuseragent);
+  result.nwuseragent = blink::WebString::FromUtf8(mojo_properties.nwuseragent);
   result.margin_width = mojo_properties.margin_width;
   result.margin_height = mojo_properties.margin_height;
   result.allow_fullscreen = mojo_properties.allow_fullscreen;

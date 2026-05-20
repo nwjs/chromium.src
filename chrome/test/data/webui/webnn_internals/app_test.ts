@@ -20,6 +20,15 @@ suite('WebnnInternalsUITest', function() {
   setup(function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     testProxy = new TestWebnnInternalsBrowserProxy();
+    testProxy.handler.setResultFor(
+        'requestExistingContextsDetails', Promise.resolve({
+          contextsInfo: [],
+        }));
+    // <if expr="webnn_enable_graph_dump">
+    testProxy.handler.setResultFor('isGraphRecording', Promise.resolve({
+      enabled: false,
+    }));
+    // </if>
     BrowserProxy.setInstance(testProxy);
     app = document.createElement('webnn-internals-app');
     document.body.appendChild(app);
@@ -43,8 +52,8 @@ suite('WebnnInternalsUITest', function() {
   test('ShowActiveContexts', async function() {
     // Simulate the browser sending two active contexts.
     testProxy.page.onUpdateExistingContextDetails([
-      {contextId: 1, contextBackend: 'Test Backend'},
-      {contextId: 2, contextBackend: 'Test Backend 2'},
+      {contextId: 1, contextBackend: 'Test Backend', executionProviders: []},
+      {contextId: 2, contextBackend: 'Test Backend 2', executionProviders: []},
     ]);
     await microtasksFinished();
     const gridContainer =
@@ -78,4 +87,25 @@ suite('WebnnInternalsUITest', function() {
         contextsTab.shadowRoot.querySelector<HTMLElement>('.no-context');
     assertTrue(!!noContextText);
   });
+
+  // <if expr="not webnn_enable_graph_dump">
+  test('GraphRecordingNotSupported', function() {
+    const graphDumpNoSupportedLabel = app.shadowRoot.querySelector('.text');
+    assertTrue(!!graphDumpNoSupportedLabel);
+  });
+  // </if>
+
+  // <if expr="webnn_enable_graph_dump">
+  test('TestGraphRecording', async function() {
+    const graphTab = app.shadowRoot.querySelector('webnn-internals-graph-dump');
+    assertTrue(!!graphTab);
+    const toggle = graphTab.shadowRoot.querySelector('cr-toggle');
+    assertTrue(!!toggle);
+    assertFalse(toggle.checked);
+
+    testProxy.page.onGraphRecordEnabledChanged(true);
+    await microtasksFinished();
+    assertTrue(toggle.checked);
+  });
+  // </if>
 });

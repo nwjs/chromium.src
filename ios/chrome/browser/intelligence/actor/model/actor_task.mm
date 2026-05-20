@@ -4,28 +4,115 @@
 
 #import "ios/chrome/browser/intelligence/actor/model/actor_task.h"
 
+#import <algorithm>
+
+#import "base/functional/bind.h"
+#import "base/stl_util.h"
+#import "base/strings/string_number_conversions.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_engine.h"
+#import "ios/chrome/browser/intelligence/actor/model/aggregated_journal.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool.h"
 #import "ios/web/public/web_state.h"
 
 namespace actor {
 
+namespace {
+
+// Returns the string representation of the ActorTaskState.
+std::string ActorTaskStateToString(ActorTaskState state) {
+  switch (state) {
+    case ActorTaskState::kInit:
+      return "Init";
+    case ActorTaskState::kActing:
+      return "Acting";
+    case ActorTaskState::kReflecting:
+      return "Reflecting";
+    case ActorTaskState::kPausedByActor:
+      return "PausedByActor";
+    case ActorTaskState::kPausedByUser:
+      return "PausedByUser";
+    case ActorTaskState::kCancelled:
+      return "Cancelled";
+    case ActorTaskState::kFinished:
+      return "Finished";
+    case ActorTaskState::kWaitingOnUser:
+      return "WaitingOnUser";
+    case ActorTaskState::kFailed:
+      return "Failed";
+  }
+}
+
+// Logs a task state transition to the journal.
+void LogTaskStateTransition(AggregatedJournal* journal,
+                            ActorTaskId task_id,
+                            ActorTaskState old_state,
+                            ActorTaskState new_state) {
+  CHECK(journal);
+
+  std::vector<JournalDetails> details = {
+      {"current_state", ActorTaskStateToString(old_state)},
+      {"new_state", ActorTaskStateToString(new_state)}};
+
+  journal->Log(GURL(), task_id, "ActorTask::SetState", std::move(details));
+}
+
+}  // namespace
+
 ActorTask::ActorTask(ActorTaskId task_id,
                      const std::string& title,
-                     id<ActorTaskUIDelegate> delegate)
-    : task_id_(task_id), title_(title), delegate_(delegate) {
-  engine_ = std::make_unique<ActorEngine>();
+                     bool allow_incognito_web_states,
+                     AggregatedJournal* journal)
+    : task_id_(task_id),
+      title_(title),
+      allow_incognito_web_states_(allow_incognito_web_states),
+      journal_(journal) {
+  // TODO(crbug.com/504704411): Allow incognito WebStates.
+  CHECK(!allow_incognito_web_states_);
+
+  engine_ = std::make_unique<ActorEngine>(task_id_, journal_);
 }
 
 ActorTask::~ActorTask() = default;
 
-ActorTask::State ActorTask::GetState() const {
+ActorTaskState ActorTask::GetState() const {
   return state_;
 }
 
-void ActorTask::ExecuteTools(std::vector<std::unique_ptr<ActorTool>> tools,
-                             const std::string& task_update) {
-  // TODO(crbug.com/496164697): Implement and test.
+void ActorTask::Act(std::vector<std::unique_ptr<ActorTool>> actions,
+                    const std::string& task_update,
+                    ActCallback callback) {
+  // TODO(crbug.com/503054406): Check for invalid states.
+  SetState(ActorTaskState::kActing);
+  AddControlledWebStates(actions);
+  engine_->Act(
+      std::move(actions),
+      base::BindOnce(&ActorTask::OnActCompleted, weak_ptr_factory_.GetWeakPtr(),
+                     std::move(callback)));
+}
+
+void ActorTask::AddControlledWebStates(
+    const std::vector<std::unique_ptr<ActorTool>>& actions) {
+  for (const auto& action : actions) {
+    if (!action) {
+      continue;
+    }
+
+    base::WeakPtr<web::WebState> web_state = action->GetTargetWebState();
+    if (!web_state) {
+      continue;
+    }
+
+    if (!std::ranges::contains(controlled_web_states_, web_state.get(),
+                               &base::WeakPtr<web::WebState>::get)) {
+      controlled_web_states_.push_back(web_state);
+    }
+  }
+}
+
+void ActorTask::OnActCompleted(ActCallback callback,
+                               std::vector<ActionResult> results) {
+  // TODO(crbug.com/503054406): Check for tool errors.
+  std::move(callback).Run(std::move(results));
 }
 
 void ActorTask::Stop(ActorTaskStoppedReason stop_reason) {
@@ -53,6 +140,20 @@ bool ActorTask::IsControllingWebState(web::WebState* web_state) const {
     }
   }
   return false;
+}
+
+const std::vector<base::WeakPtr<web::WebState>>&
+ActorTask::controlled_web_states() const {
+  return controlled_web_states_;
+}
+
+bool ActorTask::allow_incognito_web_states() const {
+  return allow_incognito_web_states_;
+}
+
+void ActorTask::SetState(ActorTaskState new_state) {
+  LogTaskStateTransition(journal_, task_id_, state_, new_state);
+  state_ = new_state;
 }
 
 }  // namespace actor

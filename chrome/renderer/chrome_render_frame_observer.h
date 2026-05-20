@@ -16,6 +16,7 @@
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "chrome/renderer/actor/tool_executor.h"
+#include "components/page_content_annotations/content/mojom/page_stability.mojom.h"
 #include "components/safe_browsing/buildflags.h"
 #include "content/public/renderer/render_frame_observer.h"
 #include "mojo/public/cpp/bindings/associated_receiver_set.h"
@@ -27,7 +28,6 @@ class SkBitmap;
 
 namespace actor {
 class Journal;
-class PageStabilityMonitor;
 }  // namespace actor
 
 namespace gfx {
@@ -36,6 +36,10 @@ class Size;
 
 namespace optimization_guide {
 class PageTextAgent;
+}
+
+namespace page_content_annotations {
+class PageStabilityMonitor;
 }
 
 namespace safe_browsing {
@@ -146,7 +150,8 @@ class ChromeRenderFrameObserver : public content::RenderFrameObserver,
   // `supports_paint_stability` indicates whether to include paint stability in
   // page stability heuristics.
   void CreatePageStabilityMonitor(
-      mojo::PendingReceiver<actor::mojom::PageStabilityMonitor> monitor,
+      mojo::PendingReceiver<
+          page_content_annotations::mojom::PageStabilityMonitor> monitor,
       const actor::TaskId& task_id,
       bool supports_paint_stability) override;
 
@@ -209,7 +214,8 @@ class ChromeRenderFrameObserver : public content::RenderFrameObserver,
 #endif
 
   std::unique_ptr<actor::ToolExecutor> tool_executor_;
-  std::unique_ptr<actor::PageStabilityMonitor> page_stability_monitor_;
+  std::unique_ptr<page_content_annotations::PageStabilityMonitor>
+      page_stability_monitor_;
 
   mojo::AssociatedReceiverSet<chrome::mojom::ChromeRenderFrame> receivers_;
 

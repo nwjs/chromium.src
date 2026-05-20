@@ -31,13 +31,13 @@ import org.chromium.base.test.transit.Element;
 import org.chromium.base.test.transit.Facility;
 import org.chromium.base.test.transit.ViewElement;
 import org.chromium.base.test.transit.ViewSpec;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabGroupColorUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeActivityTabModelBoundStation;
 import org.chromium.chrome.test.transit.SoftKeyboardFacility;
 import org.chromium.chrome.test.transit.tabmodel.TabGroupCreatedCondition;
@@ -94,6 +94,7 @@ public class NewTabGroupDialogFacility<
     }
 
     @Override
+    @SuppressWarnings("unchecked") // Generic array creation for parameterized ViewElement[].
     public void declareExtraElements() {
         // Handles the case for when a new tab group is created on showing this dialog.
         if (mTabIdsToGroup == null) {

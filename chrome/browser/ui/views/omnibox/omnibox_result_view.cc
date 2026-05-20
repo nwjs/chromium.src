@@ -480,7 +480,7 @@ void OmniboxResultView::ApplyThemeAndRefreshIcons(bool force_reapply_styles) {
   }
 
   // We must reapply colors for all the text fields here. If we don't, we can
-  // break theme changes for ZeroSuggest. See https://crbug.com/1095205.
+  // break theme changes for ZeroSuggest. See https://crbug.com/40135721.
   //
   // TODO(crbug.com/430318151): We should finish migrating this logic to live
   // entirely within OmniboxTextView, which should keep track of its own
@@ -527,20 +527,6 @@ void OmniboxResultView::OnSelectionStateChanged() {
   UpdateRemoveSuggestionVisibility();
   UpdateAccessibleName();
   UpdateAccessibilitySelectedState();
-  if (GetMatchSelected()) {
-    const auto selection_state = popup_view_->GetSelection().state;
-
-    // The text is also accessible via text/value change events in the omnibox
-    // but this selection event allows the screen reader to get more details
-    // about the list and the user's position within it.
-    // Limit which selection states fire the events, in order to avoid duplicate
-    // events. Specifically, OmniboxPopupViewViews::ProvideButtonFocusHint()
-    // already fires the correct events when the user tabs to an attached button
-    // in the current row.
-    if (selection_state == OmniboxPopupSelection::NORMAL) {
-      popup_view_->FireAXEventsForNewActiveDescendant(this);
-    }
-  }
   ApplyThemeAndRefreshIcons();
   button_row_->SelectionStateChanged();
 }

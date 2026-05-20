@@ -7,7 +7,6 @@
 
 #import "base/ios/ios_util.h"
 #import "components/bookmarks/common/bookmark_features.h"
-#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_pref_names.h"
 #import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
 #import "ios/chrome/browser/authentication/test/signin_earl_grey_ui_test_util.h"
@@ -108,11 +107,12 @@ using chrome_test_util::PrimarySignInButton;
 // Tests that signin promo is shown even if local data exists.
 - (void)testSignInPromoWhenSyncDataNotRemovedIfBatchUploadEnabled {
   // Simulate data from a previous account being leftover by setting
-  // kGoogleServicesLastSyncingGaiaId.
+  // kGoogleServicesSyncingGaiaIdMigratedToSignedIn.
   FakeSystemIdentity* fakeIdentity1 = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity1];
-  [ChromeEarlGrey setStringValue:fakeIdentity1.gaiaId.ToNSString()
-                     forUserPref:prefs::kGoogleServicesLastSyncingGaiaId];
+  [ChromeEarlGrey
+      setStringValue:fakeIdentity1.gaiaId.ToNSString()
+         forUserPref:prefs::kGoogleServicesSyncingGaiaIdMigratedToSignedIn];
 
   [BookmarkEarlGrey
       setupStandardBookmarksInStorage:BookmarkStorageType::kLocalOrSyncable];

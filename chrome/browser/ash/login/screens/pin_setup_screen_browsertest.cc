@@ -395,6 +395,16 @@ class PinSetupScreenTest : public OobeBaseTest {
     EXPECT_EQ(GetScreen()->get_skip_reason_for_testing().value(), reason);
   }
 
+  void SetSAMLAuthFlow() {
+    auto* wizard_context =
+        LoginDisplayHost::default_host()->GetWizardContextForTesting();
+    auto user_context = ash::AuthSessionStorage::Get()->BorrowForTests(
+        FROM_HERE, *wizard_context->extra_factors_token);
+    user_context->SetAuthFlow(UserContext::AUTH_FLOW_GAIA_WITH_SAML);
+    wizard_context->extra_factors_token =
+        ash::AuthSessionStorage::Get()->Store(std::move(user_context));
+  }
+
  protected:
   // Whether to login as a regular user, or as an enterprise user.
   bool login_as_enterprise_ = false;
@@ -590,7 +600,17 @@ IN_PROC_BROWSER_TEST_F(PinSetupScreenTestWithoutLoginSupport,
 
 class PinSetupScreenTestEnterprise : public PinSetupScreenTest {
  public:
-  PinSetupScreenTestEnterprise() { login_as_enterprise_ = true; }
+  PinSetupScreenTestEnterprise(
+      const std::vector<base::test::FeatureRef>& enabled_features,
+      const std::vector<base::test::FeatureRef>& disabled_features)
+      : scoped_feature_list_() {
+    login_as_enterprise_ = true;
+    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
+  }
+  PinSetupScreenTestEnterprise()
+      : PinSetupScreenTestEnterprise(
+            /*enabled_features*/ {},
+            /*disabled_features*/ {features::kManagedLocalPinAndPassword}) {}
   ~PinSetupScreenTestEnterprise() override = default;
 
   // Set PINs as allowed for unlock.
@@ -598,6 +618,9 @@ class PinSetupScreenTestEnterprise : public PinSetupScreenTest {
     PinSetupScreenTest::SetUpOnMainThread();
     SetAllowPinUnlockPolicyForEnterpriseUsers();
   }
+
+ protected:
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Tests that the screen is not shown as a main factor for enterprise users even
@@ -698,13 +721,12 @@ IN_PROC_BROWSER_TEST_F(PinSetupScreenTestWithoutLoginSupportPasswordlessSignin,
 class PinSetupScreenTestWithManagedLocalPinAndPasswordEnabled
     : public PinSetupScreenTestEnterprise {
  public:
-  PinSetupScreenTestWithManagedLocalPinAndPasswordEnabled() = default;
+  PinSetupScreenTestWithManagedLocalPinAndPasswordEnabled()
+      : PinSetupScreenTestEnterprise(
+            /*enabled_features*/ {features::kManagedLocalPinAndPassword},
+            /*disabled_features*/ {}) {}
 
   ~PinSetupScreenTestWithManagedLocalPinAndPasswordEnabled() override = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      features::kManagedLocalPinAndPassword};
 };
 
 IN_PROC_BROWSER_TEST_F(PinSetupScreenTestWithManagedLocalPinAndPasswordEnabled,
@@ -799,6 +821,36 @@ IN_PROC_BROWSER_TEST_F(
   WaitForFingerprintScreenExit();
   ExpectFingerprintScreenExitedAndContinue();
   CheckCredentialsWereCleared();
+}
+
+IN_PROC_BROWSER_TEST_F(PinSetupScreenTestWithManagedLocalPinAndPasswordEnabled,
+                       SAMLSkipButtonHiddenWhenLocalPasswordNotAllowed) {
+  // Policy allows PIN but NOT Local Password.
+  SetPinAsAllowedLocalAuthFactorForEnterpriseUsers();
+
+  LoginAndWaitForCryptohomeSetupScreenExit();
+  SetSAMLAuthFlow();
+  CryptohomeRecoverySetupContinue();
+  WaitForScreenShown();
+
+  // Skip button should be disabled for SAML users when local password is NOT
+  // allowed.
+  test::OobeJS().ExpectDisabledPath(kSkipButton);
+}
+
+IN_PROC_BROWSER_TEST_F(PinSetupScreenTestWithManagedLocalPinAndPasswordEnabled,
+                       SAMLSkipButtonVisibleWhenLocalPasswordAndPinAllowed) {
+  // Policy allows PIN and Local Password.
+  SetPinAndLocalPasswordAsAllowedAuthFactorsForEnterpriseUsers();
+
+  LoginAndWaitForCryptohomeSetupScreenExit();
+  SetSAMLAuthFlow();
+  CryptohomeRecoverySetupContinue();
+  WaitForScreenShown();
+
+  // Skip button should be enabled for SAML users when local password is
+  // allowed.
+  test::OobeJS().ExpectEnabledPath(kSkipButton);
 }
 
 // Test fixture for PIN complexity policies during OOBE setup.

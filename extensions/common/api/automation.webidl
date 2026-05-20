@@ -128,6 +128,8 @@ enum EventType {
   "tooltipClosed",
   "tooltipOpened",
   "treeChanged",
+  "valueInSpinButtonDecremented",
+  "valueInSpinButtonIncremented",
   "valueInTextFieldChanged",
   // Deprecated.
   "valueChanged",
@@ -409,6 +411,7 @@ enum ActionType {
   "internalInvalidateTree",
   "loadInlineTextBoxes",
   "longClick",
+  "replaceRanges",
   "replaceSelectedText",
   "requestLayoutBasedAction",
   "resumeMedia",
@@ -569,7 +572,9 @@ enum IntentCommandType {
   "insert",
   "marker",
   "moveSelection",
-  "setSelection"
+  "setSelection",
+  "spinButtonIncrement",
+  "spinButtonDecrement"
 };
 
 // The type of an input event associated with an

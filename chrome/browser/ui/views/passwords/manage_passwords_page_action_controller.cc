@@ -8,10 +8,10 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
+#include "chrome/browser/ui/page_actions/page_action_controller.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/page_action/page_action_controller.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view_base.h"
 #include "chrome/browser/ui/views/passwords/password_bubble_view_base.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -91,9 +91,7 @@ ManagePasswordsPageActionController::GetManagePasswordsTooltipText(
 
 ManagePasswordsPageActionController::ManagePasswordsPageActionController(
     page_actions::PageActionController& page_action_controller)
-    : page_action_controller_(page_action_controller) {
-  CHECK(IsPageActionMigrated(PageActionIconType::kManagePasswords));
-}
+    : page_action_controller_(page_action_controller) {}
 
 ManagePasswordsPageActionController::~ManagePasswordsPageActionController() =
     default;

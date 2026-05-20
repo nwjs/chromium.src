@@ -52,6 +52,7 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
+  void ScheduleWebMCPSchemaUpdate();
   enum RelAttribute {
     kNone = 0,
     kNoReferrer = 1 << 0,
@@ -95,8 +96,10 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
   void Disassociate(HTMLImageElement&);
   void DidAssociateByParser();
 
-  void PrepareForSubmission(const Event*,
-                            HTMLFormControlElement* submit_button);
+  // For native form controls, pass the submit button as submitter. For custom
+  // elements with `HTMLSubmitButtonBehavior`, pass the custom element as
+  // submitter.
+  void PrepareForSubmission(const Event* event, Element* submitter);
   void submitFromJavaScript();
   void requestSubmit(ExceptionState& exception_state);
   void requestSubmit(HTMLElement* submitter, ExceptionState& exception_state);
@@ -117,7 +120,9 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
 
   // Find the 'default button.'
   // https://html.spec.whatwg.org/C/#default-button
-  HTMLFormControlElement* FindDefaultButton() const;
+  // Returns either an HTMLFormControlElement or a custom element with
+  // HTMLSubmitButtonBehavior.
+  Element* FindDefaultButton() const;
 
   bool checkValidity();
   bool reportValidity();
@@ -159,7 +164,9 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
   // 'construct the entry list'
   // https://html.spec.whatwg.org/C/#constructing-the-form-data-set
   // Returns nullptr if this form is already running this function.
-  FormData* ConstructEntryList(HTMLFormControlElement* submit_button,
+  // |submitter| may be an HTMLFormControlElement (native submit button) or a
+  // custom element with HTMLSubmitButtonBehavior.
+  FormData* ConstructEntryList(Element* submitter,
                                const TextEncoding& encoding);
 
   void InvalidateListedElementsForAutofill();
@@ -168,6 +175,8 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
 
   bool IsActiveToolSubmitButton(const HTMLFormControlElement* element) const;
   bool MatchesToolFormActivePseudoClass() const;
+
+  std::optional<base::UnguessableToken> GetActiveWebMCPToolInvocationId() const;
 
  private:
   friend class HTMLFormMcpToolTest;
@@ -188,8 +197,7 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
   }
 
   void SubmitDialog(FormSubmission*);
-  void ScheduleFormSubmission(const Event*,
-                              HTMLFormControlElement* submit_button);
+  void ScheduleFormSubmission(const Event*, Element* submitter);
 
   void CollectListedElementsForReferenceTarget(
       const Node& root,
@@ -230,6 +238,8 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
 
   bool IsValidWebMCPForm() const;
   void UpdateMcpDefinitionsIfNeeded();
+  void ReportInvalidMCPFormIssueIfNeeded(const String& name,
+                                         const String& description);
 
   using PastNamesMap = GCedHeapHashMap<AtomicString, Member<Element>>;
 
@@ -268,6 +278,7 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
     String ComputeInputSchema() override;
     Element* FormElement() const override { return form_; }
     void ExecuteTool(
+        const base::UnguessableToken& invocation_id,
         String input_arguments,
         base::OnceCallback<void(McpToolCallbackResult)> done_callback) override;
     // Fill form controls with data as provided by `input_arguments`.
@@ -282,6 +293,9 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
     String ToolName() const { return tool_name_; }
     String ToolDescription() const { return tool_description_; }
     bool IsValidTool() const { return !tool_name_.IsNull(); }
+    std::optional<base::UnguessableToken> InvocationId() const {
+      return invocation_id_;
+    }
     bool CurrentlyRunning() const {
       return IsValidTool() && is_currently_running_;
     }
@@ -290,15 +304,23 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
       return active_submit_button_;
     }
     void CallDoneCallback(McpToolCallbackResult result);
+    bool IsHandlingSubmit() const { return is_handling_submit_; }
+    void SetIsHandlingSubmit(bool is_handling_submit) {
+      is_handling_submit_ = is_handling_submit;
+    }
     void Trace(Visitor* visitor) const override;
 
    private:
+    friend class HTMLFormElement;
+
     bool is_currently_running_ = false;
+    bool is_handling_submit_ = false;
     String tool_name_;
     String tool_description_;
     Member<HTMLFormElement> form_;
     Member<HTMLFormControlElement> active_submit_button_;
     base::OnceCallback<void(McpToolCallbackResult)> done_callback_;
+    std::optional<base::UnguessableToken> invocation_id_;
   };
 
   void HandleWebMcpToolResponse(HTMLFormMcpTool* tool,

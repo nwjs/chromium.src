@@ -11,6 +11,9 @@
 #include "gpu/command_buffer/client/test_shared_image_interface.h"
 #include "gpu/command_buffer/common/shared_image_capabilities.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
+#include "gpu/ipc/common/exported_shared_image.mojom.h"
+#include "gpu/ipc/common/exported_shared_image_mojom_traits.h"
+#include "mojo/public/cpp/test_support/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/gpu_fence.h"
 
@@ -18,16 +21,29 @@ namespace gpu {
 
 namespace {
 
+const gfx::Size kSize(256, 256);
 constexpr viz::SharedImageFormat kMultiPlaneFormatsWithHardwareGMBs[4] = {
     viz::MultiPlaneFormat::kYV12, viz::MultiPlaneFormat::kNV12,
     viz::MultiPlaneFormat::kNV12A, viz::MultiPlaneFormat::kP010};
+
+SharedImageInfo CreateSharedImageInfo(
+    viz::SharedImageFormat format = viz::SinglePlaneFormat::kRGBA_8888,
+    SharedImageUsageSet usage = SHARED_IMAGE_USAGE_RASTER_WRITE |
+                                SHARED_IMAGE_USAGE_DISPLAY_READ) {
+  return SharedImageInfo{format,
+                         kSize,
+                         gfx::ColorSpace(),
+                         kTopLeft_GrSurfaceOrigin,
+                         kOpaque_SkAlphaType,
+                         usage,
+                         "ClientSharedImageTest"};
+}
 
 }  // namespace
 
 TEST(ClientSharedImageTest, ImportUnowned) {
   auto mailbox = Mailbox::Generate();
   const auto kFormat = viz::SinglePlaneFormat::kRGBA_8888;
-  const gfx::Size kSize(256, 256);
   const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
   SharedImageMetadata metadata{kFormat,
@@ -51,22 +67,105 @@ TEST(ClientSharedImageTest, ImportUnowned) {
   EXPECT_FALSE(client_si->HasHolder());
 }
 
+TEST(ClientSharedImageTest,
+     ExportedSharedImageMojoDeserialization_TextureTargetZero) {
+  auto mailbox = Mailbox::Generate();
+  const auto kFormat = viz::SinglePlaneFormat::kRGBA_8888;
+  const SharedImageUsageSet kUsage =
+      SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
+  SharedImageMetadata metadata{kFormat,
+                               kSize,
+                               gfx::ColorSpace(),
+                               kTopLeft_GrSurfaceOrigin,
+                               kOpaque_SkAlphaType,
+                               kUsage};
+
+  ExportedSharedImage exported_si(
+      mailbox, metadata, SyncToken(), "ClientSharedImageTest", std::nullopt,
+      std::nullopt, /*texture_target=*/0, /*is_software=*/false);
+
+  ExportedSharedImage deserialized_si;
+  bool success =
+      mojo::test::SerializeAndDeserialize<gpu::mojom::ExportedSharedImage>(
+          exported_si, deserialized_si);
+
+#if BUILDFLAG(IS_FUCHSIA)
+  EXPECT_TRUE(success);
+  EXPECT_EQ(deserialized_si.texture_target_, 0u);
+#else
+  EXPECT_FALSE(success);
+#endif
+}
+
+TEST(ClientSharedImageTest,
+     ExportedSharedImageMojoDeserialization_EmptyBuffer) {
+  auto mailbox = Mailbox::Generate();
+  const auto kFormat = viz::SinglePlaneFormat::kRGBA_8888;
+  const SharedImageUsageSet kUsage =
+      SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
+  SharedImageMetadata metadata{kFormat,
+                               kSize,
+                               gfx::ColorSpace(),
+                               kTopLeft_GrSurfaceOrigin,
+                               kOpaque_SkAlphaType,
+                               kUsage};
+
+  gfx::GpuMemoryBufferHandle empty_handle;
+  empty_handle.type = gfx::EMPTY_BUFFER;
+
+  ExportedSharedImage exported_si(
+      mailbox, metadata, SyncToken(), "ClientSharedImageTest",
+      std::move(empty_handle), gfx::BufferUsage::GPU_READ,
+      /*texture_target=*/GL_TEXTURE_2D, /*is_software=*/false);
+
+  ExportedSharedImage deserialized_si;
+  bool success =
+      mojo::test::SerializeAndDeserialize<gpu::mojom::ExportedSharedImage>(
+          exported_si, deserialized_si);
+
+  EXPECT_FALSE(success);
+}
+
+TEST(ClientSharedImageTest, CreateMappableBufferFromHandle_EmptyBuffer) {
+  auto sii = base::MakeRefCounted<TestSharedImageInterface>();
+
+  const auto kFormat = viz::SinglePlaneFormat::kRGBA_8888;
+  const SharedImageUsageSet kUsage =
+      SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
+  SharedImageMetadata metadata{kFormat,
+                               kSize,
+                               gfx::ColorSpace(),
+                               kTopLeft_GrSurfaceOrigin,
+                               kOpaque_SkAlphaType,
+                               kUsage};
+
+  gfx::GpuMemoryBufferHandle empty_handle;
+  empty_handle.type = gfx::EMPTY_BUFFER;
+
+  GpuMemoryBufferHandleInfo handle_info(std::move(empty_handle),
+                                        gfx::BufferUsage::GPU_READ);
+
+  // Creating a ClientSharedImage with an EMPTY_BUFFER handle should not crash.
+  // The handle will be passed to CreateMappableBufferFromHandle which will
+  // return nullptr, and the CHECK(mappable_buffer_) will fail, so we expect a
+  // crash in death tests if we were to proceed, but since it's a CHECK, we can
+  // test it with EXPECT_DEATH_IF_SUPPORTED.
+  EXPECT_DEATH_IF_SUPPORTED(
+      base::MakeRefCounted<ClientSharedImage>(
+          Mailbox::Generate(), SharedImageInfo{metadata, "TestLabel"},
+          SyncToken(), std::move(handle_info),
+          base::MakeRefCounted<SharedImageInterfaceHolder>(sii.get())),
+      "");
+}
+
 TEST(ClientSharedImageTest, CreateViaSharedImageInterface) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
 
   const auto kFormat = viz::SinglePlaneFormat::kRGBA_8888;
-  const gfx::Size kSize(256, 256);
   const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
-  SharedImageInfo si_info{kFormat,
-                          kSize,
-                          gfx::ColorSpace(),
-                          kTopLeft_GrSurfaceOrigin,
-                          kOpaque_SkAlphaType,
-                          kUsage,
-                          ""};
-
-  auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
+  auto client_si =
+      sii->CreateSharedImage(CreateSharedImageInfo(), kNullSurfaceHandle);
 
   EXPECT_TRUE(client_si->HasHolder());
   EXPECT_FALSE(client_si->mailbox().IsZero());
@@ -86,19 +185,8 @@ TEST(ClientSharedImageTest, CreateViaSharedImageInterface) {
 TEST(ClientSharedImageTest, BackingWasExternallyUpdatedForwardsToSII) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
 
-  const auto kFormat = viz::SinglePlaneFormat::kRGBA_8888;
-  const gfx::Size kSize(256, 256);
-  const SharedImageUsageSet kUsage =
-      SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
-  SharedImageInfo si_info{kFormat,
-                          kSize,
-                          gfx::ColorSpace(),
-                          kTopLeft_GrSurfaceOrigin,
-                          kOpaque_SkAlphaType,
-                          kUsage,
-                          ""};
-
-  auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
+  auto client_si =
+      sii->CreateSharedImage(CreateSharedImageInfo(), kNullSurfaceHandle);
 
   ASSERT_EQ(0u, sii->num_update_shared_image_no_fence_calls());
   client_si->BackingWasExternallyUpdated(gpu::SyncToken());
@@ -111,19 +199,8 @@ TEST(ClientSharedImageTest, BackingWasExternallyUpdatedForwardsToSII) {
 TEST(ClientSharedImageTest, BackingWasExternallyUpdatedAfterLossOfSII) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
 
-  const auto kFormat = viz::SinglePlaneFormat::kRGBA_8888;
-  const gfx::Size kSize(256, 256);
-  const SharedImageUsageSet kUsage =
-      SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
-  SharedImageInfo si_info{kFormat,
-                          kSize,
-                          gfx::ColorSpace(),
-                          kTopLeft_GrSurfaceOrigin,
-                          kOpaque_SkAlphaType,
-                          kUsage,
-                          ""};
-
-  auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
+  auto client_si =
+      sii->CreateSharedImage(CreateSharedImageInfo(), kNullSurfaceHandle);
 
   sii.reset();
   client_si->BackingWasExternallyUpdated(gpu::SyncToken());
@@ -133,18 +210,11 @@ TEST(ClientSharedImageTest, ExportAndImport) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
 
   const auto kFormat = viz::SinglePlaneFormat::kRGBA_8888;
-  const gfx::Size kSize(256, 256);
   const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
-  SharedImageInfo si_info{kFormat,
-                          kSize,
-                          gfx::ColorSpace(),
-                          kTopLeft_GrSurfaceOrigin,
-                          kOpaque_SkAlphaType,
-                          kUsage,
-                          ""};
 
-  auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
+  auto client_si =
+      sii->CreateSharedImage(CreateSharedImageInfo(), kNullSurfaceHandle);
   auto exported_si = client_si->Export();
   auto imported_client_si =
       ClientSharedImage::ImportUnowned(std::move(exported_si));
@@ -161,18 +231,11 @@ TEST(ClientSharedImageTest, MakeUnowned) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
 
   const auto kFormat = viz::SinglePlaneFormat::kRGBA_8888;
-  const gfx::Size kSize(256, 256);
   const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
-  SharedImageInfo si_info{kFormat,
-                          kSize,
-                          gfx::ColorSpace(),
-                          kTopLeft_GrSurfaceOrigin,
-                          kOpaque_SkAlphaType,
-                          kUsage,
-                          ""};
 
-  auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
+  auto client_si =
+      sii->CreateSharedImage(CreateSharedImageInfo(), kNullSurfaceHandle);
   auto unowned_si = client_si->MakeUnowned();
 
   EXPECT_EQ(unowned_si->mailbox(), client_si->mailbox());
@@ -189,20 +252,12 @@ TEST(ClientSharedImageTest, MakeUnowned) {
 TEST(ClientSharedImageTest,
      GetTextureTarget_SinglePlaneFormats_NoNativeBuffer) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
-  const gfx::Size kSize(256, 256);
   const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
 
   for (auto format : viz::SinglePlaneFormat::kAll) {
-    SharedImageInfo si_info{format,
-                            kSize,
-                            gfx::ColorSpace(),
-                            kTopLeft_GrSurfaceOrigin,
-                            kOpaque_SkAlphaType,
-                            kUsage,
-                            ""};
-
-    auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
+    auto client_si = sii->CreateSharedImage(
+        CreateSharedImageInfo(format, kUsage), kNullSurfaceHandle);
     EXPECT_EQ(client_si->GetTextureTarget(),
               static_cast<uint32_t>(GL_TEXTURE_2D));
   }
@@ -223,20 +278,12 @@ TEST(ClientSharedImageTest,
   sii->set_texture_target_for_io_surfaces(kTargetForIOSurfaces);
 #endif
 
-  const gfx::Size kSize(256, 256);
   const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
 
   for (auto format : viz::SinglePlaneFormat::kAll) {
-    SharedImageInfo si_info{format,
-                            kSize,
-                            gfx::ColorSpace(),
-                            kTopLeft_GrSurfaceOrigin,
-                            kOpaque_SkAlphaType,
-                            kUsage,
-                            ""};
-
-    auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
+    auto client_si = sii->CreateSharedImage(
+        CreateSharedImageInfo(format, kUsage), kNullSurfaceHandle);
 
 #if BUILDFLAG(IS_MAC)
     const uint32_t expected_texture_target = kTargetForIOSurfaces;
@@ -260,7 +307,6 @@ TEST(ClientSharedImageTest, GetTextureTarget_ScanoutUsage) {
   sii->set_texture_target_for_io_surfaces(kTargetForIOSurfaces);
 #endif
 
-  const gfx::Size kSize(256, 256);
   const SharedImageUsageSet kUsage = SHARED_IMAGE_USAGE_SCANOUT;
 
   // Test all single-plane formats as well as multiplane formats for which
@@ -274,15 +320,8 @@ TEST(ClientSharedImageTest, GetTextureTarget_ScanoutUsage) {
   }
 
   for (auto format : formats_to_test) {
-    SharedImageInfo si_info{format,
-                            kSize,
-                            gfx::ColorSpace(),
-                            kTopLeft_GrSurfaceOrigin,
-                            kOpaque_SkAlphaType,
-                            kUsage,
-                            ""};
-
-    auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
+    auto client_si = sii->CreateSharedImage(
+        CreateSharedImageInfo(format, kUsage), kNullSurfaceHandle);
 
 #if BUILDFLAG(IS_MAC)
     const uint32_t expected_texture_target = kTargetForIOSurfaces;
@@ -318,19 +357,11 @@ TEST(ClientSharedImageTest, GetTextureTarget_WebGPUUsage) {
 
   for (SharedImageUsageSet webgpu_usage :
        {SHARED_IMAGE_USAGE_WEBGPU_READ, SHARED_IMAGE_USAGE_WEBGPU_WRITE}) {
-    const gfx::Size kSize(256, 256);
     const SharedImageUsageSet kUsage = webgpu_usage;
 
     for (auto format : formats_to_test) {
-      SharedImageInfo si_info{format,
-                              kSize,
-                              gfx::ColorSpace(),
-                              kTopLeft_GrSurfaceOrigin,
-                              kOpaque_SkAlphaType,
-                              kUsage,
-                              ""};
-
-      auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
+      auto client_si = sii->CreateSharedImage(
+          CreateSharedImageInfo(format, kUsage), kNullSurfaceHandle);
 
 #if BUILDFLAG(IS_MAC)
       const uint32_t expected_texture_target = kTargetForIOSurfaces;
@@ -348,21 +379,13 @@ TEST(ClientSharedImageTest, GetTextureTarget_WebGPUUsage) {
 TEST(ClientSharedImageTest,
      GetTextureTarget_MultiplanarFormats_NoScanoutOrWebGPUUsage) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
-  const gfx::Size kSize(256, 256);
   const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
 
   // Pass all the multiplanar formats that are used with hardware GMBs.
   for (auto format : kMultiPlaneFormatsWithHardwareGMBs) {
-    SharedImageInfo si_info{format,
-                            kSize,
-                            gfx::ColorSpace(),
-                            kTopLeft_GrSurfaceOrigin,
-                            kOpaque_SkAlphaType,
-                            kUsage,
-                            ""};
-
-    auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
+    auto client_si = sii->CreateSharedImage(
+        CreateSharedImageInfo(format, kUsage), kNullSurfaceHandle);
 
     // Since the format does not have external sampling enabled, the default
     // target should be used.
@@ -379,7 +402,6 @@ TEST(ClientSharedImageTest,
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
   sii->emulate_client_provided_native_buffer();
 
-  const gfx::Size kSize(256, 256);
   const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
 
@@ -388,15 +410,8 @@ TEST(ClientSharedImageTest,
        {viz::MultiPlaneFormat::kYV12, viz::MultiPlaneFormat::kNV12,
         viz::MultiPlaneFormat::kNV12A, viz::MultiPlaneFormat::kP010}) {
     format.SetPrefersExternalSampler();
-    SharedImageInfo si_info{format,
-                            kSize,
-                            gfx::ColorSpace(),
-                            kTopLeft_GrSurfaceOrigin,
-                            kOpaque_SkAlphaType,
-                            kUsage,
-                            ""};
-
-    auto client_si = sii->CreateSharedImage(si_info, kNullSurfaceHandle);
+    auto client_si = sii->CreateSharedImage(
+        CreateSharedImageInfo(format, kUsage), kNullSurfaceHandle);
 
     // Since the format has external sampling enabled, the platform-specific
     // target for native buffers should be used.

@@ -137,7 +137,7 @@ void TokenBindingHelper::GenerateBindingKeyAssertion(
 
 void TokenBindingHelper::StartGarbageCollection(
     absl::flat_hash_set<std::vector<uint8_t>> known_wrapped_keys_in_db) {
-  unexportable_key_service_->GetAllSigningKeysForGarbageCollectionSlowlyAsync(
+  unexportable_key_service_->GetAllKeysForGarbageCollectionSlowlyAsync(
       unexportable_keys::BackgroundTaskPriority::kBestEffort,
       base::BindOnce(&TokenBindingHelper::OnGetAllKeysForGarbageCollection,
                      weak_ptr_factory_.GetWeakPtr(),
@@ -194,8 +194,8 @@ void TokenBindingHelper::SignAssertionToken(
     std::string_view ephemeral_public_key,
     const GURL& destination_url,
     GenerateAssertionCallback callback,
-    unexportable_keys::ServiceErrorOr<unexportable_keys::UnexportableKeyId>
-        binding_key) {
+    unexportable_keys::ServiceErrorOr<
+        unexportable_keys::UnexportableSigningKeyId> binding_key) {
   if (!binding_key.has_value()) {
     RunCallbackAndRecordMetrics(std::move(callback),
                                 base::unexpected(Error::kLoadKeyFailure));

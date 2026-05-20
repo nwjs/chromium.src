@@ -7,6 +7,7 @@
 #include <string_view>
 
 #include "build/build_config.h"
+#include "gpu/config/gpu_feature_info.h"
 #include "ui/gl/gpu_preference.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -290,7 +291,7 @@ GpuFeatureStatus GetSkiaGraphiteFeatureStatus(
     const std::set<int>& blocklisted_features,
     const GpuPreferences& gpu_preferences) {
   if (blocklisted_features.count(GPU_FEATURE_TYPE_SKIA_GRAPHITE)) {
-    return kGpuFeatureStatusDisabled;
+    return kGpuFeatureStatusBlocklisted;
   }
 #if BUILDFLAG(SKIA_USE_DAWN)
   if (gpu_preferences.gr_context_type == GrContextType::kGraphiteDawn) {
@@ -412,7 +413,7 @@ uint32_t EstimateAmountOfTotalDiskSpaceMB() {
   return sum;
 }
 
-// Only record Nvidia and AMD GPUs.
+// Only record Nvidia GPUs.
 void RecordGpuHistogram(uint32_t vendor_id, uint32_t device_id) {
   switch (vendor_id) {
     case 0x10de:
@@ -420,13 +421,8 @@ void RecordGpuHistogram(uint32_t vendor_id, uint32_t device_id) {
           "GPU.MultiGpu.Nvidia", base::HistogramBase::kUmaTargetedHistogramFlag)
           ->Add(device_id);
       break;
-    case 0x1002:
-      base::SparseHistogram::FactoryGet(
-          "GPU.MultiGpu.AMD", base::HistogramBase::kUmaTargetedHistogramFlag)
-          ->Add(device_id);
-      break;
     default:
-      // Do nothing if it's not Nvidia/AMD.
+      // Do nothing if it's not Nvidia.
       break;
   }
 }
@@ -1115,7 +1111,7 @@ void RecordDiscreteGpuHistograms(const GPUInfo& gpu_info) {
   if (gpu_info.GpuCount() < 2)
     return;
   // To simplify logic, if there are multiple GPUs identified on a device,
-  // assume AMD or Nvidia is the discrete GPU.
+  // assume Nvidia is the discrete GPU.
   RecordGpuHistogram(gpu_info.gpu.vendor_id, gpu_info.gpu.device_id);
   for (const auto& gpu : gpu_info.secondary_gpus)
     RecordGpuHistogram(gpu.vendor_id, gpu.device_id);

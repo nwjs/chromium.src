@@ -132,6 +132,7 @@ IN_PROC_BROWSER_TEST_P(ReplaceMigrationSuggestedAppBrowserTest,
           install_future.GetCallback(),
           FallbackBehavior::kAllowFallbackDataAlways);
       ASSERT_TRUE(install_future.Wait());
+      provider().command_manager().AwaitAllCommandsCompleteForTesting();
       EXPECT_EQ(install_future.Get<webapps::InstallResultCode>(),
                 webapps::InstallResultCode::kSuccessNewInstall);
       EXPECT_EQ(install_future.Get<webapps::AppId>(), app_id);
@@ -189,7 +190,7 @@ IN_PROC_BROWSER_TEST_P(ReplaceMigrationSuggestedAppBrowserTest,
       sync_proto.set_start_url(start_url.spec());
       sync_proto.set_relative_manifest_id(RelativeManifestIdPath(manifest_id));
       sync_proto.set_scope(start_url.GetWithoutFilename().spec());
-      auto app = test::CreateWebAppFromSyncProto(std::move(sync_proto));
+      auto app = test::CreateWebAppFromSyncProto(sync_proto);
       app->SetName("Test App");
       app->SetUserDisplayMode(mojom::UserDisplayMode::kStandalone);
       app->SetInstallState(
@@ -215,11 +216,12 @@ IN_PROC_BROWSER_TEST_P(ReplaceMigrationSuggestedAppBrowserTest,
       base::test::TestFuture<const webapps::AppId&, webapps::InstallResultCode>
           install_future;
       provider().scheduler().InstallAppFromUrl(
-          start_url, GenerateManifestIdFromStartUrlOnly(start_url),
+          start_url, GenerateManifestIdFromStartUrlOnly(start_url).value(),
           browser()->tab_strip_model()->GetActiveWebContents()->GetWeakPtr(),
           start_url, base::BindOnce(test::TestAcceptDialogCallback),
           install_future.GetCallback());
       ASSERT_TRUE(install_future.Wait());
+      provider().command_manager().AwaitAllCommandsCompleteForTesting();
       EXPECT_EQ(install_future.Get<webapps::InstallResultCode>(),
                 webapps::InstallResultCode::kSuccessNewInstall);
       EXPECT_EQ(install_future.Get<webapps::AppId>(), app_id);

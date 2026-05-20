@@ -50,6 +50,7 @@ import org.chromium.components.image_fetcher.ImageFetchResult;
 import org.chromium.components.image_fetcher.ImageFetcher;
 import org.chromium.components.image_fetcher.ImageFetcher.Params;
 import org.chromium.components.image_fetcher.RequestMetadata;
+import org.chromium.ui.test.util.MockitoHelper;
 import org.chromium.url.GURL;
 
 import java.util.Map;
@@ -85,7 +86,7 @@ public class AutofillImageFetcherTest {
         doAnswer(
                         invocation -> {
                             Params params = invocation.getArgument(0);
-                            Callback callback = invocation.getArgument(1);
+                            Callback<ImageFetchResult> callback = invocation.getArgument(1);
                             if (!params.url.contains(TEST_IMAGE_URL.getSpec())) {
                                 callback.onResult(TEST_IMAGE_FETCH_NULL_BITMAP_RESULT);
                                 return null;
@@ -94,7 +95,7 @@ public class AutofillImageFetcherTest {
                             return null;
                         })
                 .when(mMockImageFetcher)
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
     }
 
     @After
@@ -144,7 +145,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was called twice (once for each image size).
         verify(mMockImageFetcher, times(2))
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Each card art image is cached at 2 resolutions: 32x20 for the Keyboard Accessory, and
         // 40x24 on all other surfaces.
@@ -177,7 +178,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was not called since the image is already in cache.
         verify(mMockImageFetcher, never())
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify that the cache contains only the already cached image.
         assertEquals(1, cachedImages.size());
@@ -191,12 +192,12 @@ public class AutofillImageFetcherTest {
     public void testPrefetchCardArtImages_validUrl_unsuccessfulImageFetch() {
         doAnswer(
                         invocation -> {
-                            Callback callback = invocation.getArgument(1);
+                            Callback<ImageFetchResult> callback = invocation.getArgument(1);
                             callback.onResult(TEST_IMAGE_FETCH_NULL_BITMAP_RESULT);
                             return null;
                         })
                 .when(mMockImageFetcher)
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
         // Both generic and credit card art specific histograms should log failure. Since fetching
         // is attempted again, the generic histogram should log failure twice.
         HistogramWatcher expectedHistogram =
@@ -221,7 +222,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was called twice.
         verify(mMockImageFetcher, times(2))
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify the image cache is empty.
         assertTrue(mAutofillImageFetcher.getCachedImagesForTesting().isEmpty());
@@ -237,7 +238,7 @@ public class AutofillImageFetcherTest {
         // Make the first fetch fail, and the second succeed.
         doAnswer(
                         invocation -> {
-                            Callback callback = invocation.getArgument(1);
+                            Callback<ImageFetchResult> callback = invocation.getArgument(1);
                             if (callCount.getAndIncrement() == 0) {
                                 callback.onResult(TEST_IMAGE_FETCH_NULL_BITMAP_RESULT);
                                 return null;
@@ -246,7 +247,7 @@ public class AutofillImageFetcherTest {
                             return null;
                         })
                 .when(mMockImageFetcher)
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
         IconSpecs cardIconSpecs =
                 IconSpecs.create(
                         ContextUtils.getApplicationContext(),
@@ -284,7 +285,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was called twice.
         verify(mMockImageFetcher, times(2))
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify the image cache contains the fetched image.
         assertEquals(1, cachedImages.size());
@@ -299,12 +300,12 @@ public class AutofillImageFetcherTest {
     public void testPrefetchCardArtImages_validUrl_unsuccessfulImageFetch_retryDisabled() {
         doAnswer(
                         invocation -> {
-                            Callback callback = invocation.getArgument(1);
+                            Callback<ImageFetchResult> callback = invocation.getArgument(1);
                             callback.onResult(TEST_IMAGE_FETCH_NULL_BITMAP_RESULT);
                             return null;
                         })
                 .when(mMockImageFetcher)
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
         // The credit card art specific histogram should not have any logs. The generic histogram
         // should log failure.
         HistogramWatcher expectedHistogram =
@@ -325,7 +326,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was called only once since retry is disabled.
         verify(mMockImageFetcher)
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify the image cache is empty.
         assertTrue(mAutofillImageFetcher.getCachedImagesForTesting().isEmpty());
@@ -349,7 +350,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was not called for invalid URLs.
         verify(mMockImageFetcher, never())
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify that the image cache is empty.
         assertTrue(mAutofillImageFetcher.getCachedImagesForTesting().isEmpty());
@@ -373,7 +374,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was not called for Capital One's static card art URL.
         verify(mMockImageFetcher, never())
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify that the image cache is empty.
         assertTrue(mAutofillImageFetcher.getCachedImagesForTesting().isEmpty());
@@ -405,7 +406,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was called once.
         verify(mMockImageFetcher)
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify that the images are successfully fetched and cached.
         assertEquals(1, cachedImages.size());
@@ -431,7 +432,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was not called since the image is already in cache.
         verify(mMockImageFetcher, never())
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify that the cache contains only the already cached image.
         assertEquals(1, cachedImages.size());
@@ -445,12 +446,12 @@ public class AutofillImageFetcherTest {
     public void testPrefetchPixAccountImages_validUrl_unsuccessfulImageFetch() {
         doAnswer(
                         invocation -> {
-                            Callback callback = invocation.getArgument(1);
+                            Callback<ImageFetchResult> callback = invocation.getArgument(1);
                             callback.onResult(TEST_IMAGE_FETCH_NULL_BITMAP_RESULT);
                             return null;
                         })
                 .when(mMockImageFetcher)
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
         // Both generic and Pix account image specific histograms should log failure. Since fetching
         // is attempted again, the generic histogram should log failure twice.
         HistogramWatcher expectedHistogram =
@@ -474,7 +475,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was called twice.
         verify(mMockImageFetcher, times(2))
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify that the cache is empty since image fetching failed.
         assertTrue(mAutofillImageFetcher.getCachedImagesForTesting().isEmpty());
@@ -490,7 +491,7 @@ public class AutofillImageFetcherTest {
         // Make the first fetch fail, and the second succeed.
         doAnswer(
                         invocation -> {
-                            Callback callback = invocation.getArgument(1);
+                            Callback<ImageFetchResult> callback = invocation.getArgument(1);
                             if (callCount.getAndIncrement() == 0) {
                                 callback.onResult(TEST_IMAGE_FETCH_NULL_BITMAP_RESULT);
                                 return null;
@@ -499,7 +500,7 @@ public class AutofillImageFetcherTest {
                             return null;
                         })
                 .when(mMockImageFetcher)
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
         GURL imageCacheKey =
                 AutofillImageFetcherUtils.getPixAccountImageUrlWithParams(TEST_IMAGE_URL);
         Bitmap treatedImage = AutofillImageFetcherUtils.treatPixAccountImage(TEST_IMAGE);
@@ -530,7 +531,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was called twice.
         verify(mMockImageFetcher, times(2))
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify the image cache contains the fetched image.
         assertEquals(1, cachedImages.size());
@@ -554,7 +555,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was not called for invalid URLs.
         verify(mMockImageFetcher, never())
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify that the cache is empty since the image URLs weren't valid and no images were
         // fetched.
@@ -576,7 +577,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage is never called from "get" methods.
         verify(mMockImageFetcher, never())
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         assertNotNull(pixAccountIcon);
         assertTrue(TEST_IMAGE.sameAs(drawableToBitmap(pixAccountIcon)));
@@ -592,7 +593,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage is never called from "get" methods.
         verify(mMockImageFetcher, never())
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         assertNotNull(pixAccountIcon);
         assertTrue(
@@ -622,7 +623,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was called once per each image size.
         verify(mMockImageFetcher, times(imageNumber))
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify that the images are successfully fetched and cached.
         assertEquals(imageNumber, cachedImages.size());
@@ -648,12 +649,12 @@ public class AutofillImageFetcherTest {
 
         doAnswer(
                         invocation -> {
-                            Callback callback = invocation.getArgument(1);
+                            Callback<ImageFetchResult> callback = invocation.getArgument(1);
                             callback.onResult(TEST_IMAGE_FETCH_NULL_BITMAP_RESULT);
                             return null;
                         })
                 .when(mMockImageFetcher)
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
         HistogramWatcher expectedHistogram =
                 HistogramWatcher.newBuilder()
                         .expectBooleanRecordTimes(
@@ -674,7 +675,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was called twice.
         verify(mMockImageFetcher, times(2 * imageNumber))
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify that the cache is empty since image fetching failed.
         assertTrue(mAutofillImageFetcher.getCachedImagesForTesting().isEmpty());
@@ -698,7 +699,7 @@ public class AutofillImageFetcherTest {
 
         // Verify that fetchImage was not called for invalid URLs.
         verify(mMockImageFetcher, never())
-                .fetchImageWithRequestMetadata(any(Params.class), any(Callback.class));
+                .fetchImageWithRequestMetadata(any(Params.class), MockitoHelper.anyCallback());
 
         // Verify that the cache is empty since the image URLs weren't valid and no images were
         // fetched.

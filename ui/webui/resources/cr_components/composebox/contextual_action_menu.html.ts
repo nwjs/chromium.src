@@ -10,12 +10,22 @@ import type {ContextualActionMenuElement} from './contextual_action_menu.js';
 export function getHtml(this: ContextualActionMenuElement) {
   // clang-format off
   return html`<!--_html_template_start_-->
-  <!-- auto-reposition is used to enable the ResizeObserver in cr-action-menu,
-       which recalculates the menu's position when its content size changes.
-       This is necessary because menu options (e.g. models, tabs) are populated
-       asynchronously from the browser process. -->
   <cr-action-menu id="menu" role-description="${this.i18n('menu')}"
-      @close="${this.onMenuClose_}" auto-reposition>
+      @close="${this.onMenuClose_}"
+      ?auto-reposition="${!this.disableAutoReposition}">
+    ${this.smartTabSharingVisible_ ? html`
+      <button class="dropdown-item toggle-item"
+          id="smartTabSharingItem"
+          role="menuitem"
+          @click="${this.onSmartTabSharingItemClick_}">
+        <span>${this.i18n('stsMegaplusShareRelevantOpenTabs')}</span>
+        <cr-toggle id="smartTabSharingToggle"
+            ?checked="${this.smartTabSharingActive}"
+            @change="${this.onSmartTabSharingToggleChange_}">
+        </cr-toggle>
+      </button>
+      <hr/>
+    ` : ''}
     ${this.tabSuggestions?.length > 0 && this.isBrowserTabAllowed_() ? html`
       ${this.showContextMenuHeaders_ ? html`<h4 id="tabHeader">${
           this.getInputTypeLabel_(InputType.kBrowserTab)}</h4>` : ''}
@@ -126,6 +136,7 @@ export function getHtml(this: ContextualActionMenuElement) {
               icon="cr:check" id="model-check"></cr-icon>` : ''}
       </button>`;
     })}
+
   </cr-action-menu>
 <!--_html_template_end_-->`;
   // clang-format on

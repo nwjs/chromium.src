@@ -56,6 +56,7 @@ BASE_EXPORT BASE_DECLARE_FEATURE(kRebindServiceBatchApi);
 BASE_EXPORT BASE_DECLARE_FEATURE(kUseSharedRebindServiceConnection);
 
 BASE_EXPORT BASE_DECLARE_FEATURE(kBackgroundThreadPoolFieldTrial);
+BASE_EXPORT BASE_DECLARE_FEATURE(kShutdownPreNativeThreadPoolAfterStartup);
 BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(int,
                                        kBackgroundThreadPoolFieldTrialConfig);
 
@@ -72,7 +73,14 @@ BASE_EXPORT BASE_DECLARE_FEATURE(kUserBlockingAboveNormalPriority);
 BASE_EXPORT BASE_DECLARE_FEATURE(kRetryCreateFileMappingOnCommitLimit);
 
 BASE_EXPORT BASE_DECLARE_FEATURE(kPumpPeekMessageWithObserver);
+
+BASE_EXPORT BASE_DECLARE_FEATURE(kPreventReparsePointTraversal);
 #endif
+
+#if BUILDFLAG(IS_POSIX)
+BASE_EXPORT BASE_DECLARE_FEATURE(kBaseLockTrySpin);
+BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kSpinCount);
+#endif  // BUILDFLAG(IS_POSIX)
 
 // Whether the ReducePPMs feature is enabled. Unlike
 // `FeatureList::IsEnabled(base::features::kReducePPMs)`, this can be called

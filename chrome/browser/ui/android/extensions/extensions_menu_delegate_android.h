@@ -4,6 +4,7 @@
 
 #include "base/android/jni_android.h"
 #include "base/android/scoped_java_ref.h"
+#include "chrome/browser/ui/android/extensions/extensions_toolbar_android.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/extensions/extensions_menu_view_model.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_handler.h"
@@ -22,6 +23,7 @@ class ExtensionsMenuDelegateAndroid : public ExtensionsMenuViewModel::Delegate,
  public:
   ExtensionsMenuDelegateAndroid(
       BrowserWindowInterface* browser,
+      ExtensionsToolbarAndroid* toolbar_android,
       const base::android::JavaRef<jobject>& java_object);
   ExtensionsMenuDelegateAndroid(const ExtensionsMenuDelegateAndroid&) = delete;
   const ExtensionsMenuDelegateAndroid& operator=(
@@ -30,8 +32,12 @@ class ExtensionsMenuDelegateAndroid : public ExtensionsMenuViewModel::Delegate,
 
   // JNI implementations:
   void Destroy(JNIEnv* env);
+  void ExecuteAction(JNIEnv* env, const extensions::ExtensionId& extension_id);
   base::android::ScopedJavaLocalRef<jobject> GetActionIcon(JNIEnv* env,
                                                            int action_index);
+  base::android::ScopedJavaLocalRef<jobject> GetExtensionSitePermissionsState(
+      JNIEnv* env,
+      const std::string& extension_id);
   base::android::ScopedJavaLocalRef<jobject> GetMenuEntry(JNIEnv* env,
                                                           int action_index);
   std::vector<base::android::ScopedJavaLocalRef<jobject>> GetMenuEntries(
@@ -98,6 +104,7 @@ class ExtensionsMenuDelegateAndroid : public ExtensionsMenuViewModel::Delegate,
   void OnReady();
 
   const raw_ptr<BrowserWindowInterface> browser_;
+  const raw_ptr<ExtensionsToolbarAndroid> toolbar_android_;
 
   // The platform-agnostic menu view model.
   std::unique_ptr<ExtensionsMenuViewModel> menu_model_;

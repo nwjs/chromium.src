@@ -46,7 +46,6 @@ import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.signin.base.CoreAccountInfo;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.test.util.FakeAccountManagerFacade;
 import org.chromium.components.signin.test.util.TestAccounts;
@@ -56,6 +55,7 @@ import org.chromium.components.trusted_vault.TrustedVaultUserActionTriggerForUMA
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.test.util.MockitoHelper;
 
 import java.lang.ref.WeakReference;
 
@@ -102,8 +102,7 @@ public class PasswordManagerErrorMessageHelperBridgeTest {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
         when(mIdentityServicesProviderMock.getIdentityManager(mProfile))
                 .thenReturn(mIdentityManagerMock);
-        when(mIdentityManagerMock.getPrimaryAccountInfo(ConsentLevel.SIGNIN))
-                .thenReturn(TestAccounts.ACCOUNT1);
+        when(mIdentityManagerMock.getPrimaryAccountInfo()).thenReturn(TestAccounts.ACCOUNT1);
         IdentityServicesProvider.setInstanceForTests(mIdentityServicesProviderMock);
         TrustedVaultClient.get().setBackendForTesting(mTrustedVaultBackend);
         SyncServiceFactory.setInstanceForTesting(mSyncService);
@@ -242,18 +241,20 @@ public class PasswordManagerErrorMessageHelperBridgeTest {
 
     @Test
     public void testDontShowMessageWithtoutAccount() {
-        when(mIdentityManagerMock.getPrimaryAccountInfo(ConsentLevel.SIGNIN)).thenReturn(null);
+        when(mIdentityManagerMock.getPrimaryAccountInfo()).thenReturn(null);
         assertFalse(PasswordManagerErrorMessageHelperBridge.shouldShowSignInErrorUi(mProfile));
     }
 
     @Test
     public void testDontTryToUpdateCredentialWithNoAccount() {
-        when(mIdentityManagerMock.getPrimaryAccountInfo(ConsentLevel.SIGNIN)).thenReturn(null);
+        when(mIdentityManagerMock.getPrimaryAccountInfo()).thenReturn(null);
         PasswordManagerErrorMessageHelperBridge.startUpdateAccountCredentialsFlow(
                 mWindowAndroidMock, mProfile);
         verify(mFakeAccountManagerFacade, never())
                 .updateCredentials(
-                        any(CoreAccountInfo.class), any(Activity.class), any(Callback.class));
+                        any(CoreAccountInfo.class),
+                        any(Activity.class),
+                        MockitoHelper.anyCallback());
     }
 
     @Test

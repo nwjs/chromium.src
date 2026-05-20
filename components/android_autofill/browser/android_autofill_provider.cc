@@ -208,10 +208,7 @@ void AndroidAutofillProvider::OnAskForValuesToFill(
         }
       });
 
-  session_state_->current_field = {field.global_id(),
-                                   manager->ComputeFieldTypeGroupForField(
-                                       form.global_id(), field.global_id()),
-                                   field.origin()};
+  UpdateCurrentField(manager, form, field);
 
   if (credman_sheet_status_ == CredManBottomSheetLifecycle::kIsShowing) {
     return;  // CredMan prevents 3P autofill UI. Start the session on refocus!
@@ -354,6 +351,21 @@ void AndroidAutofillProvider::StartNewSession(AndroidAutofillManager* manager,
       manager->has_server_prediction(form.global_id()));
 }
 
+void AndroidAutofillProvider::UpdateCurrentField(
+    AndroidAutofillManager* manager,
+    const FormData& form,
+    const FormFieldData& field) {
+  if (!session_state_) {
+    session_state_.emplace();
+  }
+  session_state_->current_field = {
+      field.global_id(),
+      manager ? manager->ComputeFieldTypeGroupForField(form.global_id(),
+                                                       field.global_id())
+              : FieldTypeGroup::kNoGroup,
+      field.origin()};
+}
+
 void AndroidAutofillProvider::OnAutofillAvailable() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
@@ -462,13 +474,6 @@ void AndroidAutofillProvider::OnTextFieldDidScroll(
     return;
   }
 
-  if (!base::FeatureList::IsEnabled(
-          features::kAutofillDoNotFireFormFieldChangedOnWebviewScrollEvents)) {
-    // TODO(crbug.com/40929724): Investigate whether the update of the value
-    // is needed - why would it have changed?
-    session_state_->form->OnFormFieldDidChange(field_info.index, field.value());
-  }
-
   field_info.bounds = ToClientAreaBound(field.bounds());
   bridge_->OnTextFieldDidScroll(field_info);
 }
@@ -477,6 +482,10 @@ void AndroidAutofillProvider::OnSelectControlSelectionChanged(
     AndroidAutofillManager* manager,
     const FormData& form,
     const FormFieldData& field) {
+  if (base::FeatureList::IsEnabled(
+          features::kAndroidAutofillFieldsUpdatedOnSelect)) {
+    UpdateCurrentField(manager, form, field);
+  }
   if (!IsLinkedForm(form)) {
     StartNewSession(manager, form, field);
     // TODO(crbug.com/40929724): Return early at this point?

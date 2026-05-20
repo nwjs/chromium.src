@@ -37,7 +37,6 @@ source_set("skills") {
     ":mojo_bindings",
     "//base",
     "//chrome/app:generated_resources",
-    "//chrome/browser:browser_process",
     "//chrome/browser:global_features",
     "//chrome/browser/glic",
     "//chrome/browser/optimization_guide",

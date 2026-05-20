@@ -89,7 +89,6 @@
 #include "third_party/blink/public/web/web_autofill_client.h"
 #include "third_party/blink/public/web/web_content_capture_client.h"
 #include "third_party/blink/public/web/web_frame.h"
-#include "third_party/blink/public/web/web_link_preview_triggerer.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
@@ -126,6 +125,7 @@
 #include "third_party/blink/renderer/core/editing/markers/spelling_marker.h"
 #include "third_party/blink/renderer/core/editing/serializers/create_markup_options.h"
 #include "third_party/blink/renderer/core/editing/serializers/serialization.h"
+#include "third_party/blink/renderer/core/editing/spellcheck/on_demand_spell_check_controller.h"
 #include "third_party/blink/renderer/core/editing/spellcheck/spell_check_requester.h"
 #include "third_party/blink/renderer/core/editing/spellcheck/spell_check_requester_helper.h"
 #include "third_party/blink/renderer/core/editing/spellcheck/spell_checker.h"
@@ -194,7 +194,6 @@
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/layout_object_inlines.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
-#include "third_party/blink/renderer/core/layout/text_autosizer.h"
 #include "third_party/blink/renderer/core/lcp_critical_path_predictor/lcp_critical_path_predictor.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/loader/frame_load_request.h"
@@ -812,7 +811,6 @@ bool LocalFrame::DetachImpl(FrameDetachType type) {
 
   not_restored_reasons_.reset();
   prescient_networking_.reset();
-  link_preview_triggerer_.reset();
 
   DCHECK(!view_->IsAttached());
   Client()->WillBeDetached();
@@ -1032,7 +1030,7 @@ void LocalFrame::OnFirstContentfulPaint(
   }
   auto* widget = GetWidgetForLocalRoot();
   if (widget) {
-    widget->OnFirstContentfulPaint(paint_time);
+    widget->OnFirstContentfulPaint();
   }
 }
 
@@ -1129,11 +1127,6 @@ Document* LocalFrame::GetDocument() const {
 }
 
 void LocalFrame::DocumentDetached() {
-  // Resets WebLinkPreviewTrigerer when the document detached as
-  // WebLinkPreviewInitiator depends on document.
-  is_link_preivew_triggerer_initialized_ = false;
-  link_preview_triggerer_.reset();
-
   if (LocalFrameView* view = View()) {
     // Pagination layout may hold on to layout objects that are not part of the
     // Document's DOM. Destroy them now.
@@ -1544,10 +1537,6 @@ void LocalFrame::SetPrinting(bool printing, float maximum_shrink_ratio) {
   GetDocument()->SetPrinting(printing ? Document::kPrinting
                                       : Document::kFinishingPrinting);
   View()->AdjustMediaTypeForPrinting(printing);
-
-  if (TextAutosizer* text_autosizer = GetDocument()->GetTextAutosizer())
-    text_autosizer->UpdatePageInfo();
-
   if (ShouldUsePaginatedLayout()) {
     View()->ForceLayoutForPagination(maximum_shrink_ratio);
   } else {
@@ -1843,15 +1832,6 @@ void LocalFrame::UpdateViewportSegmentCSSEnvironmentVariables(
       }
     }
   }
-}
-
-void LocalFrame::OverrideDevicePostureForEmulation(
-    mojom::blink::DevicePostureType device_posture_param) {
-  mojo_handler_->OverrideDevicePostureForEmulation(device_posture_param);
-}
-
-void LocalFrame::DisableDevicePostureOverrideForEmulation() {
-  mojo_handler_->DisableDevicePostureOverrideForEmulation();
 }
 
 mojom::blink::DevicePostureType LocalFrame::GetDevicePosture() {
@@ -2538,20 +2518,6 @@ void LocalFrame::SetViewportIntersectionFromParent(
     const mojom::blink::ViewportIntersectionState& intersection_state) {
   DCHECK(IsLocalRoot());
   DCHECK(!IsOutermostMainFrame());
-  // Notify the render frame observers when the main frame intersection or the
-  // transform changes.
-  if (intersection_state_.main_frame_intersection !=
-          intersection_state.main_frame_intersection ||
-      intersection_state_.main_frame_transform !=
-          intersection_state.main_frame_transform) {
-    gfx::Rect rect = intersection_state.main_frame_transform.MapRect(
-        intersection_state.main_frame_intersection);
-
-    // Return <0, 0, 0, 0> if there is no area.
-    if (rect.IsEmpty())
-      rect.set_origin(gfx::Point(0, 0));
-    Client()->OnMainFrameIntersectionChanged(rect);
-  }
 
   // Viewport intersection state needs to be updated when remote ancestor
   // frames and their respective scroll positions, clips, etc change.
@@ -2591,7 +2557,10 @@ void LocalFrame::SetViewportIntersectionFromParent(
 gfx::Size LocalFrame::GetOutermostMainFrameSize() const {
   LocalFrame& local_root = LocalFrameRoot();
   return local_root.IsOutermostMainFrame()
-             ? local_root.View()->LayoutViewport()->VisibleContentRect().size()
+             ? local_root.View()
+                   ->LayoutViewport()
+                   ->VisibleContentRect(kExcludeScrollbars)
+                   .size()
              : local_root.intersection_state_.outermost_main_frame_size;
 }
 
@@ -2795,7 +2764,8 @@ void LocalFrame::UpdateAdHighlight() {
 
   // TODO(bokan): Fenced frames may need some work to propagate the ad
   // highlighting setting to the inner tree.
-  if (IsAdRoot() && GetPage()->GetSettings().GetHighlightAds()) {
+  if (IsAdRoot() && (GetPage()->GetSettings().GetHighlightAds() ||
+                     GetPage()->GetSettings().GetInspectorHighlightAds())) {
     SetFrameColorOverlay(SkColorSetARGB(128, 255, 0, 0));
   } else {
     SetFrameColorOverlay(SK_ColorTRANSPARENT);
@@ -4189,34 +4159,6 @@ LocalFrame::IssueKeepAliveHandle() {
   return keep_alive_remote;
 }
 
-WebLinkPreviewTriggerer* LocalFrame::GetOrCreateLinkPreviewTriggerer() {
-  EnsureLinkPreviewTriggererInitialized();
-  return link_preview_triggerer_.get();
-}
-
-void LocalFrame::EnsureLinkPreviewTriggererInitialized() {
-  if (is_link_preivew_triggerer_initialized_) {
-    return;
-  }
-
-  CHECK(!link_preview_triggerer_);
-
-  WebLocalFrameImpl* web_local_frame = WebLocalFrameImpl::FromFrame(this);
-  if (!web_local_frame) {
-    return;
-  }
-
-  link_preview_triggerer_ =
-      web_local_frame->Client()->CreateLinkPreviewTriggerer();
-  is_link_preivew_triggerer_initialized_ = true;
-}
-
-void LocalFrame::SetLinkPreviewTriggererForTesting(
-    std::unique_ptr<WebLinkPreviewTriggerer> trigger) {
-  link_preview_triggerer_ = std::move(trigger);
-  is_link_preivew_triggerer_initialized_ = true;
-}
-
 void LocalFrame::AllowStorageAccessAndNotify(
     blink::WebContentSettingsClient::StorageType storage_type,
     base::OnceCallback<void(bool)> callback) {
@@ -4280,16 +4222,8 @@ void LocalFrame::PerformFullContentSpellCheck() {
     return;
   }
 
-  const EphemeralRange range(Position(container_node, 0),
-                             Position::LastPositionInNode(*container_node));
-
-  // Some IMEs' functionalities (e.g. Gboard's Add to Personal Dictionary) rely
-  // on PerformFullContentSpellCheck to perform a full-content spell check. In
-  // such case, the spell check request cache could have become stale by the
-  // time this method is called. Therefore, we want to force a fresh request to
-  // spell check service.
-  GetSpellChecker().GetSpellCheckRequester().RequestCheckingFor(
-      range, /*request_num=*/0, /*should_force_refresh=*/true);
+  GetSpellChecker().GetOnDemandSpellCheckController().RequestFullChecking(
+      container_node);
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 

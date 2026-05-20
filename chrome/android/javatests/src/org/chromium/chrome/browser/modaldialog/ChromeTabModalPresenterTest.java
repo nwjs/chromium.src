@@ -51,6 +51,7 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.cc.input.BrowserControlsState;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -59,13 +60,13 @@ import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.OmniboxTestUtils;
 import org.chromium.components.browser_ui.modaldialog.ModalDialogTestUtils;
+import org.chromium.components.browser_ui.modaldialog.ModalDialogView;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modaldialog.DialogDismissalCause;
@@ -196,7 +197,7 @@ public class ChromeTabModalPresenterTest {
     @SmallTest
     @Feature({"ModalDialog"})
     @Restriction(DeviceFormFactor.PHONE)
-    @DisabledTest(message = "https://crbug.com/1420186")
+    @DisabledTest(message = "https://crbug.com/40895583")
     public void testSuspend_ToggleOverview() throws Exception {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> mActivity.getActivityTab().addObserver(mTestObserver));
@@ -323,7 +324,7 @@ public class ChromeTabModalPresenterTest {
     @Test
     @SmallTest
     @Feature({"ModalDialog"})
-    @DisabledTest(message = "https://crbug.com/1382221")
+    @DisabledTest(message = "https://crbug.com/40877195")
     @Restriction(DeviceFormFactor.PHONE)
     public void testSuspend_TabClosed() throws Exception {
         PropertyModel dialog1 = createDialog(mActivity, mManager, "1", null);
@@ -585,7 +586,7 @@ public class ChromeTabModalPresenterTest {
     @RequiresRestart("Removing views is global and cannot be reversed.")
     @Feature({"ModalDialog"})
     // Ensures an exception isn't thrown when a dialog is dismissed and the View is no longer
-    // attached to a Window. See https://crbug.com/1127254 for the specifics.
+    // attached to a Window. See https://crbug.com/40718955 for the specifics.
     public void testDismissAfterRemovingView() throws Throwable {
         PropertyModel dialog1 = createDialog(mActivity, mManager, "1", null);
         ThreadUtils.runOnUiThreadBlocking(
@@ -597,6 +598,34 @@ public class ChromeTabModalPresenterTest {
                     // ViewGroup is no longer attached to a Window.
                     containerParent.removeAllViews();
                     mManager.dismissAllDialogs(DialogDismissalCause.UNKNOWN);
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"ModalDialog"})
+    public void testDismiss_NonClickableDuringDismissal() {
+        PropertyModel dialog1 = createDialog(mActivity, mManager, "1", null);
+
+        // Show a tab modal dialog and verify it shows.
+        showDialog(mManager, dialog1, ModalDialogType.TAB);
+        onViewWaiting(withId(R.id.tab_modal_dialog_container))
+                .check(matches(hasDescendant(withText("1"))));
+        checkCurrentPresenter(mManager, ModalDialogType.TAB);
+
+        final ModalDialogView dialogView = mTabModalPresenter.getDialogViewForTest();
+        Assert.assertNotNull(dialogView);
+
+        // Dismiss the dialog.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> mManager.dismissDialog(dialog1, DialogDismissalCause.UNKNOWN));
+
+        // Verify that the dialog view is blocking inputs.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    Assert.assertTrue(
+                            "Dialog view should block inputs during dismissal",
+                            dialogView.isBlockInputForTesting());
                 });
     }
 

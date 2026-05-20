@@ -17,6 +17,7 @@
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_model/payments/payments_metadata.h"
 #include "components/autofill/core/browser/metrics/payments/iban_metrics.h"
+#include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator_util.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_regexes.h"
 
@@ -90,10 +91,7 @@ std::u16string RemoveIbanSeparators(std::u16string_view value) {
 
 constexpr char16_t kCapitalizedIbanPattern[] =
     u"^[A-Z]{2}[0-9]{2}[A-Z0-9]{4}[0-9]{7}[A-Z0-9]{0,18}$";
-// Unicode characters used in IBAN value obfuscation:
-//  - \u2022 - Bullet.
-//  - \u2006 - SIX-PER-EM SPACE (small space between bullets).
-constexpr char16_t kEllipsisOneDot = u'\u2022';
+// \u2006 - SIX-PER-EM SPACE (small space).
 constexpr char16_t kEllipsisOneSpace = u'\u2006';
 
 Iban::Iban() : record_type_(RecordType::kUnknown) {}
@@ -227,6 +225,8 @@ Iban::IbanSupportedCountry Iban::GetIbanSupportedCountry(
     return IbanSupportedCountry::kHR;
   } else if (country_code == "HU") {
     return IbanSupportedCountry::kHU;
+  } else if (country_code == "IE") {
+    return IbanSupportedCountry::kIE;
   } else if (country_code == "IL") {
     return IbanSupportedCountry::kIL;
   } else if (country_code == "IQ") {
@@ -393,6 +393,8 @@ size_t Iban::GetLengthOfIbanCountry(IbanSupportedCountry supported_country) {
       return 21;
     case IbanSupportedCountry::kHU:
       return 28;
+    case IbanSupportedCountry::kIE:
+      return 22;
     case IbanSupportedCountry::kIL:
       return 23;
     case IbanSupportedCountry::kIQ:
@@ -626,9 +628,7 @@ std::u16string Iban::GetIdentifierStringForAutofillDisplay(
   }
 
   if (is_value_masked) {
-    const std::u16string one_space = std::u16string(1, kEllipsisOneSpace);
-    const std::u16string two_dots = std::u16string(2, kEllipsisOneDot);
-    return base::StrCat({prefix(), one_space, two_dots, suffix()});
+    return GetObfuscatedIban(prefix(), suffix());
   }
 
   // Displaying the full IBAN value is not possible for server-based IBANs.

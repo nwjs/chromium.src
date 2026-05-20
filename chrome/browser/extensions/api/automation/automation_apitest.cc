@@ -12,7 +12,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
-#include "base/test/trace_event_analyzer.h"
+#include "base/test/tracing/trace_event_analyzer.h"
 #include "base/trace_event/trace_config.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -478,7 +478,7 @@ IN_PROC_BROWSER_TEST_P(AutomationApiTestWithContextType, TableProperties) {
       << message_;
 }
 
-// Flaky on Mac and Windows: crbug.com/1235249
+// Flaky on Mac and Windows: crbug.com/40781950
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 #define MAYBE_CloseTab DISABLED_CloseTab
 #else
@@ -816,7 +816,7 @@ IN_PROC_BROWSER_TEST_P(AutomationApiTestWithContextType, AccessibilityFocus) {
       << message_;
 }
 
-// TODO(http://crbug.com/1162238): flaky on ChromeOS.
+// TODO(http://crbug.com/40739379): flaky on ChromeOS.
 IN_PROC_BROWSER_TEST_P(AutomationApiTestWithContextType,
                        DISABLED_TextareaAppendPerf) {
   StartEmbeddedTestServer();

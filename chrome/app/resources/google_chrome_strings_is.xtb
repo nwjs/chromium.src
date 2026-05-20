@@ -281,6 +281,7 @@ Sumir eiginleikar kunna að vera óaðgengilegir og breytingar á kjörstillingu
 
           **Leggja til spurningar:** Búa til punktalista með 3-5 ögrandi spurningum sem notandi gæti spurt til að skilja skjámyndina betur. Þessar spurningar ættu að fela í sér minnst eina sem er sérstaklega um sjónrænt atriði, hönnun þess eða staðsetningu.</translation>
 <translation id="386202838227397562">Lokaðu öllum Google Chrome gluggum og reyndu aftur.</translation>
+<translation id="3869083394918739976">Þú getur haldið áfram að spjalla við gervigreindarstillingu án þess að skipta um flipa. Skráðu þig inn í Chrome til að hefjast handa. Þú færð einnig aðgangsorðin þín og fleira í öllum tækjunum þínum.</translation>
 <translation id="3873044882194371212">Opna tengil í h&amp;uliðsglugga í Chrome</translation>
 <translation id="3885770153807205175">Tungumálaval</translation>
 <translation id="3889417619312448367">Fjarlægja Google Chrome</translation>
@@ -424,6 +425,7 @@ Google Chrome getur ekki endurheimt stillingarnar þínar.</translation>
 <translation id="547202872422499512">Chrome ræsist nú þegar Windows ræsist, svo að þú getur byrjað að vafra samstundis. Þú getur slökkt á þessu í stillingunum.</translation>
 <translation id="5486346529181556467">Auktu netöryggi allra með því að tilkynna vefsvæði sem þú telur að sé skaðlegt. Nánar um <ph name="BEGIN_LINK" />reglur Google um óörugg vefsvæði.<ph name="END_LINK" /></translation>
 <translation id="5524890928877629608">efsta horn leitarsvæðis vinstra megin: til vinstri <ph name="LEFT" />%, efst <ph name="TOP" />%</translation>
+<translation id="5529390769101499214">Stjórnaðu viðbótunum þínum með því að smella á „Viðbætur“ á aðalvalmynd Chrome.</translation>
 <translation id="5550137307985173298">Smelltu á hnappinn „Sérsníða Chrome“ á síðu nýrra flipa til að gefa Chrome nýtt útlit</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-inn)</translation>
 <translation id="5579324208890605088">Villa í ræsingu: keyrðu uppsetningarforritið sem venjulegur notandi, ekki sem kerfisstjóri.</translation>
@@ -783,7 +785,6 @@ Ekki er hægt að vista ný bókamerki á reikningnum þínum fyrr en þú eyði
 <translation id="8862326446509486874">Þú hefur ekki tilskilin réttindi til uppsetningar fyrir kerfið allt. Prófaðu að keyra uppsetningarforritið aftur sem stjórnandi.</translation>
 <translation id="8865415417596392024">Chrome-gögn á reikningnum þínum</translation>
 <translation id="8883862939660515976">Spyrja Google-linsu um þessa mynd</translation>
-<translation id="8892956691293410744">Skráðu þig inn í Chrome til að spyrja gervigreindarstillingu um flipann þinn án þess að yfirgefa síðuna. Þú færð einnig aðgangsorðin þín og fleira í öllum tækjunum þínum.</translation>
 <translation id="8914504000324227558">Endurræsa Chrome</translation>
 <translation id="8922193594870374009">Til að senda númer úr <ph name="ORIGIN" /> í Android símann þinn skaltu skrá þig inn á Chrome í báðum tækjunum.</translation>
 <translation id="8922998289262614701">Fjarlægja þessi forritsgögn úr Chrome</translation>

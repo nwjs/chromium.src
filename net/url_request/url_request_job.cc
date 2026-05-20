@@ -11,6 +11,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -140,16 +141,16 @@ int URLRequestJob::Read(IOBuffer* buf, int buf_size) {
   return result;
 }
 
-int64_t URLRequestJob::GetTotalReceivedBytes() const {
-  return 0;
+base::ByteSize URLRequestJob::GetTotalReceivedBytes() const {
+  return base::ByteSize(0);
 }
 
-int64_t URLRequestJob::GetTotalSentBytes() const {
-  return 0;
+base::ByteSize URLRequestJob::GetTotalSentBytes() const {
+  return base::ByteSize(0);
 }
 
-int64_t URLRequestJob::GetReceivedBodyBytes() const {
-  return 0;
+base::ByteSize URLRequestJob::GetReceivedBodyBytes() const {
+  return base::ByteSize(0);
 }
 
 LoadState URLRequestJob::GetLoadState() const {
@@ -247,15 +248,21 @@ void URLRequestJob::ContinueWithCertificate(
   NOTREACHED();
 }
 
+void URLRequestJob::SetPlatformLocalNetworkAccessGranted() {
+  // The derived class should implement this!
+  NOTREACHED();
+}
+
+void URLRequestJob::CancelPlatformLocalNetworkAccessRequest() {
+  // The derived class should implement this!
+  NOTREACHED();
+}
+
 void URLRequestJob::ContinueDespiteLastError() {
   // Implementations should know how to recover from errors they generate.
   // If this code was reached, we are trying to recover from an error that
   // we don't know how to recover from.
   NOTREACHED();
-}
-
-int64_t URLRequestJob::prefilter_bytes_read() const {
-  return prefilter_bytes_read_;
 }
 
 bool URLRequestJob::GetMimeType(std::string* mime_type) const {
@@ -405,6 +412,10 @@ int URLRequestJob::NotifyConnected(const TransportInfo& info,
 void URLRequestJob::NotifyCertificateRequested(
     SSLCertRequestInfo* cert_request_info) {
   request_->NotifyCertificateRequested(cert_request_info);
+}
+
+void URLRequestJob::NotifyPlatformLocalNetworkAccessPermissionRequired() {
+  request_->NotifyPlatformLocalNetworkAccessPermissionRequired();
 }
 
 void URLRequestJob::NotifySSLCertificateError(int net_error,
@@ -677,7 +688,7 @@ void URLRequestJob::SourceStreamReadComplete(bool synchronous, int result) {
   }
 
   if (result > 0) {
-    postfilter_bytes_read_ += result;
+    postfilter_bytes_read_ += base::ByteSize(base::as_unsigned(result));
   } else {
     DCHECK_EQ(0, result);
     DoneReading();
@@ -737,7 +748,10 @@ void URLRequestJob::GatherRawReadStats(int bytes_read) {
 
   if (bytes_read > 0) {
     // If there is a filter, bytes will be logged after the filter is applied.
+    // Shared dictionary reads are decoded and logged in
+    // SharedDictionaryNetworkTransaction.
     if (source_stream_->type() != SourceStreamType::kNone &&
+        !request_->response_info_.did_use_shared_dictionary &&
         request()->net_log().IsCapturing()) {
       request()->net_log().AddByteTransferEvent(
           NetLogEventType::URL_REQUEST_JOB_BYTES_READ, bytes_read,
@@ -750,7 +764,8 @@ void URLRequestJob::GatherRawReadStats(int bytes_read) {
 
 void URLRequestJob::RecordBytesRead(int bytes_read) {
   DCHECK_GT(bytes_read, 0);
-  prefilter_bytes_read_ += base::checked_cast<size_t>(bytes_read);
+  const base::ByteSize byte_size_read(base::checked_cast<size_t>(bytes_read));
+  prefilter_bytes_read_ += byte_size_read;
 
   // On first read, notify NetworkQualityEstimator that response headers have
   // been received.
@@ -760,7 +775,7 @@ void URLRequestJob::RecordBytesRead(int bytes_read) {
   // first raw read of the response body. This is used as the signal that
   // response headers have been received.
   if (request_->context()->network_quality_estimator()) {
-    if (prefilter_bytes_read() == bytes_read) {
+    if (prefilter_bytes_read() == byte_size_read) {
       request_->context()->network_quality_estimator()->NotifyHeadersReceived(
           *request_);
     } else {

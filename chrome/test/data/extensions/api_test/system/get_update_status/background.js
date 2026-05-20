@@ -8,23 +8,23 @@
 chrome.test.runTests([
   function notAvailable() {
     chrome.systemPrivate.getUpdateStatus(function(status) {
-      chrome.test.assertEq(status.state, "NotAvailable");
+      chrome.test.assertEq(status.state, 'NotAvailable');
       chrome.test.assertEq(status.downloadProgress, 0.0);
       chrome.test.succeed();
     });
   },
   function updating() {
     chrome.systemPrivate.getUpdateStatus(function(status) {
-      chrome.test.assertEq(status.state, "Updating");
+      chrome.test.assertEq(status.state, 'Updating');
       chrome.test.assertEq(status.downloadProgress, 0.5);
       chrome.test.succeed();
     });
   },
   function needRestart() {
     chrome.systemPrivate.getUpdateStatus(function(status) {
-      chrome.test.assertEq(status.state, "NeedRestart");
+      chrome.test.assertEq(status.state, 'NeedRestart');
       chrome.test.assertEq(status.downloadProgress, 1);
       chrome.test.succeed();
     });
-  }
+  },
 ]);

@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/first_run/public/best_features_item.h"
 
 #import "base/strings/sys_string_conversions.h"
+#import "ios/chrome/browser/first_run/public/features.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_util.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -22,6 +23,53 @@ NSDictionary<NSString*, UIColor*>* LensColorProvider(
   return @{
     @"Omnibox" : UIColorFromRGB(omnibox_color),
     @"Lens_Icon_Background" : UIColorFromRGB(lens_background_color),
+  };
+}
+
+// Returns the color provider for the Price Tracking animation.
+NSDictionary<NSString*, UIColor*>* PriceTrackingColorProvider(
+    int gradient_grouped_primary_background_color) {
+  return @{
+    @"grouped_primary_background_color" :
+        [UIColor colorNamed:kGroupedPrimaryBackgroundColor],
+    @"grouped_secondary_background_color" :
+        [UIColor colorNamed:kGroupedSecondaryBackgroundColor],
+    @"blue_color" : [UIColor colorNamed:kBlueColor],
+    @"separator_color" : [UIColor colorNamed:kSeparatorColor],
+    @"tertiary_background_color" :
+        [UIColor colorNamed:kTertiaryBackgroundColor],
+    @"gradient_grouped_primary_background_color" :
+        UIColorFromRGB(gradient_grouped_primary_background_color),
+    @"Smart Watch" : [UIColor colorNamed:kTextPrimaryColor],
+    @"Price $100-$180" : [UIColor colorNamed:kTextSecondaryColor],
+    @"Track Price" : [UIColor colorNamed:kInvertedTextPrimaryColor],
+  };
+}
+
+// Returns the color provider for the Tab Groups animation.
+NSDictionary<NSString*, UIColor*>* TabGroupsColorProvider(
+    int grouped_quaternary_background_color,
+    int grouped_tertiary_background_color) {
+  return @{
+    @"text_primary_color" : [UIColor colorNamed:kTextPrimaryColor],
+    @"background_color" : [UIColor colorNamed:kBackgroundColor],
+    @"tertiary_background_color" :
+        [UIColor colorNamed:kTertiaryBackgroundColor],
+    @"grouped_tertiary_background_color" :
+        UIColorFromRGB(grouped_tertiary_background_color),
+    @"grouped_quaternary_background_color" :
+        UIColorFromRGB(grouped_quaternary_background_color),
+  };
+}
+
+NSDictionary<NSString*, UIColor*>* SharePasswordsColorProvider() {
+  return @{
+    @"secondary_background_color" :
+        [UIColor colorNamed:kSecondaryBackgroundColor],
+    @"primary_background_color" : [UIColor colorNamed:kPrimaryBackgroundColor],
+    @"blue_color" : [UIColor colorNamed:kBlueColor],
+    @"Share Your Passwords" : [UIColor colorNamed:kTextPrimaryColor],
+    @"Share your passwords" : [UIColor colorNamed:kInvertedTextPrimaryColor],
   };
 }
 
@@ -64,6 +112,7 @@ NSDictionary<NSString*, UIColor*>* LensColorProvider(
             CustomSymbolWithConfiguration(kSafetyCheckSymbol, configuration),
             @[ [UIColor whiteColor] ]);
       case BestFeaturesItemType::kLockedIncognitoTabs:
+      case BestFeaturesItemType::kIncognitoBrowsing:
         return SymbolWithPalette(
             CustomSymbolWithConfiguration(kIncognitoSymbol, configuration),
             @[ [UIColor whiteColor] ]);
@@ -94,6 +143,7 @@ NSDictionary<NSString*, UIColor*>* LensColorProvider(
     case BestFeaturesItemType::kEnhancedSafeBrowsing:
       return [UIColor colorNamed:kBlue500Color];
     case BestFeaturesItemType::kLockedIncognitoTabs:
+    case BestFeaturesItemType::kIncognitoBrowsing:
       return [UIColor colorNamed:kGrey400Color];
     case BestFeaturesItemType::kTabGroups:
       return [UIColor colorNamed:kGreen500Color];
@@ -135,14 +185,14 @@ NSDictionary<NSString*, UIColor*>* LensColorProvider(
       };
     case BestFeaturesItemType::kTabGroups:
       return @{
-        @"Tab Groups" : l10n_util ::GetNSString(
+        @"Trip to Tokyo" : l10n_util ::GetNSString(
             IDS_IOS_BEST_FEATURES_TAB_GROUPS_ANIMATION_TEXT_1),
       };
     case BestFeaturesItemType::kPriceTrackingAndInsights:
       return @{
         @"Smart Watch" : l10n_util::GetNSString(
             IDS_IOS_BEST_FEATURES_PRICE_TRACKING_ANIMATION_TEXT_1),
-        @"Price $100 - $180" : l10n_util::GetNSString(
+        @"Price $100-$180" : l10n_util::GetNSString(
             IDS_IOS_BEST_FEATURES_PRICE_TRACKING_ANIMATION_TEXT_2),
         @"Track Price" : l10n_util::GetNSString(
             IDS_IOS_BEST_FEATURES_PRICE_TRACKING_ANIMATION_TEXT_3),
@@ -157,6 +207,9 @@ NSDictionary<NSString*, UIColor*>* LensColorProvider(
         @"Share" : l10n_util::GetNSString(
             IDS_IOS_BEST_FEATURES_SHARE_PASSWORDS_ANIMATION_TEXT_1),
       };
+    case BestFeaturesItemType::kIncognitoBrowsing:
+      // Animation has no strings.
+      return nil;
   }
 }
 
@@ -167,6 +220,9 @@ NSDictionary<NSString*, UIColor*>* LensColorProvider(
       case BestFeaturesItemType::kEnhancedSafeBrowsing:
         return @"enhanced_safe_browsing_promo";
       case BestFeaturesItemType::kLockedIncognitoTabs:
+      // TODO (crbug.com/421157197): Upload the correct animation file for
+      // kIncognitoBrowsing.
+      case BestFeaturesItemType::kIncognitoBrowsing:
         return @"locked_incognito_tabs";
       case BestFeaturesItemType::kSaveAndAutofillPasswords:
         return @"save_passwords";
@@ -260,6 +316,9 @@ NSDictionary<NSString*, UIColor*>* LensColorProvider(
           l10n_util::GetNSString(IDS_IOS_BEST_FEATURES_SHARE_PASSWORDS_STEP_3),
           l10n_util::GetNSString(IDS_IOS_BEST_FEATURES_SHARE_PASSWORDS_STEP_4),
         ];
+      case BestFeaturesItemType::kIncognitoBrowsing:
+        // kIncognitoBrowsing does not have instructions.
+        return nil;
     }
 }
 
@@ -271,9 +330,13 @@ NSDictionary<NSString*, UIColor*>* LensColorProvider(
     case BestFeaturesItemType::kLockedIncognitoTabs:
     case BestFeaturesItemType::kSaveAndAutofillPasswords:
     case BestFeaturesItemType::kTabGroups:
+    case BestFeaturesItemType::kIncognitoBrowsing:
+      return TabGroupsColorProvider(0xFFFFFF, 0xE8EAED);
     case BestFeaturesItemType::kPriceTrackingAndInsights:
-    case BestFeaturesItemType::kAutofillPasswordsInOtherApps:
+      return PriceTrackingColorProvider(0xF1F3F480);
     case BestFeaturesItemType::kSharePasswordsWithFamily:
+      return SharePasswordsColorProvider();
+    case BestFeaturesItemType::kAutofillPasswordsInOtherApps:
       return nil;
   }
 }
@@ -286,9 +349,13 @@ NSDictionary<NSString*, UIColor*>* LensColorProvider(
     case BestFeaturesItemType::kLockedIncognitoTabs:
     case BestFeaturesItemType::kSaveAndAutofillPasswords:
     case BestFeaturesItemType::kTabGroups:
+    case BestFeaturesItemType::kIncognitoBrowsing:
+      return TabGroupsColorProvider(0x5F6368, 0x5F6368);
     case BestFeaturesItemType::kPriceTrackingAndInsights:
-    case BestFeaturesItemType::kAutofillPasswordsInOtherApps:
+      return PriceTrackingColorProvider(0x20212480);
     case BestFeaturesItemType::kSharePasswordsWithFamily:
+      return SharePasswordsColorProvider();
+    case BestFeaturesItemType::kAutofillPasswordsInOtherApps:
       return nil;
   }
 }
@@ -314,6 +381,8 @@ NSDictionary<NSString*, UIColor*>* LensColorProvider(
       return IDS_IOS_BEST_FEATURES_PASSWORDS_IN_OTHER_APPS_TITLE;
     case BestFeaturesItemType::kSharePasswordsWithFamily:
       return IDS_IOS_BEST_FEATURES_SHARE_PASSWORDS_TITLE;
+    case BestFeaturesItemType::kIncognitoBrowsing:
+      return IDS_IOS_BEST_OF_APP_BEST_FEATURES_BROWSE_IN_INCOGNITO_TITLE;
   }
 }
 
@@ -336,6 +405,8 @@ NSDictionary<NSString*, UIColor*>* LensColorProvider(
       return IDS_IOS_BEST_FEATURES_PASSWORDS_IN_OTHER_APPS_SUBTITLE;
     case BestFeaturesItemType::kSharePasswordsWithFamily:
       return IDS_IOS_BEST_FEATURES_SHARE_PASSWORDS_SUBTITLE;
+    case BestFeaturesItemType::kIncognitoBrowsing:
+      return IDS_IOS_BEST_OF_APP_BEST_FEATURES_BROWSE_IN_INCOGNITO_SUBTITLE;
   }
 }
 
@@ -347,6 +418,7 @@ NSDictionary<NSString*, UIColor*>* LensColorProvider(
     case BestFeaturesItemType::kEnhancedSafeBrowsing:
       return IDS_IOS_BEST_FEATURES_ENHANCED_SAFE_BROWSING_CAPTION;
     case BestFeaturesItemType::kLockedIncognitoTabs:
+    case BestFeaturesItemType::kIncognitoBrowsing:
       return IDS_IOS_BEST_FEATURES_LOCKED_INCOGNITO_CAPTION;
     case BestFeaturesItemType::kSaveAndAutofillPasswords:
       return IDS_IOS_BEST_FEATURES_NEVER_FORGET_PASSWORDS_CAPTION;

@@ -11,16 +11,19 @@ import android.app.RemoteAction;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.drawable.Icon;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Rational;
+import android.util.Size;
 import android.view.ViewGroup;
 
 import androidx.activity.ComponentActivity;
-import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.content.ContextCompat;
 import androidx.core.pip.BasicPictureInPicture;
 import androidx.core.pip.PictureInPictureDelegate;
 
+import org.chromium.base.Callback;
 import org.chromium.base.Log;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -51,21 +54,24 @@ public class ActorPictureInPictureController
 
     private static final String TAG = "ActorPiPController";
     private static final int REQUEST_CODE_PAUSE_RESUME = 101;
-    private static final long PIP_EXIT_DELAY_MS = TimeUnit.HOURS.toMillis(1);
+    private static final long PIP_EXIT_DELAY_MS = TimeUnit.MINUTES.toMillis(1);
 
     private final ComponentActivity mActivity;
-    private final Supplier<Profile> mProfileSupplier;
-    private final Supplier<ViewGroup> mRootViewSupplier;
-    private final Supplier<TabModelSelector> mTabModelSelectorSupplier;
+    private final Supplier<@Nullable Profile> mProfileSupplier;
+    private final Supplier<@Nullable ViewGroup> mRootViewSupplier;
+    private final Supplier<@Nullable TabModelSelector> mTabModelSelectorSupplier;
     private final Runnable mHideTabSwitcherCallback;
+    private final Callback<Boolean> mToggleGlicCallback;
     private final BasicPictureInPicture mPipDelegate;
-    private final android.os.Handler mHandler =
-            new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Size mLastNormalSizeBeforePip;
+    private final Callback<Boolean> mOnPipChangedCallback;
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
 
     private @Nullable ActorKeyedService mActorService;
     private boolean mInActorPiP;
     private @Nullable ActorPictureInPictureOverlayCoordinator mPipOverlayCoordinator;
     private @Nullable Runnable mExitPipRunnable;
+    private @Nullable Tab mActingTab;
 
     /**
      * @param activity The ComponentActivity.
@@ -73,18 +79,27 @@ public class ActorPictureInPictureController
      * @param rootViewSupplier The supplier for the root view.
      * @param tabModelSelectorSupplier The supplier for the TabModelSelector.
      * @param hideTabSwitcherCallback Callback to exit the tab switcher.
+     * @param toggleGlicCallback Callback to toggle Glic UI.
+     * @param lastNormalSizeBeforePip The size of the activity before entering PiP.
+     * @param onPipChangedCallback Callback to notify when PiP mode changes.
      */
     public ActorPictureInPictureController(
             ComponentActivity activity,
-            Supplier<Profile> profileSupplier,
-            Supplier<ViewGroup> rootViewSupplier,
-            Supplier<TabModelSelector> tabModelSelectorSupplier,
-            Runnable hideTabSwitcherCallback) {
+            Supplier<@Nullable Profile> profileSupplier,
+            Supplier<@Nullable ViewGroup> rootViewSupplier,
+            Supplier<@Nullable TabModelSelector> tabModelSelectorSupplier,
+            Runnable hideTabSwitcherCallback,
+            Callback<Boolean> toggleGlicCallback,
+            Size lastNormalSizeBeforePip,
+            Callback<Boolean> onPipChangedCallback) {
         mActivity = activity;
         mProfileSupplier = profileSupplier;
         mRootViewSupplier = rootViewSupplier;
         mTabModelSelectorSupplier = tabModelSelectorSupplier;
         mHideTabSwitcherCallback = hideTabSwitcherCallback;
+        mToggleGlicCallback = toggleGlicCallback;
+        mLastNormalSizeBeforePip = lastNormalSizeBeforePip;
+        mOnPipChangedCallback = onPipChangedCallback;
         // Initialize the AndroidX PiP delegate.
         // Activity extends ComponentActivity, so this is valid.
         mPipDelegate = new BasicPictureInPicture(activity);
@@ -99,6 +114,15 @@ public class ActorPictureInPictureController
         ActorKeyedService service = maybeGetActorService();
         if (service == null) return false;
         return service.getActiveTasksCount() > 0;
+    }
+
+    /** Returns the current tab being acted upon by the active Actor task. */
+    public @Nullable Tab getCurrentActingTab() {
+        TabModelSelector selector = mTabModelSelectorSupplier.get();
+        if (selector == null) return null;
+
+        int tabId = getActiveTaskLastActedTabId();
+        return (tabId != Tab.INVALID_TAB_ID) ? selector.getTabById(tabId) : null;
     }
 
     /**
@@ -164,6 +188,7 @@ public class ActorPictureInPictureController
         ActorTask task = (service != null) ? service.getTask(taskId) : null;
 
         if (task != null && task.isCompleted()) {
+            stopOffscreenRendering();
             checkAndExitPipIfFinished();
         } else if (shouldEnterPip()) {
             cancelPendingExit();
@@ -286,12 +311,9 @@ public class ActorPictureInPictureController
     /** Handles when the Activity enters/exits PiP. */
     @Override
     public void onPictureInPictureEvent(
-            @NonNull PictureInPictureDelegate.Event event, @Nullable Configuration newConfig) {
+            PictureInPictureDelegate.Event event, @Nullable Configuration newConfig) {
         if (event == PictureInPictureDelegate.Event.ENTERED) {
-            mInActorPiP = true;
-            ActorMetrics.recordPipStatus(ActorMetrics.ActorPipStatus.ENTERED);
-            showOverlay();
-            checkAndExitPipIfFinished();
+            enterPictureInPicture();
         } else if (event == PictureInPictureDelegate.Event.EXITED) {
             exitPictureInPicture();
         }
@@ -302,11 +324,21 @@ public class ActorPictureInPictureController
         exitPictureInPicture();
     }
 
+    private void enterPictureInPicture() {
+        mInActorPiP = true;
+        mActingTab = getCurrentActingTab();
+        ActorMetrics.recordPipStatus(ActorMetrics.ActorPipStatus.ENTERED);
+        startOffscreenRendering();
+        showOverlay();
+        checkAndExitPipIfFinished();
+    }
+
     private void exitPictureInPicture() {
         if (!mInActorPiP) return;
 
         mInActorPiP = false;
         ActorMetrics.recordPipStatus(ActorMetrics.ActorPipStatus.EXITED);
+        stopOffscreenRendering();
         maybeSelectActingTabOnExpand();
         hideOverlay();
         updatePipState();
@@ -325,7 +357,29 @@ public class ActorPictureInPictureController
             mHideTabSwitcherCallback.run();
             selector.selectModel(tab.isIncognitoBranded());
             TabModelUtils.selectTabById(selector, tabId, TabSelectionType.FROM_USER);
+
+            mToggleGlicCallback.onResult(true);
         }
+    }
+
+    private void startOffscreenRendering() {
+        if (mActingTab == null || mActingTab.getWebContents() == null) return;
+
+        if (mOnPipChangedCallback != null) mOnPipChangedCallback.onResult(true);
+        OffscreenRenderingManager.getInstance()
+                .startOffscreenRendering(
+                        mActingTab,
+                        mLastNormalSizeBeforePip.getWidth(),
+                        mLastNormalSizeBeforePip.getHeight());
+    }
+
+    private void stopOffscreenRendering() {
+        if (mActingTab == null || mActingTab.getWebContents() == null) return;
+
+        OffscreenRenderingManager.getInstance().stopOffscreenRendering(mActingTab);
+        if (mOnPipChangedCallback != null) mOnPipChangedCallback.onResult(false);
+
+        mActingTab = null;
     }
 
     /** Called when the Activity is destroyed. */
@@ -344,6 +398,7 @@ public class ActorPictureInPictureController
             mActorService = null;
         }
         mPipDelegate.setEnabled(false);
+        OffscreenRenderingManager.getInstance().destroy();
     }
 
     @VisibleForTesting
@@ -392,7 +447,6 @@ public class ActorPictureInPictureController
         mPipOverlayCoordinator = coordinator;
     }
 
-    @VisibleForTesting
     public void setInActorPiPForTesting(boolean inPiP) {
         mInActorPiP = inPiP;
     }

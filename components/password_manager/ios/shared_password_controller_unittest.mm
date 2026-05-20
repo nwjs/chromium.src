@@ -279,7 +279,7 @@ class SharedPasswordControllerTest : public PlatformTest {
   void SetupWebAuthnCredentialsDelegate() {
     passkey_model_ = std::make_unique<webauthn::TestPasskeyModel>();
     webauthn::PasskeyTabHelper::CreateForWebState(
-        &web_state_, passkey_model_.get(),
+        &web_state_, passkey_model_.get(), /*password_store=*/nullptr,
         std::make_unique<webauthn::FakeIOSPasskeyClient>());
 
     webauthn::IOSWebAuthnCredentialsDelegateFactory* factory =

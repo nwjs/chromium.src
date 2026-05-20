@@ -5,8 +5,8 @@
 // History api test for Chrome.
 // browser_tests.exe --gtest_filter=HistoryExtensionApiTest.TimedSearch
 
-const scriptUrl = '_test_resources/api_test/history/regular/common.js';
-const loadScript = chrome.test.loadScript(scriptUrl);
+const SCRIPT_URL = '_test_resources/api_test/history/regular/common.js';
+const loadScript = chrome.test.loadScript(SCRIPT_URL);
 
 loadScript.then(async function() {
   chrome.test.runTests([
@@ -21,7 +21,7 @@ loadScript.then(async function() {
               {
                 text: '',
                 startTime: eventTimes.before,
-                endTime: eventTimes.between
+                endTime: eventTimes.between,
               },
               function(historyItems) {
                 assertEq(1, historyItems.length);
@@ -43,7 +43,7 @@ loadScript.then(async function() {
               {
                 text: '',
                 startTime: eventTimes.between,
-                endTime: eventTimes.end
+                endTime: eventTimes.end,
               },
               function(historyItems) {
                 assertEq(1, historyItems.length);
@@ -65,7 +65,7 @@ loadScript.then(async function() {
               {
                 text: '',
                 startTime: eventTimes.between,
-                endTime: eventTimes.between
+                endTime: eventTimes.between,
               },
               function(historyItems) {
                 assertEq(0, historyItems.length);
@@ -84,6 +84,6 @@ loadScript.then(async function() {
           chrome.test.succeed();
         });
       });
-    }
-  ])
+    },
+  ]);
 });

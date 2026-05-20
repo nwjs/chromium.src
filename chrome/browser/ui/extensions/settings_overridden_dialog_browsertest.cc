@@ -2,6 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// NOTE: For new tests, consider adding them to
+// chrome/browser/ui/extensions/settings_overridden_dialog_interactive_uitest.cc
+// which supports more complex interaction and explicit-choice dialogs.
+
 #include "chrome/browser/ui/extensions/settings_overridden_dialog.h"
 
 #include <algorithm>
@@ -197,7 +201,7 @@ class SettingsOverriddenDialogBrowserTest : public DialogBrowserTest {
 
   void NavigateToNewTab() {
     ui_test_utils::NavigateToURLWithDisposition(
-        browser(), GURL(chrome::kChromeUINewTabURL),
+        browser(), chrome::ChromeUINewTabURLAsGURL(),
         WindowOpenDisposition::NEW_FOREGROUND_TAB,
         ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   }

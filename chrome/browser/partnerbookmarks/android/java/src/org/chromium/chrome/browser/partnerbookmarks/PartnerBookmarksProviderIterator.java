@@ -66,7 +66,7 @@ public class PartnerBookmarksProviderIterator implements PartnerBookmark.Bookmar
      *
      * @param callback The callback to receive the result.
      */
-    public static void createIfAvailable(Callback<@Nullable BookmarkIterator> callback) {
+    public static void createIfAvailable(Callback<BookmarkIterator> callback) {
         new AsyncTask<@Nullable Cursor>() {
             @Override
             protected @Nullable Cursor doInBackground() {
@@ -81,7 +81,7 @@ public class PartnerBookmarksProviderIterator implements PartnerBookmark.Bookmar
                                     BOOKMARKS_SORT_ORDER);
                 } catch (Exception ex) {
                     // Depending on the OEM version of Android query() may throw a variety of
-                    // different exception types. See crbug.com/1466882.
+                    // different exception types. See crbug.com/40924167.
                     Log.e(TAG, "Unable to read partner bookmark database", ex);
                     return null;
                 }
@@ -89,8 +89,27 @@ public class PartnerBookmarksProviderIterator implements PartnerBookmark.Bookmar
 
             @Override
             protected void onPostExecute(@Nullable Cursor result) {
-                callback.onResult(
-                        result == null ? null : new PartnerBookmarksProviderIterator(result));
+                if (result != null) {
+                    callback.onResult(new PartnerBookmarksProviderIterator(result));
+                } else {
+                    // Many callsites depend on some sort of callback even with null result.
+                    // Send an empty BookmarkIterator.
+                    callback.onResult(
+                            new BookmarkIterator() {
+                                @Override
+                                public void close() {}
+
+                                @Override
+                                public boolean hasNext() {
+                                    return false;
+                                }
+
+                                @Override
+                                public PartnerBookmark next() {
+                                    throw new NoSuchElementException();
+                                }
+                            });
+                }
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }

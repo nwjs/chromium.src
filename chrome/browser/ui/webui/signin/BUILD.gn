@@ -93,6 +93,7 @@ source_set("signin") {
   public_deps = [
     ":login_ui_service",
     "//base",
+    "//chrome/browser/enterprise",
     "//chrome/browser/signin",
     "//chrome/browser/ui/browser_window",
     "//chrome/common",
@@ -100,6 +101,15 @@ source_set("signin") {
     "//components/sync/base",
     "//content/public/browser",
     "//ui/web_dialogs",
+  ]
+
+  # enterprise headers include turn_sync_on_helper_policy_fetch_tracker.h.
+  allow_circular_includes_from = [
+    "//chrome/browser/enterprise",
+
+    # signin headers include turn_sync_on_helper.h for SigninAbortedMode, and
+    # dice_tab_helper.cc includes history_sync_optin_helper.h.
+    "//chrome/browser/signin",
   ]
 
   if (enable_dice_support) {
@@ -159,6 +169,8 @@ source_set("signin_impl") {
     "//chrome/browser:browser_process",
     "//chrome/browser/consent_auditor",
     "//chrome/browser/enterprise/browser_management:management_identity",
+    "//chrome/browser/net",
+    "//chrome/browser/profiles:misc",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/profiles:profile_util",
@@ -257,8 +269,8 @@ source_set("login_ui_service_impl") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/signin:signin_promo",
-    "//chrome/browser/ui:browser_navigator_params_headers",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/navigator",
     "//chrome/browser/ui/signin",
   ]
 }
@@ -304,7 +316,7 @@ if (is_win || is_chromeos) {
       "//chrome/browser/profiles",
       "//chrome/browser/resources/gaia_auth_host:resources_grit",
       "//chrome/browser/signin:signin_promo",
-      "//chrome/browser/ui:browser_navigator_params_headers",
+      "//chrome/browser/ui/navigator",
       "//components/signin/core/browser",
       "//ui/webui",
     ]
@@ -322,6 +334,7 @@ if (is_win || is_chromeos) {
         "//chrome/browser/ash/account_manager",
         "//chrome/browser/ash/profiles",
         "//chrome/browser/resources/ash/inline_login:resources",
+        "//chrome/browser/resources/chromeos/account_manager:resources",
         "//chrome/browser/resources/chromeos/edu_coexistence:resources",
         "//chrome/browser/resources/chromeos/gaia_action_buttons:resources",
         "//chrome/browser/resources/chromeos/supervision:resources",
@@ -351,7 +364,6 @@ if (!is_chromeos) {
       "//build:buildflag_header_h",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/profiles:profile_util",
-      "//chrome/browser/ui:browser_list",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/webui/top_chrome",
       "//chrome/common",
@@ -393,8 +405,10 @@ if (!is_chromeos) {
       "//chrome/browser:resources",
       "//chrome/browser/enterprise/browser_management:management_identity",
       "//chrome/browser/glic/resources:browser_resources",
+      "//chrome/browser/new_tab_page",
       "//chrome/browser/new_tab_page/chrome_colors:generate_chrome_colors_info",
       "//chrome/browser/profiles",
+      "//chrome/browser/profiles:misc",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/profiles:profile_manager",
       "//chrome/browser/profiles:profile_util",
@@ -404,7 +418,6 @@ if (!is_chromeos) {
       "//chrome/browser/search/background",
       "//chrome/browser/themes",
       "//chrome/browser/ui:browser_element_identifiers",
-      "//chrome/browser/ui:browser_list",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/color:color_headers",
       "//chrome/browser/ui/profiles",

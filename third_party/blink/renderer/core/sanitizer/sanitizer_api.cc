@@ -44,6 +44,20 @@ const Sanitizer* SanitizerFromOptions(const FragmentParserOptions& options,
 }
 }  // namespace
 
+// static
+bool SanitizerAPI::AllowMutatingRootElement(
+    Sanitizer::Mode mode,
+    const ContainerNode* context_element) {
+  if (mode == Sanitizer::Mode::kSafe && context_element->IsElementNode()) {
+    const Element* real_element = To<Element>(context_element);
+    if (real_element->TagQName() == html_names::kScriptTag ||
+        real_element->TagQName() == svg_names::kScriptTag) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void SanitizerAPI::SanitizeInternal(Sanitizer::Mode mode,
                                     const ContainerNode* context_element,
                                     ContainerNode* root_element,
@@ -57,13 +71,9 @@ void SanitizerAPI::SanitizeInternal(Sanitizer::Mode mode,
     return;
   }
 
-  if (mode == Sanitizer::Mode::kSafe && context_element->IsElementNode()) {
-    const Element* real_element = To<Element>(context_element);
-    if (real_element->TagQName() == html_names::kScriptTag ||
-        real_element->TagQName() == svg_names::kScriptTag) {
-      root_element->setTextContent("");
-      return;
-    }
+  if (!AllowMutatingRootElement(mode, context_element)) {
+    root_element->setTextContent("");
+    return;
   }
 
   const Sanitizer* sanitizer =

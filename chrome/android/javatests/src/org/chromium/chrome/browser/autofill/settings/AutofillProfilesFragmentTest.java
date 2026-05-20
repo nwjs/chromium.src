@@ -29,6 +29,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -53,6 +54,7 @@ import androidx.preference.PreferenceScreen;
 import androidx.test.espresso.intent.Intents;
 import androidx.test.espresso.matcher.ViewMatchers.Visibility;
 import androidx.test.filters.MediumTest;
+import androidx.test.filters.SmallTest;
 
 import org.hamcrest.Matchers;
 import org.junit.After;
@@ -68,6 +70,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Callback;
+import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
@@ -79,6 +82,7 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.autofill.AndroidAutofillAvailabilityStatus;
 import org.chromium.chrome.browser.autofill.AutofillClientProviderUtils;
 import org.chromium.chrome.browser.autofill.AutofillTestHelper;
@@ -90,6 +94,8 @@ import org.chromium.chrome.browser.autofill.editors.address.AddressEditorMediato
 import org.chromium.chrome.browser.autofill.editors.address.EditorDialogView;
 import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
+import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
+import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.settings.SettingsActivity;
@@ -98,7 +104,6 @@ import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.components.autofill.AutofillProfile;
 import org.chromium.components.autofill.FieldType;
 import org.chromium.components.autofill.RecordType;
@@ -109,7 +114,6 @@ import org.chromium.components.autofill.autofill_ai.utils.TestUtils;
 import org.chromium.components.browser_ui.settings.CardWithButtonPreference;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.signin.base.AccountInfo;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync.SyncService;
@@ -118,6 +122,7 @@ import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogProperties;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.test.util.MockitoHelper;
 
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -130,10 +135,7 @@ import java.util.concurrent.TimeoutException;
 
 /** Unit test suite for AutofillProfilesFragment. */
 @RunWith(ChromeJUnit4ClassRunner.class)
-@EnableFeatures({
-    ChromeFeatureList.PLUS_ADDRESSES_ENABLED,
-    ChromeFeatureList.AUTOFILL_ENABLE_SUPPORT_FOR_HOME_AND_WORK
-})
+@EnableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SUPPORT_FOR_HOME_AND_WORK})
 @DoNotBatch(
         reason =
                 "TODO(crbug.com/437074185): The tests are leaking state. Fix and re-enable"
@@ -214,6 +216,7 @@ public class AutofillProfilesFragmentTest {
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
+    @Mock private HelpAndFeedbackLauncher mHelpAndFeedbackLauncher;
     @Mock private IdentityServicesProvider mIdentityServicesProvider;
     @Mock private IdentityManager mIdentityManagerMock;
     @Mock private SyncService mSyncService;
@@ -283,6 +286,7 @@ public class AutofillProfilesFragmentTest {
                     AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
                             AndroidAutofillAvailabilityStatus.SETTING_TURNED_OFF);
                 });
+        HelpAndFeedbackLauncherFactory.setInstanceForTesting(mHelpAndFeedbackLauncher);
     }
 
     @After
@@ -299,8 +303,7 @@ public class AutofillProfilesFragmentTest {
         AutofillProfilesFragment autofillProfileFragment = sSettingsActivityTestRule.getFragment();
 
         // Check the preferences on the initial screen.
-        checkPreferenceCount(
-                7 /* One toggle + one add button + four profiles + plus address entry. */);
+        checkPreferenceCount(6 /* One toggle + one add button + four profiles. */);
         AutofillProfileEditorPreference addProfile =
                 autofillProfileFragment.findPreference(AutofillProfilesFragment.PREF_NEW_PROFILE);
         assertNotNull(addProfile);
@@ -322,40 +325,10 @@ public class AutofillProfilesFragmentTest {
                 R.id.editor_dialog_done_button,
                 false);
 
-        checkPreferenceCount(
-                8 /* One toggle + one add button + five profiles + plus address entry. */);
+        checkPreferenceCount(7 /* One toggle + one add button + five profiles. */);
         AutofillProfileEditorPreference addedProfile = findPreference("Alice Doe");
         assertNotNull(addedProfile);
         assertEquals("111 Added St, 90291", addedProfile.getSummary());
-    }
-
-    @Test
-    @MediumTest
-    @Feature({"Preferences"})
-    @DisableFeatures(ChromeFeatureList.AUTOFILL_AI_WITH_DATA_SCHEMA)
-    public void testPlusAddressEntry() throws Exception {
-        AutofillProfilesFragment autofillProfileFragment = sSettingsActivityTestRule.getFragment();
-
-        // Check the preferences on the initial screen.
-        checkPreferenceCount(
-                7 /* One toggle + one add button + four profiles + plus address entry. */);
-        AutofillProfileEditorPreference plusAddressEntry =
-                autofillProfileFragment.findPreference(
-                        AutofillProfilesFragment.MANAGE_PLUS_ADDRESSES);
-        assertNotNull(plusAddressEntry);
-
-        assertEquals(
-                sSettingsActivityTestRule
-                        .getFragment()
-                        .getContext()
-                        .getString(R.string.plus_address_settings_entry_title),
-                plusAddressEntry.getTitle());
-        assertEquals(
-                sSettingsActivityTestRule
-                        .getFragment()
-                        .getContext()
-                        .getString(R.string.plus_address_settings_entry_summary),
-                plusAddressEntry.getSummary());
     }
 
     /**
@@ -435,8 +408,7 @@ public class AutofillProfilesFragmentTest {
         AutofillProfilesFragment autofillProfileFragment = sSettingsActivityTestRule.getFragment();
 
         // Check the preferences on the initial screen.
-        checkPreferenceCount(
-                7 /* One toggle + one add button + four profiles + plus address entry. */);
+        checkPreferenceCount(6 /* One toggle + one add button + four profiles. */);
         AutofillProfileEditorPreference addProfile =
                 findPreference(AutofillProfilesFragment.PREF_NEW_PROFILE);
         assertNotNull(addProfile);
@@ -450,8 +422,7 @@ public class AutofillProfilesFragmentTest {
                 false);
 
         // Incomplete profile should still be added.
-        checkPreferenceCount(
-                8 /* One toggle + one add button + five profiles + plus address entry. */);
+        checkPreferenceCount(7 /* One toggle + one add button + five profiles. */);
         assertNotNull(findPreference("Mike Doe"));
     }
 
@@ -463,8 +434,7 @@ public class AutofillProfilesFragmentTest {
         AutofillProfilesFragment autofillProfileFragment = sSettingsActivityTestRule.getFragment();
 
         // Check the preferences on the initial screen.
-        checkPreferenceCount(
-                7 /* One toggle + one add button + four profiles + plus address entry. */);
+        checkPreferenceCount(6 /* One toggle + one add button + four profiles. */);
         AutofillProfileEditorPreference addProfile =
                 autofillProfileFragment.findPreference(AutofillProfilesFragment.PREF_NEW_PROFILE);
         assertNotNull(addProfile);
@@ -565,10 +535,10 @@ public class AutofillProfilesFragmentTest {
     @DisableFeatures(ChromeFeatureList.AUTOFILL_AI_WITH_DATA_SCHEMA)
     public void testDeleteLocalProfile() throws Exception {
         Context context = sSettingsActivityTestRule.getFragment().getContext();
-        setUpMockSyncService(new HashSet());
+        setUpMockSyncService(new HashSet<>());
         testDeleteProfile(
                 "Seb Doe",
-                7 /* toggle + add button + 4 profiles + plus address entry */,
+                6 /* toggle + add button + 4 profiles */,
                 context.getString(R.string.autofill_delete_local_address_record_type_notice));
     }
 
@@ -581,7 +551,7 @@ public class AutofillProfilesFragmentTest {
         setUpMockSyncService(Collections.singleton(UserSelectableType.AUTOFILL));
         testDeleteProfile(
                 "Seb Doe",
-                7 /* toggle + add button + 4 profiles + plus address entry */,
+                6 /* toggle + add button + 4 profiles */,
                 context.getString(R.string.autofill_delete_sync_address_record_type_notice));
     }
 
@@ -601,10 +571,7 @@ public class AutofillProfilesFragmentTest {
                         .replace("$1", TestAccounts.ACCOUNT1.getEmail());
 
         // Call the reusable helper method with parameters for this test.
-        testDeleteProfile(
-                "Artik Doe",
-                8 /* toggle + add button + 5 profiles + plus address entry */,
-                expectedMessage);
+        testDeleteProfile("Artik Doe", 7 /* toggle + add button + 5 profiles */, expectedMessage);
     }
 
     @Test
@@ -615,8 +582,7 @@ public class AutofillProfilesFragmentTest {
         AutofillProfilesFragment autofillProfileFragment = sSettingsActivityTestRule.getFragment();
 
         // Check the preferences on the initial screen.
-        checkPreferenceCount(
-                7 /* One toggle + one add button + four profiles + plus address entry. */);
+        checkPreferenceCount(6 /* One toggle + one add button + four profiles. */);
         AutofillProfileEditorPreference johnProfile =
                 autofillProfileFragment.findPreference("John Doe");
         assertNotNull(johnProfile);
@@ -647,8 +613,7 @@ public class AutofillProfilesFragmentTest {
                 R.id.editor_dialog_done_button, /* waitForPreferenceUpdate= */ true);
 
         // Check if the preferences are updated correctly.
-        checkPreferenceCount(
-                7 /* One toggle + one add button + four profiles + plus address entry. */);
+        checkPreferenceCount(6 /* One toggle + one add button + four profiles. */);
         AutofillProfileEditorPreference editedProfile = findPreference("Emily Doe");
         assertNotNull(editedProfile);
         assertEquals("111 Edited St, 90291", editedProfile.getSummary());
@@ -681,8 +646,7 @@ public class AutofillProfilesFragmentTest {
         Context context = autofillProfileFragment.getContext();
 
         // Check the preferences on the initial screen.
-        checkPreferenceCount(
-                8 /* One toggle + one add button + 5 profiles + plus address entry. */);
+        checkPreferenceCount(7 /* One toggle + one add button + 5 profiles. */);
         AutofillProfileEditorPreference johnProfile = findPreference("Account Updated #0");
         assertNotNull(johnProfile);
 
@@ -729,8 +693,7 @@ public class AutofillProfilesFragmentTest {
                 R.id.editor_dialog_done_button, /* waitForPreferenceUpdate= */ true);
 
         // Check if the preferences are updated correctly.
-        checkPreferenceCount(
-                8 /* One toggle + one add button + five profiles + plus address entry. */);
+        checkPreferenceCount(7 /* One toggle + one add button + five profiles. */);
         assertNotNull(findPreference("Account Updated #2"));
     }
 
@@ -758,8 +721,7 @@ public class AutofillProfilesFragmentTest {
         AutofillProfilesFragment autofillProfileFragment = sSettingsActivityTestRule.getFragment();
 
         // Check the preferences on the initial screen.
-        checkPreferenceCount(
-                8 /* One toggle + one add button + 5 profiles + plus address entry. */);
+        checkPreferenceCount(7 /* One toggle + one add button + 5 profiles. */);
         AutofillProfileEditorPreference johnProfile = findPreference("Account Updated #0");
         assertNotNull(johnProfile);
 
@@ -781,8 +743,7 @@ public class AutofillProfilesFragmentTest {
                 false);
 
         // Check if the preferences are updated correctly.
-        checkPreferenceCount(
-                8 /* One toggle + one add button + five profiles + plus address entry. */);
+        checkPreferenceCount(7 /* One toggle + one add button + five profiles. */);
         assertNotNull(findPreference("Account Updated #1"));
     }
 
@@ -792,8 +753,7 @@ public class AutofillProfilesFragmentTest {
     @DisableFeatures(ChromeFeatureList.AUTOFILL_AI_WITH_DATA_SCHEMA)
     public void testOpenProfileWithCompleteState() throws Exception {
         // Check the preferences on the initial screen.
-        checkPreferenceCount(
-                7 /* One toggle + one add button + four profiles + plus address entry. */);
+        checkPreferenceCount(6 /* One toggle + one add button + four profiles. */);
         AutofillProfileEditorPreference bobProfile = findPreference("Bob Doe");
         assertNotNull(bobProfile);
         assertEquals("Bob Doe", bobProfile.getTitle());
@@ -805,8 +765,7 @@ public class AutofillProfilesFragmentTest {
         rule.clickInEditorAndWait(
                 R.id.editor_dialog_done_button, /* waitForPreferenceUpdate= */ true);
 
-        checkPreferenceCount(
-                7 /* One toggle + one add button + four profiles + plus address entry. */);
+        checkPreferenceCount(6 /* One toggle + one add button + four profiles. */);
     }
 
     @Test
@@ -815,8 +774,7 @@ public class AutofillProfilesFragmentTest {
     @DisableFeatures(ChromeFeatureList.AUTOFILL_AI_WITH_DATA_SCHEMA)
     public void testOpenProfileWithInvalidState() throws Exception {
         // Check the preferences on the initial screen.
-        checkPreferenceCount(
-                7 /* One toggle + one add button + four profiles + plus address entry. */);
+        checkPreferenceCount(6 /* One toggle + one add button + four profiles. */);
         AutofillProfileEditorPreference billProfile = findPreference("Bill Doe");
         assertNotNull(billProfile);
         assertEquals("Bill Doe", billProfile.getTitle());
@@ -829,8 +787,7 @@ public class AutofillProfilesFragmentTest {
                 R.id.editor_dialog_done_button, /* waitForPreferenceUpdate= */ true);
 
         // Check if the preferences are updated correctly.
-        checkPreferenceCount(
-                7 /* One toggle + one add button + four profiles + plus address entry. */);
+        checkPreferenceCount(6 /* One toggle + one add button + four profiles. */);
     }
 
     @Test
@@ -908,7 +865,7 @@ public class AutofillProfilesFragmentTest {
         IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
         when(IdentityServicesProvider.get().getIdentityManager(any()))
                 .thenReturn(mIdentityManagerMock);
-        when(mIdentityManagerMock.hasPrimaryAccount(ConsentLevel.SIGNIN)).thenReturn(false);
+        when(mIdentityManagerMock.hasPrimaryAccount()).thenReturn(false);
         setUpMockSyncService(new HashSet<>());
 
         verifyAddressProfileIcons(/* expectedLocalIconLayout= */ 0);
@@ -979,12 +936,6 @@ public class AutofillProfilesFragmentTest {
         AutofillProfileEditorPreference addProfile =
                 autofillProfileFragment.findPreference(AutofillProfilesFragment.PREF_NEW_PROFILE);
         assertNull(addProfile);
-
-        // Plus address entry should be shown.
-        AutofillProfileEditorPreference plusAddressEntry =
-                autofillProfileFragment.findPreference(
-                        AutofillProfilesFragment.MANAGE_PLUS_ADDRESSES);
-        assertNotNull(plusAddressEntry);
     }
 
     @Test
@@ -1186,7 +1137,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();
         instancesMap.put(vehicleType, Arrays.asList(entity1));
@@ -1221,7 +1173,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         EntityInstanceWithLabels entity2 =
                 new EntityInstanceWithLabels(
@@ -1229,7 +1182,8 @@ public class AutofillProfilesFragmentTest {
                         passportType,
                         /*entityName*/ "Passport",
                         /* entityInstanceSubLabel= */ "Germany",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();
@@ -1396,7 +1350,12 @@ public class AutofillProfilesFragmentTest {
 
         EntityInstanceWithLabels entity =
                 new EntityInstanceWithLabels(
-                        "guid1", disabledType, "Label", "Sublabel", /* storedInWallet= */ false);
+                        "guid1",
+                        disabledType,
+                        "Label",
+                        "Sublabel",
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();
@@ -1437,7 +1396,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "B",
                         /* entityInstanceSubLabel= */ "2",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         EntityInstanceWithLabels entity2 =
                 new EntityInstanceWithLabels(
@@ -1445,7 +1405,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "A",
                         /* entityInstanceSubLabel= */ "1",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         EntityInstanceWithLabels entity3 =
                 new EntityInstanceWithLabels(
@@ -1453,7 +1414,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "A",
                         /* entityInstanceSubLabel= */ "2",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         // Sorting is now expected to be done by getInstancesToList.
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
@@ -1497,7 +1459,7 @@ public class AutofillProfilesFragmentTest {
     @Test
     @MediumTest
     @Feature({"Preferences"})
-    public void testAutofillAiEntities_opensEditorOnAddClick() throws Exception {
+    public void testAutofillAiEntities_opensEditorOnAddClickForLocalEntity() throws Exception {
         EntityType vehicleType = TestUtils.getVehicleEntityType();
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
@@ -1524,7 +1486,59 @@ public class AutofillProfilesFragmentTest {
                             return category.findPreference("Vehicle" + " Add");
                         });
         assertNotNull(addVehicle);
+        int callCount = rule.mClickUpdate.getCallCount();
         ThreadUtils.runOnUiThreadBlocking(addVehicle::performClick);
+        rule.mClickUpdate.waitForCallback(callCount);
+
+        onView(withText("Add Vehicle")).check(matches(isDisplayed()));
+
+        // Click the "Done" button.
+        onView(withText("Done")).perform(click());
+        verify(sEntityDataManager)
+                .addOrUpdateEntityInstance(
+                        any(),
+                        eq(R.string.autofill_ai_save_or_update_local_entity_source_notice),
+                        eq(R.string.done),
+                        any());
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Preferences"})
+    public void testAutofillAiEntities_opensEditorOnAddClickForWalletEntity() throws Exception {
+        EntityType vehicleType =
+                TestUtils.getVehicleEntityType(
+                        /* isReadOnly= */ false,
+                        /* isEnabled= */ true,
+                        /* isEligibleForWalletStorage= */ true);
+
+        LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
+                new LinkedHashMap<>();
+        instancesMap.put(vehicleType, Collections.emptyList());
+
+        when(sEntityDataManager.getInstancesToList()).thenReturn(instancesMap);
+        when(sEntityDataManager.isEligibleToAutofillAi()).thenReturn(true);
+        when(sEntityDataManager.getAutofillAiOptInStatus()).thenReturn(true);
+        when(sEntityDataManager.canEnableOrDisableAutofillAi()).thenReturn(true);
+        EntityDataManagerFactory.setInstanceForTesting(sEntityDataManager);
+
+        // Trigger a rebuild of the profile list to pick up the new mock entities.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> sSettingsActivityTestRule.getFragment().onPersonalDataChanged());
+
+        Preference addVehicle =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            PreferenceCategory category =
+                                    sSettingsActivityTestRule
+                                            .getFragment()
+                                            .findPreference("Vehicle");
+                            return category.findPreference("Vehicle" + " Add");
+                        });
+        assertNotNull(addVehicle);
+        int callCount = rule.mClickUpdate.getCallCount();
+        ThreadUtils.runOnUiThreadBlocking(addVehicle::performClick);
+        rule.mClickUpdate.waitForCallback(callCount);
 
         onView(withText("Add Vehicle")).check(matches(isDisplayed()));
 
@@ -1533,7 +1547,11 @@ public class AutofillProfilesFragmentTest {
         onView(withText("Done")).perform(click());
         ArgumentCaptor<Runnable> localSaveFallbackCaptor = ArgumentCaptor.forClass(Runnable.class);
         verify(sEntityDataManager)
-                .addOrUpdateEntityInstance(any(), localSaveFallbackCaptor.capture());
+                .addOrUpdateEntityInstance(
+                        any(),
+                        eq(R.string.autofill_ai_save_or_update_entity_in_wallet_source_notice),
+                        eq(R.string.done),
+                        localSaveFallbackCaptor.capture());
 
         ThreadUtils.runOnUiThreadBlocking(() -> localSaveFallbackCaptor.getValue().run());
 
@@ -1573,7 +1591,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();
@@ -1641,7 +1660,9 @@ public class AutofillProfilesFragmentTest {
                             return category.findPreference("Vehicle" + " Add");
                         });
         assertNotNull(addVehicle);
+        int callCount = rule.mClickUpdate.getCallCount();
         ThreadUtils.runOnUiThreadBlocking(addVehicle::performClick);
+        rule.mClickUpdate.waitForCallback(callCount);
 
         onView(withText("Add Vehicle")).check(matches(isDisplayed()));
 
@@ -1687,7 +1708,9 @@ public class AutofillProfilesFragmentTest {
                             return category.findPreference("Vehicle" + " Add");
                         });
         assertNotNull(addVehicle);
+        int callCount = rule.mClickUpdate.getCallCount();
         ThreadUtils.runOnUiThreadBlocking(addVehicle::performClick);
+        rule.mClickUpdate.waitForCallback(callCount);
 
         onView(withText("Add Vehicle")).check(matches(isDisplayed()));
 
@@ -1707,8 +1730,11 @@ public class AutofillProfilesFragmentTest {
     @Test
     @MediumTest
     @Feature({"Preferences"})
+    @EnableFeatures(ChromeFeatureList.AUTOFILL_AI_WALLET_PRIVATE_PASSES_DEEP_LINK)
     public void testAutofillAiEntities_opensWalletOnClick() throws Exception {
         EntityType vehicleType = TestUtils.getVehicleEntityType();
+
+        String expectedUrl = "https://wallet.com/private";
 
         EntityInstanceWithLabels entity1 =
                 new EntityInstanceWithLabels(
@@ -1716,7 +1742,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ true);
+                        /* storedInWallet= */ true,
+                        /* walletEntityUrl= */ expectedUrl);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();
@@ -1738,6 +1765,50 @@ public class AutofillProfilesFragmentTest {
         Instrumentation.ActivityResult result =
                 new Instrumentation.ActivityResult(Activity.RESULT_OK, null);
         // Since we don't have Google Wallet installed in tests, it will fallback to CCT.
+        var intentMatcher = allOf(hasAction(Intent.ACTION_VIEW), hasData(Uri.parse(expectedUrl)));
+        intending(intentMatcher).respondWith(result);
+
+        ThreadUtils.runOnUiThreadBlocking(vehicleEntity::performClick);
+
+        intended(intentMatcher);
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Preferences"})
+    @EnableFeatures(ChromeFeatureList.AUTOFILL_AI_WALLET_PRIVATE_PASSES_DEEP_LINK)
+    public void testAutofillAiEntities_opensWalletDefaultPage_whenUrlIsNull() throws Exception {
+        EntityType vehicleType = TestUtils.getVehicleEntityType();
+
+        EntityInstanceWithLabels entity1 =
+                new EntityInstanceWithLabels(
+                        "guid1",
+                        vehicleType,
+                        /* entityInstanceLabel= */ "Vehicle",
+                        /* entityInstanceSubLabel= */ "Mercedez",
+                        /* storedInWallet= */ true,
+                        /* walletEntityUrl= */ null);
+
+        LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
+                new LinkedHashMap<>();
+        instancesMap.put(vehicleType, Arrays.asList(entity1));
+
+        when(sEntityDataManager.getInstancesToList()).thenReturn(instancesMap);
+        EntityDataManagerFactory.setInstanceForTesting(sEntityDataManager);
+
+        // Trigger a rebuild of the profile list to pick up the new mock entities.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> sSettingsActivityTestRule.getFragment().onPersonalDataChanged());
+
+        Preference vehicleEntity =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> sSettingsActivityTestRule.getFragment().findPreference("guid1"));
+        assertNotNull(vehicleEntity);
+
+        // Mock the intent that should be fired.
+        Instrumentation.ActivityResult result =
+                new Instrumentation.ActivityResult(Activity.RESULT_OK, null);
+        // Since the walletEntityUrl is null, it should fallback to the general passes page.
         var intentMatcher =
                 allOf(
                         hasAction(Intent.ACTION_VIEW),
@@ -1745,6 +1816,99 @@ public class AutofillProfilesFragmentTest {
         intending(intentMatcher).respondWith(result);
 
         ThreadUtils.runOnUiThreadBlocking(vehicleEntity::performClick);
+
+        intended(intentMatcher);
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Preferences"})
+    @EnableFeatures(ChromeFeatureList.AUTOFILL_AI_WALLET_PRIVATE_PASSES_DEEP_LINK)
+    public void testAutofillAiEntities_opensWalletPrivatePassPageOnClick() throws Exception {
+        EntityType passportType = TestUtils.getPassportEntityType();
+
+        String expectedUrl = "https://wallet.com/private";
+
+        EntityInstanceWithLabels entity1 =
+                new EntityInstanceWithLabels(
+                        "guid1",
+                        passportType,
+                        /* entityInstanceLabel= */ "Passport",
+                        /* entityInstanceSubLabel= */ "Germany",
+                        /* storedInWallet= */ true,
+                        /* walletEntityUrl= */ expectedUrl);
+
+        LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
+                new LinkedHashMap<>();
+        instancesMap.put(passportType, Arrays.asList(entity1));
+
+        when(sEntityDataManager.getInstancesToList()).thenReturn(instancesMap);
+        EntityDataManagerFactory.setInstanceForTesting(sEntityDataManager);
+
+        // Trigger a rebuild of the profile list to pick up the new mock entities.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> sSettingsActivityTestRule.getFragment().onPersonalDataChanged());
+
+        Preference passportEntity =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> sSettingsActivityTestRule.getFragment().findPreference("guid1"));
+        assertNotNull(passportEntity);
+
+        // Mock the intent that should be fired.
+        Instrumentation.ActivityResult result =
+                new Instrumentation.ActivityResult(Activity.RESULT_OK, null);
+        var intentMatcher = allOf(hasAction(Intent.ACTION_VIEW), hasData(Uri.parse(expectedUrl)));
+        intending(intentMatcher).respondWith(result);
+
+        ThreadUtils.runOnUiThreadBlocking(passportEntity::performClick);
+
+        intended(intentMatcher);
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Preferences"})
+    @DisableFeatures(ChromeFeatureList.AUTOFILL_AI_WALLET_PRIVATE_PASSES_DEEP_LINK)
+    public void testAutofillAiEntities_opensWalletPrivatePassPageOnClick_featureDisabled()
+            throws Exception {
+        EntityType passportType = TestUtils.getPassportEntityType();
+
+        EntityInstanceWithLabels entity1 =
+                new EntityInstanceWithLabels(
+                        "guid1",
+                        passportType,
+                        /* entityInstanceLabel= */ "Passport",
+                        /* entityInstanceSubLabel= */ "Germany",
+                        /* storedInWallet= */ true,
+                        /* walletEntityUrl= */ "https://wallet.com/private");
+
+        LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
+                new LinkedHashMap<>();
+        instancesMap.put(passportType, Arrays.asList(entity1));
+
+        when(sEntityDataManager.getInstancesToList()).thenReturn(instancesMap);
+        EntityDataManagerFactory.setInstanceForTesting(sEntityDataManager);
+
+        // Trigger a rebuild of the profile list to pick up the new mock entities.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> sSettingsActivityTestRule.getFragment().onPersonalDataChanged());
+
+        Preference passportEntity =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> sSettingsActivityTestRule.getFragment().findPreference("guid1"));
+        assertNotNull(passportEntity);
+
+        // Mock the intent that should be fired.
+        Instrumentation.ActivityResult result =
+                new Instrumentation.ActivityResult(Activity.RESULT_OK, null);
+        // Since the deep link feature is disabled, it should fallback to the general passes page.
+        var intentMatcher =
+                allOf(
+                        hasAction(Intent.ACTION_VIEW),
+                        hasData(Uri.parse(GoogleWalletLauncher.GOOGLE_WALLET_PASSES_URL)));
+        intending(intentMatcher).respondWith(result);
+
+        ThreadUtils.runOnUiThreadBlocking(passportEntity::performClick);
 
         intended(intentMatcher);
     }
@@ -1761,7 +1925,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap1 =
                 new LinkedHashMap<>();
@@ -1848,9 +2013,7 @@ public class AutofillProfilesFragmentTest {
 
     @Test
     @MediumTest
-    @EnableFeatures({
-        ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
-    })
+    @EnableFeatures({ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID})
     public void testTitle_HoTEnabled_showsContactInfo() throws Exception {
         sSettingsActivityTestRule.startSettingsActivity();
 
@@ -1872,7 +2035,8 @@ public class AutofillProfilesFragmentTest {
                         TestUtils.getVehicleEntityType(),
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();
@@ -1902,7 +2066,7 @@ public class AutofillProfilesFragmentTest {
 
         // Click entity and capture reauth callback.
         ThreadUtils.runOnUiThreadBlocking(vehicleEntity::performClick);
-        ArgumentCaptor<Callback<Boolean>> callbackCaptor = ArgumentCaptor.forClass(Callback.class);
+        ArgumentCaptor<Callback<Boolean>> callbackCaptor = MockitoHelper.callbackCaptor();
         verify(mMockReauthenticatorBridge).reauthenticate(callbackCaptor.capture());
 
         // Simulate successful reauth.
@@ -1921,7 +2085,8 @@ public class AutofillProfilesFragmentTest {
                         TestUtils.getVehicleEntityType(),
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();
@@ -1951,7 +2116,7 @@ public class AutofillProfilesFragmentTest {
 
         // Click entity and capture reauth callback.
         ThreadUtils.runOnUiThreadBlocking(vehicleEntity::performClick);
-        ArgumentCaptor<Callback<Boolean>> callbackCaptor = ArgumentCaptor.forClass(Callback.class);
+        ArgumentCaptor<Callback<Boolean>> callbackCaptor = MockitoHelper.callbackCaptor();
         verify(mMockReauthenticatorBridge).reauthenticate(callbackCaptor.capture());
 
         // Simulate failed reauth.
@@ -2081,9 +2246,8 @@ public class AutofillProfilesFragmentTest {
         IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
         when(IdentityServicesProvider.get().getIdentityManager(any()))
                 .thenReturn(mIdentityManagerMock);
-        when(mIdentityManagerMock.getPrimaryAccountInfo(ConsentLevel.SIGNIN))
-                .thenReturn(accountInfo);
-        when(mIdentityManagerMock.hasPrimaryAccount(ConsentLevel.SIGNIN)).thenReturn(true);
+        when(mIdentityManagerMock.getPrimaryAccountInfo()).thenReturn(accountInfo);
+        when(mIdentityManagerMock.hasPrimaryAccount()).thenReturn(true);
     }
 
     private void setUpMockSyncService(Set<Integer> selectedTypes) {
@@ -2236,5 +2400,18 @@ public class AutofillProfilesFragmentTest {
                     Criteria.checkThat(addVehicle, Matchers.notNullValue());
                     Criteria.checkThat(addVehicle.isEnabled(), Matchers.is(false));
                 });
+    }
+
+    @Test
+    @SmallTest
+    public void testHelpMenuTriggersAutofillHelp() {
+        onView(withId(R.id.menu_id_targeted_help)).perform(click());
+
+        verify(mHelpAndFeedbackLauncher)
+                .show(
+                        sSettingsActivityTestRule.getActivity(),
+                        ContextUtils.getApplicationContext()
+                                .getString(R.string.help_context_autofill),
+                        /* url= */ null);
     }
 }

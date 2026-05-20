@@ -79,6 +79,7 @@ patterns = ["glob:'**/*.rs'"]
 
 [fix.tools.clang-format]
 command = ["third_party/depot_tools/clang_format.py", "--assume-filename=$path"]
+line-range-arg = "--lines=$first:$last"
 patterns = [
     "glob:'**/*.cc'",
     "glob:'**/*.cpp'",
@@ -156,3 +157,6 @@ command = [
 command = ["vpython3.bat", "mojo/public/tools/mojom/mojom_format.py"]
 [--scope.fix.tools.lucicfg-format]
 command = ["lucicfg.bat", "fmt", "-stdio", "$path"]
+
+[gerrit]
+review-url = "https://chromium-review.googlesource.com"

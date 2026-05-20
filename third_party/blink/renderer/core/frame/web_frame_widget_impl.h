@@ -48,7 +48,6 @@
 #include "services/viz/public/mojom/hit_test/input_target_client.mojom-blink.h"
 #include "third_party/blink/public/common/input/web_coalesced_input_event.h"
 #include "third_party/blink/public/common/input/web_gesture_device.h"
-#include "third_party/blink/public/mojom/device_posture/device_posture_provider.mojom-blink.h"
 #include "third_party/blink/public/mojom/drag/drag.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/ime_host.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom-blink-forward.h"
@@ -702,9 +701,6 @@ class CORE_EXPORT WebFrameWidgetImpl
       const gfx::Rect& compositor_viewport_pixel_rect);
   void UpdateCompositorViewportRect(
       const gfx::Rect& compositor_viewport_pixel_rect);
-  void OverrideDevicePostureForEmulation(
-      mojom::blink::DevicePostureType device_posture_param);
-  void DisableDevicePostureOverrideForEmulation();
   void SetViewportSegments(const std::vector<gfx::Rect>& viewport_segments);
   viz::FrameSinkId GetFrameSinkIdAtPoint(const gfx::PointF& point,
                                          gfx::PointF* local_point);
@@ -760,9 +756,33 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   void OnDevToolsSessionConnectionChanged(bool attached);
 
-  void OnFirstContentfulPaint(const base::TimeTicks& first_paint_time) override;
+  void OnFirstContentfulPaint() override;
 
   WidgetBase* widget_base_for_testing() const { return widget_base_.get(); }
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  enum class WindowShowStateChangeType {
+    kMaximize,
+    kMinimize,
+    kRestore,
+  };
+  using WindowingControlsChangeCallback = base::OnceCallback<void(bool)>;
+  bool MaximizeRequested(WindowingControlsChangeCallback callback);
+  bool MinimizeRequested(WindowingControlsChangeCallback callback);
+  bool RestoreRequested(WindowingControlsChangeCallback callback);
+  bool SetResizableRequested(bool resizable,
+                             WindowingControlsChangeCallback callback);
+
+  // Additional Windowing Controls API helpers.
+  void WasMaximized();
+  void WasMinimized();
+  void WasRestored();
+
+  // Resolve promises to window functions above.
+  void OnWindowShowStateChanged(ui::mojom::blink::WindowShowState old_state,
+                                ui::mojom::blink::WindowShowState new_state);
+  void OnResizableChanged(bool new_resizable);
+#endif
 
  protected:
   // WidgetBaseClient overrides:
@@ -918,8 +938,7 @@ class CORE_EXPORT WebFrameWidgetImpl
   void Paste() override;
   void PasteAndMatchStyle() override;
   void PasteFromImageBytes(mojo_base::BigBuffer image_bytes,
-                           const String& media_format,
-                           PasteFromImageBytesCallback callback) override;
+                           const String& media_format) override;
   void Delete() override;
   void SelectAll() override;
   void CollapseSelection() override;
@@ -1067,6 +1086,16 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   // Triggers onmove event for window.
   void EnqueueMoveEvent();
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+  bool HandleWindowShowStateChangeRequest(
+      WindowShowStateChangeType type,
+      WindowingControlsChangeCallback callback);
+  void PostDelayedRejectionForAWCPromise(uint64_t id);
+  struct MainFrameData;
+  void RejectAWCPromise(uint64_t id);
+  void HandleWindowShowStateChangeCallbackWith(WindowShowStateChangeType type);
+#endif
 
   // Let latched scroller know to unpin its selected scroll-marker.
   void NotifyLatchedScrollMarkerGroup(
@@ -1256,6 +1285,22 @@ class CORE_EXPORT WebFrameWidgetImpl
     // contents") like a <webview>. If false, the widget is the top level
     // widget.
     bool is_for_nested_main_frame = false;
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+    struct WindowShowStateCallbackData {
+      uint64_t id;
+      WindowShowStateChangeType requested_action;
+      WindowingControlsChangeCallback callback;
+    };
+    std::optional<WindowShowStateCallbackData>
+        window_show_state_change_callback;
+
+    struct SetResizableCallbackData {
+      uint64_t id;
+      bool requested_resizable;
+      WindowingControlsChangeCallback callback;
+    };
+    std::optional<SetResizableCallbackData> set_resizable_change_callback;
+#endif
   } main_frame_data_;
 
   MainFrameData& main_data() {

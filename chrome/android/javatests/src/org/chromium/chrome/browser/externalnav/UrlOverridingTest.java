@@ -10,6 +10,8 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.when;
+
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.Instrumentation.ActivityMonitor;
@@ -76,11 +78,13 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.PackageManagerWrapper;
 import org.chromium.base.test.util.RequiresRestart;
-import org.chromium.base.test.util.Restriction;
 import org.chromium.blink_public.common.BlinkFeatures;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.LaunchIntentDispatcher;
+import org.chromium.chrome.browser.actor.ActorKeyedService;
+import org.chromium.chrome.browser.actor.ActorKeyedServiceFactory;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.browserservices.TrustedWebActivityTestUtil;
 import org.chromium.chrome.browser.browserservices.intents.SessionHolder;
@@ -104,7 +108,6 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModelJniBridge;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ntp.IncognitoNewTabPageStation;
@@ -192,6 +195,8 @@ public class UrlOverridingTest {
             BASE_PATH + "navigation_from_xhr_callback_lost_activation.html";
     private static final String NAVIGATION_WITH_FALLBACK_URL_PAGE =
             BASE_PATH + "navigation_with_fallback_url.html";
+    private static final String NAVIGATION_WITH_FALLBACK_URL_VALID_SCHEME_PAGE =
+            BASE_PATH + "navigation_with_fallback_url_valid_scheme.html";
     private static final String FALLBACK_LANDING_PATH = BASE_PATH + "hello.html";
     private static final String OPEN_WINDOW_FROM_USER_GESTURE_PAGE =
             BASE_PATH + "open_window_from_user_gesture.html";
@@ -644,7 +649,7 @@ public class UrlOverridingTest {
                     // Note that we do not distinguish between OVERRIDE_WITH_NAVIGATE_TAB
                     // and NO_OVERRIDE since tab clobbering will eventually lead to NO_OVERRIDE.
                     // in the tab. Rather, we check the final URL to distinguish between
-                    // fallback and normal navigation. See crbug.com/487364 for more.
+                    // fallback and normal navigation. See crbug.com/40417893 for more.
                     Tab latestTab = latestTabHolder.value;
                     if (params.shouldLaunchExternalIntent) {
                         Criteria.checkThat(
@@ -943,6 +948,40 @@ public class UrlOverridingTest {
                                         ApiCompatibilityUtils.getBytesUtf8(fallbackUrl),
                                         Base64.URL_SAFE));
         TestParams params = new TestParams(originalUrl, true, false);
+        params.expectedFinalUrl = fallbackUrl;
+        loadUrlAndWaitForIntentUrl(params, ctaPage);
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({ChromeFeatureList.GLIC})
+    public void testNavigationWithFallbackURL_ActorTaskShouldBlock() throws Exception {
+        ActorKeyedService mockActorService = Mockito.mock(ActorKeyedService.class);
+        ActorKeyedServiceFactory.setForTesting(mockActorService);
+        WebPageStation ctaPage = mTabbedActivityTestRule.startOnBlankPage();
+        // The current tab is attached to an active ActorTask.
+        when(mockActorService.getActiveTaskIdOnTab(ctaPage.getTab().getId())).thenReturn(123);
+
+        String fallbackUrl = mTestServer.getURL(FALLBACK_LANDING_PATH);
+        // Load a URL with a valid intent scheme and a fallback URL.
+        String originalUrl =
+                mTestServer.getURL(
+                        NAVIGATION_WITH_FALLBACK_URL_VALID_SCHEME_PAGE
+                                + "?replace_text="
+                                + Base64.encodeToString(
+                                        ApiCompatibilityUtils.getBytesUtf8("PARAM_FALLBACK_URL"),
+                                        Base64.URL_SAFE)
+                                + ":"
+                                + Base64.encodeToString(
+                                        ApiCompatibilityUtils.getBytesUtf8(fallbackUrl),
+                                        Base64.URL_SAFE));
+        // Because the tab is being used by ActorTask we shouldn't launch an external intent.
+        TestParams params =
+                new TestParams(
+                        originalUrl,
+                        /* needClick= */ true,
+                        /* shouldLaunchExternalIntent= */ false);
+        // We should open the fallback URL instead.
         params.expectedFinalUrl = fallbackUrl;
         loadUrlAndWaitForIntentUrl(params, ctaPage);
     }
@@ -1419,7 +1458,6 @@ public class UrlOverridingTest {
     @LargeTest
     @EnableFeatures({"BackForwardCache", "BackForwardCacheNoTimeEviction"})
     @DisableFeatures({"BackForwardCacheMemoryControls"})
-    @Restriction(Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testNoRedirectWithBFCache() throws Exception {
         final CallbackHelper finishCallback = new CallbackHelper();
         final CallbackHelper syncHelper = new CallbackHelper();
@@ -1802,7 +1840,6 @@ public class UrlOverridingTest {
 
     @Test
     @LargeTest
-    @Restriction(Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testRedirectFromCctSpeculation() throws Exception {
         final String url = mTestServer.getURL(NAVIGATION_FROM_PAGE_SHOW);
         final CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();
@@ -1829,7 +1866,6 @@ public class UrlOverridingTest {
 
     @Test
     @LargeTest
-    @Restriction(Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     public void testRedirectFromCctEarlyNav() throws Exception {
         final String url = mTestServer.getURL(NAVIGATION_FROM_JAVA_REDIRECTION_PAGE);
         final CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();

@@ -55,8 +55,8 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/common/extension_usage.h"
+#include "extensions/common/manifest_handlers/manifest_url_handlers.h"
 #include "extensions/common/manifest_handlers/options_page_info.h"
-#include "extensions/common/manifest_url_handlers.h"
 #include "extensions/common/permissions/api_permission.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
@@ -625,7 +625,7 @@ void ExtensionContextMenuModel::ExecuteCommand(int command_id,
       // Do nothing if the extension cannot have its site permissions updated.
       // Page access option should only be enabled when the extension site
       // permissions can be changed. However, sometimes the command still gets
-      // invoked (crbug.com/1468151). Thus, we exit early to prevent any
+      // invoked (crbug.com/40068180). Thus, we exit early to prevent any
       // crashes.
       if (!PermissionsManager::Get(profile_)->CanAffectExtension(*extension)) {
         return;

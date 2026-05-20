@@ -6,9 +6,9 @@
 
 #include <string>
 
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/send_tab_to_self/manage_account_devices_link_view.h"
@@ -17,6 +17,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/views/layout/box_layout.h"
@@ -28,18 +29,8 @@ SendTabToSelfPromoBubbleView::SendTabToSelfPromoBubbleView(
     views::BubbleAnchor anchor,
     content::WebContents* web_contents,
     bool show_signin_button)
-    : SendTabToSelfBubbleView(anchor, web_contents),
-      controller_(SendTabToSelfBubbleController::CreateOrGetFromWebContents(
-                      web_contents)
-                      ->AsWeakPtr()) {
-  DCHECK(controller_);
-
-  SetShowCloseButton(true);
-  SetTitle(IDS_SEND_TAB_TO_SELF);
-
+    : SendTabToSelfBubbleView(anchor, web_contents) {
   auto* provider = ChromeLayoutProvider::Get();
-  set_fixed_width(
-      provider->GetDistanceMetric(views::DISTANCE_BUBBLE_PREFERRED_WIDTH));
   set_margins(
       gfx::Insets::TLBR(provider->GetDistanceMetric(
                             views::DISTANCE_DIALOG_CONTENT_MARGIN_TOP_CONTROL),
@@ -81,33 +72,10 @@ SendTabToSelfPromoBubbleView::SendTabToSelfPromoBubbleView(
                       0));
 }
 
-SendTabToSelfPromoBubbleView::~SendTabToSelfPromoBubbleView() {
-  if (controller_) {
-    controller_->OnBubbleClosed();
-  }
-}
-
-void SendTabToSelfPromoBubbleView::Hide() {
-  CloseBubble();
-}
-
-void SendTabToSelfPromoBubbleView::AddedToWidget() {
-  if (!controller_->show_back_button()) {
-    return;
-  }
-
-  // Adding a title view will replace the default title.
-  GetBubbleFrameView()->SetTitleView(
-      std::make_unique<sharing_hub::TitleWithBackButtonView>(
-          base::BindRepeating(
-              &SendTabToSelfPromoBubbleView::OnBackButtonClicked,
-              base::Unretained(this)),
-          GetWindowTitle()));
-}
-
 void SendTabToSelfPromoBubbleView::OnSignInButtonClicked() {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-  chrome::FindBrowserWithTab(web_contents())
+  GlobalBrowserCollection::GetInstance()
+      ->FindBrowserWithTab(web_contents())
       ->GetFeatures()
       .signin_view_controller()
       ->ShowDiceAddAccountTab(signin_metrics::AccessPoint::kSendTabToSelfPromo,
@@ -117,11 +85,7 @@ void SendTabToSelfPromoBubbleView::OnSignInButtonClicked() {
 #endif
 }
 
-void SendTabToSelfPromoBubbleView::OnBackButtonClicked() {
-  if (controller_) {
-    controller_->OnBackButtonPressed();
-  }
-  CloseBubble();
-}
+BEGIN_METADATA(SendTabToSelfPromoBubbleView)
+END_METADATA
 
 }  // namespace send_tab_to_self

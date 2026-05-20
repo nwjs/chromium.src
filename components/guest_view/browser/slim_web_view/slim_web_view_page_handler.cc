@@ -61,12 +61,9 @@ void SlimWebViewPageHandler::Navigate(int32_t guest_instance_id,
     mojo::ReportBadMessage("Invalid guest instance id.");
     return;
   }
-  if (!url.is_valid()) {
-    mojo::ReportBadMessage("Invalid URL.");
-    return;
-  }
-  if (!url.SchemeIsHTTPOrHTTPS() && !url.IsAboutBlank()) {
-    mojo::ReportBadMessage("URL must be https, http, or about:blank.");
+  if (auto result = guest->IsUrlAllowed(RequestResourceType::kMainFrame, url);
+      !result.has_value()) {
+    mojo::ReportBadMessage(result.error());
     return;
   }
   guest->Navigate(url);

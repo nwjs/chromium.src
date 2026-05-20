@@ -108,11 +108,6 @@ struct ParsingContext {
   // FormFieldData::name().
   base::flat_map<FieldGlobalId, std::u16string> name_overrides;
 
-  // Contains the parseable labels that override FormFieldData::label().
-  // Parsing code should prefer these labels but fall back to
-  // FormFieldData::label().
-  base::flat_map<FieldGlobalId, std::u16string> label_overrides;
-
   const GeoIpCountryCode client_country;
   const LanguageCode page_language;
   // Mutable so that the caches can be reused across different pattern files
@@ -241,10 +236,11 @@ class FormFieldParser {
 
   // Initial values assigned to FieldCandidates by their corresponding parsers.
   // There's an implicit precedence determined by the values assigned here.
-  // Email is currently the most important followed by Phone, Travel, Address,
-  // Credit Card, IBAN, Price, Loyalty Card, Name, Merchant promo code, and
-  // Search.
+  // Email is currently the most important followed by OneTimeCode, Phone,
+  // Travel, Address, Credit Card, IBAN, Price, Loyalty Card, Name, Merchant
+  // promo code, and Search.
   static constexpr float kBaseEmailParserScore = 1.4f;
+  static constexpr float kBaseOneTimeCodeParserScore = 1.35f;
   static constexpr float kBasePhoneParserScore = 1.3f;
   static constexpr float kBaseTravelParserScore = 1.2f;
   static constexpr float kBaseAddressParserScore = 1.1f;

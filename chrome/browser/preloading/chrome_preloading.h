@@ -111,15 +111,10 @@ inline constexpr content::PreloadingPredictor kOmniboxTouchDownPredictor(
     111,
     "OmniboxTouchDownPredirector");
 
-// When the Link-Preview loads a page with prerendering infrastractures.
-// TODO(b:291867362): This is not used by the current implementation, but might
-// be reused in the future.
-inline constexpr content::PreloadingPredictor kLinkPreview(112, "LinkPreview");
-
 // When a mousehover or mousedown event happens on a bookmark bar linking to an
 // HTTPS origin, we may attempt to preload the link. This predictor, instead of
 // using kPointerDownOnBookmarkBar or kMouseHoverOnBookmarkBar, is for solving
-// the problem in https://crbug.com/1516514.
+// the problem in https://crbug.com/41489499.
 inline constexpr content::PreloadingPredictor
     kMouseHoverOrMouseDownOnBookmarkBar(113,
                                         "MouseHoverOrMouseDownOnBookmarkBar");
@@ -148,7 +143,7 @@ inline constexpr content::PreloadingPredictor kPrewarmDefaultSearchEngine(
     117,
     "PrewarmDefaultSearchEngine");
 }  // namespace chrome_preloading_predictor
-// LINT.ThenChange()
+// LINT.ThenChange(//tools/metrics/histograms/metadata/preloading/histograms.xml:PreloadingPredictor)
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.

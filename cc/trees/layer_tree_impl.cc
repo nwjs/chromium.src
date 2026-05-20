@@ -48,7 +48,7 @@
 #include "cc/trees/draw_property_utils.h"
 #include "cc/trees/effect_node.h"
 #include "cc/trees/layer_tree_frame_sink.h"
-#include "cc/trees/layer_tree_host_client.h"
+#include "cc/trees/layer_tree_host_delegate.h"
 #include "cc/trees/layer_tree_host_impl.h"
 #include "cc/trees/mutator_host.h"
 #include "cc/trees/occlusion_tracker.h"
@@ -329,15 +329,14 @@ void LayerTreeImpl::UpdateScrollbarGeometries(const ScrollNode& scroll_node) {
   bool is_viewport_scrollbar = &scroll_node == InnerViewportScrollNode() ||
                                &scroll_node == OuterViewportScrollNode();
   if (is_viewport_scrollbar) {
+    current_offset = TotalScrollOffset();
     gfx::SizeF viewport_bounds(bounds_size);
     if (&scroll_node == InnerViewportScrollNode()) {
       auto* outer_scroll_node = OuterViewportScrollNode();
-      DCHECK(outer_scroll_node);
+      if (!outer_scroll_node) {
+        return;
+      }
 
-      // Add offset and bounds contribution of outer viewport.
-      current_offset +=
-          scroll_tree.current_scroll_offset(outer_scroll_node->element_id)
-              .OffsetFromOrigin();
       gfx::SizeF outer_viewport_bounds(
           scroll_tree.container_bounds(outer_scroll_node->id));
       // Inner viewport scroll node container bounds are in device space; divide
@@ -349,11 +348,9 @@ void LayerTreeImpl::UpdateScrollbarGeometries(const ScrollNode& scroll_node) {
     } else {
       DCHECK_EQ(&scroll_node, OuterViewportScrollNode());
       auto* inner_scroll_node = InnerViewportScrollNode();
-      DCHECK(inner_scroll_node);
-      // Add offset and bounds contribution of inner viewport.
-      current_offset +=
-          scroll_tree.current_scroll_offset(inner_scroll_node->element_id)
-              .OffsetFromOrigin();
+      if (!inner_scroll_node) {
+        return;
+      }
       gfx::SizeF inner_viewport_bounds(
           scroll_tree.container_bounds(inner_scroll_node->id));
       // Inner viewport scroll node container bounds are in device space; divide
@@ -363,7 +360,6 @@ void LayerTreeImpl::UpdateScrollbarGeometries(const ScrollNode& scroll_node) {
     }
     bounds_size = ToCeiledSize(viewport_bounds);
   }
-
   for (auto* scrollbar : ScrollbarsFor(scroll_node.element_id)) {
     if (scrollbar->orientation() == ScrollbarOrientation::kHorizontal) {
       scrollbar->SetCurrentPos(current_offset.x());
@@ -382,8 +378,23 @@ void LayerTreeImpl::UpdateScrollbarGeometries(const ScrollNode& scroll_node) {
 }
 
 const RenderSurfaceImpl* LayerTreeImpl::RootRenderSurface() const {
-  return property_trees_.effect_tree().GetRenderSurface(
-      kContentsRootPropertyNodeId);
+  // We only compute root layer damage if the tree is not empty and property
+  // trees are initialized.
+  // The property tree must have a size greater than kContentsRootPropertyNodeId
+  // (which is index 1) to ensure the content root node exists. An "empty" tree
+  // has a size of 1 (containing only the root node at index 0).
+  // The content root node at index 1 is the owner of the root render surface;
+  // if it doesn't exist, there is no root damage to compute.
+  // During synchronization-only updates (TreesInViz flushes), expensive render
+  // surface recomputations might be skipped, meaning render_surfaces_ may be
+  // smaller than the number of nodes even if the content root node exists.
+  if (property_trees_.effect_tree().size() > kContentsRootPropertyNodeId &&
+      static_cast<size_t>(kContentsRootPropertyNodeId) <
+          property_trees_.effect_tree().num_render_surfaces()) {
+    return property_trees_.effect_tree().GetRenderSurface(
+        kContentsRootPropertyNodeId);
+  }
+  return nullptr;
 }
 
 bool LayerTreeImpl::LayerListIsEmpty() const {
@@ -453,13 +464,14 @@ void LayerTreeImpl::InvalidateRasterInducingScrolls(
 }
 
 void LayerTreeImpl::UpdateViewportContainerSizes() {
-  if (!InnerViewportScrollNode())
+  auto* inner_viewport_scroll_node = InnerViewportScrollNode();
+  auto* outer_viewport_scroll_node = OuterViewportScrollNode();
+  if (!inner_viewport_scroll_node || !outer_viewport_scroll_node) {
     return;
+  }
 
-  DCHECK(OuterViewportScrollNode());
-  ViewportAnchor anchor(InnerViewportScrollNode(), OuterViewportScrollNode(),
+  ViewportAnchor anchor(inner_viewport_scroll_node, outer_viewport_scroll_node,
                         this);
-
   const float top_controls_shown_ratio =
       top_controls_shown_ratio_->Current(IsActiveTree());
   const float bottom_controls_shown_ratio =
@@ -521,8 +533,11 @@ void LayerTreeImpl::UpdateViewportContainerSizes() {
   // Adjust the outer viewport container as well, since adjusting only the
   // inner may cause its bounds to exceed those of the outer, causing scroll
   // clamping.
-  gfx::Vector2dF scaled_bounds_delta =
-      gfx::ScaleVector2d(bounds_delta, 1.f / min_page_scale_factor());
+  gfx::Vector2dF scaled_bounds_delta = bounds_delta;
+  if (min_page_scale_factor() > 0.f) {
+    scaled_bounds_delta =
+        gfx::ScaleVector2d(bounds_delta, 1.f / min_page_scale_factor());
+  }
 
   property_trees->SetOuterViewportContainerBoundsDelta(scaled_bounds_delta);
   // outer_viewport_container_bounds_delta and
@@ -565,18 +580,17 @@ gfx::PointF LayerTreeImpl::TotalScrollOffset() const {
   gfx::Vector2dF offset;
   const auto& scroll_tree = property_trees()->scroll_tree();
 
-  if (auto* inner_scroll = InnerViewportScrollNode()) {
+  auto* inner_scroll = InnerViewportScrollNode();
+  auto* outer_scroll = OuterViewportScrollNode();
+  if (inner_scroll && outer_scroll) {
     offset += scroll_tree.current_scroll_offset(inner_scroll->element_id)
+                  .OffsetFromOrigin() +
+              scroll_tree.current_scroll_offset(outer_scroll->element_id)
                   .OffsetFromOrigin();
-    DCHECK(OuterViewportScrollNode());
-    offset +=
-        scroll_tree.current_scroll_offset(OuterViewportScrollNode()->element_id)
-            .OffsetFromOrigin();
   }
 
   return gfx::PointAtOffsetFromOrigin(offset);
 }
-
 gfx::PointF LayerTreeImpl::TotalScrollOffset(ElementId element_id) const {
   gfx::Vector2dF offset;
   const auto& scroll_tree = property_trees()->scroll_tree();
@@ -635,7 +649,8 @@ OwnedLayerImplList LayerTreeImpl::DetachLayers() {
 
 OwnedLayerImplList LayerTreeImpl::DetachLayersKeepingRootLayerForTesting() {
   auto layers = DetachLayers();
-  SetRootLayerForTesting(std::move(layers[0]));
+  SetRootLayerForTesting(                               // IN-TEST
+      layers.ReleaseLayerForTesting(layers[0]->id()));  // IN-TEST
   return layers;
 }
 
@@ -1855,7 +1870,8 @@ bool LayerTreeImpl::UpdateDrawProperties(
                                       &draw_transform);
         const EffectNode* effect_node = property_trees()->effect_tree().Node(
             render_surface->EffectTreeIndex());
-        draw_property_utils::ConcatInverseSurfaceContentsScale(effect_node,
+        CHECK(effect_node);
+        draw_property_utils::ConcatInverseSurfaceContentsScale(*effect_node,
                                                                &draw_transform);
         draw_transform.PostTranslate(
             occlusion_surface->pixel_alignment_offset());

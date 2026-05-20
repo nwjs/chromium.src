@@ -16,39 +16,39 @@
 let testRoundNumber = 0;
 
 // The test pattern cycles as a color fill of red, then green, then blue.
-const colors = [ [ 255, 0, 0 ], [ 0, 255, 0 ], [ 0, 0, 255 ] ];
+const colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255]];
 let curIdx = 0;
 
 // Capture parameters.
-const width = 64;
-const height = 48;
-const frameRate = 15;
+const WIDTH = 64;
+const HEIGHT = 48;
+const FRAME_RATE = 15;
 
 // The stream to playback in the video element.
-let receiveStream = null;
+const receiveStream = null;
 
 // waitForExpectedColors() removes elements from this array as each is observed.
 // When it becomes empty, the test succeeds.
-const expectedColors = [ [ 255, 0, 0 ], [ 0, 255, 0 ], [ 0, 0, 255 ] ];
+const expectedColors = [[255, 0, 0], [0, 255, 0], [0, 0, 255]];
 
 function updateTestPattern() {
   if (!this.canvas) {
-    this.canvas = document.createElement("canvas");
+    this.canvas = document.createElement('canvas');
     this.canvas.width = 320;
     this.canvas.height = 200;
-    this.canvas.style.position = "absolute";
-    this.canvas.style.top = "0px";
-    this.canvas.style.left = "0px";
-    this.canvas.style.width = "100%";
-    this.canvas.style.height = "100%";
+    this.canvas.style.position = 'absolute';
+    this.canvas.style.top = '0px';
+    this.canvas.style.left = '0px';
+    this.canvas.style.width = '100%';
+    this.canvas.style.height = '100%';
     document.body.appendChild(this.canvas);
   }
-  const context = this.canvas.getContext("2d");
+  const context = this.canvas.getContext('2d');
   // Fill with solid color.
-  context.fillStyle = "rgb(" + colors[curIdx] + ")";
+  context.fillStyle = `rgb(${colors[curIdx]})`;
   context.fillRect(0, 0, this.canvas.width, this.canvas.height);
   // Draw the circle that moves around the page.
-  context.fillStyle = "rgb(" + colors[(curIdx + 1) % colors.length] + ")";
+  context.fillStyle = `rgb(${colors[(curIdx + 1) % colors.length]})`;
   context.beginPath();
   if (!this.frameNumber) {
     this.frameNumber = 1;
@@ -81,7 +81,7 @@ function renderTestPatternLoop() {
       // Increase the wait time between switching test patterns for overloaded
       // bots that aren't capturing all the frames of video. Only do this for
       // the first test phase, since increases shouldn't be needed after that.
-      if (testRoundNumber == 0) {
+      if (testRoundNumber === 0) {
         this.stepTimeMillis *= 1.25;
       }
     }
@@ -93,16 +93,16 @@ function waitForExpectedColors(colorDeviation) {
   // At the start of a round of testing, create the video and canvas elements,
   // but no need to append them to the DOM.
   if (!this.video) {
-    this.video = document.createElement("video");
-    this.video.width = width;
-    this.video.height = height;
-    this.video.addEventListener("error", chrome.test.fail);
+    this.video = document.createElement('video');
+    this.video.width = WIDTH;
+    this.video.height = HEIGHT;
+    this.video.addEventListener('error', chrome.test.fail);
     this.video.srcObject = receiveStream;
     this.video.play();
 
-    this.readbackCanvas = document.createElement("canvas");
-    this.readbackCanvas.width = width;
-    this.readbackCanvas.height = height;
+    this.readbackCanvas = document.createElement('canvas');
+    this.readbackCanvas.width = WIDTH;
+    this.readbackCanvas.height = HEIGHT;
   }
 
   // Only bother examining a video frame if the video timestamp has advanced.
@@ -112,10 +112,10 @@ function waitForExpectedColors(colorDeviation) {
     this.lastVideoTimestamp = currentVideoTimestamp;
 
     // Grab a snapshot of the center pixel of the video.
-    const ctx = this.readbackCanvas.getContext("2d");
-    ctx.drawImage(video, 0, 0, width, height);
-    const imageData = ctx.getImageData(width / 2, height / 2, 1, 1);
-    const pixel = [ imageData.data[0], imageData.data[1], imageData.data[2] ];
+    const ctx = this.readbackCanvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, WIDTH, HEIGHT);
+    const imageData = ctx.getImageData(WIDTH / 2, HEIGHT / 2, 1, 1);
+    const pixel = [imageData.data[0], imageData.data[1], imageData.data[2]];
 
     // Does the pixel match one of the expected colors?
     for (let i = 0; i < expectedColors.length; ++i) {
@@ -123,7 +123,8 @@ function waitForExpectedColors(colorDeviation) {
       if (Math.abs(pixel[0] - curColor[0]) <= colorDeviation &&
           Math.abs(pixel[1] - curColor[1]) <= colorDeviation &&
           Math.abs(pixel[2] - curColor[2]) <= colorDeviation) {
-        console.debug(`${testRoundNumber == 0 ? 'First' : 'Second'} round: ` +
+        console.info(
+            `${testRoundNumber === 0 ? 'First' : 'Second'} round: ` +
             `Observed expected color RGB(${curColor}) in the video as ` +
             `RGB(${pixel})`);
         expectedColors.splice(i, 1);
@@ -131,21 +132,21 @@ function waitForExpectedColors(colorDeviation) {
     }
   }
 
-  if (expectedColors.length == 0) {
+  if (expectedColors.length === 0) {
     // Successful end of the current test round. If the first round, sleep, then
     // execute the second round. If the second round, then the whole test has
     // succeeded.
-    if (testRoundNumber == 0) {
+    if (testRoundNumber === 0) {
       // Destroy the video, which will disconnect the consumer of the
       // MediaStream.
-      this.video.removeEventListener("error", chrome.test.fail);
+      this.video.removeEventListener('error', chrome.test.fail);
       this.video.srcObject = null;
       this.video = null;
 
       // Wait one second, then execute the second round of testing. This tests
       // the suspend/resume functionality of tab capture (w.r.t. a MediaStream
       // having no consumers, and then being re-used with a new consumer).
-      console.debug('First round succeeded! Now testing suspend/resume...');
+      console.info('First round succeeded! Now testing suspend/resume...');
       setTimeout(function() {
         ++testRoundNumber;
         for (const color of colors) {
@@ -157,8 +158,9 @@ function waitForExpectedColors(colorDeviation) {
       chrome.test.succeed();
     }
   } else {
-    setTimeout(function () { waitForExpectedColors(colorDeviation); },
-               1000 / frameRate);
+    setTimeout(function() {
+      waitForExpectedColors(colorDeviation);
+    }, 1000 / FRAME_RATE);
   }
 }
 
@@ -172,7 +174,7 @@ chrome.test.runTests([
           window.location.search.match(/(\?|&)colorDeviation=(\d+)/)[2]);
       chrome.test.assertTrue(colorDeviation >= 0 && colorDeviation <= 255);
     } catch (err) {
-      chrome.test.fail("Error parsing query params -- " + err.message);
+      chrome.test.fail(`Error parsing query params -- ${err.message}`);
       return;
     }
 
@@ -180,22 +182,23 @@ chrome.test.runTests([
     renderTestPatternLoop();
 
     chrome.tabCapture.capture(
-        { video: true,
+        {
+          video: true,
           audio: true,
           videoConstraints: {
             mandatory: {
-              minWidth: width,
-              minHeight: height,
-              maxWidth: width,
-              maxHeight: height,
-              maxFrameRate: frameRate,
-            }
-          }
+              minWidth: WIDTH,
+              minHeight: HEIGHT,
+              maxWidth: WIDTH,
+              maxHeight: HEIGHT,
+              maxFrameRate: FRAME_RATE,
+            },
+          },
         },
         function receiveStream(captureStream) {
           chrome.test.assertTrue(!!captureStream);
           receiveStream = captureStream;
           waitForExpectedColors(colorDeviation);
         });
-  }
+  },
 ]);

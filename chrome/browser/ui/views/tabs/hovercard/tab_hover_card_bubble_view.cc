@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_tab_data.h"
 #include "chrome/browser/ui/tabs/tab_data.h"
+#include "chrome/browser/ui/tabs/tab_group_data.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/thumbnails/thumbnail_image.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -309,7 +310,7 @@ class TabHoverCardBubbleView::ThumbnailView
     // destructed and has no theme provider, skip trying to fade out since a
     // ColorProvider is needed for fading out placeholder images. (Note that
     // GetColorProvider() returns nullptr if there is no widget.)
-    // See: crbug.com/1246914
+    // See: crbug.com/40789563
     if (!GetVisible() || !GetColorProvider()) {
       return;
     }
@@ -561,7 +562,7 @@ class TabHoverCardBubbleView::GroupCardView : public views::View {
 
  public:
   explicit GroupCardView(TabHoverCardBubbleView* bubble_view)
-      : tab_titles_(GroupCardData::kMaxTabs, nullptr) {
+      : tab_titles_(tabs::TabGroupData::kMaxTabs, nullptr) {
     SetProperty(views::kElementIdentifierKey, kGroupCardElementId);
 
     title_ = AddChildView(std::make_unique<FadeLabelView>(
@@ -654,7 +655,7 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(TabHoverCardBubbleView,
 TabHoverCardBubbleView::TabHoverCardBubbleView(
     HoverCardAnchorTarget* anchor_target,
     const InitParams& params)
-    : BubbleDialogDelegateView(anchor_target->GetAnchorView(),
+    : BubbleDialogDelegateView(anchor_target->GetAnchor(),
                                anchor_target->GetAnchorPosition(),
                                views::BubbleBorder::STANDARD_SHADOW),
       tab_style_(TabStyle::Get()),

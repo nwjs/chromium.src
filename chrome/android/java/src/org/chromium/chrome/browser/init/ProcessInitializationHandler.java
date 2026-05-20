@@ -12,9 +12,6 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Process;
 import android.text.format.DateUtils;
-import android.view.inputmethod.InputMethodInfo;
-import android.view.inputmethod.InputMethodManager;
-import android.view.inputmethod.InputMethodSubtype;
 
 import androidx.annotation.CallSuper;
 import androidx.annotation.WorkerThread;
@@ -184,7 +181,7 @@ public class ProcessInitializationHandler {
     private final ProfileKeyedMap<Boolean> mStartupProfileTasksCompleted =
             new ProfileKeyedMap<>(
                     ProfileSelection.REDIRECTED_TO_ORIGINAL,
-                    ProfileKeyedMap.NO_REQUIRED_CLEANUP_ACTION);
+                    ProfileKeyedMap.noRequiredCleanupAction());
 
     /**
      * @return The ProcessInitializationHandler for use during the lifetime of the browser process.
@@ -230,6 +227,9 @@ public class ProcessInitializationHandler {
     protected void handlePreNativeInitialization() {
         ChromeCachedFlags.getInstance().setFullListOfFlags();
         setProcessStateSummaryForAnrs();
+
+        PostTask.setShutdownPostTaskPreNativeThreadPoolEnabled(
+                ChromeFeatureList.sShutdownPreNativeThreadPoolAfterStartup.isEnabled());
     }
 
     /**
@@ -283,12 +283,12 @@ public class ProcessInitializationHandler {
                         // When the app locale is overridden a change in system locale will not
                         // effect Chrome's UI language. There is race condition where the initial
                         // locale may not equal the overridden default locale
-                        // (https://crbug.com/1224756).
+                        // (https://crbug.com/40188103).
                         if (GlobalAppLocaleController.getInstance().isOverridden()) return;
                         // Android destroys Activities at some point after a locale change, but
                         // doesn't kill the process.  This can lead to a bug where Chrome is halfway
                         // RTL, where stale natively-loaded resources are not reloaded
-                        // (http://crbug.com/552618).
+                        // (http://crbug.com/41215786).
                         if (!mInitialLocale.equals(Locale.getDefault())) {
                             Log.e(TAG, "Killing process because of locale change.");
                             Process.killProcess(Process.myPid());
@@ -672,8 +672,6 @@ public class ProcessInitializationHandler {
                     UsbNotificationManager.clearUsbNotifications(UsbNotificationService.class);
 
                     startBindingManagementIfNeeded();
-
-                    recordKeyboardLocaleUma();
                 });
 
         tasks.add(() -> LocaleManager.getInstance().recordStartupMetrics());
@@ -955,29 +953,6 @@ public class ProcessInitializationHandler {
             return;
         }
         ChildProcessLauncherHelper.startBindingManagement(ContextUtils.getApplicationContext());
-    }
-
-    @SuppressWarnings("deprecation") // InputMethodSubtype.getLocale() deprecated in API 24
-    private void recordKeyboardLocaleUma() {
-        InputMethodManager imm =
-                (InputMethodManager)
-                        ContextUtils.getApplicationContext()
-                                .getSystemService(Context.INPUT_METHOD_SERVICE);
-        List<InputMethodInfo> ims = imm.getEnabledInputMethodList();
-        ArrayList<String> uniqueLanguages = new ArrayList<>();
-        for (InputMethodInfo method : ims) {
-            List<InputMethodSubtype> submethods =
-                    imm.getEnabledInputMethodSubtypeList(method, true);
-            for (InputMethodSubtype submethod : submethods) {
-                if (submethod.getMode().equals("keyboard")) {
-                    String language = submethod.getLocale().split("_")[0];
-                    if (!uniqueLanguages.contains(language)) {
-                        uniqueLanguages.add(language);
-                    }
-                }
-            }
-        }
-        RecordHistogram.recordCount1MHistogram("InputMethod.ActiveCount", uniqueLanguages.size());
     }
 
     private static boolean shouldDialogPadForContent(WindowAndroid windowAndroid) {

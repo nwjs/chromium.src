@@ -72,7 +72,7 @@ void OnDataSigned(
 void SignChallengeWithKey(
     bool is_for_refresh,
     unexportable_keys::UnexportableKeyService& unexportable_key_service,
-    unexportable_keys::UnexportableKeyId key_id,
+    unexportable_keys::UnexportableSigningKeyId key_id,
     const GURL& registration_url,
     std::optional<std::string> challenge,
     std::optional<std::string> authorization,
@@ -183,9 +183,9 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
 
   ~RegistrationFetcherImpl() override {}
 
-  void OnKeyGenerated(
-      unexportable_keys::ServiceErrorOr<unexportable_keys::UnexportableKeyId>
-          key_id) {
+  void OnSigningKeyGenerated(
+      unexportable_keys::ServiceErrorOr<
+          unexportable_keys::UnexportableSigningKeyId> key_id) {
     if (!key_id.has_value()) {
       RunCallback(
           CreateErrorRegistrationResult(SessionError(SessionError::kKeyError)));
@@ -243,8 +243,8 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
       }
     }
 
-    url_fetcher_ = std::make_unique<URLFetcher>(context_, fetcher_endpoint_,
-                                                net_log_source_);
+    url_fetcher_ = std::make_unique<URLFetcher>(
+        context_, fetcher_endpoint_, net_log_source_, IsForRefreshRequest());
     ConfigureRequest(url_fetcher_->request());
     // `this` owns `url_fetcher_`, so it's safe to use
     // `base::Unretained`
@@ -273,7 +273,8 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
 
     key_service_->GenerateSigningKeySlowlyAsync(
         supported_algos, kTaskPriority,
-        base::BindOnce(&RegistrationFetcherImpl::OnKeyGenerated, GetWeakPtr())
+        base::BindOnce(&RegistrationFetcherImpl::OnSigningKeyGenerated,
+                       GetWeakPtr())
             .Then(base::BindOnce(&RegistrationFetcherImpl::StartFetch,
                                  GetWeakPtr(),
                                  registration_params.TakeChallenge(),
@@ -283,7 +284,7 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
 
   void StartFetchWithFederatedKey(
       RegistrationRequestParam& request_params,
-      unexportable_keys::UnexportableKeyId key_id,
+      unexportable_keys::UnexportableSigningKeyId key_id,
       const GURL& provider_url,
       RegistrationCompleteCallback callback) override {
     // Using mock fetcher for testing.
@@ -310,8 +311,10 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
     GURL::Replacements replacements;
     replacements.SetPathStr("/.well-known/device-bound-sessions");
     GURL well_known_url = provider_url_.ReplaceComponents(replacements);
-    url_fetcher_ =
-        std::make_unique<URLFetcher>(context_, well_known_url, net_log_source_);
+    // TODO(crbug.com/495096658): Assert that `IsForRefreshRequest()` is false
+    // once the tests are fixed.
+    url_fetcher_ = std::make_unique<URLFetcher>(
+        context_, well_known_url, net_log_source_, IsForRefreshRequest());
     url_fetcher_->request().set_method("GET");
     url_fetcher_->request().set_disallow_credentials();
     url_fetcher_->request().set_site_for_cookies(
@@ -326,7 +329,7 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
 
   void StartFetchWithExistingKey(
       RegistrationRequestParam& request_params,
-      unexportable_keys::UnexportableKeyId key_id,
+      unexportable_keys::UnexportableSigningKeyId key_id,
       RegistrationCompleteCallback callback) override {
     // Using mock fetcher for testing.
     if (g_mock_fetcher) {
@@ -360,8 +363,8 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
     GURL::Replacements replacements;
     replacements.SetPathStr("/.well-known/device-bound-sessions");
     GURL well_known_url = fetcher_endpoint_.ReplaceComponents(replacements);
-    url_fetcher_ =
-        std::make_unique<URLFetcher>(context_, well_known_url, net_log_source_);
+    url_fetcher_ = std::make_unique<URLFetcher>(
+        context_, well_known_url, net_log_source_, IsForRefreshRequest());
     url_fetcher_->request().set_method("GET");
     url_fetcher_->request().set_disallow_credentials();
     url_fetcher_->request().set_site_for_cookies(
@@ -513,7 +516,7 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
 
   void OnRegistrationTokenCreated(
       std::optional<std::string> challenge,
-      unexportable_keys::UnexportableKeyId key_id,
+      unexportable_keys::UnexportableSigningKeyId key_id,
       std::optional<RegistrationFetcher::RegistrationToken>
           registration_token) {
     if (!registration_token) {
@@ -523,8 +526,8 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
       return;
     }
 
-    url_fetcher_ = std::make_unique<URLFetcher>(context_, fetcher_endpoint_,
-                                                net_log_source_);
+    url_fetcher_ = std::make_unique<URLFetcher>(
+        context_, fetcher_endpoint_, net_log_source_, IsForRefreshRequest());
     ConfigureRequest(url_fetcher_->request());
     url_fetcher_->request().SetExtraRequestHeaderByName(
         kJwtSessionHeaderName, registration_token.value(),
@@ -719,8 +722,8 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
       replacements.SetHostStr(session->origin().host());
       GURL well_known_url =
           fetcher_endpoint_.ReplaceComponents(std::move(replacements));
-      url_fetcher_ = std::make_unique<URLFetcher>(context_, well_known_url,
-                                                  net_log_source_);
+      url_fetcher_ = std::make_unique<URLFetcher>(
+          context_, well_known_url, net_log_source_, /*is_refresh=*/false);
       url_fetcher_->request().set_method("GET");
       url_fetcher_->request().set_disallow_credentials();
       url_fetcher_->request().set_site_for_cookies(
@@ -834,7 +837,7 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
   std::optional<std::string> session_identifier_;
   const raw_ref<SessionService> session_service_;
   const raw_ref<unexportable_keys::UnexportableKeyService> key_service_;
-  std::optional<unexportable_keys::UnexportableKeyId> key_id_;
+  std::optional<unexportable_keys::UnexportableSigningKeyId> key_id_;
   raw_ptr<const URLRequestContext> context_;
   IsolationInfo isolation_info_;
   std::optional<net::NetLogSource> net_log_source_;
@@ -895,7 +898,7 @@ void RegistrationFetcher::CreateRegistrationTokenAsyncForTesting(
                  std::optional<RegistrationFetcher::RegistrationToken>)>
                  callback,
              unexportable_keys::ServiceErrorOr<
-                 unexportable_keys::UnexportableKeyId> key_result) {
+                 unexportable_keys::UnexportableSigningKeyId> key_result) {
             if (!key_result.has_value()) {
               std::move(callback).Run(std::nullopt);
               return;

@@ -63,8 +63,10 @@
 #include "chrome/browser/ash/arc/arc_util.h"
 #include "chrome/browser/ash/arc/session/arc_session_manager.h"
 #include "chrome/browser/ash/browser_delegate/browser_controller_impl.h"
+#include "chrome/browser/ash/login/session/user_session_manager.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_service_test_base.h"
+#include "chrome/browser/global_features.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/ash/shelf/arc_app_shelf_id.h"
@@ -72,6 +74,7 @@
 #include "chrome/browser/ui/ash/shelf/shelf_controller_helper.h"
 #include "chrome/browser/web_applications/test/fake_web_app_provider.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/ash/components/login/session/session_termination_manager.h"
 #include "chromeos/ash/experiences/arc/app/arc_app_constants.h"
@@ -110,6 +113,8 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest_constants.h"
 #include "services/data_decoder/public/cpp/test_support/in_process_data_decoder.h"
+#include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
+#include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/display/test/test_screen.h"
@@ -492,12 +497,25 @@ class ArcAppModelBuilderTest : public extensions::ExtensionServiceTestBase,
   ~ArcAppModelBuilderTest() override = default;
 
   void SetUp() override {
+    TestingBrowserProcess::GetGlobal()->SetSharedURLLoaderFactory(
+        test_url_loader_factory_.GetSafeWeakWrapper());
+
     if (GetArcState() == ArcState::ARC_WITHOUT_PLAY_STORE) {
       arc::SetArcAlwaysStartWithoutPlayStoreForTesting();
     }
 
     browser_controller_.emplace();
     model_ = std::make_unique<ash::ShelfModel>();
+
+    user_session_manager_ = std::make_unique<ash::UserSessionManager>(
+        TestingBrowserProcess::GetGlobal()->local_state(),
+        TestingBrowserProcess::GetGlobal()
+            ->GetFeatures()
+            ->application_locale_storage(),
+        TestingBrowserProcess::GetGlobal()->shared_url_loader_factory(),
+        TestingBrowserProcess::GetGlobal()
+            ->platform_part()
+            ->browser_policy_connector_ash());
 
     arc_app_test_.set_initialize_real_intent_helper_bridge(true);
     arc_app_test_.PreProfileSetUp();
@@ -520,13 +538,17 @@ class ArcAppModelBuilderTest : public extensions::ExtensionServiceTestBase,
   }
 
   void TearDown() override {
+    user_session_manager_->Shutdown();
     shelf_controller_.reset();
     model_.reset();
     arc_app_test_.PreProfileTearDown();
     ResetBuilder();
     extensions::ExtensionServiceTestBase::TearDown();
     arc_app_test_.PostProfileTearDown();
+    user_session_manager_.reset();
     browser_controller_.reset();
+
+    TestingBrowserProcess::GetGlobal()->SetSharedURLLoaderFactory(nullptr);
   }
 
   ArcState GetArcState() const { return GetParam(); }
@@ -911,8 +933,11 @@ class ArcAppModelBuilderTest : public extensions::ExtensionServiceTestBase,
   FakeAppListModelUpdater* model_updater() { return model_updater_.get(); }
 
  private:
+  network::TestURLLoaderFactory test_url_loader_factory_;
+
   ash::SessionTerminationManager session_termination_manager_;
   ArcAppTest arc_app_test_;
+  std::unique_ptr<ash::UserSessionManager> user_session_manager_;
   display::test::TestScreen test_screen_{/*create_dispay=*/true,
                                          /*register_screen=*/true};
   std::unique_ptr<FakeAppListModelUpdater> model_updater_;

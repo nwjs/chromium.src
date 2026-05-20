@@ -124,11 +124,13 @@ WebURL WebDocument::Url() const {
 }
 
 WebSecurityOrigin WebDocument::GetSecurityOrigin() const {
-  if (!ConstUnwrap<Document>())
+  if (!ConstUnwrap<Document>()) {
     return WebSecurityOrigin();
+  }
   ExecutionContext* context = ConstUnwrap<Document>()->GetExecutionContext();
-  if (!context)
+  if (!context) {
     return WebSecurityOrigin();
+  }
   return WebSecurityOrigin(context->GetSecurityOrigin());
 }
 
@@ -153,8 +155,9 @@ WebString WebDocument::GetReferrer() const {
 
 std::optional<SkColor> WebDocument::ThemeColor() {
   std::optional<Color> color = Unwrap<Document>()->ThemeColor();
-  if (color)
+  if (color) {
     return color->Rgb();
+  }
   return std::nullopt;
 }
 
@@ -223,8 +226,9 @@ WebString WebDocument::Title() const {
 
 WebString WebDocument::ContentAsTextForTesting() const {
   Element* document_element = ConstUnwrap<Document>()->documentElement();
-  if (!document_element)
+  if (!document_element) {
     return WebString();
+  }
   return document_element->innerText();
 }
 
@@ -313,8 +317,9 @@ void WebDocument::WatchCSSSelectors(
     const std::vector<WebString>& web_selectors) {
   Document* document = Unwrap<Document>();
   CSSSelectorWatch* watch = CSSSelectorWatch::FromIfExists(*document);
-  if (!watch && web_selectors.empty())
+  if (!watch && web_selectors.empty()) {
     return;
+  }
   CSSSelectorWatch::From(*document).WatchCSSSelectors(
       Vector<String>(web_selectors));
 }
@@ -335,8 +340,9 @@ WebDistillabilityFeatures WebDocument::DistillabilityFeatures() {
 }
 
 void WebDocument::SetShowBeforeUnloadDialog(bool show_dialog) {
-  if (!IsHTMLDocument())
+  if (!IsHTMLDocument()) {
     return;
+  }
 
   Document* doc = Unwrap<Document>();
   doc->SetShowBeforeUnloadDialog(show_dialog);
@@ -400,21 +406,7 @@ WebString WebDocument::OutgoingReferrer() const {
   return WebString(ConstUnwrap<Document>()->domWindow()->OutgoingReferrer());
 }
 
-void WebDocument::InitiatePreview(const WebURL& url) {
-  if (!url.IsValid()) {
-    return;
-  }
-
-  Document* document = blink::To<Document>(private_.Get());
-  if (!document) {
-    return;
-  }
-
-  KURL kurl(url);
-  if (kurl.ProtocolIsInHttpFamily()) {
-    DocumentSpeculationRules::From(*document).InitiatePreview(kurl);
-  }
-}
+void WebDocument::InitiatePreview(const WebURL& url) {}
 
 void WebDocument::SnapshotAccessibilityTree(
     size_t max_nodes,
@@ -434,7 +426,8 @@ size_t WebDocument::ActiveResourceRequestCount() const {
   return ConstUnwrap<Document>()->Fetcher()->ActiveRequestCount();
 }
 
-std::optional<base::UnguessableToken> WebDocument::ExecuteScriptTool(
+bool WebDocument::ExecuteScriptTool(
+    const base::UnguessableToken& invocation_id,
     const WebString& name,
     const WebString& input_arguments,
     WebScriptToolResultCallback tool_result_cb) {
@@ -448,10 +441,12 @@ std::optional<base::UnguessableToken> WebDocument::ExecuteScriptTool(
       web_tool_declaration->input_schema =
           WebString(script_tool_declaration->input_schema);
       web_tool_declaration->read_only = script_tool_declaration->read_only;
+      web_tool_declaration->untrusted_content =
+          script_tool_declaration->untrusted_content;
     }
     // TODO(481899636): PLUMB SIGNAL TO THE BROWSER SIDE!
     return model_context->ExecuteTool(
-        name, input_arguments,
+        invocation_id, name, input_arguments,
         /* signal= */ nullptr,
         blink::BindOnce(
             [](WebScriptToolResultCallback tool_result_cb,
@@ -471,13 +466,14 @@ std::optional<base::UnguessableToken> WebDocument::ExecuteScriptTool(
             },
             std::move(tool_result_cb), std::move(web_tool_declaration)));
   }
-  return std::nullopt;
+  return false;
 }
 
-void WebDocument::CancelScriptTool(const base::UnguessableToken& execution_id) {
+void WebDocument::CancelScriptTool(
+    const base::UnguessableToken& invocation_id) {
   if (auto* model_context = ModelContextSupplement::modelContext(
           *Unwrap<Document>()->domWindow()->navigator())) {
-    model_context->CancelTool(execution_id);
+    model_context->CancelTool(invocation_id);
   }
 }
 

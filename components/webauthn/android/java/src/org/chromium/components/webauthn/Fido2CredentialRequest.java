@@ -47,7 +47,6 @@ import org.chromium.blink.mojom.PublicKeyCredentialReportOptions;
 import org.chromium.blink.mojom.PublicKeyCredentialRequestOptions;
 import org.chromium.blink.mojom.PublicKeyCredentialType;
 import org.chromium.blink.mojom.ResidentKeyRequirement;
-import org.chromium.blink_public.common.BlinkFeatures;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.components.password_manager.BrowserAssistedLoginType;
@@ -56,7 +55,6 @@ import org.chromium.components.webauthn.cred_man.CredManHelper;
 import org.chromium.components.webauthn.cred_man.CredManSupportProvider;
 import org.chromium.content_public.browser.ClientDataJson;
 import org.chromium.content_public.browser.ClientDataRequestType;
-import org.chromium.content_public.browser.ContentFeatureMap;
 import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.device.DeviceFeatureList;
@@ -256,10 +254,7 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
         RenderFrameHost frameHost = mAuthenticationContextProvider.getRenderFrameHost();
         assert frameHost != null;
         assert mAuthenticationContextProvider.getRequestCallback() != null;
-        assert (paymentOptions != null)
-                == (options.isPaymentCredentialCreation
-                        && ContentFeatureMap.isEnabled(
-                                BlinkFeatures.SECURE_PAYMENT_CONFIRMATION_BROWSER_BOUND_KEYS));
+        assert (paymentOptions != null) == options.isPaymentCredentialCreation;
         @Nullable Origin remoteDesktopOrigin = null;
         if (options.remoteDesktopClientOverride != null
                 && isChrome(mAuthenticationContextProvider.getWebContents())) {
@@ -462,6 +457,20 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
     @SuppressWarnings("NewApi")
     private void handlePasswordOnlyImmediateRequest(GetCredentialOptions options, Origin origin) {
         assert options.password && options.mediation == Mediation.IMMEDIATE;
+
+        RenderFrameHost frameHost = mAuthenticationContextProvider.getRenderFrameHost();
+        if (frameHost == null || frameHost.getMainFrame() != frameHost) {
+            logError(
+                    TAG,
+                    "Password-only immediate mediation requests can only be issued from the main"
+                            + " frame");
+            returnErrorAndResetCallback(
+                    AuthenticatorStatus.NOT_ALLOWED_ERROR,
+                    /* response= */ null,
+                    /* credentialRequestResult= */ null);
+            return;
+        }
+
         final String originString = convertOriginToString(origin);
         if (!isChrome(mAuthenticationContextProvider.getWebContents())) {
             if (CredManSupportProvider.getCredManSupportForWebView() == CredManSupport.DISABLED) {
@@ -562,6 +571,13 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
             if (webContents != null && webContents.isIncognito()) {
                 log(TAG, "Immediate Get called in Incognito mode");
                 mBarrier.setImmediateIncognito();
+            }
+            if (frameHost.getMainFrame() != frameHost && options.password) {
+                log(
+                        TAG,
+                        "Immediate Get request in an iframe cannot access passwords. Only passkeys"
+                                + " will be available.");
+                options.password = false;
             }
         }
 
@@ -1570,6 +1586,7 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
         if (mCancellableUiState != CancellableUiState.NONE) {
             if (response == null || response instanceof Pair) {
                 if (response != null) {
+                    @SuppressWarnings("unchecked") // Checked by instanceof Pair above.
                     Pair<Integer, String> error = (Pair<Integer, String>) response;
                     logError(
                             TAG,
@@ -1606,6 +1623,7 @@ public class Fido2CredentialRequest implements WebauthnBrowserBridge.Provider {
         if (response == null) {
             // Use the error already set.
         } else if (response instanceof Pair) {
+            @SuppressWarnings("unchecked") // Checked by instanceof Pair above.
             Pair<Integer, String> error = (Pair<Integer, String>) response;
             logError(
                     TAG,

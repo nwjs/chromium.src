@@ -38,6 +38,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/types/optional_util.h"
 #include "cc/animation/animation_timeline.h"
+#include "cc/animation/keyframe_effect.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_timeline_range_offset.h"
@@ -529,8 +530,7 @@ bool Animation::ConvertCSSNumberishToTime(
           numberish->GetAsCSSNumericValue()->to(
               CSSPrimitiveValue::UnitType::kPercentage);
       if (!numberish_as_percentage) {
-        exception_state.ThrowDOMException(
-            DOMExceptionCode::kNotSupportedError,
+        exception_state.ThrowTypeError(
             StrCat({"Invalid ", variable_name,
                     ". CSSNumericValue must be a percentage for progress based "
                     "animations."}));
@@ -541,8 +541,7 @@ bool Animation::ConvertCSSNumberishToTime(
           (numberish_as_percentage->value() / 100) * timeline_duration_.value();
       return true;
     } else {
-      exception_state.ThrowDOMException(
-          DOMExceptionCode::kNotSupportedError,
+      exception_state.ThrowTypeError(
           StrCat({"Invalid ", variable_name, ". Setting ", variable_name,
                   " using absolute time values is not supported for progress "
                   "based animations."}));
@@ -578,8 +577,7 @@ bool Animation::ConvertCSSNumberishToTime(
 
     // TODO (crbug.com/1232181): Look into allowing document timelines to set
     // currentTime and startTime using CSSNumericValues that are percentages.
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kNotSupportedError,
+    exception_state.ThrowTypeError(
         StrCat({"Invalid ", variable_name,
                 ". CSSNumericValue must be either a number or a time value for "
                 "time based animations."}));
@@ -2101,6 +2099,7 @@ void Animation::updatePlaybackRate(double playback_rate,
   // 2. Let animation’s pending playback rate be new playback rate.
   V8AnimationPlayState::Enum play_state = CalculateAnimationPlayState();
   pending_playback_rate_ = playback_rate;
+  InvalidateNormalizedTiming();
 
   // 3. Perform the steps corresponding to the first matching condition from
   //    below:
@@ -2485,30 +2484,11 @@ void Animation::OnActivePhaseStateChange(bool in_active_phase) {
   }
 }
 
-base::TimeDelta Animation::ComputeCompositorTimeOffset() const {
-  if (start_time_ && !PendingInternal())
-    return base::TimeDelta();
-
-  double playback_rate = EffectivePlaybackRate();
-  if (!playback_rate)
-    return base::TimeDelta::Max();
-
-  // Don't set a compositor time offset for progress-based timelines. When we
-  // tick the animation, we pass "absolute" times to cc::KeyframeEffect::Pause.
-  if (timeline_ && timeline_->IsProgressBased()) {
-    return base::TimeDelta();
+std::optional<base::TimeDelta> Animation::ComputeCompositorHoldTime() const {
+  if (std::optional<AnimationTimeDelta> current_time = CurrentTimeInternal()) {
+    return base::Seconds(current_time.value().InSecondsF());
   }
-
-  bool reversed = playback_rate < 0;
-
-  std::optional<AnimationTimeDelta> current_time = CurrentTimeInternal();
-  if (!current_time)
-    return base::TimeDelta();
-
-  double time_offset_s =
-      reversed ? EffectEnd().InSecondsF() - current_time.value().InSecondsF()
-               : current_time.value().InSecondsF();
-  return base::Seconds(time_offset_s / fabs(playback_rate));
+  return std::nullopt;
 }
 
 void Animation::MarkPendingIfCompositorPropertyAnimationChanges(
@@ -2569,10 +2549,10 @@ void Animation::StartAnimationOnCompositor(
   bool reversed = EffectivePlaybackRate() < 0;
 
   std::optional<AnimationTimeDelta> start_time;
-  base::TimeDelta time_offset = base::TimeDelta();
+  std::optional<base::TimeDelta> hold_time;
 
-  // Start the animation on the compositor with either a start time or time
-  // offset. The start time is used for synchronous updates where the
+  // Start the animation on the compositor with either a start time or a
+  // hold time. The start time is used for synchronous updates where the
   // compositor start time must be in precise alignment with the specified time
   // (e.g. after calling setStartTime). Scroll-driven animations always use this
   // mode even if it causes a discontinuity in the current time calculation.
@@ -2589,9 +2569,7 @@ void Animation::StartAnimationOnCompositor(
           start_time.value() - (EffectEnd() / fabs(EffectivePlaybackRate()));
     }
   } else {
-    // Update preserves current time, which may not align with the value
-    // computed from start time.
-    time_offset = ComputeCompositorTimeOffset();
+    hold_time = ComputeCompositorHoldTime();
   }
 
   DCHECK_NE(compositor_group_, PendingAnimations::kCompositorGroupAutoAssign);
@@ -2608,7 +2586,7 @@ void Animation::StartAnimationOnCompositor(
 
   To<KeyframeEffect>(content_.Get())
       ->StartAnimationOnCompositor(
-          compositor_group_, start_time_s, time_offset, EffectivePlaybackRate(),
+          compositor_group_, start_time_s, hold_time, EffectivePlaybackRate(),
           /*compositor_animation=*/nullptr,
           timeline()->IsMonotonicallyIncreasing(), boundary_aligned);
 }
@@ -3021,43 +2999,42 @@ void Animation::UpdateBoundaryAlignment(
     return;
   }
 
+  if (std::abs(EffectivePlaybackRate()) != 1) {
+    return;
+  }
+
   if (auto* scroll_timeline = DynamicTo<ScrollTimeline>(TimelineInternal())) {
-    std::optional<double> max_scroll =
-        scroll_timeline->GetMaximumScrollPosition();
-    if (!max_scroll) {
-      return;
-    }
+    // Scroll-offsets align with the scroll extents of a scroll timeline,
+    // and with the cover range for a view timeline.
     std::optional<ScrollOffsets> scroll_offsets =
         scroll_timeline->GetResolvedScrollOffsets();
-    if (!scroll_offsets) {
+
+    // Scroll-limits align with the scroll extents of a scroll timeline,
+    // and with the cover range for a view timeline.
+    std::optional<ScrollOffsets> scroll_limits =
+        scroll_timeline->GetResolvedScrollLimits();
+
+    if (!scroll_offsets || !scroll_limits) {
       return;
     }
+
+    // The start and end are relative positions along the timeline corresponding
+    // to the active range.
     TimelineRange timeline_range = scroll_timeline->GetTimelineRange();
     double start = range_start_
                        ? timeline_range.ToFractionalOffset(range_start_.value())
                        : 0;
     double end =
         range_end_ ? timeline_range.ToFractionalOffset(range_end_.value()) : 1;
-
-    AnimationTimeDelta timeline_duration =
-        scroll_timeline->GetDuration().value();
-    if (timeline_duration > AnimationTimeDelta()) {
-      start += timing.start_delay / timeline_duration;
-      end -= timing.end_delay / timeline_duration;
-    }
-
-    double start_offset =
-        start * scroll_offsets->end + (1 - start) * scroll_offsets->start;
-
-    double end_offset =
-        end * scroll_offsets->end + (1 - end) * scroll_offsets->start;
-
-    double rate = EffectivePlaybackRate();
+    double range = scroll_offsets->end - scroll_offsets->start;
+    double start_offset = scroll_offsets->start + start * range;
+    double end_offset = scroll_offsets->start + end * range;
     timing.is_start_boundary_aligned =
-        rate < 0 && start_offset <= kScrollBoundaryTolerance;
+        timing.start_delay <= AnimationTimeDelta() &&
+        start_offset - kScrollBoundaryTolerance <= scroll_limits->start;
     timing.is_end_boundary_aligned =
-        rate > 0 &&
-        rate * end_offset >= max_scroll.value() - kScrollBoundaryTolerance;
+        timing.end_delay <= AnimationTimeDelta() &&
+        end_offset + kScrollBoundaryTolerance >= scroll_limits->end;
   }
 }
 

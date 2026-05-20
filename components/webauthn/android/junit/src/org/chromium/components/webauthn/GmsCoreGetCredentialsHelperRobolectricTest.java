@@ -18,14 +18,13 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Features.DisableFeatures;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.components.webauthn.GmsCoreGetCredentialsHelper.GmsCoreGetCredentialsResult;
 import org.chromium.components.webauthn.GmsCoreGetCredentialsHelper.Reason;
@@ -36,9 +35,9 @@ import java.util.List;
 /** Robolectric tests for {@link GmsCoreGetCredentialsHelper}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
-@EnableFeatures({WebauthnFeatures.WEBAUTHN_ANDROID_PASSKEY_CACHE_MIGRATION})
 public class GmsCoreGetCredentialsHelperRobolectricTest {
-    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     private static final String RP_ID = "rp.id";
 
@@ -46,6 +45,10 @@ public class GmsCoreGetCredentialsHelperRobolectricTest {
     @Mock private AuthenticationContextProvider mAuthenticationContextProviderMock;
     @Mock private GmsCoreGetCredentialsHelper.GetCredentialsCallback mSuccessCallbackMock;
     @Mock private OnFailureListener mFailureCallbackMock;
+
+    @Captor
+    private ArgumentCaptor<OnSuccessListener<List<WebauthnCredentialDetails>>>
+            mSuccessCallbackCaptor;
 
     private GmsCoreGetCredentialsHelper mHelper;
     private List<WebauthnCredentialDetails> mCredentials;
@@ -67,66 +70,6 @@ public class GmsCoreGetCredentialsHelperRobolectricTest {
     }
 
     @Test
-    @DisableFeatures({WebauthnFeatures.WEBAUTHN_ANDROID_PASSKEY_CACHE_MIGRATION})
-    public void testGetCredentials_featureDisabled_fido2ApiSuccess() {
-        HistogramWatcher histogramWatcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "WebAuthentication.Android.GmsCoreGetCredentialsResult",
-                        GmsCoreGetCredentialsResult.FIDO2_SUCCESS);
-
-        mHelper.getCredentials(
-                mAuthenticationContextProviderMock,
-                RP_ID,
-                Reason.GET_ASSERTION_NON_GOOGLE,
-                mSuccessCallbackMock,
-                mFailureCallbackMock);
-
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<OnSuccessListener<List<WebauthnCredentialDetails>>> successCallbackCaptor =
-                ArgumentCaptor.forClass(OnSuccessListener.class);
-        verify(mFido2ApiCallHelperMock)
-                .invokeFido2GetCredentials(
-                        eq(mAuthenticationContextProviderMock),
-                        eq(RP_ID),
-                        successCallbackCaptor.capture(),
-                        any());
-        successCallbackCaptor.getValue().onSuccess(mCredentials);
-
-        verify(mSuccessCallbackMock).onCredentialsReceived(mCredentials);
-        histogramWatcher.assertExpected();
-    }
-
-    @Test
-    @DisableFeatures({WebauthnFeatures.WEBAUTHN_ANDROID_PASSKEY_CACHE_MIGRATION})
-    public void testGetCredentials_featureDisabled_fido2ApiFailure() {
-        HistogramWatcher histogramWatcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "WebAuthentication.Android.GmsCoreGetCredentialsResult",
-                        GmsCoreGetCredentialsResult.FIDO2_FAILURE);
-        Exception e = new Exception();
-
-        mHelper.getCredentials(
-                mAuthenticationContextProviderMock,
-                RP_ID,
-                Reason.GET_ASSERTION_NON_GOOGLE,
-                mSuccessCallbackMock,
-                mFailureCallbackMock);
-
-        ArgumentCaptor<OnFailureListener> failureCallbackCaptor =
-                ArgumentCaptor.forClass(OnFailureListener.class);
-        verify(mFido2ApiCallHelperMock)
-                .invokeFido2GetCredentials(
-                        eq(mAuthenticationContextProviderMock),
-                        eq(RP_ID),
-                        any(),
-                        failureCallbackCaptor.capture());
-        failureCallbackCaptor.getValue().onFailure(e);
-
-        verify(mFailureCallbackMock).onFailure(e);
-        histogramWatcher.assertExpected();
-    }
-
-    @Test
     public void testGetCredentials_featureEnabled_cacheSuccess() {
         HistogramWatcher histogramWatcher =
                 HistogramWatcher.newBuilder()
@@ -144,15 +87,13 @@ public class GmsCoreGetCredentialsHelperRobolectricTest {
                 mSuccessCallbackMock,
                 mFailureCallbackMock);
 
-        ArgumentCaptor<OnSuccessListener<List<WebauthnCredentialDetails>>> successCallbackCaptor =
-                ArgumentCaptor.forClass(OnSuccessListener.class);
         verify(mFido2ApiCallHelperMock)
                 .invokePasskeyCacheGetCredentials(
                         eq(mAuthenticationContextProviderMock),
                         eq(RP_ID),
-                        successCallbackCaptor.capture(),
+                        mSuccessCallbackCaptor.capture(),
                         any());
-        successCallbackCaptor.getValue().onSuccess(mCredentials);
+        mSuccessCallbackCaptor.getValue().onSuccess(mCredentials);
 
         verify(mSuccessCallbackMock).onCredentialsReceived(mCredentials);
         histogramWatcher.assertExpected();
@@ -176,18 +117,16 @@ public class GmsCoreGetCredentialsHelperRobolectricTest {
                 mSuccessCallbackMock,
                 mFailureCallbackMock);
 
-        ArgumentCaptor<OnSuccessListener<List<WebauthnCredentialDetails>>> successCallbackCaptor =
-                ArgumentCaptor.forClass(OnSuccessListener.class);
         verify(mFido2ApiCallHelperMock)
                 .invokeFido2GetCredentials(
                         eq(mAuthenticationContextProviderMock),
                         eq("google.com"),
-                        successCallbackCaptor.capture(),
+                        mSuccessCallbackCaptor.capture(),
                         any());
         verify(mFido2ApiCallHelperMock, never())
                 .invokePasskeyCacheGetCredentials(any(), any(), any(), any());
 
-        successCallbackCaptor.getValue().onSuccess(mCredentials);
+        mSuccessCallbackCaptor.getValue().onSuccess(mCredentials);
 
         verify(mSuccessCallbackMock).onCredentialsReceived(mCredentials);
         histogramWatcher.assertExpected();
@@ -210,18 +149,16 @@ public class GmsCoreGetCredentialsHelperRobolectricTest {
                 mSuccessCallbackMock,
                 mFailureCallbackMock);
 
-        ArgumentCaptor<OnSuccessListener<List<WebauthnCredentialDetails>>> successCallbackCaptor =
-                ArgumentCaptor.forClass(OnSuccessListener.class);
         verify(mFido2ApiCallHelperMock)
                 .invokeFido2GetCredentials(
                         eq(mAuthenticationContextProviderMock),
                         eq(RP_ID),
-                        successCallbackCaptor.capture(),
+                        mSuccessCallbackCaptor.capture(),
                         any());
         verify(mFido2ApiCallHelperMock, never())
                 .invokePasskeyCacheGetCredentials(any(), any(), any(), any());
 
-        successCallbackCaptor.getValue().onSuccess(mCredentials);
+        mSuccessCallbackCaptor.getValue().onSuccess(mCredentials);
 
         histogramWatcher.assertExpected();
     }
@@ -243,18 +180,16 @@ public class GmsCoreGetCredentialsHelperRobolectricTest {
                 mSuccessCallbackMock,
                 mFailureCallbackMock);
 
-        ArgumentCaptor<OnSuccessListener<List<WebauthnCredentialDetails>>> successCallbackCaptor =
-                ArgumentCaptor.forClass(OnSuccessListener.class);
         verify(mFido2ApiCallHelperMock)
                 .invokeFido2GetCredentials(
                         eq(mAuthenticationContextProviderMock),
                         eq(RP_ID),
-                        successCallbackCaptor.capture(),
+                        mSuccessCallbackCaptor.capture(),
                         any());
         verify(mFido2ApiCallHelperMock, never())
                 .invokePasskeyCacheGetCredentials(any(), any(), any(), any());
 
-        successCallbackCaptor.getValue().onSuccess(mCredentials);
+        mSuccessCallbackCaptor.getValue().onSuccess(mCredentials);
         histogramWatcher.assertExpected();
     }
 
@@ -275,18 +210,16 @@ public class GmsCoreGetCredentialsHelperRobolectricTest {
                 mSuccessCallbackMock,
                 mFailureCallbackMock);
 
-        ArgumentCaptor<OnSuccessListener<List<WebauthnCredentialDetails>>> successCallbackCaptor =
-                ArgumentCaptor.forClass(OnSuccessListener.class);
         verify(mFido2ApiCallHelperMock)
                 .invokeFido2GetCredentials(
                         eq(mAuthenticationContextProviderMock),
                         eq(RP_ID),
-                        successCallbackCaptor.capture(),
+                        mSuccessCallbackCaptor.capture(),
                         any());
         verify(mFido2ApiCallHelperMock, never())
                 .invokePasskeyCacheGetCredentials(any(), any(), any(), any());
 
-        successCallbackCaptor.getValue().onSuccess(mCredentials);
+        mSuccessCallbackCaptor.getValue().onSuccess(mCredentials);
         histogramWatcher.assertExpected();
     }
 

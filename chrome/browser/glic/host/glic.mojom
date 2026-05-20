@@ -13,6 +13,7 @@ import "mojo/public/mojom/base/proto_wrapper.mojom";
 import "mojo/public/mojom/base/string16.mojom";
 import "mojo/public/mojom/base/time.mojom";
 import "mojo/public/mojom/base/unguessable_token.mojom";
+import "mojo/public/mojom/base/values.mojom";
 import "mojo/public/mojom/base/version.mojom";
 import "skia/public/mojom/bitmap.mojom";
 import "third_party/blink/public/mojom/content_extraction/ai_page_content_metadata.mojom";
@@ -92,12 +93,6 @@ struct ConfigInfo {
 
   // User configured preset URL for web continuity.
   url.mojom.Url web_continuity_originating_host_url;
-};
-
-// Consolidated data payload to populate the Glic internals page.
-struct InternalsDataPayload {
-  ProfileEnablement enablement;
-  ConfigInfo config;
 };
 
 // Whether actuation is enabled, and if not, why not.
@@ -254,6 +249,20 @@ union InvokeConversationSelection {
   string conversation_id;
 };
 
+// Targets the default Glic surface (e.g., side panel).
+struct DefaultSurfaceMojo {};
+
+// Targets a new tab for the invocation.
+struct NewTabMojo {
+  bool open_in_foreground;
+};
+
+// Defines the surface an invocation targets.
+union InvokeTargetSurface {
+  DefaultSurfaceMojo default_surface;
+  NewTabMojo new_tab;
+};
+
 // The level of in-flight navigation events allowed without canceling the
 // invocation.
 enum AllowedInflightNavigation {
@@ -262,21 +271,12 @@ enum AllowedInflightNavigation {
   kAll,
 };
 
-// Configuration options for invoking Glic from the internals page.
-struct TriggerInvokeFromInternalsOptions {
-  InvocationSource invocation_source;
-  array<string> prompts;
-  AdditionalContext? additional_context;
-  InvokeConversationSelection conversation;
-  FeatureMode? feature_mode;
-  bool disable_zss;
-  string? skill_id;
-  string? error_message;
-  mojo_base.mojom.TimeDelta? timeout;
-  AllowedInflightNavigation allowed_inflight_navigation;
-  bool auto_submit;
-  FreOverride fre_override = kUnspecified;
-  bool wait_for_panel_open;
+// @generate glic_api
+// Configuration to override the default ZSS behavior for the invocation,
+// only having an impact if ZSS would be shown for the invocation.
+struct ZssConfig {
+  // Additional content to inject into the body of the ZSS message.
+  string? additional_content;
 };
 
 // Page handler for the glic WebUI.
@@ -293,6 +293,9 @@ interface PageHandler {
 
   // Called whenever the webview mainframe commits.
   WebviewCommitted(url.mojom.Url url);
+
+  // Notifies the host that the zoom level of the webview has changed.
+  OnZoomLevelChange(double zoom_factor);
 
   // Closes the Glic panel.
   ClosePanel() => ();
@@ -316,34 +319,6 @@ interface PageHandler {
 
   // Notifies the PageHandler that the state of the WebUI has changed.
   WebUiStateChanged(WebUiState new_state);
-};
-
-// Page handler for the glic internals WebUI.
-interface InternalsPageHandler {
-  // Called by the internals WebUI page to get the data it will present.
-  GetInternalsDataPayload() => (InternalsDataPayload internals_data);
-
-  // Sets the guest URL presets for the internals page.
-  SetGuestUrlPresets(url.mojom.Url autopush,
-                     url.mojom.Url staging,
-                     url.mojom.Url preprod,
-                     url.mojom.Url prod);
-
-  // Triggers an invocation for testing from the internals page.
-  TriggerInvokeFromInternalsAction(
-      TriggerInvokeFromInternalsOptions options)
-      => (bool success, string error_message);
-
-  // Sets the web continuity originating host URL preset for the internals page.
-  SetWebContinuityOriginatingHostUrlPreset(
-      url.mojom.Url web_continuity_originating_host_url);
-};
-
-// Factory for InternalsPageHandler used in chrome://glic/internals.
-interface InternalsPageHandlerFactory {
-  // Creates the InternalsPageHandler for chrome://glic/internals.
-  CreateInternalsPageHandler(
-      pending_receiver<InternalsPageHandler> receiver);
 };
 
 // @generate glic_api
@@ -533,8 +508,6 @@ struct WebClientInitialState {
   bool panel_is_active;
   bool browser_is_open;
   bool instance_is_active;
-  // Reflects the enabling state of always-detached mode.
-  bool always_detached_mode;
   bool enable_zero_state_suggestions;
   bool enable_cached_get_user_profile_info;
   // Whether features::kGlicActor is enabled.
@@ -574,8 +547,6 @@ struct WebClientInitialState {
   bool enable_get_tab_by_id;
   // Whether kGlicOpenPasswordManagerSettingsPageApi is enabled.
   bool enable_open_password_manager_settings_page;
-  // Whether kGlicLoadAndExtractContent is enabled.
-  bool enable_load_and_extract_content;
   // Whether kGlicTrustFirstOnboarding is enabled.
   bool enable_trust_first_onboarding;
   // Whether the user has completed the onboarding flow.
@@ -998,6 +969,12 @@ enum CancelActionsResult {
   kFailed = 3,
 };
 
+// Options used to customize region capture.
+struct CaptureRegionParams {
+  int32 tab_id;
+  GetTabContextOptions options;
+};
+
 // Access to the browser from the web client by proxy through the WebUI.
 // A single WebClientHandler will provide access to the browser for only
 // a single web client. If the webview navigates or refreshes, a new
@@ -1239,9 +1216,13 @@ interface WebClientHandler {
   // terminated by either the browser (e.g., on user cancellation) or the
   // client.
   //
+  // The optional `params` can be used to specify a target tab or request
+  // specific capture behavior.
+  //
   // If another capture is already in progress, the previous capture session
   // will be terminated and a new one will begin.
-  CaptureRegion(pending_remote<CaptureRegionObserver> observer);
+  CaptureRegion(pending_remote<CaptureRegionObserver> observer,
+                CaptureRegionParams? params);
 
   // Deletes a captured region.
   DeleteCapturedRegion(int32 tab_id, mojo_base.mojom.UnguessableToken id);
@@ -1365,14 +1346,6 @@ interface WebClientHandler {
 
   // Called when the web client completes a turn.
   OnTurnCompleted(WebClientModel model, mojo_base.mojom.TimeDelta duration);
-
-  // Called when the web client wants to record a use counter.
-  // The counter values matches the WebUseCounter enum. We do not use the
-  // explicit type because we do not want enforcement of the range of the
-  // enum because of versioning issues between the front end and chrome.
-  // eg. The front end could be newer than chrome and we want the counter
-  // still logged, but may not exist in chrome's version of WebUseCounter.
-  OnRecordUseCounter(uint16 counter);
 
   // Called when the user rates a response.
   OnResponseRated(bool positive);
@@ -1559,6 +1532,7 @@ struct PanelState {
 [Stable, Extensible]
 enum FreOverride {
   [Default] kUnspecified = 0,
+  // Deprecated: No longer used.
   // Variation that requires text input from the user to unlock full client.
   kTrustFirstText = 1,
   // Variation that requires mouse click from the user to unlock full client.
@@ -1628,17 +1602,41 @@ enum InvocationSource {
   [MinVersion=16] kTextSelectionWidget = 25,
   // Automatic summarization upon opening.
   [MinVersion=17] kZeroStateAutoSummarize = 26,
+  // From the universal cart.
+  [MinVersion=18] kUniversalCart = 27,
+  // Used exclusively for invocations originating from the
+  // GlicExperimentalTriggeringMessageHandler.
+  [MinVersion=19] kExperimentalTriggering = 28,
 };
 
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicInvocationSource, //chrome/browser/glic/service/metrics/metrics_types.h:ResponseSegmentation)
 
 // @generate glic_api
 // Mode for specific feature behaviors.
+// Next version: 2
 [Stable, Extensible]
 enum FeatureMode {
   [Default] kUnspecified = 0,
   kImageGeneration = 1,
-  kBluedog = 2,
+  kActuation = 2,
+  // Client feature mode to initiate actuation for Experimental Triggering.
+  [MinVersion=1] kExperimentalTriggering = 3,
+  // Client feature mode to initiate actuation for Universal Cart.
+  [MinVersion=1] kUniversalCart = 4,
+};
+
+// @generate glic_api
+// Target for actuation.
+[Stable, Extensible]
+enum ActuationTarget {
+  // Will default to the agent if the target is unknown.
+  [Default] kUnknown = 0,
+  // Agent infers the best location based on the prompt.
+  kAgentDecides = 1,
+  // Forces actuation on the initiating tab.
+  kCurrentTab = 2,
+  // Forces actuation in a new tab.
+  kNewTab = 3,
 };
 
 // @generate glic_api
@@ -1661,11 +1659,17 @@ struct InvokeOptions {
   // Feature mode to use.
   FeatureMode feature_mode;
 
+  // Target for actuation.
+  ActuationTarget actuation_target;
+
   // Whether to suppress Zero State Suggestions.
   bool disable_zero_state_suggestions;
 
   // If this invocation is for a skill, the ID of the skill to use.
   string? skill_id;
+
+  // Configuration to override the default ZSS behavior for the invocation.
+  ZssConfig? zss_config;
 };
 
 // @generate glic_api
@@ -1711,9 +1715,26 @@ enum WebUseCounter {
   kSubmitPromptWithAutoMode = 1,
   kTaskInterruptedForUserConfirmation = 2,
   kTaskInterruptedForUserClarification = 3,
+  kSelectionToggledViaSharedMenu = 4,
+  kSelectionToggledViaHotKey = 5,
 };
 
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicWebUseCounter)
+
+// @generate glic_api
+// Client error dialog types.
+// LINT.IfChange(ClientErrorDialogType)
+[Stable, Extensible]
+enum ClientErrorDialogType {
+  [Default] kUnknown = 0,
+  kDisabledByOrganization = 1,
+  kGenericAvailability = 2,
+  kIneligibleAccount = 3,
+  kSignout = 4,
+  kUnsupportedLocation = 5,
+};
+
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicClientErrorDialogType)
 [Stable, Extensible]
 enum ResponseStopCause {
   [Default] kUnknown = 0,
@@ -1787,6 +1808,52 @@ struct AdditionalContext {
   array<AdditionalContextPart> parts;
 };
 
+// @generate glic_api
+// Types of updates that may be relayed back by the web client.
+[Stable, Extensible]
+enum ExperimentalTriggeringUpdateType {
+  // An unknown, non-terminal update type.
+  [Default] kUnknown = 0,
+  // A log entry describing internal steps or "thought" process.
+  kWorklog = 1,
+  // The interaction was paused.
+  kPaused = 2,
+  // A final status update or metadata about the completed task.
+  kTerminalCompletion = 3,
+  // The interaction was stopped or cancelled.
+  kTerminalStopped = 4,
+  // The interaction failed.
+  kTerminalFailed = 5,
+};
+
+// Types of subscriber observations that may be observed.
+[Stable, Extensible]
+enum SubscriberObservationType {
+  // An update was observed.
+  [Default] kUpdate = 0,
+  // Completed all observations.
+  kComplete = 1,
+  // An unexpected error was observed.
+  kError = 2,
+};
+
+// An update event sent to the browser by the web client.
+struct ExperimentalTriggeringUpdate {
+  // The type of this update.
+  ExperimentalTriggeringUpdateType type;
+  // The human-readable text associated with the update, such as response text
+  // or status message.
+  string data;
+};
+
+// Interface for receiving updates during web client interactions.
+// Implemented by the caller to receive streaming updates from the web client.
+interface ExperimentalTriggeringUpdatesHandler {
+  // Called when a new update is available.
+  OnUpdate(ExperimentalTriggeringUpdate? update,
+           SubscriberObservationType observation);
+};
+
 // Access from the browser to the Glic web client by proxy of the WebUI page.
 interface WebClient {
   // Informs the web client that the panel will open. Chrome will wait to open
@@ -1806,6 +1873,9 @@ interface WebClient {
   // inactive if it's attached to a browser window, and that browser window is
   // not the active window.
   NotifyPanelActiveChange(bool panel_active);
+
+  // Informs the client whether the browser is currently invoking Glic.
+  NotifyIsInvoking(bool is_invoking);
 
   // Informs the client that whether the panel can be attached right now.
   NotifyPanelCanAttachChange(bool can_attach);
@@ -1936,6 +2006,11 @@ interface WebClient {
 
   // Invokes Glic with specific options. Expects a return to signal completion.
   Invoke(InvokeOptions options) => ();
+
+  // Register a handler to observe Glic updates.
+  GetExperimentalTriggeringUpdates(
+      pending_remote<ExperimentalTriggeringUpdatesHandler> handler)
+      => (bool success);
 };
 
 // Information extracted from a tab.
@@ -2072,10 +2147,13 @@ struct Journal {
   array<uint8> data;
 };
 
-// The captured region from the user.
+// The captured shape from the user.
 union CapturedRegion {
   // A rectangular region.
   gfx.mojom.Rect rect;
+  // A polyline represented by an array of points.
+  // Note the line does not have to be closed.
+  array<gfx.mojom.Point> polyline;
 };
 
 // The captured region with an ID.
@@ -2174,6 +2252,10 @@ enum HostCapability {
   // Indicates that the host supports auto browse attempting login using Sign in
   // with Google.
   kAutoLoginSignInWithGoogle = 10,
+  // Indicates that the host supports sharing images via the invoke mechanism.
+  kShareImageViaInvoke = 11,
+  // Indicates that the host supports image drag and drop from the web
+  kImgWebDragDrop = 12,
 };
 
 // @generate glic_api

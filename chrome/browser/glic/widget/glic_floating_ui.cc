@@ -86,10 +86,8 @@ GlicFloatingUi::~GlicFloatingUi() {
     modal_dialog_host_observers_.Notify(
         &web_modal::ModalDialogHostObserver::OnHostDestroying);
   }
-  // Null during teardown.
-  if (auto* profile_manager = GlicProfileManager::GetInstance()) {
-    profile_manager->SetCurrentDetachedGlic(nullptr);
-  }
+
+  GlicProfileManager::GetInstance()->SetCurrentDetachedGlic(nullptr);
 
   ClearWebContentsDelegate();
   PictureInPictureOcclusionTracker* tracker =
@@ -317,6 +315,10 @@ void GlicFloatingUi::SetMinimumWidgetSize(const gfx::Size& size) {
 
 bool GlicFloatingUi::IsShowing() const {
   return glic_widget_ != nullptr;
+}
+
+bool GlicFloatingUi::IsShowingOrBackgrounded() const {
+  return IsShowing();
 }
 
 void GlicFloatingUi::Show(const ShowOptions& options) {

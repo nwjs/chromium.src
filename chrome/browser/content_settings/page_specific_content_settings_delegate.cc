@@ -5,7 +5,6 @@
 #include "chrome/browser/content_settings/page_specific_content_settings_delegate.h"
 
 #include "base/feature_list.h"
-#include "chrome/browser/browsing_data/browsing_data_file_system_util.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_model_delegate.h"
 #include "chrome/browser/content_settings/chrome_content_settings_utils.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -38,7 +37,7 @@
 #endif  // BUILDFLAG(ENABLE_GUEST_VIEW)
 
 #if BUILDFLAG(ENABLE_PDF)
-#include "chrome/browser/pdf/pdf_viewer_stream_manager.h"
+#include "extensions/browser/mime_handler/mime_handler_stream_manager.h"  // nogncheck
 #include "pdf/pdf_features.h"
 #endif  // BUILDFLAG(ENABLE_PDF)
 
@@ -307,17 +306,18 @@ bool PageSpecificContentSettingsDelegate::IsFrameAllowlistedForJavaScript(
     return false;
   }
 
-  // There should be a `pdf::PdfViewerStreamManager` if `render_frame_host`'s
+  // There should be a `MimeHandlerStreamManager` if `render_frame_host`'s
   // `content::WebContents` has a PDF.
-  auto* pdf_viewer_stream_manager =
-      pdf::PdfViewerStreamManager::FromRenderFrameHost(render_frame_host);
-  if (!pdf_viewer_stream_manager) {
+  auto* mime_handler_stream_manager =
+      extensions::mime_handler::MimeHandlerStreamManager::FromRenderFrameHost(
+          render_frame_host);
+  if (!mime_handler_stream_manager) {
     return false;
   }
 
-  // Allow the PDF extension frame and PDF content frame to use JavaScript.
-  if (pdf_viewer_stream_manager->IsPdfExtensionHost(render_frame_host) ||
-      pdf_viewer_stream_manager->IsPdfContentHost(render_frame_host)) {
+  // Allow the MIME handler extension frame and content frame to use JavaScript.
+  if (mime_handler_stream_manager->IsExtensionHost(render_frame_host) ||
+      mime_handler_stream_manager->IsContentHost(render_frame_host)) {
     return true;
   }
 #endif  // BUILDFLAG(ENABLE_PDF)

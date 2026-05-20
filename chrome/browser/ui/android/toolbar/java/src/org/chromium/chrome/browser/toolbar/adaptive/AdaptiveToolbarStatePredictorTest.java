@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.toolbar.adaptive;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
@@ -11,7 +12,6 @@ import android.app.Activity;
 import androidx.test.filters.SmallTest;
 
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -27,6 +27,8 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.glic.GlicEnabling;
+import org.chromium.chrome.browser.glic.GlicEnablingJni;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionUtil;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -50,6 +52,7 @@ public class AdaptiveToolbarStatePredictorTest {
     @Mock private Profile mProfile;
     @Mock private AndroidPermissionDelegate mAndroidPermissionDelegate;
     @Mock private PrefService mPrefService;
+    @Mock private GlicEnabling.Natives mGlicEnablingNatives;
 
     @Before
     public void setUp() {
@@ -58,6 +61,8 @@ public class AdaptiveToolbarStatePredictorTest {
         AdaptiveToolbarFeatures.clearParsedParamsForTesting();
         UserPrefs.setPrefServiceForTesting(mPrefService);
         when(mPrefService.getBoolean(Pref.OFFER_TRANSLATE_ENABLED)).thenReturn(true);
+        GlicEnablingJni.setInstanceForTesting(mGlicEnablingNatives);
+        when(mGlicEnablingNatives.isEnabledForProfile(mProfile)).thenReturn(true);
     }
 
     @After
@@ -238,6 +243,7 @@ public class AdaptiveToolbarStatePredictorTest {
     @Test
     @SmallTest
     @EnableFeatures(ChromeFeatureList.GLIC)
+    @DisableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL)
     public void testGlicEnabled() {
         AdaptiveToolbarFeatures.setDefaultSegmentForTesting(AdaptiveToolbarFeatures.SHARE);
 
@@ -263,6 +269,7 @@ public class AdaptiveToolbarStatePredictorTest {
     @Test
     @SmallTest
     @EnableFeatures(ChromeFeatureList.GLIC)
+    @DisableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL)
     public void testGlicEnabled_ManualOverride() {
         AdaptiveToolbarFeatures.setDefaultSegmentForTesting(AdaptiveToolbarFeatures.SHARE);
 
@@ -322,26 +329,71 @@ public class AdaptiveToolbarStatePredictorTest {
     @Test
     @SmallTest
     public void testSegmentIdToAdaptiveToolbarButtonVariantConversion() {
-        Assert.assertEquals(
+        assertEquals(
                 AdaptiveToolbarButtonVariant.NEW_TAB,
                 AdaptiveToolbarStatePredictor.getAdaptiveToolbarButtonVariantFromSegmentId(
                         SegmentId.OPTIMIZATION_TARGET_SEGMENTATION_NEW_TAB));
-        Assert.assertEquals(
+        assertEquals(
                 AdaptiveToolbarButtonVariant.SHARE,
                 AdaptiveToolbarStatePredictor.getAdaptiveToolbarButtonVariantFromSegmentId(
                         SegmentId.OPTIMIZATION_TARGET_SEGMENTATION_SHARE));
-        Assert.assertEquals(
+        assertEquals(
                 AdaptiveToolbarButtonVariant.VOICE,
                 AdaptiveToolbarStatePredictor.getAdaptiveToolbarButtonVariantFromSegmentId(
                         SegmentId.OPTIMIZATION_TARGET_SEGMENTATION_VOICE));
-        Assert.assertEquals(
+        assertEquals(
                 AdaptiveToolbarButtonVariant.UNKNOWN,
                 AdaptiveToolbarStatePredictor.getAdaptiveToolbarButtonVariantFromSegmentId(
                         SegmentId.OPTIMIZATION_TARGET_SEGMENTATION_SHOPPING_USER));
-        Assert.assertEquals(
+        assertEquals(
                 AdaptiveToolbarButtonVariant.UNKNOWN,
                 AdaptiveToolbarStatePredictor.getAdaptiveToolbarButtonVariantFromSegmentId(
                         SegmentId.OPTIMIZATION_TARGET_UNKNOWN));
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testNewTabEnabled() {
+        AdaptiveToolbarFeatures.setDefaultSegmentForTesting(AdaptiveToolbarFeatures.SHARE);
+
+        AdaptiveToolbarStatePredictor statePredictor =
+                buildStatePredictor(
+                        true,
+                        AdaptiveToolbarButtonVariant.UNKNOWN,
+                        List.of(AdaptiveToolbarButtonVariant.NEW_TAB));
+
+        UiState expected =
+                new UiState(
+                        true,
+                        new ArrayList<Integer>(
+                                List.of(
+                                        AdaptiveToolbarButtonVariant.NEW_TAB,
+                                        AdaptiveToolbarButtonVariant.SHARE)),
+                        AdaptiveToolbarButtonVariant.AUTO,
+                        AdaptiveToolbarButtonVariant.NEW_TAB);
+        statePredictor.recomputeUiState(verifyResultCallback(expected));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testNewTabFilteredWhenBottomBarEnabled() {
+        AdaptiveToolbarFeatures.setDefaultSegmentForTesting(AdaptiveToolbarFeatures.SHARE);
+
+        AdaptiveToolbarStatePredictor statePredictor =
+                buildStatePredictor(
+                        true,
+                        AdaptiveToolbarButtonVariant.UNKNOWN,
+                        List.of(AdaptiveToolbarButtonVariant.NEW_TAB));
+
+        UiState expected =
+                new UiState(
+                        true,
+                        new ArrayList<Integer>(List.of(AdaptiveToolbarButtonVariant.SHARE)),
+                        AdaptiveToolbarButtonVariant.AUTO,
+                        AdaptiveToolbarButtonVariant.SHARE);
+        statePredictor.recomputeUiState(verifyResultCallback(expected));
     }
 
     private AdaptiveToolbarStatePredictor buildStatePredictor(
@@ -369,16 +421,16 @@ public class AdaptiveToolbarStatePredictorTest {
 
     private Callback<UiState> verifyResultCallback(UiState expected) {
         return result -> {
-            Assert.assertEquals("canShowUi doesn't match", expected.canShowUi, result.canShowUi);
-            Assert.assertEquals(
+            assertEquals("canShowUi doesn't match", expected.canShowUi, result.canShowUi);
+            assertEquals(
                     "rankedToolbarButtonStates doesn't match",
                     expected.rankedToolbarButtonStates,
                     result.rankedToolbarButtonStates);
-            Assert.assertEquals(
+            assertEquals(
                     "preferenceSelection doesn't match",
                     expected.preferenceSelection,
                     result.preferenceSelection);
-            Assert.assertEquals(
+            assertEquals(
                     "autoButtonCaption doesn't match",
                     expected.autoButtonCaption,
                     result.autoButtonCaption);

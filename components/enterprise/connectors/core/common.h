@@ -234,6 +234,9 @@ enum class FinalContentAnalysisResult {
 
   // Show that the download is blocked and may proceed to cloud storage.
   FORCE_SAVE_TO_CLOUD = 6,
+
+  // Show that the user cancelled the scan.
+  CANCELLED = 7,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/enterprise/histograms.xml)
 
@@ -325,6 +328,9 @@ enum class EventResult {
   // The user was not allowed to download the file locally. Download will
   // proceed directly to cloud storage, if the user is logged in.
   FORCED_SAVE_TO_CLOUD,
+
+  // The user canceled the scan.
+  CANCELLED,
 };
 
 // Helper function to convert a EventResult to a string that.  The format of
@@ -374,9 +380,12 @@ enum class DeepScanAccessPoint {
   // A deep scan was initiated from transferring 1+ file(s) within ChromeOS.
   FILE_TRANSFER,
 
-  kMaxValue = FILE_TRANSFER,
+  // A deep scan was initiated from an actor/agent action.
+  ACTOR,
+
+  kMaxValue = ACTOR,
 };
-// LINT.ThenChange(//tools/metrics/histograms/metadata/safe_browsing/histograms.xml:DeepScanAccessPoint)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/enterprise/histograms.xml:DeepScanAccessPoint)
 
 std::string DeepScanAccessPointToString(DeepScanAccessPoint access_point);
 std::string FinalContentAnalysisResultToString(

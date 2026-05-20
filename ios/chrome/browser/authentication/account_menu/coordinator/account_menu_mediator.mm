@@ -12,7 +12,6 @@
 #import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/prefs/pref_service.h"
-#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "google_apis/gaia/gaia_id.h"
 #import "ios/chrome/browser/authentication/account_menu/coordinator/account_menu_mediator_delegate.h"
@@ -31,9 +30,9 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/policy/ui_bundled/management_util.h"
+#import "ios/chrome/browser/settings/manage_sync/public/sync_error_settings_command_handler.h"
 #import "ios/chrome/browser/settings/model/sync/utils/account_error_ui_info.h"
 #import "ios/chrome/browser/settings/model/sync/utils/identity_error_util.h"
-#import "ios/chrome/browser/settings/ui_bundled/google_services/sync_error_settings_command_handler.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_table_view_controller_constants.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -127,8 +126,7 @@
     _accessPoint = accessPoint;
     _url = url;
     _prepareChangeProfile = prepareChangeProfile;
-    _primaryIdentityBeforeSignin = _authenticationService->GetPrimaryIdentity(
-        signin::ConsentLevel::kSignin);
+    _primaryIdentityBeforeSignin = _authenticationService->GetPrimaryIdentity();
     CHECK(_primaryIdentityBeforeSignin);
     _syncService = syncService;
     _syncObserver = std::make_unique<SyncObserverBridge>(self, _syncService);
@@ -229,7 +227,7 @@
     return;
   }
   id<SystemIdentity> primaryIdentity =
-      _authenticationService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
+      _authenticationService->GetPrimaryIdentity();
   if (primaryIdentity) {
     _primaryIdentityBeforeSignin = primaryIdentity;
     [self updateIdentitiesIfAllowed];
@@ -337,6 +335,7 @@
       } else {
         base::RecordAction(
             base::UserMetricsAction("Signin_AccountMenu_ErrorButton_Reauth"));
+        self.userInteractionsBlocked = YES;
         [self.syncErrorSettingsCommandHandler openPrimaryAccountReauthDialog];
       }
       break;

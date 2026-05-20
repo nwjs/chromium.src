@@ -26,9 +26,9 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/sad_tab_helper.h"
 #include "chrome/browser/ui/tab_sharing/tab_sharing_infobar_delegate.h"
 #include "chrome/browser/ui/tab_sharing/tab_sharing_ui.h"
@@ -218,7 +218,7 @@ TabSharingUIViews::TabSharingUIViews(
 TabSharingUIViews::~TabSharingUIViews() {
   // Unconditionally call StopSharing(), to ensure all clean-up has been
   // performed if tasks race (e.g., OnStarted() is called after
-  // OnInfoBarRemoved()). See: https://crbug.com/1155426
+  // OnInfoBarRemoved()). See: https://crbug.com/40054066
   StopSharing("TabSharingUIViews destroyed");
 }
 
@@ -441,8 +441,10 @@ void TabSharingUIViews::CreateInfobarForWebContents(WebContents* contents) {
 
   // Don't show the info bar in a Picture in Picture window, since it doesn't
   // typically fit anyway.
-  Browser* browser = chrome::FindBrowserWithTab(contents);
-  if (browser && browser->is_type_picture_in_picture()) {
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(contents);
+  if (browser && browser->GetType() ==
+                     BrowserWindowInterface::Type::TYPE_PICTURE_IN_PICTURE) {
     return;
   }
 

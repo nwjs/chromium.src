@@ -22,6 +22,7 @@
 #include "remoting/host/action_executor.h"
 #include "remoting/host/active_display_monitor.h"
 #include "remoting/host/audio_capturer.h"
+#include "remoting/host/audio_injector.h"
 #include "remoting/host/base/desktop_environment_options.h"
 #include "remoting/host/base/screen_controls.h"
 #include "remoting/host/client_session_control.h"
@@ -145,13 +146,15 @@ std::string BasicDesktopEnvironment::GetCapabilities() const {
 void BasicDesktopEnvironment::SetCapabilities(const std::string& capabilities) {
 }
 
-std::uint32_t BasicDesktopEnvironment::GetDesktopSessionId() const {
-  return UINT32_MAX;
-}
-
 std::unique_ptr<RemoteWebAuthnStateChangeNotifier>
 BasicDesktopEnvironment::CreateRemoteWebAuthnStateChangeNotifier() {
   return std::make_unique<RemoteWebAuthnExtensionNotifier>();
+}
+
+std::unique_ptr<AudioInjector> BasicDesktopEnvironment::CreateAudioInjector() {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
+
+  return interaction_strategy_->CreateAudioInjector();
 }
 
 std::unique_ptr<DesktopCapturer> BasicDesktopEnvironment::CreateVideoCapturer(

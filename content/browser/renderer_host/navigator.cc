@@ -1003,7 +1003,7 @@ void Navigator::Navigate(std::unique_ptr<NavigationRequest> request,
       DVLOG(0) << "Ignoring duplicate navigation to "
                << request->common_params().url
                << " due to the short interval since the previous one.";
-
+      ongoing_navigation_request->DidIgnoreDuplicateNavigation();
       return;
     } else {
       ongoing_navigation_request->set_navigation_discard_reason(
@@ -1198,7 +1198,6 @@ void Navigator::NavigateFromFrameProxy(
     bool force_new_browsing_instance,
     bool is_container_initiated,
     bool has_rel_opener,
-    net::StorageAccessApiStatus storage_access_api_status,
     std::optional<std::u16string> embedder_shared_storage_context) {
   // |method != "POST"| should imply absence of |post_body|.
   if (method != "POST" && post_body) {
@@ -1234,10 +1233,6 @@ void Navigator::NavigateFromFrameProxy(
     return;
   }
 
-  if (!will_navigate_from_frame_proxy_callback_for_testing_.is_null()) {
-    will_navigate_from_frame_proxy_callback_for_testing_.Run();
-  }
-
   controller_.NavigateFromFrameProxy(
       render_frame_host, url, initiator_frame_token, initiator_process_id,
       initiator_origin, initiator_base_url, is_renderer_initiated,
@@ -1248,13 +1243,7 @@ void Navigator::NavigateFromFrameProxy(
       has_user_gesture, started_by_ad, actual_navigation_start_time,
       navigation_start_time, is_embedder_initiated_fenced_frame_navigation,
       is_unfenced_top_navigation, force_new_browsing_instance,
-      is_container_initiated, has_rel_opener, storage_access_api_status,
-      embedder_shared_storage_context);
-}
-
-void Navigator::SetWillNavigateFromFrameProxyCallbackForTesting(
-    const base::RepeatingClosure& callback) {
-  will_navigate_from_frame_proxy_callback_for_testing_ = callback;
+      is_container_initiated, has_rel_opener, embedder_shared_storage_context);
 }
 
 void Navigator::BeforeUnloadCompleted(FrameTreeNode* frame_tree_node,
@@ -1319,6 +1308,9 @@ void Navigator::OnBeginNavigation(
     int initiator_process_id,
     mojo::PendingReceiver<mojom::NavigationRendererCancellationListener>
         renderer_cancellation_listener,
+    mojo::PendingReceiver<
+        mojom::NavigationRendererIgnoreDuplicateNavigationListener>
+        renderer_ignore_duplicate_navigation_listener,
     mojo::PendingReceiver<blink::mojom::NavigationResumeDeferredCommitListener>
         deferred_commit_resume_listener) {
   TRACE_EVENT0("navigation", "Navigator::OnBeginNavigation");
@@ -1382,6 +1374,7 @@ void Navigator::OnBeginNavigation(
           std::move(blob_url_loader_factory), std::move(navigation_client),
           std::move(prefetched_signed_exchange_cache),
           std::move(renderer_cancellation_listener),
+          std::move(renderer_ignore_duplicate_navigation_listener),
           std::move(deferred_commit_resume_listener)));
   NavigationRequest* navigation_request = frame_tree_node->navigation_request();
 
@@ -1510,23 +1503,23 @@ void Navigator::LogRendererInitiatedBeforeUnloadTime(
 
   if (!base::TimeTicks::IsConsistentAcrossProcesses()) {
     // These timestamps come directly from the renderer so they might need to be
-    // converted to local time stamps.
-    blink::InterProcessTimeTicksConverter converter(
-        blink::LocalTimeTicks::FromTimeTicks(base::TimeTicks()),
-        blink::LocalTimeTicks::FromTimeTicks(base::TimeTicks::Now()),
-        blink::RemoteTimeTicks::FromTimeTicks(
-            renderer_before_unload_start_time),
-        blink::RemoteTimeTicks::FromTimeTicks(renderer_before_unload_end_time));
-    blink::LocalTimeTicks converted_renderer_before_unload_start =
-        converter.ToLocalTimeTicks(blink::RemoteTimeTicks::FromTimeTicks(
-            renderer_before_unload_start_time));
-    blink::LocalTimeTicks converted_renderer_before_unload_end =
-        converter.ToLocalTimeTicks(blink::RemoteTimeTicks::FromTimeTicks(
-            renderer_before_unload_end_time));
+    // converted to local time stamps. However, since this is
+    // renderer-initiated, we don't have a browser-side `local_lower_bound`
+    // anchor for the start of the event.
+    //
+    // `InterProcessTimeTicksConverter` is not applicable here because it
+    // requires a two-point anchor (both start and end points on both local and
+    // remote processes) to decouple clock skew from communication latency.
+    // Without a start anchor (`local_lower_bound`), we cannot calculate the
+    // round-trip time or the scaling factor.
+    //
+    // We instead assume the event finished just before it was received and use
+    // the renderer's duration to establish the local timestamps.
+    base::TimeTicks now = base::TimeTicks::Now();
     metrics_data_->renderer_before_unload_start_ =
-        converted_renderer_before_unload_start.ToTimeTicks();
-    metrics_data_->renderer_before_unload_end_ =
-        converted_renderer_before_unload_end.ToTimeTicks();
+        now -
+        (renderer_before_unload_end_time - renderer_before_unload_start_time);
+    metrics_data_->renderer_before_unload_end_ = now;
   } else {
     metrics_data_->renderer_before_unload_start_ =
         renderer_before_unload_start_time;

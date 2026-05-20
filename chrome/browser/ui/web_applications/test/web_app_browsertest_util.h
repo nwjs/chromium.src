@@ -46,9 +46,15 @@ class WebAppInstallManager;
 
 // For InstallWebAppFromInfo see web_app_install_test_utils.h
 
+struct InstallWebAppOptions {
+  bool launch_or_reparent_page_to_app = false;
+};
+
 // Navigates to |app_url| and installs app without any installability checks.
 // Always selects to open app in its own window.
-webapps::AppId InstallWebAppFromPage(Browser* browser, const GURL& app_url);
+webapps::AppId InstallWebAppFromPage(Browser* browser,
+                                     const GURL& app_url,
+                                     InstallWebAppOptions options = {});
 
 // Navigates to |app_url| and installs app without any installability checks.
 // Always selects to open app in its own window. Returns the browser for the
@@ -58,14 +64,15 @@ Browser* InstallWebAppFromPageGetBrowser(Browser* browser, const GURL& app_url);
 
 // Same as InstallWebAppFromPage() but waits for the app browser window to
 // appear and closes it.
-webapps::AppId InstallWebAppFromPageAndCloseAppBrowser(Browser* browser,
-                                                       const GURL& app_url);
+webapps::AppId InstallWebAppInNewTabAndClose(Browser* browser,
+                                             const GURL& app_url);
 
 // Navigates to |app_url|, verifies WebApp installability, and installs app.
 webapps::AppId InstallWebAppFromManifest(Browser* browser, const GURL& app_url);
 
 // Launches a new app window for |app| in |profile| with specified
-// |disposition|.
+// |disposition|. This call waits until the launch command completes and load to
+// stop, while special-casing the /hung url which will never stop loading.
 Browser* LaunchWebAppBrowser(
     Profile*,
     const webapps::AppId&,

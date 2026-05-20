@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_WEB_APPS_FRAME_TOOLBAR_WEB_APP_FRAME_TOOLBAR_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_WEB_APPS_FRAME_TOOLBAR_WEB_APP_FRAME_TOOLBAR_VIEW_H_
 
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -78,18 +79,17 @@ class WebAppFrameToolbarView : public views::AccessiblePaneView,
   ExtensionsToolbarDesktop* GetExtensionsToolbarDesktop() override;
   PinnedToolbarActions* GetPinnedToolbarActions() override;
   gfx::Size GetToolbarButtonSize() const override;
-  views::View* GetDefaultExtensionDialogAnchorView() override;
+  views::BubbleAnchor GetDefaultExtensionDialogAnchor() override;
   PageActionIconView* GetPageActionIconView(PageActionIconType type) override;
   IconLabelBubbleView* GetPageActionView(actions::ActionId action_id) override;
-  AppMenuButton* GetAppMenuButton() override;
+  AppMenuControl* GetAppMenuControl() override;
   gfx::Rect GetFindBarBoundingBox(int contents_bottom) override;
   void FocusToolbar() override;
   views::AccessiblePaneView* GetAsAccessiblePaneView() override;
-  views::View* GetAnchorView(std::optional<actions::ActionId> action_id);
   views::BubbleAnchor GetBubbleAnchor(
       std::optional<actions::ActionId> action_id) override;
   void ZoomChangedForActiveTab(bool can_show_bubble) override;
-  AvatarToolbarButton* GetAvatarToolbarButton() override;
+  AvatarToolbarButtonInterface* GetAvatarToolbarButtonInterface() override;
   ToolbarButton* GetBackButton() override;
   ReloadControl* GetReloadButton() override;
   IntentChipButton* GetIntentChipButton() override;
@@ -135,6 +135,7 @@ class WebAppFrameToolbarView : public views::AccessiblePaneView,
 
   // The containing browser view.
   const raw_ptr<BrowserView> browser_view_;
+  ui::ScopedUnownedUserData<ToolbarButtonProvider> scoped_unowned_user_data_;
 
   // Button and text colors.
   bool paint_as_active_ = true;

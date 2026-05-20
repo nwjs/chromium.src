@@ -11,12 +11,8 @@ namespace feed {
 
 static_assert(!std::is_abstract_v<StubFeedApi>);
 
-SurfaceId StubFeedApi::CreateSurface(const StreamType& type,
-                                     SingleWebFeedEntryPoint entry_point) {
+SurfaceId StubFeedApi::CreateSurface(const StreamType& type) {
   return {};
-}
-WebFeedSubscriptions& StubFeedApi::subscriptions() {
-  return web_feed_subscriptions_;
 }
 bool StubFeedApi::IsArticlesListVisible() {
   return {};
@@ -66,15 +62,6 @@ base::Time StubFeedApi::GetLastFetchTime(SurfaceId surface_id) {
 
 std::vector<std::string> StubFeedApi::GetFeedUrls(SurfaceId surface_id) {
   return {};
-}
-
-ContentOrder StubFeedApi::GetContentOrder(const StreamType& stream_type) const {
-  return ContentOrder::kUnspecified;
-}
-
-ContentOrder StubFeedApi::GetContentOrderFromPrefs(
-    const StreamType& stream_type) {
-  return ContentOrder::kUnspecified;
 }
 
 }  // namespace feed

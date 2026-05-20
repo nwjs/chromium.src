@@ -139,7 +139,7 @@ class CORE_EXPORT ImageResource final
 
   // Only for ImageResourceInfoImpl.
   void DecodeError(bool all_data_received);
-  bool IsAccessAllowed(
+  bool IsCorsSameOrigin(
       ImageResourceInfo::DoesCurrentFrameHaveSingleSecurityOrigin) const;
 
   bool HasClientsOrObservers() const override;
@@ -152,6 +152,7 @@ class CORE_EXPORT ImageResource final
   void DestroyDecodedDataIfPossible() override;
   void DestroyDecodedDataForFailedRevalidation() override;
 
+  void IntegrityFailure();
   void FlushImageIfNeeded();
 
   Member<ImageResourceContent> content_;

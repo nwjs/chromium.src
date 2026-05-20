@@ -75,8 +75,7 @@ struct BrowserViewLayoutViews {
   raw_ptr<InfoBarContainerView> infobar_container = nullptr;
   raw_ptr<views::View> contents_container = nullptr;
   raw_ptr<MultiContentsView> multi_contents_view = nullptr;
-  raw_ptr<SidePanel> toolbar_height_side_panel = nullptr;
-  raw_ptr<SidePanel> contents_height_side_panel = nullptr;
+  raw_ptr<SidePanel> side_panel = nullptr;
   raw_ptr<views::View> side_panel_animation_content = nullptr;
 
   // The contents separator used for when the top container is overlaid.
@@ -89,7 +88,6 @@ struct BrowserViewLayoutViews {
   // LINT.ThenChange(//chrome/browser/ui/views/frame/browser_view.cc:BrowserViewLayoutViews)
 
   // These views are dynamically set.
-  raw_ptr<views::View> webui_tab_strip = nullptr;
   raw_ptr<views::View> loading_bar = nullptr;
   raw_ptr<BookmarkBarView> bookmark_bar = nullptr;
 };
@@ -126,9 +124,6 @@ class BrowserViewLayout : public views::LayoutManager {
       BrowserViewLayoutViews views);
 
   // Sets or updates views that are not available when |this| is initialized.
-  void set_webui_tab_strip(views::View* webui_tab_strip) {
-    views_.webui_tab_strip = webui_tab_strip;
-  }
   void set_loading_bar(views::View* loading_bar) {
     views_.loading_bar = loading_bar;
   }

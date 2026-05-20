@@ -4,15 +4,20 @@
 
 #include "chrome/browser/direct_sockets/chrome_direct_sockets_delegate.h"
 
+#include "base/containers/fixed_flat_set.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/webapps/isolated_web_apps/scheme.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/common/child_process_id.h"
 #include "content/public/common/socket_permission_request.h"
 #include "extensions/buildflags/buildflags.h"
+#include "url/gurl.h"
+#include "url/origin.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "extensions/browser/extension_registry.h"
 #include "extensions/browser/process_map.h"
 #include "extensions/common/api/sockets/sockets_manifest_data.h"
 #endif
@@ -82,7 +87,43 @@ bool IsContentSettingAllowedForUrl(content::BrowserContext* browser_context,
          CONTENT_SETTING_ALLOW;
 }
 
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+// Returns true if |extension_id| is allowed to use the Direct Sockets API.
+bool IsExtensionIdAllowedToUseDirectSockets(
+    const extensions::Extension* extension) {
+  constexpr auto kAllowedDirectSocketsExtensionIds =
+      base::MakeFixedFlatSet<std::string_view>({
+          "algkcnfjnajfhgimadimbjhmpaeohhln",  // Secure Shell Extension (dev)
+          "iodihamcpbpeioajjeobimgagajmlibd",  // Secure Shell Extension
+                                               // (stable)
+      });
+  return kAllowedDirectSocketsExtensionIds.contains(extension->id());
+}
+#endif
+
 }  // namespace
+
+bool ChromeDirectSocketsDelegate::AreDirectSocketsAllowed(
+    content::BrowserContext* browser_context,
+    const url::Origin& origin) {
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  // This function might be called for profiles that do not support extensions.
+  auto* registry = extensions::ExtensionRegistry::Get(browser_context);
+  if (!registry) {
+    return false;
+  }
+
+  // Allow Direct Sockets in Chrome Apps and selected extensions.
+  auto* extension =
+      registry->enabled_extensions().GetExtensionOrAppByURL(origin.GetURL());
+  return extension &&
+         (IsExtensionIdAllowedToUseDirectSockets(extension) ||
+          extension->is_platform_app()) &&
+         extensions::SocketsManifestData::Get(extension);
+#else
+  return false;
+#endif
+}
 
 bool ChromeDirectSocketsDelegate::ValidateRequest(
     content::RenderFrameHost& rfh,
@@ -92,8 +133,7 @@ bool ChromeDirectSocketsDelegate::ValidateRequest(
   // model.
   if (const extensions::Extension* extension =
           extensions::ProcessMap::Get(rfh.GetBrowserContext())
-              ->GetEnabledExtensionByProcessID(
-                  rfh.GetProcess()->GetDeprecatedID())) {
+              ->GetEnabledExtensionByProcessID(rfh.GetProcess()->GetID())) {
     return ValidateAddressAndPortForChromeApp(extension, request);
   }
 #endif
@@ -127,41 +167,4 @@ bool ChromeDirectSocketsDelegate::ValidateRequestForServiceWorker(
   return IsContentSettingAllowedForUrl(browser_context, origin.GetURL(),
                                        ContentSettingsType::DIRECT_SOCKETS) &&
          ValidateAddressAndPortForIwa(request);
-}
-
-bool ChromeDirectSocketsDelegate::RenderFrameHasDirectSocketsPNAContentSetting(
-    content::RenderFrameHost& rfh) {
-  return IsContentSettingAllowedForUrl(
-      rfh.GetBrowserContext(), rfh.GetMainFrame()->GetLastCommittedURL(),
-      ContentSettingsType::DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS);
-}
-
-bool ChromeDirectSocketsDelegate::SharedWorkerHasDirectSocketsPNAContentSetting(
-    content::BrowserContext* browser_context,
-    const GURL& shared_worker_url) {
-  return IsContentSettingAllowedForUrl(
-      browser_context, shared_worker_url,
-      ContentSettingsType::DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS);
-}
-
-bool ChromeDirectSocketsDelegate::
-    ServiceWorkerHasDirectSocketsPNAContentSetting(
-        content::BrowserContext* browser_context,
-        const url::Origin& origin) {
-  const GURL& url = origin.GetURL();
-  return IsContentSettingAllowedForUrl(
-      browser_context, url,
-      ContentSettingsType::DIRECT_SOCKETS_PRIVATE_NETWORK_ACCESS);
-}
-
-bool ChromeDirectSocketsDelegate::
-    ShouldAllowPrivateNetworkAccessUnconditionally(
-        content::RenderFrameHost& rfh) {
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  // Allowed unconditionally in chrome apps.
-  return extensions::ProcessMap::Get(rfh.GetBrowserContext())
-      ->Contains(rfh.GetProcess()->GetDeprecatedID());
-#else
-  return false;
-#endif
 }

@@ -224,6 +224,7 @@ android_resources("java_resources") {
     "java/res/layout/autofill_editor_dialog_non_editable_textview.xml",
     "java/res/layout/autofill_editor_dialog_notice.xml",
     "java/res/layout/autofill_editor_dialog_textview.xml",
+    "java/res/layout/autofill_editor_toolbar_icon.xml",
     "java/res/layout/autofill_local_card_editor.xml",
     "java/res/layout/autofill_local_iban_editor.xml",
     "java/res/layout/autofill_migrate_address_profile_prompt.xml",
@@ -234,7 +235,9 @@ android_resources("java_resources") {
     "java/res/menu/prefeditor_editor_menu.xml",
     "java/res/values/dimens.xml",
     "java/res/values/ids.xml",
+    "java/res/xml/autofill_identity_docs_preferences.xml",
     "java/res/xml/autofill_options_preferences.xml",
+    "java/res/xml/autofill_travel_preferences.xml",
     "java/res/xml/home_of_transactions_preferences.xml",
   ]
 }
@@ -331,6 +334,7 @@ robolectric_library("junit") {
     "//components/autofill/android:main_autofill_java",
     "//components/browser_ui/bottomsheet/android:java",
     "//components/browser_ui/settings/android:java",
+    "//components/browser_ui/styles/android:java",
     "//components/browser_ui/widget/android:java",
     "//components/device_reauth:device_reauth_java_enums",
     "//components/prefs/android:java",

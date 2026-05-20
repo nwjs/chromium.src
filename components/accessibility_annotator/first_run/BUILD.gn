@@ -1,5 +1,7 @@
 import("//build/config/features.gni")
 
+assert(use_blink)  # Needed because of content/public/browser dependency.
+
 static_library("first_run") {
   sources = [
     "accessibility_annotator_first_run_client.h",
@@ -13,5 +15,22 @@ static_library("first_run") {
     "//components/accessibility_annotator/core",
     "//components/keyed_service/core",
     "//content/public/browser",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "accessibility_annotator_first_run_service_impl_unittest.cc" ]
+  deps = [
+    ":first_run",
+    "//base",
+    "//base/test:test_support",
+    "//components/accessibility_annotator/core",
+    "//components/accessibility_annotator/core:features",
+    "//components/accessibility_annotator/core:prefs",
+    "//components/prefs:test_support",
+    "//content/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
   ]
 }

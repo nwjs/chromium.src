@@ -31,7 +31,6 @@ import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.WindowManager;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.CorrectionInfo;
 import android.view.inputmethod.DeleteGesture;
@@ -68,7 +67,6 @@ import org.chromium.blink_public.web.WebInputEventModifier;
 import org.chromium.blink_public.web.WebTextInputMode;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.content.R;
 import org.chromium.content.browser.GestureListenerManagerImpl;
 import org.chromium.content.browser.RenderCoordinatesImpl;
 import org.chromium.content.browser.WindowEventObserver;
@@ -95,7 +93,6 @@ import org.chromium.ui.base.ime.TextInputType;
 import org.chromium.ui.mojom.ImeTextSpanType;
 import org.chromium.ui.mojom.VirtualKeyboardPolicy;
 import org.chromium.ui.mojom.VirtualKeyboardVisibilityRequest;
-import org.chromium.ui.widget.Toast;
 
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
@@ -346,7 +343,9 @@ public class ImeAdapterImpl
         sNativeHelperMap.put(mNativeImeAdapterAndroid, new WeakReference<>(this));
         ImeAdapterImplJni.get().initialize(mNativeImeAdapterAndroid);
         WindowEventObserverManager.from(mWebContents).addObserver(this);
-        if (ContentFeatureMap.isEnabled(ContentFeatures.ANDROID_PK_AUTOCORRECT_UNDERLINE)) {
+        if (ContentFeatureMap.isEnabled(ContentFeatures.ANDROID_PK_AUTOCORRECT_UNDERLINE)
+                || ContentFeatureMap.isEnabled(
+                        ContentFeatures.ANDROID_PK_AUTOCORRECT_UNDERLINE_V2)) {
             mAutocorrectManager = new AutocorrectManager(this);
         }
     }
@@ -649,7 +648,14 @@ public class ImeAdapterImpl
         if ((metaState & KeyEvent.META_SHIFT_ON) != 0) {
             modifiers |= WebInputEventModifier.SHIFT_KEY;
         }
-        if ((metaState & KeyEvent.META_ALT_ON) != 0) {
+        if ((metaState & KeyEvent.META_ALT_LEFT_ON) != 0) {
+            modifiers |= WebInputEventModifier.ALT_KEY;
+        }
+        if ((metaState & KeyEvent.META_ALT_RIGHT_ON) != 0) {
+            modifiers |= WebInputEventModifier.ALT_GR_KEY;
+        }
+        if ((metaState & (KeyEvent.META_ALT_LEFT_ON | KeyEvent.META_ALT_RIGHT_ON)) == 0
+                && (metaState & KeyEvent.META_ALT_ON) != 0) {
             modifiers |= WebInputEventModifier.ALT_KEY;
         }
         if ((metaState & KeyEvent.META_CTRL_ON) != 0) {
@@ -818,8 +824,6 @@ public class ImeAdapterImpl
                         // internally for rendering the underline but are not reported to the IME
                         // to prevent unexpected behavior in the IME.
                         if (mAutocorrectManager != null
-                                && ContentFeatureMap.isEnabled(
-                                        ContentFeatures.ANDROID_PK_AUTOCORRECT_UNDERLINE)
                                 && info.getType() == ImeTextSpanType.AUTOCORRECT) {
                             continue;
                         }
@@ -1270,7 +1274,7 @@ public class ImeAdapterImpl
                                 lastKeyDownEvent.getUnicodeChar());
 
                 if (mAutocorrectManager != null) {
-                    mAutocorrectManager.onCommitText();
+                    mAutocorrectManager.onCommitTextOrSendKeyEvent();
                 }
                 return true;
             }
@@ -1300,8 +1304,8 @@ public class ImeAdapterImpl
             // followed by commitText(). We append the underline here because the text
             // must be committed before the span can be applied to it.
             if (mAutocorrectManager != null) {
-                mAutocorrectManager.maybeAppendAutocorrectUnderlineSpan();
-                mAutocorrectManager.onCommitText();
+                mAutocorrectManager.maybeApplyDeferredUnderline();
+                mAutocorrectManager.onCommitTextOrSendKeyEvent();
             }
 
         } else {
@@ -1354,6 +1358,10 @@ public class ImeAdapterImpl
 
         for (ImeEventObserver observer : mEventObservers) observer.onBeforeSendKeyEvent(event);
         onImeEvent();
+
+        if (action == KeyEvent.ACTION_DOWN && mAutocorrectManager != null) {
+            mAutocorrectManager.onCommitTextOrSendKeyEvent();
+        }
 
         return ImeAdapterImplJni.get()
                 .sendKeyEvent(
@@ -1465,6 +1473,7 @@ public class ImeAdapterImpl
                         ImeAdapterImpl.this,
                         start,
                         end,
+                        text,
                         text.toString(),
                         newCursorPosition);
         return true;
@@ -1633,25 +1642,6 @@ public class ImeAdapterImpl
                 immediateRequest, monitorRequest, getContainerView());
     }
 
-    @CalledByNative
-    void onCommitContentResult(boolean success) {
-        if (!success) {
-            try {
-                // If the rich content commit fails, display the failure message.
-                Toast.makeText(
-                                getContainerView().getContext(),
-                                R.string.rich_content_commit_failure_message,
-                                Toast.LENGTH_SHORT)
-                        .show();
-            } catch (WindowManager.BadTokenException e) {
-                Log.w(
-                        TAG,
-                        "Failed to display message toast to notify the rich content commit"
-                                + " failure.");
-            }
-        }
-    }
-
     /**
      * Sends rich content into the current focused text field
      *
@@ -1661,15 +1651,9 @@ public class ImeAdapterImpl
      */
     boolean commitContent(byte[] bytes, String extension) {
         onImeEvent();
-        if (isValid()
+        return isValid()
                 && ImeAdapterImplJni.get()
-                        .insertMediaFromBytes(mNativeImeAdapterAndroid, bytes, extension)) {
-            return true;
-
-        } else {
-            onCommitContentResult(false);
-            return false;
-        }
+                        .insertMediaFromBytes(mNativeImeAdapterAndroid, bytes, extension);
     }
 
     /** Lazily creates/returns a StylusWritingImeCallback object. */
@@ -1918,6 +1902,10 @@ public class ImeAdapterImpl
                 ContentFeatureMap.isEnabled(
                         ContentFeatureList
                                 .ANDROID_BLOCK_MISSPELLING_SUGGESTION_SPAN_IN_COMPOSITION_MODE);
+        final boolean blockGrammarInComposition =
+                ContentFeatureMap.isEnabled(
+                        ContentFeatureList
+                                .ANDROID_BLOCK_GRAMMAR_SUGGESTION_SPAN_IN_COMPOSITION_MODE);
 
         SpannableString spannableString = ((SpannableString) text);
         CharacterStyle[] spans = spannableString.getSpans(0, text.length(), CharacterStyle.class);
@@ -1965,15 +1953,26 @@ public class ImeAdapterImpl
                         (suggestionSpan.getFlags() & SuggestionSpan.FLAG_EASY_CORRECT) != 0;
                 final boolean isMisspellingSpan =
                         (suggestionSpan.getFlags() & SuggestionSpan.FLAG_MISSPELLED) != 0;
+                final boolean isGrammarSpan =
+                        (suggestionSpan.getFlags() & SuggestionSpan.FLAG_GRAMMAR_ERROR) != 0;
                 final boolean isAutoCorrectionSpan =
                         (suggestionSpan.getFlags() & SuggestionSpan.FLAG_AUTO_CORRECTION) != 0;
 
-                if (!isEasyCorrectSpan && !isMisspellingSpan && !isAutoCorrectionSpan) continue;
+                if (!isEasyCorrectSpan
+                        && !isMisspellingSpan
+                        && !isGrammarSpan
+                        && !isAutoCorrectionSpan) {
+                    continue;
+                }
 
                 // Some IMEs (Gboard) require the additional suggestion spans with FLAG_MISSPELLED
                 // present in the surrounding text to guide their custom spell check bar. We should
                 // not report these "artificial" suggestion spans to Blink.
                 if (!isEasyCorrectSpan && isMisspellingSpan && blockMisspellingInComposition) {
+                    continue;
+                }
+
+                if (!isEasyCorrectSpan && isGrammarSpan && blockGrammarInComposition) {
                     continue;
                 }
 
@@ -1987,14 +1986,23 @@ public class ImeAdapterImpl
                 final int suggestionHighlightColor =
                         (underlineColor & 0x00FFFFFF) + (newAlpha << 24);
 
-                // In native side, we treat FLAG_AUTO_CORRECTION span as kMisspellingSuggestion
+                // In native side, we treat FLAG_AUTO_CORRECTION span as kAutocorrect
                 // marker with 0 suggestion.
+                @ImeTextSpanType.EnumType int type = ImeTextSpanType.SUGGESTION;
+                if (isAutoCorrectionSpan) {
+                    type = ImeTextSpanType.AUTOCORRECT;
+                } else if (isMisspellingSpan) {
+                    type = ImeTextSpanType.MISSPELLING_SUGGESTION;
+                } else if (isGrammarSpan) {
+                    type = ImeTextSpanType.GRAMMAR_SUGGESTION;
+                }
+
                 ImeAdapterImplJni.get()
                         .appendSuggestionSpan(
                                 imeTextSpans,
                                 spannableString.getSpanStart(suggestionSpan),
                                 spannableString.getSpanEnd(suggestionSpan),
-                                isMisspellingSpan || isAutoCorrectionSpan,
+                                type,
                                 removeOnFinishComposing,
                                 underlineColor,
                                 suggestionHighlightColor,
@@ -2078,7 +2086,7 @@ public class ImeAdapterImpl
                 long spanPtr,
                 int start,
                 int end,
-                boolean isMisspelling,
+                @ImeTextSpanType.EnumType int type,
                 boolean removeOnFinishComposing,
                 int underlineColor,
                 int suggestionHighlightColor,
@@ -2105,7 +2113,8 @@ public class ImeAdapterImpl
                 ImeAdapterImpl self,
                 int start,
                 int end,
-                String text,
+                CharSequence text,
+                String textStr,
                 int newCursorPosition);
 
         boolean insertMediaFromBytes(long nativeImeAdapterAndroid, byte[] bytes, String extension);

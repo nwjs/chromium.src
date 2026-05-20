@@ -135,6 +135,9 @@ public abstract class TabModalPresenter extends ModalDialogManager.Presenter {
             PropertyModel model,
             @Nullable Callback<ComponentDialog> onDialogCreatedCallback,
             @Nullable Callback<View> onDialogShownCallback) {
+        assert model.get(ModalDialogProperties.TITLE) != null
+                        || model.get(ModalDialogProperties.CONTENT_DESCRIPTION) != null
+                : "Tab modal dialog must have either a title or a content description.";
         if (mDialogContainer == null) mDialogContainer = createDialogContainer();
 
         model.set(ModalDialogProperties.TAB_MODAL_DIALOG_CANCEL_ON_ESCAPE, true);
@@ -269,9 +272,13 @@ public abstract class TabModalPresenter extends ModalDialogManager.Presenter {
     }
 
     private void runExitAnimation() {
-        final View dialogView = assumeNonNull(mDialogView);
+        final ModalDialogView dialogView = assumeNonNull(mDialogView);
         // Clear focus so that keyboard can hide accordingly while entering tab switcher.
         dialogView.clearFocus();
+        // Disable interaction with the dialog while it is being animated out.
+        updateContainerHierarchy(false);
+        dialogView.blockInputs(true);
+        assumeNonNull(mDialogContainer).setClickable(false);
         assumeNonNull(mDialogContainer).animate().cancel();
         mDialogContainer
                 .animate()

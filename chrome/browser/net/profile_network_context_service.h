@@ -244,7 +244,6 @@ class ProfileNetworkContextService
   // content_settings::CookieSettings::Observer:
   void OnThirdPartyCookieBlockingChanged(
       bool block_third_party_cookies) override;
-  void OnMitigationsEnabledFor3pcdChanged(bool enable) override;
 
 #if BUILDFLAG(ENTERPRISE_CACHE_ENCRYPTION)
   void SaveEncryptedCachePrimaryKey(

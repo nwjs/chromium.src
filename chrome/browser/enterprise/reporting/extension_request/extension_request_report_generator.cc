@@ -13,14 +13,14 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/reporting/prefs.h"
 #include "chrome/browser/extensions/extension_management.h"
-#include "chrome/browser/extensions/managed_installation_mode.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/common/extensions/extension_constants.h"
-#include "chrome/common/pref_names.h"
+#include "components/enterprise/browser/reporting/common_pref_names.h"
 #include "components/enterprise/common/proto/synced/extensions_workflow_events.pb.h"
 #include "components/policy/core/common/cloud/cloud_policy_util.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "extensions/browser/managed_installation_mode.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension_urls.h"
 
 namespace enterprise_reporting {
@@ -95,8 +95,8 @@ ExtensionRequestReportGenerator::GenerateForProfile(Profile* profile) {
   std::string webstore_update_url =
       extension_urls::GetDefaultWebstoreUpdateUrl().spec();
 
-  const base::DictValue& pending_requests =
-      profile->GetPrefs()->GetDict(prefs::kCloudExtensionRequestIds);
+  const base::DictValue& pending_requests = profile->GetPrefs()->GetDict(
+      enterprise_reporting::kCloudExtensionRequestIds);
   const base::DictValue& uploaded_requests =
       profile->GetPrefs()->GetDict(kCloudExtensionRequestUploadedIds);
 

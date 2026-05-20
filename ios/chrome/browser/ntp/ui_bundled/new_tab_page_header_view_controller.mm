@@ -59,7 +59,6 @@
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
-#import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 
 using base::UserMetricsAction;
@@ -135,6 +134,10 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
   NSLayoutConstraint* _identityDiscCapsuleWidthConstraint;
   // Whether AIM is allowed.
   BOOL _isAIMAllowed;
+  // Whether the session is fusebox eligible.
+  BOOL _fuseboxEligible;
+  // Whether the omnibox is pinned to the bottom position.
+  BOOL _isBottomOmnibox;
   // The logo for the default search engine. This is owned by the caching system
   // backing this logo.
   __weak UIImage* _dseLogo;
@@ -169,6 +172,13 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
   return self;
 }
 
+- (void)setOmniboxInBottomPosition:(BOOL)isBottomOmnibox {
+  CHECK(IsChromeNextIaEnabled());
+  _isBottomOmnibox = isBottomOmnibox;
+  [self.headerView setOmniboxPositionIsBottom:isBottomOmnibox];
+  [self.delegate didChangeOmniboxPosition:self];
+}
+
 #pragma mark - Public
 
 - (UIView*)toolBarView {
@@ -176,53 +186,10 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
 }
 
 - (UIView*)fakeOmniboxView {
+  if (IsComposeboxIOSEnabled()) {
+    return self.fakeOmnibox;
+  }
   return self.headerView.omnibox;
-}
-
-- (void)willTransitionToTraitCollection:(UITraitCollection*)newCollection
-              withTransitionCoordinator:
-                  (id<UIViewControllerTransitionCoordinator>)coordinator {
-  [super willTransitionToTraitCollection:newCollection
-               withTransitionCoordinator:coordinator];
-
-  __weak __typeof(self) weakSelf = self;
-  const BOOL isSplitToolbarMode = IsSplitToolbarMode(newCollection);
-  const BOOL isTabletFormFactor =
-      ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET;
-
-  void (^transitionBlock)(id<UIViewControllerTransitionCoordinatorContext>) =
-      ^(id<UIViewControllerTransitionCoordinatorContext>) {
-        __strong __typeof(self) strongSelf = weakSelf;
-
-        if (!strongSelf) {
-          return;
-        }
-
-        if (IsChromeNextIaEnabled() && !isTabletFormFactor) {
-          [strongSelf updateToolsMenuButtonVisibility:isSplitToolbarMode];
-        }
-
-        // Ensure omnibox is reset when not a regular tablet.
-        if (isSplitToolbarMode) {
-          [strongSelf.toolbarDelegate setScrollProgressForTabletOmnibox:1];
-        }
-        // Fake Tap button only needs to work in portrait. Disable the button
-        // in landscape because in landscape the button covers logoView (which
-        // need to handle taps).
-        strongSelf.fakeTapButton.userInteractionEnabled = isSplitToolbarMode;
-      };
-
-  void (^completionBlock)(id<UIViewControllerTransitionCoordinatorContext>) =
-      ^(id<UIViewControllerTransitionCoordinatorContext>) {
-        if (IsChromeNextIaEnabled() && !isTabletFormFactor) {
-          // Hide the tools menu button if it is no longer visible.
-          weakSelf.headerView.toolsMenuButton.hidden =
-              weakSelf.headerView.toolsMenuButton.alpha == 0.0;
-        }
-      };
-
-  [coordinator animateAlongsideTransition:transitionBlock
-                               completion:completionBlock];
 }
 
 - (void)dealloc {
@@ -243,28 +210,32 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
 
   self.fakeOmniboxWidthConstraint.constant = self.headerView.bounds.size.width;
   [self.headerView layoutIfNeeded];
-  UIView* topOmnibox =
-      [self.layoutGuideCenter referencedViewUnderName:kTopOmniboxGuide];
-  CGRect omniboxFrameInFakebox = [topOmnibox convertRect:topOmnibox.bounds
-                                                  toView:self.fakeOmnibox];
-  self.headerView.fakeLocationBarLeadingConstraint.constant =
-      omniboxFrameInFakebox.origin.x;
-  self.headerView.fakeLocationBarTrailingConstraint.constant =
-      -(self.fakeOmnibox.bounds.size.width -
-        (omniboxFrameInFakebox.origin.x + omniboxFrameInFakebox.size.width));
-  self.headerView.voiceSearchButton.alpha = 0;
-  self.headerView.cancelButton.alpha = 0.7;
-  self.headerView.omnibox.alpha = 1;
-  self.headerView.searchHintLabel.alpha = 0;
+  if (!IsComposeboxIOSEnabled()) {
+    UIView* topOmnibox =
+        [self.layoutGuideCenter referencedViewUnderName:kTopOmniboxGuide];
+    CGRect omniboxFrameInFakebox = [topOmnibox convertRect:topOmnibox.bounds
+                                                    toView:self.fakeOmnibox];
+    self.headerView.fakeLocationBarLeadingConstraint.constant =
+        omniboxFrameInFakebox.origin.x;
+    self.headerView.fakeLocationBarTrailingConstraint.constant =
+        -(self.fakeOmnibox.bounds.size.width -
+          (omniboxFrameInFakebox.origin.x + omniboxFrameInFakebox.size.width));
+    self.headerView.voiceSearchButton.alpha = 0;
+    self.headerView.cancelButton.alpha = 0.7;
+    self.headerView.omnibox.alpha = 1;
+    self.headerView.searchHintLabel.alpha = 0;
+  }
   [self.headerView layoutIfNeeded];
 }
 
 - (void)completeHeaderFakeOmniboxFocusAnimationWithFinalPosition:
     (UIViewAnimatingPosition)finalPosition {
-  self.headerView.omnibox.hidden = YES;
-  self.headerView.cancelButton.hidden = YES;
-  self.headerView.searchHintLabel.alpha = 1;
-  self.headerView.voiceSearchButton.alpha = 1;
+  if (!IsComposeboxIOSEnabled()) {
+    self.headerView.omnibox.hidden = YES;
+    self.headerView.cancelButton.hidden = YES;
+    self.headerView.searchHintLabel.alpha = 1;
+    self.headerView.voiceSearchButton.alpha = 1;
+  }
   if (finalPosition == UIViewAnimatingPositionEnd &&
       self.delegate.scrolledToMinimumHeight) {
     // Check to see if the collection are still scrolled to the top --
@@ -293,12 +264,15 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
             // RxR with no logo hides the fakebox, so always show the omnibox.
             : 1;
     [self updateLogoForOffset:offset];
-    if (CanShowTabStrip(self) || !IsSplitToolbarMode(self)) {
-      [self.toolbarDelegate setScrollProgressForTabletOmnibox:progress];
-    } else {
-      // Ensure omnibox is reset when not a regular tablet.
-      [self.toolbarDelegate setScrollProgressForTabletOmnibox:1];
+
+    if (!IsChromeNextIaEnabled()) {
+      if (!CanShowTabStrip(self) && IsSplitToolbarMode(self)) {
+        // Ensure omnibox is reset when not a regular tablet.
+        progress = 1.0;
+      }
     }
+
+    [self.toolbarDelegate setScrollProgressForTabletOmnibox:progress];
   }
 
   if (animateScrollAnimation) {
@@ -334,6 +308,30 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
                                                   self.traitCollection);
 }
 
+#pragma mark - Accessors & Mutators
+
+- (void)setIsGoogleDefaultSearchEngine:(BOOL)isGoogleDefaultSearchEngine {
+  _isGoogleDefaultSearchEngine = isGoogleDefaultSearchEngine;
+  self.headerView.isGoogleDefaultSearchEngine = isGoogleDefaultSearchEngine;
+}
+
+- (void)setAllowFontScaleAnimation:(BOOL)allowFontScaleAnimation {
+  _allowFontScaleAnimation = allowFontScaleAnimation;
+  self.headerView.allowFontScaleAnimation = allowFontScaleAnimation;
+}
+
+- (void)setNTPShortcutsHandler:
+    (id<NewTabPageShortcutsHandler>)NTPShortcutsHandler {
+  _NTPShortcutsHandler = NTPShortcutsHandler;
+  self.headerView.NTPShortcutsHandler = NTPShortcutsHandler;
+}
+
+- (UIButton*)customizationMenuButton {
+  return [self.headerView customizationMenuButton];
+}
+
+#pragma mark - UIViewController
+
 - (void)viewDidLoad {
   [super viewDidLoad];
 
@@ -345,13 +343,25 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
     self.headerView = [[NewTabPageHeaderView alloc]
         initWithUseNewBadgeForLensButton:_useNewBadgeForLensButton];
     [self.headerView setAIMAllowed:_isAIMAllowed];
+    [self.headerView setFuseboxEligible:_fuseboxEligible];
+
+    if (IsChromeNextIaEnabled()) {
+      [self.headerView setOmniboxPositionIsBottom:_isBottomOmnibox];
+    }
+
     self.headerView.NTPShortcutsHandler = self.NTPShortcutsHandler;
     self.headerView.isGoogleDefaultSearchEngine =
         self.isGoogleDefaultSearchEngine;
     self.headerView.placeholderText = self.placeholderText;
     self.headerView.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.headerView];
-    AddSameConstraints(self.headerView, self.view);
+    AddSameConstraintsToSides(
+        self.headerView, self.view,
+        LayoutSides::kTop | LayoutSides::kLeading | LayoutSides::kTrailing);
+    NSLayoutConstraint* bottomConstraint = [self.headerView.bottomAnchor
+        constraintEqualToAnchor:self.view.bottomAnchor];
+    bottomConstraint.priority = UILayoutPriorityRequired - 1;
+    bottomConstraint.active = YES;
 
     [self addFakeOmnibox];
 
@@ -373,11 +383,9 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
 
     [self addCustomizationMenu];
 
-    if (IsChromeNextIaEnabled() &&
-        ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) {
-      // Add the tools menu to the NTP header if it is not visible in the
-      // toolbar.
-      [self addToolsMenu];
+    // Add a tools (overflow) menu entrypoint beside the customization menu.
+    if (IsChromeNextIaEnabled()) {
+      [self addToolsMenuIfNeeded];
     }
 
     UIEdgeInsets safeAreaInsets = self.baseViewController.view.safeAreaInsets;
@@ -396,11 +404,6 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
       [self applyBackgroundTheme];
     }
   }
-}
-
-- (void)setIsGoogleDefaultSearchEngine:(BOOL)isGoogleDefaultSearchEngine {
-  _isGoogleDefaultSearchEngine = isGoogleDefaultSearchEngine;
-  self.headerView.isGoogleDefaultSearchEngine = isGoogleDefaultSearchEngine;
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -425,11 +428,6 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
   [self maybeShowSwitchAccountsIPH];
 }
 
-- (void)setAllowFontScaleAnimation:(BOOL)allowFontScaleAnimation {
-  _allowFontScaleAnimation = allowFontScaleAnimation;
-  self.headerView.allowFontScaleAnimation = allowFontScaleAnimation;
-}
-
 - (void)omniboxDidEndEditing {
   // Return early if the view is already showing.
   if (self.view.alpha == 1) {
@@ -446,16 +444,38 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
   self.headerView.tabGroupIndicatorView = view;
 }
 
-- (void)setNTPShortcutsHandler:
-    (id<NewTabPageShortcutsHandler>)NTPShortcutsHandler {
-  _NTPShortcutsHandler = NTPShortcutsHandler;
-  self.headerView.NTPShortcutsHandler = NTPShortcutsHandler;
-}
+#pragma mark - UIContentContainer
 
-#pragma mark - FakeboxButtonsSnapshotProvider
+- (void)willTransitionToTraitCollection:(UITraitCollection*)newCollection
+              withTransitionCoordinator:
+                  (id<UIViewControllerTransitionCoordinator>)coordinator {
+  [super willTransitionToTraitCollection:newCollection
+               withTransitionCoordinator:coordinator];
 
-- (UIView*)fakeboxButtonsSnapshot {
-  return [self.headerView fakeboxButtonsSnapshot];
+  __weak __typeof(self) weakSelf = self;
+  const BOOL isSplitToolbarMode = IsSplitToolbarMode(newCollection);
+
+  void (^transitionBlock)(id<UIViewControllerTransitionCoordinatorContext>) =
+      ^(id<UIViewControllerTransitionCoordinatorContext>) {
+        if (!IsChromeNextIaEnabled()) {
+          __strong __typeof(self) strongSelf = weakSelf;
+          if (!strongSelf) {
+            return;
+          }
+
+          // Ensure omnibox is reset when not a regular tablet.
+          if (isSplitToolbarMode && !CanShowTabStrip(newCollection)) {
+            [strongSelf.toolbarDelegate setScrollProgressForTabletOmnibox:1];
+          }
+
+          // Fake Tap button only needs to work in portrait. Disable the button
+          // in landscape because in landscape the button covers logoView (which
+          // need to handle taps).
+          strongSelf.fakeTapButton.userInteractionEnabled = isSplitToolbarMode;
+        }
+      };
+
+  [coordinator animateAlongsideTransition:transitionBlock completion:nil];
 }
 
 #pragma mark - UIIndirectScribbleInteractionDelegate
@@ -505,6 +525,47 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
   return YES;
 }
 
+#pragma mark - UIPointerInteractionDelegate
+
+- (UIPointerRegion*)pointerInteraction:(UIPointerInteraction*)interaction
+                      regionForRequest:(UIPointerRegionRequest*)request
+                         defaultRegion:(UIPointerRegion*)defaultRegion {
+  return defaultRegion;
+}
+
+- (UIPointerStyle*)pointerInteraction:(UIPointerInteraction*)interaction
+                       styleForRegion:(UIPointerRegion*)region {
+  // If the view is no longer in a window due to a race condition, no
+  // pointer style is needed.
+  if (!interaction.view.window) {
+    return nil;
+  }
+  // Without this, the hover effect looks slightly oversized.
+  CGRect rect = CGRectInset(interaction.view.bounds, 1, 1);
+  UIBezierPath* path =
+      [UIBezierPath bezierPathWithRoundedRect:rect
+                                 cornerRadius:rect.size.height];
+  UIPreviewParameters* parameters = [[UIPreviewParameters alloc] init];
+  parameters.visiblePath = path;
+  UITargetedPreview* preview =
+      [[UITargetedPreview alloc] initWithView:interaction.view
+                                   parameters:parameters];
+  UIPointerHoverEffect* effect =
+      [UIPointerHoverEffect effectWithPreview:preview];
+  effect.prefersScaledContent = NO;
+  effect.prefersShadow = NO;
+  UIPointerShape* shape = [UIPointerShape
+      beamWithPreferredLength:interaction.view.bounds.size.height / 2
+                         axis:UIAxisVertical];
+  return [UIPointerStyle styleWithEffect:effect shape:shape];
+}
+
+#pragma mark - FakeboxButtonsSnapshotProvider
+
+- (UIView*)fakeboxButtonsSnapshot {
+  return [self.headerView fakeboxButtonsSnapshot];
+}
+
 #pragma mark - SearchEngineLogoConsumer
 
 - (void)searchEngineLogoStateDidChange:(SearchEngineLogoState)logoState {
@@ -550,14 +611,10 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
     return;
   }
   _defaultSearchEngineName = defaultSearchEngineName;
-  self.headerView.placeholderText = self.placeholderText;
-  self.accessibilityButton.accessibilityLabel = self.placeholderText;
+  [self updatePlaceholderText];
 }
 
 - (void)setDefaultSearchEngineImage:(UIImage*)image {
-  if (!base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdateV2)) {
-    return;
-  }
   // The header view might not be created yet. Store the logo image until it is
   // consumed.
   if (!self.headerView) {
@@ -587,6 +644,12 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
 - (void)setAIMAllowed:(BOOL)allowed {
   [_headerView setAIMAllowed:allowed];
   _isAIMAllowed = allowed;
+}
+
+- (void)setFuseboxEligible:(BOOL)eligible {
+  [_headerView setFuseboxEligible:eligible];
+  _fuseboxEligible = eligible;
+  [self updatePlaceholderText];
 }
 
 #pragma mark - UserAccountImageUpdateDelegate
@@ -620,47 +683,6 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
   self.isSignedIn = YES;
 
   [self updateIdentityDiscAccessibilityLabelWithName:name email:email];
-}
-
-#pragma mark UIPointerInteractionDelegate
-
-- (UIPointerRegion*)pointerInteraction:(UIPointerInteraction*)interaction
-                      regionForRequest:(UIPointerRegionRequest*)request
-                         defaultRegion:(UIPointerRegion*)defaultRegion {
-  return defaultRegion;
-}
-
-- (UIPointerStyle*)pointerInteraction:(UIPointerInteraction*)interaction
-                       styleForRegion:(UIPointerRegion*)region {
-  // If the view is no longer in a window due to a race condition, no
-  // pointer style is needed.
-  if (!interaction.view.window) {
-    return nil;
-  }
-  // Without this, the hover effect looks slightly oversized.
-  CGRect rect = CGRectInset(interaction.view.bounds, 1, 1);
-  UIBezierPath* path =
-      [UIBezierPath bezierPathWithRoundedRect:rect
-                                 cornerRadius:rect.size.height];
-  UIPreviewParameters* parameters = [[UIPreviewParameters alloc] init];
-  parameters.visiblePath = path;
-  UITargetedPreview* preview =
-      [[UITargetedPreview alloc] initWithView:interaction.view
-                                   parameters:parameters];
-  UIPointerHoverEffect* effect =
-      [UIPointerHoverEffect effectWithPreview:preview];
-  effect.prefersScaledContent = NO;
-  effect.prefersShadow = NO;
-  UIPointerShape* shape = [UIPointerShape
-      beamWithPreferredLength:interaction.view.bounds.size.height / 2
-                         axis:UIAxisVertical];
-  return [UIPointerStyle styleWithEffect:effect shape:shape];
-}
-
-#pragma mark - Getters
-
-- (UIButton*)customizationMenuButton {
-  return [self.headerView customizationMenuButton];
 }
 
 #pragma mark - Private
@@ -702,6 +724,44 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
   self.accessibilityButton.translatesAutoresizingMaskIntoConstraints = NO;
   AddSameConstraints(self.fakeOmnibox, self.accessibilityButton);
 
+  NSMutableArray<UIAccessibilityCustomAction*>* accessibilityCustomActions =
+      [[NSMutableArray alloc] init];
+  if (self.headerView.lensButton) {
+    [accessibilityCustomActions
+        addObject:[[UIAccessibilityCustomAction alloc]
+                      initWithName:l10n_util::GetNSString(
+                                       IDS_IOS_KEYBOARD_ACCESSORY_VIEW_LENS)
+                             image:nil
+                            target:self
+                          selector:@selector(openLensViewFinder)]];
+  }
+
+  if (self.headerView.voiceSearchButton) {
+    [accessibilityCustomActions
+        addObject:
+            [[UIAccessibilityCustomAction alloc]
+                initWithName:l10n_util::GetNSString(
+                                 IDS_IOS_KEYBOARD_ACCESSORY_VIEW_VOICE_SEARCH)
+                       image:nil
+                      target:self
+                    selector:@selector(openVoiceSearch)]];
+  }
+
+  if ([self.headerView shouldShowPlusButton]) {
+    [accessibilityCustomActions
+        addObject:
+            [[UIAccessibilityCustomAction alloc]
+                initWithName:
+                    l10n_util::GetNSString(
+                        IDS_IOS_COMPOSEBOX_ADD_ATTACHMENT_BUTTON_ACCESSIBILITY_LABEL)
+                       image:nil
+                      target:self
+                    selector:@selector(openMultimodalActionsMenu)]];
+  }
+
+  self.accessibilityButton.accessibilityCustomActions =
+      accessibilityCustomActions;
+
   [self.fakeOmnibox
       addInteraction:[[UIPointerInteraction alloc] initWithDelegate:self]];
 
@@ -732,7 +792,9 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
   UIView* toolbar = [[UIView alloc] init];
   toolbar.translatesAutoresizingMaskIntoConstraints = NO;
   self.fakeTapButton = [[UIButton alloc] init];
-  self.fakeTapButton.userInteractionEnabled = IsSplitToolbarMode(self);
+  if (!IsChromeNextIaEnabled()) {
+    self.fakeTapButton.userInteractionEnabled = IsSplitToolbarMode(self);
+  }
   self.fakeTapButton.isAccessibilityElement = NO;
   self.fakeTapButton.translatesAutoresizingMaskIntoConstraints = NO;
   [toolbar addSubview:self.fakeTapButton];
@@ -831,10 +893,15 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
                                  withNewBadge:_useNewBadgeForCustomizationMenu];
 }
 
-// Creates the Tools menu and adds it to the header view.
-- (void)addToolsMenu {
+// Creates the Tools menu and adds it to the header view (iPhone only)
+- (void)addToolsMenuIfNeeded {
   CHECK(IsChromeNextIaEnabled());
-  CHECK_NE(ui::GetDeviceFormFactor(), ui::DEVICE_FORM_FACTOR_TABLET);
+
+  // If the App Bar is not available (iPad), the Tools menu should not be added
+  // to the header view.
+  if (CanShowTabStrip(self)) {
+    return;
+  }
 
   UIButton* toolsMenuButton =
       [[ExtendedTouchTargetButton alloc] initWithFrame:CGRectZero];
@@ -859,30 +926,7 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
                       action:@selector(toolsMenuWasTapped:)
             forControlEvents:UIControlEventTouchUpInside];
 
-  // Set initial button visibility. Visible in iPhone portrait, otherwise
-  // invisible.
-  BOOL isSplitToolbarMode = IsSplitToolbarMode(self);
-  toolsMenuButton.hidden = !isSplitToolbarMode;
-  toolsMenuButton.alpha = isSplitToolbarMode ? 1.0 : 0.0;
-
   self.headerView.toolsMenuButton = toolsMenuButton;
-}
-
-// Helper for `-[willTransitionToTraitCollection:withTransitionCoordinator:]`.
-// Updates the visibility of the tools menu button in the header view. The
-// `hidden` property of the `toolsMenuButton` should be updated according after
-// using this helper to fade the button in/out of view.
-- (void)updateToolsMenuButtonVisibility:(BOOL)visibility {
-  CHECK(IsChromeNextIaEnabled());
-  CHECK_NE(ui::GetDeviceFormFactor(), ui::DEVICE_FORM_FACTOR_TABLET);
-
-  if (!self.headerView.toolsMenuButton) {
-    return;
-  }
-
-  // Unhide the tools menu button before fading it in/out of view.
-  self.headerView.toolsMenuButton.hidden = NO;
-  self.headerView.toolsMenuButton.alpha = visibility ? 1.0 : 0.0;
 }
 
 // Configures `identityDiscButton` with the current state of
@@ -985,6 +1029,23 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
   [self.NTPMetricsRecorder recordFakeOmniboxTapped];
   TriggerHapticFeedbackForSelectionChange();
   [self.commandHandler fakeboxTapped];
+}
+
+// Opens Lens View Finder.
+- (void)openLensViewFinder {
+  [self.NTPShortcutsHandler openLensViewFinder];
+}
+
+// Directly loads voice search in single action.
+- (void)openVoiceSearch {
+  [self.NTPShortcutsHandler preloadVoiceSearch];
+  [self.NTPShortcutsHandler
+      loadVoiceSearchFromView:self.headerView.voiceSearchButton];
+}
+
+// Opens the multimodal actions menu.
+- (void)openMultimodalActionsMenu {
+  [self.NTPShortcutsHandler openMultimodalActionsMenu];
 }
 
 - (void)focusAccessibilityOnOmnibox {
@@ -1216,13 +1277,21 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
   }
 }
 
+// Updates the placeholder text.
+- (void)updatePlaceholderText {
+  NSString* placeholderText = [self placeholderText];
+  self.headerView.placeholderText = placeholderText;
+  self.accessibilityButton.accessibilityLabel = placeholderText;
+}
+
 // Returns the omnibox placeholder text.
 - (NSString*)placeholderText {
-  if (base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdate)) {
-    return l10n_util::GetNSStringF(IDS_OMNIBOX_EMPTY_HINT_WITH_DSE_NAME,
+  if (IsAIOmniboxAskPlaceholderEnabled() && _isAIMAllowed && _fuseboxEligible) {
+    return l10n_util::GetNSStringF(IDS_OMNIBOX_EMPTY_ASK_HINT_WITH_DSE_NAME,
                                    self.defaultSearchEngineName.cr_UTF16String);
   } else {
-    return l10n_util::GetNSString(IDS_OMNIBOX_EMPTY_HINT);
+    return l10n_util::GetNSStringF(IDS_OMNIBOX_EMPTY_HINT_WITH_DSE_NAME,
+                                   self.defaultSearchEngineName.cr_UTF16String);
   }
 }
 

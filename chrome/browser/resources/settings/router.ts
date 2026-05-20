@@ -18,6 +18,7 @@ export interface SettingsRoutes {
   ADVANCED: Route;
   AI: Route;
   AI_MODE_SEARCH: Route;
+  AI_SUGGESTIONS: Route;
   APPEARANCE: Route;
   AUTOFILL: Route;
   AUTOFILL_AI: Route;
@@ -119,6 +120,7 @@ export interface SettingsRoutes {
   YOUR_SAVED_INFO_CONTACT_INFO: Route;
   YOUR_SAVED_INFO_IDENTITY_DOCS: Route;
   YOUR_SAVED_INFO_TRAVEL: Route;
+  YOUR_SAVED_INFO_SHOPPING: Route;
 
   // <if expr="not is_chromeos">
   ACCOUNT: Route;

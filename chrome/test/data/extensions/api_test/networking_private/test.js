@@ -12,40 +12,43 @@ const FAILURE = 'Failure';
 const GUID = 'SOME_GUID';
 
 function callbackResult(result) {
-  if (chrome.runtime.lastError)
+  // Failures can be indicated in a number of ways. The most straightforward is
+  // a runtime error, but we also consider a 'Failure' result message to be
+  // failure, or a false value, or an empty array.
+  if (chrome.runtime.lastError) {
     chrome.test.fail(chrome.runtime.lastError.message);
-  else if (result == false || result == FAILURE)
+  } else if (
+      result === false || result === FAILURE ||
+      Array.isArray(result) && result.length === 0) {
     chrome.test.fail(`Failed: ${result}`);
+  }
 }
 
 const availableTests = [
   function getProperties() {
-    chrome.networkingPrivate.getProperties(
-        GUID, callbackPass(callbackResult));
+    chrome.networkingPrivate.getProperties(GUID, callbackPass(callbackResult));
   },
   function getManagedProperties() {
     chrome.networkingPrivate.getManagedProperties(
         GUID, callbackPass(callbackResult));
   },
   function getState() {
-    chrome.networkingPrivate.getState(
-        GUID, callbackPass(callbackResult));
+    chrome.networkingPrivate.getState(GUID, callbackPass(callbackResult));
   },
   function setProperties() {
     chrome.networkingPrivate.setProperties(
-        GUID, { GUID: GUID }, callbackPass(callbackResult));
+        GUID, {GUID: GUID}, callbackPass(callbackResult));
   },
   function createNetwork() {
     chrome.networkingPrivate.createNetwork(
-        false, { GUID: GUID }, callbackPass(callbackResult));
+        false, {GUID: GUID}, callbackPass(callbackResult));
   },
   function forgetNetwork() {
-    chrome.networkingPrivate.forgetNetwork(
-        GUID, callbackPass(callbackResult));
+    chrome.networkingPrivate.forgetNetwork(GUID, callbackPass(callbackResult));
   },
   function getNetworks() {
     chrome.networkingPrivate.getNetworks(
-        { networkType: 'Ethernet' }, callbackPass(callbackResult));
+        {networkType: 'Ethernet'}, callbackPass(callbackResult));
   },
   function getVisibleNetworks() {
     chrome.networkingPrivate.getVisibleNetworks(
@@ -72,8 +75,7 @@ const availableTests = [
     chrome.test.succeed();
   },
   function startConnect() {
-    chrome.networkingPrivate.startConnect(
-        GUID, callbackPass(callbackResult));
+    chrome.networkingPrivate.startConnect(GUID, callbackPass(callbackResult));
   },
   function startDisconnect() {
     chrome.networkingPrivate.startDisconnect(
@@ -92,7 +94,7 @@ const availableTests = [
         GUID, '1111', callbackPass(callbackResult));
   },
   function setCellularSimState() {
-    const simState = { requirePin: true, currentPin: '1111', newPin: '1234' };
+    const simState = {requirePin: true, currentPin: '1111', newPin: '1234'};
     chrome.networkingPrivate.setCellularSimState(
         GUID, simState, callbackPass(callbackResult));
   },
@@ -102,10 +104,10 @@ const availableTests = [
   },
   function getGlobalPolicy() {
     chrome.networkingPrivate.getGlobalPolicy(callbackPass(callbackResult));
-  }
+  },
 ];
 
 const testToRun = window.location.search.substring(1);
 chrome.test.runTests(availableTests.filter(function(op) {
-  return op.name == testToRun;
+  return op.name === testToRun;
 }));

@@ -7,19 +7,28 @@
 #include <string>
 #include <utility>
 
+#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.h"
+#include "chrome/browser/ui/webui/cr_components/history/history_util.h"
+#include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/history/foreign_session_handler.h"
+#include "chrome/browser/ui/webui/side_panel/tabs_from_other_devices/synced_screenshot_data_source.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/grit/side_panel_shared_resources.h"
 #include "chrome/grit/side_panel_shared_resources_map.h"
 #include "chrome/grit/side_panel_tabs_from_other_devices_resources.h"
 #include "chrome/grit/side_panel_tabs_from_other_devices_resources_map.h"
+#include "components/favicon_base/favicon_url_parser.h"
 #include "components/sessions/core/session_types.h"
+#include "components/strings/grit/components_strings.h"
+#include "components/sync_sessions/features.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "content/public/common/url_constants.h"
+#include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "ui/webui/webui_util.h"
 
 TabsFromOtherDevicesUIConfig::TabsFromOtherDevicesUIConfig()
@@ -29,7 +38,12 @@ TabsFromOtherDevicesUIConfig::TabsFromOtherDevicesUIConfig()
 
 bool TabsFromOtherDevicesUIConfig::IsWebUIEnabled(
     content::BrowserContext* browser_context) {
-  return TabsFromOtherDevicesSidePanelCoordinator::IsSupported();
+  return TabsFromOtherDevicesSidePanelCoordinator::IsSupported(
+      Profile::FromBrowserContext(browser_context));
+}
+
+std::optional<int> TabsFromOtherDevicesUIConfig::GetCommandIdForTesting() {
+  return IDC_SHOW_TABS_FROM_OTHER_DEVICES_SIDE_PANEL;
 }
 
 TabsFromOtherDevicesSidePanelUI::TabsFromOtherDevicesSidePanelUI(
@@ -39,11 +53,39 @@ TabsFromOtherDevicesSidePanelUI::TabsFromOtherDevicesSidePanelUI(
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       profile, chrome::kChromeUITabsFromOtherDevicesSidePanelHost);
 
+  HistoryUtil::PopulateCommonSourceForHistory(source, profile);
+
+  source->AddBoolean(
+      "showScreenshots",
+      base::FeatureList::IsEnabled(sync_sessions::kSyncTabScreenshots));
+
+  static constexpr webui::LocalizedString kStrings[] = {
+      {"noSyncedResults", IDS_HISTORY_NO_SYNCED_RESULTS},
+      {"loading", IDS_HISTORY_LOADING},
+      {"title", IDS_SIDE_PANEL_TABS_FROM_OTHER_DEVICES_TITLE},
+  };
+  source->AddLocalizedStrings(kStrings);
+
   webui::SetupWebUIDataSource(
       source, kSidePanelTabsFromOtherDevicesResources,
       IDR_SIDE_PANEL_TABS_FROM_OTHER_DEVICES_TABS_FROM_OTHER_DEVICES_HTML);
 
+  // Set up the Content Security Policy to allow images from
+  // `SyncedScreenshotDataSource` (plus a bunch of standard sources that are
+  // also enabled by default).
+  source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::ImgSrc,
+      "img-src chrome://resources chrome://theme chrome://favicon2 "
+      "chrome://synced-screenshot 'self';");
+
   source->AddResourcePaths(kSidePanelSharedResources);
+
+  content::URLDataSource::Add(
+      profile, std::make_unique<FaviconSource>(
+                   profile, chrome::FaviconUrlFormat::kFavicon2));
+
+  content::URLDataSource::Add(profile,
+                              std::make_unique<SyncedScreenshotDataSource>());
 }
 
 TabsFromOtherDevicesSidePanelUI::~TabsFromOtherDevicesSidePanelUI() = default;

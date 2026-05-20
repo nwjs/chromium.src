@@ -17,7 +17,7 @@ function assertNever<_T extends never>() {}
 // compile if a property is missed.
 export function replaceProperties<O, R>(
     original: O, replacements: R): Omit<O, keyof R>&R {
-  return Object.assign(Object.assign({}, original) as any, replacements);
+  return Object.assign({}, original, replacements);
 }
 
 
@@ -108,3 +108,6 @@ assertNever<CheckEnumCompatibility<
 assertNever<CheckEnumCompatibility<
     typeof mojom.MetricUserInputReactionType,
     typeof api.MetricUserInputReactionType>>();
+assertNever<CheckEnumCompatibility<
+    typeof mojom.SubscriberObservationType,
+    typeof requestTypes.SubscriberObservationType>>();

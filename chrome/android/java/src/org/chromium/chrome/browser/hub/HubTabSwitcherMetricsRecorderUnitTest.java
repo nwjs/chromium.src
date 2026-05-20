@@ -31,11 +31,9 @@ import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
-import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabModel;
@@ -60,8 +58,6 @@ public class HubTabSwitcherMetricsRecorderUnitTest {
     @Mock private Pane mTabSwitcherPane;
     @Mock private Pane mIncognitoTabSwitcherPane;
     @Mock private TabModelSelector mTabModelSelector;
-    @Mock private TabGroupModelFilter mRegularTabGroupModelFilter;
-    @Mock private TabGroupModelFilter mIncognitoTabGroupModelFilter;
 
     private MockTabModel mRegularTabModel;
     private MockTabModel mIncognitoTabModel;
@@ -92,23 +88,17 @@ public class HubTabSwitcherMetricsRecorderUnitTest {
         Tab incognitoTab0 = mIncognitoTabModel.getTabAt(INCOGNITO_TAB_0_INDEX);
         Tab incognitoTab1 = mIncognitoTabModel.getTabAt(INCOGNITO_TAB_1_INDEX);
 
-        when(mRegularTabGroupModelFilter.getTabModel()).thenReturn(mRegularTabModel);
-        when(mRegularTabGroupModelFilter.isTabInTabGroup(regularTab0)).thenReturn(false);
-        when(mRegularTabGroupModelFilter.isTabInTabGroup(regularTab1)).thenReturn(false);
-        when(mRegularTabGroupModelFilter.representativeIndexOf(regularTab0))
-                .thenReturn(REGULAR_TAB_0_INDEX);
-        when(mRegularTabGroupModelFilter.representativeIndexOf(regularTab1))
-                .thenReturn(REGULAR_TAB_1_INDEX);
-        when(mIncognitoTabGroupModelFilter.getTabModel()).thenReturn(mIncognitoTabModel);
-        when(mIncognitoTabGroupModelFilter.representativeIndexOf(incognitoTab0))
+        when(mRegularTabModel.isTabInTabGroup(regularTab0)).thenReturn(false);
+        when(mRegularTabModel.isTabInTabGroup(regularTab1)).thenReturn(false);
+        when(mRegularTabModel.representativeIndexOf(regularTab0)).thenReturn(REGULAR_TAB_0_INDEX);
+        when(mRegularTabModel.representativeIndexOf(regularTab1)).thenReturn(REGULAR_TAB_1_INDEX);
+        when(mIncognitoTabModel.representativeIndexOf(incognitoTab0))
                 .thenReturn(INCOGNITO_TAB_0_INDEX);
-        when(mIncognitoTabGroupModelFilter.representativeIndexOf(incognitoTab1))
+        when(mIncognitoTabModel.representativeIndexOf(incognitoTab1))
                 .thenReturn(INCOGNITO_TAB_1_INDEX);
-        when(mIncognitoTabGroupModelFilter.isTabInTabGroup(incognitoTab0)).thenReturn(false);
-        when(mIncognitoTabGroupModelFilter.isTabInTabGroup(incognitoTab1)).thenReturn(false);
+        when(mIncognitoTabModel.isTabInTabGroup(incognitoTab0)).thenReturn(false);
+        when(mIncognitoTabModel.isTabInTabGroup(incognitoTab1)).thenReturn(false);
 
-        when(mTabModelSelector.getCurrentTabGroupModelFilter())
-                .thenReturn(mRegularTabGroupModelFilter);
         when(mTabModelSelector.getCurrentModel()).thenReturn(mRegularTabModel);
         when(mTabModelSelector.getModel(false)).thenReturn(mRegularTabModel);
         when(mTabModelSelector.getModel(true)).thenReturn(mIncognitoTabModel);
@@ -163,31 +153,23 @@ public class HubTabSwitcherMetricsRecorderUnitTest {
         mHubVisibilitySupplier.set(true);
         RobolectricUtil.runAllBackgroundAndUi();
 
-        HistogramWatcher watcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Tabs.TabOffsetOfSwitch.GridTabSwitcher", 0);
         mRegularTabModel.setIndex(REGULAR_TAB_0_INDEX, FROM_USER);
 
         assertEquals(1, mActionTester.getActionCount("MobileTabReturnedToCurrentTab.TabGrid"));
         assertEquals(1, mActionTester.getActionCount("MobileTabReturnedToCurrentTab"));
-        watcher.assertExpected();
     }
 
     @Test
     @SmallTest
     public void testSamePane_ChangedTabs_WithGroup() {
         Tab regularTab1 = mRegularTabModel.getTabAt(REGULAR_TAB_1_INDEX);
-        when(mRegularTabGroupModelFilter.isTabInTabGroup(regularTab1)).thenReturn(true);
+        when(mRegularTabModel.isTabInTabGroup(regularTab1)).thenReturn(true);
         mHubVisibilitySupplier.set(true);
         RobolectricUtil.runAllBackgroundAndUi();
 
-        HistogramWatcher watcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Tabs.TabOffsetOfSwitch.GridTabSwitcher", -1);
         mRegularTabModel.setIndex(REGULAR_TAB_1_INDEX, FROM_USER);
 
         assertEquals(0, mActionTester.getActionCount("MobileTabSwitched.GridTabSwitcher"));
-        watcher.assertExpected();
     }
 
     @Test
@@ -196,13 +178,9 @@ public class HubTabSwitcherMetricsRecorderUnitTest {
         mHubVisibilitySupplier.set(true);
         RobolectricUtil.runAllBackgroundAndUi();
 
-        HistogramWatcher watcher =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Tabs.TabOffsetOfSwitch.GridTabSwitcher", -1);
         mRegularTabModel.setIndex(REGULAR_TAB_1_INDEX, FROM_USER);
 
         assertEquals(1, mActionTester.getActionCount("MobileTabSwitched.GridTabSwitcher"));
-        watcher.assertExpected();
     }
 
     @Test
@@ -221,7 +199,7 @@ public class HubTabSwitcherMetricsRecorderUnitTest {
     @SmallTest
     public void testNewPane_ChangedTabs_WithGroup() {
         Tab incognitoTab1 = mIncognitoTabModel.getTabAt(INCOGNITO_TAB_1_INDEX);
-        when(mIncognitoTabGroupModelFilter.isTabInTabGroup(incognitoTab1)).thenReturn(true);
+        when(mIncognitoTabModel.isTabInTabGroup(incognitoTab1)).thenReturn(true);
 
         mHubVisibilitySupplier.set(true);
         changePanes();
@@ -247,8 +225,6 @@ public class HubTabSwitcherMetricsRecorderUnitTest {
     private void changePanes() {
         mFocusedPaneSupplier.set(mIncognitoTabSwitcherPane);
         when(mTabModelSelector.getCurrentModel()).thenReturn(mIncognitoTabModel);
-        when(mTabModelSelector.getCurrentTabGroupModelFilter())
-                .thenReturn(mIncognitoTabGroupModelFilter);
         mCurrentTabModelSupplier.set(mIncognitoTabModel);
         RobolectricUtil.runAllBackgroundAndUi();
     }

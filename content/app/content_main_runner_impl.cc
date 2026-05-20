@@ -159,6 +159,7 @@
 #endif  // BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#include "base/environment.h"
 #include "base/files/file_path_watcher_inotify.h"
 #include "base/native_library.h"
 #include "base/rand_util.h"
@@ -991,6 +992,17 @@ int ContentMainRunnerImpl::Initialize(ContentMainParams params) {
 
   delegate_->PreSandboxStartup();
 
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+  // Set environment variables for fontconfig fontations indexing and before
+  // creating threads.
+  if (process_type.empty()) {
+    std::unique_ptr<base::Environment> environment =
+        base::Environment::Create();
+    // Use Fontations, instead of FreeType, indexing in FontConfig.
+    environment->SetVar("FC_FONTATIONS", "1");
+  }
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+
 #if PA_BUILDFLAG(ENABLE_THREAD_ISOLATION)
   // instantiate the ThreadIsolatedAllocator before we spawn threads
   if (process_type == switches::kRendererProcess ||
@@ -1168,8 +1180,7 @@ NO_STACK_PROTECTOR int ContentMainRunnerImpl::Run() {
 
 int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
                                       bool start_minimal_browser) {
-  TRACE_EVENT_INSTANT0("startup", "ContentMainRunnerImpl::RunBrowser(begin)",
-                       TRACE_EVENT_SCOPE_THREAD);
+  TRACE_EVENT_INSTANT("startup", "ContentMainRunnerImpl::RunBrowser(begin)");
   if (is_browser_main_loop_started_)
     return -1;
 

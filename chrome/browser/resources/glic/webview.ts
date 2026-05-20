@@ -4,9 +4,9 @@
 
 import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
-import {GlicRequestHeaderInjector} from '/shared/glic_request_headers.js';
-import {isFullWebView} from '/shared/web_view_type.js';
-import type {WebViewType} from '/shared/web_view_type.js';
+// <if expr="not enable_extensions_core">
+import {OriginCheckParams} from '/shared/guest_view/request_throttlers.js';
+// </if>
 import type {ChromeEvent} from '/tools/typescript/definitions/chrome_event.js';
 // <if expr="not is_android">
 import {getInstance as getAnnouncerInstance} from 'chrome://resources/cr_elements/cr_a11y_announcer/cr_a11y_announcer.js';
@@ -20,6 +20,9 @@ import {DetailedWebClientState, GlicApiCommunicator, GlicApiHost, WebClientState
 import type {ApiHostEmbedder} from './glic_api_impl/host/glic_api_host.js';
 import {ObservableValue} from './observable.js';
 import type {ObservableValueReadOnly} from './observable.js';
+import {GlicRequestHeaderInjector} from './shared/glic_request_headers.js';
+import {isFullWebView} from './shared/web_view_type.js';
+import type {WebViewType} from './shared/web_view_type.js';
 import {OneShotTimer} from './timer.js';
 
 // LINT.IfChange(WebviewExitReason)
@@ -122,6 +125,7 @@ type ChromeEventFunctionType<T> =
 export class WebviewController {
   webview: WebViewType;
   private host?: GlicApiHost;
+  private dormant = false;
   private communicator?: GlicApiCommunicator;
   private hostSubscriber?: Subscriber;
   private onDestroy: Array<() => void> = [];
@@ -163,6 +167,13 @@ export class WebviewController {
           this.webview.request.onBeforeRequest.removeListener(onBeforeRequest);
         }
       });
+    } else {
+      // <if expr="not enable_extensions_core">
+      const allowedOriginsParams = getAllowedOriginsParams();
+      if (allowedOriginsParams !== null) {
+        this.webview.allowedOriginsParams = allowedOriginsParams;
+      }
+      // </if>
     }
 
     this.webview.id = 'guestFrame';
@@ -182,11 +193,17 @@ export class WebviewController {
         this.webview, 'unresponsive', this.onUnresponsive.bind(this));
     this.eventTracker.add(this.webview, 'exit', this.onExit.bind(this));
     // <if expr="not is_android">
-    this.eventTracker.add(this.webview, 'zoomchange', (e: any) => {
-      const percentage = Math.round(e.newZoomFactor * 100);
-      const message = loadTimeData.getStringF('zoomLabel', percentage + '%');
-      getAnnouncerInstance().announce(message);
-    });
+    if (isFullWebView(this.webview)) {
+      this.eventTracker.add(
+          this.webview, 'zoomchange', (e: {newZoomFactor: number}) => {
+            const percentage = Math.round(e.newZoomFactor * 100);
+            const message =
+                loadTimeData.getStringF('zoomLabel', percentage + '%');
+            getAnnouncerInstance().announce(message);
+            this.browserProxy.pageHandler.onZoomLevelChange(e.newZoomFactor);
+            this.host?.onZoomLevelChanged(e.newZoomFactor);
+          });
+    }
     // </if>
     this.eventTracker.add(
         this.webview, 'loadstart', this.onLoadStart.bind(this));
@@ -219,12 +236,7 @@ export class WebviewController {
       this.glicRequestHeaderInjector = undefined;
     }
     this.oneMinuteTimer.reset();
-    if (this.host) {
-      chrome.histograms.recordEnumerationValue(
-          'Glic.Host.WebClientState.OnDestroy',
-          this.host.getDetailedWebClientState(),
-          DetailedWebClientState.MAX_VALUE + 1);
-    }
+    this.reportOnDestroy();
     this.destroyHost(
         this.webClientState.getCurrentValue() === WebClientState.ERROR ?
             WebClientState.ERROR :
@@ -235,7 +247,28 @@ export class WebviewController {
     this.webview.remove();
   }
 
-  private destroyHost(webClientState: WebClientState) {
+  // Destroys the host and prevents the host from being recreated. This results
+  // in a webview which effectively cannot communicate with Chrome. Useful for
+  // debugging.
+  setDormant(): void {
+    if (this.dormant) {
+      return;
+    }
+    this.dormant = true;
+    this.reportOnDestroy();
+    this.destroyHost();
+  }
+
+  private reportOnDestroy(): void {
+    if (this.host) {
+      chrome.histograms.recordEnumerationValue(
+          'Glic.Host.WebClientState.OnDestroy',
+          this.host.getDetailedWebClientState(),
+          DetailedWebClientState.MAX_VALUE + 1);
+    }
+  }
+
+  private destroyHost(webClientState?: WebClientState) {
     if (this.hostSubscriber) {
       this.hostSubscriber.unsubscribe();
       this.hostSubscriber = undefined;
@@ -248,26 +281,28 @@ export class WebviewController {
       this.communicator.destroy();
       this.communicator = undefined;
     }
-    this.webClientState.assignAndSignal(webClientState);
+    if (webClientState !== undefined) {
+      this.webClientState.assignAndSignal(webClientState);
+    }
   }
 
   zoom(zoomAction: ZoomAction) {
     // `WebViewType` is a union of `chrome.webviewTag.WebView` and
     // `SlimWebviewElement`. Only full webviews support zoom.
+    // TODO(crbug.com/500052160): Support zoom for slim webviews.
     if (!isFullWebView(this.webview)) {
       return;
     }
 
-    // Cast to any because the WebView type definition seems to be missing
-    // `getZoom` and `setZoom`. We've already checked that this.webview is a
-    // full WebView so this should be safe.
-    const webview = this.webview as any;
+    const webview = this.webview;
 
     if (zoomAction === ZoomAction.kReset) {
       webview.setZoom(1.0);
       return;
     }
 
+    // Any changes to the range of supported zoom factors must be mirrored in
+    // GlicPageHandler.OnZoomLevelChange.
     const zoomFactors = [
       1.0,
       1.1,
@@ -392,6 +427,10 @@ export class WebviewController {
     this.hasPendingCrossDocumentNavigation = false;
 
     if (!isCrossDocumentNavigation) {
+      return;
+    }
+
+    if (this.dormant) {
       return;
     }
 
@@ -520,6 +559,20 @@ export function matcherForOrigin(originPattern: string): URLPattern|null {
     return null;
   }
 }
+
+// <if expr="not enable_extensions_core">
+function getAllowedOriginsParams(): OriginCheckParams|null {
+  if (loadTimeData.getBoolean('devMode')) {
+    return null;
+  }
+  const allowedOrigins: string[] =
+      [new URL(loadTimeData.getString('glicGuestURL')).origin];
+  allowedOrigins.push(...loadTimeData.getString('glicAllowedOrigins')
+                          .split(' ')
+                          .map(origin => origin.trim()));
+  return new OriginCheckParams([ResourceType.MAIN_FRAME], allowedOrigins);
+}
+// </if>
 
 export function urlMatchesAllowedOrigin(url: string) {
   // For development.

@@ -20,16 +20,29 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
+#include "chrome/browser/contextual_tasks/mock_contextual_tasks_page.h"
+#include "chrome/browser/contextual_tasks/mock_contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/mock_contextual_tasks_ui_service.h"
 #include "chrome/browser/global_features.h"
+#include "chrome/browser/profiles/profile_attributes_storage.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/tab_list/mock_tab_list_interface.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
+#include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/test/base/browser_with_test_window_test.h"
+#include "chrome/test/base/chrome_render_view_host_test_harness.h"
+#include "chrome/test/base/testing_browser_process.h"
+#include "chrome/test/base/testing_profile_manager.h"
 #include "components/application_locale_storage/application_locale_storage.h"
+#include "components/contextual_search/mock_contextual_search_context_controller.h"
+#include "components/contextual_search/mock_contextual_search_session_handle.h"
 #include "components/contextual_tasks/public/contextual_task.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/contextual_tasks/public/mock_contextual_tasks_service.h"
 #include "components/lens/lens_url_utils.h"
 #include "components/prefs/pref_service.h"
+#include "components/tab_groups/tab_group_visual_data.h"
+#include "components/variations/scoped_variations_ids_provider.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_web_ui.h"
 #include "content/public/test/web_contents_tester.h"
@@ -37,87 +50,21 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/lens_server_proto/aim_communication.pb.h"
+#include "ui/base/unowned_user_data/unowned_user_data_host.h"
+#include "ui/gfx/range/range.h"
+
 namespace contextual_tasks {
 
 using testing::_;
 using testing::NiceMock;
 using testing::Return;
+using testing::ReturnRef;
 
 constexpr char kAiPageUrl[] = "https://google.com/search?udm=50";
 constexpr char kQueryUrl[] = "https://google.com/search?q=test";
 constexpr char kThreadUrl[] = "https://google.com/search?mtid=123";
 constexpr char kExampleUrl[] = "https://example.com";
 constexpr char kExamplePdfUrl[] = "https://example.com/file.pdf";
-
-class MockPage : public mojom::Page {
- public:
-  MockPage() = default;
-  ~MockPage() override = default;
-
-  mojo::PendingRemote<mojom::Page> BindAndGetRemote() {
-    return receiver_.BindNewPipeAndPassRemote();
-  }
-
-  MOCK_METHOD(void, SetThreadTitle, (const std::string& title), (override));
-  MOCK_METHOD(void, SetTaskDetails, (const base::Uuid& uuid), (override));
-  MOCK_METHOD(void, SetAimUrl, (const GURL& url), (override));
-  MOCK_METHOD(void, OnSidePanelStateChanged, (), (override));
-  MOCK_METHOD(void,
-              PostMessageToWebview,
-              (const std::vector<uint8_t>& message),
-              (override));
-  MOCK_METHOD(void, OnHandshakeComplete, (), (override));
-  MOCK_METHOD(void,
-              SetOAuthToken,
-              (const std::string& oauth_token),
-              (override));
-  MOCK_METHOD(void,
-              OnContextUpdated,
-              (std::vector<mojom::ContextInfoPtr> context),
-              (override));
-  MOCK_METHOD(void, HideInput, (), (override));
-  MOCK_METHOD(void, RestoreInput, (), (override));
-  MOCK_METHOD(void, EnterBasicMode, (), (override));
-  MOCK_METHOD(void, ExitBasicMode, (), (override));
-  MOCK_METHOD(void, OnZeroStateChange, (bool is_zero_state), (override));
-  MOCK_METHOD(void, OnAiPageStatusChanged, (bool is_ai_page), (override));
-  MOCK_METHOD(void,
-              OnLensOverlayStateChanged,
-              (bool is_showing, bool maybe_show_overlay_hint_text),
-              (override));
-  MOCK_METHOD(void, ShowErrorPage, (), (override));
-  MOCK_METHOD(void, HideErrorPage, (), (override));
-  MOCK_METHOD(void, ShowOauthErrorDialog, (), (override));
-  MOCK_METHOD(void,
-              UpdateComposeboxPosition,
-              (mojom::ComposeboxPositionPtr position),
-              (override));
-  MOCK_METHOD(void, LockInput, (), (override));
-  MOCK_METHOD(void, UnlockInput, (), (override));
-  MOCK_METHOD(void, SetShowReopenTabs, (bool show), (override));
-  MOCK_METHOD(void,
-              InjectInput,
-              (const std::string& title,
-               const std::string& thumbnail,
-               const base::UnguessableToken& file_token,
-               bool supports_unimodal),
-              (override));
-  MOCK_METHOD(void,
-              InjectInputWithIcon,
-              (const std::string& title,
-               contextual_tasks::mojom::IconType icon_id,
-               const base::UnguessableToken& file_token,
-               bool supports_unimodal),
-              (override));
-  MOCK_METHOD(void,
-              RemoveInjectedInput,
-              (const base::UnguessableToken& file_token),
-              (override));
-  MOCK_METHOD(void, OnSidePanelPinStateChanged, (bool is_pinned), (override));
-  MOCK_METHOD(void, SetInNlm, (bool in_nlm), (override));
-
-  mojo::Receiver<mojom::Page> receiver_{this};
-};
 
 class TestContextualTasksUI : public ContextualTasksUI {
  public:
@@ -133,13 +80,18 @@ class TestContextualTasksUI : public ContextualTasksUI {
               (override));
   MOCK_METHOD(GURL, GetWebUiUrl, (), (override));
   MOCK_METHOD(content::WebContents*, GetInnerWebContents, (), (const, override));
+  MOCK_METHOD(BrowserWindowInterface*, GetBrowser, (), (override));
 };
 
-class ContextualTasksPageHandlerTest : public BrowserWithTestWindowTest {
+class ContextualTasksPageHandlerTest : public ChromeRenderViewHostTestHarness {
  public:
   void SetUp() override {
     feature_list_.InitAndEnableFeature(kContextualTasksContextLibrary);
-    BrowserWithTestWindowTest::SetUp();
+    ChromeRenderViewHostTestHarness::SetUp();
+
+    profile_manager_ = std::make_unique<TestingProfileManager>(
+        TestingBrowserProcess::GetGlobal());
+    ASSERT_TRUE(profile_manager_->SetUp());
 
     ContextualTasksServiceFactory::GetInstance()->SetTestingFactory(
         profile(), base::BindOnce([](content::BrowserContext* context) {
@@ -156,9 +108,11 @@ class ContextualTasksPageHandlerTest : public BrowserWithTestWindowTest {
                   ContextualTasksServiceFactory::GetForProfile(profile)));
         }));
 
-    web_contents_ = content::WebContents::Create(
-        content::WebContents::CreateParams(profile()));
-    web_ui_.set_web_contents(web_contents_.get());
+    mock_panel_controller_ =
+        std::make_unique<NiceMock<MockContextualTasksPanelController>>();
+
+    web_ui_.set_web_contents(web_contents());
+
     contextual_tasks_ui_ =
         std::make_unique<NiceMock<TestContextualTasksUI>>(&web_ui_);
 
@@ -175,28 +129,35 @@ class ContextualTasksPageHandlerTest : public BrowserWithTestWindowTest {
 
     page_handler_ = std::make_unique<ContextualTasksPageHandler>(
         mojo::PendingReceiver<mojom::PageHandler>(), contextual_tasks_ui_.get(),
-        mock_contextual_tasks_ui_service_, mock_contextual_tasks_service_);
+        mock_contextual_tasks_ui_service_, mock_contextual_tasks_service_,
+        mock_panel_controller_.get());
     page_handler_->set_skip_feedback_ui_for_testing(true);
   }
 
   void TearDown() override {
     page_handler_.reset();
     contextual_tasks_ui_.reset();
-    web_contents_.reset();
+    webui::SetBrowserWindowInterface(web_contents(), nullptr);
+    mock_panel_controller_.reset();
     mock_contextual_tasks_service_ = nullptr;
     mock_contextual_tasks_ui_service_ = nullptr;
-    BrowserWithTestWindowTest::TearDown();
+    profile_manager_.reset();
+    ChromeRenderViewHostTestHarness::TearDown();
   }
 
  protected:
   content::TestWebUI web_ui_;
-  std::unique_ptr<content::WebContents> web_contents_;
+  ui::UnownedUserDataHost unowned_user_data_host_;
+  std::unique_ptr<MockContextualTasksPanelController> mock_panel_controller_;
   std::unique_ptr<NiceMock<TestContextualTasksUI>> contextual_tasks_ui_;
   std::unique_ptr<ContextualTasksPageHandler> page_handler_;
   raw_ptr<MockContextualTasksService> mock_contextual_tasks_service_;
   raw_ptr<MockContextualTasksUiService> mock_contextual_tasks_ui_service_;
-  NiceMock<MockPage> page_;
+  NiceMock<MockContextualTasksPage> page_;
   base::test::ScopedFeatureList feature_list_;
+  std::unique_ptr<TestingProfileManager> profile_manager_;
+  variations::test::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
+      variations::VariationsIdsProvider::Mode::kUseSignedInState};
 };
 
 TEST_F(ContextualTasksPageHandlerTest, IsPendingErrorPage) {
@@ -401,8 +362,8 @@ TEST_F(ContextualTasksPageHandlerTest,
   update_params->set_margin_bottom(INT32_MAX);
   auto composebox_position =
       contextual_tasks::InputPlateConfigToMojo(*update_params);
-  EXPECT_EQ(composebox_position->max_width, INT32_MAX);
-  EXPECT_EQ(composebox_position->max_height, INT32_MAX);
+  EXPECT_EQ(composebox_position->max_width, static_cast<uint32_t>(INT32_MAX));
+  EXPECT_EQ(composebox_position->max_height, static_cast<uint32_t>(INT32_MAX));
   EXPECT_EQ(composebox_position->margin_left, INT32_MAX);
   EXPECT_EQ(composebox_position->margin_bottom, INT32_MAX);
 }
@@ -418,8 +379,8 @@ TEST_F(ContextualTasksPageHandlerTest,
   update_params->set_margin_bottom(INT32_MIN);
   auto composebox_position =
       contextual_tasks::InputPlateConfigToMojo(*update_params);
-  EXPECT_EQ(composebox_position->max_width, 0);
-  EXPECT_EQ(composebox_position->max_height, 0);
+  EXPECT_EQ(composebox_position->max_width, 0u);
+  EXPECT_EQ(composebox_position->max_height, 0u);
   EXPECT_EQ(composebox_position->margin_left, INT32_MIN);
   EXPECT_EQ(composebox_position->margin_bottom, INT32_MIN);
 }
@@ -488,7 +449,7 @@ TEST_F(ContextualTasksPageHandlerTest,
   EXPECT_CALL(page_,
               UpdateComposeboxPosition(testing::Pointee(testing::AllOf(
                   testing::Field(&mojom::ComposeboxPosition::max_width,
-                                 testing::Optional(0)),
+                                 testing::Optional(0u)),
                   testing::Field(&mojom::ComposeboxPosition::max_height,
                                  testing::Eq(std::nullopt)),
                   testing::Field(&mojom::ComposeboxPosition::margin_bottom,
@@ -559,9 +520,7 @@ TEST_F(ContextualTasksPageHandlerTest, IsShownInTab) {
 }
 
 TEST_F(ContextualTasksPageHandlerTest, CloseSidePanel) {
-  // CloseSidePanel calls contextual_tasks_ui_->CloseSidePanel().
-  // We can't easily check side panel state here, but we can verify it doesn't
-  // crash.
+  EXPECT_CALL(*mock_panel_controller_, Close()).Times(1);
   page_handler_->CloseSidePanel();
 }
 
@@ -590,7 +549,8 @@ TEST_F(ContextualTasksPageHandlerTest, PinSidePanel) {
 
   page_handler_ = std::make_unique<ContextualTasksPageHandler>(
       mojo::PendingReceiver<mojom::PageHandler>(), contextual_tasks_ui_.get(),
-      mock_contextual_tasks_ui_service_, mock_contextual_tasks_service_);
+      mock_contextual_tasks_ui_service_, mock_contextual_tasks_service_,
+      mock_panel_controller_.get());
   page_handler_->set_skip_feedback_ui_for_testing(true);
   // Set default to false for testing, as the default registered value is true.
   profile()->GetPrefs()->SetBoolean(prefs::kPinContextualTaskButton, false);
@@ -756,17 +716,17 @@ TEST_F(ContextualTasksPageHandlerTest,
 }
 
 TEST_F(ContextualTasksPageHandlerTest, OpenMyActivityUi) {
-  // Smoke test to ensure it doesn't crash.
+  // Navigation smoke test. We provide a null browser to safely exit early
+  // and avoid crashes in Navigate() which requires a full TabStripModel.
+  EXPECT_CALL(*contextual_tasks_ui_, GetBrowser()).WillOnce(Return(nullptr));
   page_handler_->OpenMyActivityUi();
 }
 
-TEST_F(ContextualTasksPageHandlerTest, OpenFeedbackUi) {
-  // Smoke test to ensure it doesn't crash.
-  page_handler_->OpenFeedbackUi();
-}
+
 
 TEST_F(ContextualTasksPageHandlerTest, OpenOnboardingHelpUi) {
-  // Smoke test to ensure it doesn't crash.
+  // Navigation smoke test.
+  EXPECT_CALL(*contextual_tasks_ui_, GetBrowser()).WillOnce(Return(nullptr));
   page_handler_->OpenOnboardingHelpUi();
 }
 
@@ -981,7 +941,8 @@ TEST_F(ContextualTasksPageHandlerTest, PrefChangeNotification) {
   // Recreate page_handler_ to pick up the feature flag.
   page_handler_ = std::make_unique<ContextualTasksPageHandler>(
       mojo::PendingReceiver<mojom::PageHandler>(), contextual_tasks_ui_.get(),
-      mock_contextual_tasks_ui_service_, mock_contextual_tasks_service_);
+      mock_contextual_tasks_ui_service_, mock_contextual_tasks_service_,
+      mock_panel_controller_.get());
   page_handler_->set_skip_feedback_ui_for_testing(true);
 
   base::RunLoop run_loop;
@@ -990,6 +951,108 @@ TEST_F(ContextualTasksPageHandlerTest, PrefChangeNotification) {
 
   profile()->GetPrefs()->SetBoolean(prefs::kPinContextualTaskButton, true);
 
+  run_loop.Run();
+}
+
+TEST_F(ContextualTasksPageHandlerTest,
+       OnReceivedInjectInput_OverridesExisting) {
+  // Setup mocks.
+  NiceMock<contextual_search::MockContextualSearchSessionHandle>
+      mock_session_handle;
+  NiceMock<contextual_search::MockContextualSearchContextController>
+      mock_controller;
+
+  ON_CALL(mock_session_handle, GetController())
+      .WillByDefault(Return(&mock_controller));
+  ON_CALL(*contextual_tasks_ui_, GetOrCreateContextualSessionHandle())
+      .WillByDefault(Return(&mock_session_handle));
+
+  // Register pre-existing active token.
+  base::UnguessableToken old_token = base::UnguessableToken::Create();
+  mock_session_handle.GetUploadedContextTokensForTesting().push_back(old_token);
+
+  // Mock corresponding file info mapping to "target_id".
+  contextual_search::FileInfo old_file_info;
+  old_file_info.input_data = std::make_unique<lens::ContextualInputData>();
+  old_file_info.input_data->modality_chip_props = lens::ModalityChipProps();
+  old_file_info.input_data->modality_chip_props->set_id("target_id");
+
+  ON_CALL(mock_controller, GetFileInfo(old_token))
+      .WillByDefault(Return(&old_file_info));
+
+  // Action prep: Pack the inject request into full AimToClientMessage
+  // container.
+  lens::AimToClientMessage container;
+  auto* input_proto = container.mutable_inject_input();
+  input_proto->mutable_modality()->set_id("target_id");
+  input_proto->mutable_modality()->set_title("New Title");
+
+  size_t size = container.ByteSizeLong();
+  std::vector<uint8_t> serialized(size);
+  container.SerializeToArray(serialized.data(), size);
+
+  // 1. Verification: Should synchronously drop the OLD token.
+  EXPECT_CALL(mock_controller, DeleteFile(old_token)).WillOnce(Return(true));
+  EXPECT_CALL(page_, RemoveInjectedInput(old_token)).Times(1);
+
+  // 2. Verification: Should instantiate unique NEW token.
+  base::UnguessableToken new_token = base::UnguessableToken::Create();
+  EXPECT_CALL(mock_session_handle, CreateContextToken())
+      .WillOnce(Return(new_token));
+
+  // 3. Verification: Should successfully pipe NEW injection command to UI.
+  base::RunLoop run_loop;
+  EXPECT_CALL(page_, InjectInput(_))
+      .WillOnce([&run_loop, new_token](mojom::InjectedInputPtr mojo_input) {
+        EXPECT_EQ(mojo_input->file_token, new_token);
+        run_loop.Quit();
+      });
+
+  page_handler_->OnWebviewMessage(serialized);
+  run_loop.Run();
+}
+
+TEST_F(ContextualTasksPageHandlerTest,
+       OnReceivedRemoveInjectedInput_SynchronousDelete) {
+  NiceMock<contextual_search::MockContextualSearchSessionHandle>
+      mock_session_handle;
+  NiceMock<contextual_search::MockContextualSearchContextController>
+      mock_controller;
+
+  ON_CALL(mock_session_handle, GetController())
+      .WillByDefault(Return(&mock_controller));
+  ON_CALL(*contextual_tasks_ui_, GetOrCreateContextualSessionHandle())
+      .WillByDefault(Return(&mock_session_handle));
+
+  base::UnguessableToken target_token = base::UnguessableToken::Create();
+  mock_session_handle.GetUploadedContextTokensForTesting().push_back(
+      target_token);
+
+  contextual_search::FileInfo file_info;
+  file_info.input_data = std::make_unique<lens::ContextualInputData>();
+  file_info.input_data->modality_chip_props = lens::ModalityChipProps();
+  file_info.input_data->modality_chip_props->set_id("removable_id");
+
+  ON_CALL(mock_controller, GetFileInfo(target_token))
+      .WillByDefault(Return(&file_info));
+
+  // Verify synchronous remove flow.
+  EXPECT_CALL(mock_controller, DeleteFile(target_token)).WillOnce(Return(true));
+  base::RunLoop run_loop;
+  EXPECT_CALL(page_, RemoveInjectedInput(target_token))
+      .WillOnce([&run_loop](const base::UnguessableToken& token) {
+        run_loop.Quit();
+      });
+
+  // Action prep: Pack and route via the public interface.
+  lens::AimToClientMessage container;
+  container.mutable_remove_injected_input()->set_id("removable_id");
+
+  size_t size = container.ByteSizeLong();
+  std::vector<uint8_t> serialized(size);
+  container.SerializeToArray(serialized.data(), size);
+
+  page_handler_->OnWebviewMessage(serialized);
   run_loop.Run();
 }
 

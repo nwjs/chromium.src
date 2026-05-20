@@ -114,6 +114,7 @@
 #include "components/crash/core/common/crash_key.h"
 #include "components/embedder_support/origin_trials/origin_trials_settings_storage.h"
 #include "components/gcm_driver/gcm_driver.h"
+#include "components/javascript_dialogs/app_modal_dialog_queue.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/metrics/metrics_pref_names.h"
@@ -182,6 +183,7 @@
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_CHROMEOS)
+#include "ash/constants/ash_pref_names.h"
 #include "chrome/browser/media_galleries/media_file_system_registry.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/soda/soda_installer_impl_chromeos.h"
@@ -231,7 +233,7 @@ void OnLocalStatePrefsLoaded();
 #include "chrome/browser/apps/platform_apps/chrome_apps_browser_api_provider.h"
 #include "chrome/browser/ui/apps/chrome_app_window_client.h"
 #include "chrome/common/extensions/chrome_extensions_client.h"
-#include "components/storage_monitor/storage_monitor.h"
+#include "components/storage_monitor/storage_monitor.h"  // nogncheck crbug.com/40147906
 #include "extensions/common/context_data.h"
 #include "extensions/common/extension_l10n_util.h"
 #endif
@@ -325,9 +327,12 @@ BrowserProcessImpl::BrowserProcessImpl(StartupData* startup_data)
 #endif
       platform_part_(std::make_unique<BrowserProcessPlatformPart>()),
       network_time_tracker_(startup_data->chrome_feature_list_creator()
-                                ->TakeNetworkTimeTracker()) {
+                                ->TakeNetworkTimeTracker()),
+      features_(GlobalFeatures::CreateGlobalFeatures()) {
   CHECK(!g_browser_process);
   g_browser_process = this;
+
+  features_->Init();
 
   DCHECK(browser_policy_connector_);
   DCHECK(local_state_);
@@ -350,9 +355,6 @@ const ui::UnownedUserDataHost& BrowserProcessImpl::GetUnownedUserDataHost()
 }
 
 void BrowserProcessImpl::Init() {
-  features_ = GlobalFeatures::CreateGlobalFeatures();
-  features_->PreBrowserProcessInit();
-
 #if BUILDFLAG(IS_ANDROID)
   device_parental_controls_->Init();
 #endif
@@ -686,7 +688,7 @@ void BrowserProcessImpl::StartTearDown() {
   sessions::SessionIdGenerator::GetInstance()->Shutdown();
 
   // Resetting the status tray will result in calls to
-  // |g_browser_process->local_state()|. See crbug.com/1187418
+  // |g_browser_process->local_state()|. See crbug.com/40754301
   status_tray_.reset();
 
   local_state_->CommitPendingWrite();
@@ -855,7 +857,8 @@ void BrowserProcessImpl::EndSession() {
     // writing the updated prefs to disk, so schedule a Local State write now.
     //
     // Do not schedule a write on ChromeOS because writing to disk multiple
-    // times during shutdown was causing shutdown problems. See crbug/302578.
+    // times during shutdown was causing shutdown problems. See
+    // crbug.com/41062061.
     local_state_->CommitPendingWrite(base::OnceClosure(),
                                      rundown_counter->GetRundownClosure());
 #endif
@@ -1086,7 +1089,8 @@ bool BrowserProcessImpl::IsShuttingDown() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // TODO (crbug.com/41222012): Fix the tests that make the check of
   // |tearing_down_| necessary here.
-  // TODO (crbug/1155597): Maybe use browser_shutdown::HasShutdownStarted here.
+  // TODO (crbug.com/40160014): Maybe use browser_shutdown::HasShutdownStarted
+  // here.
   return shutting_down_ || tearing_down_;
 }
 
@@ -1233,9 +1237,21 @@ HidSystemTrayIcon* BrowserProcessImpl::hid_system_tray_icon() {
   return hid_system_tray_icon_.get();
 }
 
+void BrowserProcessImpl::set_hid_system_tray_icon_for_test(
+    std::unique_ptr<HidSystemTrayIcon> icon) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  hid_system_tray_icon_ = std::move(icon);
+}
+
 UsbSystemTrayIcon* BrowserProcessImpl::usb_system_tray_icon() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return usb_system_tray_icon_.get();
+}
+
+void BrowserProcessImpl::set_usb_system_tray_icon_for_test(
+    std::unique_ptr<UsbSystemTrayIcon> icon) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  usb_system_tray_icon_ = std::move(icon);
 }
 #endif
 
@@ -1283,19 +1299,15 @@ void BrowserProcessImpl::RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterStringPref(language::prefs::kApplicationLocale,
                                std::string());
 #if BUILDFLAG(IS_CHROMEOS)
-  registry->RegisterStringPref(prefs::kOwnerLocale, std::string());
-  registry->RegisterStringPref(prefs::kHardwareKeyboardLayout, std::string());
+  registry->RegisterStringPref(ash::prefs::kOwnerLocale, std::string());
+  registry->RegisterStringPref(ash::prefs::kHardwareKeyboardLayout,
+                               std::string());
   registry->RegisterBooleanPref(
       password_manager::prefs::kPinAuthenticationAvailableOnChromeOS, false);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   registry->RegisterBooleanPref(metrics::prefs::kMetricsReportingEnabled,
                                 GoogleUpdateSettings::GetCollectStatsConsent());
-  registry->RegisterIntegerPref(
-      metrics::prefs::kMetricsReportingLevel,
-      static_cast<int>(GoogleUpdateSettings::GetMetricsReportingLevel()));
-  registry->RegisterBooleanPref(metrics::prefs::kMetricsReportingMigrationDone,
-                                false);
   registry->RegisterBooleanPref(prefs::kDevToolsRemoteDebuggingAllowed, true);
   registry->RegisterBooleanPref(prefs::kDevToolsRemoteDebuggingEnabled, false);
 
@@ -1523,8 +1535,7 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
 
   // OSCryptAsync provider configuration. This must run before
   // `browser_policy_connector_` initialization since implementations like
-  // BrowserPolicyConnectorAsh require an OSCryptAsync. If empty, this delegates
-  // all encryption operations to OSCrypt.
+  // BrowserPolicyConnectorAsh require an OSCryptAsync.
   std::vector<std::pair<size_t, std::unique_ptr<os_crypt_async::KeyProvider>>>
       providers;
 
@@ -1537,8 +1548,8 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
   }
 
 #if BUILDFLAG(IS_WIN)
-  // The DPAPI key provider requires OSCrypt::Init to have already been called
-  // to initialize the key storage. This happens in
+  // The DPAPI key provider requires os_crypt_async::Init to have already been
+  // called to initialize the key storage. This happens in
   // ChromeBrowserMainPartsWin::PreCreateMainMessageLoop.
   providers.emplace_back(std::make_pair(
       /*precedence=*/10u,
@@ -1855,6 +1866,8 @@ void BrowserProcessImpl::Unpin() {
 
   DCHECK(!shutting_down_);
   shutting_down_ = true;
+
+  javascript_dialogs::AppModalDialogQueue::GetInstance()->CancelAllDialogs();
 
 #if !BUILDFLAG(IS_ANDROID)
   KeepAliveRegistry::GetInstance()->SetIsShuttingDown();

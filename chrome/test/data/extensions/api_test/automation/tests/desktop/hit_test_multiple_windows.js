@@ -12,15 +12,16 @@ const allTests = [
     const desktop =
         await new Promise(resolve => chrome.automation.getDesktop(resolve));
     chrome.windows.create({url: url1, focused: true});
-    const button1 = await new Promise(
-        resolve => {desktop.addEventListener(
-            chrome.automation.EventType.LOAD_COMPLETE, (event) => {
-              const button = desktop.find(
-                  {attributes: {name: 'Click Me', role: 'button'}});
-              if (button) {
-                resolve(button);
-              }
-            })});
+    const button1 = await new Promise(resolve => {
+      desktop.addEventListener(
+          chrome.automation.EventType.LOAD_COMPLETE, (event) => {
+            const button =
+                desktop.find({attributes: {name: 'Click Me', role: 'button'}});
+            if (button) {
+              resolve(button);
+            }
+          });
+    });
 
     const hitButton1 = await new Promise(
         resolve => desktop.hitTestWithReply(
@@ -53,8 +54,8 @@ const allTests = [
 
     // Note that the hit test might return either a static text or the button.
     chrome.test.assertTrue(
-        hitButton2.role == chrome.automation.RoleType.BUTTON ||
-        hitButton2.role == chrome.automation.RoleType.STATIC_TEXT);
+        hitButton2.role === chrome.automation.RoleType.BUTTON ||
+        hitButton2.role === chrome.automation.RoleType.STATIC_TEXT);
     chrome.test.succeed();
   },
 ];

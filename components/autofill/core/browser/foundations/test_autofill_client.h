@@ -22,6 +22,7 @@
 #include "base/notreached.h"
 #include "base/scoped_observation.h"
 #include "build/build_config.h"
+#include "components/accessibility_annotator/core/accessibility_annotator_types.h"
 #include "components/accessibility_annotator/core/accessibility_query_service.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_manager.h"
@@ -42,7 +43,6 @@
 #include "components/autofill/core/browser/integrators/one_time_tokens/otp_phish_guard_delegate.h"
 #include "components/autofill/core/browser/integrators/optimization_guide/mock_autofill_optimization_guide_decider.h"
 #include "components/autofill/core/browser/integrators/password_manager/password_manager_delegate.h"
-#include "components/autofill/core/browser/integrators/plus_addresses/autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/logging/log_router.h"
 #include "components/autofill/core/browser/logging/text_log_receiver.h"
@@ -69,6 +69,7 @@
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/consent_auditor/fake_consent_auditor.h"
 #include "components/device_reauth/mock_device_authenticator.h"
+#include "components/metrics/profile_metrics_service.h"
 #include "components/one_time_tokens/core/browser/one_time_token_service_impl.h"
 #include "components/one_time_tokens/core/browser/sms_otp_backend.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
@@ -206,13 +207,19 @@ class TestAutofillClientTemplate : public T {
     return &mock_autocomplete_history_manager_;
   }
 
-  AutofillPlusAddressDelegate* GetPlusAddressDelegate() override {
-    return plus_address_delegate_.get();
-  }
-
   accessibility_annotator::AccessibilityQueryService*
   GetAccessibilityQueryService() override {
     return accessibility_query_service_.get();
+  }
+
+  accessibility_annotator::RemoteAnnotatorEnablementState
+  GetAccessibilityAnnotatorEnablementState() const override {
+    return accessibility_annotator_enablement_state_;
+  }
+
+  void set_accessibility_annotator_enablement_state(
+      accessibility_annotator::RemoteAnnotatorEnablementState state) {
+    accessibility_annotator_enablement_state_ = state;
   }
 
   IdentityCredentialDelegate* GetIdentityCredentialDelegate() override {
@@ -225,9 +232,6 @@ class TestAutofillClientTemplate : public T {
   }
 
   test::AutofillTestingPrefService* GetPrefs() override {
-    if (!prefs_) {
-      prefs_ = autofill::test::PrefServiceForTesting();
-    }
     return prefs_.get();
   }
 
@@ -246,6 +250,10 @@ class TestAutofillClientTemplate : public T {
     return identity_test_env_.identity_manager();
   }
 
+  metrics::ProfileMetricsService* GetProfileMetricsService() override {
+    return &test_profile_metrics_service_;
+  }
+
   FormDataImporter* GetFormDataImporter() override {
     if (!form_data_importer_) {
       form_data_importer_ = std::make_unique<FormDataImporter>(
@@ -256,10 +264,6 @@ class TestAutofillClientTemplate : public T {
   }
 
   payments::TestPaymentsAutofillClient* GetPaymentsAutofillClient() override {
-    if (!payments_autofill_client_) {
-      payments_autofill_client_ =
-          std::make_unique<payments::TestPaymentsAutofillClient>(this);
-    }
     return payments_autofill_client_.get();
   }
 
@@ -332,7 +336,8 @@ class TestAutofillClientTemplate : public T {
       base::WeakPtr<AutofillSuggestionDelegate> delegate) override {
     is_showing_popup_ = true;
     static AutofillClient::SuggestionUiSessionId::Generator generator;
-    return generator.GenerateNextId();
+    suggestion_ui_session_id_ = generator.GenerateNextId();
+    return *suggestion_ui_session_id_;
   }
 
   void UpdateAutofillDataListValues(
@@ -360,6 +365,7 @@ class TestAutofillClientTemplate : public T {
   void HideAutofillSuggestions(SuggestionHidingReason reason) override {
     popup_hidden_reason_ = reason;
     is_showing_popup_ = false;
+    suggestion_ui_session_id_.reset();
   }
 
   bool IsShowingAutofillPopup() { return is_showing_popup_; }
@@ -471,10 +477,6 @@ class TestAutofillClientTemplate : public T {
 
   base::span<const AutofillProfile> GetTestAddresses() const override {
     return test_addresses_;
-  }
-
-  void SetPrefs(std::unique_ptr<test::AutofillTestingPrefService> prefs) {
-    prefs_ = std::move(prefs);
   }
 
   void SetAutofillProfileEnabled(bool autofill_profile_enabled) {
@@ -619,11 +621,6 @@ class TestAutofillClientTemplate : public T {
     test_shared_loader_factory_ = url_loader_factory;
   }
 
-  void set_plus_address_delegate(
-      std::unique_ptr<AutofillPlusAddressDelegate> plus_address_delegate) {
-    plus_address_delegate_ = std::move(plus_address_delegate);
-  }
-
   void set_accessibility_query_service(
       std::unique_ptr<accessibility_annotator::AccessibilityQueryService>
           accessibility_query_service) {
@@ -692,11 +689,15 @@ class TestAutofillClientTemplate : public T {
  private:
   ukm::TestAutoSetUkmRecorder test_ukm_recorder_;
   signin::IdentityTestEnvironment identity_test_env_;
+  metrics::ProfileMetricsService test_profile_metrics_service_{
+      metrics::ProfileMetricsContext(1)};
   raw_ptr<syncer::SyncService> test_sync_service_ = nullptr;
   std::unique_ptr<OtpPhishGuardDelegate> otp_phish_guard_delegate_;
-  std::unique_ptr<AutofillPlusAddressDelegate> plus_address_delegate_;
   std::unique_ptr<accessibility_annotator::AccessibilityQueryService>
       accessibility_query_service_;
+  accessibility_annotator::RemoteAnnotatorEnablementState
+      accessibility_annotator_enablement_state_ =
+          accessibility_annotator::RemoteAnnotatorEnablementState::kEnabled;
   std::unique_ptr<IdentityCredentialDelegate> identity_credential_delegate_;
   std::unique_ptr<PasswordManagerDelegate> password_manager_delegate_;
   TestAddressNormalizer test_address_normalizer_;
@@ -722,8 +723,8 @@ class TestAutofillClientTemplate : public T {
   bool autofill_profile_enabled_ = true;
   bool wallet_public_pass_storage_enabled_ = true;
 
-  // NULL by default.
-  std::unique_ptr<test::AutofillTestingPrefService> prefs_;
+  std::unique_ptr<test::AutofillTestingPrefService> prefs_ =
+      autofill::test::PrefServiceForTesting();
   std::unique_ptr<TestStrikeDatabase> test_strike_database_;
 
   std::unique_ptr<TestPersonalDataManager> test_personal_data_manager_;
@@ -733,7 +734,8 @@ class TestAutofillClientTemplate : public T {
   // The below objects must be destroyed before `TestPersonalDataManager`
   // because they keep a reference to it.
   std::unique_ptr<payments::TestPaymentsAutofillClient>
-      payments_autofill_client_;
+      payments_autofill_client_ =
+          std::make_unique<payments::TestPaymentsAutofillClient>(this);
   std::unique_ptr<SingleFieldFillRouter> single_field_fill_router_;
   std::unique_ptr<FormDataImporter> form_data_importer_;
   std::unique_ptr<WalletPassAccessManager> wallet_pass_access_manager_;

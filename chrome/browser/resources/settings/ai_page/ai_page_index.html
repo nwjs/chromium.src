@@ -15,6 +15,12 @@
     show-all$="[[shouldShowAll]]">
   <settings-ai-info-card slot="view" id="aiInfoCard"></settings-ai-info-card>
 
+  <template is="dom-if" if="[[enableAiModeSearchSetting_]]">
+    <settings-ai-mode-search-page slot="view" id="aiModeSearch"
+        prefs="{{prefs}}">
+    </settings-ai-mode-search-page>
+  </template>
+
   <template is="dom-if" if="[[showGlicSettings_]]">
     <settings-glic-page slot="view" id="glic" prefs="{{prefs}}">
     </settings-glic-page>
@@ -46,17 +52,17 @@
     </settings-history-search-page>
   </template>
 
-  <template is="dom-if" if="[[enableAiModeSearchSetting_]]">
-    <settings-ai-mode-search-page slot="view" id="aiModeSearch"
-        data-parent-view-id="parent" prefs="{{prefs}}"
-        route-path$="[[routes_.AI_MODE_SEARCH.path]]">
-    </settings-ai-mode-search-page>
-  </template>
-
   <template is="dom-if" if="[[showComposeControl_]]">
     <settings-offer-writing-help-page slot="view" id="compose"
         data-parent-view-id="parent" prefs="{{prefs}}"
         route-path$="[[routes_.OFFER_WRITING_HELP.path]]">
     </settings-offer-writing-help-page>
+  </template>
+
+  <template is="dom-if" if="[[showAiSuggestionsControl_]]">
+    <settings-ai-suggestions-page slot="view" id="aiSuggestions"
+        data-parent-view-id="parent" prefs="{{prefs}}"
+        route-path$="[[routes_.AI_SUGGESTIONS.path]]">
+    </settings-ai-suggestions-page>
   </template>
 </cr-view-manager>

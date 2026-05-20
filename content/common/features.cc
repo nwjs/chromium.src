@@ -13,6 +13,14 @@ namespace features {
 
 // Please keep features in alphabetical order.
 
+#if BUILDFLAG(IS_ANDROID)
+// When enabled, fires CONTENT_CHANGE_TYPE_CONTENT_INVALID events to Android
+// when aria-invalid is true.
+// TODO(crbug.com/500812737): Remove killswitch after stability period.
+BASE_FEATURE(kAccessibilityAriaInvalidAndErrorMessage,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 // When enabled, Android events will include more metadata about the incoming
 // events.
 BASE_FEATURE(kAccessibilityExpandEventMetadata,
@@ -37,9 +45,6 @@ BASE_FEATURE(kAndroidDesktopStyleScrollbars, base::FEATURE_DISABLED_BY_DEFAULT);
 // the service implemented on the Java side.
 BASE_FEATURE(kAndroidDownloadableFontsMatching,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Adds OOPIF support for android drag and drop.
-BASE_FEATURE(kAndroidDragDropOopif, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)
 // Flag guard for Windows Arabic Indic digit input solution.
@@ -122,10 +127,6 @@ BASE_FEATURE(kBeforeUnloadBrowserResponseQueue,
 BASE_FEATURE(kHidePastePopupOnGSB, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-// Holdback the removal of debug reason strings in crrev.com/c/6312375
-// to measure the impact.
-BASE_FEATURE(kHoldbackDebugReasonStringRemoval,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_MAC)
 BASE_FEATURE(kCancelCompositionWhenWindowLosesFocus,
@@ -199,10 +200,6 @@ BASE_FEATURE(kDocumentIsolationPolicyWithoutSiteIsolation,
 
 // Enable document policy negotiation mechanism.
 BASE_FEATURE(kDocumentPolicyNegotiation, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, DumpWithoutCrashing() is called if a renderer process provides
-// invalid (non-allowlisted) headers in a navigation request.
-BASE_FEATURE(kDumpOnInvalidNavigationHeaders, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, DumpWithoutCrashing() is called if a renderer process provides
 // an Origin header on a navigation request that doesn't match the expected
@@ -367,11 +364,6 @@ bool IsFontDataServiceEnabled() {
 }
 #endif
 
-// Enables fixes for matching src: local() for web fonts correctly against full
-// font name or postscript name. Rolling out behind a flag, as enabling this
-// enables a font indexer on Android which we need to test in the field first.
-BASE_FEATURE(kFontSrcLocalMatching, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Whether to use the Frame Routing Cache to avoid synchronous IPCs from the
 // renderer side for iframe creation.
 BASE_FEATURE(kFrameRoutingCache, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -419,6 +411,10 @@ BASE_FEATURE(kIOSurfaceCapturer, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, child process will not terminate itself when IPC is reset.
 BASE_FEATURE(kKeepChildProcessAfterIPCReset, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, the renderer process will be killed if it provides
+// invalid (non-allowlisted) headers in a navigation request.
+BASE_FEATURE(kKillOnInvalidNavigationHeaders, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables Local Network Access checks for all types of web workers.
 //
@@ -498,12 +494,6 @@ BASE_FEATURE(kLocalNetworkAccessForFencedFrameNavigations,
 BASE_FEATURE(kLocalNetworkAccessForFencedFrameNavigationsWarningOnly,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables enhanced security checks for direct sockets.
-// This includes checking local/loopback network policies and prompting
-// in unmanaged Isolated Web Apps (IWAs).
-BASE_FEATURE(kLocalNetworkAccessPromptDirectSockets,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, allows the ReusePrerenderingProcessForMainFrames feature
 // and the ProcessPerSiteUpToMainFrameThreshold feature to reuse processes
 // even when DevTools was ever attached.
@@ -547,11 +537,6 @@ BASE_FEATURE_PARAM(size_t,
                    &kMultipleSpareRPHs,
                    "count",
                    1u);
-
-// When enabled, NavigationThrottleRegistry will cache attribute query results
-// for the next same query. See https://crbug.com/424460302.
-BASE_FEATURE(kNavigationThrottleRegistryAttributeCache,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, NavigationThrottleRunner2 is used instead of the original
 // NavigationThrottleRunner. See https://crbug.com/422003056.
@@ -644,6 +629,13 @@ BASE_FEATURE(kRendererCancellationThrottleImprovements,
 BASE_FEATURE(kResumeNavigationWithSpeculativeRFHProcessGone,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, the browser will try to swap to a new SiteInstance if there is
+// an existing warm (pending, committed, or delayed shutdown) renderer process
+// locked to the destination site and when the current process is an empty
+// one (like the NTP) and would normally be reused for same-site navigations
+// under partial site isolation.
+BASE_FEATURE(kPreferWarmRendererProcess, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, try to reuse any same-site process that is hosting
 // only prerendered frames for main-frame navigations.
 BASE_FEATURE(kReusePrerenderingProcessForMainFrames,
@@ -667,6 +659,14 @@ BASE_FEATURE(kRemoveCachedProcessFromBindingManager,
 // Fix for scrolling to focused editable input fields after tapping to show the
 // on-screen keyboard (crbug.com/462636368).
 #if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kSandboxedProcessServiceLimitOnAndroid,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(int,
+                   kSandboxedProcessServiceLimitOnAndroidCount,
+                   &kSandboxedProcessServiceLimitOnAndroid,
+                   "count",
+                   98);
+
 BASE_FEATURE(kScrollAfterOSKViewportShrinkFix,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
@@ -709,6 +709,11 @@ BASE_FEATURE(kServiceWorkerStaticRouterCORPCheck,
 BASE_FEATURE(kServiceWorkerStaticRouterOpaqueCheck,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// (crbug.com/497302265): When enabled, the main script response fetching is
+// consolidated into ServiceWorkerVersion.
+BASE_FEATURE(kServiceWorkerStaticRouterConsolidateMainScriptResponse,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // (crbug.com/1371756): When enabled, the static routing API starts
 // ServiceWorker when the routing result of a main resource request was network
 // fallback.
@@ -728,8 +733,18 @@ BASE_FEATURE(kServiceWorkerSuppressTimeoutWhenPaymentWindowOpen,
 BASE_FEATURE(kServiceWorkerClientUrlIsCreationUrl,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Kill switch for crbug.com/499449324.
+BASE_FEATURE(kServiceWorkerOptionalTimeoutIterator,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kServiceWorkerWindowClientInitiator,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, the browser process verifies that the URL of a main script
+// request matches the service worker's script URL.
+// See https://crbug.com/497983180.
+BASE_FEATURE(kServiceWorkerVerifyMainScriptUrl,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // (crbug.com/486495094): When enabled, triggers a soft update check after
 // functional events complete (spec step 8) and on worker start failure
@@ -741,6 +756,12 @@ BASE_FEATURE(kServiceWorkerSoftUpdateOnFunctionalEvent,
 // SharedWorker connection from its own authoritative ground truth
 // (PolicyContainerHost) instead of trusting the renderer-supplied parameter.
 BASE_FEATURE(kSharedWorkerSecureContextDerivationFromBrowser,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, SharedWorkers in a third-party context (e.g. created via the
+// Storage Access API) will correctly restrict SameSite cookies on WebSocket
+// connections.
+BASE_FEATURE(kRestrictSharedWorkerWebSocketCrossSiteCookies,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables skipping the early call to CommitPending when navigating away from a
@@ -768,13 +789,6 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    &kTextInputClient,
                    "ipc_timeout",
                    base::Milliseconds(1500));
-
-BASE_FEATURE(kTextInputClientUseNestedLoop, base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE_PARAM(bool,
-                   kTextInputClientNestedLoopEventMask,
-                   &kTextInputClientUseNestedLoop,
-                   "enable_event_mask",
-                   true);
 #endif
 
 // Allows swipe left/right from touchpad change browser navigation.

@@ -4,11 +4,22 @@
 
 #include "components/affiliations/core/browser/lookup_affiliation_response_parser.h"
 
+#include <optional>
+
 #include "base/containers/flat_set.h"
+#include "url/url_constants.h"
 
 namespace affiliations {
 
 namespace {
+
+std::optional<GURL> GetValidChangePasswordUrl(const std::string& url_spec) {
+  GURL url(url_spec);
+  if (url.is_valid() && url.SchemeIs(url::kHttpsScheme)) {
+    return url;
+  }
+  return std::nullopt;
+}
 
 // Template for the affiliation_pb message:
 // > affiliation_pb::Affiliation
@@ -29,8 +40,17 @@ std::vector<Facet> ParseFacets(const MessageT& response) {
           facet.branding_info().name(), GURL(facet.branding_info().icon_url())};
     }
     if (facet.has_change_password_info()) {
-      new_facet.change_password_url =
-          GURL(facet.change_password_info().change_password_url());
+      if (auto url = GetValidChangePasswordUrl(
+              facet.change_password_info().change_password_url())) {
+        new_facet.change_password_url = std::move(*url);
+      }
+      for (const auto& pattern : facet.change_password_info().patterns()) {
+        if (auto url =
+                GetValidChangePasswordUrl(pattern.change_password_url())) {
+          new_facet.change_password_patterns.push_back(
+              {pattern.url_pattern_re2(), std::move(*url)});
+        }
+      }
     }
     if (facet.has_main_domain()) {
       new_facet.main_domain = facet.main_domain();

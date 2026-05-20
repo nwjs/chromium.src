@@ -27,7 +27,8 @@
 #include "components/prefs/pref_service.h"
 #include "device_management_backend.pb.h"
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#include "extensions/buildflags/buildflags.h"
+#if (!BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_EXTENSIONS_CORE)) && !BUILDFLAG(IS_IOS)
 #include "components/policy/core/common/cloud/resource_cache.h"
 #endif
 
@@ -70,9 +71,9 @@ CloudPolicyManager::CloudPolicyManager(
             store_.get(),
             task_runner,
             std::move(network_connection_tracker_getter)) {
-#if !BUILDFLAG(ENABLE_EXTENSIONS)
+#if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   CHECK(!extension_install_store_.get());
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 }
 
 CloudPolicyManager::~CloudPolicyManager() = default;
@@ -131,6 +132,14 @@ void CloudPolicyManager::InitExtensionInstallPolicies(
   }
 }
 
+void CloudPolicyManager::DisconnectAndRemovePolicy() {
+  core_.Disconnect();
+  if (extension_install_core_) {
+    extension_install_core_->Disconnect();
+  }
+  ClearAndDestroyComponentCloudPolicyService();
+}
+
 void CloudPolicyManager::Init(SchemaRegistry* registry) {
   ConfigurationPolicyProvider::Init(registry);
 
@@ -187,17 +196,13 @@ void CloudPolicyManager::RefreshPolicies(PolicyFetchReason reason) {
     OnRefreshComplete(false);
     return;
   }
-  if (service()) {
-    service()->RefreshPolicy(
-        base::BindOnce(&CloudPolicyManager::OnRefreshComplete,
-                       base::Unretained(this)),
-        reason);
-  }
-  if (extension_install_service()) {
-    extension_install_service()->RefreshPolicy(
-        base::BindOnce(&CloudPolicyManager::OnRefreshComplete,
-                       base::Unretained(this)),
-        reason);
+  for (CloudPolicyService* service : services) {
+    if (service) {
+      service->RefreshPolicy(
+          base::BindOnce(&CloudPolicyManager::OnRefreshComplete,
+                         base::Unretained(this)),
+          reason);
+    }
   }
 }
 
@@ -225,11 +230,11 @@ bool CloudPolicyManager::CanPublishPolicy() const {
     return false;
   }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   if (!IsInitializationComplete(POLICY_DOMAIN_EXTENSION_INSTALL)) {
     return false;
   }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
   if (waiting_for_policy_refresh_count_ == 0) {
     return true;
@@ -272,13 +277,13 @@ void CloudPolicyManager::GetChromePolicy(PolicyMap* policy_map) {
 }
 
 void CloudPolicyManager::GetExtensionInstallPolicy(PolicyMap* policy_map) {
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   *policy_map = extension_install_store()
                     ? extension_install_store()->policy_map().Clone()
                     : PolicyMap();
 #else
   *policy_map = PolicyMap();
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 }
 
 void CloudPolicyManager::CreateComponentCloudPolicyService(
@@ -286,7 +291,7 @@ void CloudPolicyManager::CreateComponentCloudPolicyService(
     const base::FilePath& policy_cache_path,
     CloudPolicyClient* client,
     SchemaRegistry* schema_registry) {
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if (!BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_EXTENSIONS_CORE)) && !BUILDFLAG(IS_IOS)
   // Init() must have been called.
   CHECK(schema_registry);
   // Called at most once.
@@ -315,7 +320,7 @@ void CloudPolicyManager::CreateComponentCloudPolicyService(
 }
 
 void CloudPolicyManager::ClearAndDestroyComponentCloudPolicyService() {
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if (!BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_EXTENSIONS_CORE)) && !BUILDFLAG(IS_IOS)
   if (component_policy_service_) {
     component_policy_service_->ClearCache();
     component_policy_service_.reset();

@@ -21,11 +21,11 @@
 
 namespace {
 
-// TODO(crbug.com/471016915): Placeholder size. Replace with size provided from
-// Java.
-constexpr gfx::Size kActionIconSize = gfx::Size(40, 40);
+using base::android::ScopedJavaLocalRef;
 
-base::android::ScopedJavaLocalRef<jobject> ConvertToJavaBitmap(
+constexpr gfx::Size kActionIconSize = gfx::Size(24, 24);
+
+ScopedJavaLocalRef<jobject> ConvertToJavaBitmap(
     const ui::ImageModel& image_model) {
   if (image_model.IsEmpty() || !image_model.IsImage()) {
     return nullptr;
@@ -46,7 +46,7 @@ base::android::ScopedJavaLocalRef<jobject> ConvertToJavaBitmap(
 }
 
 // Returns a Java ExtensionsMenuTypes.ControlState object.
-base::android::ScopedJavaLocalRef<jobject> CreateJavaControlState(
+ScopedJavaLocalRef<jobject> CreateJavaControlState(
     JNIEnv* env,
     const ExtensionsMenuViewModel::ControlState& state) {
   auto state_icon_bitmap = ConvertToJavaBitmap(state.icon);
@@ -59,13 +59,14 @@ base::android::ScopedJavaLocalRef<jobject> CreateJavaControlState(
 
 namespace extensions {
 
-using base::android::ScopedJavaLocalRef;
 using PermissionsManager = extensions::PermissionsManager;
 
 ExtensionsMenuDelegateAndroid::ExtensionsMenuDelegateAndroid(
     BrowserWindowInterface* browser,
+    ExtensionsToolbarAndroid* toolbar_android,
     const base::android::JavaRef<jobject>& java_object)
     : browser_(browser),
+      toolbar_android_(toolbar_android),
       menu_model_(std::make_unique<ExtensionsMenuViewModel>(browser,
                                                             /*delegate=*/this)),
       java_object_(java_object) {
@@ -78,15 +79,46 @@ void ExtensionsMenuDelegateAndroid::Destroy(JNIEnv* env) {
   delete this;
 }
 
-base::android::ScopedJavaLocalRef<jobject>
-ExtensionsMenuDelegateAndroid::GetActionIcon(JNIEnv* env, int action_index) {
+void ExtensionsMenuDelegateAndroid::ExecuteAction(
+    JNIEnv* env,
+    const extensions::ExtensionId& extension_id) {
+  menu_model_->ExecuteAction(extension_id);
+}
+
+ScopedJavaLocalRef<jobject> ExtensionsMenuDelegateAndroid::GetActionIcon(
+    JNIEnv* env,
+    int action_index) {
   ui::ImageModel icon_model =
       menu_model_->GetActionIcon(action_index, kActionIconSize);
   return ConvertToJavaBitmap(icon_model);
 }
 
-base::android::ScopedJavaLocalRef<jobject>
-ExtensionsMenuDelegateAndroid::GetMenuEntry(JNIEnv* env, int action_index) {
+ScopedJavaLocalRef<jobject>
+ExtensionsMenuDelegateAndroid::GetExtensionSitePermissionsState(
+    JNIEnv* env,
+    const std::string& extension_id) {
+  ExtensionsMenuViewModel::ExtensionSitePermissionsState state =
+      menu_model_->GetExtensionSitePermissionsState(extension_id,
+                                                    kActionIconSize);
+
+  ScopedJavaLocalRef<jobject> j_on_click_option =
+      CreateJavaControlState(env, state.on_click_option);
+  ScopedJavaLocalRef<jobject> j_on_site_option =
+      CreateJavaControlState(env, state.on_site_option);
+  ScopedJavaLocalRef<jobject> j_on_all_sites_option =
+      CreateJavaControlState(env, state.on_all_sites_option);
+  ScopedJavaLocalRef<jobject> j_show_requests_toggle =
+      CreateJavaControlState(env, state.show_requests_toggle);
+
+  return extensions::Java_ExtensionSitePermissionsState_Constructor(
+      env, state.extension_name, ConvertToJavaBitmap(state.extension_icon),
+      j_on_click_option, j_on_site_option, j_on_all_sites_option,
+      j_show_requests_toggle);
+}
+
+ScopedJavaLocalRef<jobject> ExtensionsMenuDelegateAndroid::GetMenuEntry(
+    JNIEnv* env,
+    int action_index) {
   const auto& action_models = menu_model_->action_models();
   CHECK_GE(action_index, 0);
   CHECK_LT(static_cast<size_t>(action_index), action_models.size());
@@ -100,16 +132,17 @@ ExtensionsMenuDelegateAndroid::GetMenuEntry(JNIEnv* env, int action_index) {
       env, id, CreateJavaControlState(env, state.action_button),
       CreateJavaControlState(env, state.context_menu_button),
       CreateJavaControlState(env, state.site_access_toggle),
-      CreateJavaControlState(env, state.site_permissions_button));
+      CreateJavaControlState(env, state.site_permissions_button),
+      state.is_enterprise);
 }
 
 int ExtensionsMenuDelegateAndroid::GetOptionalSection(JNIEnv* env) {
   return static_cast<int>(menu_model_->GetOptionalSection());
 }
 
-std::vector<base::android::ScopedJavaLocalRef<jobject>>
+std::vector<ScopedJavaLocalRef<jobject>>
 ExtensionsMenuDelegateAndroid::GetHostAccessRequests(JNIEnv* env) {
-  std::vector<base::android::ScopedJavaLocalRef<jobject>> java_entries;
+  std::vector<ScopedJavaLocalRef<jobject>> java_entries;
 
   const auto& requests = menu_model_->host_access_requests();
   for (const auto& extension_id : requests) {
@@ -123,9 +156,9 @@ ExtensionsMenuDelegateAndroid::GetHostAccessRequests(JNIEnv* env) {
   return java_entries;
 }
 
-std::vector<base::android::ScopedJavaLocalRef<jobject>>
+std::vector<ScopedJavaLocalRef<jobject>>
 ExtensionsMenuDelegateAndroid::GetMenuEntries(JNIEnv* env) {
-  std::vector<base::android::ScopedJavaLocalRef<jobject>> java_entries;
+  std::vector<ScopedJavaLocalRef<jobject>> java_entries;
 
   for (size_t i = 0; i < menu_model_->action_models().size(); ++i) {
     java_entries.push_back(GetMenuEntry(env, i));
@@ -134,12 +167,12 @@ ExtensionsMenuDelegateAndroid::GetMenuEntries(JNIEnv* env) {
   return java_entries;
 }
 
-base::android::ScopedJavaLocalRef<jobject>
-ExtensionsMenuDelegateAndroid::GetSiteSettings(JNIEnv* env) {
+ScopedJavaLocalRef<jobject> ExtensionsMenuDelegateAndroid::GetSiteSettings(
+    JNIEnv* env) {
   ExtensionsMenuViewModel::SiteSettingsState site_settings_state =
       menu_model_->GetSiteSettingsState();
 
-  base::android::ScopedJavaLocalRef<jobject> j_toggle_state =
+  ScopedJavaLocalRef<jobject> j_toggle_state =
       CreateJavaControlState(env, site_settings_state.toggle);
 
   return extensions::Java_SiteSettingsState_Constructor(
@@ -154,11 +187,10 @@ bool ExtensionsMenuDelegateAndroid::IsReady(JNIEnv* env) {
 std::unique_ptr<ExtensionActionViewModel>
 ExtensionsMenuDelegateAndroid::CreateActionViewModel(
     const extensions::ExtensionId& extension_id) {
-  // TODO(crbug.com/461981075): Pass a `bridge` instance instead of a nullptr.
   return ExtensionActionViewModel::Create(
       extension_id, browser_,
       std::make_unique<ExtensionActionDelegateAndroid>(browser_, extension_id,
-                                                       nullptr));
+                                                       toolbar_android_));
 }
 
 void ExtensionsMenuDelegateAndroid::OnPageNavigation() {
@@ -202,7 +234,6 @@ void ExtensionsMenuDelegateAndroid::OnActionsInitialized() {
 void ExtensionsMenuDelegateAndroid::OnHostAccessRequestAdded(
     const extensions::ExtensionId& extension_id,
     int index) {
-  // TODO(crbug.com/473213114)
   JNIEnv* env = base::android::AttachCurrentThread();
   Java_ExtensionsMenuBridge_onHostAccessRequestAdded(env, java_object_,
                                                      extension_id);
@@ -211,14 +242,12 @@ void ExtensionsMenuDelegateAndroid::OnHostAccessRequestAdded(
 void ExtensionsMenuDelegateAndroid::OnHostAccessRequestUpdated(
     const extensions::ExtensionId& extension_id,
     int index) {
-  // TODO(crbug.com/473213114)
   JNIEnv* env = base::android::AttachCurrentThread();
   Java_ExtensionsMenuBridge_onHostAccessRequestUpdated(env, java_object_,
                                                        extension_id);
 }
 
 void ExtensionsMenuDelegateAndroid::OnHostAccessRequestsCleared() {
-  // TODO(crbug.com/473213114)
   JNIEnv* env = base::android::AttachCurrentThread();
   Java_ExtensionsMenuBridge_onHostAccessRequestsCleared(env, java_object_);
 }
@@ -226,7 +255,6 @@ void ExtensionsMenuDelegateAndroid::OnHostAccessRequestsCleared() {
 void ExtensionsMenuDelegateAndroid::OnHostAccessRequestRemoved(
     const extensions::ExtensionId& extension_id,
     int index) {
-  // TODO(crbug.com/473213114)
   JNIEnv* env = base::android::AttachCurrentThread();
   Java_ExtensionsMenuBridge_onHostAccessRequestRemoved(env, java_object_,
                                                        extension_id);
@@ -235,11 +263,14 @@ void ExtensionsMenuDelegateAndroid::OnHostAccessRequestRemoved(
 void ExtensionsMenuDelegateAndroid::OnShowHostAccessRequestsInToolbarChanged(
     const extensions::ExtensionId& extension_id,
     bool can_show_requests) {
-  // TODO(crbug.com/473213114)
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_ExtensionsMenuBridge_onShowHostAccessRequestsInToolbarChanged(
+      env, java_object_, extension_id);
 }
 
 void ExtensionsMenuDelegateAndroid::OnToolbarPinnedActionsChanged() {
-  // TODO(crbug.com/473213114)
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_ExtensionsMenuBridge_onPinnedActionsChanged(env, java_object_);
 }
 
 void ExtensionsMenuDelegateAndroid::OnUserPermissionsSettingsChanged() {
@@ -279,13 +310,13 @@ void ExtensionsMenuDelegateAndroid::OnExtensionToggleSelected(
 void ExtensionsMenuDelegateAndroid::OnShowRequestsTogglePressed(
     const extensions::ExtensionId& extension_id,
     bool is_on) {
-  // TODO(crbug.com/473213115)
+  menu_model_->ShowHostAccessRequestsInToolbar(extension_id, is_on);
 }
 
 void ExtensionsMenuDelegateAndroid::OnSiteAccessSelected(
     const extensions::ExtensionId& extension_id,
     extensions::PermissionsManager::UserSiteAccess site_access) {
-  // TODO(crbug.com/473213115)
+  menu_model_->UpdateSiteAccess(extension_id, site_access);
 }
 
 void ExtensionsMenuDelegateAndroid::OnSiteSettingsToggleButtonPressed(
@@ -322,11 +353,14 @@ void ExtensionsMenuDelegateAndroid::OnSiteSettingsToggleChanged(
 static int64_t JNI_ExtensionsMenuBridge_Init(
     JNIEnv* env,
     const base::android::JavaRef<jobject>& java_object,
-    int64_t j_browser_window_interface) {
+    int64_t j_browser_window_interface,
+    int64_t j_toolbar_android) {
   BrowserWindowInterface* browser =
       reinterpret_cast<BrowserWindowInterface*>(j_browser_window_interface);
+  ExtensionsToolbarAndroid* toolbar_android =
+      reinterpret_cast<ExtensionsToolbarAndroid*>(j_toolbar_android);
   return reinterpret_cast<int64_t>(
-      new ExtensionsMenuDelegateAndroid(browser, java_object));
+      new ExtensionsMenuDelegateAndroid(browser, toolbar_android, java_object));
 }
 
 }  // namespace extensions

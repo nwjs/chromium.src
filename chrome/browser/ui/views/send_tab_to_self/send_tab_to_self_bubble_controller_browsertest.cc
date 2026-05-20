@@ -9,19 +9,29 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
+#include "base/time/time.h"
+#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_context_menu_delegate.h"
+#include "chrome/browser/ui/toasts/api/toast_id.h"
+#include "chrome/browser/ui/toasts/toast_controller.h"
+#include "chrome/browser/ui/views/send_tab_to_self/stub_send_tab_to_self_sync_service.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
+#include "components/keyed_service/core/keyed_service.h"
+#include "components/send_tab_to_self/fake_send_tab_to_self_model.h"
 #include "components/send_tab_to_self/features.h"
 #include "components/send_tab_to_self/metrics_util.h"
 #include "components/send_tab_to_self/page_context.h"
 #include "components/send_tab_to_self/send_tab_to_self_entry.h"
 #include "components/send_tab_to_self/send_tab_to_self_model_observer.h"
 #include "components/send_tab_to_self/send_tab_to_self_sync_service.h"
-#include "components/send_tab_to_self/test_send_tab_to_self_model.h"
 #include "components/sync/test/fake_data_type_controller_delegate.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -34,59 +44,6 @@
 namespace send_tab_to_self {
 
 namespace {
-
-class FakeSendTabToSelfModel : public TestSendTabToSelfModel {
- public:
-  FakeSendTabToSelfModel() = default;
-  ~FakeSendTabToSelfModel() override = default;
-
-  bool IsReady() override { return true; }
-
-  const SendTabToSelfEntry* AddEntry(
-      const GURL& url,
-      const std::string& title,
-      const std::string& device_id,
-      const send_tab_to_self::PageContext& context,
-      send_tab_to_self::NavigationHistory navigation_history) override {
-    auto entry = std::make_unique<SendTabToSelfEntry>(
-        "guid", url, title, base::Time::Now(), "device", device_id, context,
-        std::move(navigation_history));
-    const SendTabToSelfEntry* entry_ptr = entry.get();
-    entries_.push_back(std::move(entry));
-
-    for (auto& observer : observers_) {
-      observer.EntryAddedLocally(entry_ptr);
-    }
-    return entry_ptr;
-  }
-
- private:
-  std::vector<std::unique_ptr<SendTabToSelfEntry>> entries_;
-};
-
-class TestSendTabToSelfSyncService : public SendTabToSelfSyncService {
- public:
-  TestSendTabToSelfSyncService() : fake_delegate_(syncer::SEND_TAB_TO_SELF) {}
-  ~TestSendTabToSelfSyncService() override = default;
-
-  SendTabToSelfModel* GetSendTabToSelfModel() override { return &model_fake_; }
-
-  base::WeakPtr<syncer::DataTypeControllerDelegate> GetControllerDelegate()
-      override {
-    return fake_delegate_.GetWeakPtr();
-  }
-
-  FakeSendTabToSelfModel* GetModelFake() { return &model_fake_; }
-
- protected:
-  syncer::FakeDataTypeControllerDelegate fake_delegate_;
-  FakeSendTabToSelfModel model_fake_;
-};
-
-std::unique_ptr<KeyedService> BuildTestSendTabToSelfSyncService(
-    content::BrowserContext* context) {
-  return std::make_unique<TestSendTabToSelfSyncService>();
-}
 
 class TestSendTabToSelfModelObserver : public SendTabToSelfModelObserver {
  public:
@@ -131,9 +88,7 @@ class TestSendTabToSelfModelObserver : public SendTabToSelfModelObserver {
 
 class SendTabToSelfBubbleControllerBrowserTest : public InProcessBrowserTest {
  public:
-  SendTabToSelfBubbleControllerBrowserTest() {
-    feature_list_.InitAndEnableFeature(kSendTabToSelfPropagateScrollPosition);
-  }
+  SendTabToSelfBubbleControllerBrowserTest() = default;
 
   void SetUpInProcessBrowserTestFixture() override {
     create_services_subscription_ =
@@ -146,15 +101,98 @@ class SendTabToSelfBubbleControllerBrowserTest : public InProcessBrowserTest {
 
   void OnWillCreateBrowserContextServices(content::BrowserContext* context) {
     SendTabToSelfSyncServiceFactory::GetInstance()->SetTestingFactory(
-        context, base::BindRepeating(&BuildTestSendTabToSelfSyncService));
+        context, base::BindRepeating(&BuildStubSyncService));
+  }
+
+  void ExpectToastShown() {
+    ToastController* toast_controller =
+        browser()->GetFeatures().toast_controller();
+
+    EXPECT_EQ(toast_controller->GetCurrentToastId(),
+              ToastId::kSendTabToSelfSuccess);
+  }
+
+ protected:
+  base::CallbackListSubscription create_services_subscription_;
+};
+
+class SendTabToSelfPostSendToastBrowserTest
+    : public SendTabToSelfBubbleControllerBrowserTest {
+ public:
+  SendTabToSelfPostSendToastBrowserTest() {
+    feature_list_.InitWithFeatures({kSendTabToSelfPostSendToast}, {});
   }
 
  protected:
   base::test::ScopedFeatureList feature_list_;
-  base::CallbackListSubscription create_services_subscription_;
 };
 
-IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(SendTabToSelfPostSendToastBrowserTest,
+                       BubbleShowsToast) {
+  GURL test_url("about:blank");
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(content::NavigateToURL(web_contents, test_url));
+
+  StubSendTabToSelfSyncService* sync_service =
+      static_cast<StubSendTabToSelfSyncService*>(
+          SendTabToSelfSyncServiceFactory::GetForProfile(browser()->profile()));
+  ASSERT_TRUE(sync_service);
+
+  SendTabToSelfBubbleController* controller =
+      SendTabToSelfBubbleController::CreateOrGetFromWebContents(web_contents);
+
+  TestSendTabToSelfModelObserver observer(
+      sync_service->GetSendTabToSelfModel());
+
+  controller->OnDeviceSelected("device_1");
+  observer.WaitForEntryAdded();
+
+  ExpectToastShown();
+}
+
+IN_PROC_BROWSER_TEST_F(SendTabToSelfPostSendToastBrowserTest,
+                       ContextMenuShowsToast) {
+  GURL test_url(
+      "data:text/html;charset=utf-8,<html><body><p>Test</p></body></html>");
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(content::NavigateToURL(web_contents, test_url));
+
+  StubSendTabToSelfSyncService* sync_service =
+      static_cast<StubSendTabToSelfSyncService*>(
+          SendTabToSelfSyncServiceFactory::GetForProfile(browser()->profile()));
+  ASSERT_TRUE(sync_service);
+
+  sync_service->GetModelFake()->SetTargetDeviceInfoSortedList({TargetDeviceInfo(
+      "device_1", "device_1", syncer::DeviceInfo::FormFactor::kDesktop,
+      base::Time::Now())});
+
+  TestSendTabToSelfModelObserver observer(
+      sync_service->GetSendTabToSelfModel());
+
+  SendTabToSelfContextMenuDelegate delegate(web_contents);
+  delegate.ExecuteCommand(IDC_CONTENT_CONTEXT_SEND_TAB_TO_SELF_DEVICE1, 0);
+
+  observer.WaitForEntryAdded();
+
+  ExpectToastShown();
+}
+
+class SendTabToSelfScrollPositionBrowserTest
+    : public SendTabToSelfBubbleControllerBrowserTest {
+ public:
+  SendTabToSelfScrollPositionBrowserTest() {
+    feature_list_.InitWithFeatures({kSendTabToSelfPropagateScrollPosition}, {});
+  }
+
+ protected:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SendTabToSelfScrollPositionBrowserTest,
                        ScrollPositionPropagated_HappyPath) {
   ASSERT_TRUE(embedded_test_server()->Start());
   // Using a page with significant content ensures the renderer can generate
@@ -169,8 +207,8 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleControllerBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
   ASSERT_TRUE(content::NavigateToURL(web_contents, test_url));
 
-  TestSendTabToSelfSyncService* sync_service =
-      static_cast<TestSendTabToSelfSyncService*>(
+  StubSendTabToSelfSyncService* sync_service =
+      static_cast<StubSendTabToSelfSyncService*>(
           SendTabToSelfSyncServiceFactory::GetForProfile(browser()->profile()));
   ASSERT_TRUE(sync_service);
 
@@ -203,7 +241,7 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleControllerBrowserTest,
       observer.last_added_entry()->GetPageContext().scroll_position.IsEmpty());
 }
 
-IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(SendTabToSelfScrollPositionBrowserTest,
                        ScrollPositionPropagated_EmptyPage) {
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL test_url = embedded_test_server()->GetURL("/empty.html");
@@ -212,13 +250,14 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleControllerBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
   ASSERT_TRUE(content::NavigateToURL(web_contents, test_url));
 
-  TestSendTabToSelfSyncService* sync_service =
-      static_cast<TestSendTabToSelfSyncService*>(
+  StubSendTabToSelfSyncService* sync_service =
+      static_cast<StubSendTabToSelfSyncService*>(
           SendTabToSelfSyncServiceFactory::GetForProfile(browser()->profile()));
   ASSERT_TRUE(sync_service);
 
   SendTabToSelfBubbleController* controller =
       SendTabToSelfBubbleController::CreateOrGetFromWebContents(web_contents);
+  // Increase the timeout for tests to avoid flakiness on slow bots.
   controller->SetSelectorGenerationTimeoutForTesting(base::Seconds(2));
 
   TestSendTabToSelfModelObserver observer(
@@ -243,7 +282,7 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleControllerBrowserTest,
       observer.last_added_entry()->GetPageContext().scroll_position.IsEmpty());
 }
 
-IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleControllerBrowserTest,
+IN_PROC_BROWSER_TEST_F(SendTabToSelfScrollPositionBrowserTest,
                        ScrollPositionPropagated_ScrolledPage) {
   // Use a data URL to avoid external dependencies. The page is long enough to
   // require scrolling.
@@ -269,13 +308,14 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfBubbleControllerBrowserTest,
       "  );"
       "});"));
 
-  TestSendTabToSelfSyncService* sync_service =
-      static_cast<TestSendTabToSelfSyncService*>(
+  StubSendTabToSelfSyncService* sync_service =
+      static_cast<StubSendTabToSelfSyncService*>(
           SendTabToSelfSyncServiceFactory::GetForProfile(browser()->profile()));
   ASSERT_TRUE(sync_service);
 
   SendTabToSelfBubbleController* controller =
       SendTabToSelfBubbleController::CreateOrGetFromWebContents(web_contents);
+  // Increase the timeout for tests to avoid flakiness on slow bots.
   controller->SetSelectorGenerationTimeoutForTesting(base::Seconds(2));
 
   TestSendTabToSelfModelObserver observer(

@@ -94,6 +94,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.components.image_fetcher.ImageFetcher;
 import org.chromium.components.image_fetcher.ImageFetcher.Params;
+import org.chromium.ui.test.util.MockitoHelper;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
@@ -615,8 +616,8 @@ public class NtpCustomizationUtilsUnitTest {
         // Verifies that both the primary color and background color from the loaded results match.
         NtpThemeColorInfo info = NtpCustomizationUtils.loadColorInfoFromSharedPreference(mContext);
         assertTrue(info instanceof NtpThemeColorFromHexInfo);
-        assertEquals(primaryColor, ((NtpThemeColorFromHexInfo) info).primaryColor);
-        assertEquals(backgroundColor, ((NtpThemeColorFromHexInfo) info).backgroundColor);
+        assertEquals(primaryColor, ((NtpThemeColorFromHexInfo) info).primaryColorLight);
+        assertEquals(backgroundColor, ((NtpThemeColorFromHexInfo) info).backgroundColorLight);
     }
 
     @Test
@@ -633,9 +634,10 @@ public class NtpCustomizationUtilsUnitTest {
         // Verifies that the primary color from the loaded results matches.
         NtpThemeColorInfo info = NtpCustomizationUtils.loadColorInfoFromSharedPreference(mContext);
         assertTrue(info instanceof NtpThemeColorFromHexInfo);
-        assertEquals(primaryColor, ((NtpThemeColorFromHexInfo) info).primaryColor);
+        assertEquals(primaryColor, ((NtpThemeColorFromHexInfo) info).primaryColorLight);
         assertEquals(
-                NtpThemeColorInfo.COLOR_NOT_SET, ((NtpThemeColorFromHexInfo) info).backgroundColor);
+                NtpThemeColorInfo.COLOR_NOT_SET,
+                ((NtpThemeColorFromHexInfo) info).backgroundColorLight);
     }
 
     @Test
@@ -865,7 +867,7 @@ public class NtpCustomizationUtilsUnitTest {
     public void testFetchThemeCollectionImage() {
         ImageFetcher imageFetcher = mock(ImageFetcher.class);
         GURL imageUrl = JUnitTestGURLs.URL_1;
-        Callback<Bitmap> callback = mock(Callback.class);
+        Callback<Bitmap> callback = MockitoHelper.mockCallback();
 
         NtpCustomizationUtils.fetchThemeCollectionImage(imageFetcher, imageUrl, callback);
 
@@ -1433,7 +1435,7 @@ public class NtpCustomizationUtilsUnitTest {
         when(contentResolver.openInputStream(uri))
                 .thenAnswer(invocation -> new ByteArrayInputStream(bitmapBytes));
 
-        Callback<Bitmap> callback = mock(Callback.class);
+        Callback<Bitmap> callback = MockitoHelper.mockCallback();
         NtpCustomizationUtils.getBitmapFromUriAsync(context, uri, callback);
         RobolectricUtil.runAllBackgroundAndUi();
 

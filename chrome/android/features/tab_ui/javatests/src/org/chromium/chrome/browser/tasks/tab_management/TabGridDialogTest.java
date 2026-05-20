@@ -124,6 +124,7 @@ import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.TestAnimations.EnableAnimations;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkEditActivity;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -139,12 +140,11 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
 import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.theme.ThemeModuleUtils;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.page.WebPageStation;
@@ -174,7 +174,6 @@ import java.util.concurrent.TimeoutException;
 @RunWith(ParameterizedRunner.class)
 @ParameterAnnotations.UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@Restriction({Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE})
 @EnableFeatures({DATA_SHARING, DATA_SHARING_JOIN_ONLY})
 @Batch(Batch.PER_CLASS)
 @DisableIf.Device(DeviceFormFactor.DESKTOP) // crbug.com/394671175
@@ -451,7 +450,7 @@ public class TabGridDialogTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "Flaky test - see: https://crbug.com/1177149")
+    @DisabledTest(message = "Flaky test - see: https://crbug.com/40748303")
     public void testTabGridDialogAnimation() {
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         createTabs(cta, false, 2);
@@ -581,11 +580,13 @@ public class TabGridDialogTest {
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
 
         String blueColor = cta.getString(R.string.tab_group_color_blue);
-        String notSelectedStringBlue =
-                cta.getString(
-                        R.string
-                                .accessibility_tab_group_color_picker_color_item_not_selected_description,
-                        blueColor);
+        String blueColorContentDescription =
+                ThemeModuleUtils.isEnabled()
+                        ? blueColor
+                        : cta.getString(
+                                R.string
+                                        .accessibility_tab_group_color_picker_color_item_not_selected_description,
+                                blueColor);
 
         createTabs(cta, false, 2);
         enterTabSwitcher(cta);
@@ -612,7 +613,7 @@ public class TabGridDialogTest {
                 .check(matches(isDisplayed()));
 
         // Select a non default color and assert the pop up closes.
-        onView(withContentDescription(notSelectedStringBlue)).perform(click());
+        onView(withContentDescription(blueColorContentDescription)).perform(click());
         onView(
                         allOf(
                                 instanceOf(TabGroupColorPickerContainer.class),
@@ -641,11 +642,13 @@ public class TabGridDialogTest {
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
 
         String blueColor = cta.getString(R.string.tab_group_color_blue);
-        String notSelectedStringBlue =
-                cta.getString(
-                        R.string
-                                .accessibility_tab_group_color_picker_color_item_not_selected_description,
-                        blueColor);
+        String blueColorContentDescription =
+                ThemeModuleUtils.isEnabled()
+                        ? blueColor
+                        : cta.getString(
+                                R.string
+                                        .accessibility_tab_group_color_picker_color_item_not_selected_description,
+                                blueColor);
 
         createTabs(cta, false, 2);
         enterTabSwitcher(cta);
@@ -671,7 +674,7 @@ public class TabGridDialogTest {
                 .check(matches(isDisplayed()));
 
         // Select a non default color and assert the pop up closes.
-        onView(withContentDescription(notSelectedStringBlue)).perform(click());
+        onView(withContentDescription(blueColorContentDescription)).perform(click());
         onView(
                         allOf(
                                 instanceOf(TabGroupColorPickerContainer.class),
@@ -1316,7 +1319,7 @@ public class TabGridDialogTest {
         }
     }
 
-    // Regression test for https://crbug.com/1419842
+    // Regression test for https://crbug.com/40895368
     @Test
     @MediumTest
     @DisabledTest(message = "TODO(crbug.com/359632348): Fix flakiness.")
@@ -1377,7 +1380,7 @@ public class TabGridDialogTest {
     @Test
     @MediumTest
     @RequiresRestart("Finishes the activity which can have cascading effects.")
-    @DisabledTest(message = "https://crbug.com/1124336")
+    @DisabledTest(message = "https://crbug.com/40147345")
     public void testDialogInitialShowFromStrip() throws Exception {
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         prepareTabsWithThumbnail(mActivityTestRule.getActivityTestRule(), 2, 0, "about:blank");
@@ -1626,11 +1629,11 @@ public class TabGridDialogTest {
         // Set title programmatically as doing this through the UI is flaky due to the keyboard
         // state not being particularly reliable.
         TabModelSelector selector = cta.getTabModelSelector();
-        TabGroupModelFilter filter = selector.getTabGroupModelFilter(false);
+        TabModel tabModel = selector.getModel(false);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    Token tabGroupId = filter.getTabModel().getTabAt(0).getTabGroupId();
-                    filter.setTabGroupTitle(tabGroupId, CUSTOMIZED_TITLE1);
+                    Token tabGroupId = tabModel.getTabModel().getTabAt(0).getTabGroupId();
+                    tabModel.setTabGroupTitle(tabGroupId, CUSTOMIZED_TITLE1);
                 });
         collapseTargetString = "Collapse " + CUSTOMIZED_TITLE1 + " tab group with 3 tabs.";
         verifyDialogBackButtonContentDescription(cta, collapseTargetString);
@@ -1668,8 +1671,8 @@ public class TabGridDialogTest {
         openDialogFromTabSwitcherAndVerify(cta, 2, CUSTOMIZED_TITLE1);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    Token tabGroupId = filter.getTabModel().getTabAt(0).getTabGroupId();
-                    filter.deleteTabGroupTitle(tabGroupId);
+                    Token tabGroupId = tabModel.getTabModel().getTabAt(0).getTabGroupId();
+                    tabModel.deleteTabGroupTitle(tabGroupId);
                 });
         verifyShowingDialog(cta, 2, null);
         collapseTargetString = "Collapse tab group with 2 tabs.";
@@ -1689,8 +1692,8 @@ public class TabGridDialogTest {
         // Programmatically ungroup.
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    Tab tab = filter.getTabModel().getTabAt(0);
-                    filter.getTabUngrouper()
+                    Tab tab = tabModel.getTabModel().getTabAt(0);
+                    tabModel.getTabUngrouper()
                             .ungroupTabs(
                                     List.of(tab), /* trailing= */ true, /* allowDialog= */ false);
                 });
@@ -1819,8 +1822,7 @@ public class TabGridDialogTest {
                             mActivityTestRule.getActivity().getTabModelSelector();
                     TabModel model = selector.getCurrentModel();
                     Tab tab = model.getTabAt(0);
-                    TabGroupModelFilter filter = selector.getTabGroupModelFilter(false);
-                    filter.createSingleTabGroup(tab);
+                    model.createSingleTabGroup(tab);
                 });
 
         // Create a tab group with 2 tabs.
@@ -1845,7 +1847,7 @@ public class TabGridDialogTest {
         Espresso.pressBack();
 
         // Tab switcher is created, and a fake signal to hide dialog is sent. This line would
-        // crash if the fake signal is not properly handled. See crbug.com/1096358.
+        // crash if the fake signal is not properly handled. See crbug.com/40700683.
         enterTabSwitcher(cta);
         onView(
                         allOf(

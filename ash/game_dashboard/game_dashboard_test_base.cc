@@ -14,6 +14,8 @@
 
 namespace ash {
 
+using chromeos::AppType;
+
 GameDashboardTestBase::GameDashboardTestBase()
     : AshTestBase(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
   scoped_feature_list_.InitWithFeatures(
@@ -29,7 +31,9 @@ void GameDashboardTestBase::SetUp() {
 
 void GameDashboardTestBase::AdvanceClock(base::TimeDelta delta) {
   task_environment()->AdvanceClock(delta);
-  task_environment()->RunUntilIdle();
+  // Run timers that became due at the advanced mock time without moving past
+  // the long recording intervals used by callers.
+  task_environment()->FastForwardBy(base::TimeDelta());
 }
 
 bool GameDashboardTestBase::IsControllerObservingWindow(
@@ -40,10 +44,10 @@ bool GameDashboardTestBase::IsControllerObservingWindow(
 
 std::unique_ptr<aura::Window> GameDashboardTestBase::CreateAppWindow(
     const std::string& app_id,
-    chromeos::AppType app_type,
+    AppType app_type,
     const gfx::Rect& bounds_in_screen) {
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateAppWindow(bounds_in_screen, app_type);
+      CreateWindowWithAppType(app_type, bounds_in_screen);
   EXPECT_TRUE(IsControllerObservingWindow(window.get()));
   IsGameWindowPropertyObserver observer(window.get());
   EXPECT_FALSE(observer.received_on_property_change());

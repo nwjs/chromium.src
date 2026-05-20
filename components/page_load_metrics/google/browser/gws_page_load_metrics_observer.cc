@@ -35,6 +35,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
+#include "net/dns/public/resolution_details.h"
 #include "net/http/http_connection_info.h"
 #include "net/http/http_response_headers.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
@@ -84,6 +85,12 @@ const char kHistogramGWSActualNavigationStartToDOMContentLoaded[] =
     HISTOGRAM_PREFIX "ActualNavigationStartToDOMContentLoadedEventFired";
 const char kHistogramGWSActualNavigationStartToLargestContentfulPaint[] =
     HISTOGRAM_PREFIX "ActualNavigationStartToLargestContentfulPaint";
+const char kHistogramGWSActualNavigationStartToAFTEnd[] =
+    HISTOGRAM_PREFIX "ActualNavigationStartToAFTEnd";
+const char
+    kHistogramGWSActualNavigationStartToAFTEndWithPreNavigationLatency[] =
+        HISTOGRAM_PREFIX
+    "ActualNavigationStartToAFTEndWithPreNavigationLatency";
 
 const char kHistogramGWSNavigationStartToFirstRequestStart[] =
     HISTOGRAM_PREFIX "NavigationTiming.NavigationStartToFirstRequestStart";
@@ -122,6 +129,14 @@ const char
     kHistogramGWSConnectTimingFirstRequestDomainLookupDelayInsecureDns[] =
         HISTOGRAM_PREFIX
     "ConnectTiming.FirstRequestDomainLookupDelay.InsecureDns";
+const char
+    kHistogramGWSConnectTimingFirstRequestResolutionDetailsTaskCompletionDelay
+        [] = HISTOGRAM_PREFIX
+    "ConnectTiming.FirstRequestResolutionDetails.TaskCompletionDelay";
+const char kHistogramGWSConnectTimingFirstRequestDohDetailsSessionSource[] =
+    HISTOGRAM_PREFIX "ConnectTiming.FirstRequestDohDetails.SessionSource";
+const char kHistogramGWSConnectTimingFirstRequestDohDetailsConnectionInfo[] =
+    HISTOGRAM_PREFIX "ConnectTiming.FirstRequestDohDetails.ConnectionInfo";
 const char kHistogramGWSConnectTimingFirstRequestConnectDelay[] =
     HISTOGRAM_PREFIX "ConnectTiming.FirstRequestConnectDelay";
 const char kHistogramGWSConnectTimingFirstRequestSslDelay[] =
@@ -185,6 +200,7 @@ const char kHistogramGWSConnectionReuseStatus[] =
     HISTOGRAM_PREFIX "ConnectionReuseStatus";
 const char kHistogramIncognitoSuffix[] = ".Incognito";
 const char kHistogramSyntheticResponseSuffix[] = ".SyntheticResponse";
+const char kHistogramDuplicateIgnoredSuffix[] = ".IgnoredDuplicateNavigation";
 
 const char kHistogramGWSSessionSource[] = HISTOGRAM_PREFIX "SessionSource";
 const char kHistogramGWSAdvertisedAltSvcState[] =
@@ -559,6 +575,8 @@ GWSPageLoadMetricsObserver::OnCommit(
   }
 
   was_cached_ = navigation_handle->WasResponseCached();
+  did_ignore_duplicate_navigation_ =
+      navigation_handle->GetIgnoredDuplicateNavigationCount() > 0;
   network_accessed_ = navigation_handle->NetworkAccessed();
   http_connection_info_ =
       net::HttpConnectionInfoToCoarse(navigation_handle->GetConnectionInfo());
@@ -732,6 +750,12 @@ void GWSPageLoadMetricsObserver::OnFirstContentfulPaintInPage(
     PAGE_LOAD_HISTOGRAM(
         base::StrCat({internal::kHistogramGWSFirstContentfulPaint,
                       internal::kHistogramSyntheticResponseSuffix}),
+        timing.paint_timing->first_contentful_paint.value());
+  }
+  if (did_ignore_duplicate_navigation_) {
+    PAGE_LOAD_HISTOGRAM(
+        base::StrCat({internal::kHistogramGWSFirstContentfulPaint,
+                      internal::kHistogramDuplicateIgnoredSuffix}),
         timing.paint_timing->first_contentful_paint.value());
   }
 }
@@ -1044,6 +1068,19 @@ void GWSPageLoadMetricsObserver::LogMetricsOnComplete(
         base_time + prenavigation_time.value_or(base::TimeDelta());
     PAGE_LOAD_HISTOGRAM(internal::kHistogramGWSAFTEndWithPreNavigationLatency,
                         aft_end_with_prenavigation_latency);
+    if (std::optional<base::TimeDelta> actual_navigation_offset =
+            CalculateActualNavigationOffset(GetDelegate(),
+                                            navigation_handle_timing_)) {
+      if (!is_prerendered_) {
+        PAGE_LOAD_HISTOGRAM2(
+            internal::kHistogramGWSActualNavigationStartToAFTEnd,
+            *actual_navigation_offset + base_time);
+        PAGE_LOAD_HISTOGRAM2(
+            internal::
+                kHistogramGWSActualNavigationStartToAFTEndWithPreNavigationLatency,
+            *actual_navigation_offset + aft_end_with_prenavigation_latency);
+      }
+    }
     if (is_traverse_navigation_) {
       ReportMetricForTraverseNavigation(
           is_restore_navigation_,
@@ -1168,19 +1205,54 @@ void GWSPageLoadMetricsObserver::RecordNavigationTimingHistograms() {
       timing.first_request_domain_lookup_delay);
 
   if (timing.session_details.has_value() &&
-      timing.session_details->session_source == net::SessionSource::kNew) {
-    if (timing.session_details->resolution_source ==
-        net::ResolutionSource::kSecure) {
+      timing.session_details->session_source == net::SessionSource::kNew &&
+      timing.session_details->resolution_details.has_value()) {
+    const auto& details = *timing.session_details->resolution_details;
+    if (details.source == net::ResolutionSource::kSecure) {
       PAGE_LOAD_SHORT_HISTOGRAM(
           internal::
               kHistogramGWSConnectTimingFirstRequestDomainLookupDelaySecureDns,
           timing.first_request_domain_lookup_delay);
-    } else if (timing.session_details->resolution_source ==
-               net::ResolutionSource::kInsecure) {
+    } else if (details.source == net::ResolutionSource::kInsecure) {
       PAGE_LOAD_SHORT_HISTOGRAM(
           internal::
               kHistogramGWSConnectTimingFirstRequestDomainLookupDelayInsecureDns,
           timing.first_request_domain_lookup_delay);
+    }
+
+    if (details.task_completion_delay.has_value()) {
+      std::optional<std::string_view> suffix =
+          [&]() -> std::optional<std::string_view> {
+        switch (details.source) {
+          case net::ResolutionSource::kSecure:
+            return ".SecureDns";
+          case net::ResolutionSource::kInsecure:
+            return ".InsecureDns";
+          case net::ResolutionSource::kSystem:
+            return ".System";
+          default:
+            return std::nullopt;
+        }
+      }();
+      if (suffix) {
+        PAGE_LOAD_SHORT_HISTOGRAM(
+            base::StrCat(
+                {internal::
+                     kHistogramGWSConnectTimingFirstRequestResolutionDetailsTaskCompletionDelay,
+                 *suffix}),
+            *details.task_completion_delay);
+      }
+    }
+
+    if (details.doh_details.has_value()) {
+      base::UmaHistogramEnumeration(
+          internal::
+              kHistogramGWSConnectTimingFirstRequestDohDetailsSessionSource,
+          details.doh_details->session_source);
+      base::UmaHistogramEnumeration(
+          internal::
+              kHistogramGWSConnectTimingFirstRequestDohDetailsConnectionInfo,
+          details.doh_details->connection_info);
     }
   }
 

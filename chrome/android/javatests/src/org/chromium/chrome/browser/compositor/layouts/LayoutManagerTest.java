@@ -5,11 +5,12 @@
 package org.chromium.chrome.browser.compositor.layouts;
 
 import static org.chromium.base.test.util.Batch.PER_CLASS;
-import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
 import static org.chromium.ui.test.util.ViewUtils.createMotionEvent;
 
 import android.content.Context;
+import android.os.SystemClock;
 import android.view.ContextThemeWrapper;
+import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.MotionEvent.PointerCoords;
 import android.view.MotionEvent.PointerProperties;
@@ -46,6 +47,7 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.hub.HubLayoutDependencyHolder;
@@ -70,11 +72,11 @@ import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.ui.edge_to_edge.NoOpTopInsetProvider;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabModel.MockTabModelDelegate;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabModelSelector;
+import org.chromium.components.browser_ui.util.motion.MotionEventTestUtils;
 import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener.ScrollDirection;
 import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener.SwipeHandler;
 import org.chromium.ui.base.DeviceFormFactor;
@@ -201,7 +203,6 @@ public class LayoutManagerTest implements MockTabModelDelegate {
             TabModelUtils.setIndex(mTabModelSelector.getModel(true), incognitoIndexSelected);
         }
         mTabModelSelector.selectModel(incognitoSelected);
-        Assert.assertNotNull(mTabModelSelector.getCurrentTabGroupModelFilter());
 
         LayoutManagerHost layoutManagerHost = new MockLayoutHost(context);
         TabContentManager tabContentManager =
@@ -216,7 +217,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         SettableMonotonicObservableSupplier<TabContentManager> tabContentManagerSupplier =
                 ObservableSuppliers.createMonotonic();
 
-        mTabSwitcherSupplier = new OneshotSupplierImpl();
+        mTabSwitcherSupplier = new OneshotSupplierImpl<>();
         mManagerPhone =
                 new LayoutManagerChromePhone(
                         layoutManagerHost,
@@ -272,7 +273,6 @@ public class LayoutManagerTest implements MockTabModelDelegate {
             TabModelUtils.setIndex(mTabModelSelector.getModel(true), incognitoIndexSelected);
         }
         mTabModelSelector.selectModel(incognitoSelected);
-        Assert.assertNotNull(mTabModelSelector.getCurrentTabGroupModelFilter());
 
         LayoutManagerHost layoutManagerHost = new MockLayoutHost(context);
         TabContentManager tabContentManager =
@@ -287,7 +287,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         SettableMonotonicObservableSupplier<TabContentManager> tabContentManagerSupplier =
                 ObservableSuppliers.createMonotonic();
 
-        mTabSwitcherSupplier = new OneshotSupplierImpl();
+        mTabSwitcherSupplier = new OneshotSupplierImpl<>();
         mManager =
                 new LayoutManagerChrome(
                         layoutManagerHost,
@@ -315,16 +315,53 @@ public class LayoutManagerTest implements MockTabModelDelegate {
     @SmallTest
     @Feature({"Android-TabSwitcher"})
     @UiThreadTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
+    @Restriction(DeviceFormFactor.PHONE)
     public void testCreation() {
         // Initialize with 1 tab to avoid hub initialization with 0 tabs.
         initializeLayoutManagerPhone(1, 0);
     }
 
-    // TODO(crbug.com/493270994): Run on more platforms after all swipes are properly handled.
     @Test
     @SmallTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
+    @Feature({"Android-TabSwitcher"})
+    @UiThreadTest
+    public void testIsSwipeEnabled() {
+        initializeLayoutManagerPhone(1, 0);
+        SwipeHandler eventHandler = mManager.getToolbarSwipeHandler();
+        Assert.assertNotNull("LayoutManager#getToolbarSwipeHandler() returned null", eventHandler);
+
+        // Test touch event.
+        long time = SystemClock.uptimeMillis();
+        MotionEvent touchEvent =
+                MotionEventTestUtils.createMotionEvent(
+                        time,
+                        time,
+                        MotionEvent.ACTION_DOWN,
+                        0.f,
+                        0.f,
+                        InputDevice.SOURCE_TOUCHSCREEN,
+                        MotionEvent.TOOL_TYPE_FINGER);
+        Assert.assertTrue(
+                "Swipe should be enabled for touch events",
+                eventHandler.isSwipeEnabled(ScrollDirection.LEFT, touchEvent));
+
+        // Test mouse event.
+        MotionEvent mouseEvent =
+                MotionEventTestUtils.createMotionEvent(
+                        time,
+                        time,
+                        MotionEvent.ACTION_DOWN,
+                        0.f,
+                        0.f,
+                        InputDevice.SOURCE_MOUSE,
+                        MotionEvent.TOOL_TYPE_MOUSE);
+        Assert.assertFalse(
+                "Swipe should be disabled for mouse events",
+                eventHandler.isSwipeEnabled(ScrollDirection.LEFT, mouseEvent));
+    }
+
+    @Test
+    @SmallTest
     @Feature({"Android-TabSwitcher"})
     @UiThreadTest
     public void testToolbarSideSwipeOnlyTab() {
@@ -334,10 +371,8 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         runToolbarSideSwipeTestOnCurrentModel(ScrollDirection.RIGHT, 0);
     }
 
-    // TODO(crbug.com/493270994): Run on more platforms after all swipes are properly handled.
     @Test
     @SmallTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
     @Feature({"Android-TabSwitcher"})
     @UiThreadTest
     public void testToolbarSideSwipeOnlyTabIncognito() {
@@ -347,10 +382,8 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         runToolbarSideSwipeTestOnCurrentModel(ScrollDirection.RIGHT, 0);
     }
 
-    // TODO(crbug.com/493270994): Run on more platforms after all swipes are properly handled.
     @Test
     @SmallTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
     @Feature({"Android-TabSwitcher"})
     @UiThreadTest
     public void testToolbarSideSwipeNextTab() {
@@ -359,10 +392,8 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         runToolbarSideSwipeTestOnCurrentModel(ScrollDirection.LEFT, 1);
     }
 
-    // TODO(crbug.com/493270994): Run on more platforms after all swipes are properly handled.
     @Test
     @SmallTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
     @Feature({"Android-TabSwitcher"})
     @UiThreadTest
     public void testToolbarSideSwipePrevTab() {
@@ -371,10 +402,8 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         runToolbarSideSwipeTestOnCurrentModel(ScrollDirection.RIGHT, 0);
     }
 
-    // TODO(crbug.com/493270994): Run on more platforms after all swipes are properly handled.
     @Test
     @SmallTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
     @Feature({"Android-TabSwitcher"})
     @UiThreadTest
     public void testToolbarSideSwipeNextTabNone() {
@@ -383,10 +412,8 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         runToolbarSideSwipeTestOnCurrentModel(ScrollDirection.LEFT, 1);
     }
 
-    // TODO(crbug.com/493270994): Run on more platforms after all swipes are properly handled.
     @Test
     @SmallTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
     @Feature({"Android-TabSwitcher"})
     @UiThreadTest
     public void testToolbarSideSwipePrevTabNone() {
@@ -395,10 +422,8 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         runToolbarSideSwipeTestOnCurrentModel(ScrollDirection.RIGHT, 0);
     }
 
-    // TODO(crbug.com/493270994): Run on more platforms after all swipes are properly handled.
     @Test
     @SmallTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
     @Feature({"Android-TabSwitcher"})
     @UiThreadTest
     public void testToolbarSideSwipeNextTabIncognito() {
@@ -407,10 +432,8 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         runToolbarSideSwipeTestOnCurrentModel(ScrollDirection.LEFT, 1);
     }
 
-    // TODO(crbug.com/493270994): Run on more platforms after all swipes are properly handled.
     @Test
     @SmallTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
     @Feature({"Android-TabSwitcher"})
     @UiThreadTest
     public void testToolbarSideSwipePrevTabIncognito() {
@@ -419,10 +442,8 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         runToolbarSideSwipeTestOnCurrentModel(ScrollDirection.RIGHT, 0);
     }
 
-    // TODO(crbug.com/493270994): Run on more platforms after all swipes are properly handled.
     @Test
     @SmallTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
     @Feature({"Android-TabSwitcher"})
     @UiThreadTest
     public void testToolbarSideSwipeNextTabNoneIncognito() {
@@ -431,10 +452,8 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         runToolbarSideSwipeTestOnCurrentModel(ScrollDirection.LEFT, 1);
     }
 
-    // TODO(crbug.com/493270994): Run on more platforms after all swipes are properly handled.
     @Test
     @SmallTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
     @Feature({"Android-TabSwitcher"})
     @UiThreadTest
     public void testToolbarSideSwipePrevTabNoneIncognito() {
@@ -514,7 +533,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
 
     @Test
     @MediumTest
-    @Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
+    @Restriction(DeviceFormFactor.PHONE)
     @Feature({"Android-TabSwitcher"})
     @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
     public void testHubTabSwitcherLayout_Enabled() throws Exception {
@@ -524,15 +543,13 @@ public class LayoutManagerTest implements MockTabModelDelegate {
                     Assert.assertEquals(LayoutType.TAB_SWITCHER, getActiveLayout().getLayoutType());
                 });
 
-        // See https://crbug.com/1522983 this shouldn't crash.
+        // See https://crbug.com/41495937 this shouldn't crash.
         showTabSwitcherLayout();
     }
 
     // TODO(crbug.com/40141330): Update the test to use assertThat for better failure message.
-    // TODO(crbug.com/493270994): Run on more platforms after all swipes are properly handled.
     @Test
     @MediumTest
-    @Restriction(DeviceFormFactor.PHONE)
     public void testLayoutObserverNotification_ShowAndHide_ToolbarSwipe() throws TimeoutException {
         LayoutObserverCallbackHelper startedShowingCallback = new LayoutObserverCallbackHelper();
         LayoutObserverCallbackHelper finishedShowingCallback = new LayoutObserverCallbackHelper();
@@ -582,7 +599,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "crbug.com/1216438, crbug.com/1139943")
+    @DisabledTest(message = "crbug.com/40770485, crbug.com/40726298")
     public void testLayoutObserverNotification_ShowAndHide_TabSwitcher() throws TimeoutException {
         LayoutObserverCallbackHelper startedShowingCallback = new LayoutObserverCallbackHelper();
         LayoutObserverCallbackHelper finishedShowingCallback = new LayoutObserverCallbackHelper();

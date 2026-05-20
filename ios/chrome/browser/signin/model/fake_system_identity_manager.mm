@@ -224,6 +224,7 @@ void FakeSystemIdentityManager::SetPersistentAuthErrorForAccount(
   GaiaId gaia_id(accountId.ToString());
   CHECK([storage_ containsIdentityWithGaiaID:gaia_id]);
   FakeSystemIdentityDetails* details = [storage_ detailsForGaiaID:gaia_id];
+  // TODO(crbug.com/502126003): Remove when AccessTokenCallback is removed.
   details.getAccessTokenCallback = base::BindRepeating(
       [](AccessTokenCallback callback) -> id<RefreshAccessTokenError> {
         NSInteger integer_error_code = static_cast<NSInteger>(
@@ -234,6 +235,11 @@ void FakeSystemIdentityManager::SetPersistentAuthErrorForAccount(
                             userInfo:nil];
         std::move(callback).Run(std::nullopt, error);
         return nil;
+      });
+  details.getAccessTokenRequestCallback =
+      base::BindRepeating([](AccessTokenRequestCallback callback) {
+        std::move(callback).Run(base::unexpected(GoogleServiceAuthError(
+            GoogleServiceAuthError::State::INVALID_GAIA_CREDENTIALS)));
       });
   FakeSystemIdentity* identity = details.fakeIdentity;
   identity.hasValidAuth = NO;
@@ -248,7 +254,9 @@ void FakeSystemIdentityManager::ClearPersistentAuthErrorForAccount(
   FakeSystemIdentityDetails* details = [storage_ detailsForGaiaID:gaia_id];
 
   // Reset the custom callback to revert back to the default behavior.
+  // TODO(crbug.com/502126003): Remove when AccessTokenCallback is removed.
   details.getAccessTokenCallback.Reset();
+  details.getAccessTokenRequestCallback.Reset();
   FakeSystemIdentity* identity = details.fakeIdentity;
   identity.hasValidAuth = YES;
   FireIdentityRefreshTokenUpdated(identity);
@@ -262,6 +270,16 @@ void FakeSystemIdentityManager::SetGetAccessTokenCallback(
   CHECK([storage_ containsIdentityWithGaiaID:gaia_id]);
   FakeSystemIdentityDetails* details = [storage_ detailsForGaiaID:gaia_id];
   details.getAccessTokenCallback = std::move(callback);
+}
+
+void FakeSystemIdentityManager::SetGetAccessTokenCallback(
+    const CoreAccountId& accountId,
+    GetAccessTokenRequestCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  GaiaId gaia_id(accountId.ToString());
+  CHECK([storage_ containsIdentityWithGaiaID:gaia_id]);
+  FakeSystemIdentityDetails* details = [storage_ detailsForGaiaID:gaia_id];
+  details.getAccessTokenRequestCallback = std::move(callback);
 }
 
 id<RefreshAccessTokenError>
@@ -398,6 +416,29 @@ void FakeSystemIdentityManager::GetAccessToken(
   DCHECK([storage_ containsIdentityWithGaiaID:identity.gaiaId]);
   // Fetching the access token is an asynchronous operation (as it requires
   // some network calls).
+  PostClosure(
+      FROM_HERE,
+      base::BindOnce(&FakeSystemIdentityManager::GetAccessTokenAsyncLegacy,
+                     GetWeakPtr(), identity, std::move(callback)));
+}
+
+void FakeSystemIdentityManager::GetAccessToken(
+    id<SystemIdentity> identity,
+    const std::set<std::string>& scopes,
+    AccessTokenRequestCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  GetAccessToken(identity, /*client_id*/ {}, scopes, std::move(callback));
+}
+
+void FakeSystemIdentityManager::GetAccessToken(
+    id<SystemIdentity> identity,
+    const std::string& client_id,
+    const std::set<std::string>& scopes,
+    AccessTokenRequestCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK([storage_ containsIdentityWithGaiaID:identity.gaiaId]);
+  // Fetching the access token is an asynchronous operation (as it requires
+  // some network calls).
   PostClosure(FROM_HERE,
               base::BindOnce(&FakeSystemIdentityManager::GetAccessTokenAsync,
                              GetWeakPtr(), identity, std::move(callback)));
@@ -477,23 +518,22 @@ void FakeSystemIdentityManager::FetchCapabilities(
                      GetWeakPtr(), identity, names, std::move(callback)));
 }
 
-void FakeSystemIdentityManager::BuildExternalPrivacyContext(
-    id<SystemIdentity> identity,
-    UIViewController* view_controller,
-    BuildExternalPrivacyContextCallback callback) {
+void FakeSystemIdentityManager::RegisterExternalPrivacyContextProvider(
+    id<ExternalPrivacyContextUIProvider> provider) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (on_build_external_privacy_context_callback_) {
-    on_build_external_privacy_context_callback_.Run(identity, view_controller,
-                                                    std::move(callback));
-  } else {
-    // By default, just run the callback.
-    std::move(callback).Run(nil);
-  }
+  // Do nothing.
 }
 
-void FakeSystemIdentityManager::SetBuildExternalPrivacyContextCallback(
-    OnBuildExternalPrivacyContextCallback callback) {
-  on_build_external_privacy_context_callback_ = std::move(callback);
+void FakeSystemIdentityManager::UnregisterExternalPrivacyContextProvider(
+    id<ExternalPrivacyContextUIProvider> provider) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // Do nothing.
+}
+
+void FakeSystemIdentityManager::ExternalPrivacyContextProviderReady(
+    id<ExternalPrivacyContextUIProvider> provider) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // Do nothing.
 }
 
 bool FakeSystemIdentityManager::HandleMDMNotification(
@@ -563,7 +603,7 @@ void FakeSystemIdentityManager::ForgetIdentityAsync(
   std::move(callback).Run(/*error*/ nil);
 }
 
-void FakeSystemIdentityManager::GetAccessTokenAsync(
+void FakeSystemIdentityManager::GetAccessTokenAsyncLegacy(
     id<SystemIdentity> identity,
     AccessTokenCallback callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -586,6 +626,27 @@ void FakeSystemIdentityManager::GetAccessTokenAsync(
     const base::Time valid_until = base::Time::Now() + kAccessTokenExpiration;
     AccessTokenInfo info{TimeFormatHTTP(valid_until), valid_until};
     std::move(callback).Run(std::move(info), nil);
+  }
+}
+
+void FakeSystemIdentityManager::GetAccessTokenAsync(
+    id<SystemIdentity> identity,
+    AccessTokenRequestCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (![storage_ containsIdentityWithGaiaID:identity.gaiaId]) {
+    // The identity was removed before async method was called. There is
+    // nothing to do.
+    return;
+  }
+  FakeSystemIdentityDetails* details =
+      [storage_ detailsForGaiaID:identity.gaiaId];
+  if (details.getAccessTokenRequestCallback) {
+    details.getAccessTokenRequestCallback.Run(std::move(callback));
+    return;
+  } else {
+    const base::Time valid_until = base::Time::Now() + kAccessTokenExpiration;
+    AccessTokenInfo info{TimeFormatHTTP(valid_until), valid_until};
+    std::move(callback).Run(std::move(info));
   }
 }
 

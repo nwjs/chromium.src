@@ -1,6 +1,7 @@
 // Copyright 2025 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
 #include "chrome/browser/extensions/api/document_scan/simple_scan_runner.h"
 
 #include <algorithm>
@@ -14,7 +15,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/extensions/extensions_dialogs.h"
 #include "chrome/common/pref_names.h"
-#include "chromeos/crosapi/mojom/document_scan.mojom.h"
 #include "components/prefs/pref_service.h"
 #include "extensions/browser/image_loader.h"
 #include "extensions/common/extension.h"
@@ -58,11 +58,8 @@ constexpr char kMopriaProtocolName[] = "Mopria";
 }  // namespace
 
 SimpleScanRunner::SimpleScanRunner(content::BrowserContext* browser_context,
-                                   scoped_refptr<const Extension> extension,
-                                   crosapi::mojom::DocumentScan* document_scan)
-    : browser_context_(browser_context),
-      extension_(std::move(extension)),
-      document_scan_(document_scan) {
+                                   scoped_refptr<const Extension> extension)
+    : browser_context_(browser_context), extension_(std::move(extension)) {
   CHECK(browser_context_);
   CHECK(extension_);
 }
@@ -80,7 +77,7 @@ void SimpleScanRunner::Start(std::vector<std::string> mime_types,
   scanner_handle_ = "";
   job_handle_ = "";
   scan_data_.clear();
-  scan_result_ = crosapi::mojom::ScanFailureMode::kUnknown;
+  success_ = false;
 
   bool should_use_virtual_usb_printer = false;
   if (std::ranges::contains(mime_types_, kTestingMimeType)) {
@@ -179,34 +176,42 @@ void SimpleScanRunner::OpenFirstScanner() {
 
   std::string scanner_id = std::move(scanner_ids_.back());
   scanner_ids_.pop_back();
-  document_scan_->OpenScanner(
-      extension_id(), std::move(scanner_id),
-      base::BindOnce(&SimpleScanRunner::OnOpenScannerResponse,
-                     weak_ptr_factory_.GetWeakPtr()));
+
+  lorgnette::OpenScannerRequest request;
+  request.mutable_scanner_id()->set_connection_string(scanner_id);
+  request.set_client_id(extension_id());
+  ash::LorgnetteScannerManagerFactory::GetForBrowserContext(browser_context_)
+      ->OpenScanner(request,
+                    base::BindOnce(&SimpleScanRunner::OnOpenScannerResponse,
+                                   weak_ptr_factory_.GetWeakPtr()));
 }
 
 void SimpleScanRunner::OnOpenScannerResponse(
-    crosapi::mojom::OpenScannerResponsePtr response) {
-  if (response->result != crosapi::mojom::ScannerOperationResult::kSuccess ||
-      !response->scanner_handle.has_value()) {
+    const std::optional<lorgnette::OpenScannerResponse>& response) {
+  if (!response.has_value() ||
+      response->result() != lorgnette::OPERATION_RESULT_SUCCESS ||
+      !response->has_config()) {
     OpenFirstScanner();
     return;
   }
-  scanner_handle_ = std::move(response->scanner_handle.value());
+  scanner_handle_ = response->config().scanner().token();
 
-  auto options = crosapi::mojom::StartScanOptions::New();
-  options->format = kScannerImageMimeTypePng;
+  lorgnette::StartPreparedScanRequest request;
+  request.mutable_scanner()->set_token(scanner_handle_);
+  request.set_image_format(kScannerImageMimeTypePng);
 
-  document_scan_->StartPreparedScan(
-      scanner_handle_, std::move(options),
-      base::BindOnce(&SimpleScanRunner::OnStartPreparedScanResponse,
-                     weak_ptr_factory_.GetWeakPtr()));
+  ash::LorgnetteScannerManagerFactory::GetForBrowserContext(browser_context_)
+      ->StartPreparedScan(
+          request,
+          base::BindOnce(&SimpleScanRunner::OnStartPreparedScanResponse,
+                         weak_ptr_factory_.GetWeakPtr()));
 }
 
 void SimpleScanRunner::OnStartPreparedScanResponse(
-    crosapi::mojom::StartPreparedScanResponsePtr response) {
-  if (response->result != crosapi::mojom::ScannerOperationResult::kSuccess ||
-      !response->job_handle.has_value()) {
+    const std::optional<lorgnette::StartPreparedScanResponse>& response) {
+  if (!response.has_value() ||
+      response->result() != lorgnette::OPERATION_RESULT_SUCCESS ||
+      !response->has_job_handle()) {
     // Closing the scanner will also return the response to the caller.
     lorgnette::CloseScannerRequest request;
     request.mutable_scanner()->set_token(scanner_handle_);
@@ -219,7 +224,7 @@ void SimpleScanRunner::OnStartPreparedScanResponse(
 
   // Scanners normally don't produce bytes right away, so start the read loop
   // after a delay.
-  job_handle_ = std::move(response->job_handle.value());
+  job_handle_ = response->job_handle().token();
   base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&SimpleScanRunner::ReadScanData,
@@ -228,19 +233,23 @@ void SimpleScanRunner::OnStartPreparedScanResponse(
 }
 
 void SimpleScanRunner::ReadScanData() {
-  document_scan_->ReadScanData(
-      job_handle_, base::BindOnce(&SimpleScanRunner::OnReadScanDataResponse,
-                                  weak_ptr_factory_.GetWeakPtr()));
+  lorgnette::ReadScanDataRequest request;
+  request.mutable_job_handle()->set_token(job_handle_);
+  ash::LorgnetteScannerManagerFactory::GetForBrowserContext(browser_context_)
+      ->ReadScanData(request,
+                     base::BindOnce(&SimpleScanRunner::OnReadScanDataResponse,
+                                    weak_ptr_factory_.GetWeakPtr()));
 }
 
 void SimpleScanRunner::OnReadScanDataResponse(
-    crosapi::mojom::ReadScanDataResponsePtr response) {
+    const std::optional<lorgnette::ReadScanDataResponse>& response) {
   // Success means to keep going.  If data was ready, append it to what we got
   // so far.
-  if (response->result == crosapi::mojom::ScannerOperationResult::kSuccess) {
-    if (response->data.has_value() && response->data->size() > 0) {
-      scan_data_.insert(scan_data_.end(), response->data->begin(),
-                        response->data->end());
+  if (response.has_value() &&
+      response->result() == lorgnette::OPERATION_RESULT_SUCCESS) {
+    if (response->has_data() && response->data().size() > 0) {
+      scan_data_.insert(scan_data_.end(), response->data().begin(),
+                        response->data().end());
     }
 
     // Once the first byte after the image headers is received, poll the scanner
@@ -256,13 +265,14 @@ void SimpleScanRunner::OnReadScanDataResponse(
   }
 
   // EOF means no more data is available.  There might be a final data chunk.
-  if (response->result == crosapi::mojom::ScannerOperationResult::kEndOfData) {
-    if (response->data.has_value() && response->data->size() > 0) {
-      scan_data_.insert(scan_data_.end(), response->data->begin(),
-                        response->data->end());
+  if (response.has_value() &&
+      response->result() == lorgnette::OPERATION_RESULT_EOF) {
+    if (response->has_data() && response->data().size() > 0) {
+      scan_data_.insert(scan_data_.end(), response->data().begin(),
+                        response->data().end());
     }
 
-    scan_result_ = crosapi::mojom::ScanFailureMode::kNoFailure;
+    success_ = true;
   }
 
   lorgnette::CloseScannerRequest request;
@@ -277,13 +287,11 @@ void SimpleScanRunner::OnCloseScannerResponse(
     const std::optional<lorgnette::CloseScannerResponse>&) {
   // Intentionally ignore the response.  The result to return to the caller has
   // already been determined at the end of the read loop.
-  OnSimpleScanCompleted(scan_result_);
+  OnSimpleScanCompleted(success_);
 }
 
-void SimpleScanRunner::OnSimpleScanCompleted(
-    crosapi::mojom::ScanFailureMode failure_mode) {
-  if (!scan_data_.size() ||
-      failure_mode != crosapi::mojom::ScanFailureMode::kNoFailure) {
+void SimpleScanRunner::OnSimpleScanCompleted(bool success) {
+  if (!scan_data_.size() || !success) {
     std::move(callback_).Run(std::nullopt, kScanImageError);
     return;
   }

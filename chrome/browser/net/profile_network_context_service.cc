@@ -52,6 +52,7 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/webui_url_constants.h"
 #include "components/certificate_transparency/pref_names.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -67,6 +68,7 @@
 #include "components/language/core/browser/language_prefs.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/metrics/metrics_pref_names.h"
+#include "components/metrics/metrics_reporting_choice_service.h"
 #include "components/permissions/features.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -692,15 +694,6 @@ void ProfileNetworkContextService::OnThirdPartyCookieBlockingChanged(
       });
 }
 
-void ProfileNetworkContextService::OnMitigationsEnabledFor3pcdChanged(
-    bool enable) {
-  profile_->ForEachLoadedStoragePartition(
-      [&](content::StoragePartition* storage_partition) {
-        storage_partition->GetCookieManagerForBrowserProcess()
-            ->SetMitigationsEnabledFor3pcd(enable);
-      });
-}
-
 std::string ProfileNetworkContextService::ComputeAcceptLanguage() const {
   // TODO:(https://crbug.com/40224802) Return only single language without
   // expanding the language list if the DisableReduceAcceptLanguage deprecation
@@ -1131,6 +1124,14 @@ ProfileNetworkContextService::CreateCookieManagerParams(
   // (chrome://new-tab-page), etc.
   out->secure_origin_cookies_allowed_schemes.push_back(
       content::kChromeUIScheme);
+#if !BUILDFLAG(IS_ANDROID)
+  // TODO(crbug.com/483614998): Granting Lens side panel is a temporary
+  // exception to use SameSite cookies while it migrates to a <webview>
+  // approach. This should not be done for other untrusted WebUI.
+  out->secure_origin_cookies_allowed_origins.push_back(
+      url::Origin::Create(GURL(chrome::kChromeUILensUntrustedSidePanelURL)));
+#endif
+
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // TODO(chlily): To be consistent with the content_settings version of
   // CookieSettings, we should probably also add kExtensionScheme to the list of
@@ -1165,9 +1166,6 @@ ProfileNetworkContextService::CreateCookieManagerParams(
 
   out->cookie_access_delegate_type =
       network::mojom::CookieAccessDelegateType::USE_CONTENT_SETTINGS;
-
-  out->mitigations_enabled_for_3pcd =
-      cookie_settings.MitigationsEnabledFor3pcd();
 
   return out;
 }
@@ -1502,8 +1500,9 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
     network_context_params->discard_domain_reliablity_uploads =
         g_discard_domain_reliability_uploads_for_testing
             ? *g_discard_domain_reliability_uploads_for_testing
-            : !g_browser_process->local_state()->GetBoolean(
-                  metrics::prefs::kMetricsReportingEnabled);
+            : !metrics::MetricsReportingChoiceService::
+                  IsBasicMetricsReportingEnabled(
+                      g_browser_process->local_state());
   }
 
 #if BUILDFLAG(IS_CHROMEOS)

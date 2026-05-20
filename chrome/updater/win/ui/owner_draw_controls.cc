@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 #include "base/check_op.h"
@@ -44,8 +45,6 @@ void DrawParentBackground(HWND hwnd, HDC hdc, const RECT& rect) {
   ::SetWindowOrgEx(hdc, pt.x, pt.y, nullptr);
 }
 
-}  // namespace
-
 // Returns the system color corresponding to `high_contrast_color_index` if the
 // system is in high contrast mode. Otherwise, it returns `normal_color`.
 COLORREF GetColor(COLORREF normal_color, int high_contrast_color_index) {
@@ -60,6 +59,8 @@ HBRUSH GetColorBrush(const WTL::CBrush& normal_brush,
   return IsHighContrastOn() ? ::GetSysColorBrush(high_contrast_color_index)
                             : HBRUSH{normal_brush};
 }
+
+}  // namespace
 
 CaptionButton::CaptionButton() = default;
 CaptionButton::~CaptionButton() = default;
@@ -169,9 +170,23 @@ void CaptionButton::DrawItem(LPDRAWITEMSTRUCT draw_item_struct) {
                                                        : COLOR_BTNTEXT));
 
   const UINT button_state = draw_item_struct->itemState;
-  if (button_state & ODS_FOCUS && button_state & ODS_SELECTED) {
-    dc.FrameRect(&button_rect, frame_brush_);
+  if (!(button_state & ODS_FOCUS) || !(button_state & ODS_SELECTED)) {
+    return;
   }
+
+  // Draw a scaled frame for the active/focused state.
+  WTL::CPen pen;
+  pen.CreatePen(PS_INSIDEFRAME, /*thickness=*/
+                std::max(1, ::MulDiv(1, /*dpi=*/::GetDpiForWindow(m_hWnd),
+                                     USER_DEFAULT_SCREEN_DPI)),
+                GetColor(kCaptionFrameColor, COLOR_WINDOWFRAME));
+  const HPEN old_pen = dc.SelectPen(pen);
+  const HBRUSH old_brush = dc.SelectBrush((HBRUSH)GetStockObject(NULL_BRUSH));
+
+  dc.Rectangle(&button_rect);
+
+  dc.SelectBrush(old_brush);
+  dc.SelectPen(old_pen);
 }
 
 COLORREF CaptionButton::bk_color() const {
@@ -197,21 +212,44 @@ CloseButton::CloseButton() {
 }
 
 HRGN CloseButton::GetButtonRgn(int rgn_width, int rgn_height) {
-  // A single 4x4 rectangular center and criss-crossing 2x2 overlapping
-  // rectangles form the close button.
-  int square_side = std::min(rgn_width, rgn_height) / 2 * 2;
-  int center_point = square_side / 2;
+  // Ensure we have a valid, drawable area. `std::numeric_limits<short>::max()`
+  // is a safe UI upper bound.
+  if (rgn_width <= 0 || rgn_height <= 0 ||
+      rgn_width > std::numeric_limits<short>::max() ||
+      rgn_height > std::numeric_limits<short>::max()) {
+    return nullptr;
+  }
 
-  CRect center_rect(0, 0, 4, 4);
-  center_rect.OffsetRect(center_point - 2, center_point - 2);
+  // Scale the thickness. For instance, 2px at 100% (96 DPI) becomes 4px at 200%
+  // (192 DPI).
+  const int thickness = std::max(
+      1,
+      ::MulDiv(2, /*dpi=*/::GetDpiForWindow(m_hWnd), USER_DEFAULT_SCREEN_DPI));
+  const int center_size = thickness * 2;
+
+  const int square_side = std::min(rgn_width, rgn_height) / 2 * 2;
+  const int center_point = square_side / 2;
+
+  // Create the single rectangular center square using the scaled size.
+  CRect center_rect(0, 0, center_size, center_size);
+  center_rect.OffsetRect(center_point - thickness, center_point - thickness);
   WTL::CRgnHandle rgn(::CreateRectRgnIndirect(&center_rect));
 
-  for (int i = 0; i <= square_side - 2; i++) {
-    WTL::CRgn rgn_nw_to_se(::CreateRectRgn(i, i, i + 2, i + 2));
+  // Criss-crossing overlapping rectangles form the close button.
+  const int loop_limit = square_side - thickness;
+  if (loop_limit < 0) {
+    // Button is too small to draw the cross.
+    return rgn;
+  }
+
+  for (int i = 0; i <= loop_limit; ++i) {
+    // Top-left to bottom-right.
+    WTL::CRgn rgn_nw_to_se(::CreateRectRgn(i, i, i + thickness, i + thickness));
     rgn.CombineRgn(rgn_nw_to_se, RGN_OR);
 
-    WTL::CRgn rgn_sw_to_ne(
-        ::CreateRectRgn(i, square_side - i - 2, i + 2, square_side - i));
+    // Bottom-left to top-right.
+    WTL::CRgn rgn_sw_to_ne(::CreateRectRgn(i, square_side - i - thickness,
+                                           i + thickness, square_side - i));
     rgn.CombineRgn(rgn_sw_to_ne, RGN_OR);
   }
 
@@ -226,10 +264,30 @@ MinimizeButton::MinimizeButton() {
 }
 
 HRGN MinimizeButton::GetButtonRgn(int rgn_width, int rgn_height) {
-  // The Minimize button is a single rectangle.
-  CRect minimize_button_rect(0, 0, rgn_width, 2);
-  int center_point = rgn_height / 2;
-  minimize_button_rect.OffsetRect(0, center_point - 1);
+  // Ensure we have a valid, drawable area. `std::numeric_limits<short>::max()`
+  // is a safe UI upper bound.
+  if (rgn_width <= 0 || rgn_height <= 0 ||
+      rgn_width > std::numeric_limits<short>::max() ||
+      rgn_height > std::numeric_limits<short>::max()) {
+    return nullptr;
+  }
+
+  // Scale the bar thickness. 2px at 100% becomes 4px at 200%.
+  const int thickness = std::max(
+      1,
+      ::MulDiv(2, /*dpi=*/::GetDpiForWindow(m_hWnd), USER_DEFAULT_SCREEN_DPI));
+
+  // Prevent thickness from exceeding total height. If the bar is thicker than
+  // the area, we cap it to the area height.
+  const int safe_thickness = std::min(thickness, rgn_height);
+
+  // Calculate the vertical center.
+  const int y_offset = (rgn_height - safe_thickness) / 2;
+
+  // The Minimize button is a single rectangle. Center it vertically.
+  CRect minimize_button_rect(0, 0, rgn_width, safe_thickness);
+  minimize_button_rect.OffsetRect(0, y_offset);
+
   return ::CreateRectRgnIndirect(&minimize_button_rect);
 }
 
@@ -335,6 +393,17 @@ LRESULT OwnerDrawTitleBarWindow::OnEraseBkgnd(UINT,
   return 1;
 }
 
+LRESULT OwnerDrawTitleBarWindow::OnSize(UINT, WPARAM, LPARAM, BOOL& handled) {
+  // Recalculate button positions based on new height/width.
+  RecalcLayout();
+
+  // Force a redraw to clear artifacts.
+  Invalidate();
+
+  handled = false;
+  return 0;
+}
+
 LRESULT OwnerDrawTitleBarWindow::OnClose(WORD, WORD, HWND, BOOL& handled) {
   handled = false;
 
@@ -360,8 +429,12 @@ void OwnerDrawTitleBarWindow::CreateCaptionButtons() {
   close_button_.set_bk_color(bk_color_);
   minimize_button_.set_bk_color(bk_color_);
 
-  CRect button_rect(0, 0, ::GetSystemMetrics(SM_CXSIZE),
-                    ::GetSystemMetrics(SM_CYSIZE));
+  // Get the DPI for this specific window
+  const int dpi = ::GetDpiForWindow(m_hWnd);
+
+  // Use the DPI-aware version of system metrics.
+  CRect button_rect(0, 0, ::GetSystemMetricsForDpi(SM_CXSIZE, dpi),
+                    ::GetSystemMetricsForDpi(SM_CYSIZE, dpi));
 
   minimize_button_.Create(m_hWnd, button_rect, nullptr,
                           WS_CHILD | WS_VISIBLE | BS_OWNERDRAW, 0,
@@ -470,8 +543,22 @@ void OwnerDrawTitleBar::CreateOwnerDrawTitleBar(HWND parent_hwnd,
       WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN);
 }
 
-void OwnerDrawTitleBar::RecalcLayout() {
-  CHECK(title_bar_window_.IsWindow());
+void OwnerDrawTitleBar::RecalcLayout(HWND parent_hwnd,
+                                     HWND title_bar_spacer_hwnd) {
+  if (!title_bar_window_.IsWindow()) {
+    return;
+  }
+
+  // Re-compute where the title bar window should be based on the spacer. The
+  // spacer was already resized by the OS Dialog Manager.
+  CRect new_rect =
+      ComputeTitleBarClientRect(parent_hwnd, title_bar_spacer_hwnd);
+
+  // Resize the title bar window itself.
+  title_bar_window_.SetWindowPos(nullptr, &new_rect,
+                                 SWP_NOZORDER | SWP_NOACTIVATE);
+
+  // Now tell the window to reposition its internal buttons.
   title_bar_window_.RecalcLayout();
 }
 
@@ -517,8 +604,7 @@ LRESULT CustomDlgColors::OnCtrlColor(UINT,
   return reinterpret_cast<LRESULT>(GetColorBrush(bk_brush_, COLOR_WINDOW));
 }
 
-CustomProgressBarCtrl::CustomProgressBarCtrl()
-    : empty_frame_brush_(::CreateSolidBrush(kProgressEmptyFrameColor)) {}
+CustomProgressBarCtrl::CustomProgressBarCtrl() = default;
 
 CustomProgressBarCtrl::~CustomProgressBarCtrl() = default;
 
@@ -553,83 +639,99 @@ void CustomProgressBarCtrl::GradientFill(HDC dc,
 LRESULT CustomProgressBarCtrl::OnPaint(UINT, WPARAM, LPARAM, BOOL& handled) {
   handled = true;
 
-  CRect client_rect;
-  GetClientRect(&client_rect);
+  WTL::CPaintDC dc_paint(m_hWnd);
+  CRect window_rect;
+  GetClientRect(&window_rect);
 
-  CRect progress_bar_rect = client_rect;
+  // Calculate a half-width rectangle.
+  CRect client_rect = window_rect;
+  const int original_height = window_rect.Height();
+  const int slim_height = original_height / 2;
+  const int vertical_padding = (original_height - slim_height) / 2;
 
-  const int kBarWidth = kMaxPosition - kMinPosition;
-  const LONG bar_rect_right =
-      client_rect.left +
-      client_rect.Width() * (current_position_ - kMinPosition) / kBarWidth;
-  progress_bar_rect.right = std::min(bar_rect_right, client_rect.right);
-
-  if (GetStyle() & PBS_MARQUEE) {
-    LONG bar_rect_left(bar_rect_right -
-                       client_rect.Width() * kMarqueeWidth / kBarWidth);
-    progress_bar_rect.left = std::max(bar_rect_left, client_rect.left);
-    CHECK_LE(progress_bar_rect.left, progress_bar_rect.right);
-  }
-
-  WTL::CRgn rgn = ::CreateRectRgnIndirect(&client_rect);
-  WTL::CRgn rgn_temp = ::CreateRectRgnIndirect(&progress_bar_rect);
-  rgn.CombineRgn(rgn_temp, RGN_DIFF);
+  // Shrink the top and bottom to center the bar.
+  client_rect.top += vertical_padding;
+  client_rect.bottom -= vertical_padding;
 
   // Using a memory device context eliminates flicker.
-  WTL::CPaintDC dcPaint(m_hWnd);
-  WTL::CMemoryDC dc(dcPaint, client_rect);
+  WTL::CMemoryDC dc(dc_paint, window_rect);
 
   // Draw the parent's gradient background into the memory DC first. This
   // ensures the empty areas of the progress bar show the gradient.
-  DrawParentBackground(m_hWnd, dc.m_hDC, client_rect);
+  DrawParentBackground(m_hWnd, dc.m_hDC, window_rect);
 
-  // FillRgn appears to have a bug with RTL/mirroring where it does not paint
-  // the first pixel of the rightmost rectangle with the 'rgn' created above.
-  // Since the region is rectangles, instead of using FillRgn, this code gets
-  // all the rectangles in the 'rgn' and fills them by hand.
-  const int rgndata_size = rgn.GetRegionData(nullptr, 0);
-  CHECK(rgndata_size);
-  std::vector<uint8_t> rgndata_buff(rgndata_size);
-  RGNDATA& rgndata = *reinterpret_cast<RGNDATA*>(&rgndata_buff[0]);
+  // Draw at 4x scale to get smooth edges when scaling back down.
+  constexpr int kScale = 4;
+  CRect high_res_rect(0, 0, client_rect.Width() * kScale,
+                      client_rect.Height() * kScale);
 
-  if (rgn.GetRegionData(&rgndata, rgndata_size)) {
-    for (DWORD count = 0; count < rgndata.rdh.nCount; count++) {
-      CRect r = reinterpret_cast<RECT*>(
-          UNSAFE_TODO(rgndata.Buffer + count * sizeof(RECT)));
+  WTL::CDC dc_hi_res;
+  dc_hi_res.CreateCompatibleDC(dc.m_hDC);
 
-      // Draw the frame for the empty part of the bar.
-      dc.FrameRect(r, empty_frame_brush_);
+  WTL::CBitmap bmp_hi_res;
+  bmp_hi_res.CreateCompatibleBitmap(dc.m_hDC, high_res_rect.Width(),
+                                    high_res_rect.Height());
+  const HBITMAP old_bmp = dc_hi_res.SelectBitmap(bmp_hi_res);
+
+  // Fill the high-res background with the fill color to avoid bleeding at the
+  // edges.
+  dc_hi_res.FillSolidRect(&high_res_rect,
+                          GetColor(empty_fill_color_, COLOR_WINDOW));
+
+  // Setup GDI objects for rounded drawing. `NULL_PEN` prevents the thin black
+  // border around the shapes.
+  const HPEN old_pen =
+      dc.SelectPen(static_cast<HPEN>(::GetStockObject(NULL_PEN)));
+  const int corner_size = high_res_rect.Height();
+
+  // Draw the Background Track.
+  WTL::CBrush bg_brush =
+      ::CreateSolidBrush(GetColor(empty_fill_color_, COLOR_WINDOW));
+  const HBRUSH old_brush = dc.SelectBrush(bg_brush);
+  dc_hi_res.RoundRect(&high_res_rect, {corner_size, corner_size});
+
+  // Calculate Progress Width.
+  const int kBarWidth = kMaxPosition - kMinPosition;
+  if (kBarWidth > 0) {
+    const LONG bar_rect_right =
+        high_res_rect.left +
+        high_res_rect.Width() * (current_position_ - kMinPosition) / kBarWidth;
+
+    CRect progress_rect = high_res_rect;
+    progress_rect.right = std::min(bar_rect_right, high_res_rect.right);
+
+    // Handle Marquee Style animation.
+    if (GetStyle() & PBS_MARQUEE) {
+      const LONG bar_rect_left =
+          bar_rect_right - (high_res_rect.Width() * kMarqueeWidth / kBarWidth);
+      progress_rect.left = std::max(bar_rect_left, high_res_rect.left);
+    }
+
+    // Draw the fill.
+    if (!progress_rect.IsRectEmpty() &&
+        progress_rect.Width() > (corner_size / 2)) {
+      WTL::CBrush fill_brush =
+          ::CreateSolidBrush(GetColor(bar_color_, COLOR_HIGHLIGHT));
+      dc_hi_res.SelectBrush(fill_brush);
+      dc_hi_res.RoundRect(&progress_rect, {corner_size, corner_size});
     }
   }
 
-  if (progress_bar_rect.IsRectEmpty()) {
-    return 0;
-  }
+  // `HALFTONE` creates a smooth anti-aliased look.
+  ::SetStretchBltMode(dc.m_hDC, HALFTONE);
 
-  // Have a 2-pixel bottom shadow with a gradient fill.
-  CRect shadow_rect = progress_bar_rect;
-  shadow_rect.top = shadow_rect.bottom - 2;
-  GradientFill(dc, shadow_rect, kProgressShadowDarkColor,
-               kProgressShadowLightColor);
+  // Required for HALFTONE to work correctly.
+  ::SetBrushOrgEx(dc.m_hDC, 0, 0, NULL);
 
-  // Have a 1-pixel left highlight.
-  CRect left_highlight_rect = progress_bar_rect;
-  left_highlight_rect.right = left_highlight_rect.left + 1;
-  dc.FillSolidRect(left_highlight_rect, kProgressLeftHighlightColor);
+  // Scale the high-res bar back down to the screen.
+  dc.StretchBlt(client_rect.left, client_rect.top, client_rect.Width(),
+                client_rect.Height(), dc_hi_res.m_hDC, 0, 0,
+                high_res_rect.Width(), high_res_rect.Height(), SRCCOPY);
 
-  // Adjust progress bar rectangle to accommodate the highlight and shadow.
-  // Then draw the outer and inner frames. Then fill in the bar.
-  progress_bar_rect.DeflateRect(1, 0, 0, 2);
-  GradientFill(dc, progress_bar_rect, kProgressOuterFrameLight,
-               kProgressOuterFrameDark);
-
-  progress_bar_rect.DeflateRect(1, 1);
-  GradientFill(dc, progress_bar_rect, kProgressInnerFrameLight,
-               kProgressInnerFrameDark);
-
-  progress_bar_rect.DeflateRect(1, 1);
-  GradientFill(dc, progress_bar_rect, GetColor(bar_color_light_, COLOR_WINDOW),
-               GetColor(bar_color_dark_, COLOR_WINDOW));
+  // Cleanup.
+  dc_hi_res.SelectBrush(old_brush);
+  dc_hi_res.SelectPen(old_pen);
+  dc_hi_res.SelectBitmap(old_bmp);
 
   return 0;
 }
@@ -646,6 +748,15 @@ LRESULT CustomProgressBarCtrl::OnTimer(UINT,
   }
 
   ::SendMessage(m_hWnd, PBM_SETPOS, 0, 0L);
+  return 0;
+}
+
+LRESULT CustomProgressBarCtrl::OnSysColorChange(UINT msg,
+                                                WPARAM wparam,
+                                                LPARAM lparam,
+                                                BOOL& handled) {
+  handled = FALSE;
+  RedrawWindow();
   return 0;
 }
 
@@ -685,8 +796,8 @@ LRESULT CustomProgressBarCtrl::OnSetBarColor(UINT,
                                              BOOL& handled) {
   handled = true;
 
-  COLORREF old_bar_color = bar_color_light_;
-  bar_color_light_ = bar_color_dark_ = static_cast<COLORREF>(bar_color);
+  COLORREF old_bar_color = bar_color_;
+  bar_color_ = static_cast<COLORREF>(bar_color);
 
   RedrawWindow();
 
@@ -699,7 +810,7 @@ LRESULT CustomProgressBarCtrl::OnSetBkColor(UINT,
                                             BOOL& handled) {
   handled = true;
 
-  COLORREF old_empty_fill_color = kProgressEmptyFillColor;
+  COLORREF old_empty_fill_color = empty_fill_color_;
   empty_fill_color_ = static_cast<COLORREF>(empty_fill_color);
 
   RedrawWindow();

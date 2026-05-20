@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser.toolbar.top;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
-import static org.chromium.ui.accessibility.KeyboardFocusUtil.setFocusOnFirstFocusableDescendant;
 
 import android.animation.Animator;
 import android.animation.AnimatorSet;
@@ -85,6 +84,7 @@ import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
 import org.chromium.chrome.browser.toolbar.ToolbarTabController;
+import org.chromium.chrome.browser.toolbar.ToolbarVariationUtils;
 import org.chromium.chrome.browser.toolbar.back_button.BackButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.forward_button.ForwardButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.home_button.HomeButtonCoordinator;
@@ -106,6 +106,7 @@ import org.chromium.components.browser_ui.widget.animation.CancelAwareAnimatorLi
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.omnibox.OmniboxFeatures;
+import org.chromium.ui.accessibility.KeyboardFocusUtil;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.interpolators.Interpolators;
@@ -129,7 +130,6 @@ public class ToolbarPhone extends ToolbarLayout
     public static final int URL_FOCUS_CHANGE_ANIMATION_DURATION_MS = 225;
     private static final int URL_FOCUS_TOOLBAR_BUTTONS_DURATION_MS = 100;
     private static final int URL_CLEAR_FOCUS_TABSTACK_DELAY_MS = 200;
-    private static final int URL_CLEAR_FOCUS_MENU_DELAY_MS = 250;
 
     public static final int BUTTON_TRANSITION_DURATION_MS = 225;
 
@@ -161,6 +161,8 @@ public class ToolbarPhone extends ToolbarLayout
     private @MonotonicNonNull OptionalButtonCoordinator mOptionalButtonCoordinator;
     // Non-null after inflation occurs.
     private ImageView mHomeButton;
+    private View mToolbarBackButton;
+    private @Nullable BackButtonCoordinator mBackButtonCoordinator;
 
     @ViewDebug.ExportedProperty(category = "chrome")
     protected int mTabSwitcherState;
@@ -372,6 +374,7 @@ public class ToolbarPhone extends ToolbarLayout
 
             mToolbarButtonsContainer = findViewById(R.id.toolbar_buttons);
             mHomeButton = findViewById(R.id.home_button);
+            mToolbarBackButton = findViewById(R.id.back_button);
 
             mToolbarBackground =
                     new ColorDrawable(getToolbarColorForVisualState(VisualState.NORMAL));
@@ -381,9 +384,7 @@ public class ToolbarPhone extends ToolbarLayout
 
             setLayoutTransition(null);
 
-            if (getMenuButtonCoordinator() != null) {
-                getMenuButtonCoordinator().setVisibility(true);
-            }
+            updateMenuButtonVisibility();
 
             setWillNotDraw(false);
             mUrlFocusTranslationX =
@@ -435,6 +436,7 @@ public class ToolbarPhone extends ToolbarLayout
                 /* incognitoWindowCountSupplier= */ null);
         mUserEducationHelper = userEducationHelper;
         mTrackerSupplier = trackerSupplier;
+        mBackButtonCoordinator = backButtonCoordinator;
 
         getToolbarDataProvider().addToolbarDataProviderObserver(this);
     }
@@ -476,6 +478,10 @@ public class ToolbarPhone extends ToolbarLayout
                                 mLocationBarBackgroundBounds, mVisualState);
                         updateLocationBarBackgroundViewBounds();
                     });
+        }
+
+        if (mButtonData != null) {
+            updateOptionalButton(mButtonData);
         }
     }
 
@@ -716,8 +722,8 @@ public class ToolbarPhone extends ToolbarLayout
 
     /**
      * @return True if layout bar's unfocused width has changed, potentially causing updates to
-     *         visual elements. If this happens during measurement pass, then toolbar's layout needs
-     *         to be remeasured.
+     *     visual elements. If this happens during measurement pass, then toolbar's layout needs to
+     *     be remeasured.
      */
     private boolean updateUnfocusedLocationBarLayoutParams() {
         int leftViewBounds = getViewBoundsLeftOfLocationBar(mVisualState);
@@ -849,10 +855,16 @@ public class ToolbarPhone extends ToolbarLayout
     private int getBoundsAfterAccountingForLeftButton() {
         int padding = mToolbarSidePaddingForNtp;
 
+        assert mHomeButton.getVisibility() == GONE || mToolbarBackButton.getVisibility() == GONE;
+
         // If home button is visible, mHomeButton.getMeasuredWidth() should be returned as the left
         // bound.
         if (mHomeButton.getVisibility() != GONE) {
             padding = mHomeButton.getMeasuredWidth();
+        }
+        if (mToolbarBackButton.getVisibility() != GONE) {
+            int buttonWidth = mToolbarBackButton.getMeasuredWidth();
+            padding = Math.max(padding, buttonWidth);
         }
 
         return padding;
@@ -1240,6 +1252,11 @@ public class ToolbarPhone extends ToolbarLayout
             mHomeButton.setVisibility(toolbarButtonVisibility);
         }
 
+        if (mBackButtonCoordinator != null) {
+            mBackButtonCoordinator.setVisibility(
+                    toolbarButtonVisibility == VISIBLE && shouldShowBackButtonOutside());
+        }
+
         updateLocationBarLayoutForExpansionAnimation();
     }
 
@@ -1625,6 +1642,10 @@ public class ToolbarPhone extends ToolbarLayout
             drawChild(canvas, mHomeButton, SystemClock.uptimeMillis());
         }
 
+        if (mBackButtonCoordinator != null && mBackButtonCoordinator.isVisible()) {
+            drawChild(canvas, mToolbarBackButton, SystemClock.uptimeMillis());
+        }
+
         // TODO(crbug.com/469492424): With the toolbar animation refactor, both the background and
         //  the location bar itself just defer to the default draw methods. Ideally, we can skip
         //  this custom logic altogether with the feature enabled. That said, it's unclear what
@@ -1644,7 +1665,7 @@ public class ToolbarPhone extends ToolbarLayout
         // Draw the optional button if visible. We check for both visibility and width because in
         // some cases (e.g. the first frame of the showing animation) the view may be visible with a
         // width of zero. Calling draw in this state results in drawing the inner ImageButton when
-        // it's not supposed to. (See https://crbug.com/1422176 for an example of this happening).
+        // it's not supposed to. (See https://crbug.com/40896761 for an example of this happening).
         if (mOptionalButtonCoordinator != null
                 && mOptionalButtonCoordinator.getViewVisibility() != View.GONE
                 && mOptionalButtonCoordinator.getViewWidth() != 0) {
@@ -1669,14 +1690,18 @@ public class ToolbarPhone extends ToolbarLayout
         }
 
         // Draw the tab stack button and associated text if necessary.
-        if (getTabSwitcherButtonCoordinator() != null && mUrlExpansionFraction != 1f) {
+        ToggleTabStackButtonCoordinator tabSwitcherButtonCoordinator =
+                getTabSwitcherButtonCoordinator();
+        if (tabSwitcherButtonCoordinator != null
+                && tabSwitcherButtonCoordinator.isVisible()
+                && mUrlExpansionFraction != 1f) {
             // Draw the tab stack button image.
-            getTabSwitcherButtonCoordinator().draw(mToolbarButtonsContainer, canvas);
+            tabSwitcherButtonCoordinator.draw(mToolbarButtonsContainer, canvas);
         }
 
         // Draw the menu button if necessary.
         final MenuButtonCoordinator menuButtonCoordinator = getMenuButtonCoordinator();
-        if (menuButtonCoordinator != null) {
+        if (menuButtonCoordinator != null && menuButtonCoordinator.isVisible()) {
             menuButtonCoordinator.drawTabSwitcherAnimationOverlay(
                     mToolbarButtonsContainer, canvas, rgbAlpha);
         }
@@ -2038,7 +2063,7 @@ public class ToolbarPhone extends ToolbarLayout
     public void finishAnimations() {
         // The Android framework calls onAnimationEnd() on listeners before Animator#isRunning()
         // returns false. Sometimes this causes the progress bar visibility to be set incorrectly.
-        // Update the visibility now that animations are set to null. (see crbug.com/606419)
+        // Update the visibility now that animations are set to null. (see crbug.com/41250767)
         updateProgressBarVisibility();
     }
 
@@ -2061,12 +2086,37 @@ public class ToolbarPhone extends ToolbarLayout
 
     @Override
     public void updateButtonVisibility() {
-        boolean hideHomeButton = !mIsHomeButtonEnabled;
+        boolean shouldModifyToolbarButtons =
+                ToolbarVariationUtils.shouldModifyToolbarButtons(
+                        getContext(), isNtpVisualState(mVisualState));
+        boolean hideHomeButton =
+                !mIsHomeButtonEnabled
+                        || (shouldModifyToolbarButtons
+                                && !ToolbarVariationUtils.shouldHomeButtonBeAtStartOfToolbar());
         if (hideHomeButton) {
             mHomeButton.setVisibility(View.GONE);
         } else {
             mHomeButton.setVisibility(urlHasFocus() ? View.INVISIBLE : View.VISIBLE);
         }
+
+        boolean showBackButtonOutside = shouldModifyToolbarButtons && shouldShowBackButtonOutside();
+        if (mBackButtonCoordinator != null) {
+            mBackButtonCoordinator.setHasSpaceToShow(true);
+            mBackButtonCoordinator.setVisibility(showBackButtonOutside);
+        }
+
+        updateMenuButtonVisibility();
+
+        if (getTabSwitcherButtonCoordinator() != null) {
+            getTabSwitcherButtonCoordinator().setHasSpaceToShow(!shouldModifyToolbarButtons);
+        }
+    }
+
+    private boolean shouldShowBackButtonOutside() {
+        return ToolbarVariationUtils.isToolbarUiRefactorEnabled(getContext())
+                && !ToolbarVariationUtils.shouldBackButtonBeInOmnibox()
+                && !isLocationBarShownInNtp()
+                && !urlHasFocus();
     }
 
     @Override
@@ -2161,7 +2211,7 @@ public class ToolbarPhone extends ToolbarLayout
         mTabSwitcherState = inTabSwitcherMode ? ENTERING_TAB_SWITCHER : EXITING_TAB_SWITCHER;
 
         // The width of location bar depends on mTabSwitcherState so layout request is needed. See
-        // crbug.com/974745.
+        // crbug.com/41465292.
         ViewUtils.requestLayout(this, "ToolbarPhone.setTabSwitcherMode");
 
         finishAnimations();
@@ -2202,7 +2252,7 @@ public class ToolbarPhone extends ToolbarLayout
         }
 
         // The width of location bar depends on mTabSwitcherState so layout request is needed. See
-        // crbug.com/974745.
+        // crbug.com/41465292.
         ViewUtils.requestLayout(this, "ToolbarPhone.onTabSwitcherTransitionFinished");
         finishAnimations();
         updateVisualsForLocationBarState();
@@ -2233,10 +2283,6 @@ public class ToolbarPhone extends ToolbarLayout
         animator.setDuration(URL_FOCUS_CHANGE_ANIMATION_DURATION_MS);
         animator.setInterpolator(Interpolators.FAST_OUT_SLOW_IN_INTERPOLATOR);
         animators.add(animator);
-
-        mLocationBar
-                .getPhoneCoordinator()
-                .populateFadeAnimation(animators, 0, URL_FOCUS_CHANGE_ANIMATION_DURATION_MS, 0);
 
         float density = getContext().getResources().getDisplayMetrics().density;
         boolean isRtl = getLayoutDirection() == LAYOUT_DIRECTION_RTL;
@@ -2321,14 +2367,6 @@ public class ToolbarPhone extends ToolbarLayout
             animator.setInterpolator(Interpolators.FAST_OUT_SLOW_IN_INTERPOLATOR);
             animators.add(animator);
         }
-
-        mLocationBar
-                .getPhoneCoordinator()
-                .populateFadeAnimation(
-                        animators,
-                        URL_FOCUS_TOOLBAR_BUTTONS_DURATION_MS,
-                        URL_CLEAR_FOCUS_MENU_DELAY_MS,
-                        1);
 
         if (isLocationBarShownInNtp() && mNtpSearchBoxScrollFraction == 0f) return;
 
@@ -2425,7 +2463,7 @@ public class ToolbarPhone extends ToolbarLayout
         // issues.
         if (animatingSuggestionsListOnNtp()
                 && !ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()
-                && !OmniboxFeatures.sOmniboxMultimodalInput.isEnabled()) {
+                && !OmniboxFeatures.isMultimodalInputEnabled(getContext())) {
             ButtonData copy = mButtonData;
             updateOptionalButton(hasFocus ? null : mButtonData);
             mButtonData = copy;
@@ -3283,7 +3321,7 @@ public class ToolbarPhone extends ToolbarLayout
 
         // This exception is to prevent early change of theme color when exiting the tab switcher
         // since currently visual state does not map correctly to tab switcher state. See
-        // https://crbug.com/832594 for more info.
+        // https://crbug.com/41383056 for more info.
         if (mTabSwitcherState != EXITING_TAB_SWITCHER) {
             updateToolbarBackgroundFromState(mVisualState);
         }
@@ -3305,7 +3343,8 @@ public class ToolbarPhone extends ToolbarLayout
 
         mLocationBar.updateVisualsForState();
 
-        getMenuButtonCoordinator().setVisibility(true);
+        updateMenuButtonVisibility();
+        updateOptionalButton(mButtonData);
         TraceEvent.end("ToolbarPhone.updateVisualsForLocationBarState");
     }
 
@@ -3334,6 +3373,11 @@ public class ToolbarPhone extends ToolbarLayout
     }
 
     private void initializeOptionalButton() {
+        // TODO(crbug.com/506984216): Once ToolbarVariationUtils.isNewToolbarUiEnabled() is launched
+        // it should be safe to remove the optional button from the NTP if the identity disc is
+        // ported to a dedicated button. SigninFeatureMap.sSigninLevelUpButton.isEnabled() already
+        // does this, so it is free if both features are enabled.
+
         if (mOptionalButtonCoordinator == null) {
             ViewStub optionalButtonStub = findViewById(R.id.optional_button_stub);
 
@@ -3496,7 +3540,28 @@ public class ToolbarPhone extends ToolbarLayout
     @SuppressWarnings("NullAway")
     protected void updateOptionalButton(@Nullable ButtonData buttonData) {
         mButtonData = buttonData;
+        // The toolbar button is migrated to the location bar on phones when not on the NTP.
+        if (ToolbarVariationUtils.isToolbarUiRefactorEnabled(getContext())
+                && !isNtpVisualState(mVisualState)) {
+            if (mLocationBar != null) {
+                mLocationBar.updateOptionalButton(buttonData);
+            }
+            // Hide the toolbar optional button since we are going to show the location bar optional
+            // button.
+            hideToolbarOptionalButton();
+            return;
+        }
 
+        if (mLocationBar != null) {
+            // When on the NTP or when the feature is disabled, we should hide the location bar
+            // optional button.
+            mLocationBar.hideOptionalButton();
+        }
+
+        // TODO(crbug.com/506984216): See comment in #initializeOptionalButton for details about
+        // when the remainder of this method can be removed.
+
+        // The optional button remains in the toolbar for NTP for the identity disc.
         if (mOptionalButtonCoordinator == null) {
             initializeOptionalButton();
         }
@@ -3512,8 +3577,32 @@ public class ToolbarPhone extends ToolbarLayout
     }
 
     @Override
+    public void updateMenuButtonVisibility() {
+        boolean shouldModifyToolbarButtons =
+                ToolbarVariationUtils.shouldModifyToolbarButtons(
+                        getContext(), isNtpVisualState(mVisualState));
+        boolean showAppMenu =
+                !shouldModifyToolbarButtons || ToolbarVariationUtils.shouldAppMenuBeInToolbar();
+
+        var menuButtonCoordinator = getMenuButtonCoordinator();
+        if (menuButtonCoordinator != null) {
+            menuButtonCoordinator.setVisibility(showAppMenu);
+        }
+    }
+
+    @Override
     protected void hideOptionalButton() {
         mButtonData = null;
+
+        if (ToolbarVariationUtils.isToolbarUiRefactorEnabled(getContext())
+                && mLocationBar != null) {
+            mLocationBar.hideOptionalButton();
+        }
+
+        hideToolbarOptionalButton();
+    }
+
+    private void hideToolbarOptionalButton() {
         if (mOptionalButtonCoordinator == null
                 || mOptionalButtonCoordinator.getViewVisibility() == View.GONE
                 || mLayoutLocationBarWithoutExtraButton) {
@@ -3646,7 +3735,7 @@ public class ToolbarPhone extends ToolbarLayout
 
     @Override
     public void requestKeyboardFocus() {
-        setFocusOnFirstFocusableDescendant(this);
+        KeyboardFocusUtil.setFocusOnFirstFocusableDescendant(this);
         // TODO(crbug.com/360423850): Replace this setFocus(mLocationBar) when omnibox keyboard
         // behavior is fixed.
     }
@@ -3699,6 +3788,10 @@ public class ToolbarPhone extends ToolbarLayout
         if (!skipUrlExpansion) {
             updateUrlExpansionAnimation();
         }
+    }
+
+    void setBackButtonCoordinatorForTesting(BackButtonCoordinator backButtonCoordinator) {
+        mBackButtonCoordinator = backButtonCoordinator;
     }
 
     private boolean inOrEnteringTabSwitcher() {

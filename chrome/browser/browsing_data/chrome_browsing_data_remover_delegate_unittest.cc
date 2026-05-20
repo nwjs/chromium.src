@@ -136,7 +136,6 @@
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/browser/zero_suggest_cache_service.h"
 #include "components/omnibox/common/omnibox_features.h"
-#include "components/os_crypt/sync/os_crypt_mocker.h"
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/browser/password_store/mock_password_store_interface.h"
 #include "components/password_manager/core/browser/password_store/mock_smart_bubble_stats_store.h"
@@ -1208,16 +1207,10 @@ class ChromeBrowsingDataRemoverDelegateTest : public testing::Test {
       password_manager::MockPasswordStoreInterface* store,
       bool success = true) {
     EXPECT_CALL(*store, RemoveLoginsCreatedBetween)
-        .WillOnce(testing::WithArgs<3, 4>(
-            [success](base::OnceCallback<void(bool)> complete_callback,
-                      base::OnceCallback<void(bool)> sync_callback) {
+        .WillOnce(testing::WithArgs<3>(
+            [success](base::OnceCallback<void(bool)> complete_callback) {
               if (complete_callback) {
                 std::move(complete_callback).Run(success);
-              }
-              if (sync_callback) {
-                // In this test, deletions are never uploaded, so sync_callback
-                // always report false.
-                std::move(sync_callback).Run(false);
               }
             }));
   }
@@ -1418,11 +1411,9 @@ class ChromeBrowsingDataRemoverDelegateWithPasswordsTest
  public:
   void SetUp() override {
     ChromeBrowsingDataRemoverDelegateTest::SetUp();
-    OSCryptMocker::SetUp();
   }
 
   void TearDown() override {
-    OSCryptMocker::TearDown();
     ChromeBrowsingDataRemoverDelegateTest::TearDown();
   }
 
@@ -1568,9 +1559,9 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, ClearWebAppData) {
                                 constants::DATA_TYPE_HISTORY, false);
 
   // Verify that web app's last launch time is cleared.
-  EXPECT_EQ(
-      provider->registrar_unsafe().GetAppById(web_app_id)->last_launch_time(),
-      base::Time());
+  EXPECT_FALSE(provider->registrar_unsafe()
+                   .GetAppLastLaunchTime(web_app_id)
+                   .has_value());
   // Verify that web app's last badging time is cleared.
   EXPECT_EQ(
       provider->registrar_unsafe().GetAppById(web_app_id)->last_badging_time(),
@@ -2139,7 +2130,7 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, DeleteBookmarkHistory) {
 }
 
 // Verifies deleting does not crash if BookmarkModel has not been loaded.
-// Regression test for: https://crbug.com/1207632.
+// Regression test for: https://crbug.com/40181383.
 TEST_F(ChromeBrowsingDataRemoverDelegateTest,
        DeleteBookmarksDoesNothingWhenModelNotLoaded) {
   TestingProfile* profile = GetProfileManager()->CreateTestingProfile(
@@ -3083,17 +3074,15 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, RemovePersistentPermission) {
       HostContentSettingsMapFactory::GetForProfile(GetProfile());
 
   PersistentStoragePermissionContext persistent_permission(GetProfile());
-  persistent_permission.UpdateContentSetting(
-      permissions::PermissionRequestData(
-          std::make_unique<permissions::ContentSettingPermissionResolver>(
-              ContentSettingsType::PERSISTENT_STORAGE),
-          /*user_gesture=*/true, kOrigin1, GURL()),
+  persistent_permission.UpdateSetting(
+      permissions::PermissionRequestData(permissions::RequestType::kDiskQuota,
+                                         /*user_gesture=*/true, kOrigin1,
+                                         GURL()),
       CONTENT_SETTING_ALLOW, /*is_one_time=*/false);
-  persistent_permission.UpdateContentSetting(
-      permissions::PermissionRequestData(
-          std::make_unique<permissions::ContentSettingPermissionResolver>(
-              ContentSettingsType::PERSISTENT_STORAGE),
-          /*user_gesture=*/true, kOrigin2, GURL()),
+  persistent_permission.UpdateSetting(
+      permissions::PermissionRequestData(permissions::RequestType::kDiskQuota,
+                                         /*user_gesture=*/true, kOrigin2,
+                                         GURL()),
       CONTENT_SETTING_ALLOW, /*is_one_time=*/false);
 
   // Clear all except for origin1 and origin3.
@@ -3134,11 +3123,10 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
   HostContentSettingsMap* host_content_settings_map =
       HostContentSettingsMapFactory::GetForProfile(GetProfile());
   PersistentStoragePermissionContext persistent_permission(GetProfile());
-  persistent_permission.UpdateContentSetting(
-      permissions::PermissionRequestData(
-          std::make_unique<permissions::ContentSettingPermissionResolver>(
-              ContentSettingsType::PERSISTENT_STORAGE),
-          /*user_gesture=*/true, GURL("http://host1.com:1"), GURL()),
+  persistent_permission.UpdateSetting(
+      permissions::PermissionRequestData(permissions::RequestType::kDiskQuota,
+                                         /*user_gesture=*/true,
+                                         GURL("http://host1.com:1"), GURL()),
       CONTENT_SETTING_ALLOW,
       /*is_one_time=*/false);
   ContentSettingsForOneType host_settings =
@@ -4016,7 +4004,6 @@ TEST_F(ChromeBrowsingDataRemoverDelegateWithAccountPasswordsTest,
   EnableAccountStorage();
   TestFuture<base::OnceClosure> profile_auto_signin_cb, account_auto_signin_cb;
   TestFuture<base::OnceCallback<void(bool)>> account_remove_cb;
-  TestFuture<base::OnceCallback<void(bool)>> account_sync_cb;
   TestFuture<base::OnceCallback<void(bool)>> profile_remove_cb;
   ON_CALL(*profile_password_store(), DisableAutoSignInForOrigins)
       .WillByDefault(MoveArgToFuture<1>(&profile_auto_signin_cb));
@@ -4025,9 +4012,8 @@ TEST_F(ChromeBrowsingDataRemoverDelegateWithAccountPasswordsTest,
   ON_CALL(*profile_password_store(), RemoveLoginsCreatedBetween)
       .WillByDefault(MoveArgToFuture<3>(&profile_remove_cb));
   ON_CALL(*account_password_store(), RemoveLoginsCreatedBetween)
-      .WillByDefault(WithArgs<3, 4>([&](auto remove_cb, auto sync_cb) {
+      .WillByDefault(WithArgs<3>([&](auto remove_cb) {
         account_remove_cb.SetValue(std::move(remove_cb));
-        account_sync_cb.SetValue(std::move(sync_cb));
       }));
 
   // Kick off.
@@ -4044,20 +4030,13 @@ TEST_F(ChromeBrowsingDataRemoverDelegateWithAccountPasswordsTest,
   // completion signal.
   ASSERT_TRUE(profile_remove_cb.Wait());
   ASSERT_TRUE(account_remove_cb.Wait());
-#if !BUILDFLAG(IS_ANDROID)
-  ASSERT_TRUE(account_sync_cb.Wait());
-#endif
   ASSERT_FALSE(profile_auto_signin_cb.IsReady());
   ASSERT_FALSE(account_auto_signin_cb.IsReady());
   ASSERT_FALSE(completion_observer.browsing_data_remover_done());
 
-  // Report password removal as finished, by invoking the callbacks. Note:
-  // `account_sync_cb` is null on Android.
+  // Report password removal as finished, by invoking the callbacks.
   profile_remove_cb.Take().Run(true);
   account_remove_cb.Take().Run(true);
-#if !BUILDFLAG(IS_ANDROID)
-  account_sync_cb.Take().Run(true);
-#endif
 
   // Auto-signin disabling should be triggered, but not the completion signal.
   ASSERT_TRUE(profile_auto_signin_cb.Wait());
@@ -4092,20 +4071,7 @@ TEST_F(ChromeBrowsingDataRemoverDelegateWithAccountPasswordsTest,
   uint64_t failed_data_types = BlockUntilBrowsingDataRemoved(
       base::Time(), base::Time::Max(), constants::DATA_TYPE_ACCOUNT_PASSWORDS,
       false);
-  // Desktop waits for DATA_TYPE_ACCOUNT_PASSWORDS deletions to be uploaded to
-  // the sync server before deleting any other types (because deleting
-  // DATA_TYPE_COOKIES first would revoke the account storage opt-in and prevent
-  // the upload). In this test, deletions are never uploaded, so sync callback
-  // on DATA_TYPE_ACCOUNT_PASSWORDS is reported as failed.
-  // On Android, the account storage doesn't depend on cookies, so there's no
-  // waiting logic on sync callback, the removal reported as successful.
-  EXPECT_EQ(failed_data_types,
-#if BUILDFLAG(IS_ANDROID)
-            0u
-#else
-            constants::DATA_TYPE_ACCOUNT_PASSWORDS
-#endif
-  );
+  EXPECT_EQ(failed_data_types, 0u);
 }
 
 TEST_F(ChromeBrowsingDataRemoverDelegateWithAccountPasswordsTest,

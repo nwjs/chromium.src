@@ -13,8 +13,10 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/collaboration/public/features.h"
 #include "components/history_clusters/core/features.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/password_manager/core/common/password_manager_features.h"
+#include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/regional_capabilities/regional_capabilities_switches.h"
 #include "components/search/ntp_features.h"
 #include "components/search_engines/search_engines_switches.h"
@@ -43,6 +45,7 @@ WebUIAllUrlsBrowserTest::WebUIAllUrlsBrowserTest() {
   enabled_features.push_back(
       optimization_guide::features::kOptimizationGuideModelExecution);
   enabled_features.push_back(collaboration::features::kCollaborationComments);
+  enabled_features.push_back(omnibox::kComposeboxDriveContextMenuOption);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
@@ -61,7 +64,16 @@ WebUIAllUrlsBrowserTest::WebUIAllUrlsBrowserTest() {
 
   enabled_features.push_back(features::kTabsFromOtherDevicesSidePanel);
 
-  feature_list_.InitWithFeatures(enabled_features, {});
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  enabled_features.push_back(switches::kFirstRunDesktopRefresh);
+  enabled_features.push_back(switches::kFirstRunDesktopChoiceScreenRefresh);
+  enabled_features.push_back(switches::kFirstRunDesktopRevamp);
+#endif
+
+  const std::vector<base::test::FeatureRef> disabled_features = {
+      privacy_sandbox::kPrivacySandboxAdPrivacyUxDeprecation};
+
+  feature_list_.InitWithFeatures(enabled_features, disabled_features);
 }
 
 WebUIAllUrlsBrowserTest::~WebUIAllUrlsBrowserTest() = default;
@@ -115,7 +127,7 @@ void WebUIAllUrlsBrowserTest::WaitBeforeNavigation() {
 }
 
 std::string WebUIAllUrlsBrowserTest::ParamInfoToString(
-    const ::testing::TestParamInfo<const char*>& info) {
+    const testing::TestParamInfo<std::string_view>& info) {
   std::string name(info.param);
   std::replace_if(
       name.begin(), name.end(),

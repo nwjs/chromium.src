@@ -42,6 +42,7 @@ source_set("impl") {
   deps = [
     ":search_engine_choice",
     "//chrome/browser:browser_process",
+    "//chrome/browser/metrics",
     "//chrome/browser/profiles",
     "//chrome/browser/regional_capabilities",
     "//chrome/browser/search_engines",
@@ -77,6 +78,10 @@ source_set("impl") {
         "//chromeos/components/mgs",
       ]
     }
+
+    if (is_chrome_for_testing) {
+      deps += [ "//chrome/browser/chrome_for_testing:browser" ]
+    }
   }
 }
 
@@ -101,6 +106,7 @@ if (!is_android) {
         "//chrome/browser:browser_process",
         "//chrome/browser:test_support",
         "//chrome/browser/prefs:util",
+        "//chrome/browser/profiles:misc",
         "//chrome/browser/profiles/keep_alive",
         "//chrome/browser/search_engines",
         "//chrome/browser/ui",

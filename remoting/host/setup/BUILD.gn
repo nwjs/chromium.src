@@ -40,6 +40,7 @@ source_set("common") {
     "//remoting/base",
     "//remoting/base:authorization",
     "//remoting/host:common",
+    "//remoting/host:elevated_native_messaging_host",
     "//remoting/host:resources",
     "//remoting/host/native_messaging",
     "//remoting/protocol",
@@ -47,11 +48,15 @@ source_set("common") {
     "//services/network/public/mojom",
   ]
 
-  if (is_linux || is_chromeos) {
+  if (is_linux) {
     sources += [
-      "daemon_controller_delegate_linux.cc",
-      "daemon_controller_delegate_linux.h",
+      "daemon_controller_delegate_linux_multi_process.cc",
+      "daemon_controller_delegate_linux_multi_process.h",
+      "daemon_controller_delegate_linux_single_process.cc",
+      "daemon_controller_delegate_linux_single_process.h",
+      "daemon_controller_linux.cc",
     ]
+    deps += [ "//remoting/host/linux:host_types" ]
   }
 
   if (is_mac) {
@@ -76,7 +81,6 @@ source_set("common") {
       "daemon_controller_delegate_win.h",
     ]
     deps += [
-      "//remoting/host/win:elevated_native_messaging_host",
       "//remoting/host/win:remoting_lib_idl",
       "//remoting/host/win:security_descriptor",
     ]
@@ -120,13 +124,6 @@ source_set("start_host_main") {
     "start_host_main.cc",
   ]
 
-  if (is_linux) {
-    sources += [
-      "start_host_as_root.cc",
-      "start_host_as_root.h",
-    ]
-  }
-
   deps = [
     ":buildflags",
     ":start_host_common",
@@ -144,6 +141,14 @@ source_set("start_host_main") {
     "//services/network/public/cpp",
     "//third_party/webrtc_overrides:webrtc_component",
   ]
+
+  if (is_linux) {
+    sources += [
+      "start_host_as_root.cc",
+      "start_host_as_root.h",
+    ]
+    deps += [ "//remoting/host/linux:host_types" ]
+  }
 
   if (remoting_internal) {
     deps += [ "//remoting/internal/proto" ]

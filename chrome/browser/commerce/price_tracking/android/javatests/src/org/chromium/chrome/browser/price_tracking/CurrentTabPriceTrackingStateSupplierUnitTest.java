@@ -43,6 +43,7 @@ import org.chromium.components.commerce.core.ShoppingService;
 import org.chromium.components.commerce.core.ShoppingService.ProductInfo;
 import org.chromium.components.commerce.core.ShoppingService.ProductInfoCallback;
 import org.chromium.components.commerce.core.SubscriptionsObserver;
+import org.chromium.ui.test.util.MockitoHelper;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
@@ -102,7 +103,7 @@ public class CurrentTabPriceTrackingStateSupplierUnitTest {
 
     @Test
     public void testWithEmptySuppliers() {
-        Callback<Boolean> mockCallback = mock(Callback.class);
+        Callback<Boolean> mockCallback = MockitoHelper.mockCallback();
 
         var supplier = new CurrentTabPriceTrackingStateSupplier(mTabSupplier, mProfileSupplier);
         supplier.addSyncObserver(mockCallback);
@@ -113,7 +114,7 @@ public class CurrentTabPriceTrackingStateSupplierUnitTest {
 
     @Test
     public void testWithTabWithoutProductInfo() {
-        Callback<Boolean> mockCallback = mock(Callback.class);
+        Callback<Boolean> mockCallback = MockitoHelper.mockCallback();
         when(mMockTab.getUrl()).thenReturn(JUnitTestGURLs.GOOGLE_URL_CAT);
 
         var supplier = new CurrentTabPriceTrackingStateSupplier(mTabSupplier, mProfileSupplier);
@@ -135,7 +136,7 @@ public class CurrentTabPriceTrackingStateSupplierUnitTest {
 
     @Test
     public void testWithTabWithProductInfo_untracked() {
-        Callback<Boolean> mockCallback = mock(Callback.class);
+        Callback<Boolean> mockCallback = MockitoHelper.mockCallback();
         long productClusterId = 1234L;
         ShoppingService.ProductInfo productInfo = createProductInfoWithId(productClusterId);
 
@@ -145,7 +146,7 @@ public class CurrentTabPriceTrackingStateSupplierUnitTest {
         ArgumentCaptor<CommerceSubscription> commerceSubscriptionArgumentCaptor =
                 ArgumentCaptor.forClass(CommerceSubscription.class);
         ArgumentCaptor<Callback<Boolean>> shoppingServiceCallbackCaptor =
-                ArgumentCaptor.forClass(Callback.class);
+                MockitoHelper.callbackCaptor();
 
         var supplier = new CurrentTabPriceTrackingStateSupplier(mTabSupplier, mProfileSupplier);
         supplier.addSyncObserver(mockCallback);
@@ -178,14 +179,14 @@ public class CurrentTabPriceTrackingStateSupplierUnitTest {
 
     @Test
     public void testWithTabWithProductInfo_tracked() {
-        Callback<Boolean> mockCallback = mock(Callback.class);
+        Callback<Boolean> mockCallback = MockitoHelper.mockCallback();
         long productClusterId = 1234L;
         ShoppingService.ProductInfo productInfo = createProductInfoWithId(productClusterId);
 
         when(mMockTab.getUrl()).thenReturn(JUnitTestGURLs.GOOGLE_URL_CAT);
 
         ArgumentCaptor<Callback<Boolean>> shoppingServiceCallbackCaptor =
-                ArgumentCaptor.forClass(Callback.class);
+                MockitoHelper.callbackCaptor();
 
         var supplier = new CurrentTabPriceTrackingStateSupplier(mTabSupplier, mProfileSupplier);
         supplier.addSyncObserver(mockCallback);
@@ -211,7 +212,7 @@ public class CurrentTabPriceTrackingStateSupplierUnitTest {
 
     @Test
     public void testWithTabWithProductInfo_untrackedAndThenTracked() {
-        Callback<Boolean> mockCallback = mock(Callback.class);
+        Callback<Boolean> mockCallback = MockitoHelper.mockCallback();
         long productClusterId = 1234L;
         ShoppingService.ProductInfo productInfo = createProductInfoWithId(productClusterId);
 
@@ -222,7 +223,7 @@ public class CurrentTabPriceTrackingStateSupplierUnitTest {
         ArgumentCaptor<CommerceSubscription> commerceSubscriptionArgumentCaptor =
                 ArgumentCaptor.forClass(CommerceSubscription.class);
         ArgumentCaptor<Callback<Boolean>> shoppingServiceCallbackCaptor =
-                ArgumentCaptor.forClass(Callback.class);
+                MockitoHelper.callbackCaptor();
 
         var supplier = new CurrentTabPriceTrackingStateSupplier(mTabSupplier, mProfileSupplier);
         supplier.addSyncObserver(mockCallback);
@@ -259,7 +260,7 @@ public class CurrentTabPriceTrackingStateSupplierUnitTest {
 
     @Test
     public void testWithTabWithProductInfo_trackedAndThenUnTracked() {
-        Callback<Boolean> mockCallback = mock(Callback.class);
+        Callback<Boolean> mockCallback = MockitoHelper.mockCallback();
         long productClusterId = 1234L;
         ShoppingService.ProductInfo productInfo = createProductInfoWithId(productClusterId);
 
@@ -270,7 +271,7 @@ public class CurrentTabPriceTrackingStateSupplierUnitTest {
         ArgumentCaptor<CommerceSubscription> commerceSubscriptionArgumentCaptor =
                 ArgumentCaptor.forClass(CommerceSubscription.class);
         ArgumentCaptor<Callback<Boolean>> shoppingServiceCallbackCaptor =
-                ArgumentCaptor.forClass(Callback.class);
+                MockitoHelper.callbackCaptor();
 
         var supplier = new CurrentTabPriceTrackingStateSupplier(mTabSupplier, mProfileSupplier);
         supplier.addSyncObserver(mockCallback);
@@ -310,7 +311,7 @@ public class CurrentTabPriceTrackingStateSupplierUnitTest {
     @Test
     public void testWithTabWithProductInfo_tabChangesWhileLoading() {
         Tab anotherTab = mock(Tab.class);
-        Callback<Boolean> mockCallback = mock(Callback.class);
+        Callback<Boolean> mockCallback = MockitoHelper.mockCallback();
         long productClusterId = 1234L;
         ShoppingService.ProductInfo productInfo = createProductInfoWithId(productClusterId);
 
@@ -318,7 +319,7 @@ public class CurrentTabPriceTrackingStateSupplierUnitTest {
         when(anotherTab.getUrl()).thenReturn(JUnitTestGURLs.GOOGLE_URL_DOG);
 
         ArgumentCaptor<Callback<Boolean>> shoppingServiceCallbackCaptor =
-                ArgumentCaptor.forClass(Callback.class);
+                MockitoHelper.callbackCaptor();
 
         var supplier = new CurrentTabPriceTrackingStateSupplier(mTabSupplier, mProfileSupplier);
         supplier.addSyncObserver(mockCallback);

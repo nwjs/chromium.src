@@ -328,6 +328,8 @@ targets.binaries.generated_script(
     args = [
         "--results-directory",
         "${ISOLATED_OUTDIR}",
+        "--test-launcher-filter-file=../../third_party/blink/web_tests/TestLists/content_shell.filter",
+        "--inverted-test-launcher-filter-file=../../third_party/blink/web_tests/TestLists/chrome.filter",
     ],
     merge = targets.merge(
         script = "//third_party/blink/tools/merge_web_test_results.py",
@@ -576,6 +578,14 @@ targets.binaries.generated_script(
 targets.binaries.console_test_launcher(
     name = "chrome_public_apk_baseline_profile_generator",
     label = "//chrome/test/android:chrome_public_apk_baseline_profile_generator",
+    # All references have been moved to starlark
+    skip_usage_check = True,
+    module_scheme = "junit",
+)
+
+targets.binaries.console_test_launcher(
+    name = "chrome_public_bundle_smoke_test",
+    label = "//chrome/android:chrome_public_bundle_smoke_test",
     # All references have been moved to starlark
     skip_usage_check = True,
     module_scheme = "junit",
@@ -1113,12 +1123,6 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.windowed_test_launcher(
     name = "exo_unittests",
     label = "//components/exo:exo_unittests",
-    module_scheme = "gtest",
-)
-
-targets.binaries.windowed_test_launcher(
-    name = "extensions_browsertests",
-    label = "//extensions:extensions_browsertests",
     module_scheme = "gtest",
 )
 
@@ -1882,6 +1886,12 @@ targets.binaries.console_test_launcher(
     module_scheme = "gtest",
 )
 
+targets.binaries.generated_script(
+    name = "perfetto_diff_tests",
+    label = "//base/tracing:perfetto_diff_tests",
+    skip_usage_check = True,
+)
+
 targets.binaries.console_test_launcher(
     name = "perfetto_unittests",
     label = "//third_party/perfetto:perfetto_unittests",
@@ -2343,14 +2353,6 @@ targets.binaries.script(
         "--adb-path",
         "src/third_party/android_sdk/public/platform-tools/adb",
     ],
-)
-
-targets.binaries.console_test_launcher(
-    name = "trichrome_chrome_bundle_smoke_test",
-    label = "//chrome/android:trichrome_chrome_bundle_smoke_test",
-    # All references have been moved to starlark
-    skip_usage_check = True,
-    module_scheme = "junit",
 )
 
 targets.binaries.console_test_launcher(

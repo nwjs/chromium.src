@@ -38,9 +38,6 @@ import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncView;
 import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
-import org.chromium.components.signin.SigninFeatureMap;
-import org.chromium.components.signin.SigninFeatures;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.AccountConsistencyPromoAction;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
@@ -212,7 +209,7 @@ public final class FullscreenSigninAndHistorySyncCoordinator extends SigninAndHi
     public @BackPressResult int handleBackPress() {
         switch (mCurrentView) {
             case ChildView.SIGNIN:
-                if (isSigninForced()) {
+                if (ForcedSigninController.isForcedSigninPolicyEnabled()) {
                     return BackPressResult.IGNORED;
                 }
                 if (isSignedIn()) {
@@ -310,7 +307,7 @@ public final class FullscreenSigninAndHistorySyncCoordinator extends SigninAndHi
     public boolean shouldDisplayManagementNoticeOnManagedDevices() {
         // Management notice shouldn't be shown in the Upgrade promo flow, even on managed devices,
         // unless the policy is forcing sign-in.
-        return isSigninForced();
+        return ForcedSigninController.isForcedSigninPolicyEnabled();
     }
 
     /** Implements {@link FullscreenSigninCoordinator.Delegate} */
@@ -373,14 +370,7 @@ public final class FullscreenSigninAndHistorySyncCoordinator extends SigninAndHi
         IdentityManager identityManager =
                 IdentityServicesProvider.get().getIdentityManager(profile);
         assumeNonNull(identityManager);
-        return identityManager.hasPrimaryAccount(ConsentLevel.SIGNIN);
-    }
-
-    private boolean isSigninForced() {
-        if (!SigninFeatureMap.isEnabled(SigninFeatures.SUPPORT_FORCED_SIGNIN_POLICY)) {
-            return false;
-        }
-        return mSigninManager.isForceSigninEnabled();
+        return identityManager.hasPrimaryAccount();
     }
 
     private void showChildView(@ChildView int child) {

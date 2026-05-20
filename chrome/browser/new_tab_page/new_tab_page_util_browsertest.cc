@@ -14,13 +14,13 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/new_tab_page/modules/modules_constants.h"
+#include "chrome/browser/new_tab_page/ntp_pref_names.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/signin_browser_test_base.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/webui/new_tab_page/ntp_pref_names.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -499,7 +499,8 @@ IN_PROC_BROWSER_TEST_P(NewTabPageUtilStalenessUpdateBrowserTest,
 
   const Time expected_time = initial_time + time_delta;
   const int expected_staleness_count = is_null_timestamp ? 0 : 1;
-  const int expected_dict_size = is_null_timestamp ? 0 : GetModules().size();
+  const size_t expected_dict_size =
+      is_null_timestamp ? 0u : GetModules().size();
 
   // Act.
   FastForwardBy(time_delta);
@@ -542,8 +543,8 @@ IN_PROC_BROWSER_TEST_P(NewTabPageUtilStalenessUpdateBrowserTest,
   const Time expected_time =
       is_above_update_threshold ? initial_time + time_delta : initial_time;
   const int expected_staleness_count = is_above_update_threshold ? 1 : 0;
-  const int expected_dict_size =
-      is_above_update_threshold ? GetModules().size() : 0;
+  const size_t expected_dict_size =
+      is_above_update_threshold ? GetModules().size() : 0u;
   const int expected_histogram_count = is_above_update_threshold ? 1 : 0;
 
   // Act.
@@ -589,8 +590,8 @@ IN_PROC_BROWSER_TEST_P(NewTabPageUtilStalenessUpdateBrowserTest,
   const Time expected_time =
       is_force_disabled_all_modules ? initial_time : initial_time + time_delta;
   const int expected_staleness_count = is_force_disabled_all_modules ? 0 : 1;
-  const int expected_dict_size =
-      is_force_disabled_all_modules ? 0 : GetModules().size();
+  const size_t expected_dict_size =
+      is_force_disabled_all_modules ? 0u : GetModules().size();
   const int expected_histogram_count = is_force_disabled_all_modules ? 1 : 0;
 
   // Act.
@@ -636,8 +637,8 @@ IN_PROC_BROWSER_TEST_P(NewTabPageUtilStalenessUpdateBrowserTest,
   const Time expected_time = initial_time + time_delta;
   const int expected_google_calendar_staleness_count =
       is_force_disabled_google_calendar ? 0 : 1;
-  const int expected_dict_size =
-      is_force_disabled_google_calendar ? 1 : GetModules().size();
+  const size_t expected_dict_size =
+      is_force_disabled_google_calendar ? 1u : GetModules().size();
   const int expected_histogram_count =
       is_force_disabled_google_calendar ? 1 : 0;
 

@@ -51,10 +51,10 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_bubble.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/features.h"
@@ -129,12 +129,16 @@ TabGroupModelFactory* factory_instance = nullptr;
 class ReentrancyCheck {
  public:
   explicit ReentrancyCheck(bool* guard_flag) : guard_flag_(guard_flag) {
-    CHECK_CURRENTLY_ON(content::BrowserThread::UI);
-    CHECK(!*guard_flag_);
+    ValidateNotReentrant(guard_flag_);
     *guard_flag_ = true;
   }
 
   ~ReentrancyCheck() { *guard_flag_ = false; }
+
+  static void ValidateNotReentrant(bool* guard_flag) {
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK(!*guard_flag);
+  }
 
  private:
   const raw_ptr<bool> guard_flag_;
@@ -309,7 +313,7 @@ void TabStripModel::SetFocusedGroup(
     TabGroup* const group_to_close =
         group_model_->GetTabGroup(old_focused_group.value());
     if (group_to_close && !group_to_close->IsGroupClosing()) {
-      CloseAllTabsInGroup(old_focused_group.value());
+      CloseAllTabsInGroupImpl(old_focused_group.value());
     }
   }
 
@@ -1315,6 +1319,8 @@ void TabStripModel::CloseAllTabsInGroupImpl(
 }
 
 void TabStripModel::CloseWebContentsAt(int index, uint32_t close_types) {
+  ReentrancyCheck::ValidateNotReentrant(&reentrancy_guard_);
+
   CHECK(ContainsIndex(index));
   CloseTabs({GetWebContentsAt(index)}, close_types);
 }
@@ -2582,6 +2588,13 @@ void TabStripModel::ExecuteContextMenuCommand(int context_index,
       base::UmaHistogramCounts1000("Tab.ContextMenu.CloseTab.SelectedTabsCount",
                                    selection_model_.size());
       base::RecordAction(UserMetricsAction("TabContextMenu_CloseTab"));
+
+      std::optional<split_tabs::SplitTabId> split_id =
+          GetSplitForTab(context_index);
+      if (split_id.has_value()) {
+        delegate_->WillCloseSplit(split_id.value());
+      }
+
       ExecuteCloseTabs(
           base::BindRepeating(&TabStripModel::GetTabsForCommand,
                               base::Unretained(this), context_index),
@@ -2886,9 +2899,6 @@ void TabStripModel::ExecuteContextMenuCommand(int context_index,
       }
       if (command_id == CommandGlicStartShare) {
         CHECK(delegate_->GlicPinTabs(tab_handles));
-        if (!glic::GlicEnabling::IsMultiInstanceEnabled()) {
-          delegate_->OpenGlicWindowFromSharedTab();
-        }
       } else {
         CHECK(delegate_->GlicUnpinTabs(tab_handles));
       }
@@ -2962,7 +2972,8 @@ void TabStripModel::ExecuteContextMenuCommand(int context_index,
           "Tab.ContextMenu.ToggleVertical.SelectedTabsCount",
           selection_model_.size());
       const BrowserWindowInterface* const browser =
-          chrome::FindBrowserWithTab(GetWebContentsAt(context_index));
+          GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+              GetWebContentsAt(context_index));
       if (auto* controller =
               tabs::VerticalTabStripStateController::From(browser)) {
         const bool is_vertical = !controller->ShouldDisplayVerticalTabs();
@@ -3887,10 +3898,13 @@ TabStripSelectionChange TabStripModel::SetSelection(
         const auto old_split_id =
             selection.old_tab ? selection.old_tab->GetSplit() : std::nullopt;
         if (!new_split_id || !old_split_id || new_split_id != old_split_id) {
+          const content::RenderWidgetHostView* view =
+              selection.new_contents->GetRenderWidgetHostView();
           selection.new_contents->SetTabSwitchStartTime(
               base::TimeTicks::Now(),
               resource_coordinator::ResourceCoordinatorTabHelper::IsLoaded(
-                  selection.new_contents));
+                  selection.new_contents),
+              view && view->HasSavedCompositorFrame());
         }
       }
 
@@ -4253,8 +4267,7 @@ void TabStripModel::UpdateTabInSplitImpl(tabs::TabInterface* split_tab,
     const int split_index = GetIndexOfTab(split_tab);
     MoveTabToIndexImpl(update_index, split_index, split_tab->GetGroup(),
                        split_tab->IsPinned(), initial_split_active);
-    CloseWebContentsAt(GetIndexOfTab(split_tab),
-                       TabCloseTypes::CLOSE_USER_GESTURE);
+    CloseTabs({split_tab->GetContents()}, TabCloseTypes::CLOSE_USER_GESTURE);
   } else {
     tabs::TabInterface* update_tab = GetTabAtIndex(update_index);
     std::optional<tab_groups::TabGroupId> initial_split_group =
@@ -4371,7 +4384,7 @@ void TabStripModel::AddToNewGroupImpl(
   MoveTabsAndSetPropertiesImpl(indices, destination_index, new_group, false);
 
   // Excluding the active tab, deselect all tabs being added to the group.
-  // See crbug/1301846 for more info.
+  // See crbug.com/40824982 for more info.
   const gfx::Range tab_indices =
       group_model()->GetTabGroup(new_group)->ListTabs();
   for (auto index = tab_indices.start(); index < tab_indices.end(); ++index) {
@@ -4656,6 +4669,10 @@ void TabStripModel::MoveTabToIndexImpl(
   if (group_model_) {
     if (initial_group != tab->GetGroup()) {
       TabGroupStateChanged(final_index, tab, initial_group, tab->GetGroup());
+    } else if (initial_group.has_value()) {
+      TabGroup* const tab_group =
+          group_model_->GetTabGroup(initial_group.value());
+      tab_group->MoveTab();
     }
   }
 }
@@ -5068,6 +5085,10 @@ void TabStripModel::MoveTabsWithNotifications(
       if (notification.intial_group != tab->GetGroup()) {
         TabGroupStateChanged(final_index, tab, notification.intial_group,
                              tab->GetGroup());
+      } else if (notification.intial_group.has_value()) {
+        TabGroup* const tab_group =
+            group_model_->GetTabGroup(notification.intial_group.value());
+        tab_group->MoveTab();
       }
     }
 
@@ -5312,7 +5333,7 @@ int TabStripModel::DetermineInsertionIndex(ui::PageTransition transition,
     // Normally we'd add the tab immediately after the most recent tab
     // associated with `opener`. However, if there is a group discontinuity
     // between the active tab and where we'd like to place the tab, we'll place
-    // it just before the discontinuity instead (see crbug.com/1246421).
+    // it just before the discontinuity instead (see crbug.com/40789226).
     const auto opener_group = GetTabGroupForTab(active_index());
     for (int i = active_index() + 1; i <= index; ++i) {
       // Insert before the first tab that differs in group.

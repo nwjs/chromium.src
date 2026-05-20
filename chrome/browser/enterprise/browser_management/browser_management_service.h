@@ -8,7 +8,7 @@
 #include "base/cancelable_callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
-#include "chrome/browser/policy/status_provider/user_cloud_policy_status_provider.h"
+#include "build/build_config.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/policy/core/browser/webui/policy_status_provider.h"
 #include "components/policy/core/common/cloud/cloud_policy_store.h"
@@ -16,6 +16,10 @@
 #include "components/policy/policy_export.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "ui/base/models/image_model.h"
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#include "chrome/browser/policy/status_provider/user_cloud_policy_status_provider.h"  // nogncheck crbug.com/40147906
+#endif
 
 class Profile;
 

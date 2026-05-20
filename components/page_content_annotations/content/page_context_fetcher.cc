@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "base/check.h"
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
@@ -33,6 +34,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/base/proto_wrapper.h"
 #include "net/base/schemeful_site.h"
+#include "pdf/buildflags.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -43,9 +45,9 @@
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "url/origin.h"
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_PDF)
 #include "components/pdf/browser/pdf_document_helper.h"
-#endif
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 namespace page_content_annotations {
 
@@ -227,28 +229,6 @@ base::expected<paint_preview::RedactionParams, std::string> GetRedactionParams(
   NOTREACHED();
 }
 
-SkBitmap RedactScreenshotOnWorkerThread(
-    const SkBitmap& bitmap,
-    std::vector<gfx::Rect> visible_bounding_boxes_for_redaction,
-    SkColor4f redaction_color) {
-  if (visible_bounding_boxes_for_redaction.empty()) {
-    return bitmap;
-  }
-
-  SkBitmap redacted_bitmap;
-  redacted_bitmap.setInfo(bitmap.info());
-  redacted_bitmap.allocPixels();
-
-  SkCanvas canvas(redacted_bitmap);
-  SkPaint color;
-  color.setColor(redaction_color);
-  for (const auto& rect : visible_bounding_boxes_for_redaction) {
-    canvas.drawRect(RectToSkRect(rect), color);
-  }
-
-  return redacted_bitmap;
-}
-
 std::string_view ToString(content::CopyFromSurfaceError error) {
   switch (error) {
     case content::CopyFromSurfaceError::kUnknown:
@@ -279,7 +259,8 @@ enum class PdfRequestStates {
   kMaxValue = kNonPdfMainDoc_PdfNotFound,
 };
 
-#if !BUILDFLAG(IS_ANDROID)
+// PDF support is controlled by the buildflag, not just by platform.
+#if BUILDFLAG(ENABLE_PDF)
 void RecordPdfRequestState(bool is_pdf_document, bool pdf_found) {
   PdfRequestStates state;
   if (is_pdf_document) {
@@ -291,9 +272,42 @@ void RecordPdfRequestState(bool is_pdf_document, bool pdf_found) {
   }
   UMA_HISTOGRAM_ENUMERATION("Glic.TabContext.PdfContentsRequested", state);
 }
-#endif
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 }  // namespace
+
+// static
+base::expected<SkBitmap, std::string>
+PageContextFetcher::RedactScreenshotOnWorkerThread(
+    const SkBitmap& bitmap,
+    const std::vector<gfx::Rect>& visible_bounding_boxes_for_redaction,
+    SkColor4f redaction_color) {
+  if (visible_bounding_boxes_for_redaction.empty()) {
+    return bitmap;
+  }
+
+  SkBitmap redacted_bitmap;
+  if (!redacted_bitmap.setInfo(bitmap.info())) {
+    return base::unexpected("Failed to set info for redacted bitmap");
+  }
+
+  if (!redacted_bitmap.tryAllocPixels()) {
+    return base::unexpected("Failed to allocate pixels for redacted bitmap");
+  }
+
+  if (!redacted_bitmap.writePixels(bitmap.pixmap())) {
+    return base::unexpected("Failed to copy pixels for screenshot redaction");
+  }
+
+  SkCanvas canvas(redacted_bitmap);
+  SkPaint paint;
+  paint.setColor(redaction_color);
+  for (const auto& rect : visible_bounding_boxes_for_redaction) {
+    canvas.drawRect(RectToSkRect(rect), paint);
+  }
+
+  return redacted_bitmap;
+}
 
 // static
 std::optional<std::vector<uint8_t>> EncodeScreenshot(
@@ -366,7 +380,7 @@ void PageContextFetcher::FetchStart(content::WebContents& aweb_contents,
   }
 
   pdf_done_ = true;  // Will not fetch PDF contents by default.
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_PDF)
   if (options.pdf_size_limit > 0) {
     bool is_pdf_document =
         web_contents()->GetContentsMimeType() == pdf::kPDFMimeType;
@@ -385,7 +399,7 @@ void PageContextFetcher::FetchStart(content::WebContents& aweb_contents,
       pdf_done_ = false;  // Will fetch PDF contents.
     }
   }
-#endif
+#endif  // BUILDFLAG(ENABLE_PDF)
 
   if (options.annotated_page_content_options) {
     blink::mojom::AIPageContentOptionsPtr ai_page_content_options =
@@ -396,12 +410,20 @@ void PageContextFetcher::FetchStart(content::WebContents& aweb_contents,
     }
     ai_page_content_options->include_passwords_for_redaction =
         base::FeatureList::IsEnabled(kGlicScreenshotPasswordRedaction);
-    screenshot_needs_password_redaction_ =
-        ai_page_content_options->include_passwords_for_redaction;
     ai_page_content_options->include_sensitive_payments_for_redaction =
         base::FeatureList::IsEnabled(kGlicScreenshotSensitivePaymentRedaction);
-    screenshot_needs_sensitive_payment_redaction_ =
-        ai_page_content_options->include_sensitive_payments_for_redaction;
+    // OTP redaction reuses the shared APC Autofill feature gate because there
+    // is no separate screenshot-only OTP pipeline. The browser asks APC for
+    // OTP boxes through the shared Autofill gate, and APC folds them into the
+    // final screenshot redaction vector.
+    ai_page_content_options->include_otps_for_redaction =
+        base::FeatureList::IsEnabled(
+            optimization_guide::features::
+                kAnnotatedPageContentAutofillOtpRedactions);
+    screenshot_needs_redaction_ =
+        ai_page_content_options->include_passwords_for_redaction ||
+        ai_page_content_options->include_sensitive_payments_for_redaction ||
+        ai_page_content_options->include_otps_for_redaction;
     optimization_guide::GetAIPageContent(
         web_contents(), std::move(ai_page_content_options),
         base::BindOnce(&PageContextFetcher::ReceivedAnnotatedPageContent,
@@ -417,7 +439,8 @@ void PageContextFetcher::FetchStart(content::WebContents& aweb_contents,
 }
 
 // TODO: Enable pdf fetching for Android.
-#if !BUILDFLAG(IS_ANDROID)
+// PDF support is compiled out on some platforms, including Fuchsia.
+#if BUILDFLAG(ENABLE_PDF)
 void PageContextFetcher::ReceivedPdfBytes(
     const url::Origin& pdf_origin,
     uint32_t pdf_size_limit,
@@ -440,7 +463,7 @@ void PageContextFetcher::ReceivedPdfBytes(
   }
   RunCallbackIfComplete();
 }
-#endif
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 void PageContextFetcher::GetTabScreenshot(
     content::WebContents& web_contents,
@@ -585,9 +608,14 @@ void PageContextFetcher::RedactAndEncodeScreenshot(
              std::vector<gfx::Rect> visible_bounding_boxes_for_redaction,
              SkColor4f redaction_color,
              std::optional<ScreenshotOptions::ScreenshotCollectionOptions>
-                 screenshot_collection_options) {
-            SkBitmap redacted_bitmap = RedactScreenshotOnWorkerThread(
-                bitmap, visible_bounding_boxes_for_redaction, redaction_color);
+                 screenshot_collection_options)
+              -> base::expected<std::pair<std::vector<uint8_t>, SkBitmap>,
+                                std::string> {
+            ASSIGN_OR_RETURN(SkBitmap redacted_bitmap,
+                             PageContextFetcher::RedactScreenshotOnWorkerThread(
+                                 bitmap, visible_bounding_boxes_for_redaction,
+                                 redaction_color));
+
             std::optional<std::vector<uint8_t>> encoded =
                 EncodeScreenshot(redacted_bitmap, screenshot_collection_options);
             base::expected<std::pair<std::vector<uint8_t>, SkBitmap>,
@@ -613,8 +641,7 @@ void PageContextFetcher::RedactAndEncodeScreenshotIfNeeded() {
     return;
   }
 
-  if (!screenshot_needs_password_redaction_ &&
-      !screenshot_needs_sensitive_payment_redaction_) {
+  if (!screenshot_needs_redaction_) {
     RedactAndEncodeScreenshot({});
     return;
   }
@@ -624,21 +651,14 @@ void PageContextFetcher::RedactAndEncodeScreenshotIfNeeded() {
     return;
   }
 
-  // If APC extraction is done and we've determined password/sensitive payment
-  // redaction is needed, it implies we have a result with bounding boxes to
-  // redact.
+  // Once APC is done, any requested password, OTP, or sensitive-payment
+  // redaction implies we have final bounding boxes to redact.
   CHECK(pending_result_);
   CHECK(pending_result_->annotated_page_content_result.has_value());
 
   std::vector<gfx::Rect> visible_bounding_boxes_for_redaction =
       pending_result_->annotated_page_content_result
-          ->visible_bounding_boxes_for_password_redaction;
-  visible_bounding_boxes_for_redaction.insert(
-      visible_bounding_boxes_for_redaction.end(),
-      pending_result_->annotated_page_content_result
-          ->visible_bounding_boxes_for_sensitive_payment_redaction.begin(),
-      pending_result_->annotated_page_content_result
-          ->visible_bounding_boxes_for_sensitive_payment_redaction.end());
+          ->visible_bounding_boxes_for_redaction;
   RedactAndEncodeScreenshot(std::move(visible_bounding_boxes_for_redaction));
 }
 
@@ -649,8 +669,8 @@ void PageContextFetcher::PrimaryPageChanged(content::Page& page) {
 }
 
 void PageContextFetcher::OnScreenshotTimeout() {
-  // When password/sensitive payment redaction is enabled, the screenshot must
-  // wait for APC to finish before it can be encoded.
+  // When any redaction is enabled, the screenshot must wait for APC to finish
+  // because APC is what produces the final bounding boxes we redact.
   //
   // The screenshot timer is intended to catch hangs during the initial bitmap
   // capture. If we have already received the bitmap, we should ignore this
@@ -744,17 +764,13 @@ void PageContextFetcher::ReceivedAnnotatedPageContent(
   if (has_result) {
     pending_result_->annotated_page_content_result.emplace(
         std::move(content.value()));
-    screenshot_needs_password_redaction_ =
+    screenshot_needs_redaction_ =
         !pending_result_->annotated_page_content_result
-             ->visible_bounding_boxes_for_password_redaction.empty();
-    screenshot_needs_sensitive_payment_redaction_ =
-        !pending_result_->annotated_page_content_result
-             ->visible_bounding_boxes_for_sensitive_payment_redaction.empty();
+             ->visible_bounding_boxes_for_redaction.empty();
   } else {
     pending_result_->annotated_page_content_result =
         base::unexpected(content.error());
-    screenshot_needs_password_redaction_ = false;
-    screenshot_needs_sensitive_payment_redaction_ = false;
+    screenshot_needs_redaction_ = false;
   }
   annotated_page_content_done_ = true;
   base::UmaHistogramTimes("Glic.PageContextFetcher.GetAnnotatedPageContent",
@@ -852,18 +868,32 @@ FetchPageContextResult::FetchPageContextResult()
     : screenshot_result(base::unexpected("Uninitialized")),
       annotated_page_content_result(base::unexpected("Uninitialized")) {}
 
+FetchPageContextResult::FetchPageContextResult(FetchPageContextResult&&) =
+    default;
+FetchPageContextResult& FetchPageContextResult::operator=(
+    FetchPageContextResult&&) = default;
+
 FetchPageContextResult::~FetchPageContextResult() = default;
 
 PdfResult::PdfResult(url::Origin origin, std::vector<uint8_t> bytes)
-    : origin(std::move(origin)), bytes(std::move(bytes)) {}
+    : origin(std::move(origin)), data(std::move(bytes)) {}
+
+PdfResult::PdfResult(url::Origin origin, std::string text)
+    : origin(std::move(origin)), data(std::move(text)) {}
 
 PdfResult::PdfResult(url::Origin origin)
     : origin(std::move(origin)), size_exceeded(true) {}
+
+PdfResult::PdfResult(PdfResult&&) = default;
+PdfResult& PdfResult::operator=(PdfResult&&) = default;
 
 PdfResult::~PdfResult() = default;
 
 ScreenshotResult::ScreenshotResult(gfx::Size dimensions)
     : dimensions(std::move(dimensions)) {}
+
+ScreenshotResult::ScreenshotResult(ScreenshotResult&&) = default;
+ScreenshotResult& ScreenshotResult::operator=(ScreenshotResult&&) = default;
 
 ScreenshotResult::~ScreenshotResult() = default;
 

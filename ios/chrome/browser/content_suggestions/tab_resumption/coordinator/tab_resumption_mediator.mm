@@ -33,6 +33,7 @@
 #import "components/page_image_service/mojom/page_image_service.mojom.h"
 #import "components/payments/core/currency_formatter.h"
 #import "components/sessions/core/session_id.h"
+#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "components/sync/base/user_selectable_type.h"
 #import "components/sync/service/sync_service.h"
@@ -178,28 +179,6 @@ bool HasPriceDropDataForTabResumption(
          price_tracking_data->buyable_product().has_title();
 }
 
-bool HasCurrentPriceDataForTabResumption(
-    const std::optional<const commerce::PriceTrackingData>&
-        price_tracking_data) {
-  return price_tracking_data.has_value() &&
-         price_tracking_data->has_buyable_product() &&
-         price_tracking_data->buyable_product().has_current_price() &&
-         price_tracking_data->buyable_product()
-             .current_price()
-             .has_currency_code() &&
-         price_tracking_data->buyable_product()
-             .current_price()
-             .has_amount_micros();
-}
-
-// A Product Detail Page is price trackable if it has a cluster ID.
-bool IsPriceTrackable(const std::optional<const commerce::PriceTrackingData>&
-                          price_tracking_data) {
-  return price_tracking_data.has_value() &&
-         price_tracking_data->has_buyable_product() &&
-         price_tracking_data->buyable_product().has_product_cluster_id();
-}
-
 std::u16string GetHostnameFromGURL(const GURL& url) {
   return url_formatter::
       FormatUrlForDisplayOmitSchemePathTrivialSubdomainsAndMobilePrefix(url);
@@ -236,9 +215,7 @@ void ConfigureTabResumptionItemForShopCard(
       decisionWithMetadata.metadata
           .ParsedMetadata<commerce::PriceTrackingData>();
 
-  if ((commerce::kShopCardVariation.Get().contains(commerce::kShopCardArm3) ||
-       commerce::kShopCardVariation.Get() == commerce::kShopCardArm6) &&
-      HasPriceDropDataForTabResumption(price_tracking_data)) {
+  if (HasPriceDropDataForTabResumption(price_tracking_data)) {
     config.shopCardData = [[ShopCardData alloc] init];
     config.shopCardData.shopCardItemType = ShopCardItemType::kPriceDropOnTab;
 
@@ -259,64 +236,10 @@ void ConfigureTabResumptionItemForShopCard(
         GetHostnameFromGURL(url));
   }
 
-  // A URL is price trackable if it has a cluster ID.
-  if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm4 &&
-      IsPriceTrackable(price_tracking_data)) {
-    config.shopCardData = [[ShopCardData alloc] init];
-    config.shopCardData.shopCardItemType =
-        ShopCardItemType::kPriceTrackableProductOnTab;
 
-    std::unique_ptr<commerce::ProductInfo> info =
-        commerce::OptGuideResultToProductInfo(decisionWithMetadata.metadata);
-    if (info) {
-      config.shopCardData.productInfo = std::move(*info);
-    }
-
-    if (HasCurrentPriceDataForTabResumption(price_tracking_data)) {
-      std::unique_ptr<payments::CurrencyFormatter> formatter =
-          std::make_unique<payments::CurrencyFormatter>(
-              price_tracking_data->buyable_product()
-                  .current_price()
-                  .currency_code(),
-              GetApplicationContext()->GetApplicationLocaleStorage()->Get());
-      config.shopCardData.currentPrice = GetFormattedPrice(
-          formatter.get(), price_tracking_data->buyable_product()
-                               .current_price()
-                               .amount_micros());
-    }
-    config.shopCardData.accessibilityString = l10n_util::GetNSStringF(
-        IDS_IOS_CONTENT_SUGGESTIONS_SHOPCARD_TRACK_PRICE_ACCESSIBILITY_LABEL,
-        base::SysNSStringToUTF16(config.tabTitle),
-        base::SysNSStringToUTF16(config.shopCardData.currentPrice),
-        GetHostnameFromGURL(url));
-    AddProductImageIfApplicable(price_tracking_data.value(), config);
-  }
 }
 
-bool IsShopCardImpressionLimitsEnabled() {
-  return base::FeatureList::IsEnabled(commerce::kShopCardImpressionLimits) &&
-         (commerce::kShopCardVariation.Get().contains(
-              commerce::kShopCardArm3) ||
-          commerce::kShopCardVariation.Get() == commerce::kShopCardArm4 ||
-          commerce::kShopCardVariation.Get() == commerce::kShopCardArm5);
-}
 
-int GetImpressionLimit() {
-  return base::GetFieldTrialParamByFeatureAsInt(
-      commerce::kTabResumptionShopCard, commerce::kShopCardMaxImpressions,
-      kShopCardMaxImpressions);
-}
-
-const char* GetImpressionLimitPref() {
-  if (commerce::kShopCardVariation.Get().contains(commerce::kShopCardArm3)) {
-    return tab_resumption_prefs::kTabResumptionWithPriceDropUrlImpressions;
-  } else if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm4) {
-    return tab_resumption_prefs::kTabResumptionWithPriceTrackableUrlImpressions;
-  } else if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm5) {
-    return tab_resumption_prefs::kTabResumptionRegularUrlImpressions;
-  }
-  NOTREACHED();
-}
 
 }  // namespace
 
@@ -394,7 +317,7 @@ class TabResumptionMediatorProxy {
   raw_ptr<page_image_service::ImageService> _pageImageService;
   // Other KeyedServices.
   raw_ptr<OptimizationGuideService> _optimizationGuideService;
-  raw_ptr<ImpressionLimitService> _impressionLimitService;
+
   raw_ptr<commerce::ShoppingService> _shoppingService;
   raw_ptr<bookmarks::BookmarkModel> _bookmarkModel;
   raw_ptr<PushNotificationService> _pushNotificationService;
@@ -424,7 +347,6 @@ class TabResumptionMediatorProxy {
              identityManager:(signin::IdentityManager*)identityManager
                      browser:(Browser*)browser
     optimizationGuideService:(OptimizationGuideService*)optimizationGuideService
-      impressionLimitService:(ImpressionLimitService*)impressionLimitService
              shoppingService:(commerce::ShoppingService*)shoppingService
                bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
      pushNotificationService:(PushNotificationService*)pushNotificationService
@@ -471,7 +393,7 @@ class TabResumptionMediatorProxy {
       _optimizationGuideService->RegisterOptimizationTypes(
           {optimization_guide::proto::PRICE_TRACKING});
     }
-    _impressionLimitService = impressionLimitService;
+
     _shoppingService = shoppingService;
     _bookmarkModel = bookmarkModel;
     _pushNotificationService = pushNotificationService;
@@ -504,7 +426,7 @@ class TabResumptionMediatorProxy {
   _webStateList = nullptr;
   _pageImageService = nullptr;
   _optimizationGuideService = nullptr;
-  _impressionLimitService = nullptr;
+
   _shoppingService = nullptr;
   _bookmarkModel = nullptr;
   _pushNotificationService = nullptr;
@@ -584,8 +506,7 @@ class TabResumptionMediatorProxy {
 
 - (void)onNotificationPermissionVerifiedOrGranted:(TabResumptionConfig*)config
                                           granted:(BOOL)granted {
-  id<SystemIdentity> identity =
-      _authenticationService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
+  id<SystemIdentity> identity = _authenticationService->GetPrimaryIdentity();
   _pushNotificationService->SetPreference(
       identity.gaiaId, PushNotificationClientId::kCommerce, true);
 
@@ -740,12 +661,6 @@ class TabResumptionMediatorProxy {
       recordTabResumptionImpressionWithCustomization:
           static_cast<TabResumptionConfig*>(magicStackModule).shopCardData
                                              atIndex:index];
-
-  if (IsShopCardImpressionLimitsEnabled() && index == 0 &&
-      _impressionLimitService) {
-    _impressionLimitService->LogImpressionForURL(self.itemConfig.tabURL,
-                                                 GetImpressionLimitPref());
-  }
 }
 
 #pragma mark - Boolean Observer
@@ -872,18 +787,7 @@ class TabResumptionMediatorProxy {
 
 - (void)fetchShopCardDataForItemIfApplicable:(TabResumptionConfig*)item
                                          url:(const GURL&)resumptionURL {
-  if (IsShopCardImpressionLimitsEnabled() && _impressionLimitService) {
-    // TODO(crbug.com/408252386) Add unit tests for impression count
-    // integration.
-    std::optional<int> count = _impressionLimitService->GetImpressionCount(
-        resumptionURL, GetImpressionLimitPref());
-    if (count.has_value() && count.value() >= GetImpressionLimit()) {
-      return;
-    }
-  }
-
-  if (commerce::kShopCardVariation.Get().contains(commerce::kShopCardArm3) ||
-      commerce::kShopCardVariation.Get() == commerce::kShopCardArm4) {
+  if (commerce::kShopCardVariation.Get().contains(commerce::kShopCardArm3)) {
     GURL url = resumptionURL;
     __weak __typeof(self) weakSelf = self;
     _shoppingService->GetAllPriceTrackedBookmarks(base::BindOnce(
@@ -969,7 +873,8 @@ class TabResumptionMediatorProxy {
 // product image and updates the card when this data is availalbe.
 // This reduces the overall latency of the card.
 - (void)fetchPriceDropIfApplicable:(TabResumptionConfig*)config {
-  if (commerce::kShopCardVariation.Get() != commerce::kShopCardArm6) {
+  if (!_shoppingService || !_shoppingService->IsRegionLockedFeatureEnabled(
+                               commerce::kTabResumptionShopCard)) {
     return;
   }
   __weak TabResumptionMediator* weakSelf = self;
@@ -1151,9 +1056,7 @@ class TabResumptionMediatorProxy {
   config.commandHandler = self;
   config.delegate = self;
   config.shouldShowSeeMore = YES;
-  if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm4) {
-    config.shouldShowSeeMore = NO;
-  }
+
   [self fetchShopCardDataForItemIfApplicable:config url:tab->virtual_url];
 }
 
@@ -1169,9 +1072,7 @@ class TabResumptionMediatorProxy {
   config.commandHandler = self;
   config.delegate = self;
   config.shouldShowSeeMore = YES;
-  if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm4) {
-    config.shouldShowSeeMore = NO;
-  }
+
   [self fetchShopCardDataForItemIfApplicable:config
                                          url:webState->GetLastCommittedURL()];
 }

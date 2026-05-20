@@ -132,9 +132,6 @@ AX_BASE_EXPORT BASE_DECLARE_FEATURE(kExtensionManifestV3NetworkSpeechSynthesis);
 AX_BASE_EXPORT bool IsExtensionManifestV3NetworkSpeechSynthesisEnabled();
 
 
-// Turn on browser vocalization of 'descriptions' tracks.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kTextBasedAudioDescription);
-AX_BASE_EXPORT bool IsTextBasedAudioDescriptionEnabled();
 
 // Expose document markers on inline text boxes in addition to
 // static nodes. (Note: This will make it possible for AXPosition in the browser
@@ -184,7 +181,7 @@ AX_BASE_EXPORT BASE_DECLARE_FEATURE(kUiaProvider);
 // Optimizes event firing by only emitting events when at least one listener is
 // subscribed. Killswitch to turn it off in case this work has negative
 // side-effects on assistive technologies.
-// TODO(https://crbug.com/402375302): Remove in M139.
+// TODO(https://crbug.com/402375302): Remove in M155.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kUiaEventOptimization);
 
 // Enables MathML support in Windows UI Automation (UIA) implementation by
@@ -241,6 +238,10 @@ AX_BASE_EXPORT bool IsAccessibilityDisableTouchpadEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityFlashScreenFeature);
 AX_BASE_EXPORT bool IsAccessibilityFlashScreenFeatureEnabled();
 
+// Controls whether the inverted mouse cursor feature is available.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityInvertedMouseCursor);
+AX_BASE_EXPORT bool IsAccessibilityInvertedMouseCursorEnabled();
+
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityManifestV3ChromeVox);
 AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForChromeVox();
 
@@ -249,6 +250,9 @@ AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForEspeakNGTts();
 
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityManifestV3GoogleTts);
 AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForGoogleTts();
+
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityChromeVoxJapaneseBraille);
+AX_BASE_EXPORT bool IsAccessibilityChromeVoxJapaneseBrailleEnabled();
 
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
@@ -274,18 +278,6 @@ AX_BASE_EXPORT bool IsAccessibilityMagnificationFollowsFocusEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAXTreeFixing);
 AX_BASE_EXPORT bool IsAXTreeFixingEnabled();
 
-// Open Read Anything side panel when the browser is opened, and
-// call distill after the navigation's load-complete event. (Note: The browser
-// is only being opened to render one webpage, for the sake of generating
-// training data for Screen2x data collection. The browser is intended to be
-// closed by the user who launches Chrome once the first distill call finishes
-// executing.)
-//
-// Note: This feature should be used along with 'ScreenAIDebugModeEnabled=true'
-// and --no-sandbox.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kDataCollectionModeForScreen2x);
-AX_BASE_EXPORT bool IsDataCollectionModeForScreen2xEnabled();
-
 // Enable Immersive Mode for Read Anything.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kImmersiveReadAnything);
 AX_BASE_EXPORT bool IsImmersiveReadAnythingEnabled();
@@ -294,6 +286,10 @@ AX_BASE_EXPORT bool IsImmersiveReadAnythingEnabled();
 // provided.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kMainNodeAnnotations);
 AX_BASE_EXPORT bool IsMainNodeAnnotationsEnabled();
+
+// Enable Improved Read Aloud.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kImprovedReadAloud);
+AX_BASE_EXPORT bool IsImprovedReadAloudEnabled();
 
 enum class ReadAnythingMenuShuffleExperimentGroup {
   kDefault,              // Leaves in default position
@@ -316,6 +312,10 @@ GetReadAnythingMenuShuffleExperimentGroup();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingMenuShuffleExperiment);
 AX_BASE_EXPORT bool IsReadAnythingMenuShuffleExperimentEnabled();
 
+// Enable the select text feature for Read Anything Readability.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingReadabilitySelectText);
+AX_BASE_EXPORT bool IsReadAnythingReadabilitySelectTextEnabled();
+
 // Enable phrase highlighting in Read Anything Read Aloud.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingReadAloudPhraseHighlighting);
 AX_BASE_EXPORT bool IsReadAnythingReadAloudPhraseHighlightingEnabled();
@@ -327,6 +327,10 @@ AX_BASE_EXPORT bool IsReadAnythingOmniboxChipEnabled();
 // Enable the line focus feature for Read Anything.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingLineFocus);
 AX_BASE_EXPORT bool IsReadAnythingLineFocusEnabled();
+
+// Enable HaTS survey for Reading Mode.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kHatsReadingModeSurvey);
+AX_BASE_EXPORT bool IsHatsReadingModeSurveyEnabled();
 
 // Enable images to be distilled via algorithm. Should be disabled by
 // default.
@@ -345,15 +349,6 @@ AX_BASE_EXPORT bool IsReadAnythingDocsLoadMoreButtonEnabled();
 // Enable ReadabilityJS as the distillation source for Reading Mode.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingWithReadability);
 AX_BASE_EXPORT bool IsReadAnythingWithReadabilityEnabled();
-
-// Enable links when the Readability distillation source for Reading Mode.
-// Intended for safer rolling out of the Readability flag.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingWithReadabilityAllowLinks);
-AX_BASE_EXPORT bool IsReadAnythingWithReadabilityAllowLinksEnabled();
-
-// Write some ScreenAI library debug data in /tmp.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kScreenAIDebugMode);
-AX_BASE_EXPORT bool IsScreenAIDebugModeEnabled();
 
 // ScreenAI library's Main Content Extraction service is enabled.
 AX_BASE_EXPORT bool IsScreenAIMainContentExtractionEnabled();
@@ -389,8 +384,13 @@ AX_BASE_EXPORT bool IsMacAccessibilityOptimizeChildrenChangedEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityRemoteUIApp);
 AX_BASE_EXPORT bool IsAccessibilityRemoteUIAppEnabled();
 
+// TODO (crbug.com/380927771). Remove this flag once VoiceOver has incorporated
+// the name change event.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kBlockRootWindowAccessibleNameChangeEvent);
 AX_BASE_EXPORT bool IsBlockRootWindowAccessibleNameChangeEventEnabled();
+
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kMacAccessibilityTextOperation);
+AX_BASE_EXPORT bool IsMacAccessibilityTextOperationEnabled();
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)

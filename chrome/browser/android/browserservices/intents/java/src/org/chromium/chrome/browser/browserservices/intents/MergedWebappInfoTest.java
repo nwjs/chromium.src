@@ -36,8 +36,8 @@ public class MergedWebappInfoTest {
         intentOld.putExtra(WebappConstants.EXTRA_IS_ICON_GENERATED, false);
         WebappInfo oldInfo = createWebappInfo(intentOld);
 
-        // Test for issue https://crbug.com/1341149. Make sure we don't get a valid Merged object if
-        // provider is null.
+        // Test for issue https://crbug.com/40850868. Make sure we don't get a valid Merged object
+        // if provider is null.
         Assert.assertEquals(null, MergedWebappInfo.create(oldInfo, /* provider= */ null));
         Assert.assertEquals(null, MergedWebappInfo.create(null, /* provider= */ null));
     }
@@ -67,7 +67,7 @@ public class MergedWebappInfoTest {
         Assert.assertEquals(APP_SHORTNAME_OLD, oldInfo.shortName());
         Assert.assertEquals(APP_SHORTNAME_NEW, newInfo.shortName());
         Assert.assertTrue(newInfo.icon() != oldInfo.icon());
-        Assert.assertTrue(newInfo.iconUrlToMurmur2HashMap() != oldInfo.iconUrlToMurmur2HashMap());
+        Assert.assertNotSame(newInfo.iconUrlToMurmur2HashMap(), oldInfo.iconUrlToMurmur2HashMap());
         Assert.assertFalse(oldInfo.isIconAdaptive());
         Assert.assertTrue(newInfo.isIconAdaptive());
         Assert.assertFalse(oldInfo.isIconGenerated());
@@ -79,7 +79,7 @@ public class MergedWebappInfoTest {
         Assert.assertEquals(APP_SHORTNAME_OLD, newInfo.shortName());
         // But the icon stuff should be unchanged.
         Assert.assertTrue(newInfo.icon() != oldInfo.icon());
-        Assert.assertTrue(newInfo.iconUrlToMurmur2HashMap() != oldInfo.iconUrlToMurmur2HashMap());
+        Assert.assertNotSame(newInfo.iconUrlToMurmur2HashMap(), oldInfo.iconUrlToMurmur2HashMap());
         Assert.assertTrue(newInfo.isIconAdaptive());
         Assert.assertTrue(newInfo.isIconGenerated());
 
@@ -109,7 +109,7 @@ public class MergedWebappInfoTest {
         Assert.assertEquals(APP_SHORTNAME_OLD, oldInfo.shortName());
         Assert.assertEquals(APP_SHORTNAME_NEW, newInfo.shortName());
         Assert.assertTrue(newInfo.icon() != oldInfo.icon());
-        Assert.assertTrue(newInfo.iconUrlToMurmur2HashMap() != oldInfo.iconUrlToMurmur2HashMap());
+        Assert.assertNotSame(newInfo.iconUrlToMurmur2HashMap(), oldInfo.iconUrlToMurmur2HashMap());
         Assert.assertFalse(oldInfo.isIconAdaptive());
         Assert.assertTrue(newInfo.isIconAdaptive());
         Assert.assertFalse(oldInfo.isIconGenerated());

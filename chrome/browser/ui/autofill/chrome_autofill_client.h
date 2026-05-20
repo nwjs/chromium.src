@@ -14,6 +14,7 @@
 #include "base/functional/callback.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "build/build_config.h"
@@ -21,6 +22,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/autofill/autofill_suggestion_controller.h"
 #include "chrome/browser/ui/autofill/payments/chrome_payments_autofill_client.h"
+#include "components/accessibility_annotator/core/accessibility_annotator_enablement_service.h"
+#include "components/accessibility_annotator/core/accessibility_annotator_types.h"
 #include "components/autofill/content/browser/autofill_log_router_factory.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
@@ -34,7 +37,6 @@
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_manager.h"
 #include "components/autofill/core/browser/integrators/identity_credential/identity_credential_delegate.h"
 #include "components/autofill/core/browser/integrators/password_form_classification.h"
-#include "components/autofill/core/browser/integrators/plus_addresses/autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/metrics/form_interactions_ukm_logger.h"
 #include "components/autofill/core/browser/single_field_fillers/single_field_fill_router.h"
@@ -42,6 +44,7 @@
 #include "components/autofill/core/browser/ui/payments/card_unmask_prompt_options.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "content/public/browser/visibility.h"
+#include "content/public/browser/web_contents_observer.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/autofill/autofill_snackbar_controller_impl.h"
@@ -67,6 +70,7 @@ namespace autofill {
 class AutofillAiSaveUpdateEntityFlowManager;
 class SaveUpdateAddressProfileFlowManager;
 class AutofillMessageController;
+class AtMemoryBottomSheetBridge;
 #endif
 
 class ActorKeyMetricsRecorder;
@@ -116,6 +120,11 @@ class ChromeAutofillClient : public ContentAutofillClient {
   ChromeAutofillClient& operator=(const ChromeAutofillClient&) = delete;
   ~ChromeAutofillClient() override;
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  void ShowAutofillAtMemoryPromo();
+#endif
+
   // AutofillClient:
   base::WeakPtr<AutofillClient> GetWeakPtr() final;
   const std::string& GetAppLocale() const final;
@@ -137,9 +146,10 @@ class ChromeAutofillClient : public ContentAutofillClient {
   SingleFieldFillRouter& GetSingleFieldFillRouter() final;
   AutocompleteHistoryManager* GetAutocompleteHistoryManager() final;
   AutofillComposeDelegate* GetComposeDelegate() final;
-  AutofillPlusAddressDelegate* GetPlusAddressDelegate() final;
   accessibility_annotator::AccessibilityQueryService*
   GetAccessibilityQueryService() override;
+  accessibility_annotator::RemoteAnnotatorEnablementState
+  GetAccessibilityAnnotatorEnablementState() const override;
   PasswordManagerDelegate* GetPasswordManagerDelegate(
       const FieldGlobalId& field_id) final;
   void GetAiPageContent(GetAiPageContentCallback callback) final;
@@ -154,6 +164,7 @@ class ChromeAutofillClient : public ContentAutofillClient {
   syncer::SyncService* GetSyncService() final;
   signin::IdentityManager* GetIdentityManager() final;
   const signin::IdentityManager* GetIdentityManager() const final;
+  metrics::ProfileMetricsService* GetProfileMetricsService() final;
   const GoogleGroupsManager* GetGoogleGroupsManager() const final;
   FormDataImporter* GetFormDataImporter() final;
   payments::ChromePaymentsAutofillClient* GetPaymentsAutofillClient() final;
@@ -177,9 +188,6 @@ class ChromeAutofillClient : public ContentAutofillClient {
   SuggestionUiSessionId ShowAutofillSuggestions(
       const PopupOpenArgs& open_args,
       base::WeakPtr<AutofillSuggestionDelegate> delegate) override;
-  void ShowPlusAddressEmailOverrideNotification(
-      const std::string& original_email,
-      EmailOverrideUndoCallback email_final) final;
   void UpdateAutofillDataListValues(
       base::span<const SelectOption> datalist) final;
   base::span<const Suggestion> GetAutofillSuggestions() const final;
@@ -222,6 +230,11 @@ class ChromeAutofillClient : public ContentAutofillClient {
   // on Android.
   AutofillSnackbarControllerImpl* GetAutofillSnackbarController() final;
 
+  void ShowAtMemoryBottomSheet() final;
+
+  // Returns the AtMemoryBottomSheetBridge for the current tab.
+  AtMemoryBottomSheetBridge* GetOrCreateAtMemoryBottomSheetBridge();
+
   // The AutofillMessageController is used to show native Android messages via
   // the messages API.
   AutofillMessageController* GetAutofillMessageController();
@@ -239,8 +252,6 @@ class ChromeAutofillClient : public ContentAutofillClient {
       AutofillManager& manager,
       FormGlobalId form_id,
       FieldGlobalId field_id) const final;
-  void TriggerPlusAddressUserPerceptionSurvey(
-      plus_addresses::hats::SurveyType survey_type) final;
   optimization_guide::ModelQualityLogsUploaderService* GetMqlsUploadService()
       override;
   void ShowEntityImportBubble(
@@ -356,6 +367,7 @@ class ChromeAutofillClient : public ContentAutofillClient {
       save_update_address_profile_flow_manager_;
   std::unique_ptr<AutofillSnackbarControllerImpl>
       autofill_snackbar_controller_impl_;
+  std::unique_ptr<AtMemoryBottomSheetBridge> at_memory_bottom_sheet_bridge_;
 #else   // BUILDFLAG(IS_ANDROID)
   std::unique_ptr<AutofillFieldPromoController>
       autofill_field_promo_controller_;
@@ -380,6 +392,25 @@ class ChromeAutofillClient : public ContentAutofillClient {
 
   std::unique_ptr<FormPredictionsTracker> form_predictions_tracker_;
   std::unique_ptr<ActorKeyMetricsRecorder> actor_key_metrics_recorder_;
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  class AtMemoryPromoObserver : public content::WebContentsObserver {
+   public:
+    explicit AtMemoryPromoObserver(ChromeAutofillClient* client);
+    ~AtMemoryPromoObserver() override = default;
+
+    // content::WebContentsObserver:
+    void OnTextCopiedToClipboard(content::RenderFrameHost* render_frame_host,
+                                 const std::u16string& copied_text) override;
+    void OnPaste() override;
+
+   private:
+    const base::raw_ref<ChromeAutofillClient> client_;
+  };
+
+  AtMemoryPromoObserver at_memory_promo_observer_{this};
+#endif
 
   SEQUENCE_CHECKER(sequence_checker_);
 

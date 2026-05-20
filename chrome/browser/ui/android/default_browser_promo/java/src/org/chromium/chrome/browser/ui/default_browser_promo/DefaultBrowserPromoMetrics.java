@@ -27,15 +27,21 @@ public class DefaultBrowserPromoMetrics {
     @IntDef({
         DefaultBrowserPromoSourceType.MESSAGES_PROMO,
         DefaultBrowserPromoSourceType.SETTING_CARD_PROMO,
-        DefaultBrowserPromoSourceType.EDUCATIONAL_TIP_PROMO
+        DefaultBrowserPromoSourceType.EDUCATIONAL_TIP_PROMO,
+        DefaultBrowserPromoSourceType.FRE_PROMO,
+        DefaultBrowserPromoSourceType.APP_MENU_DEEPLINK,
+        DefaultBrowserPromoSourceType.SETTINGS_ROW_DEEPLINK
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface DefaultBrowserPromoSourceType {
         int MESSAGES_PROMO = 0;
         int SETTING_CARD_PROMO = 1;
         int EDUCATIONAL_TIP_PROMO = 2;
+        int FRE_PROMO = 3;
+        int APP_MENU_DEEPLINK = 4;
+        int SETTINGS_ROW_DEEPLINK = 5;
 
-        int NUM_ENTRIES = 3;
+        int NUM_ENTRIES = 6;
     }
 
     // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:DefaultBrowserPromoSourceType)
@@ -43,8 +49,14 @@ public class DefaultBrowserPromoMetrics {
     private static String getSourceSuffix(@DefaultBrowserPromoEntryPoint int source) {
         if (source == DefaultBrowserPromoEntryPoint.APP_MENU) {
             return "AppMenu";
+        } else if (source == DefaultBrowserPromoEntryPoint.APP_MENU_RMD) {
+            return "AppMenu.RoleManagerDialog";
+        } else if (source == DefaultBrowserPromoEntryPoint.APP_MENU_DEEP_LINK) {
+            return "AppMenu.DeepLink";
         } else if (source == DefaultBrowserPromoEntryPoint.SETTINGS) {
             return "Settings";
+        } else if (source == DefaultBrowserPromoEntryPoint.FRE) {
+            return "FRE";
         }
         return "";
     }

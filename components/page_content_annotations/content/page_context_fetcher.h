@@ -9,11 +9,13 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "base/feature_list.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/task/single_thread_task_runner.h"
@@ -23,16 +25,18 @@
 #include "base/types/optional_ref.h"
 #include "components/content_extraction/content/browser/inner_text.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
+#include "components/page_content_annotations/core/page_content_annotations_enums.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "pdf/buildflags.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/size.h"
 #include "url/origin.h"
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_PDF)
 #include "pdf/mojom/pdf.mojom.h"
-#endif
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 namespace content {
 class WebContents;
@@ -41,15 +45,6 @@ class WebContents;
 namespace page_content_annotations {
 
 class PageContentScreenshotService;
-
-enum class ScreenshotIframeRedactionScope {
-  // No redaction.
-  kNone,
-  // Redact cross-site iframes.
-  kCrossSite,
-  // Redact cross-origin iframes.
-  kCrossOrigin,
-};
 
 struct PaintPreviewOptions {
   // The maximum memory/file bytes used for the capture of a single frame.
@@ -178,17 +173,33 @@ struct FetchPageContextOptions {
   uint32_t pdf_size_limit = 0;
 };
 
+// TODO(b/504577535): Support PDF bookmark extraction.
+// TODO(b/504577256): Support PDF accessibility info extraction.
 struct PdfResult {
   explicit PdfResult(url::Origin origin);
   PdfResult(url::Origin origin, std::vector<uint8_t> bytes);
+  PdfResult(url::Origin origin, std::string text);
+  PdfResult(const PdfResult&) = delete;
+  PdfResult& operator=(const PdfResult&) = delete;
+  PdfResult(PdfResult&&);
+  PdfResult& operator=(PdfResult&&);
   ~PdfResult();
+
   url::Origin origin;
-  std::vector<uint8_t> bytes;
+
+  // The PDF extraction result can be either bytes or string, depending on which
+  // extraction option is selected.
+  std::variant<std::vector<uint8_t>, std::string> data;
+
   bool size_exceeded = false;
 };
 
 struct ScreenshotResult {
   explicit ScreenshotResult(gfx::Size dimensions);
+  ScreenshotResult(const ScreenshotResult&) = delete;
+  ScreenshotResult& operator=(const ScreenshotResult&) = delete;
+  ScreenshotResult(ScreenshotResult&&);
+  ScreenshotResult& operator=(ScreenshotResult&&);
   ~ScreenshotResult();
   std::vector<uint8_t> screenshot_data;
   std::string mime_type;
@@ -214,6 +225,10 @@ struct PageContentResultWithEndTime
 
 struct FetchPageContextResult {
   FetchPageContextResult();
+  FetchPageContextResult(const FetchPageContextResult&) = delete;
+  FetchPageContextResult& operator=(const FetchPageContextResult&) = delete;
+  FetchPageContextResult(FetchPageContextResult&&);
+  FetchPageContextResult& operator=(FetchPageContextResult&&);
   ~FetchPageContextResult();
   base::expected<ScreenshotResult, std::string> screenshot_result;
   std::optional<InnerTextResultWithTruncation> inner_text_result;
@@ -300,13 +315,25 @@ class PageContextFetcher : public content::WebContentsObserver {
                   FetchPageContextResultCallback callback);
 
  private:
-#if !BUILDFLAG(IS_ANDROID)
+  FRIEND_TEST_ALL_PREFIXES(PageContextFetcherTest,
+                           RedactScreenshotOnWorkerThread);
+  FRIEND_TEST_ALL_PREFIXES(PageContextFetcherTest,
+                           RedactScreenshotOnWorkerThreadNoRedaction);
+
+  // Redacts a screenshot by painting over sensitive regions with
+  // `redaction_color`.
+  static base::expected<SkBitmap, std::string> RedactScreenshotOnWorkerThread(
+      const SkBitmap& bitmap,
+      const std::vector<gfx::Rect>& visible_bounding_boxes_for_redaction,
+      SkColor4f redaction_color);
+
+#if BUILDFLAG(ENABLE_PDF)
   void ReceivedPdfBytes(const url::Origin& pdf_origin,
                         uint32_t pdf_size_limit,
                         pdf::mojom::PdfListener::GetPdfBytesStatus status,
                         const std::vector<uint8_t>& pdf_bytes,
                         uint32_t page_count);
-#endif
+#endif  // BUILDFLAG(ENABLE_PDF)
 
   void GetTabScreenshot(content::WebContents& web_contents,
                         const ScreenshotOptions& screenshot_options);
@@ -351,8 +378,7 @@ class PageContextFetcher : public content::WebContentsObserver {
 
   // screenshot processing dependencies.
   std::optional<SkBitmap> screenshot_bitmap_;
-  bool screenshot_needs_password_redaction_ = false;
-  bool screenshot_needs_sensitive_payment_redaction_ = false;
+  bool screenshot_needs_redaction_ = false;
 
   // Intermediate results:
 

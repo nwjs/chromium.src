@@ -7,11 +7,13 @@
 #include <memory>
 
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/task/sequenced_task_runner.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "components/os_crypt/async/common/encryptor.h"
 #include "components/password_manager/core/browser/password_store/login_database.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/sync/password_proto_utils.h"
 #include "components/password_manager/core/browser/sync/password_sync_bridge.h"
 #include "components/sync/base/data_type.h"
@@ -19,12 +21,6 @@
 #include "components/sync/model/data_type_controller_delegate.h"
 
 namespace password_manager {
-
-namespace {
-
-constexpr base::TimeDelta kSyncTaskTimeout = base::Seconds(30);
-
-}  // namespace
 
 LoginDatabaseAsyncHelper::LoginDatabaseAsyncHelper(
     std::unique_ptr<LoginDatabase> login_db,
@@ -79,11 +75,6 @@ bool LoginDatabaseAsyncHelper::Initialize(
     LOG(ERROR) << "Could not create/open login database.";
   }
   if (success) {
-    login_db_->password_sync_metadata_store()
-        .SetPasswordDeletionsHaveSyncedCallback(base::BindRepeating(
-            &LoginDatabaseAsyncHelper::NotifyDeletionsHaveSynced,
-            weak_ptr_factory_.GetWeakPtr()));
-
     // Delay the actual reporting by 30 seconds, to ensure it doesn't happen
     // during the "hot phase" of Chrome startup.
     base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
@@ -110,26 +101,27 @@ bool LoginDatabaseAsyncHelper::Initialize(
   return success;
 }
 
-LoginsResultOrError LoginDatabaseAsyncHelper::GetAllLogins() {
+StoredCredentialsResultOrError LoginDatabaseAsyncHelper::GetAllLogins() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  std::vector<PasswordForm> forms;
+  std::vector<StoredCredential> credentials;
 
   if (!login_db_) {
     return PasswordStoreBackendError(
         PasswordStoreBackendErrorType::kUncategorized);
   }
-  FormRetrievalResult result = login_db_->GetAllLogins(&forms);
+  FormRetrievalResult result = login_db_->GetAllLogins(&credentials);
   if (result != FormRetrievalResult::kSuccess &&
       result != FormRetrievalResult::kEncryptionServiceFailureWithPartialData) {
     return PasswordStoreBackendError(
         PasswordStoreBackendErrorType::kUncategorized);
   }
-  return forms;
+  return credentials;
 }
 
-LoginsResultOrError LoginDatabaseAsyncHelper::GetAutofillableLogins() {
+StoredCredentialsResultOrError
+LoginDatabaseAsyncHelper::GetAutofillableLogins() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  std::vector<PasswordForm> results;
+  std::vector<StoredCredential> results;
   if (!login_db_ || !login_db_->GetAutofillableLogins(&results)) {
     return PasswordStoreBackendError(
         PasswordStoreBackendErrorType::kUncategorized);
@@ -137,15 +129,15 @@ LoginsResultOrError LoginDatabaseAsyncHelper::GetAutofillableLogins() {
   return results;
 }
 
-LoginsResultOrError LoginDatabaseAsyncHelper::FillMatchingLogins(
+StoredCredentialsResultOrError LoginDatabaseAsyncHelper::FillMatchingLogins(
     const std::vector<PasswordFormDigest>& forms,
     bool include_psl) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  std::vector<PasswordForm> results;
+  std::vector<StoredCredential> results;
   for (const auto& form : forms) {
-    std::vector<PasswordForm> matched_forms;
+    std::vector<StoredCredential> matched_credentials;
     if (!login_db_ ||
-        !login_db_->GetLogins(form, include_psl, &matched_forms)) {
+        !login_db_->GetLogins(form, include_psl, &matched_credentials)) {
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
       return PasswordStoreBackendError(
           is_encryption_available_
@@ -157,18 +149,18 @@ LoginsResultOrError LoginDatabaseAsyncHelper::FillMatchingLogins(
 #endif
     }
     results.insert(results.end(),
-                   std::make_move_iterator(matched_forms.begin()),
-                   std::make_move_iterator(matched_forms.end()));
+                   std::make_move_iterator(matched_credentials.begin()),
+                   std::make_move_iterator(matched_credentials.end()));
   }
   return results;
 }
 
 PasswordChangesOrError LoginDatabaseAsyncHelper::AddLogin(
-    const PasswordForm& form) {
+    StoredCredential cred) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   BeginTransaction();
   AddCredentialError error = AddCredentialError::kNone;
-  PasswordStoreChangeList changes = AddLoginImpl(form, &error);
+  PasswordStoreChangeList changes = AddLoginImpl(std::move(cred), &error);
   if (password_sync_bridge_ && !changes.empty()) {
     password_sync_bridge_->ActOnPasswordStoreChanges(FROM_HERE, changes);
   }
@@ -184,11 +176,11 @@ PasswordChangesOrError LoginDatabaseAsyncHelper::AddLogin(
 }
 
 PasswordChangesOrError LoginDatabaseAsyncHelper::UpdateLogin(
-    const PasswordForm& form) {
+    const StoredCredential& cred) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   BeginTransaction();
   UpdateCredentialError error = UpdateCredentialError::kNone;
-  PasswordStoreChangeList changes = UpdateLoginImpl(form, &error);
+  PasswordStoreChangeList changes = UpdateLoginImpl(cred, &error);
   if (password_sync_bridge_ && !changes.empty()) {
     password_sync_bridge_->ActOnPasswordStoreChanges(FROM_HERE, changes);
   }
@@ -205,11 +197,11 @@ PasswordChangesOrError LoginDatabaseAsyncHelper::UpdateLogin(
 
 PasswordChangesOrError LoginDatabaseAsyncHelper::RemoveLogin(
     const base::Location& location,
-    const PasswordForm& form) {
+    const StoredCredential& cred) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   BeginTransaction();
   PasswordStoreChangeList changes;
-  if (login_db_ && login_db_->RemoveLogin(form, &changes)) {
+  if (login_db_ && login_db_->RemoveLogin(cred, &changes)) {
     if (password_sync_bridge_ && !changes.empty()) {
       password_sync_bridge_->ActOnPasswordStoreChanges(location, changes);
     }
@@ -225,8 +217,7 @@ PasswordChangesOrError LoginDatabaseAsyncHelper::RemoveLogin(
 PasswordChangesOrError LoginDatabaseAsyncHelper::RemoveLoginsCreatedBetween(
     const base::Location& location,
     base::Time delete_begin,
-    base::Time delete_end,
-    base::OnceCallback<void(bool)> sync_completion) {
+    base::Time delete_end) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   BeginTransaction();
   PasswordStoreChangeList changes;
@@ -241,47 +232,24 @@ PasswordChangesOrError LoginDatabaseAsyncHelper::RemoveLoginsCreatedBetween(
   // the login data.
   CommitTransaction();
 
-  if (sync_completion) {
-    AddDeletionsHaveSyncedCallback(std::move(sync_completion));
-  }
-
   return success ? changes
                  : PasswordChangesOrError(PasswordStoreBackendError(
                        PasswordStoreBackendErrorType::kUncategorized));
 }
 
-void LoginDatabaseAsyncHelper::AddDeletionsHaveSyncedCallback(
-    base::OnceCallback<void(bool)> sync_completion) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  deletions_have_synced_callbacks_.push_back(std::move(sync_completion));
-  // Start a timeout for sync, or restart it if it was already running.
-  deletions_have_synced_timeout_.Reset(
-      base::BindOnce(&LoginDatabaseAsyncHelper::NotifyDeletionsHaveSynced,
-                     weak_ptr_factory_.GetWeakPtr(),
-                     /*success=*/false));
-  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE, deletions_have_synced_timeout_.callback(), kSyncTaskTimeout);
-
-  // Do an immediate check for the case where there are already no unsynced
-  // deletions.
-  if (login_db_ && !GetMetadataStore()->HasUnsyncedPasswordDeletions()) {
-    NotifyDeletionsHaveSynced(/*success=*/true);
-  }
-}
-
 PasswordStoreChangeList LoginDatabaseAsyncHelper::DisableAutoSignInForOrigins(
     const base::RepeatingCallback<bool(const GURL&)>& origin_filter) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  std::vector<PasswordForm> forms;
+  std::vector<StoredCredential> credentials;
   PasswordStoreChangeList changes;
-  if (!login_db_ || !login_db_->GetAutoSignInLogins(&forms)) {
+  if (!login_db_ || !login_db_->GetAutoSignInLogins(&credentials)) {
     return changes;
   }
 
   std::set<GURL> origins_to_update;
-  for (const auto& form : forms) {
-    if (origin_filter.Run(form.url)) {
-      origins_to_update.insert(form.url);
+  for (const auto& cred : credentials) {
+    if (origin_filter.Run(cred.url)) {
+      origins_to_update.insert(cred.url);
     }
   }
 
@@ -292,9 +260,10 @@ PasswordStoreChangeList LoginDatabaseAsyncHelper::DisableAutoSignInForOrigins(
     }
   }
 
-  for (const auto& form : forms) {
-    if (origins_updated.count(form.url)) {
-      changes.emplace_back(PasswordStoreChange::UPDATE, std::move(form));
+  for (auto& cred : credentials) {
+    if (origins_updated.count(cred.url)) {
+      changes.emplace_back(PasswordStoreChange::UPDATE, std::move(cred),
+                           /*password_changed=*/false);
     }
   }
   return changes;
@@ -344,14 +313,14 @@ PasswordStoreChangeList LoginDatabaseAsyncHelper::AddCredentialSync(
     const sync_pb::PasswordSpecificsData& password,
     AddCredentialError* error) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return AddLoginImpl(PasswordFromSpecifics(password), error);
+  return AddLoginImpl(StoredCredentialFromSpecifics(password), error);
 }
 
 PasswordStoreChangeList LoginDatabaseAsyncHelper::UpdateCredentialSync(
     const sync_pb::PasswordSpecificsData& password,
     UpdateCredentialError* error) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return UpdateLoginImpl(PasswordFromSpecifics(password), error);
+  return UpdateLoginImpl(StoredCredentialFromSpecifics(password), error);
 }
 
 void LoginDatabaseAsyncHelper::NotifyCredentialsChanged(
@@ -363,21 +332,6 @@ void LoginDatabaseAsyncHelper::NotifyCredentialsChanged(
   main_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(remote_forms_changes_received_callback_,
                                 changes, IsAccountStore()));
-}
-
-void LoginDatabaseAsyncHelper::NotifyDeletionsHaveSynced(bool success) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // Either all deletions have been committed to the Sync server, or Sync is
-  // telling us that it won't commit them (because Sync was turned off
-  // permanently). In either case, run the corresponding callbacks now (on the
-  // main task runner).
-  DCHECK(!success || !GetMetadataStore()->HasUnsyncedPasswordDeletions());
-  for (auto& callback : deletions_have_synced_callbacks_) {
-    main_task_runner_->PostTask(FROM_HERE,
-                                base::BindOnce(std::move(callback), success));
-  }
-  deletions_have_synced_timeout_.Cancel();
-  deletions_have_synced_callbacks_.clear();
 }
 
 bool LoginDatabaseAsyncHelper::BeginTransaction() {
@@ -409,14 +363,15 @@ FormRetrievalResult LoginDatabaseAsyncHelper::ReadAllCredentials(
   if (!login_db_) {
     return FormRetrievalResult::kDbError;
   }
-  std::vector<PasswordForm> forms;
-  FormRetrievalResult result = login_db_->GetAllLogins(&forms);
-  for (const auto& form : forms) {
-    CHECK(form.primary_key.has_value());
+  std::vector<StoredCredential> credentials;
+  FormRetrievalResult result = login_db_->GetAllLogins(&credentials);
+  for (const auto& cred : credentials) {
+    CHECK(cred.primary_key.has_value());
     key_to_specifics_map->emplace(
-        form.primary_key->value(),
+        cred.primary_key->value(),
         std::make_unique<sync_pb::PasswordSpecificsData>(
-            SpecificsDataFromPassword(form, /*base_password_data=*/{})));
+            SpecificsDataFromStoredCredential(cred,
+                                              /*base_password_data=*/{})));
   }
 
   return result;
@@ -475,7 +430,7 @@ void LoginDatabaseAsyncHelper::ClearWereUndecryptableLoginsDeleted() {
 }
 
 PasswordStoreChangeList LoginDatabaseAsyncHelper::AddLoginImpl(
-    const PasswordForm& form,
+    StoredCredential cred,
     AddCredentialError* error) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!login_db_) {
@@ -484,11 +439,11 @@ PasswordStoreChangeList LoginDatabaseAsyncHelper::AddLoginImpl(
     }
     return PasswordStoreChangeList();
   }
-  return login_db_->AddLogin(form, error);
+  return login_db_->AddLogin(std::move(cred), error);
 }
 
 PasswordStoreChangeList LoginDatabaseAsyncHelper::UpdateLoginImpl(
-    const PasswordForm& form,
+    const StoredCredential& cred,
     UpdateCredentialError* error) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!login_db_) {
@@ -497,7 +452,7 @@ PasswordStoreChangeList LoginDatabaseAsyncHelper::UpdateLoginImpl(
     }
     return PasswordStoreChangeList();
   }
-  return login_db_->UpdateLogin(form, error);
+  return login_db_->UpdateLogin(cred, error);
 }
 
 // Reports password store metrics that aren't reported by the

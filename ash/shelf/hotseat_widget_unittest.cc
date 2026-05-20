@@ -60,6 +60,8 @@
 
 namespace ash {
 
+using chromeos::AppType;
+
 namespace {
 ShelfWidget* GetShelfWidget() {
   return AshTestBase::GetPrimaryShelf()->shelf_widget();
@@ -416,7 +418,7 @@ TEST_P(HotseatWidgetTest, LongPressHomeWithAppWindow) {
   GetAppListTestHelper()->CheckVisibility(true);
 
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   GetAppListTestHelper()->CheckVisibility(false);
@@ -448,7 +450,7 @@ TEST_P(HotseatWidgetTest, LongPressHomeWithAppWindow) {
 TEST_P(HotseatWidgetTest, ClosingLastWindowInTabletMode) {
   GetPrimaryShelf()->SetAutoHideBehavior(shelf_auto_hide_behavior());
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   // Activate the window and go to tablet mode.
   wm::ActivateWindow(window.get());
   TabletModeControllerTestApi().EnterTabletMode();
@@ -478,7 +480,7 @@ TEST_P(HotseatWidgetTest, GoingToTabletModeWithWindows) {
   GetPrimaryShelf()->SetAutoHideBehavior(shelf_auto_hide_behavior());
 
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   // Activate the window and go to tablet mode.
   wm::ActivateWindow(window.get());
   TabletModeControllerTestApi().EnterTabletMode();
@@ -493,7 +495,7 @@ TEST_P(HotseatWidgetTest, InAppShelfShowingContextMenu) {
   GetPrimaryShelf()->SetAutoHideBehavior(shelf_auto_hide_behavior());
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   EXPECT_FALSE(Shell::Get()->app_list_controller()->IsVisible(
       display::Screen::Get()->GetPrimaryDisplay().id()));
@@ -543,7 +545,7 @@ TEST_P(HotseatWidgetTest, CloseLastWindowOpenedInTabletMode) {
   TabletModeControllerTestApi().EnterTabletMode();
 
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   // Activate the window after entering tablet mode.
   wm::ActivateWindow(window.get());
 
@@ -563,7 +565,7 @@ TEST_P(HotseatWidgetTest, CloseLastWindowOpenedInTabletMode) {
 TEST_P(HotseatWidgetTest, DragItemOffExtendedHotseat) {
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   ShelfTestUtil::AddAppShortcut("app_id_1", TYPE_PINNED_APP);
@@ -609,7 +611,7 @@ TEST_P(HotseatWidgetTest, ShowingAndHidingAutohiddenShelf) {
   GetPrimaryShelf()->SetAutoHideBehavior(ShelfAutoHideBehavior::kAlways);
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   SwipeUpOnShelf();
@@ -634,22 +636,12 @@ TEST_P(HotseatWidgetTest, ShowingAndHidingAutohiddenShelf) {
 TEST_P(HotseatWidgetTest, SwipeUpInAppShelfShowsHotseat) {
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
-
-  base::HistogramTester histogram_tester;
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 0);
 
   // Swipe up from the center of the shelf.
   SwipeUpOnShelf();
   EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 1);
 
   // Swipe down from the hotseat to hide it.
   gfx::Rect hotseat_bounds =
@@ -663,11 +655,6 @@ TEST_P(HotseatWidgetTest, SwipeUpInAppShelfShowsHotseat) {
                                              kNumScrollSteps);
   ASSERT_EQ(HotseatState::kHidden, GetShelfLayoutManager()->hotseat_state());
 
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 1);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 1);
-
   // Swipe up from the right part of the shelf (the system tray).
   start = GetShelfWidget()
               ->status_area_widget()
@@ -679,11 +666,6 @@ TEST_P(HotseatWidgetTest, SwipeUpInAppShelfShowsHotseat) {
                                              kNumScrollSteps);
   EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
 
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 1);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 2);
-
   // Swipe down from the hotseat to hide it.
   start = hotseat_bounds.top_center();
   end = start + gfx::Vector2d(0, 80);
@@ -691,11 +673,6 @@ TEST_P(HotseatWidgetTest, SwipeUpInAppShelfShowsHotseat) {
   GetEventGenerator()->GestureScrollSequence(start, end, kTimeDelta,
                                              kNumScrollSteps);
   ASSERT_EQ(HotseatState::kHidden, GetShelfLayoutManager()->hotseat_state());
-
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 2);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 2);
 
   // Swipe up from the left part of the shelf (the home/back button).
   start = GetShelfWidget()
@@ -707,11 +684,6 @@ TEST_P(HotseatWidgetTest, SwipeUpInAppShelfShowsHotseat) {
   GetEventGenerator()->GestureScrollSequence(start, end, kTimeDelta,
                                              kNumScrollSteps);
   EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
-
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 2);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 3);
 }
 
 // Tests that swiping up on the hotseat does nothing.
@@ -719,14 +691,8 @@ TEST_P(HotseatWidgetTest, SwipeUpOnHotseatBackgroundDoesNothing) {
   GetPrimaryShelf()->SetAutoHideBehavior(shelf_auto_hide_behavior());
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
-
-  base::HistogramTester histogram_tester;
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 0);
 
   // Swipe up on the shelf to show the hotseat.
   EXPECT_FALSE(Shell::Get()->app_list_controller()->IsVisible(
@@ -735,10 +701,6 @@ TEST_P(HotseatWidgetTest, SwipeUpOnHotseatBackgroundDoesNothing) {
   SwipeUpOnShelf();
 
   EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 1);
   if (shelf_auto_hide_behavior() == ShelfAutoHideBehavior::kAlways)
     EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, GetPrimaryShelf()->GetAutoHideState());
 
@@ -759,10 +721,6 @@ TEST_P(HotseatWidgetTest, SwipeUpOnHotseatBackgroundDoesNothing) {
   EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
   if (shelf_auto_hide_behavior() == ShelfAutoHideBehavior::kAlways)
     EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, GetPrimaryShelf()->GetAutoHideState());
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 1);
 }
 
 // Tests that tapping an active window with an extended hotseat results in a
@@ -771,28 +729,11 @@ TEST_P(HotseatWidgetTest, TappingActiveWindowHidesHotseat) {
   GetPrimaryShelf()->SetAutoHideBehavior(shelf_auto_hide_behavior());
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
-
-  base::HistogramTester histogram_tester;
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 0);
-  histogram_tester.ExpectBucketCount(
-      kHotseatGestureHistogramName,
-      InAppShelfGestures::kHotseatHiddenDueToInteractionOutsideOfShelf, 0);
 
   // Swipe up on the shelf to show the hotseat.
   SwipeUpOnShelf();
-
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 1);
-  histogram_tester.ExpectBucketCount(
-      kHotseatGestureHistogramName,
-      InAppShelfGestures::kHotseatHiddenDueToInteractionOutsideOfShelf, 0);
 
   // Tap the shelf background, nothing should happen.
   gfx::Rect display_bounds =
@@ -811,14 +752,6 @@ TEST_P(HotseatWidgetTest, TappingActiveWindowHidesHotseat) {
   EXPECT_EQ(HotseatState::kHidden, GetShelfLayoutManager()->hotseat_state());
   if (shelf_auto_hide_behavior() == ShelfAutoHideBehavior::kAlways)
     EXPECT_EQ(SHELF_AUTO_HIDE_HIDDEN, GetPrimaryShelf()->GetAutoHideState());
-
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 1);
-  histogram_tester.ExpectBucketCount(
-      kHotseatGestureHistogramName,
-      InAppShelfGestures::kHotseatHiddenDueToInteractionOutsideOfShelf, 1);
 }
 
 // Tests that gesture dragging an active window hides the hotseat.
@@ -826,22 +759,11 @@ TEST_P(HotseatWidgetTest, GestureDraggingActiveWindowHidesHotseat) {
   GetPrimaryShelf()->SetAutoHideBehavior(shelf_auto_hide_behavior());
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
-
-  base::HistogramTester histogram_tester;
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 0);
 
   // Swipe up on the shelf to show the hotseat.
   SwipeUpOnShelf();
-
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 1);
 
   if (shelf_auto_hide_behavior() == ShelfAutoHideBehavior::kAlways)
     EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, GetPrimaryShelf()->GetAutoHideState());
@@ -859,27 +781,16 @@ TEST_P(HotseatWidgetTest, GestureDraggingActiveWindowHidesHotseat) {
   EXPECT_EQ(HotseatState::kHidden, GetShelfLayoutManager()->hotseat_state());
   if (shelf_auto_hide_behavior() == ShelfAutoHideBehavior::kAlways)
     EXPECT_EQ(SHELF_AUTO_HIDE_HIDDEN, GetPrimaryShelf()->GetAutoHideState());
-
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 1);
 }
 
 // Tests that a swipe up on the shelf shows the hotseat while in split view.
 TEST_P(HotseatWidgetTest, SwipeUpOnShelfShowsHotseatInSplitView) {
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   std::unique_ptr<aura::Window> window2 =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
-
-  base::HistogramTester histogram_tester;
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 0);
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
 
   // Go into split view mode by first going into overview, and then snapping
   // the open window on one side.
@@ -894,10 +805,6 @@ TEST_P(HotseatWidgetTest, SwipeUpOnShelfShowsHotseatInSplitView) {
   // We should still be able to drag up the hotseat.
   SwipeUpOnShelf();
   EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 1);
 }
 
 // Tests that HotseatTransitionAimationObserver starting and ending calls have a
@@ -916,7 +823,7 @@ TEST_P(HotseatWidgetTest, ObserverCallsMatch) {
   HotseatTransitionAnimationObserver observer(
       GetPrimaryShelf()->shelf_widget()->hotseat_transition_animator());
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 800, 800));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {800, 800});
   observer.Wait();
   EXPECT_TRUE(observer.ObserverCountsEqual());
   ASSERT_EQ(HotseatState::kHidden, GetShelfLayoutManager()->hotseat_state());
@@ -987,14 +894,8 @@ TEST_P(HotseatWidgetTest, ReleasingSlowDragBelowThreshold) {
   GetPrimaryShelf()->SetAutoHideBehavior(ShelfAutoHideBehavior::kNever);
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
-
-  base::HistogramTester histogram_tester;
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 0);
 
   gfx::Rect display_bounds =
       display::Screen::Get()->GetPrimaryDisplay().bounds();
@@ -1011,10 +912,6 @@ TEST_P(HotseatWidgetTest, ReleasingSlowDragBelowThreshold) {
                                              kNumScrollSteps);
 
   EXPECT_EQ(HotseatState::kHidden, GetShelfLayoutManager()->hotseat_state());
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 0);
 }
 
 // Tests that releasing the hotseat gesture above the threshold results in a
@@ -1023,14 +920,8 @@ TEST_P(HotseatWidgetTest, ReleasingSlowDragAboveThreshold) {
   GetPrimaryShelf()->SetAutoHideBehavior(shelf_auto_hide_behavior());
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
-
-  base::HistogramTester histogram_tester;
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 0);
 
   gfx::Rect display_bounds =
       display::Screen::Get()->GetPrimaryDisplay().bounds();
@@ -1049,10 +940,6 @@ TEST_P(HotseatWidgetTest, ReleasingSlowDragAboveThreshold) {
   EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
   if (shelf_auto_hide_behavior() == ShelfAutoHideBehavior::kAlways)
     EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, GetPrimaryShelf()->GetAutoHideState());
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 1);
 }
 
 // Tests that releasing the hotseat gesture when a stylus app is active has a
@@ -1069,17 +956,11 @@ TEST_P(HotseatWidgetTest, HotseatDragGestureForStylusApp) {
   const ShelfID test_stylus_app_id(stylus_app);
 
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   window->SetProperty(kShelfIDKey, test_stylus_app_id.Serialize());
   wm::ActivateWindow(window.get());
 
   EXPECT_EQ(test_stylus_app_id, model->active_shelf_id());
-
-  base::HistogramTester histogram_tester;
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 0);
 
   gfx::Rect display_bounds =
       display::Screen::Get()->GetPrimaryDisplay().bounds();
@@ -1105,10 +986,6 @@ TEST_P(HotseatWidgetTest, HotseatDragGestureForStylusApp) {
 
   if (shelf_auto_hide_behavior() == ShelfAutoHideBehavior::kAlways)
     EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, GetPrimaryShelf()->GetAutoHideState());
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeDownToHide, 0);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 1);
 }
 
 // Tests that showing overview after showing the hotseat results in only one
@@ -1117,7 +994,7 @@ TEST_P(HotseatWidgetTest, ShowingOverviewFromShownAnimatesOnce) {
   GetPrimaryShelf()->SetAutoHideBehavior(shelf_auto_hide_behavior());
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   auto state_watcher =
@@ -1159,7 +1036,7 @@ TEST_P(HotseatWidgetTest, HomeToOverviewChangesStateOnce) {
 
   // Open a window, then open the home launcher.
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   ShowShelfAndGoHome();
   GetAppListTestHelper()->CheckVisibility(true);
@@ -1211,7 +1088,7 @@ TEST_P(HotseatWidgetTest, HomeToInAppChangesStateOnce) {
   // Go to in-app, the hotseat should hide.
   HotseatStateWatcher watcher(GetShelfLayoutManager());
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   watcher.CheckEqual({HotseatState::kHidden});
@@ -1226,7 +1103,7 @@ TEST_P(HotseatWidgetTest, InAppToHomeChangesStateOnce) {
 
   // Go to in-app with an extended hotseat.
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   SwipeUpOnShelf();
 
@@ -1286,7 +1163,7 @@ TEST_P(HotseatWidgetTest, HomeToOverviewAndBack) {
   TabletModeControllerTestApi().EnterTabletMode();
 
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   WindowState::Get(window.get())->Minimize();
 
   HotseatStateWatcher watcher(GetShelfLayoutManager());
@@ -1316,7 +1193,8 @@ TEST_P(HotseatWidgetTest, InAppToOverviewAndBack) {
   GetPrimaryShelf()->SetAutoHideBehavior(shelf_auto_hide_behavior());
   TabletModeControllerTestApi().EnterTabletMode();
 
-  std::unique_ptr<aura::Window> window = CreateAppWindow(gfx::Rect(400, 400));
+  std::unique_ptr<aura::Window> window =
+      CreateWindowWithAppType(AppType::SYSTEM_APP, {400, 400});
 
   // Make sure shelf (and overview button) are visible - this is moves the
   // hotseat into kExtended state.
@@ -1358,7 +1236,8 @@ TEST_P(HotseatWidgetTest, ShowShelfAndGoHomeDuringInAppToOverviewTransition) {
   GetPrimaryShelf()->SetAutoHideBehavior(shelf_auto_hide_behavior());
   TabletModeControllerTestApi().EnterTabletMode();
 
-  std::unique_ptr<aura::Window> window = CreateAppWindow(gfx::Rect(400, 400));
+  std::unique_ptr<aura::Window> window =
+      CreateWindowWithAppType(AppType::SYSTEM_APP, {400, 400});
 
   // Make sure shelf (and overview button) are visible - this is moves the
   // hotseat into kExtended state.
@@ -1413,7 +1292,7 @@ TEST_P(HotseatWidgetTest, InAppToOverviewChangesStateOnceAutohiddenShelf) {
   // Test going to overview mode using the controller from an autohide hidden
   // shelf. Go to in-app.
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   {
     HotseatStateWatcher watcher(GetShelfLayoutManager());
@@ -1466,7 +1345,7 @@ TEST_P(HotseatWidgetTest,
   DisplayWorkAreaChangeCounter counter;
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   ASSERT_EQ(1, counter.count());
   ShowShelfAndGoHome();
@@ -1485,7 +1364,7 @@ TEST_P(HotseatWidgetTest,
 TEST_P(HotseatWidgetTest, WorkAreaDoesNotUpdateOpenWindowToFromAppList) {
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   ASSERT_TRUE(ShelfConfig::Get()->is_in_app());
 
@@ -1508,7 +1387,7 @@ TEST_P(HotseatWidgetTest, WorkAreaDoesNotUpdateOpenWindowToFromAppList) {
 TEST_P(HotseatWidgetTest, WorkAreaDoesNotUpdateOpenWindowToFromOverview) {
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   ASSERT_TRUE(ShelfConfig::Get()->is_in_app());
 
@@ -1546,7 +1425,7 @@ TEST_P(HotseatWidgetTest, DenseShelfBackgroundNotVisibleInTabletModeNoApps) {
 TEST_P(HotseatWidgetTest, ExtendHotseatIfFocusedWithKeyboard) {
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   ASSERT_EQ(HotseatState::kHidden, GetShelfLayoutManager()->hotseat_state());
 
@@ -1578,7 +1457,7 @@ TEST_P(HotseatWidgetTest, ExtendHotseatIfFocusedWithKeyboard) {
 TEST_P(HotseatWidgetTest, SwipeDownOnFocusedHotseat) {
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   ShelfTestUtil::AddAppShortcut("app_id_1", TYPE_APP);
   ShelfTestUtil::AddAppShortcut("app_id_2", TYPE_APP);
@@ -1603,7 +1482,7 @@ TEST_P(HotseatWidgetTest, SwipeDownOnFocusedHotseat) {
 // Tests that in overview, we can still exit by clicking on the hotseat if the
 // point is not on the visible area.
 TEST_P(HotseatWidgetTest, ExitOverviewWithClickOnHotseat) {
-  std::unique_ptr<aura::Window> window1 = AshTestBase::CreateTestWindow();
+  std::unique_ptr<aura::Window> window1 = CreateWindowWithAppType();
   ShelfTestUtil::AddAppShortcut("app_id_1", TYPE_APP);
 
   TabletModeControllerTestApi().EnterTabletMode();
@@ -1639,7 +1518,7 @@ TEST_P(HotseatWidgetTest, DismissHotseatWhenSystemTrayShows) {
 
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   SwipeUpOnShelf();
@@ -1682,7 +1561,7 @@ TEST_P(HotseatWidgetTest, DismissHotseatWhenSystemTrayShows) {
 TEST_P(HotseatWidgetTest, DismissHotseatWhenStatusAreaTrayShows) {
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   StatusAreaWidget* status_area_widget = GetShelfWidget()->status_area_widget();
   status_area_widget->ime_menu_tray()->SetVisiblePreferred(true);
@@ -1728,7 +1607,7 @@ TEST_P(HotseatWidgetTest, OpenWindowInTabletModeChangesWorkArea) {
   ASSERT_EQ(1, counter.count());
 
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   EXPECT_EQ(1, counter.count());
@@ -1739,7 +1618,7 @@ TEST_P(HotseatWidgetTest, OpenWindowInTabletModeChangesWorkArea) {
 TEST_P(HotseatWidgetTest, ToFromTabletModeWithWindowChangesWorkArea) {
   DisplayWorkAreaChangeCounter counter;
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   TabletModeControllerTestApi().EnterTabletMode();
@@ -1755,7 +1634,7 @@ TEST_P(HotseatWidgetTest, ShelfVisibilityChangeChangesWorkArea) {
   UpdateDisplay("800x603");
 
   TabletModeControllerTestApi().EnterTabletMode();
-  auto window = AshTestBase::CreateTestWindow(gfx::Rect(400, 400));
+  auto window = CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
 
   // The expected work area is 3 pixels smaller to leave space to swipe the auto
   // hide shelf up.
@@ -1806,7 +1685,7 @@ TEST_P(HotseatWidgetTest, DragActiveWindowInTabletMode) {
   GetPrimaryShelf()->SetAutoHideBehavior(shelf_auto_hide_behavior());
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   // Swipe up to bring up the hotseat first.
@@ -1845,7 +1724,7 @@ TEST_P(HotseatWidgetTest, ExitingOverviewHidesHotseat) {
   TabletModeControllerTestApi().EnterTabletMode();
 
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   // If the shelf is auto-hidden, swipe up to bring up shelf and hotseat first
@@ -1898,7 +1777,7 @@ TEST_P(HotseatWidgetTest, FailingOverviewDragResultsInExtendedHotseat) {
   TabletModeControllerTestApi().EnterTabletMode();
 
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   // If the shelf is auto-hidden, swipe up to bring up shelf and hotseat first
@@ -1945,7 +1824,7 @@ TEST_P(HotseatWidgetTest, SwipeOnHotseatInOverview) {
   TabletModeControllerTestApi().EnterTabletMode();
 
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   OverviewController* overview_controller = OverviewController::Get();
@@ -1995,7 +1874,7 @@ TEST_P(HotseatWidgetTest, SwipeOnHotseatInSplitViewWithOverview) {
   TabletModeControllerTestApi().EnterTabletMode();
 
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   OverviewController* overview_controller = OverviewController::Get();
@@ -2048,9 +1927,9 @@ TEST_P(HotseatWidgetTest, SwipeOnHotseatInSplitView) {
   TabletModeControllerTestApi().EnterTabletMode();
 
   std::unique_ptr<aura::Window> window1 =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   std::unique_ptr<aura::Window> window2 =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window1.get());
 
   SplitViewController* split_view_controller =
@@ -2099,7 +1978,7 @@ TEST_P(HotseatWidgetTest, HotseatHidesWhenSwipedToBezel) {
   // Go to in-app shelf and extend the hotseat.
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   SwipeUpOnShelf();
 
@@ -2169,13 +2048,9 @@ TEST_P(HotseatWidgetTest, HotseatHidesWhenSwipedToBezel) {
 TEST_P(HotseatWidgetTest, FlingUpHotseatWithShortFling) {
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   GetAppListTestHelper()->CheckVisibility(false);
-
-  base::HistogramTester histogram_tester;
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 0);
 
   // Scrolls the hotseat by a distance not sufficuent to trigger the action of
   // entering home screen from the in-app shelf.
@@ -2196,8 +2071,6 @@ TEST_P(HotseatWidgetTest, FlingUpHotseatWithShortFling) {
 
   EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
   GetAppListTestHelper()->CheckVisibility(false);
-  histogram_tester.ExpectBucketCount(kHotseatGestureHistogramName,
-                                     InAppShelfGestures::kSwipeUpToShow, 1);
 }
 
 // Tests that flinging up the in-app shelf should show the home launcher if the
@@ -2205,14 +2078,9 @@ TEST_P(HotseatWidgetTest, FlingUpHotseatWithShortFling) {
 TEST_P(HotseatWidgetTest, FlingUpHotseatWithLongFling) {
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   GetAppListTestHelper()->CheckVisibility(false);
-
-  base::HistogramTester histogram_tester;
-  histogram_tester.ExpectBucketCount(
-      kHotseatGestureHistogramName,
-      InAppShelfGestures::kFlingUpToShowHomeScreen, 0);
 
   // Scrolls the hotseat by the sufficient distance to trigger the action of
   // entering home screen from the in-app shelf.
@@ -2234,9 +2102,6 @@ TEST_P(HotseatWidgetTest, FlingUpHotseatWithLongFling) {
   EXPECT_EQ(HotseatState::kShownHomeLauncher,
             GetShelfLayoutManager()->hotseat_state());
   GetAppListTestHelper()->CheckVisibility(true);
-  histogram_tester.ExpectBucketCount(
-      kHotseatGestureHistogramName,
-      InAppShelfGestures::kFlingUpToShowHomeScreen, 1);
 }
 
 // Tests that UpdateVisibilityState is ignored during a shelf drag. This
@@ -2245,7 +2110,7 @@ TEST_P(HotseatWidgetTest, NoVisibilityStateUpdateDuringDrag) {
   // Autohide the shelf, then start a shelf drag.
   GetPrimaryShelf()->SetAutoHideBehavior(ShelfAutoHideBehavior::kAlways);
   std::unique_ptr<aura::Window> window1 =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window1.get());
   ASSERT_EQ(SHELF_AUTO_HIDE_HIDDEN, GetPrimaryShelf()->GetAutoHideState());
 
@@ -2257,7 +2122,7 @@ TEST_P(HotseatWidgetTest, NoVisibilityStateUpdateDuringDrag) {
   GetEventGenerator()->MoveTouchBy(0, -2);
   auto shelf_state_watcher = std::make_unique<ShelfStateWatcher>();
   std::unique_ptr<aura::Window> window2 =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
 
   wm::ActivateWindow(window2.get());
   window2->SetBounds(gfx::Rect(0, 0, 200, 200));
@@ -2283,7 +2148,7 @@ TEST_P(HotseatWidgetTest, HotseatRemainsHiddenIfPopupLaunched) {
   // Go to in-app shelf and extend the hotseat.
   TabletModeControllerTestApi().EnterTabletMode();
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   SwipeUpOnShelf();
   EXPECT_EQ(HotseatState::kExtended, GetShelfLayoutManager()->hotseat_state());
@@ -2317,7 +2182,7 @@ TEST_P(HotseatWidgetTest, NoBlurDuringAnimations) {
 
   // Open a window, as the hotseat animates to kHidden, it should lose its blur.
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
   EXPECT_EQ(
       0, GetShelfWidget()->hotseat_widget()->GetHotseatBackgroundBlurForTest());
@@ -2339,7 +2204,7 @@ TEST_P(HotseatWidgetTest, AnimationAfterDrag) {
 
   // Open a window so the hotseat transitions to hidden state.
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   gfx::ScopedAnimationDurationScaleMode animation_duration(
@@ -2438,7 +2303,7 @@ TEST_P(HotseatWidgetTest, InitialAnimationPositionWithNonIdentityTransform) {
 
   // Open a window so the hotseat transitions to hidden state.
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   // Make sure that all shelf item views complete their bounds animations
@@ -2532,7 +2397,7 @@ TEST_P(HotseatWidgetTest, InitialAnimationPositionWithNonIdentityTransform) {
   EXPECT_TRUE(app_views_moved());
 
   // Open another widow, and move the hotseat to extended state.
-  window = AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+  window = CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   generator->PressTouch(display_bounds.bottom_center());
@@ -2564,7 +2429,7 @@ TEST_P(HotseatWidgetTest, PresentationTimeMetricDuringDrag) {
       true);
 
   std::unique_ptr<aura::Window> window =
-      AshTestBase::CreateTestWindow(gfx::Rect(0, 0, 400, 400));
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {400, 400});
   wm::ActivateWindow(window.get());
 
   GetPrimaryShelf()->SetAutoHideBehavior(shelf_auto_hide_behavior());

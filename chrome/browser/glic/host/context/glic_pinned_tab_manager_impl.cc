@@ -288,12 +288,11 @@ class GlicPinnedTabManagerImpl::UpdateThrottler {
   base::TimeDelta current_delay_ = kInitialDelay;
 };
 
-GlicPinnedTabManagerImpl::GlicPinnedTabManagerImpl(
-    Profile* profile,
-    GlicInstance::UiDelegate* ui_delegate,
-    GlicMetrics* metrics)
+GlicPinnedTabManagerImpl::GlicPinnedTabManagerImpl(Profile* profile,
+                                                   GlicInstance* glic_instance,
+                                                   GlicMetrics* metrics)
     : profile_(profile),
-      ui_delegate_(ui_delegate),
+      glic_instance_(glic_instance),
       metrics_(metrics),
       max_pinned_tabs_(kDefaultMaxPinnedTabs) {
   pin_candidate_updater_ = std::make_unique<UpdateThrottler>(
@@ -341,8 +340,7 @@ bool GlicPinnedTabManagerImpl::PinTabs(
       continue;
     }
     auto* tab = tab_handle.Get();
-    if (!tab || IsTabPinned(tab_handle) ||
-        !IsBrowserValidForSharing(tab->GetBrowserWindowInterface())) {
+    if (!tab || IsTabPinned(tab_handle) || !IsTabValidForPinning(tab)) {
       pinning_fully_succeeded = false;
       metrics_->OnTabPinnedForSharing(
           GlicTabPinnedForSharingResult::
@@ -558,7 +556,7 @@ GlicPinnedTabManagerImpl::GetUnsortedPinCandidates() {
           if (IsTabPinned(tab->GetHandle())) {
             continue;
           }
-          if (!IsBrowserValidForSharing(tab->GetBrowserWindowInterface())) {
+          if (!IsTabValidForPinningInProfile(tab, profile_)) {
             continue;
           }
           auto* web_contents = tab->GetContents();
@@ -602,8 +600,7 @@ void GlicPinnedTabManagerImpl::OnTabDataChanged(tabs::TabHandle tab_handle,
 
 void GlicPinnedTabManagerImpl::OnTabChangedOrigin(tabs::TabHandle tab_handle) {
   CHECK(IsTabPinned(tab_handle));
-  if ((!GlicEnabling::IsMultiInstanceEnabled() ||
-       base::FeatureList::IsEnabled(kGlicAutoUnpinOnTabChangedOrigin)) &&
+  if (base::FeatureList::IsEnabled(kGlicAutoUnpinOnTabChangedOrigin) &&
       !IsGlicWindowShowing()) {
     // If the tab was restored, we do not unpin it when the origin changes.
     // TODO(b/456482198): Find a more nuanced solution that doesn't permanently
@@ -630,13 +627,17 @@ bool GlicPinnedTabManagerImpl::IsBrowserValidForSharing(
   return IsBrowserValidForSharingInProfile(browser_window, profile_);
 }
 
+bool GlicPinnedTabManagerImpl::IsTabValidForPinning(tabs::TabInterface* tab) {
+  return IsTabValidForPinningInProfile(tab, profile_);
+}
+
 bool GlicPinnedTabManagerImpl::IsValidForSharing(
     content::WebContents* web_contents) {
-  return IsTabValidForSharing(web_contents);
+  return glic::IsTabValidForSharing(web_contents);
 }
 
 bool GlicPinnedTabManagerImpl::IsGlicWindowShowing() {
-  return ui_delegate_->IsShowing();
+  return glic_instance_->IsShowing();
 }
 
 }  // namespace glic

@@ -108,23 +108,14 @@ class MockContextualTasksPage : public contextual_tasks::mojom::Page {
   MOCK_METHOD(void, LockInput, (), (override));
   MOCK_METHOD(void, UnlockInput, (), (override));
   MOCK_METHOD(void, SetShowReopenTabs, (bool show), (override));
-  MOCK_METHOD(void,
-              InjectInput,
-              (const std::string& title,
-               const std::string& thumbnail,
-               const base::UnguessableToken& file_token,
-               bool supports_unimodal),
-              (override));
-  MOCK_METHOD(void,
-              InjectInputWithIcon,
-              (const std::string& title,
-               contextual_tasks::mojom::IconType icon_id,
-               const base::UnguessableToken& file_token,
-               bool supports_unimodal),
-              (override));
+  MOCK_METHOD(void, SetExpandButtonEnabled, (bool enabled), (override));
   MOCK_METHOD(void,
               RemoveInjectedInput,
               (const base::UnguessableToken& file_token),
+              (override));
+  MOCK_METHOD(void,
+              InjectInput,
+              (contextual_tasks::mojom::InjectedInputPtr input),
               (override));
 
   mojo::PendingRemote<contextual_tasks::mojom::Page> BindAndGetRemote() {
@@ -655,6 +646,44 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
+                       BidirectionalZoomSync) {
+  EXPECT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), GURL(chrome::kChromeUIContextualTasksURL)));
+  content::WebContents* web_contents =
+      TabListInterface::From(browser())->GetActiveTab()->GetContents();
+
+  auto* controller = static_cast<ContextualTasksUI*>(
+      web_contents->GetWebUI()->GetController());
+  ASSERT_TRUE(controller);
+
+  auto* zoom_controller = zoom::ZoomController::FromWebContents(web_contents);
+
+  // Set tracked host.
+  controller->SetAimUrl(GURL("https://google.com"));
+
+  content::HostZoomMap* zoom_map =
+      content::HostZoomMap::GetDefaultForBrowserContext(browser()->profile());
+
+  // 1. Test Host -> WebUI sync.
+  double target_zoom = 2.0;
+  zoom_map->SetZoomLevelForHost("google.com", target_zoom);
+
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return std::abs(zoom_controller->GetZoomLevel() - target_zoom) < 0.01;
+  }));
+
+  // 2. Test WebUI -> Host sync.
+  double new_zoom = 3.0;
+  zoom_controller->SetZoomLevel(new_zoom);
+
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return std::abs(
+               zoom_map->GetZoomLevelForHostAndScheme("https", "google.com") -
+               new_zoom) < 0.01;
+  }));
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
                        InitSidePanelWithGhostLoader_WaitUntilPanelOpen) {
   auto* service =
       contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
@@ -725,7 +754,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
 
   GURL initial_url("https://example.com/");
   auto input_state_model = std::make_unique<contextual_search::InputStateModel>(
-      *session_handle, config, initial_url, /*is_off_the_record=*/false);
+      *session_handle, config, initial_url, /*is_off_the_record=*/false,
+      /*is_signed_in=*/true);
 
   content::WebContents* web_contents =
       TabListInterface::From(browser())->GetActiveTab()->GetContents();

@@ -150,15 +150,6 @@ void ServiceWorkerTaskQueue::RendererDidInitializeServiceWorkerContext(
     return;
   }
 
-  util::InitializeFileSchemeAccessForExtension(render_process_id, extension_id,
-                                               browser_context_);
-  ProcessManager::Get(browser_context_)
-      ->StartTrackingServiceWorkerRunningInstance(
-          {extension_id, render_process_id, service_worker_version_id,
-           thread_id, service_worker_token});
-  RendererStartupHelperFactory::GetForBrowserContext(browser_context_)
-      ->ActivateExtensionInProcess(*extension, process_host);
-
   // Update the renderer state of the associated ServiceWorkerState.
   auto [worker_state, context_id] =
       GetWorkerStateForActivation(extension_id, activation_token);
@@ -166,8 +157,19 @@ void ServiceWorkerTaskQueue::RendererDidInitializeServiceWorkerContext(
   const WorkerId worker_id = {extension_id, render_process_id,
                               service_worker_version_id, thread_id,
                               service_worker_token};
-  worker_state->RendererDidInitializeServiceWorkerContext(context_id,
-                                                          worker_id);
+  bool accepted = worker_state->RendererDidInitializeServiceWorkerContext(
+      context_id, worker_id);
+  if (!accepted) {
+    // The notification was actually from a stale service worker, ignore it.
+    return;
+  }
+
+  util::InitializeFileSchemeAccessForExtension(render_process_id, extension_id,
+                                               browser_context_);
+  ProcessManager::Get(browser_context_)
+      ->StartTrackingServiceWorkerRunningInstance(worker_id);
+  RendererStartupHelperFactory::GetForBrowserContext(browser_context_)
+      ->ActivateExtensionInProcess(*extension, process_host);
 
   if (g_test_observer) {
     g_test_observer->RendererDidInitializeServiceWorkerContext(extension_id);
@@ -733,6 +735,11 @@ bool ServiceWorkerTaskQueue::IsRegistrationFailureRetryable(
     case blink::ServiceWorkerStatusCode::kErrorFailed:
       return true;
 
+    // Registration or version was not found. This can happen if the worker
+    // is not yet ready or registration is still pending.
+    case blink::ServiceWorkerStatusCode::kErrorNotFound:
+      return true;
+
     // The registration took too long.
     case blink::ServiceWorkerStatusCode::kErrorTimeout:
       return true;
@@ -748,7 +755,6 @@ bool ServiceWorkerTaskQueue::IsRegistrationFailureRetryable(
     case blink::ServiceWorkerStatusCode::kErrorInvalidArguments:
     case blink::ServiceWorkerStatusCode::kErrorIpcFailed:
     case blink::ServiceWorkerStatusCode::kErrorNetwork:
-    case blink::ServiceWorkerStatusCode::kErrorNotFound:
     case blink::ServiceWorkerStatusCode::kErrorProcessNotFound:
     case blink::ServiceWorkerStatusCode::kErrorRedundant:
     case blink::ServiceWorkerStatusCode::kErrorScriptEvaluateFailed:

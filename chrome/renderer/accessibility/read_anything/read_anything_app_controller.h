@@ -50,7 +50,6 @@ class MojoUkmRecorder;
 class AXTreeDistiller;
 class DependencyParserModel;
 class ReadAnythingAppControllerTest;
-class ReadAnythingAppControllerScreen2xDataCollectionModeTest;
 class ReadAnythingAppControllerReadabilityTest;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -310,12 +309,15 @@ class ReadAnythingAppController
                          int anchor_offset,
                          ui::AXNodeID focus_node_id,
                          int focus_offset);
-  void OnCollapseSelection() const;
+  void OnCollapseSelection();
   void OnDistilled(int word_count);
+  void OnRenderedTextBlocksAvailable(const std::vector<std::string>& blocks);
   bool IsGoogleDocs() const;
   bool IsImmersiveEnabled() const;
+  bool IsImprovedReadAloudEnabled() const;
   bool IsTsTextSegmentationEnabled() const;
   bool IsReadabilityEnabled() const;
+  bool IsReadabilitySelectTextEnabled() const;
   bool IsLineFocusEnabled() const;
   bool IsReadabilityWithLinksEnabled() const;
   bool IsChromeOsAsh() const;
@@ -350,6 +352,7 @@ class ReadAnythingAppController
   void TogglePresentation();
   void TogglePinState();
   void OnPinStatusReceived(bool pin_state) override;
+  void OnSpeechEngineFirstStall();
   void OnSpeechEngineStalled();
 
   // Returns the current active distillation method state as an integer.
@@ -435,13 +438,12 @@ class ReadAnythingAppController
 
  private:
   friend ReadAnythingAppControllerTest;
-  friend ReadAnythingAppControllerScreen2xDataCollectionModeTest;
   friend ReadAnythingAppControllerReadabilityTest;
   // The fallback language code if GetLanguageCodeForSpeech has an error.
   // However, this may be the same value as GetLanguageCodeForSpeech.
   const std::string& GetDefaultLanguageCodeForSpeech() const;
 
-  void Distill(bool for_training_data = false);
+  void Distill();
   void DrawSelection();
   void DrawEmptyState();
 
@@ -467,14 +469,20 @@ class ReadAnythingAppController
   // processed accessibility events.
   void ProcessModelUpdates();
 
-  // Applies accessibility updates to ensure links are properly synced
-  // between distilled Readability content and what's in the accessibility tree.
-  // This should only be called when Readability is being used as a distillation
-  // method and links are supported.
-  void ApplyAccessibilityUpdatesForReadabilityLinks(
+  // Applies accessibility updates to ensure links and readability's text
+  // selection algorithm are properly synced between distilled Readability
+  // content and what's in the accessibility tree. This should only be called
+  // when Readability is being used as a distillation method and links are
+  // supported.
+  void ApplyAccessibilityUpdatesForReadability(
       const ui::AXTreeID& tree_id,
       const std::vector<ui::AXTreeUpdate>& updates,
       const std::vector<ui::AXEvent>& events);
+
+  // Triggers the text mapping algorithm if both the accessibility tree and the
+  // rendered text blocks from the WebUI are ready if
+  // IsReadabilitySelectTextEnabled.
+  void MaybeMapRenderedTextToTree();
 
   // Helper for forwarding reading mode hide events to the webui so we can
   // perform cleaning operations on it.
@@ -586,6 +594,12 @@ class ReadAnythingAppController
   // A timer that causes a distillation after a user stops typing for a set
   // number of seconds.
   std::unique_ptr<base::RetainingOneShotTimer> post_user_entry_draw_timer_;
+
+  // A timer for debouncing draws for a PDF. Since most of the content updates
+  // occur via SUBTREE_CREATED a11y events, PDFs end up redrawing several
+  // times in a row which can be jarring. Wait for all the updates before
+  // drawing instead.
+  std::unique_ptr<base::RetainingOneShotTimer> pdf_draw_debouncer_;
 
   base::OneShotTimer timer_;
 

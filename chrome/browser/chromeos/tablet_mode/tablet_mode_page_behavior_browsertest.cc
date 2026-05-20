@@ -44,13 +44,11 @@ class TabletModePageBehaviorTest : public ChromeOSBrowserUITest {
     EXPECT_FALSE(web_prefs.double_tap_to_zoom_enabled);
 
     if (tablet_mode_enabled) {
-      EXPECT_TRUE(web_prefs.text_autosizing_enabled);
       EXPECT_TRUE(web_prefs.shrinks_viewport_contents_to_fit);
       EXPECT_TRUE(web_prefs.main_frame_resizes_are_orientation_changes);
       EXPECT_FLOAT_EQ(web_prefs.default_minimum_page_scale_factor, 0.25f);
       EXPECT_FLOAT_EQ(web_prefs.default_maximum_page_scale_factor, 5.0f);
     } else {
-      EXPECT_FALSE(web_prefs.text_autosizing_enabled);
       EXPECT_FALSE(web_prefs.shrinks_viewport_contents_to_fit);
       EXPECT_FALSE(web_prefs.main_frame_resizes_are_orientation_changes);
       EXPECT_FLOAT_EQ(web_prefs.default_minimum_page_scale_factor, 1.0f);
@@ -128,12 +126,12 @@ IN_PROC_BROWSER_TEST_F(TabletModePageBehaviorTest, ExcludeHostedApps) {
 
 IN_PROC_BROWSER_TEST_F(TabletModePageBehaviorTest, IncludeNTPs) {
   ASSERT_TRUE(AddTabAtIndexToBrowser(
-      browser(), 0, GURL(chrome::kChromeUINewTabPageURL),
+      browser(), 0, chrome::ChromeUINewTabPageURLAsGURL(),
       ui::PAGE_TRANSITION_LINK, false /* check_navigation_success */));
   auto* web_contents = GetActiveWebContents(browser());
   ASSERT_TRUE(web_contents);
-  EXPECT_STREQ(web_contents->GetLastCommittedURL().spec().c_str(),
-               chrome::kChromeUINewTabPageURL);
+  EXPECT_EQ(web_contents->GetLastCommittedURL(),
+            chrome::ChromeUINewTabPageURLAsGURL());
 
   // Mobile-style Blink prefs should be applied to the NTP in tablet mode.
   EnterTabletMode();

@@ -14,6 +14,7 @@
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "ui/accessibility/ax_enums.mojom-blink-forward.h"
 
 namespace blink {
 
@@ -85,6 +86,14 @@ class CORE_EXPORT ElementInternals : public ScriptWrappable,
 
   // Platform-provided behaviors.
   const FrozenArray<ElementBehavior>& behaviors() const;
+  // Find a behavior of a specific type in the behaviors list.
+  template <typename T>
+  T* FindBehavior() const {
+    return static_cast<T*>(FindBehaviorByType(T::GetStaticWrapperTypeInfo()));
+  }
+  // Returns the default ARIA role from behaviors using last-in-wins conflict
+  // resolution. Returns kUnknown if no behaviors are attached.
+  ax::mojom::blink::Role BehaviorBasedDefaultRole() const;
 
   const FrozenArray<Element>* ariaControlsElements() const;
   void setAriaControlsElements(GCedHeapVector<Member<Element>>* given_elements);
@@ -114,6 +123,8 @@ class CORE_EXPORT ElementInternals : public ScriptWrappable,
   // Sets behaviors during attachInternals(). Can only be called once.
   void SetBehaviors(HeapVector<Member<ElementBehavior>> behaviors,
                     ExceptionState& exception_state);
+  // Looks up an attached behavior by its wrapper type info pointer.
+  ElementBehavior* FindBehaviorByType(const WrapperTypeInfo* type) const;
 
   bool IsTargetFormAssociated() const;
 

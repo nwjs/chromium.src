@@ -51,6 +51,7 @@ public class TabPersistentStoreFactory {
      * @param windowTag The unique identifier for the window instance.
      * @param cipherFactory Used for encrypting and decrypting tab state files.
      * @param recordLegacyTabCountMetrics Whether to record legacy metrics regarding tab counts.
+     * @param isFromRecreating Whether the current activity is launched from recreating.
      */
     public static TabPersistentStore buildAuthoritativeStore(
             String clientTag,
@@ -61,7 +62,8 @@ public class TabPersistentStoreFactory {
             TabWindowManager tabWindowManager,
             String windowTag,
             CipherFactory cipherFactory,
-            boolean recordLegacyTabCountMetrics) {
+            boolean recordLegacyTabCountMetrics,
+            boolean isFromRecreating) {
         if (migrationManager == null) {
             migrationManager = new DefaultPersistentStoreMigrationManager(windowTag);
         }
@@ -93,7 +95,8 @@ public class TabPersistentStoreFactory {
                     new TabCountTracker(windowTag),
                     ModelTrackingOrchestrator::new,
                     ActiveTabCache::new,
-                    /* isAuthoritative= */ true);
+                    /* isAuthoritative= */ true,
+                    isFromRecreating);
         }
         throw new IllegalStateException();
     }
@@ -158,7 +161,7 @@ public class TabPersistentStoreFactory {
             // the shadow store. In this case, the shadow store will delete incognito tab state
             // during migrations.
             assert isTabStorageEnabled();
-            shadowTabPersistentStore =
+            TabStateStore tabStateStore =
                     new TabStateStore(
                             selector,
                             windowTag,
@@ -169,7 +172,10 @@ public class TabPersistentStoreFactory {
                             new TabCountTracker(windowTag),
                             ModelTrackingOrchestrator::new,
                             ActiveTabCache::new,
-                            /* isAuthoritative= */ false);
+                            /* isAuthoritative= */ false,
+                            /* isFromRecreating= */ false);
+            buildShadowTabStateStoreCatchupTracker(authoritativeStore, tabStateStore);
+            shadowTabPersistentStore = tabStateStore;
         } else if (shadowStoreType == StoreType.LEGACY) {
             shadowTabPersistentStore =
                     new TabPersistentStoreImpl(
@@ -228,6 +234,18 @@ public class TabPersistentStoreFactory {
                     public void onStateLoaded() {
                         authoritativeStore.removeObserver(this);
                         manager.onShadowStoreCaughtUp();
+                    }
+                });
+    }
+
+    private static void buildShadowTabStateStoreCatchupTracker(
+            TabPersistentStore authoritativeStore, TabStateStore shadowStore) {
+        authoritativeStore.addObserver(
+                new TabPersistentStoreObserver() {
+                    @Override
+                    public void onStateLoaded() {
+                        authoritativeStore.removeObserver(this);
+                        shadowStore.onAuthoritativeStateLoaded();
                     }
                 });
     }

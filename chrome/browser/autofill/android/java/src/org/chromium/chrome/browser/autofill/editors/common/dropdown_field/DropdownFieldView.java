@@ -180,10 +180,15 @@ public class DropdownFieldView implements FieldView {
         mDropdown.setSelection(mSelectedIndex);
 
         // Set up accessibility content description dynamically.
-        mDropdown.setContentDescription(
-                mLabel.getText()
-                        + "/"
-                        + assumeNonNull(mAdapter.getItem(mSelectedIndex)).toString());
+        String selectedValue = assumeNonNull(mAdapter.getItem(mSelectedIndex)).toString();
+        String labelOrHint =
+                TextUtils.isEmpty(mLabel.getText()) ? mHint : mLabel.getText().toString();
+        // If the user has selected the initial hint, use it as the content description.
+        if (selectedValue.equals(mHint)) {
+            mDropdown.setContentDescription(selectedValue);
+        } else {
+            mDropdown.setContentDescription(labelOrHint + "/" + selectedValue);
+        }
     }
 
     public void setErrorMessage(@Nullable String errorMessage) {
@@ -271,7 +276,7 @@ public class DropdownFieldView implements FieldView {
     }
 
     private void requestFocusAndHideKeyboard() {
-        // Clear 'focused' bit because dropdown is not focusable. (crbug.com/1474419)
+        // Clear 'focused' bit because dropdown is not focusable. (crbug.com/40279312)
         mFieldModel.set(FOCUSED, false);
 
         KeyboardVisibilityDelegate.getInstance().hideKeyboard(mDropdown);

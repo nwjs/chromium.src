@@ -24,6 +24,7 @@
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/actor/ui/actor_overlay_web_view.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browsing_data/browsing_data_important_sites_util.h"
 #include "chrome/browser/defaults.h"
@@ -56,16 +57,18 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/bubble_anchor_util.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/customize_chrome/side_panel_controller.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
+#include "chrome/browser/ui/fullscreen/browser_window_fullscreen_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/managed_ui.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/page_info/page_info_dialog.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/profiles/profile_picker.h"
@@ -87,6 +90,7 @@
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
@@ -100,6 +104,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
+#include "components/bookmarks/browser/bookmark_model_load_waiter.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
 #include "components/dom_distiller/core/dom_distiller_features.h"
 #include "components/input/native_web_keyboard_event.h"
@@ -201,7 +206,8 @@ void AppInfoDialogClosedCallback(SessionID session_id,
   // Ensure that the session id we have is still valid. It's possible
   // (though unlikely) that either the browser or session has been pulled
   // out from underneath us.
-  BrowserWindowInterface* const browser = chrome::FindBrowserWithID(session_id);
+  BrowserWindowInterface* const browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithID(session_id);
   if (!browser) {
     return;
   }
@@ -337,7 +343,7 @@ BrowserCommandController::BrowserCommandController(BrowserWindowInterface* bwi)
           base::Unretained(this)));
 #endif  //! BUILDFLAG(IS_MAC)
 
-  if (glic::GlicEnabling::IsEnabledByFlags()) {
+  if (glic::GlicEnabling::IsEnabledByGlobalCriteria()) {
     auto* glic_service =
         glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile());
     if (glic_service) {
@@ -350,7 +356,7 @@ BrowserCommandController::BrowserCommandController(BrowserWindowInterface* bwi)
     }
   }
 
-  if (glic::GlicEnabling::IsEnabledByFlags()) {
+  if (glic::GlicEnabling::IsEnabledByGlobalCriteria()) {
     auto* service =
         glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile());
     if (service) {
@@ -369,6 +375,23 @@ BrowserCommandController::BrowserCommandController(BrowserWindowInterface* bwi)
   }
 
   InitCommandState();
+
+  // Bookmark editing commands depend on the bookmark model to be loaded.
+  // Schedule a callback to update them once the model is loaded instead of just
+  // relying on other updates like TabStateChanged.
+  //
+  // In some cases, such as when the user sets their homepage to about:blank
+  // and bookmarks encryption is enabled, the other updates are triggered
+  // before the bookmark model is loaded.
+  bookmarks::BookmarkModel* bookmark_model =
+      BookmarkModelFactory::GetForBrowserContext(profile());
+  if (bookmark_model) {
+    bookmarks::ScheduleCallbackOnBookmarkModelLoad(
+        *bookmark_model,
+        base::BindOnce(
+            &BrowserCommandController::UpdateCommandsForBookmarkEditing,
+            weak_ptr_factory_.GetWeakPtr()));
+  }
 
   sessions::TabRestoreService* tab_restore_service =
       TabRestoreServiceFactory::GetForProfile(profile());
@@ -422,14 +445,14 @@ bool BrowserCommandController::IsReservedCommandOrKey(
   if (window()->IsFullscreen()) {
     // In fullscreen, all commands except for IDC_FULLSCREEN and IDC_EXIT should
     // be delivered to the web page. The intent to implement and ship can be
-    // found in http://crbug.com/680809.
+    // found in http://crbug.com/40501396.
     const bool is_exit_fullscreen =
         (command_id == IDC_EXIT || command_id == IDC_FULLSCREEN);
 #if BUILDFLAG(IS_MAC)
     // This behavior is different on Mac OS, which has a unique user-initiated
-    // full-screen mode. According to the discussion in http://crbug.com/702251,
-    // the commands should be reserved for browser-side handling if the browser
-    // window's toolbar is visible.
+    // full-screen mode. According to the discussion in
+    // http://crbug.com/40511102, the commands should be reserved for
+    // browser-side handling if the browser window's toolbar is visible.
     if (window()->IsToolbarShowing()) {
       if (command_id == IDC_FULLSCREEN) {
         return true;
@@ -1104,6 +1127,11 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       browser_->GetFeatures().side_panel_ui()->Show(
           SidePanelEntryId::kHistoryClusters, SidePanelOpenTrigger::kAppMenu);
       break;
+    case IDC_SHOW_TABS_FROM_OTHER_DEVICES_SIDE_PANEL:
+      browser_->GetFeatures().side_panel_ui()->Show(
+          SidePanelEntryId::kTabsFromOtherDevices,
+          SidePanelOpenTrigger::kAppMenu);
+      break;
     case IDC_SHOW_DOWNLOADS:
       ShowDownloads(browser_->GetBrowserForOpeningWebUi());
       break;
@@ -1578,7 +1606,7 @@ void BrowserCommandController::InitCommandState() {
   // The VisitDesktop command is only supported for up to 5 logged in users
   // because that's the max number of user sessions. If that number is increased
   // the IDC_VISIT_DESKTOP_OF_LRU_USER_ command ids should be updated as well.
-  // crbug.com/940461
+  // crbug.com/41446075
   static_assert(
       session_manager::kMaximumNumberOfUserSessions <=
           IDC_VISIT_DESKTOP_OF_LRU_USER_LAST -
@@ -1657,6 +1685,9 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(
       IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL,
       (!guest_session && !profile()->IsSystemProfile()));
+  command_updater_.UpdateCommandEnabled(
+      IDC_SHOW_TABS_FROM_OTHER_DEVICES_SIDE_PANEL,
+      TabsFromOtherDevicesSidePanelCoordinator::IsSupported(profile()));
   command_updater_.UpdateCommandEnabled(IDC_SHOW_DOWNLOADS, true);
   command_updater_.UpdateCommandEnabled(IDC_SHOW_COMMENTS_SIDE_PANEL, true);
   command_updater_.UpdateCommandEnabled(IDC_FIND_AND_EDIT_MENU, true);
@@ -1962,7 +1993,6 @@ void BrowserCommandController::UpdateCommandsForTabState() {
   // Page-related commands
   window()->SetStarredState(
       BookmarkTabHelper::FromWebContents(current_web_contents)->is_starred());
-  window()->ZoomChangedForActiveTab(false);
   command_updater_.UpdateCommandEnabled(IDC_VIEW_SOURCE,
                                         CanViewSource(browser_));
 
@@ -2143,8 +2173,9 @@ void BrowserCommandController::UpdateCommandsForFullscreenMode() {
                                         main_not_fullscreen);
   command_updater_.UpdateCommandEnabled(IDC_FOCUS_WEB_CONTENTS_PANE,
                                         main_not_fullscreen);
-  command_updater_.UpdateCommandEnabled(IDC_FOCUS_BOOKMARKS,
-                                        main_not_fullscreen);
+  // Just use show_main_ui because the condition for bookmark bar shortcut is
+  // handled in `BrowserView::FocusBookmarksToolbar()`,
+  command_updater_.UpdateCommandEnabled(IDC_FOCUS_BOOKMARKS, show_main_ui);
   command_updater_.UpdateCommandEnabled(
       IDC_FOCUS_INACTIVE_POPUP_FOR_ACCESSIBILITY, main_not_fullscreen);
 
@@ -2196,7 +2227,8 @@ void BrowserCommandController::UpdateCommandsForFullscreenMode() {
 void BrowserCommandController::UpdateCommandsForHostedAppAvailability() {
   bool has_toolbar = browser_->is_type_normal() ||
                      web_app::AppBrowserController::IsWebApp(browser_);
-  if (window() && window()->ShouldHideUIForFullscreen()) {
+  if (BrowserWindowFullscreenController::From(browser_)
+          ->ShouldHideUIForFullscreen()) {
     has_toolbar = false;
   }
   command_updater_.UpdateCommandEnabled(IDC_FOCUS_TOOLBAR, has_toolbar);
@@ -2280,7 +2312,7 @@ void BrowserCommandController::UpdatePrintingState() {
 }
 
 void BrowserCommandController::UpdateGlicState() {
-  if (glic::GlicEnabling::IsEnabledByFlags()) {
+  if (glic::GlicEnabling::IsEnabledByGlobalCriteria()) {
     auto* service =
         glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile());
     if (service) {

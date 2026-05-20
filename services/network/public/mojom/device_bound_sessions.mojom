@@ -73,6 +73,7 @@ enum DeviceBoundSessionDeletionReason {
   kServerRequested = 5,  // Server explicitly requested termination.
   kInvalidSessionParams = 6,  // Refresh provided invalid params.
   kRefreshFatalError = 7,  // Fatal error during refresh.
+  kDevTools = 8,  // Deleted via DevTools.
 };
 
 // LINT.ThenChange(//net/device_bound_sessions/deletion_reason.h:DeletionReason)
@@ -113,6 +114,8 @@ struct DeviceBoundSessionParams {
   array<string> allowed_refresh_initiators;
 };
 
+// Note: SessionParams in C++ uses UnexportableSigningKeyId, but it is not
+// passed over Mojo, so it's not present here.
 // LINT.ThenChange(//net/device_bound_sessions/session_params.h:SessionParams)
 
 // LINT.IfChange(DeviceBoundSessionError)
@@ -214,6 +217,7 @@ enum DeviceBoundSessionRefreshResult {
   kRefreshQuotaExceeded = 4,
   kFatalError = 5,
   kSigningQuotaExceeded = 6,
+  kRefreshedAsWaiter = 7,
 };
 
 // LINT.ThenChange(//net/device_bound_sessions/refresh_result.h:DeviceBoundSessionRefreshResult)

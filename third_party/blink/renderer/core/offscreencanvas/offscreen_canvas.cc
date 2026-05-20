@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
 #include "third_party/skia/include/core/SkSurface.h"
+#include "ui/gfx/geometry/skia_conversions.h"
 
 namespace blink {
 
@@ -208,7 +209,6 @@ void OffscreenCanvas::SetSize(gfx::Size size) {
   if (size == Size()) {
     if (context_ && context_->IsRenderingContext2D()) {
       context_->Reset();
-      dirty_rect_for_commit_ = SkIRect::MakeWH(Size().width(), Size().height());
       origin_clean_ = true;
       // We need to trigger the draw, because we did reset the context.
       context_->DidDraw(CanvasPerformanceMonitor::DrawType::kOther);
@@ -217,7 +217,6 @@ void OffscreenCanvas::SetSize(gfx::Size size) {
   }
 
   size_ = size;
-  current_frame_damage_rect_ = SkIRect::MakeWH(Size().width(), Size().height());
 
   if (context_ && context_->isContextLost()) {
     context_->RestoreFromInvalidSizeIfNeeded();
@@ -235,7 +234,6 @@ void OffscreenCanvas::SetSize(gfx::Size size) {
         origin_clean_ = true;
       }
     }
-    dirty_rect_for_commit_ = SkIRect::MakeWH(Size().width(), Size().height());
     context_->DidDraw(CanvasPerformanceMonitor::DrawType::kOther);
   }
 }
@@ -484,7 +482,6 @@ CanvasRenderingContext* OffscreenCanvas::GetCanvasRenderingContext(
     }
 
     context_ = factory->Create(execution_context, this, recomputed_attributes);
-    dirty_rect_for_commit_.setEmpty();
     if (context_) {
       context_->RecordUKMCanvasRenderingAPI();
       context_->RecordUMACanvasRenderingAPI();
@@ -563,16 +560,18 @@ CanvasResourceDispatcher* OffscreenCanvas::GetOrCreateResourceDispatcher() {
   return frame_dispatcher_.get();
 }
 
-void OffscreenCanvas::DidDraw(const SkIRect& rect) {
-  if (rect.isEmpty())
+void OffscreenCanvas::DidDraw(const gfx::Rect& rect) {
+  if (rect.IsEmpty()) {
     return;
+  }
 
-  dirty_rect_for_commit_.join(rect);
+  current_frame_damage_rect_.Union(rect);
 
   if (HasPlaceholderCanvas()) {
     needs_push_frame_ = true;
-    if (!inside_worker_raf_)
+    if (!inside_worker_raf_) {
       GetOrCreateResourceDispatcher()->SetNeedsBeginFrame(true);
+    }
   }
 }
 
@@ -595,15 +594,14 @@ bool OffscreenCanvas::PushFrame(
   DCHECK(needs_push_frame_);
   needs_push_frame_ = false;
 
-  current_frame_damage_rect_.join(dirty_rect_for_commit_);
-  dirty_rect_for_commit_.setEmpty();
-
-  if (current_frame_damage_rect_.isEmpty() || !canvas_resource)
+  if (!canvas_resource) {
     return false;
+  }
   canvas_resource->SetOriginClean(OriginClean());
+  current_frame_damage_rect_.Intersect(gfx::Rect(Size()));
   GetOrCreateResourceDispatcher()->DispatchFrame(
       std::move(canvas_resource), current_frame_damage_rect_, IsOpaque());
-  current_frame_damage_rect_ = SkIRect::MakeEmpty();
+  current_frame_damage_rect_ = gfx::Rect();
 
   return true;
 }

@@ -49,7 +49,6 @@ import org.chromium.components.signin.SigninFeatureMap;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.base.CoreAccountInfo;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.sync.SyncService;
@@ -215,7 +214,7 @@ public class BottomSheetSigninAndHistorySyncCoordinator extends SigninAndHistory
             OneshotSupplier<Profile> profileSupplier,
             Supplier<BottomSheetController> bottomSheetController,
             ModalDialogManager modalDialogManager,
-            SnackbarManager snackbarManager,
+            @Nullable SnackbarManager snackbarManager,
             @SigninAccessPoint int signinAccessPoint) {
         assert SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_SEAMLESS_SIGNIN);
         return new BottomSheetSigninAndHistorySyncCoordinator(
@@ -240,7 +239,7 @@ public class BottomSheetSigninAndHistorySyncCoordinator extends SigninAndHistory
             OneshotSupplier<Profile> profileSupplier,
             Supplier<BottomSheetController> bottomSheetController,
             ModalDialogManager modalDialogManager,
-            SnackbarManager snackbarManager,
+            @Nullable SnackbarManager snackbarManager,
             @SigninAccessPoint int signinAccessPoint) {
         mWindowAndroid = windowAndroid;
         mActivity = activity;
@@ -616,7 +615,7 @@ public class BottomSheetSigninAndHistorySyncCoordinator extends SigninAndHistory
         IdentityManager identityManager =
                 IdentityServicesProvider.get().getIdentityManager(assertNonNull(mProfile));
         assumeNonNull(identityManager);
-        if (identityManager.hasPrimaryAccount(ConsentLevel.SIGNIN)) {
+        if (identityManager.hasPrimaryAccount()) {
             maybeShowHistoryOptInDialog();
             return;
         }

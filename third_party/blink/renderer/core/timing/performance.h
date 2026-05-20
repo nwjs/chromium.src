@@ -57,10 +57,6 @@
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "v8-local-handle.h"
 
-namespace base {
-class Clock;
-class TickClock;
-}  // namespace base
 
 namespace blink {
 
@@ -87,6 +83,7 @@ class PerformanceTiming;
 class ScriptState;
 class ScriptValue;
 class SoftNavigationEntry;
+class SpeculationData;
 class UserTiming;
 class V8ObjectBuilder;
 class V8UnionDoubleOrString;
@@ -120,6 +117,7 @@ class CORE_EXPORT Performance : public EventTarget {
       ScriptState*,
       ExceptionState& exception_state) const;
   virtual EventCounts* eventCounts();
+  virtual SpeculationData* getSpeculations();
   virtual std::uint64_t interactionCount() const = 0;
   virtual void PopulateContainerTimingEntries() {}
 
@@ -318,9 +316,6 @@ class CORE_EXPORT Performance : public EventTarget {
 
   void Trace(Visitor*) const override;
 
-  // The caller owns the |clock|.
-  void SetClocksForTesting(const base::Clock* clock,
-                           const base::TickClock* tick_clock);
   void ResetTimeOriginForTesting(base::TimeTicks time_origin);
 
   void SetCrossOriginIsolatedCapabilityForTesting(bool is_isolated) {
@@ -427,7 +422,6 @@ class CORE_EXPORT Performance : public EventTarget {
 
   base::TimeTicks time_origin_;
   base::TimeDelta unix_at_zero_monotonic_;
-  const base::TickClock* tick_clock_;
   bool cross_origin_isolated_capability_;
 
   PerformanceEntryTypeMask observer_filter_options_;

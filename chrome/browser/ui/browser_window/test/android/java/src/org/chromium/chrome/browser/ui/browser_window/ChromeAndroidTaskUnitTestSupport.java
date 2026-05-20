@@ -4,9 +4,9 @@
 
 package org.chromium.chrome.browser.ui.browser_window;
 
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.when;
@@ -18,7 +18,6 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.ActivityManager.AppTask;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Insets;
 import android.graphics.Rect;
 import android.os.Build;
@@ -45,8 +44,8 @@ import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.customtabs.PopupIntentCreator;
-import org.chromium.chrome.browser.customtabs.PopupIntentCreatorProvider;
+import org.chromium.chrome.browser.customtabs.PopupCreator;
+import org.chromium.chrome.browser.customtabs.PopupCreatorFactory;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcherProvider;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestrator;
@@ -184,6 +183,9 @@ public final class ChromeAndroidTaskUnitTestSupport {
     public static final long FAKE_NATIVE_ANDROID_BROWSER_WINDOW_PTR = 123456789L;
 
     public static final long FAKE_INCOGNITO_NATIVE_ANDROID_BROWSER_WINDOW_PTR = 987654321L;
+
+    private static @Nullable PopupCreator sPopupCreator;
+    private static @Nullable MultiInstanceOrchestrator sMultiInstanceOrchestrator;
 
     private ChromeAndroidTaskUnitTestSupport() {}
 
@@ -368,7 +370,6 @@ public final class ChromeAndroidTaskUnitTestSupport {
         when(mockIncognitoTabModel.getProfile()).thenReturn(null);
 
         var mockDesktopWindowStateManager = mock(DesktopWindowStateManager.class);
-        mockMultiInstanceOrchestrator();
 
         return new ChromeAndroidTask.ActivityScopedObjects(
                 activityWindowAndroid,
@@ -458,21 +459,32 @@ public final class ChromeAndroidTaskUnitTestSupport {
         return mockAndroidBrowserWindowNatives;
     }
 
-    /** Mocks {@link PopupIntentCreator}. */
-    private static void mockPopupIntentCreator() {
-        PopupIntentCreator mockCreator = mock(PopupIntentCreator.class);
-        when(mockCreator.createPopupIntent(any(), anyBoolean()))
-                .thenAnswer(
-                        invocation -> {
-                            Intent intent = new Intent();
-                            // Prevents crashing in IntentUtils#addTrustedIntentExtras().
-                            intent.setPackage(
-                                    ContextUtils.getApplicationContext().getPackageName());
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            return intent;
-                        });
-        PopupIntentCreatorProvider.setInstance(mockCreator);
-        ResettersForTesting.register(() -> PopupIntentCreatorProvider.resetInstanceForTesting());
+    /** Mocks {@link PopupCreator}. */
+    public static PopupCreator mockPopupCreator() {
+        if (sPopupCreator != null) return sPopupCreator;
+        sPopupCreator = mock(PopupCreator.class);
+        when(sPopupCreator.createNewPopup(any(), anyBoolean(), any(), any(), any()))
+                .thenReturn(true);
+        when(sPopupCreator.createNewPopupFromWebContents(any(), any(), any(), any(), any(), any()))
+                .thenReturn(true);
+        PopupCreatorFactory.setInstanceForTesting(sPopupCreator);
+        ResettersForTesting.register(() -> sPopupCreator = null);
+        return sPopupCreator;
+    }
+
+    /** Mocks {@link MultiInstanceOrchestrator}. */
+    public static MultiInstanceOrchestrator mockMultiInstanceOrchestrator() {
+        if (sMultiInstanceOrchestrator != null) return sMultiInstanceOrchestrator;
+        sMultiInstanceOrchestrator = mock(MultiInstanceOrchestrator.class);
+        when(sMultiInstanceOrchestrator.createNewWindow(
+                        any(), anyBoolean(), any(), any(), anyInt()))
+                .thenReturn(true);
+        when(sMultiInstanceOrchestrator.createNewWindowFromWebContents(
+                        any(), any(), any(), any(), any(), anyInt()))
+                .thenReturn(true);
+        MultiInstanceOrchestratorFactory.setInstanceForTesting(sMultiInstanceOrchestrator);
+        ResettersForTesting.register(() -> sMultiInstanceOrchestrator = null);
+        return sMultiInstanceOrchestrator;
     }
 
     static ChromeAndroidTask.PendingTaskInfo createPendingTaskInfo() {
@@ -484,7 +496,7 @@ public final class ChromeAndroidTaskUnitTestSupport {
         JniOnceCallback<Long> mockCallback = mock();
 
         return new ChromeAndroidTask.PendingTaskInfo(
-                IdSequencer.next(), createParams, new Intent(), mockCallback);
+                IdSequencer.next(), createParams, mockCallback);
     }
 
     /**
@@ -534,7 +546,9 @@ public final class ChromeAndroidTaskUnitTestSupport {
         when(mockParams.getProfile()).thenReturn(profile);
         when(mockParams.getInitialBoundsInDp()).thenReturn(launchBounds);
         when(mockParams.getInitialShowState()).thenReturn(showState);
-        mockPopupIntentCreator();
+        when(mockParams.getWebContents()).thenReturn(null);
+        mockPopupCreator();
+        mockMultiInstanceOrchestrator();
 
         return mockParams;
     }
@@ -618,25 +632,5 @@ public final class ChromeAndroidTaskUnitTestSupport {
                         .build();
         var maxWindowMetrics = new WindowMetrics(fullScreenWindowBoundsInPx, maxWindowInsets);
         when(mockWindowManager.getMaximumWindowMetrics()).thenReturn(maxWindowMetrics);
-    }
-
-    public static void mockMultiInstanceOrchestrator() {
-        var mockOrchestrator = mock(MultiInstanceOrchestrator.class);
-
-        // Unit tests don't need to care what the Intent is. They only need to verify the correct
-        // MultiInstanceManager API is called.
-        //
-        // The Intent here is the bare minimum to ensure unit tests pass:
-        // (1) The Intent is not null; and
-        // (2) The Intent has the FLAG_ACTIVITY_NEW_TASK flag to avoid the "background Activity
-        // launch" error in unit tests.
-
-        var intent = new Intent();
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        when(mockOrchestrator.createNewWindowIntent(any(), anyBoolean(), anyInt()))
-                .thenReturn(intent);
-
-        MultiInstanceOrchestratorFactory.setInstanceForTesting(mockOrchestrator);
     }
 }

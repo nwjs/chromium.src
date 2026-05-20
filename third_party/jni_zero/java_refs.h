@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "third_party/jni_zero/jni_export.h"
 #include "third_party/jni_zero/logging.h"
@@ -44,6 +45,54 @@ concept IsConvertableJObject =
     std::is_convertible_v<U, T> || std::same_as<U, jobject>;
 
 template <typename T>
+struct _JArrayElementType;
+
+template <>
+struct _JArrayElementType<jbooleanArray> {
+  using type = bool;
+};
+
+template <>
+struct _JArrayElementType<jbyteArray> {
+  using type = int8_t;
+};
+
+template <>
+struct _JArrayElementType<jcharArray> {
+  using type = uint16_t;
+};
+
+template <>
+struct _JArrayElementType<jshortArray> {
+  using type = int16_t;
+};
+
+template <>
+struct _JArrayElementType<jintArray> {
+  using type = int32_t;
+};
+
+template <>
+struct _JArrayElementType<jlongArray> {
+  using type = int64_t;
+};
+
+template <>
+struct _JArrayElementType<jfloatArray> {
+  using type = float;
+};
+
+template <>
+struct _JArrayElementType<jdoubleArray> {
+  using type = double;
+};
+
+template <>
+struct _JArrayElementType<jobjectArray> {
+  using type = jobject;
+};
+
+template <typename T>
   requires internal::IsJobject<T>
 class _JObjectArray : public _jobjectArray {};
 
@@ -54,6 +103,11 @@ template <typename T>
   requires internal::IsJobject<T>
 struct _JArrayHelper<T> {
   using type = _JObjectArray<T>;
+};
+
+template <>
+struct _JArrayHelper<jobject> {
+  using type = _jobjectArray;
 };
 
 template <>
@@ -141,6 +195,10 @@ template <typename T>
 concept IsJavaRef =
     std::is_base_of_v<jni_zero::JavaRef<jobject>, std::remove_cvref_t<T>>;
 
+// Forward declaration of the JArrayView class.
+template <typename T>
+class JArrayView;
+
 namespace internal {
 
 // Concept to check if the _CalledByNatives<T> specialization is defined.
@@ -195,6 +253,13 @@ class JNI_ZERO_COMPONENT_BUILD_EXPORT JavaRef<jobject> {
     return *reinterpret_cast<const JavaRef<To>*>(this);
   }
 
+  // Convert this JavaRef<jobject> to the corresponding C++ type by
+  // calling FromJniType.
+  template <typename To>
+  To ConvertTo(JNIEnv* env) const {
+    return FromJniType<To>(env, *this);
+  }
+
 #if !JNI_ZERO_ENABLE_COMPAT_API
  protected:
 #endif
@@ -234,9 +299,8 @@ class JNI_ZERO_COMPONENT_BUILD_EXPORT JavaRef<jobject> {
   jobject obj_ = nullptr;
 };
 
-// Forward declare the object array reader for the convenience function.
 template <typename T = jobject>
-class JavaObjectArrayReader;
+class ScopedJavaLocalRef;
 
 // Generic base class for ScopedJavaLocalRef and ScopedJavaGlobalRef. Useful
 // for allowing functions to accept a reference without having to mandate
@@ -265,23 +329,49 @@ class JavaRef : public JavaRef<jobject> {
         this);
   }
 
-  // Get a JavaObjectArrayReader for the array pointed to by this reference.
-  // Only defined for JavaRef<jobjectArray>.
-  // You must pass the type of the array elements (usually jobject) as the
-  // template parameter.
-  template <typename ElementType = jobject,
-            typename T_ = T,
-            typename = std::enable_if_t<std::is_same_v<T_, jobjectArray>>>
-  JavaObjectArrayReader<ElementType> ReadElements() const {
-    return JavaObjectArrayReader<ElementType>(*this);
-  }
-
   // Create a JavaRef that is not automatically released. Used for JNI
   // parameters (which should not be released).
   template <typename U>
     requires internal::IsConvertableJObject<T, U>
   static JavaRef<T> CreateLeaky(JNIEnv* env, U obj) {
     return JavaRef<T>(env, obj);
+  }
+
+  int32_t GetLength(JNIEnv* env) const
+    requires std::is_convertible_v<T, jarray>
+  {
+    return env->GetArrayLength(this->obj());
+  }
+
+  ScopedJavaLocalRef<jobject> Get(JNIEnv* env, int32_t index) const
+    requires std::is_same_v<T, jobjectArray>;
+
+  template <typename U>
+  U GetAs(JNIEnv* env, int32_t index) const
+    requires std::is_same_v<T, jobjectArray>
+  {
+    return Get(env, index).template ConvertTo<U>(env);
+  }
+
+  void Set(JNIEnv* env, int32_t index, const JavaRef<jobject>& value) const
+    requires std::is_same_v<T, jobjectArray>
+  {
+    env->SetObjectArrayElement(this->obj(), index, value.obj());
+  }
+
+  template <typename U>
+  void CopyTo(JNIEnv* env, std::vector<ScopedJavaLocalRef<U>>* buf) const
+    requires std::is_convertible_v<T, jobjectArray>;
+
+  // The auto return type makes this a template function.
+  // The [[clang::lifetimebound]] is required because the lifetime of the
+  // JArrayView cannot safely outlast the lifetime of |this|.
+  auto CreateView(JNIEnv* env) const [[clang::lifetimebound]]
+    requires std::is_convertible_v<T, jarray>
+  {
+    using ElementType = typename internal::_JArrayElementType<T>::type;
+    return JArrayView<ElementType>(
+        env, static_cast<JArray<ElementType>>(this->obj()));
   }
 
 #if !JNI_ZERO_ENABLE_COMPAT_API
@@ -303,13 +393,37 @@ class JavaRef<internal::_JObjectArray<T>*> : public JavaRef<jobjectArray> {
     return static_cast<JArray<T>>(JavaRef<jobject>::obj());
   }
 
-  static JavaRef<JArray<T>> CreateLeaky(JNIEnv* env, JArray<T> obj) {
+  template <typename U>
+    requires internal::IsConvertableJObject<JArray<T>, U>
+  static JavaRef<JArray<T>> CreateLeaky(JNIEnv* env, U obj) {
     return JavaRef<internal::_JObjectArray<T>*>(env, obj);
   }
 
+  ScopedJavaLocalRef<T> Get(JNIEnv* env, int32_t index) const;
+
+  template <typename U>
+  U GetAs(JNIEnv* env, int32_t index) const {
+    return Get(env, index).template ConvertTo<U>(env);
+  }
+
+  template <typename U>
+    requires internal::IsConvertableJObject<T, U>
+  void Set(JNIEnv* env, int32_t index, const JavaRef<U>& value) const {
+    env->SetObjectArrayElement(this->obj(), index, value.obj());
+  }
+
+  JArrayView<T> CreateView(JNIEnv* env) const [[clang::lifetimebound]] {
+    return JArrayView<T>(env, obj());
+  }
+
  protected:
-  JavaRef(JNIEnv* env, JArray<T> obj) : JavaRef<jobjectArray>(env, obj) {}
+  JavaRef(JNIEnv* env, jobject obj) : JavaRef<jobjectArray>(env, obj) {}
 };
+
+template <typename T>
+JavaRef<T> CreateLeaky(JNIEnv* env, T obj) {
+  return JavaRef<T>::CreateLeaky(env, obj);
+}
 
 // Holds a local reference to a Java object. The local reference is scoped
 // to the lifetime of this object.
@@ -321,7 +435,7 @@ class JavaRef<internal::_JObjectArray<T>*> : public JavaRef<jobjectArray> {
 // single thread. If you wish to have the reference outlive the current
 // callstack (e.g. as a class member) or you wish to pass it across threads,
 // use a ScopedJavaGlobalRef instead.
-template <typename T = jobject>
+template <typename T>
 class ScopedJavaLocalRef : public JavaRef<T> {
  public:
   // Take ownership of a bare jobject. This does not create a new reference.
@@ -442,6 +556,8 @@ class ScopedJavaLocalRef : public JavaRef<T> {
   // Alias for Release(). For use in templates when global refs are invalid.
   T ReleaseLocal() { return static_cast<T>(JavaRef<T>::ReleaseInternal()); }
 
+  using JavaRef<T>::As;
+
   // Enables casting while assigning. E.g.:
   // ScopedJavaLocalRef<JFoo> foo = FuncThatReturnsJobject(env).As<JFoo>();
   template <typename To>
@@ -466,11 +582,12 @@ class ScopedJavaLocalRef : public JavaRef<T> {
   // Friend required to get env_ from conversions.
   template <typename U>
   friend class ScopedJavaLocalRef;
-
-  // Avoids JavaObjectArrayReader having to accept and store its own env.
-  template <typename U>
-  friend class JavaObjectArrayReader;
 };
+
+template <typename T>
+ScopedJavaLocalRef<T> AdoptRef(JNIEnv* env, T obj) {
+  return ScopedJavaLocalRef<T>::Adopt(env, obj);
+}
 
 // Holds a global reference to a Java object. The global reference is scoped
 // to the lifetime of this object. This class does not hold onto any JNIEnv*
@@ -589,9 +706,10 @@ class ScopedJavaGlobalRef : public JavaRef<T> {
     if (!j_obj) {
       return nullptr;
     }
-    return ScopedJavaLocalRef<T>::Adopt(
-        env, static_cast<T>(env->NewLocalRef(j_obj)));
+    return jni_zero::AdoptRef(env, static_cast<T>(env->NewLocalRef(j_obj)));
   }
+
+  using JavaRef<T>::As;
 
   // Enables casting while assigning. E.g.:
   // ScopedJavaGlobalRef<JFoo> foo = FuncThatReturnsJobject(env).As<JFoo>();
@@ -658,10 +776,43 @@ class JNI_ZERO_COMPONENT_BUILD_EXPORT LeakedJavaGlobalRef : public JavaRef<T> {
     if (!j_obj) {
       return nullptr;
     }
-    return ScopedJavaLocalRef<T>::Adopt(
-        env, static_cast<T>(env->NewLocalRef(j_obj)));
+    return jni_zero::AdoptRef(env, static_cast<T>(env->NewLocalRef(j_obj)));
   }
 };
+
+template <typename T>
+  requires internal::IsJobject<T>
+inline ScopedJavaLocalRef<jobject> JavaRef<T>::Get(JNIEnv* env,
+                                                   int32_t index) const
+  requires std::is_same_v<T, jobjectArray>
+{
+  jobject obj = env->GetObjectArrayElement(this->obj(), index);
+  return jni_zero::AdoptRef(env, obj);
+}
+
+template <typename T>
+  requires internal::IsJobject<T>
+template <typename U>
+inline void JavaRef<T>::CopyTo(JNIEnv* env,
+                               std::vector<ScopedJavaLocalRef<U>>* buf) const
+  requires std::is_convertible_v<T, jobjectArray>
+{
+  jobjectArray arr = this->obj();
+  int32_t length = this->GetLength(env);
+  for (int32_t i = 0; i < length; i++) {
+    jobject obj = env->GetObjectArrayElement(arr, i);
+    buf->push_back(ScopedJavaLocalRef<U>::Adopt(env, static_cast<U>(obj)));
+  }
+}
+
+template <typename T>
+  requires internal::IsJobject<T>
+inline ScopedJavaLocalRef<T> JavaRef<internal::_JObjectArray<T>*>::Get(
+    JNIEnv* env,
+    int32_t index) const {
+  jobject obj = env->GetObjectArrayElement(this->obj(), index);
+  return jni_zero::AdoptRef(env, static_cast<T>(obj));
+}
 
 #if JNI_ZERO_ENABLE_COMPAT_API
 template <typename T>

@@ -22,14 +22,18 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.display.DisplayAndroid;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /** Unit tests for {@link WindowZOrderTracker}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -55,13 +59,11 @@ public class WindowZOrderTrackerUnitTest {
         ApplicationStatus.onStateChangeForTesting(mActivity2, ActivityState.CREATED);
         mTracker = new WindowZOrderTracker(mCallback);
 
-        when(mWindowAndroid1.getActivity())
-                .thenReturn(new java.lang.ref.WeakReference<>(mActivity1));
+        when(mWindowAndroid1.getActivity()).thenReturn(new WeakReference<>(mActivity1));
         when(mWindowAndroid1.getDisplay()).thenReturn(mDisplay1);
         when(mDisplay1.getDisplayId()).thenReturn(DISPLAY_ID_1);
 
-        when(mWindowAndroid2.getActivity())
-                .thenReturn(new java.lang.ref.WeakReference<>(mActivity2));
+        when(mWindowAndroid2.getActivity()).thenReturn(new WeakReference<>(mActivity2));
         when(mWindowAndroid2.getDisplay()).thenReturn(mDisplay2);
         when(mDisplay2.getDisplayId()).thenReturn(DISPLAY_ID_2);
     }
@@ -179,5 +181,39 @@ public class WindowZOrderTrackerUnitTest {
         List<ActivityWindowAndroid> zOrder = mTracker.getWindowZOrder().get(DISPLAY_ID_1);
         assertTrue(zOrder == null || zOrder.isEmpty());
         verify(mCallback, never()).run();
+    }
+
+    @Test
+    public void testPeriodicMetrics() {
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Android.MultiWindow.WindowZOrder.TrackedWindowsCount", 2)
+                        .expectIntRecord("Android.MultiWindow.WindowZOrder.DisplaysCount", 2)
+                        .expectIntRecord("Android.MultiWindow.WindowZOrder.FocusChangedCount", 2)
+                        .build();
+
+        mTracker.track(mWindowAndroid1);
+        mTracker.onWindowFocusChanged(mActivity1, true);
+
+        mTracker.track(mWindowAndroid2);
+        mTracker.onWindowFocusChanged(mActivity2, true);
+
+        ShadowLooper.idleMainLooper(5, TimeUnit.MINUTES);
+
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    public void testPeriodicMetricsEmpty() {
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Android.MultiWindow.WindowZOrder.TrackedWindowsCount", 0)
+                        .expectIntRecord("Android.MultiWindow.WindowZOrder.DisplaysCount", 0)
+                        .expectIntRecord("Android.MultiWindow.WindowZOrder.FocusChangedCount", 0)
+                        .build();
+
+        ShadowLooper.idleMainLooper(5, TimeUnit.MINUTES);
+
+        histogramWatcher.assertExpected();
     }
 }

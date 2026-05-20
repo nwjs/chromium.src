@@ -28,6 +28,17 @@ try_.builder(
     builderless = False,
     cores = 8,
     os = os.LINUX_DEFAULT,
+    cq_settings = try_.cq_settings(
+        location_filters = [
+            # Enable for CLs touching files under "3pp" directories which are
+            # two level deep or more from the repo root.
+            ".+/3pp/.+",
+            # Also enable for cls that affect fetch_all.py or the groovy scripts
+            # it runs unders buildSrc.
+            "third_party/android_deps/fetch_all.py",
+            "third_party/android_deps/buildSrc/src/main/groovy/.+",
+        ],
+    ),
     execution_timeout = 6 * time.hour,
     properties = {
         "$build/chromium_3pp": {
@@ -44,17 +55,6 @@ try_.builder(
             "gclient_apply_config": ["android"],
         },
     },
-    tryjob = try_.job(
-        location_filters = [
-            # Enable for CLs touching files under "3pp" directories which are
-            # two level deep or more from the repo root.
-            ".+/3pp/.+",
-            # Also enable for cls that affect fetch_all.py or the groovy scripts
-            # it runs unders buildSrc.
-            "third_party/android_deps/fetch_all.py",
-            "third_party/android_deps/buildSrc/src/main/groovy/.+",
-        ],
-    ),
 )
 
 try_.builder(
@@ -114,11 +114,12 @@ try_.builder(
     cores = 2,
     os = os.LINUX_DEFAULT,
     contact_team_email = "chrome-browser-infra-team@google.com",
+    cq_settings = try_.cq_settings(
+        custom_cq_run_modes = [try_.MEGA_CQ_DRY_RUN_NAME, try_.MEGA_CQ_FULL_RUN_NAME],
+        on_default_cq = True,
+    ),
     execution_timeout = 36 * time.hour,  # We expect it can take a while.
     service_account = try_constants.DEFAULT_SERVICE_ACCOUNT,
-    tryjob = try_.job(
-        custom_cq_run_modes = [try_.MEGA_CQ_DRY_RUN_NAME, try_.MEGA_CQ_FULL_RUN_NAME],
-    ),
 )
 
 try_.builder(
@@ -151,6 +152,14 @@ try_.builder(
     cores = 8,
     os = os.LINUX_DEFAULT,
     contact_team_email = "chrome-dev-infra-team@google.com",
+    cq_settings = try_.cq_settings(
+        location_filters = [
+            # Run on depot_tools for testing telemetry
+            "third_party/depot_tools/.+",
+            "tools/utr/.+",
+            "tools/mb/.+",
+        ],
+    ),
     execution_timeout = 2 * time.hour,
     properties = {
         "builder_suites": [
@@ -175,14 +184,6 @@ try_.builder(
     service_account = try_constants.DEFAULT_SERVICE_ACCOUNT,
     siso_keep_going = siso.KEEP_GOING,
     siso_project = siso.project.DEFAULT_UNTRUSTED,
-    tryjob = try_.job(
-        location_filters = [
-            # Run on depot_tools for testing telemetry
-            "third_party/depot_tools/.+",
-            "tools/utr/.+",
-            "tools/mb/.+",
-        ],
-    ),
 )
 
 try_.builder(
@@ -215,6 +216,14 @@ try_.builder(
     cores = 8,
     os = os.WINDOWS_DEFAULT,
     contact_team_email = "chrome-dev-infra-team@google.com",
+    cq_settings = try_.cq_settings(
+        location_filters = [
+            # Run on depot_tools for testing telemetry
+            "third_party/depot_tools/.+",
+            "tools/utr/.+",
+            "tools/mb/.+",
+        ],
+    ),
     execution_timeout = 2 * time.hour,
     properties = {
         "builder_suites": [
@@ -239,14 +248,6 @@ try_.builder(
     service_account = try_constants.DEFAULT_SERVICE_ACCOUNT,
     siso_keep_going = siso.KEEP_GOING,
     siso_project = siso.project.DEFAULT_UNTRUSTED,
-    tryjob = try_.job(
-        location_filters = [
-            # Run on depot_tools for testing telemetry
-            "third_party/depot_tools/.+",
-            "tools/utr/.+",
-            "tools/mb/.+",
-        ],
-    ),
 )
 
 try_.builder(
@@ -320,20 +321,20 @@ try_.builder(
         "tests": [
             {
                 "step_name": "Run all tests in a directory",
-                "args": "base/strings",
+                "args": ["base/strings"],
             },
             {
                 "step_name": "Run a specific file",
-                "args": "base/pickle_unittest.cc",
+                "args": ["base/pickle_unittest.cc"],
             },
             {
                 "step_name": "Run by test name",
-                "args": "StringUtilTest.IsStringUTF8",
+                "args": ["StringUtilTest.IsStringUTF8"],
             },
         ],
     },
     # TODO(crbug.com/479225938) Uncomment once we've confirmed these builders are stable
-    # tryjob = try_.job(
+    # cq_settings = try_.cq_settings(
     #     location_filters = [
     #         "tools/autotest/.+",
     #         "tools/autotest.py",
@@ -362,20 +363,20 @@ try_.builder(
         "tests": [
             {
                 "step_name": "Run all tests in a directory",
-                "args": "base/strings",
+                "args": ["base/strings"],
             },
             {
                 "step_name": "Run a specific file",
-                "args": "base/pickle_unittest.cc",
+                "args": ["base/pickle_unittest.cc"],
             },
             {
                 "step_name": "Run by test name",
-                "args": "StringUtilTest.IsStringUTF8",
+                "args": ["StringUtilTest.IsStringUTF8"],
             },
         ],
     },
     # TODO(crbug.com/479225938) Uncomment once we've confirmed these builders are stable
-    # tryjob = try_.job(
+    # cq_settings = try_.cq_settings(
     #     location_filters = [
     #         "tools/autotest/.+",
     #         "tools/autotest.py",
@@ -405,20 +406,20 @@ try_.builder(
         "tests": [
             {
                 "step_name": "Run all tests in a directory",
-                "args": "base/strings",
+                "args": ["base/strings"],
             },
             {
                 "step_name": "Run a specific file",
-                "args": "base/pickle_unittest.cc",
+                "args": ["base/pickle_unittest.cc"],
             },
             {
                 "step_name": "Run by test name",
-                "args": "StringUtilTest.IsStringUTF8",
+                "args": ["StringUtilTest.IsStringUTF8"],
             },
         ],
     },
     # TODO(crbug.com/479225938) Uncomment once we've confirmed these builders are stable
-    # tryjob = try_.job(
+    # cq_settings = try_.cq_settings(
     #     location_filters = [
     #         "tools/autotest/.+",
     #         "tools/autotest.py",

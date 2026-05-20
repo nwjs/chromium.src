@@ -49,6 +49,9 @@ enum class LayoutConstant {
   // The internal padding to use inside children of the location bar.
   kLocationBarChildInteriorPadding,
 
+  // The internal spacing between the icon and text inside a location bar chip.
+  kLocationBarChildInternalSpacing,
+
   // The corner radius to use for children of the location bar.
   kLocationBarChildCornerRadius,
 
@@ -67,6 +70,17 @@ enum class LayoutConstant {
 
   // The vertical margins from the page info icon
   kLocationBarPageInfoIconVerticalPadding,
+
+  // Extra space between the page info icon's label and trailing edge.
+  kLocationBarPageInfoIconLabelExtraTrailingPadding,
+
+  // Extra space between the leading edge and label of the page info icon when
+  // it is dangerous.
+  kLocationBarPageInfoIconDangerousLeadingPadding,
+
+  // Extra space between the label and trailing edge of the page info icon when
+  // it is dangerous.
+  kLocationBarPageInfoIconDangerousTrailingPadding,
 
   // The leading edge space in the omnibox from the LHS icons used in Chrome
   // with the chrome refresh flag.
@@ -153,7 +167,7 @@ enum class LayoutConstant {
   // space to prevent a gap from appearing between the toolbar and the
   // bottom of tabs on some non-integral scales.
   // TODO(tbergquist): Remove this after pixel canvas or any deeper fix to
-  // non-pixel-aligned drawing goes in.  See https://crbug.com/765723.
+  // non-pixel-aligned drawing goes in.  See https://crbug.com/41344902.
   kTabstripToolbarOverlap,
 
   // The total height, including icons and insets, of buttons in the toolbar.
@@ -185,7 +199,7 @@ enum class LayoutConstant {
 
   // The padding between the bottom of the tab strip and top of the toolbar
   // height side panel.
-  kToolbarHeightSidePanelInset,
+  kSidePanelInset,
 
   // The corner radius used for borders, fill, and hover targets with vertical
   // tabs.
@@ -203,21 +217,16 @@ enum class LayoutConstant {
   // The width of the border stroke around pinned tabs in a vertical tab strip.
   kVerticalTabPinnedBorderThickness,
 
-  // The padding between the sides/bottom of the vertical tab strip and its
-  // content when in the uncollapsed state.
-  kVerticalTabStripUncollapsedPadding,
+  // The padding between the sides of the vertical tab strip and its content.
+  kVerticalTabStripHorizontalPadding,
 
-  // The padding between the sides of the vertical tab strip and its
-  // content when in the collapsed state.
-  kVerticalTabStripCollapsedHorizontalPadding,
+  // The padding between the bottom of the vertical tab strip and its content
+  // when in the uncollapsed state.
+  kVerticalTabStripUncollapsedVerticalPadding,
 
   // The padding between the top/bottom of the vertical tab strip and its
   // content when in the collapsed state.
   kVerticalTabStripCollapsedVerticalPadding,
-
-  // The padding between the sides of the vertical tab strip and the separator
-  // in the vertical tab strip when collapsed.
-  kVerticalTabStripCollapsedSeparatorPadding,
 
   // The icon size of the combo buttons in the vertical tab strip.
   kVerticalTabStripComboButtonIconSize,
@@ -293,6 +302,10 @@ enum LayoutInset {
 
   // The padding around the app menu chip in a web app browser window.
   WEB_APP_APP_MENU_CHIP_PADDING,
+
+  // The padding around the uninstall chip in the web app browser window,
+  // showing up after first launch.
+  WEB_APP_UNINSTALL_BUTTON_PADDING,
 
   // The padding around the profile menu chip.
   AVATAR_CHIP_PADDING,

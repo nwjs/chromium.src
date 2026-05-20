@@ -183,7 +183,7 @@ IN_PROC_BROWSER_TEST_F(PopupTest, ResizeClampedToCurrentDisplay) {
 }
 
 // Opens two popups with custom position and size, but one has noopener. They
-// should both have the same position and size. http://crbug.com/1011688
+// should both have the same position and size. http://crbug.com/40651776
 IN_PROC_BROWSER_TEST_F(PopupTest, NoopenerPositioning) {
   const char kFeatures[] =
       "left=${screen.availLeft},top=${screen.availTop},width=200,height=200";
@@ -208,7 +208,7 @@ IN_PROC_BROWSER_TEST_F(PopupTest, NoopenerPositioning) {
 class PopupTest_AdditionalWindowingControls : public PopupTest {
  private:
   base::test::ScopedFeatureList feature_list{
-      blink::features::kDesktopPWAsAdditionalWindowingControls};
+      blink::features::kDesktopPWAsAdditionalWindowingControlsOnMove};
 };
 
 // Ensure that moving a popup by moveTo/moveBy generates a `move` event.

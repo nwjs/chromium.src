@@ -19,6 +19,7 @@
 #include "chrome/browser/ash/settings/device_settings_service.h"
 #include "chrome/browser/ash/settings/scoped_test_device_settings_service.h"
 #include "chrome/browser/ash/settings/scoped_testing_cros_settings.h"
+#include "chrome/browser/global_features.h"
 #include "chrome/browser/policy/networking/device_network_configuration_updater_ash.h"
 #include "chrome/browser/policy/networking/user_network_configuration_updater_ash.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -55,6 +56,8 @@
 #include "net/cert/x509_util_nss.h"
 #include "net/test/cert_test_util.h"
 #include "net/test/test_data_directory.h"
+#include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
+#include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -296,9 +299,21 @@ class NetworkConfigurationUpdaterAshTest : public testing::Test {
   ~NetworkConfigurationUpdaterAshTest() override = default;
 
   void SetUp() override {
+    TestingBrowserProcess::GetGlobal()->SetSharedURLLoaderFactory(
+        test_url_loader_factory_.GetSafeWeakWrapper());
+
     test_user_session_manager_ =
         std::make_unique<ash::test::TestUserSessionManager>(
             TestingBrowserProcess::GetGlobal()->local_state());
+    user_session_manager_ = std::make_unique<ash::UserSessionManager>(
+        TestingBrowserProcess::GetGlobal()->local_state(),
+        TestingBrowserProcess::GetGlobal()
+            ->GetFeatures()
+            ->application_locale_storage(),
+        TestingBrowserProcess::GetGlobal()->shared_url_loader_factory(),
+        TestingBrowserProcess::GetGlobal()
+            ->platform_part()
+            ->browser_policy_connector_ash());
 
     const AccountId account_id =
         AccountId::FromUserEmailGaiaId(kFakeUserEmail, GaiaId("12345"));
@@ -306,7 +321,7 @@ class NetworkConfigurationUpdaterAshTest : public testing::Test {
     ASSERT_TRUE(fake_user_);
 
     // Simulate log-in.
-    ash::UserSessionManager::GetInstance()->set_start_session_type_for_testing(
+    user_session_manager_->set_start_session_type_for_testing(
         ash::UserSessionManager::StartSessionType::kPrimary);
     test_user_session_manager_->LogIn(account_id);
 
@@ -355,9 +370,13 @@ class NetworkConfigurationUpdaterAshTest : public testing::Test {
     provider_.Shutdown();
     base::RunLoop().RunUntilIdle();
 
+    user_session_manager_->Shutdown();
     profile_.reset();
     fake_user_ = nullptr;
+    user_session_manager_.reset();
     test_user_session_manager_.reset();
+
+    TestingBrowserProcess::GetGlobal()->SetSharedURLLoaderFactory(nullptr);
   }
 
   base::ListValue* GetExpectedFakeNetworkConfigs(::onc::ONCSource source) {
@@ -423,6 +442,7 @@ class NetworkConfigurationUpdaterAshTest : public testing::Test {
   }
 
   content::BrowserTaskEnvironment task_environment_;
+  network::TestURLLoaderFactory test_url_loader_factory_;
 
   std::unique_ptr<chromeos::onc::OncParsedCertificates> fake_certificates_;
   StrictMock<ash::MockManagedNetworkConfigurationHandler>
@@ -433,7 +453,9 @@ class NetworkConfigurationUpdaterAshTest : public testing::Test {
   ash::ScopedTestingCrosSettings scoped_testing_cros_settings_;
   ash::system::ScopedFakeStatisticsProvider fake_statistics_provider_;
 
+  // NOTE: TestUserSessionManager is not a UserSessionManager.
   std::unique_ptr<ash::test::TestUserSessionManager> test_user_session_manager_;
+  std::unique_ptr<ash::UserSessionManager> user_session_manager_;
 
   // Ownership of client_certificate_importer_owned_ is passed to the
   // NetworkConfigurationUpdater. When that happens, |certificate_importer_|

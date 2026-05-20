@@ -252,7 +252,7 @@ TEST_F(AISummarizerTest, CanCreateUnIsLanguagesSupported) {
   auto options = GetDefaultOptions();
   options->output_language = AILanguageCode::New("es-ES");
   options->expected_input_languages =
-      AITestUtils::ToMojoLanguageCodes({"en", "fr", "ja"});
+      AITestUtils::ToMojoLanguageCodes({"en", "tlh", "ja"});
   options->expected_context_languages =
       AITestUtils::ToMojoLanguageCodes({"ar", "zh", "hi"});
   base::MockCallback<AIManager::CanCreateSummarizerCallback> callback;
@@ -723,7 +723,55 @@ TEST_F(AISummarizerTest, CreatePermissionsPolicyDisabled) {
   TestCreateSummarizerClient create_summarizer_client;
   GetAIManagerRemote()->CreateSummarizer(
       create_summarizer_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
-  EXPECT_EQ(observer.WaitForBadMessage(), "Permissions policy disabled");
+  EXPECT_EQ(observer.WaitForBadMessage(), "Policy or user setting disabled");
+}
+
+TEST_F(AISummarizerTest, CreateBuiltInAIAPIsEnterprisePolicyDisabled) {
+  SetBuiltInAIAPIsEnterprisePolicy(false);
+  base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+  GetAIManagerInterface()->CanCreateSummarizer(GetDefaultOptions(),
+                                               future.GetCallback());
+  EXPECT_EQ(future.Get(), blink::mojom::ModelAvailabilityCheckResult::
+                              kUnavailableEnterprisePolicyDisabled);
+
+  mojo::test::BadMessageObserver observer;
+  TestCreateSummarizerClient create_summarizer_client;
+  GetAIManagerRemote()->CreateSummarizer(
+      create_summarizer_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+  EXPECT_EQ(observer.WaitForBadMessage(), "Policy or user setting disabled");
+  SetBuiltInAIAPIsEnterprisePolicy(true);
+}
+
+TEST_F(AISummarizerTest, CreateGenAILocalEnterprisePolicyDisabled) {
+  SetGenAILocalEnterprisePolicy(false);
+  base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+  GetAIManagerInterface()->CanCreateSummarizer(GetDefaultOptions(),
+                                               future.GetCallback());
+  EXPECT_EQ(future.Get(), blink::mojom::ModelAvailabilityCheckResult::
+                              kUnavailableEnterprisePolicyDisabled);
+
+  mojo::test::BadMessageObserver observer;
+  TestCreateSummarizerClient create_summarizer_client;
+  GetAIManagerRemote()->CreateSummarizer(
+      create_summarizer_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+  EXPECT_EQ(observer.WaitForBadMessage(), "Policy or user setting disabled");
+  SetGenAILocalEnterprisePolicy(true);
+}
+
+TEST_F(AISummarizerTest, CreateOnDeviceAiUserSettingDisabled) {
+  SetOnDeviceAiUserSetting(false);
+  base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+  GetAIManagerInterface()->CanCreateSummarizer(GetDefaultOptions(),
+                                               future.GetCallback());
+  EXPECT_EQ(future.Get(), blink::mojom::ModelAvailabilityCheckResult::
+                              kUnavailableFeatureNotEnabled);
+
+  mojo::test::BadMessageObserver observer;
+  TestCreateSummarizerClient create_summarizer_client;
+  GetAIManagerRemote()->CreateSummarizer(
+      create_summarizer_client.BindNewPipeAndPassRemote(), GetDefaultOptions());
+  EXPECT_EQ(observer.WaitForBadMessage(), "Policy or user setting disabled");
+  SetOnDeviceAiUserSetting(true);
 }
 
 TEST_F(AISummarizerTest, DynamicConstraints) {
@@ -749,7 +797,8 @@ TEST_F(AISummarizerTest, DynamicConstraints) {
 
   EXPECT_THAT(
       Summarize(*summarizer_remote, kInputString, kContextString),
-      ElementsAreArray({"Constraint: regex ^TLDR:.*", "TLDR: Result text"}));
+      ElementsAreArray({"Hint: constrained_decoding ",
+                        "Constraint: regex ^TLDR:.*", "TLDR: Result text"}));
 }
 
 TEST_F(AISummarizerTest, NoConstraints) {

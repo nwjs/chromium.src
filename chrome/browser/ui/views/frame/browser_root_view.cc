@@ -24,9 +24,9 @@
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
@@ -195,7 +195,7 @@ BrowserRootView::~BrowserRootView() {
   // It's possible to destroy the browser while a drop is active.  In this case,
   // |drop_info_| will be non-null, but its |target| likely points to an
   // already-deleted child.  Clear the target so ~DropInfo() will not try and
-  // notify it of the drag ending. http://crbug.com/1001942
+  // notify it of the drag ending. http://crbug.com/40050082
   if (drop_info_) {
     drop_info_->target = nullptr;
   }

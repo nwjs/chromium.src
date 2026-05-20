@@ -4,6 +4,10 @@
 
 package org.chromium.chrome.browser.omnibox.suggestions.base;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -13,7 +17,6 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -62,6 +65,7 @@ import org.chromium.components.omnibox.action.OmniboxActionDelegate;
 import org.chromium.components.omnibox.suggestions.OmniboxSuggestionUiType;
 import org.chromium.ui.base.DeviceInput;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.test.util.MockitoHelper;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
@@ -195,48 +199,48 @@ public class BaseSuggestionProcessorUnitTest {
         mProcessor.setRemoveOrRefineAction(mModel, mInput, mSuggestion, 0);
 
         var actions = mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
-        Assert.assertEquals(1, actions.size());
+        assertEquals(1, actions.size());
 
         return actions.get(0);
     }
 
     @Test
     public void suggestionFavicons_showFaviconWhenAvailable() {
-        final ArgumentCaptor<Callback<Bitmap>> callback = ArgumentCaptor.forClass(Callback.class);
+        final ArgumentCaptor<Callback<Bitmap>> callback = MockitoHelper.callbackCaptor();
         createSuggestion(
                 OmniboxSuggestionType.URL_WHAT_YOU_TYPED,
                 /* isSearch= */ false,
                 /* hasTabMatch= */ false,
                 TEST_URL);
         OmniboxDrawableState icon1 = mModel.get(BaseSuggestionViewProperties.ICON);
-        Assert.assertNotNull(icon1);
+        assertNotNull(icon1);
 
         verify(mImageSupplier).fetchFavicon(eq(TEST_URL), callback.capture());
         callback.getValue().onResult(mBitmap);
         OmniboxDrawableState icon2 = mModel.get(BaseSuggestionViewProperties.ICON);
-        Assert.assertNotNull(icon2);
+        assertNotNull(icon2);
 
-        Assert.assertNotEquals(icon1, icon2);
-        Assert.assertEquals(mBitmap, ((BitmapDrawable) icon2.drawable).getBitmap());
+        assertNotEquals(icon1, icon2);
+        assertEquals(mBitmap, ((BitmapDrawable) icon2.drawable).getBitmap());
     }
 
     @Test
     public void suggestionFavicons_doNotReplaceFallbackIconWhenNoFaviconIsAvailable() {
-        final ArgumentCaptor<Callback<Bitmap>> callback = ArgumentCaptor.forClass(Callback.class);
+        final ArgumentCaptor<Callback<Bitmap>> callback = MockitoHelper.callbackCaptor();
         createSuggestion(
                 OmniboxSuggestionType.URL_WHAT_YOU_TYPED,
                 /* isSearch= */ false,
                 /* hasTabMatch= */ false,
                 TEST_URL);
         OmniboxDrawableState icon1 = mModel.get(BaseSuggestionViewProperties.ICON);
-        Assert.assertNotNull(icon1);
+        assertNotNull(icon1);
 
         verify(mImageSupplier).fetchFavicon(eq(TEST_URL), callback.capture());
         callback.getValue().onResult(null);
         OmniboxDrawableState icon2 = mModel.get(BaseSuggestionViewProperties.ICON);
-        Assert.assertNotNull(icon2);
+        assertNotNull(icon2);
 
-        Assert.assertEquals(icon1, icon2);
+        assertEquals(icon1, icon2);
     }
 
     @Test
@@ -249,7 +253,7 @@ public class BaseSuggestionProcessorUnitTest {
                 TEST_URL);
 
         Runnable touchDownListener = mModel.get(BaseSuggestionViewProperties.ON_TOUCH_DOWN_EVENT);
-        Assert.assertNull(touchDownListener);
+        assertNull(touchDownListener);
     }
 
     @Test
@@ -262,7 +266,7 @@ public class BaseSuggestionProcessorUnitTest {
                 TEST_URL);
 
         Runnable touchDownListener = mModel.get(BaseSuggestionViewProperties.ON_TOUCH_DOWN_EVENT);
-        Assert.assertNotNull(touchDownListener);
+        assertNotNull(touchDownListener);
 
         var histogramWatcher =
                 HistogramWatcher.newBuilder()
@@ -287,7 +291,7 @@ public class BaseSuggestionProcessorUnitTest {
                 TEST_URL);
 
         Runnable touchDownListener = mModel.get(BaseSuggestionViewProperties.ON_TOUCH_DOWN_EVENT);
-        Assert.assertNull(touchDownListener);
+        assertNull(touchDownListener);
     }
 
     @Test
@@ -300,39 +304,30 @@ public class BaseSuggestionProcessorUnitTest {
         mProcessor.setRemoveOrRefineAction(mModel, mInput, mSuggestion, 0);
 
         var actions = mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
-        Assert.assertEquals(1, actions.size());
+        assertEquals(1, actions.size());
 
         var action = actions.get(0);
 
         var expectedDescription =
                 mContext.getString(
                         R.string.accessibility_omnibox_btn_refine, mSuggestion.getFillIntoEdit());
-        Assert.assertEquals(expectedDescription, action.accessibilityDescription);
-        Assert.assertEquals(
+        assertEquals(expectedDescription, action.accessibilityDescription);
+        assertEquals(
                 R.drawable.btn_suggestion_refine_up,
                 shadowOf(action.icon.drawable).getCreatedFromResId());
 
         var monitor = new UserActionTester();
         action.callback.run();
-        Assert.assertEquals(1, monitor.getActionCount("MobileOmniboxRefineSuggestion.Search"));
-        Assert.assertEquals(1, monitor.getActions().size());
+        assertEquals(1, monitor.getActionCount("MobileOmniboxRefineSuggestion.Search"));
+        assertEquals(1, monitor.getActions().size());
         monitor.tearDown();
 
         mControlsPositionSupplier.set(ControlsPosition.BOTTOM);
         mProcessor.setRemoveOrRefineAction(mModel, mInput, mSuggestion, 0);
         actions = mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
         action = actions.get(0);
-        Assert.assertEquals(
+        assertEquals(
                 R.drawable.btn_suggestion_refine_down,
-                shadowOf(action.icon.drawable).getCreatedFromResId());
-
-        mControlsPositionSupplier.set(ControlsPosition.NONE);
-        OmniboxResourceProvider.invalidateDrawableCache();
-        mProcessor.setRemoveOrRefineAction(mModel, mInput, mSuggestion, 0);
-        actions = mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
-        action = actions.get(0);
-        Assert.assertEquals(
-                R.drawable.btn_suggestion_refine_up,
                 shadowOf(action.icon.drawable).getCreatedFromResId());
     }
 
@@ -346,20 +341,20 @@ public class BaseSuggestionProcessorUnitTest {
         mProcessor.setRemoveOrRefineAction(mModel, mInput, mSuggestion, 0);
 
         var actions = mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
-        Assert.assertEquals(1, actions.size());
+        assertEquals(1, actions.size());
 
         var action = actions.get(0);
 
         var expectedDescription =
                 mContext.getString(
                         R.string.accessibility_omnibox_btn_refine, mSuggestion.getFillIntoEdit());
-        Assert.assertEquals(expectedDescription, action.accessibilityDescription);
+        assertEquals(expectedDescription, action.accessibilityDescription);
         // Note: shadows don't work with vector drawables.
 
         var monitor = new UserActionTester();
         action.callback.run();
-        Assert.assertEquals(1, monitor.getActionCount("MobileOmniboxRefineSuggestion.Url"));
-        Assert.assertEquals(1, monitor.getActions().size());
+        assertEquals(1, monitor.getActionCount("MobileOmniboxRefineSuggestion.Url"));
+        assertEquals(1, monitor.getActions().size());
         monitor.tearDown();
     }
 
@@ -376,7 +371,7 @@ public class BaseSuggestionProcessorUnitTest {
         var expectedDescription =
                 mContext.getString(
                         R.string.accessibility_omnibox_btn_refine, mSuggestion.getFillIntoEdit());
-        Assert.assertEquals(expectedDescription, action.accessibilityDescription);
+        assertEquals(expectedDescription, action.accessibilityDescription);
     }
 
     @Test
@@ -393,31 +388,7 @@ public class BaseSuggestionProcessorUnitTest {
         var expectedDescription =
                 mContext.getString(
                         R.string.accessibility_omnibox_btn_refine, mSuggestion.getFillIntoEdit());
-        Assert.assertEquals(expectedDescription, action.accessibilityDescription);
-    }
-
-    @Test
-    @Config(qualifiers = "sw600dp")
-    @EnableFeatures({OmniboxFeatureList.OMNIBOX_IMPROVEMENT_FOR_LFF})
-    public void setRemoveOrRefineAction_removeActionOnTabletWithAlphabeticKeyboard() {
-        DeviceInput.setSupportsAlphabeticKeyboardForTesting(true);
-        OmniboxFeatures.sOmniboxImprovementForLFFRemoveSuggestionViaButton.setForTesting(true);
-
-        var action = setUpDeleteScenarioForRemoveActionTesting();
-
-        var expectedDescription =
-                mContext.getString(
-                        R.string.accessibility_omnibox_remove_suggestion,
-                        mSuggestion.getFillIntoEdit());
-        Assert.assertEquals(expectedDescription, action.accessibilityDescription);
-        Assert.assertEquals(
-                R.drawable.btn_close, shadowOf(action.icon.drawable).getCreatedFromResId());
-
-        var monitor = new UserActionTester();
-        action.callback.run();
-        Assert.assertEquals(1, monitor.getActionCount("MobileOmniboxRemoveSuggestion.Button"));
-        Assert.assertEquals(1, monitor.getActions().size());
-        monitor.tearDown();
+        assertEquals(expectedDescription, action.accessibilityDescription);
     }
 
     @Test
@@ -433,14 +404,13 @@ public class BaseSuggestionProcessorUnitTest {
                 mContext.getString(
                         R.string.accessibility_omnibox_remove_suggestion,
                         mSuggestion.getFillIntoEdit());
-        Assert.assertEquals(expectedDescription, action.accessibilityDescription);
-        Assert.assertEquals(
-                R.drawable.btn_close, shadowOf(action.icon.drawable).getCreatedFromResId());
+        assertEquals(expectedDescription, action.accessibilityDescription);
+        assertEquals(R.drawable.btn_close, shadowOf(action.icon.drawable).getCreatedFromResId());
 
         var monitor = new UserActionTester();
         action.callback.run();
-        Assert.assertEquals(1, monitor.getActionCount("MobileOmniboxRemoveSuggestion.Button"));
-        Assert.assertEquals(1, monitor.getActions().size());
+        assertEquals(1, monitor.getActionCount("MobileOmniboxRemoveSuggestion.Button"));
+        assertEquals(1, monitor.getActions().size());
         monitor.tearDown();
     }
 
@@ -451,8 +421,8 @@ public class BaseSuggestionProcessorUnitTest {
                 /* isSearch= */ false,
                 /* hasTabMatch= */ false,
                 TEST_URL);
-        Assert.assertEquals(false, mModel.get(BaseSuggestionViewProperties.USE_LARGE_DECORATION));
-        Assert.assertEquals(
+        assertEquals(false, mModel.get(BaseSuggestionViewProperties.USE_LARGE_DECORATION));
+        assertEquals(
                 mModel.get(BaseSuggestionViewProperties.ACTION_CHIP_LEAD_IN_SPACING),
                 OmniboxResourceProvider.getSuggestionDecorationIconSizeWidth(mContext));
 
@@ -460,8 +430,8 @@ public class BaseSuggestionProcessorUnitTest {
         mModel.set(BaseSuggestionViewProperties.ACTION_CHIP_LEAD_IN_SPACING, 43);
 
         mProcessor.populateModel(mInput, mSuggestion, mModel, 0);
-        Assert.assertEquals(false, mModel.get(BaseSuggestionViewProperties.USE_LARGE_DECORATION));
-        Assert.assertEquals(
+        assertEquals(false, mModel.get(BaseSuggestionViewProperties.USE_LARGE_DECORATION));
+        assertEquals(
                 mModel.get(BaseSuggestionViewProperties.ACTION_CHIP_LEAD_IN_SPACING),
                 OmniboxResourceProvider.getSuggestionDecorationIconSizeWidth(mContext));
     }
@@ -476,7 +446,7 @@ public class BaseSuggestionProcessorUnitTest {
                     /* hasTabMatch= */ false,
                     TEST_URL);
             var actions = mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
-            Assert.assertEquals(null, actions);
+            assertEquals(null, actions);
         }
 
         // No action button.
@@ -496,7 +466,7 @@ public class BaseSuggestionProcessorUnitTest {
                                     ActionPresentationMode.CHIP)));
 
             var actions = mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
-            Assert.assertEquals(null, actions);
+            assertEquals(null, actions);
         }
 
         // One action button is added.
@@ -532,12 +502,12 @@ public class BaseSuggestionProcessorUnitTest {
                                     ActionPresentationMode.BUTTON)));
 
             var actions = mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
-            Assert.assertEquals(1, actions.size());
+            assertEquals(1, actions.size());
 
             var action = actions.get(0);
 
-            Assert.assertEquals("accessibility2", action.accessibilityDescription);
-            Assert.assertEquals(
+            assertEquals("accessibility2", action.accessibilityDescription);
+            assertEquals(
                     R.drawable.search_spark_rainbow,
                     shadowOf(action.icon.drawable).getCreatedFromResId());
         }
@@ -564,7 +534,7 @@ public class BaseSuggestionProcessorUnitTest {
                                 ActionPresentationMode.BUTTON)));
 
         var actions = mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
-        Assert.assertEquals(null, actions);
+        assertEquals(null, actions);
     }
 
     @Test
@@ -585,10 +555,10 @@ public class BaseSuggestionProcessorUnitTest {
                                 ActionPresentationMode.BUTTON)));
 
         var actions = mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
-        Assert.assertEquals(1, actions.size());
+        assertEquals(1, actions.size());
 
         var action = actions.get(0);
-        Assert.assertEquals(
+        assertEquals(
                 R.drawable.switch_to_tab, shadowOf(action.icon.drawable).getCreatedFromResId());
     }
 }

@@ -93,6 +93,10 @@ scoped_refptr<DecoderBuffer> DecryptBitstreamBuffer(
     DVLOG(2) << "Invalid shared memory region";
     return nullptr;
   }
+  if (bitstream_buffer.offset() > mem_region.GetSize()) {
+    DVLOG(2) << "Invalid bitstream buffer offset";
+    return nullptr;
+  }
   const size_t available_size =
       mem_region.GetSize() -
       base::checked_cast<size_t>(bitstream_buffer.offset());
@@ -151,8 +155,12 @@ scoped_refptr<DecoderBuffer> DecryptBitstreamBuffer(
   }
   std::optional<EncryptionPattern> pattern = std::nullopt;
   if (buffer_proto.has_pattern()) {
-    pattern.emplace(buffer_proto.pattern().cypher_bytes(),
-                    buffer_proto.pattern().clear_bytes());
+    pattern = EncryptionPattern::Create(buffer_proto.pattern().cypher_bytes(),
+                                        buffer_proto.pattern().clear_bytes());
+    if (!pattern) {
+      DVLOG(2) << "Invalid encryption pattern";
+      return nullptr;
+    }
   }
   // Now create the DecryptConfig and set it in the decoder buffer.
   scoped_refptr<DecoderBuffer> buffer = bitstream_buffer.ToDecoderBuffer(

@@ -100,8 +100,6 @@ public class TabPersistentStoreUnitTest {
     @Mock private TabCreator mNormalTabCreator;
     @Mock private TabCreator mIncognitoTabCreator;
     @Mock private TabWindowManager mTabWindowManager;
-    @Mock private TabGroupModelFilter mNormalTabGroupModelFilter;
-    @Mock private TabGroupModelFilter mIncognitoTabGroupModelFilter;
     @Mock private SequencedTaskRunner mSequencedTaskRunner;
     @Mock private Tab mTab;
 
@@ -126,11 +124,6 @@ public class TabPersistentStoreUnitTest {
         when(mPersistencePolicy.getOrCreateStateDirectory()).thenReturn(mTemporaryFolder.getRoot());
         when(mPersistencePolicy.isMergeInProgress()).thenReturn(false);
         when(mPersistencePolicy.performInitialization(any(TaskRunner.class))).thenReturn(false);
-
-        when(mTabModelSelector.getTabGroupModelFilter(false))
-                .thenReturn(mNormalTabGroupModelFilter);
-        when(mTabModelSelector.getTabGroupModelFilter(true))
-                .thenReturn(mIncognitoTabGroupModelFilter);
 
         mCipherFactory = new CipherFactory();
     }
@@ -461,7 +454,8 @@ public class TabPersistentStoreUnitTest {
     public void testSerializeTabModelSelector() {
         setupSerializationTestMocks();
         TabModelSelectorMetadata metadata =
-                TabPersistentStoreImpl.extractTabMetadataFromSelector(mTabModelSelector, null);
+                TabPersistentStoreImpl.extractTabMetadataFromSelector(
+                        mTabModelSelector, null, /* isRecreating= */ false);
 
         assertEquals("Incorrect index for regular", 0, metadata.normalModelMetadata.index);
         // Verifies that the non-active NTP isn't saved.
@@ -492,7 +486,8 @@ public class TabPersistentStoreUnitTest {
     public void testSkipNonActiveNtpsWithSkippedNtpComeBeforeActiveTab() {
         setupSerializationTestMocksWithSkippedNtpComeBeforeActiveTab();
         TabModelSelectorMetadata metadata =
-                TabPersistentStoreImpl.extractTabMetadataFromSelector(mTabModelSelector, null);
+                TabPersistentStoreImpl.extractTabMetadataFromSelector(
+                        mTabModelSelector, null, /* isRecreating= */ false);
 
         assertEquals("Incorrect index for regular", 0, metadata.normalModelMetadata.index);
         assertEquals(
@@ -508,7 +503,8 @@ public class TabPersistentStoreUnitTest {
     public void testSkipNonActiveNtpsWithSkippedNtpComeAfterActiveTab() {
         setupSerializationTestMocks();
         TabModelSelectorMetadata metadata =
-                TabPersistentStoreImpl.extractTabMetadataFromSelector(mTabModelSelector, null);
+                TabPersistentStoreImpl.extractTabMetadataFromSelector(
+                        mTabModelSelector, null, /* isRecreating= */ false);
 
         assertEquals("Incorrect index for regular", 0, metadata.normalModelMetadata.index);
         assertEquals(
@@ -524,7 +520,8 @@ public class TabPersistentStoreUnitTest {
     public void testSkipNonActiveNtpsWithGroupedAndNavigableNtps_TabGroupStableIdsEnabled() {
         setupSerializationTestMocksWithGroupedAndNavigableNtps();
         TabModelSelectorMetadata metadata =
-                TabPersistentStoreImpl.extractTabMetadataFromSelector(mTabModelSelector, null);
+                TabPersistentStoreImpl.extractTabMetadataFromSelector(
+                        mTabModelSelector, null, /* isRecreating= */ false);
 
         assertEquals("Incorrect index for regular", 1, metadata.normalModelMetadata.index);
         assertEquals(
@@ -537,6 +534,27 @@ public class TabPersistentStoreUnitTest {
                 "Incorrect id for first NTP.",
                 1,
                 metadata.normalModelMetadata.ids.get(0).intValue());
+        assertEquals(
+                "Incorrect URL for regular tab.",
+                REGULAR_TAB_STRING_1,
+                metadata.normalModelMetadata.urls.get(1));
+    }
+
+    @Test
+    @Feature("TabPersistentStore")
+    public void testDoNotSkipNonActiveNtps_Recreation() {
+        setupSerializationTestMocksWithSkippedNtpComeBeforeActiveTab();
+        TabModelSelectorMetadata metadata =
+                TabPersistentStoreImpl.extractTabMetadataFromSelector(
+                        mTabModelSelector, null, /* isRecreating= */ true);
+
+        assertEquals("Incorrect index for regular", 1, metadata.normalModelMetadata.index);
+        assertEquals(
+                "Incorrect number of tabs in regular", 2, metadata.normalModelMetadata.ids.size());
+        assertEquals(
+                "Incorrect URL for regular tab.",
+                getOriginalNativeNtpUrl(),
+                metadata.normalModelMetadata.urls.get(0));
         assertEquals(
                 "Incorrect URL for regular tab.",
                 REGULAR_TAB_STRING_1,
@@ -560,7 +578,7 @@ public class TabPersistentStoreUnitTest {
 
         TabModelSelectorMetadata metadata =
                 TabPersistentStoreImpl.extractTabMetadataFromSelector(
-                        mTabModelSelector, tabRestoreDetails);
+                        mTabModelSelector, tabRestoreDetails, /* isRecreating= */ false);
         assertEquals("Incorrect index for regular", 0, metadata.normalModelMetadata.index);
         assertEquals(
                 "Incorrect number of tabs in regular", 2, metadata.normalModelMetadata.ids.size());
@@ -617,7 +635,8 @@ public class TabPersistentStoreUnitTest {
                 .thenAnswer(inv -> List.of(regularTab1, regularTab2).iterator());
 
         TabModelSelectorMetadata metadata =
-                TabPersistentStoreImpl.extractTabMetadataFromSelector(mTabModelSelector, null);
+                TabPersistentStoreImpl.extractTabMetadataFromSelector(
+                        mTabModelSelector, null, /* isRecreating= */ false);
 
         assertEquals(1, metadata.normalModelMetadata.ids.size());
         assertEquals(1, metadata.normalModelMetadata.urls.size());
@@ -891,7 +910,9 @@ public class TabPersistentStoreUnitTest {
         when(mTab.getUrl()).thenReturn(ntpGurl);
         when(mTab.isNativePage()).thenReturn(true);
         when(mTab.getIsPinned()).thenReturn(true);
-        assertFalse("Pinned NTPs should not be skipped.", TabPersistenceUtils.shouldSkipTab(mTab));
+        assertFalse(
+                "Pinned NTPs should not be skipped.",
+                TabPersistenceUtils.shouldSkipTab(mTab, /* isRecreating= */ false));
 
         // Pinned regular tabs should not be skipped.
         when(mTab.getUrl()).thenReturn(regularGurl);
@@ -899,7 +920,21 @@ public class TabPersistentStoreUnitTest {
         when(mTab.getIsPinned()).thenReturn(true);
         assertFalse(
                 "Pinned regular tabs should not be skipped.",
-                TabPersistenceUtils.shouldSkipTab(mTab));
+                TabPersistenceUtils.shouldSkipTab(mTab, /* isRecreating= */ false));
+    }
+
+    @Test
+    @Feature({"TabPersistentStore"})
+    public void testShouldNotSkipNtpsOnRecreating() {
+        GURL ntpGurl = new GURL(getOriginalNativeNtpUrl());
+
+        // When the activity is recreating, non-pinned NTPs should not be skipped.
+        when(mTab.getUrl()).thenReturn(ntpGurl);
+        when(mTab.isNativePage()).thenReturn(true);
+        when(mTab.getIsPinned()).thenReturn(false);
+        assertFalse(
+                "Pinned NTPs should not be skipped.",
+                TabPersistenceUtils.shouldSkipTab(mTab, /* isRecreating= */ true));
     }
 
     @Test

@@ -17,10 +17,11 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
@@ -155,10 +156,14 @@ class PopupBlockerBrowserTest : public InProcessBrowserTest {
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
     if (what_to_expect == kExpectPopup) {
-      ASSERT_EQ(2u, chrome::GetBrowserCount(browser()->profile()));
+      ASSERT_EQ(2u,
+                ProfileBrowserCollection::GetForProfile(browser()->profile())
+                    ->GetSize());
     } else {
       tab_added.Wait();
-      ASSERT_EQ(1u, chrome::GetBrowserCount(browser()->profile()));
+      ASSERT_EQ(1u,
+                ProfileBrowserCollection::GetForProfile(browser()->profile())
+                    ->GetSize());
       ASSERT_EQ(2, browser()->tab_strip_model()->count());
 
       // Check that we always create foreground tabs.
@@ -196,7 +201,9 @@ class PopupBlockerBrowserTest : public InProcessBrowserTest {
 
     // Since the popup blocker blocked the window.open, there should be only one
     // tab and window in the profile.
-    EXPECT_EQ(1u, chrome::GetBrowserCount(browser->profile()));
+    EXPECT_EQ(
+        1u,
+        ProfileBrowserCollection::GetForProfile(browser->profile())->GetSize());
     EXPECT_EQ(1, browser->tab_strip_model()->count());
     WebContents* web_contents =
         browser->tab_strip_model()->GetActiveWebContents();
@@ -390,7 +397,9 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, NoPopupsLaunchWhenTabIsClosed) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url2));
 
   // Expect no popup.
-  ASSERT_EQ(1u, chrome::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(
+      1u,
+      ProfileBrowserCollection::GetForProfile(browser()->profile())->GetSize());
 }
 
 IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest,
@@ -459,7 +468,9 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest,
   EXPECT_TRUE(content::PwnMessageHelper::OpenPopup(rfh, url));
 
   // The popup should be blocked because the renderer is not an extension.
-  EXPECT_EQ(1u, chrome::GetBrowserCount(browser()->profile()));
+  EXPECT_EQ(
+      1u,
+      ProfileBrowserCollection::GetForProfile(browser()->profile())->GetSize());
   EXPECT_EQ(1, browser()->tab_strip_model()->count());
 }
 
@@ -557,7 +568,9 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, WebUI) {
   GURL url(embedded_test_server()->GetURL("/popup_blocker/popup-webui.html"));
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
   // A popup to a webui url should be blocked without ever creating a new tab.
-  ASSERT_EQ(1u, chrome::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(
+      1u,
+      ProfileBrowserCollection::GetForProfile(browser()->profile())->GetSize());
   ASSERT_EQ(1, browser()->tab_strip_model()->count());
   ASSERT_EQ(0, GetBlockedContentsCount());
 }
@@ -573,7 +586,7 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, DenialOfService) {
 // Verify that an onunload popup does not show up for about:blank.
 IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, Regress427477) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
-                                           GURL(chrome::kChromeUINewTabURL)));
+                                           chrome::ChromeUINewTabURLAsGURL()));
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GURL(url::kAboutBlankURL)));
 
@@ -586,7 +599,9 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, Regress427477) {
   tab->GetController().GoBack();
   EXPECT_TRUE(content::WaitForLoadStop(tab));
 
-  ASSERT_EQ(1u, chrome::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(
+      1u,
+      ProfileBrowserCollection::GetForProfile(browser()->profile())->GetSize());
   ASSERT_EQ(1, browser()->tab_strip_model()->count());
 
   // The popup from the unload event handler should not show up for about:blank.
@@ -615,13 +630,14 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, ModalPopUnder) {
 
   NavigateAndCheckPopupShown(url, kExpectPopup);
 
-  BrowserWindowInterface* popup_browser = chrome::FindLastActive();
+  BrowserWindowInterface* popup_browser =
+      GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
   ASSERT_NE(popup_browser, browser());
 
 // Showing an alert will raise the tab over the popup.
 #if !BUILDFLAG(IS_MAC)
   // Mac doesn't activate the browser during modal dialogs, see
-  // https://crbug.com/687732 for details.
+  // https://crbug.com/40504559 for details.
   ui_test_utils::BrowserActivationWaiter alert_waiter(browser());
 #endif
   bool ignored;
@@ -632,7 +648,8 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, ModalPopUnder) {
       ui_test_utils::WaitForAppModalDialog();
   ASSERT_TRUE(dialog);
 #if !BUILDFLAG(IS_MAC)
-  if (chrome::FindLastActive() != browser()) {
+  if (GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser() !=
+      browser()) {
     alert_waiter.WaitForActivation();
   }
 #endif
@@ -646,15 +663,16 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, ModalPopUnder) {
 #if !BUILDFLAG(IS_MAC)
   waiter.WaitForActivation();
 #endif
-  ASSERT_EQ(popup_browser, chrome::FindLastActive());
+  ASSERT_EQ(popup_browser,
+            GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser());
 }
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
 // Tests that the print preview dialog can't be used to create popunders. The
 // test was added due to a bug in MacViews that causes dialogs to activate
-// their parents (https://crbug.com/1073587).
+// their parents (https://crbug.com/40127640).
 // TODO(weili): investigate why this failed on Linux and ChromeOS bots,
-// and why it was flaky on Windows. https://crbug.com/1241815.
+// and why it was flaky on Windows. https://crbug.com/40786255.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_PrintPreviewPopUnder PrintPreviewPopUnder
 #else
@@ -671,7 +689,8 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, MAYBE_PrintPreviewPopUnder) {
 
   NavigateAndCheckPopupShown(url, kExpectPopup);
 
-  BrowserWindowInterface* popup_browser = chrome::FindLastActive();
+  BrowserWindowInterface* popup_browser =
+      GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
   ASSERT_NE(popup_browser, browser());
 
   // Show a print preview dialog and confirm it doesn't activate the
@@ -684,7 +703,8 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, MAYBE_PrintPreviewPopUnder) {
       dialog_controller->GetOrCreatePreviewDialogForTesting(original_tab);
   observer.Wait();
   observer.StopWatchingNewWebContents();
-  EXPECT_EQ(popup_browser, chrome::FindLastActive());
+  EXPECT_EQ(popup_browser,
+            GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser());
 
   // Navigate away; this will close the print preview dialog.
   content::WebContentsDestroyedWatcher watcher(print_preview_dialog);
@@ -693,7 +713,8 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, MAYBE_PrintPreviewPopUnder) {
   watcher.Wait();
 
   // The popup is still in front and being activated.
-  EXPECT_EQ(popup_browser, chrome::FindLastActive());
+  EXPECT_EQ(popup_browser,
+            GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser());
 }
 #endif  // BUILDFLAG(ENABLE_PRINT_PREVIEW)
 
@@ -746,7 +767,9 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, DISABLED_CtrlEnterKey) {
 
   tab_add.Wait();
 
-  ASSERT_EQ(1u, chrome::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(
+      1u,
+      ProfileBrowserCollection::GetForProfile(browser()->profile())->GetSize());
   ASSERT_EQ(2, browser()->tab_strip_model()->count());
   // Check that we create the background tab.
   ASSERT_EQ(0, browser()->tab_strip_model()->active_index());
@@ -777,7 +800,9 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, MAYBE_TapGestureWithCtrlKey) {
 
   tab_add.Wait();
 
-  ASSERT_EQ(1u, chrome::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(
+      1u,
+      ProfileBrowserCollection::GetForProfile(browser()->profile())->GetSize());
   ASSERT_EQ(2, browser()->tab_strip_model()->count());
   // Check that we create the background tab.
   ASSERT_EQ(0, browser()->tab_strip_model()->active_index());
@@ -848,7 +873,7 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerBrowserTest, PopupsDisableBackForwardCache) {
 
 // Make sure the poput is attributed to the right WebContents when it is
 // triggered from a different WebContents. Regression test for
-// https://crbug.com/1128495
+// https://crbug.com/40719662
 // Flaky on windows and mac: b/40896665.
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 #define MAYBE_PopupTriggeredFromDifferentWebContents \
@@ -953,7 +978,9 @@ IN_PROC_BROWSER_TEST_F(PopupBlockerFencedFrameTest,
 
   // The popup should be shown even the iframe URL is blocked, since the
   // top-level URL allows popups.
-  ASSERT_EQ(2u, chrome::GetBrowserCount(browser()->profile()));
+  ASSERT_EQ(
+      2u,
+      ProfileBrowserCollection::GetForProfile(browser()->profile())->GetSize());
   ASSERT_EQ(0, GetBlockedContentsCount());
 }
 

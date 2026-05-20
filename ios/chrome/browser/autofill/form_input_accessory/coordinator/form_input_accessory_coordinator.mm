@@ -43,7 +43,6 @@
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
 #import "ios/chrome/browser/autofill/model/features.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
-#import "ios/chrome/browser/autofill/ui_bundled/autofill_credit_card_util.h"
 #import "ios/chrome/browser/autofill/ui_bundled/branding/branding_coordinator.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/address_coordinator.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/card_coordinator.h"
@@ -55,6 +54,7 @@
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_constants.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_injection_handler.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_password_coordinator.h"
+#import "ios/chrome/browser/autofill/ui_bundled/util/autofill_credit_card_util.h"
 #import "ios/chrome/browser/bubble/ui_bundled/bubble_constants.h"
 #import "ios/chrome/browser/bubble/ui_bundled/bubble_view_controller_presenter.h"
 #import "ios/chrome/browser/device_reauth/model/reauthentication_service.h"
@@ -106,8 +106,6 @@ const base::Feature* FetchIPHFeatureFromEnum(
     case SuggestionFeatureForIPH::kAutofillExternalAccountProfile:
       return &feature_engagement::
           kIPHAutofillExternalAccountProfileSuggestionFeature;
-    case SuggestionFeatureForIPH::kPlusAddressCreation:
-      return &feature_engagement::kIPHPlusAddressCreateSuggestionFeature;
     case SuggestionFeatureForIPH::kHomeAndWorkAddressSuggestion:
       return &feature_engagement::kIPHAutofillHomeWorkProfileSuggestionFeature;
     case SuggestionFeatureForIPH::kAccountNameEmailSuggestion:
@@ -284,6 +282,7 @@ const base::Feature* FetchIPHFeatureFromEnum(
 
 - (void)resetLoadingStates {
   [_formInputAccessoryViewController resetLoadingStates];
+  [_formInputAccessoryMediator resetSuggestions];
 }
 
 #pragma mark - Presenting Children
@@ -364,9 +363,6 @@ const base::Feature* FetchIPHFeatureFromEnum(
       case SuggestionFeatureForIPH::kAutofillExternalAccountProfile:
         tracker->NotifyEvent(
             "autofill_external_account_profile_suggestion_accepted");
-        break;
-      case SuggestionFeatureForIPH::kPlusAddressCreation:
-        tracker->NotifyEvent("plus_address_create_suggestion_feature_used");
         break;
       case SuggestionFeatureForIPH::kHomeAndWorkAddressSuggestion:
         tracker->NotifyEvent(
@@ -832,11 +828,6 @@ const base::Feature* FetchIPHFeatureFromEnum(
           IDS_AUTOFILL_IPH_EXTERNAL_ACCOUNT_PROFILE_SUGGESTION);
       voiceOverText = l10n_util::GetNSString(
           IDS_AUTOFILL_IPH_EXTERNAL_ACCOUNT_PROFILE_SUGGESTION);
-      break;
-    case SuggestionFeatureForIPH::kPlusAddressCreation:
-      text = l10n_util::GetNSString(IDS_PLUS_ADDRESS_CREATE_SUGGESTION_IPH_IOS);
-      voiceOverText = l10n_util::GetNSString(
-          IDS_PLUS_ADDRESS_CREATE_SUGGESTION_IPH_SCREENREADER_IOS);
       break;
     case SuggestionFeatureForIPH::kHomeAndWorkAddressSuggestion:
       text = l10n_util::GetNSString(

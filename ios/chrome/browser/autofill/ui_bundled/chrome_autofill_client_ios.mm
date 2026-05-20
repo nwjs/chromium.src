@@ -27,7 +27,6 @@
 #import "components/autofill/core/browser/data_manager/valuables/valuables_data_manager.h"
 #import "components/autofill/core/browser/form_import/addresses/autofill_save_update_address_profile_delegate_ios.h"
 #import "components/autofill/core/browser/form_import/form_data_importer.h"
-#import "components/autofill/core/browser/integrators/plus_addresses/autofill_plus_address_delegate.h"
 #import "components/autofill/core/browser/logging/log_manager.h"
 #import "components/autofill/core/browser/logging/log_router.h"
 #import "components/autofill/core/browser/payments/payments_network_interface.h"
@@ -46,7 +45,6 @@
 #import "components/password_manager/core/browser/form_parsing/form_data_parser.h"
 #import "components/password_manager/core/browser/password_form.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
-#import "components/plus_addresses/core/browser/plus_address_service.h"
 #import "components/security_state/ios/security_state_utils.h"
 #import "components/sync/service/sync_service.h"
 #import "components/translate/core/browser/translate_manager.h"
@@ -75,11 +73,11 @@
 #import "ios/chrome/browser/infobars/model/infobar_ios.h"
 #import "ios/chrome/browser/infobars/model/infobar_utils.h"
 #import "ios/chrome/browser/metrics/model/google_groups_manager_factory.h"
+#import "ios/chrome/browser/metrics/model/ios_profile_metrics_service_factory.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_password_field_classification_model_handler_factory.h"
 #import "ios/chrome/browser/passwords/model/password_tab_helper.h"
-#import "ios/chrome/browser/plus_addresses/model/plus_address_service_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -95,6 +93,11 @@
 #import "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 
 namespace autofill {
+
+// Delay before allowing dismissal of the Save/Update dialog for Autofill AI
+// forms. This allows enough time to show the confirmation checkmark that the
+// user has saved their entity data to Google Wallet.
+const base::TimeDelta kConfirmationDelay = base::Milliseconds(500);
 
 ChromeAutofillClientIOS::ChromeAutofillClientIOS(
     ProfileIOS* profile,
@@ -130,8 +133,7 @@ ChromeAutofillClientIOS::ChromeAutofillClientIOS(
     AuthenticationService* authenticationService =
         AuthenticationServiceFactory::GetForProfile(profile);
     if (authenticationService) {
-      id<SystemIdentity> identity = authenticationService->GetPrimaryIdentity(
-          signin::ConsentLevel::kSignin);
+      id<SystemIdentity> identity = authenticationService->GetPrimaryIdentity();
       // Tries to create kAccountNameEmail profile using the current primary
       // account data.
       if (identity) {
@@ -314,6 +316,12 @@ const signin::IdentityManager* ChromeAutofillClientIOS::GetIdentityManager()
   return identity_manager_;
 }
 
+metrics::ProfileMetricsService*
+ChromeAutofillClientIOS::GetProfileMetricsService() {
+  CHECK(profile_);
+  return IOSProfileMetricsServiceFactory::GetForProfile(profile_);
+}
+
 FormDataImporter* ChromeAutofillClientIOS::GetFormDataImporter() {
   return form_data_importer_.get();
 }
@@ -436,17 +444,6 @@ ChromeAutofillClientIOS::ShowAutofillSuggestions(
   return SuggestionUiSessionId();
 }
 
-void ChromeAutofillClientIOS::ShowPlusAddressEmailOverrideNotification(
-    const std::string& original_email,
-    EmailOverrideUndoCallback email_override_undo_callback) {
-  [bridge_ showPlusAddressEmailOverrideNotification:
-               std::move(email_override_undo_callback)];
-}
-
-AutofillPlusAddressDelegate* ChromeAutofillClientIOS::GetPlusAddressDelegate() {
-  return PlusAddressServiceFactory::GetForProfile(profile_);
-}
-
 void ChromeAutofillClientIOS::UpdateAutofillDataListValues(
     base::span<const autofill::SelectOption> datalist) {
   // No op. ios/web_view does not support display datalist.
@@ -527,8 +524,7 @@ std::optional<std::u16string> ChromeAutofillClientIOS::GetUserEmail() {
   AuthenticationService* authenticationService =
       AuthenticationServiceFactory::GetForProfile(profile_);
   DCHECK(authenticationService);
-  id<SystemIdentity> identity =
-      authenticationService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
+  id<SystemIdentity> identity = authenticationService->GetPrimaryIdentity();
   if (identity) {
     return base::SysNSStringToUTF16(identity.userEmail);
   }
@@ -648,7 +644,14 @@ void ChromeAutofillClientIOS::ShowEntityImportBubble(
 
 void ChromeAutofillClientIOS::CloseEntityImportBubble() {
   // This should be a no-op if the entity import bubble is already closed.
-  [commands_handler_ dismissSaveEntityDialog];
+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](__weak id<AutofillCommands> handler) {
+            [handler dismissSaveEntityDialog];
+          },
+          commands_handler_),
+      kConfirmationDelay);
 }
 
 void ChromeAutofillClientIOS::ShowAutofillAiLocalSaveNotification() {

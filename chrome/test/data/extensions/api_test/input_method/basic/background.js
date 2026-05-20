@@ -13,14 +13,14 @@ function wrapAsync(apiFunction) {
   return (...args) => {
     return new Promise((resolve, reject) => {
       apiFunction(...args, (...result) => {
-        if (!!chrome.runtime.lastError) {
+        if (chrome.runtime.lastError) {
           reject(Error(chrome.runtime.lastError));
         } else {
           resolve(...result);
         }
       });
     });
-  }
+  };
 }
 
 const asyncInputMethodPrivate = {
@@ -28,19 +28,17 @@ const asyncInputMethodPrivate = {
       wrapAsync(chrome.inputMethodPrivate.getCurrentInputMethod),
   setCurrentInputMethod:
       wrapAsync(chrome.inputMethodPrivate.setCurrentInputMethod),
-  getInputMethods:
-      wrapAsync(chrome.inputMethodPrivate.getInputMethods),
+  getInputMethods: wrapAsync(chrome.inputMethodPrivate.getInputMethods),
   fetchAllDictionaryWords:
       wrapAsync(chrome.inputMethodPrivate.fetchAllDictionaryWords),
-  addWordToDictionary:
-      wrapAsync(chrome.inputMethodPrivate.addWordToDictionary)
+  addWordToDictionary: wrapAsync(chrome.inputMethodPrivate.addWordToDictionary),
 };
 
 chrome.test.runTests([
   // Queries the system for basic information needed for tests.
   // Needs to run first.
   async function initTests() {
-    console.log('initTest: Getting initial inputMethod');
+    console.info('initTest: Getting initial inputMethod');
 
     const initialInputMethod =
         await asyncInputMethodPrivate.getCurrentInputMethod();
@@ -54,7 +52,7 @@ chrome.test.runTests([
   },
 
   async function setTest() {
-    console.log(
+    console.info(
         `setTest: Changing input method to: ${testParams.newInputMethod}`);
     await asyncInputMethodPrivate.setCurrentInputMethod(
         testParams.newInputMethod);
@@ -62,60 +60,61 @@ chrome.test.runTests([
   },
 
   async function getTest() {
-    console.log('getTest: Getting current input method.');
+    console.info('getTest: Getting current input method.');
     const inputMethod = await asyncInputMethodPrivate.getCurrentInputMethod();
     chrome.test.assertEq(testParams.newInputMethod, inputMethod);
     chrome.test.succeed();
   },
 
   async function observeTest() {
-    console.log('observeTest: Adding input method event listener.');
+    console.info('observeTest: Adding input method event listener.');
 
     chrome.inputMethodPrivate.onChanged.addListener(
-        function listener (inputMethod) {
+        function listener(inputMethod) {
           chrome.inputMethodPrivate.onChanged.removeListener(listener);
           chrome.test.assertEq(testParams.initialInputMethod, inputMethod);
           chrome.test.succeed();
         });
 
-    console.log(`observeTest: Changing input method to: ${
-                    testParams.initialInputMethod}`);
+    console.info(`observeTest: Changing input method to: ${
+        testParams.initialInputMethod}`);
     await asyncInputMethodPrivate.setCurrentInputMethod(
         testParams.initialInputMethod);
   },
 
   async function setInvalidTest() {
     const INVALID_INPUT_METHOD = 'xx::xxx';
-    console.log(
-          `setInvalidTest: Changing input method to: ${INVALID_INPUT_METHOD}`);
+    console.info(
+        `setInvalidTest: Changing input method to: ${INVALID_INPUT_METHOD}`);
     asyncInputMethodPrivate.setCurrentInputMethod(INVALID_INPUT_METHOD)
         .catch(chrome.test.succeed);
   },
 
   async function getListTest() {
-    console.log('getListTest: Getting input method list.');
+    console.info('getListTest: Getting input method list.');
 
     const inputMethods = await asyncInputMethodPrivate.getInputMethods();
     chrome.test.assertEq(7, inputMethods.length);
 
     chrome.test.assertTrue(
-        inputMethods.some((im) => im.id == testParams.initialInputMethod));
+        inputMethods.some((im) => im.id === testParams.initialInputMethod));
     chrome.test.assertTrue(
-        inputMethods.some((im) => im.id == testParams.newInputMethod));
+        inputMethods.some((im) => im.id === testParams.newInputMethod));
     chrome.test.succeed();
   },
 
   async function loadDictionaryAsyncTest() {
-    console.log('loadDictionaryAsyncTest: ');
+    console.info('loadDictionaryAsyncTest: ');
 
     testParams.dictionaryLoaded = new Promise((resolve, reject) => {
       let message = 'before';
       chrome.inputMethodPrivate.onDictionaryLoaded.addListener(
-        function listener () {
-          chrome.inputMethodPrivate.onDictionaryLoaded.removeListener(listener);
-          chrome.test.assertEq(message, 'after');
-          resolve();
-        });
+          function listener() {
+            chrome.inputMethodPrivate.onDictionaryLoaded.removeListener(
+                listener);
+            chrome.test.assertEq(message, 'after');
+            resolve();
+          });
       message = 'after';
     });
     // We don't need to wait for the promise to resolve before continuing since
@@ -151,13 +150,14 @@ chrome.test.runTests([
     const wordToAdd = 'helloworld2';
     await testParams.dictionaryLoaded;
     chrome.inputMethodPrivate.onDictionaryChanged.addListener(
-      function listener(added, removed) {
-        chrome.inputMethodPrivate.onDictionaryChanged.removeListener(listener);
-        chrome.test.assertEq(1, added.length);
-        chrome.test.assertEq(0, removed.length);
-        chrome.test.assertEq(added[0], wordToAdd);
-        chrome.test.succeed();
-      });
+        function listener(added, removed) {
+          chrome.inputMethodPrivate.onDictionaryChanged.removeListener(
+              listener);
+          chrome.test.assertEq(1, added.length);
+          chrome.test.assertEq(0, removed.length);
+          chrome.test.assertEq(added[0], wordToAdd);
+          chrome.test.succeed();
+        });
     await asyncInputMethodPrivate.addWordToDictionary(wordToAdd);
-  }
+  },
 ]);

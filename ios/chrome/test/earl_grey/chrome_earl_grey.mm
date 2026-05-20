@@ -150,6 +150,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   return idiom == UIUserInterfaceIdiomPhone;
 }
 
+- (BOOL)isTabGridSetUp {
+  return [ChromeEarlGreyAppInterface isTabGridSetUp];
+}
+
 - (BOOL)isRTL {
   return [ChromeEarlGreyAppInterface isRTL];
 }
@@ -2067,6 +2071,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
 
 - (void)hideReaderMode {
   [ReaderModeAppInterface hideReaderMode];
+}
+
+- (void)openNewTabWithURL:(NSString*)URL textFragment:(NSString*)textFragment {
+  [ChromeEarlGreyAppInterface openNewTabWithURL:URL textFragment:textFragment];
 }
 
 @end

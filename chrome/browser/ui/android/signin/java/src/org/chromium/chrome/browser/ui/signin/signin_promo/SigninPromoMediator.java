@@ -21,7 +21,6 @@ import org.chromium.components.signin.AccountsChangeObserver;
 import org.chromium.components.signin.SigninFeatureMap;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.CoreAccountInfo;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.identitymanager.PrimaryAccountChangeEvent;
 import org.chromium.components.signin.metrics.SigninPromoAction;
@@ -93,9 +92,7 @@ final class SigninPromoMediator
 
         CoreAccountInfo visibleAccount = getVisibleAccount();
         DisplayableProfileData profileData =
-                visibleAccount == null
-                        ? null
-                        : mProfileDataCache.getProfileDataOrDefault(visibleAccount.getEmail());
+                visibleAccount == null ? null : mProfileDataCache.getById(visibleAccount.getId());
 
         mModel =
                 SigninPromoProperties.createModel(
@@ -176,8 +173,7 @@ final class SigninPromoMediator
     @Override
     public void onPrimaryAccountChanged(PrimaryAccountChangeEvent eventDetails) {
         boolean wasVisibleAccountUpdated =
-                eventDetails.getEventTypeFor(ConsentLevel.SIGNIN)
-                        != PrimaryAccountChangeEvent.Type.NONE;
+                eventDetails.getEventTypeFor() != PrimaryAccountChangeEvent.Type.NONE;
         refreshPromoContent(wasVisibleAccountUpdated);
     }
 
@@ -257,11 +253,8 @@ final class SigninPromoMediator
     }
 
     private void updateModel(@Nullable CoreAccountInfo visibleAccount) {
-        @Nullable
-        DisplayableProfileData profileData =
-                visibleAccount == null
-                        ? null
-                        : mProfileDataCache.getProfileDataOrDefault(visibleAccount.getEmail());
+        @Nullable DisplayableProfileData profileData =
+                visibleAccount == null ? null : mProfileDataCache.getById(visibleAccount.getId());
         mModel.set(SigninPromoProperties.PROFILE_DATA, profileData);
         mModel.set(
                 SigninPromoProperties.SHOULD_HIDE_SECONDARY_BUTTON,
@@ -312,9 +305,7 @@ final class SigninPromoMediator
         }
         CoreAccountInfo visibleAccount = getVisibleAccount();
         DisplayableProfileData profileData =
-                visibleAccount == null
-                        ? null
-                        : mProfileDataCache.getProfileDataOrDefault(visibleAccount.getEmail());
+                visibleAccount == null ? null : mProfileDataCache.getById(visibleAccount.getId());
         mModel.set(
                 SigninPromoProperties.SHOULD_SHOW_LOADING_STATE,
                 mPromoDelegate.shouldDisplayLoadingState());
@@ -343,8 +334,7 @@ final class SigninPromoMediator
      * device.
      */
     private @Nullable CoreAccountInfo getVisibleAccount() {
-        @Nullable CoreAccountInfo visibleAccount =
-                mIdentityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN);
+        @Nullable CoreAccountInfo visibleAccount = mIdentityManager.getPrimaryAccountInfo();
         if (visibleAccount == null) {
             visibleAccount =
                     AccountUtils.getDefaultAccountIfFulfilled(mAccountManagerFacade.getAccounts());

@@ -16,7 +16,6 @@
 #include "build/build_config.h"
 #include "chrome/browser/apps/link_capturing/intent_picker_info.h"
 #include "chrome/browser/lifetime/browser_close_manager.h"
-#include "chrome/browser/share/share_attempt.h"
 #include "chrome/browser/signin/chrome_signin_helper.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar.h"
 #include "chrome/browser/ui/browser.h"
@@ -49,9 +48,7 @@ class ExclusiveAccessContext;
 class FindBar;
 class GURL;
 class LocationBar;
-class SharingDialog;
 class StatusBubble;
-struct SharingDialogData;
 
 namespace autofill {
 class AutofillBubbleHandler;
@@ -66,19 +63,6 @@ enum class KeyboardEventProcessingResult;
 namespace gfx {
 class Size;
 }
-
-namespace qrcode_generator {
-class QRCodeGeneratorBubbleView;
-}  // namespace qrcode_generator
-
-namespace send_tab_to_self {
-class SendTabToSelfBubbleView;
-}  // namespace send_tab_to_self
-
-namespace sharing_hub {
-class ScreenshotCapturedBubble;
-class SharingHubBubbleView;
-}  // namespace sharing_hub
 
 namespace signin_metrics {
 enum class AccessPoint;
@@ -238,21 +222,6 @@ class BrowserWindow : public ui::BaseWindow {
   // frames may need to refresh their title bar.
   virtual void UpdateTitleBar() = 0;
 
-  // Invoked when the state of the bookmark bar changes. This is only invoked if
-  // the state changes for the current tab, it is not sent when switching tabs.
-  virtual void BookmarkBarStateChanged(
-      BookmarkBar::AnimateChangeType change_type) = 0;
-
-  // Temporarily force shows the bookmark bar for the provided |duration|.
-  virtual void TemporarilyShowBookmarkBar(base::TimeDelta duration) = 0;
-
-  // Inform the frame that the dev tools window for the selected tab has
-  // changed.
-  virtual void UpdateDevTools(content::WebContents* inspected_web_contents) = 0;
-
-  // Returns true if the browser window can dock a DevTools panel.
-  virtual bool CanDockDevTools() const = 0;
-
   // Update any loading animations running in the window. |is_visible| is true
   // if the window is visible.
   virtual void UpdateLoadingAnimations(bool is_visible) = 0;
@@ -282,27 +251,6 @@ class BrowserWindow : public ui::BaseWindow {
   // in OnTabStripModelChanged(); the Browser will call this method.
   virtual void OnTabDetached(content::WebContents* contents,
                              bool was_active) = 0;
-
-  // Called to force the zoom state to for the active tab to be recalculated.
-  // |can_show_bubble| is true when a user presses the zoom up or down keyboard
-  // shortcuts and will be false in other cases (e.g. switching tabs, "clicking"
-  // + or - in the app menu to change zoom).
-  virtual void ZoomChangedForActiveTab(bool can_show_bubble) = 0;
-
-  // Windows and GTK remove the browser controls in fullscreen, but Mac and Ash
-  // keep the controls in a slide-down panel.
-  virtual bool ShouldHideUIForFullscreen() const = 0;
-
-  // Returns true if the fullscreen bubble is visible.
-  virtual bool IsFullscreenBubbleVisible() const = 0;
-
-  // True when we do not want to allow exiting fullscreen, e.g. in Chrome OS
-  // Kiosk session.
-  // TODO(crbug.com/462003245): Remove these methods from here. It's exclusively
-  // set by ChromeOS in kiosk mode and never changes for the life of the
-  // Browser.
-  virtual bool IsForceFullscreen() const = 0;
-  virtual void SetForceFullscreen(bool force_fullscreen) = 0;
 
   // Returns the size of `WebContents` in the browser. This may be called before
   // the `TabStripModel` has an active tab.
@@ -353,9 +301,6 @@ class BrowserWindow : public ui::BaseWindow {
   // transition if |animate| is true.
   virtual void UpdateCustomTabBarVisibility(bool visible, bool animate) = 0;
 
-  // Updates the visibility of the scrim that covers the devtools area.
-  virtual void SetDevToolsScrimVisibility(bool visible) = 0;
-
   // Resets the toolbar's tab state for |contents|.
   virtual void ResetToolbarTabState(content::WebContents* contents) = 0;
 
@@ -379,9 +324,6 @@ class BrowserWindow : public ui::BaseWindow {
   // Not used on the Mac, which has a "normal" menu bar.
   virtual void FocusAppMenu() = 0;
 
-  // Focuses the bookmarks toolbar (for accessibility).
-  virtual void FocusBookmarksToolbar() = 0;
-
   // Focuses a visible but inactive popup for accessibility.
   virtual void FocusInactivePopupForAccessibility() = 0;
 
@@ -390,12 +332,6 @@ class BrowserWindow : public ui::BaseWindow {
 
   // Moves keyboard focus directly to the web contents pane.
   virtual void FocusWebContentsPane() = 0;
-
-  // Returns whether the bookmark bar is visible or not.
-  virtual bool IsBookmarkBarVisible() const = 0;
-
-  // Returns whether the bookmark bar is animating or not.
-  virtual bool IsBookmarkBarAnimating() const = 0;
 
   // Returns whether the tab strip is editable (for extensions).
   virtual bool IsTabStripEditable() const = 0;
@@ -419,10 +355,6 @@ class BrowserWindow : public ui::BaseWindow {
   // Returns whether the location bar is visible.
   virtual bool IsLocationBarVisible() const = 0;
 
-  // Shows the dialog for a sharing feature.
-  virtual SharingDialog* ShowSharingDialog(content::WebContents* contents,
-                                           SharingDialogData data) = 0;
-
   // Shows the Update Recommended dialog box.
   virtual void ShowUpdateChromeDialog() = 0;
 
@@ -445,36 +377,9 @@ class BrowserWindow : public ui::BaseWindow {
   // |already_bookmarked| is true if the url is already bookmarked.
   virtual void ShowBookmarkBubble(const GURL& url, bool already_bookmarked) = 0;
 
-  // Shows the Screenshot bubble.
-  virtual sharing_hub::ScreenshotCapturedBubble* ShowScreenshotCapturedBubble(
-      content::WebContents* contents,
-      const gfx::Image& image) = 0;
-
-  // Shows the QR Code generator bubble. |url| is the URL for the initial code.
-  virtual qrcode_generator::QRCodeGeneratorBubbleView*
-  ShowQRCodeGeneratorBubble(content::WebContents* contents,
-                            const GURL& url,
-                            bool show_back_button) = 0;
-
-  // Shows the "send tab to self" device picker bubble. This must only be called
-  // as a direct result of user action.
-  virtual send_tab_to_self::SendTabToSelfBubbleView*
-  ShowSendTabToSelfDevicePickerBubble(content::WebContents* contents) = 0;
-
-  // Shows the "send tab to self" promo bubble. This must only be called as a
-  // direct result of user action.
-  virtual send_tab_to_self::SendTabToSelfBubbleView*
-  ShowSendTabToSelfPromoBubble(content::WebContents* contents,
-                               bool show_signin_button) = 0;
-
 #if BUILDFLAG(IS_CHROMEOS)
   // Toggles the multitask menu on the browser frame size button.
   virtual void ToggleMultitaskMenu() = 0;
-#else
-  // Shows the Sharing Hub bubble. This must only be called as a direct result
-  // of user action.
-  virtual sharing_hub::SharingHubBubbleView* ShowSharingHubBubble(
-      share::ShareAttempt attempt) = 0;
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   // Shows the Full Page Translate bubble.

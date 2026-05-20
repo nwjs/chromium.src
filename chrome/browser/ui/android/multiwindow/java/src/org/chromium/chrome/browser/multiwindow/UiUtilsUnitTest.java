@@ -11,7 +11,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -20,8 +19,6 @@ import android.app.Dialog;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
-
-import androidx.annotation.DrawableRes;
 
 import com.google.android.material.textfield.TextInputEditText;
 
@@ -44,6 +41,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.UiUtils.NameWindowDialogSource;
 import org.chromium.components.favicon.LargeIconBridge;
+import org.chromium.ui.test.util.MockitoHelper;
 
 /** Tests for {@link UiUtils}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -69,7 +67,6 @@ public class UiUtilsUnitTest {
 
     private final @NameWindowDialogSource int mNameWindowDialogSource =
             NameWindowDialogSource.WINDOW_MANAGER;
-    private UiUtils mUiUtils;
 
     @Before
     public void setUp() {
@@ -86,19 +83,12 @@ public class UiUtilsUnitTest {
         doReturn(TWO_TABS_ONE_INCOGNITO)
                 .when(mResources)
                 .getQuantityString(R.plurals.instance_switcher_desc_mixed, 2, 1, 2, 1);
-        mUiUtils =
-                new UiUtils(mContext, mIconBridge) {
-                    @Override
-                    Drawable getTintedIcon(@DrawableRes int drawableId) {
-                        return null;
-                    }
-                };
     }
 
     @Test
     public void testShowNameWindowDialog_NonEmptyTitle_Success() {
         Activity activity = Robolectric.setupActivity(Activity.class);
-        Callback<String> mockCallback = mock(Callback.class);
+        Callback<String> mockCallback = MockitoHelper.mockCallback();
         String currentTitle = "Window 1";
         String newTitle = "My Window";
 
@@ -119,7 +109,7 @@ public class UiUtilsUnitTest {
     @Test
     public void testShowNameWindowDialog_EmptyTitle_Success() {
         Activity activity = Robolectric.setupActivity(Activity.class);
-        Callback<String> mockCallback = mock(Callback.class);
+        Callback<String> mockCallback = MockitoHelper.mockCallback();
         String currentTitle = "Window 1";
         String newTitle = "";
 
@@ -140,7 +130,7 @@ public class UiUtilsUnitTest {
     @Test
     public void testShowNameWindowDialog_SameTitle() {
         Activity activity = Robolectric.setupActivity(Activity.class);
-        Callback<String> mockCallback = mock(Callback.class);
+        Callback<String> mockCallback = MockitoHelper.mockCallback();
         String currentTitle = "Window 1";
 
         UiUtils.showNameWindowDialog(activity, currentTitle, mockCallback, mNameWindowDialogSource);
@@ -158,7 +148,7 @@ public class UiUtilsUnitTest {
     @Test
     public void testShowNameWindowDialog_Cancel() {
         Activity activity = Robolectric.setupActivity(Activity.class);
-        Callback<String> mockCallback = mock(Callback.class);
+        Callback<String> mockCallback = MockitoHelper.mockCallback();
         String currentTitle = "Window 1";
 
         UiUtils.showNameWindowDialog(activity, currentTitle, mockCallback, mNameWindowDialogSource);
@@ -251,14 +241,14 @@ public class UiUtilsUnitTest {
         assertEquals(
                 "Instance with no tabs has a wrong description",
                 NO_TABS,
-                mUiUtils.getItemDesc(mockInstance(57, 0, 0, false)));
+                UiUtils.getItemDesc(mContext, mockInstance(57, 0, 0, false)));
 
         // Normal tabs only -> # of tabs
         int normalTabCount = 3;
         int incognitoTabCount = 0;
         int totalTabCount = 3;
         InstanceInfo item = mockInstance(57, normalTabCount, incognitoTabCount, false);
-        mUiUtils.getItemDesc(item);
+        UiUtils.getItemDesc(mContext, item);
         verify(mResources)
                 .getQuantityString(
                         R.plurals.instance_switcher_tab_count_nonzero,
@@ -269,7 +259,7 @@ public class UiUtilsUnitTest {
         // Incognito-selected, incognito tab only -> # incognito tabs
         incognitoTabCount = 4;
         item = mockInstance(57, 0, incognitoTabCount, true);
-        mUiUtils.getItemDesc(item);
+        UiUtils.getItemDesc(mContext, item);
         verify(mResources)
                 .getQuantityString(
                         R.plurals.instance_switcher_tab_count_nonzero,
@@ -284,7 +274,7 @@ public class UiUtilsUnitTest {
         assertEquals(
                 "Instance with no tabs has a wrong description",
                 NO_TABS,
-                mUiUtils.getItemDesc(item));
+                UiUtils.getItemDesc(mContext, item));
     }
 
     @Test
@@ -294,14 +284,14 @@ public class UiUtilsUnitTest {
         assertEquals(
                 "Instance with no tabs has a wrong description",
                 NO_TABS,
-                mUiUtils.getItemDesc(mockInstance(57, 0, 0, false)));
+                UiUtils.getItemDesc(mContext, mockInstance(57, 0, 0, false)));
 
         // Normal tabs only -> # of tabs
         int normalTabCount = 3;
         int incognitoTabCount = 0;
         int totalTabCount = 3;
         InstanceInfo item = mockInstance(57, normalTabCount, incognitoTabCount, false);
-        mUiUtils.getItemDesc(item);
+        UiUtils.getItemDesc(mContext, item);
         verify(mResources)
                 .getQuantityString(
                         R.plurals.instance_switcher_tab_count_nonzero,
@@ -313,20 +303,20 @@ public class UiUtilsUnitTest {
         assertEquals(
                 "Current instance has a wrong description",
                 TWO_TABS_ONE_INCOGNITO,
-                mUiUtils.getItemDesc(mockInstance(InstanceInfo.Type.CURRENT)));
+                UiUtils.getItemDesc(mContext, mockInstance(InstanceInfo.Type.CURRENT)));
 
         // Other visible instance -> 2 tabs, 1 incognito
         assertEquals(
                 "Visible instance has a wrong description",
                 TWO_TABS_ONE_INCOGNITO,
-                mUiUtils.getItemDesc(mockInstance(InstanceInfo.Type.ADJACENT)));
+                UiUtils.getItemDesc(mContext, mockInstance(InstanceInfo.Type.ADJACENT)));
 
         // Mixed tabs -> # tabs, # incognito
         normalTabCount = 3;
         incognitoTabCount = 2;
         totalTabCount = 5;
         item = mockInstance(57, normalTabCount, incognitoTabCount, false);
-        mUiUtils.getItemDesc(item);
+        UiUtils.getItemDesc(mContext, item);
         verify(mResources)
                 .getQuantityString(
                         R.plurals.instance_switcher_desc_mixed,
@@ -341,7 +331,7 @@ public class UiUtilsUnitTest {
         incognitoTabCount = 13;
         totalTabCount = 7 + 13;
         item = mockInstance(57, normalTabCount, incognitoTabCount, true);
-        mUiUtils.getItemDesc(item);
+        UiUtils.getItemDesc(mContext, item);
         verify(mResources)
                 .getQuantityString(
                         R.plurals.instance_switcher_desc_mixed,
@@ -354,7 +344,7 @@ public class UiUtilsUnitTest {
         // Incognito-selected, incognito tab only -> # incognito tabs
         incognitoTabCount = 4;
         item = mockInstance(57, 0, incognitoTabCount, true);
-        mUiUtils.getItemDesc(item);
+        UiUtils.getItemDesc(mContext, item);
         verify(mResources)
                 .getQuantityString(
                         R.plurals.instance_switcher_desc_incognito,
@@ -366,7 +356,7 @@ public class UiUtilsUnitTest {
         normalTabCount = 3;
         incognitoTabCount = 2;
         item = mockInstance(UiUtils.INVALID_TASK_ID, normalTabCount, incognitoTabCount, false);
-        mUiUtils.getItemDesc(item);
+        UiUtils.getItemDesc(mContext, item);
         verify(mResources)
                 .getQuantityString(
                         R.plurals.instance_switcher_tab_count_nonzero,
@@ -379,7 +369,7 @@ public class UiUtilsUnitTest {
         normalTabCount = 2;
         incognitoTabCount = 2;
         item = mockInstance(UiUtils.INVALID_TASK_ID, normalTabCount, incognitoTabCount, true);
-        mUiUtils.getItemDesc(item);
+        UiUtils.getItemDesc(mContext, item);
         verify(mResources)
                 .getQuantityString(
                         R.plurals.instance_switcher_tab_count_nonzero,
@@ -394,7 +384,7 @@ public class UiUtilsUnitTest {
         int incognitoTabCount = 2;
         int totalTabCount = 5;
         InstanceInfo item = mockInstance(57, normalTabCount, incognitoTabCount, false);
-        mUiUtils.getConfirmationMessage(item);
+        UiUtils.getConfirmationMessage(mContext, item);
         verify(mResources)
                 .getQuantityString(
                         R.plurals.instance_switcher_close_confirm_deleted_tabs_many_v2,
@@ -406,7 +396,7 @@ public class UiUtilsUnitTest {
 
         // Mixed tabs, incognito-selected -> Incognito and # other tabs...
         item = mockInstance(57, normalTabCount, incognitoTabCount, true);
-        mUiUtils.getConfirmationMessage(item);
+        UiUtils.getConfirmationMessage(mContext, item);
         verify(mResources)
                 .getQuantityString(
                         R.plurals.instance_switcher_close_confirm_deleted_incognito_mixed_v2,
@@ -419,7 +409,7 @@ public class UiUtilsUnitTest {
         // Incognito tabs only -> # incognito tabs...
         normalTabCount = 0;
         item = mockInstance(57, normalTabCount, incognitoTabCount, true);
-        mUiUtils.getConfirmationMessage(item);
+        UiUtils.getConfirmationMessage(mContext, item);
         verify(mResources)
                 .getQuantityString(
                         R.plurals.instance_switcher_close_confirm_deleted_incognito,
@@ -431,7 +421,7 @@ public class UiUtilsUnitTest {
         normalTabCount = 1;
         incognitoTabCount = 0;
         item = mockInstance(57, normalTabCount, incognitoTabCount, false);
-        mUiUtils.getConfirmationMessage(item);
+        UiUtils.getConfirmationMessage(mContext, item);
         verify(mResources)
                 .getString(R.string.instance_switcher_close_confirm_deleted_tabs_one_v2, TITLE);
         clearInvocations(mResources);
@@ -440,7 +430,7 @@ public class UiUtilsUnitTest {
         normalTabCount = 0;
         incognitoTabCount = 0;
         item = mockInstance(57, normalTabCount, incognitoTabCount, false);
-        mUiUtils.getConfirmationMessage(item);
+        UiUtils.getConfirmationMessage(mContext, item);
         verify(mResources).getString(R.string.instance_switcher_close_confirm_deleted_tabs_zero);
         clearInvocations(mResources);
 
@@ -450,7 +440,7 @@ public class UiUtilsUnitTest {
         incognitoTabCount = 2;
         totalTabCount = 3; // 2 incognito tabs are discarded.
         item = mockInstance(-1, normalTabCount, incognitoTabCount, true);
-        mUiUtils.getConfirmationMessage(item);
+        UiUtils.getConfirmationMessage(mContext, item);
         verify(mResources)
                 .getQuantityString(
                         R.plurals.instance_switcher_close_confirm_deleted_tabs_many_v2,

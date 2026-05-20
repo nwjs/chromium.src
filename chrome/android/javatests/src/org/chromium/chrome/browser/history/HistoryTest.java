@@ -20,7 +20,6 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import static org.chromium.base.test.transit.ViewFinder.waitForNoView;
@@ -51,6 +50,7 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.ui.KeyboardUtils;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browsing_data.BrowsingDataBridge;
 import org.chromium.chrome.browser.browsing_data.BrowsingDataType;
 import org.chromium.chrome.browser.browsing_data.TimePeriod;
@@ -61,7 +61,6 @@ import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelper;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.util.ActivityTestUtils;
@@ -135,9 +134,13 @@ public class HistoryTest {
         mActivityTestRule.startOnBlankPage();
 
         FaviconHelper helper = ThreadUtils.runOnUiThreadBlocking(FaviconHelper::new);
-        // If the returned favicons are non-null Bitmap#sameAs() should be used.
-        assertNull(getFavicon(helper, new GURL(getOriginalNonNativeHistoryUrl())));
-        assertNull(getFavicon(helper, new GURL(getOriginalNativeHistoryUrl())));
+
+        Bitmap nonNativeFavicon = getFavicon(helper, new GURL(getOriginalNonNativeHistoryUrl()));
+        Bitmap nativeFavicon = getFavicon(helper, new GURL(getOriginalNativeHistoryUrl()));
+
+        assertNotNull(nonNativeFavicon);
+        assertNotNull(nativeFavicon);
+        assertTrue(nonNativeFavicon.sameAs(nativeFavicon));
     }
 
     public Bitmap getFavicon(FaviconHelper helper, GURL pageUrl) throws TimeoutException {
@@ -145,7 +148,11 @@ public class HistoryTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     helper.getLocalFaviconImageForURL(
-                            ProfileManager.getLastUsedRegularProfile(), pageUrl, 0, waiter);
+                            ProfileManager.getLastUsedRegularProfile(),
+                            pageUrl,
+                            0,
+                            /* fallbackToHost= */ true,
+                            waiter);
                 });
         return waiter.waitForFavicon();
     }
@@ -288,7 +295,7 @@ public class HistoryTest {
                 mActivityTestRule
                         .getTestServer()
                         .getURL("/chrome/test/data/android/navigate/two.html");
-        String domain = new org.chromium.url.GURL(urlOne).getHost();
+        String domain = new GURL(urlOne).getHost();
 
         mActivityTestRule.loadUrl(urlOne);
         mActivityTestRule.loadUrl(urlTwo);
@@ -350,7 +357,7 @@ public class HistoryTest {
                 mActivityTestRule
                         .getTestServer()
                         .getURL("/chrome/test/data/android/navigate/two.html");
-        String domain = new org.chromium.url.GURL(urlOne).getHost();
+        String domain = new GURL(urlOne).getHost();
 
         mActivityTestRule.loadUrl(urlOne);
         mActivityTestRule.loadUrl(urlTwo);
@@ -406,7 +413,7 @@ public class HistoryTest {
                 mActivityTestRule
                         .getTestServer()
                         .getURL("/chrome/test/data/android/navigate/two.html");
-        String domain = new org.chromium.url.GURL(urlOne).getHost();
+        String domain = new GURL(urlOne).getHost();
 
         mActivityTestRule.loadUrl(urlOne);
         mActivityTestRule.loadUrl(urlTwo);

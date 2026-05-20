@@ -19,6 +19,7 @@
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/metrics/user_metrics.h"
 #include "base/notreached.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_ostream_operators.h"
@@ -31,6 +32,7 @@
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_prepopulate_data.h"
 #include "components/search_engines/template_url_service.h"
+#include "components/search_engines/ui_utils.h"
 #include "components/search_engines/util.h"
 #include "components/search_provider_logos/switches.h"
 #include "components/url_formatter/url_fixer.h"
@@ -43,6 +45,7 @@
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "components/search_engines/android/jni_headers/TemplateUrlService_jni.h"
 
+using base::UserMetricsAction;
 using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
@@ -379,7 +382,7 @@ TemplateUrlServiceAndroid::GetSearchEngineUrlFromTemplateUrl(
   TemplateURL* template_url =
       template_url_service_->GetTemplateURLForKeyword(keyword);
   if (!template_url)
-    return base::android::ScopedJavaLocalRef<jstring>::Adopt(env, nullptr);
+    return nullptr;
   std::string url(template_url->url_ref().ReplaceSearchTerms(
       TemplateURLRef::SearchTermsArgs(u"query"),
       template_url_service_->search_terms_data()));
@@ -517,6 +520,10 @@ bool TemplateUrlServiceAndroid::AddSearchEngine(
   if (search_url.empty()) {
     return false;
   }
+
+  // For WML, this is recorded at
+  // chrome/browser/ui/search_engines/keyword_editor_controller.cc
+  base::RecordAction(UserMetricsAction("KeywordEditor_AddKeyword"));
 
   TemplateURLData data;
   data.SetShortName(short_name);
@@ -686,8 +693,17 @@ std::vector<const TemplateURL*>
 TemplateUrlServiceAndroid::GetTemplateUrlsByCategory(
     JNIEnv* env,
     TemplateUrlCategory category) {
-  return FilterTemplateUrlsByCategory(template_url_service_->GetTemplateURLs(),
-                                      category);
+  auto template_urls = FilterTemplateUrlsByCategory(
+      template_url_service_->GetTemplateURLs(), category);
+
+  // Sort the list for site search sections only. Search engines will preserve
+  // the original order returned by {@link GetTemplateURLs}.
+  if (category == TemplateUrlCategory::kActiveSiteSearch ||
+      category == TemplateUrlCategory::kInactiveSiteSearch) {
+    std::ranges::sort(template_urls,
+                      internal::OrderTemplateUrlsByManagedAndAlphabetically());
+  }
+  return template_urls;
 }
 
 base::android::ScopedJavaLocalRef<jobject>
@@ -695,7 +711,7 @@ TemplateUrlServiceAndroid::GetDefaultSearchEngine(JNIEnv* env) {
   const TemplateURL* default_search_provider =
       template_url_service_->GetDefaultSearchProvider();
   if (default_search_provider == nullptr) {
-    return base::android::ScopedJavaLocalRef<jobject>::Adopt(env, nullptr);
+    return nullptr;
   }
   return CreateTemplateUrlAndroid(env, default_search_provider);
 }

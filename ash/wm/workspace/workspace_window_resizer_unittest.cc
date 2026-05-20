@@ -27,6 +27,7 @@
 #include "base/containers/adapters.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/stringprintf.h"
+#include "base/test/gtest_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
@@ -74,6 +75,34 @@ void AllowSnap(aura::Window* window) {
                       aura::client::kResizeBehaviorCanResize |
                           aura::client::kResizeBehaviorCanMaximize);
 }
+
+// Used to test for various UAFs that could be triggered inadvertently in
+// WorkspaceWindowResizer; see tests below.
+class DestructionObserver : public aura::WindowObserver {
+ public:
+  explicit DestructionObserver(
+      std::unique_ptr<WorkspaceWindowResizer>* resizer_ptr)
+      : resizer_ptr_(resizer_ptr) {}
+
+  // Used to trigger a UAF in LayoutAttachedWindowsResize() which is prone to
+  // synchronous destruction via attached_windows_[i]->SetBounds() from Window
+  // Observers in MultiWindowResizeController.
+  void OnWindowBoundsChanged(aura::Window* window,
+                             const gfx::Rect& old_bounds,
+                             const gfx::Rect& new_bounds,
+                             ui::PropertyChangeReason reason) override {
+    resizer_ptr_->reset();
+  }
+
+  // Used to trigger a UAF in RestackAttached which is prone to synchronous
+  // destruction via parent->StackChildAtTop() / StackChildBelow().
+  void OnWindowStackingChanged(aura::Window* window) override {
+    resizer_ptr_->reset();
+  }
+
+ private:
+  raw_ptr<std::unique_ptr<WorkspaceWindowResizer>> resizer_ptr_;
+};
 
 }  // namespace
 
@@ -154,7 +183,9 @@ class WorkspaceWindowResizerTest : public AshTestBase {
     auto resizer =
         CreateWindowResizer(window, gfx::PointF(point_in_parent),
                             window_component, wm::WINDOW_MOVE_SOURCE_MOUSE);
-    workspace_resizer_ = WorkspaceWindowResizer::GetInstanceForTest();
+    auto* workspace_resizer = WorkspaceWindowResizer::GetInstanceForTest();
+    workspace_resizer_ =
+        workspace_resizer ? workspace_resizer->GetWeakPtr() : nullptr;
     return resizer;
   }
 
@@ -207,10 +238,10 @@ class WorkspaceWindowResizerTest : public AshTestBase {
 
   void InitTouchResizeWindow(const gfx::Rect& bounds, int window_component) {
     touch_resize_delegate_.set_window_component(window_component);
-    touch_resize_window_.reset(
+    touch_resize_window_ =
         CreateTestWindowInShell({.delegate = &touch_resize_delegate_,
                                  .bounds = bounds,
-                                 .window_id = 0}));
+                                 .window_id = 0});
   }
 
   bool IsDwellCountdownTimerRunning() {
@@ -237,8 +268,7 @@ class WorkspaceWindowResizerTest : public AshTestBase {
   aura::test::TestWindowDelegate touch_resize_delegate_;
   std::unique_ptr<aura::Window> touch_resize_window_;
 
-  raw_ptr<WorkspaceWindowResizer, DanglingUntriaged> workspace_resizer_ =
-      nullptr;
+  base::WeakPtr<WorkspaceWindowResizer> workspace_resizer_ = nullptr;
 };
 
 // Assertions around attached window resize dragging from the right with 2
@@ -271,6 +301,26 @@ TEST_F(WorkspaceWindowResizerTest, AttachedResize_RIGHT_2) {
   resizer->RevertDrag();
   EXPECT_EQ("0,300 400x300", window_->bounds().ToString());
   EXPECT_EQ("400,200 100x200", window2_->bounds().ToString());
+}
+
+TEST_F(WorkspaceWindowResizerTest, LayoutAttachedWindowsResize_Destruction) {
+  // Verifies that destroying the resizer during LayoutAttachedWindows does not
+  // cause a UAF.
+  window_->SetBounds(gfx::Rect(0, 300, 400, 300));
+  window2_->SetBounds(gfx::Rect(400, 200, 100, 200));
+
+  std::unique_ptr<WorkspaceWindowResizer> resizer =
+      CreateWorkspaceResizerForTest(window_.get(), HTRIGHT, {window2_.get()});
+  ASSERT_TRUE(resizer.get());
+
+  DestructionObserver observer(&resizer);
+  window2_->AddObserver(&observer);
+
+  // This should trigger LayoutAttachedWindows and SetBounds on window2_.
+  // The implemented CHECK should catch this, and crash the program safely.
+  EXPECT_CHECK_DEATH(resizer->Drag(CalculateDragPoint(*resizer, 100, 10), 0));
+
+  window2_->RemoveObserver(&observer);
 }
 
 // Assertions around collapsing and expanding.
@@ -786,6 +836,28 @@ TEST_F(WorkspaceWindowResizerTest, RestackAttached) {
     const std::vector<int> expected_order = {2, 3, 1};
     EXPECT_EQ(expected_order, WindowOrderAsIntVector(window_->parent()));
   }
+}
+
+TEST_F(WorkspaceWindowResizerTest, RestackAttached_ResizerDestruction) {
+  // Verifies that destroying the resizer during **restacking** does not cause a
+  // Use-After-Free.
+  window_->SetBounds(gfx::Rect(0, 0, 200, 300));
+  window2_->SetBounds(gfx::Rect(200, 0, 100, 200));
+  window3_->SetBounds(gfx::Rect(300, 0, 100, 100));
+
+  std::unique_ptr<WorkspaceWindowResizer> resizer =
+      CreateWorkspaceResizerForTest(window_.get(), HTRIGHT,
+                                    {window2_.get(), window3_.get()});
+  ASSERT_TRUE(resizer.get());
+
+  DestructionObserver observer(&resizer);
+  window2_->AddObserver(&observer);
+
+  // This should trigger RestackWindows and call StackChildBelow.
+  // The CHECK in RestackWindows should detect destruction and crash safely.
+  EXPECT_CHECK_DEATH(resizer->Drag(CalculateDragPoint(*resizer, 100, -10), 0));
+
+  window2_->RemoveObserver(&observer);
 }
 
 // Makes sure we don't allow dragging below the work area.

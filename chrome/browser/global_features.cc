@@ -53,7 +53,11 @@
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/lifetime/smart_restart_manager.h"
+#include "chrome/browser/lifetime/smart_restart_metrics_observer.h"
 #include "chrome/browser/ui/startup/profile_launch_observer.h"
+#include "chrome/browser/upgrade_detector/upgrade_detector.h"
+#include "chrome/common/chrome_features.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_WIN)
@@ -101,10 +105,6 @@ void GlobalFeatures::ReplaceGlobalFeaturesForTesting(
   f = std::move(factory);
 }
 
-void GlobalFeatures::PreBrowserProcessInit() {
-  PreBrowserProcessInitCore();
-}
-
 void GlobalFeatures::PostBrowserProcessInit() {
 #if BUILDFLAG(IS_WIN)
   startup_launch_manager_ =
@@ -114,7 +114,7 @@ void GlobalFeatures::PostBrowserProcessInit() {
 
   PostBrowserProcessInitCore();
 
-  if (glic::GlicEnabling::IsEnabledByFlags()) {
+  if (glic::GlicEnabling::IsEnabledByGlobalCriteria()) {
     glic_profile_manager_ = std::make_unique<glic::GlicProfileManager>();
 #if !BUILDFLAG(IS_ANDROID)
     glic_background_mode_manager_ =
@@ -147,11 +147,19 @@ void GlobalFeatures::PostBrowserProcessInit() {
 
 #if !BUILDFLAG(IS_ANDROID)
   profile_launch_observer_ = std::make_unique<ProfileLaunchObserver>();
-#endif  // !BUILDFLAG(IS_ANDROID)
-}
 
-void GlobalFeatures::PreBrowserProcessInitCore() {
-  global_browser_collection_ = std::make_unique<GlobalBrowserCollection>();
+  if (base::FeatureList::IsEnabled(features::kSmartRestartMetrics)) {
+    smart_restart_metrics_observer_ =
+        std::make_unique<smart_restart::SmartRestartMetricsObserver>(
+            UpgradeDetector::GetInstance());
+  }
+
+  if (base::FeatureList::IsEnabled(features::kSmartRestart)) {
+    smart_restart_manager_ =
+        std::make_unique<smart_restart::SmartRestartManager>(
+            UpgradeDetector::GetInstance());
+  }
+#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 void GlobalFeatures::PostBrowserProcessInitCore() {
@@ -203,8 +211,14 @@ void GlobalFeatures::PostBrowserProcessInitCore() {
   }
 }
 
+void GlobalFeatures::Init() {
+  global_browser_collection_ = CreateGlobalBrowserCollection();
+}
+
 void GlobalFeatures::PostMainMessageLoopRun() {
 #if !BUILDFLAG(IS_ANDROID)
+  smart_restart_manager_.reset();
+  smart_restart_metrics_observer_.reset();
   profile_launch_observer_.reset();
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -236,8 +250,6 @@ void GlobalFeatures::PostDestroyThreads() {
   // since its infobar manager observes GlobalBrowserCollection.
   startup_launch_manager_.reset();
 #endif  // !BUILDFLAG(IS_ANDROID)
-
-  global_browser_collection_.reset();
 }
 
 std::unique_ptr<system_permission_settings::PlatformHandle>
@@ -251,6 +263,11 @@ GlobalFeatures::CreateWhatsNewRegistry() {
   return whats_new::CreateWhatsNewRegistry();
 }
 #endif
+
+std::unique_ptr<GlobalBrowserCollection>
+GlobalFeatures::CreateGlobalBrowserCollection() {
+  return std::make_unique<GlobalBrowserCollection>();
+}
 
 // static
 ui::UserDataFactoryWithOwner<BrowserProcess>&

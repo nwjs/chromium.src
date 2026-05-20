@@ -13,8 +13,8 @@
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/webui/signin/history_sync_optin_helper.h"
 #include "chrome/browser/ui/webui/signin/history_sync_optin_service_factory.h"
@@ -41,7 +41,7 @@ void HistorySyncOptinServiceDefaultDelegate::ShowHistorySyncOptinScreen(
     HistorySyncOptinHelper::FlowCompletedCallback callback) {
   CHECK(profile);
   BrowserWindowInterface* const browser =
-      chrome::FindLastActiveWithProfile(profile);
+      ProfileBrowserCollection::GetForProfile(profile)->GetLastActiveBrowser();
   if (!browser) {
     // The browser has been closed in the meantime, nothing to do.
     std::move(callback.value())
@@ -210,6 +210,7 @@ void HistorySyncOptinService::OnPrimaryAccountChanged(
     case signin_metrics::AccessPoint::kMenu:
     case signin_metrics::AccessPoint::kSettings:
     case signin_metrics::AccessPoint::kSettingsYourSavedInfo:
+    case signin_metrics::AccessPoint::kSettingsAutofillAndPasswords:
     case signin_metrics::AccessPoint::kExtensionInstallBubble:
     case signin_metrics::AccessPoint::kExtensions:
     case signin_metrics::AccessPoint::kBookmarkBubble:
@@ -342,7 +343,7 @@ void HistorySyncOptinService::OnPrimaryAccountChanged(
 
 void HistorySyncOptinService::ShowErrorDialogWithMessage(int error_message_id) {
   BrowserWindowInterface* const browser =
-      chrome::FindLastActiveWithProfile(profile_);
+      ProfileBrowserCollection::GetForProfile(profile_)->GetLastActiveBrowser();
   signin_util::ShowErrorDialogWithMessage(
       browser ? browser->GetBrowserForMigrationOnly() : nullptr,
       error_message_id);

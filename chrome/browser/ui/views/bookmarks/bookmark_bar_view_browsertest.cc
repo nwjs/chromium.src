@@ -22,8 +22,8 @@
 #include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view_observer.h"
@@ -387,7 +387,7 @@ class FakeProtocolHandlerDelegate : public ExternalProtocolHandler::Delegate {
 
 // Checks that opening a bookmark to a URL handled by an external handler is not
 // blocked by anti-flood protection. Regression test for
-// https://crbug.com/1156651
+// https://crbug.com/40160453
 IN_PROC_BROWSER_TEST_F(BookmarkBarNavigationTest, ExternalHandlerAllowed) {
   const char external_protocol[] = "fake";
   const GURL external_url = GURL("fake://path");

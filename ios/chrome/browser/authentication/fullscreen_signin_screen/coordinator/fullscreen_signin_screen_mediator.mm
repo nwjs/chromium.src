@@ -11,7 +11,9 @@
 #import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/metrics/metrics_pref_names.h"
+#import "components/metrics/metrics_reporting_choice_service.h"
 #import "components/prefs/pref_service.h"
+#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "components/sync/service/sync_service.h"
 #import "components/web_resource/web_resource_pref_names.h"
@@ -201,8 +203,7 @@ enum class SigninScreenState {
 
   // The sign-in screen should not be displayed if the user is already
   // signed-in.
-  CHECK(!_authenticationService->HasPrimaryIdentity(
-            signin::ConsentLevel::kSignin),
+  CHECK(!_authenticationService->HasPrimaryIdentity(),
         base::NotFatalUntil::M145);
   [self.consumer setUIEnabled:NO];
   authenticationFlow.delegate = self;
@@ -212,8 +213,7 @@ enum class SigninScreenState {
 - (void)cancelSignInScreenWithCompletion:(ProceduralBlock)completion {
   // The sign-in screen should not be displayed if the user is already
   // signed-in.
-  CHECK(!_authenticationService->HasPrimaryIdentity(
-            signin::ConsentLevel::kSignin),
+  CHECK(!_authenticationService->HasPrimaryIdentity(),
         base::NotFatalUntil::M140);
   if (completion) {
     completion();
@@ -296,11 +296,8 @@ enum class SigninScreenState {
       self.consumer.screenIntent = SigninScreenConsumerScreenIntentSigninOnly;
       break;
     case SigninScreenState::kFirstRunAsFirstScreen:
-      BOOL metricReportingDisabled =
-          self.localPrefService->IsManagedPreference(
-              metrics::prefs::kMetricsReportingEnabled) &&
-          !self.localPrefService->GetBoolean(
-              metrics::prefs::kMetricsReportingEnabled);
+      BOOL metricReportingDisabled = metrics::MetricsReportingChoiceService::
+          IsMetricsReportingDisabledByPolicy(self.localPrefService);
       self.consumer.screenIntent =
           metricReportingDisabled
               ? SigninScreenConsumerScreenIntentWelcomeWithoutUMAAndSignin
@@ -335,12 +332,20 @@ enum class SigninScreenState {
                                                                  identity {
   self.signinInProgress = NO;
   [self.consumer setUIEnabled:YES];
-  if (cancelationReason != signin_ui::CancelationReason::kNotCanceled) {
-    return;
+  switch (cancelationReason) {
+    case signin_ui::CancelationReason::kAgeMismatchCanceledStaySignedOut:
+      [self.delegate fullscreenSigninScreenMediatorWantsToBeDismissed:self];
+      return;
+    case signin_ui::CancelationReason::kNotCanceled:
+      [self.logger logSigninCompletedWithResult:SigninCoordinatorResultSuccess
+                                   addedAccount:self.addedAccount];
+      [self.delegate fullscreenSigninScreenMediatorDidFinishSignin:self];
+      return;
+    case signin_ui::CancelationReason::kUserCanceled:
+    case signin_ui::CancelationReason::kFailed:
+    case signin_ui::CancelationReason::kAgeMismatchCanceled:
+      return;
   }
-  [self.logger logSigninCompletedWithResult:SigninCoordinatorResultSuccess
-                               addedAccount:self.addedAccount];
-  [self.delegate fullscreenSigninScreenMediatorDidFinishSignin:self];
 }
 
 - (void)authenticationFlowWillSwitchProfileWithReadyCompletion:

@@ -7,8 +7,8 @@
 #include "base/functional/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_mock_time_task_runner.h"
-#include "base/test/trace_event_analyzer.h"
-#include "base/test/trace_test_utils.h"
+#include "base/test/tracing/trace_event_analyzer.h"
+#include "base/test/tracing/trace_test_utils.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/ukm/test_ukm_recorder.h"
@@ -118,7 +118,7 @@ class ImagePaintTimingDetectorTest : public testing::Test,
   gfx::Rect GetViewportRect(LocalFrameView& view) {
     ScrollableArea* scrollable_area = view.GetScrollableArea();
     DCHECK(scrollable_area);
-    return scrollable_area->VisibleContentRect();
+    return scrollable_area->VisibleContentRect(kExcludeScrollbars);
   }
 
   ImageRecord* LargestImage() {
@@ -171,13 +171,15 @@ class ImagePaintTimingDetectorTest : public testing::Test,
 
   base::TimeTicks LargestPaintTime() {
     return GetPaintTimingDetector()
-        .LatestLcpDetailsForTest()
+        .GetLargestContentfulPaintCalculator()
+        ->LatestLcpDetails()
         .largest_image_paint_time;
   }
 
   uint64_t LargestPaintSize() {
     return GetPaintTimingDetector()
-        .LatestLcpDetailsForTest()
+        .GetLargestContentfulPaintCalculator()
+        ->LatestLcpDetails()
         .largest_image_paint_size;
   }
 
@@ -1061,8 +1063,7 @@ TEST_P(ImagePaintTimingDetectorTest, NullTimeNoCrash) {
     <img id="target"></img>
   )HTML");
   SetImageAndPaint("target", 5, 5);
-  SimulateRendering();
-  GetPaintTimingDetector().UpdateLcpCandidate();
+  SimulateRenderingAndPresentationTime();
 }
 
 TEST_P(ImagePaintTimingDetectorTest, Iframe) {
@@ -1368,15 +1369,13 @@ TEST_P(ImagePaintTimingDetectorTest, MAYBE_LargestImagePaint_Detached_Frame) {
   SetChildFrameImageAndPaint("target", 5, 5);
   SimulateRenderingAndPresentationTime();
   LocalFrame* child_frame = GetChildFrame();
-  PaintTimingDetector* child_detector =
-      &child_frame->View()->GetPaintTimingDetector();
   GetDocument().body()->SetInnerHTMLWithoutTrustedTypes("",
                                                         ASSERT_NO_EXCEPTION);
   EXPECT_TRUE(child_frame->IsDetached());
 
   // Start tracing, we only want to capture it during the ReportPaintTime.
   trace_analyzer::Start("loading");
-  child_detector->UpdateLcpCandidate();
+  SimulateRenderingAndPresentationTime();
 
   auto analyzer = trace_analyzer::Stop();
   trace_analyzer::TraceEventVector events;

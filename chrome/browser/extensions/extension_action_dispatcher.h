@@ -5,8 +5,6 @@
 #ifndef CHROME_BROWSER_EXTENSIONS_EXTENSION_ACTION_DISPATCHER_H_
 #define CHROME_BROWSER_EXTENSIONS_EXTENSION_ACTION_DISPATCHER_H_
 
-#include <string>
-
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
@@ -86,8 +84,12 @@ class ExtensionActionDispatcher : public BrowserContextKeyedAPI {
                                   bool is_pinned);
 
   // Clears the values for all ExtensionActions for the tab associated with the
-  // given `web_contents` (and signals that page actions changed).
-  void ClearAllValuesForTab(content::WebContents* web_contents);
+  // given `web_contents` (and signals that page actions changed). If
+  // `web_contents_being_destroyed` is true, also clears declarative state,
+  // which is only needed on destruction (the ContentRulesRegistry reverts it
+  // on navigations).
+  void ClearAllValuesForTab(content::WebContents* web_contents,
+                            bool web_contents_being_destroyed = false);
 
   void set_prefs_for_testing(ExtensionPrefs* prefs) {
     extension_prefs_ = prefs;
@@ -98,13 +100,6 @@ class ExtensionActionDispatcher : public BrowserContextKeyedAPI {
 
   // Returns the associated extension prefs.
   ExtensionPrefs* GetExtensionPrefs();
-
-  // The DispatchEvent methods forward events to the `context`'s event router.
-  void DispatchEventToExtension(content::BrowserContext* context,
-                                const ExtensionId& extension_id,
-                                events::HistogramValue histogram_value,
-                                const std::string& event_name,
-                                base::ListValue event_args);
 
   // BrowserContextKeyedAPI implementation.
   void Shutdown() override;

@@ -17,8 +17,10 @@
 #include "base/time/time.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
+#include "chrome/browser/ui/views/toolbar/app_menu_control.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_menu_button.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
@@ -45,6 +47,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/image/image_unittest_util.h"
+#include "ui/views/interaction/element_tracker_views.h"
 
 namespace web_app {
 
@@ -97,10 +100,11 @@ IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandBrowserTest, SilentUpdate) {
   provider().command_manager().AwaitAllCommandsCompleteForTesting();
 
   // Menu button should not have update available.
-  WebAppMenuButton* const menu_button =
-      static_cast<WebAppMenuButton*>(app_browser->GetBrowserView()
-                                         .toolbar_button_provider()
-                                         ->GetAppMenuButton());
+  WebAppMenuButton* const menu_button = views::AsViewClass<WebAppMenuButton>(
+      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+          kToolbarAppMenuButtonElementId,
+          views::ElementTrackerViews::GetContextForView(
+              &app_browser->GetBrowserView())));
   EXPECT_FALSE(menu_button->IsLabelPresentAndVisible());
 
   EXPECT_EQ(
@@ -139,10 +143,11 @@ IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandBrowserTest, PendingUpdate) {
   provider().command_manager().AwaitAllCommandsCompleteForTesting();
 
   // Menu button should not have update available.
-  WebAppMenuButton* const menu_button =
-      static_cast<WebAppMenuButton*>(app_browser->GetBrowserView()
-                                         .toolbar_button_provider()
-                                         ->GetAppMenuButton());
+  WebAppMenuButton* const menu_button = views::AsViewClass<WebAppMenuButton>(
+      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+          kToolbarAppMenuButtonElementId,
+          views::ElementTrackerViews::GetContextForView(
+              &app_browser->GetBrowserView())));
   EXPECT_FALSE(menu_button->IsLabelPresentAndVisible());
 
   EXPECT_EQ(
@@ -214,7 +219,7 @@ IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandBrowserTest,
   const GURL app_url =
       embedded_https_test_server().GetURL("/web_apps/updating/index_blue.html");
   const webapps::AppId app_id =
-      InstallWebAppFromPageAndCloseAppBrowser(browser(), app_url);
+      InstallWebAppInNewTabAndClose(browser(), app_url);
   Browser* app_browser = LaunchWebAppBrowser(app_id);
   // TODO(crbug.com/442643377): Delete this wait after the update runs for every
   // navigation.
@@ -291,7 +296,7 @@ IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandBrowserTest,
   const GURL app_url =
       embedded_https_test_server().GetURL("/web_apps/updating/index_blue.html");
   const webapps::AppId app_id =
-      InstallWebAppFromPageAndCloseAppBrowser(browser(), app_url);
+      InstallWebAppInNewTabAndClose(browser(), app_url);
   Browser* app_browser = LaunchWebAppBrowser(app_id);
   // TODO(crbug.com/442643377): Delete this wait after the update runs for every
   // navigation.
@@ -358,17 +363,18 @@ IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandBrowserTest,
   const GURL app_url =
       embedded_https_test_server().GetURL("/web_apps/updating/index.html");
   const webapps::AppId app_id =
-      InstallWebAppFromPageAndCloseAppBrowser(browser(), app_url);
+      InstallWebAppInNewTabAndClose(browser(), app_url);
   Browser* app_browser = LaunchWebAppBrowser(app_id);
   // TODO(crbug.com/442643377): Delete this wait after the update runs for every
   // navigation.
   provider().command_manager().AwaitAllCommandsCompleteForTesting();
 
   // Menu button should not have update available.
-  WebAppMenuButton* const menu_button =
-      static_cast<WebAppMenuButton*>(app_browser->GetBrowserView()
-                                         .toolbar_button_provider()
-                                         ->GetAppMenuButton());
+  WebAppMenuButton* const menu_button = views::AsViewClass<WebAppMenuButton>(
+      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+          kToolbarAppMenuButtonElementId,
+          views::ElementTrackerViews::GetContextForView(
+              &app_browser->GetBrowserView())));
   EXPECT_FALSE(menu_button->IsLabelPresentAndVisible());
   EXPECT_EQ(app_url, provider().registrar_unsafe().GetAppStartUrl(app_id));
 
@@ -430,7 +436,7 @@ IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandBrowserTest,
   const GURL app_url =
       embedded_https_test_server().GetURL("/web_apps/updating/index.html");
   const webapps::AppId app_id =
-      InstallWebAppFromPageAndCloseAppBrowser(browser(), app_url);
+      InstallWebAppInNewTabAndClose(browser(), app_url);
   base::test::TestFuture<void> test_future;
   provider().scheduler().SetUserDisplayMode(
       app_id, mojom::UserDisplayMode::kBrowser, test_future.GetCallback());
@@ -455,7 +461,7 @@ IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandBrowserTest,
                   ->pending_update_info()
                   .has_value());
   const webapps::AppId new_installed_app_id =
-      InstallWebAppFromPageAndCloseAppBrowser(browser(), update_url);
+      InstallWebAppInNewTabAndClose(browser(), update_url);
   ASSERT_EQ(new_installed_app_id, app_id);
   EXPECT_FALSE(provider()
                    .registrar_unsafe()
@@ -470,10 +476,11 @@ IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandBrowserTest,
   // button should not be updated.
   Browser* app_browser = LaunchWebAppBrowser(app_id);
   provider().command_manager().AwaitAllCommandsCompleteForTesting();
-  WebAppMenuButton* const menu_button =
-      static_cast<WebAppMenuButton*>(app_browser->GetBrowserView()
-                                         .toolbar_button_provider()
-                                         ->GetAppMenuButton());
+  WebAppMenuButton* const menu_button = views::AsViewClass<WebAppMenuButton>(
+      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
+          kToolbarAppMenuButtonElementId,
+          views::ElementTrackerViews::GetContextForView(
+              &app_browser->GetBrowserView())));
   EXPECT_FALSE(menu_button->IsLabelPresentAndVisible());
 }
 
@@ -509,7 +516,7 @@ IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandBrowserTest,
   const GURL app_url =
       embedded_https_test_server().GetURL("/web_apps/updating/index.html");
   const webapps::AppId app_id =
-      InstallWebAppFromPageAndCloseAppBrowser(browser(), app_url);
+      InstallWebAppInNewTabAndClose(browser(), app_url);
 
   EXPECT_EQ(app_url, provider().registrar_unsafe().GetAppStartUrl(app_id));
 
@@ -562,7 +569,7 @@ IN_PROC_BROWSER_TEST_F(ManifestSilentUpdateCommandLineTests,
   const GURL app_url =
       embedded_https_test_server().GetURL("/web_apps/updating/index_blue.html");
   const webapps::AppId app_id =
-      InstallWebAppFromPageAndCloseAppBrowser(browser(), app_url);
+      InstallWebAppInNewTabAndClose(browser(), app_url);
   Browser* app_browser = LaunchWebAppBrowser(app_id);
   // TODO(crbug.com/442643377): Delete this wait after the update runs for every
   // navigation.

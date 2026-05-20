@@ -33,6 +33,8 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/sync/sync_startup_tracker.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/webui/signin/history_sync_optin_helper.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/webui/signin/signin_ui_error.h"
@@ -136,13 +138,13 @@ bool TurnSyncOnHelper::Delegate::IsProfileCreationRequiredByPolicy() const {
 // static
 void TurnSyncOnHelper::Delegate::ShowLoginErrorForBrowser(
     const SigninUIError& error,
-    Browser* browser) {
+    BrowserWindowInterface* browser) {
   if (!browser) {
     // TODO(crbug.com/40242414): Make sure we do something or log an error if
     // opening a browser window was not possible.
     return;
   }
-  LoginUIServiceFactory::GetForProfile(browser->profile())
+  LoginUIServiceFactory::GetForProfile(browser->GetProfile())
       ->DisplayLoginResult(browser->GetFeatures(), error);
 }
 
@@ -190,7 +192,7 @@ TurnSyncOnHelper::TurnSyncOnHelper(
 
   // Trigger the start of the flow via a posted task. Starting the flow could
   // result in the deletion of this object and the deletion of the host, which
-  // should not be done synchronously. See crbug.com/1367078 for example.
+  // should not be done synchronously. See crbug.com/40867387 for example.
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(&TurnSyncOnHelper::TurnSyncOnInternal,
                                 weak_pointer_factory_.GetWeakPtr()));
@@ -249,7 +251,8 @@ void TurnSyncOnHelper::TurnSyncOnInternal() {
   // Handles cross account sign in error. If |account_info_| does not match the
   // last authenticated account of the current profile, then Chrome will show a
   // confirmation dialog before starting sync.
-  // TODO(skym): Warn for high risk upgrade scenario (https://crbug.com/572754).
+  // TODO(skym): Warn for high risk upgrade scenario
+  // (https://crbug.com/40450589).
   std::string last_email = profile_->GetPrefs()->GetString(
       prefs::kGoogleServicesLastSyncingUsername);
   delegate_->ShowMergeSyncDataConfirmation(
@@ -483,7 +486,7 @@ void TurnSyncOnHelper::SigninAndShowSyncConfirmationUI() {
     // this is needed to make sure that all cloud policies are loaded before any
     // dialog is shown to check whether sync was disabled by admin. Only wait
     // for cloud policies because local policies are instantly available. See
-    // http://crbug.com/812546
+    // http://crbug.com/41370767
     sync_startup_state_observer_ = SyncServiceStartupStateObserver::
         MaybeCreateSyncServiceStateObserverForAccountWithClouldPolicies(
             sync_service, profile_, account_info_,

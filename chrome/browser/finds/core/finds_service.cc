@@ -240,6 +240,13 @@ void FindsService::RemoveObserver(Observer* observer) {
 
 void FindsService::ExecuteModelAndScheduleNotification(
     base::OnceCallback<void(Result)> callback) {
+  if (!IsAllowedByEnterprisePolicy(pref_service_)) {
+    RecordFindsResultAndRunCallback(
+        std::move(callback), {Result::Status::kDisabledByEnterprisePolicy,
+                              "Error: Feature disabled by enterprise policy."});
+    return;
+  }
+
   if (!IsModelExecutionCooldownPassed(pref_service_)) {
     RecordFindsResultAndRunCallback(std::move(callback),
                                     {Result::Status::kModelExecutionOnCooldown,
@@ -276,6 +283,10 @@ void FindsService::ExecuteModelAndScheduleNotification(
 
 void FindsService::RecordThemeURLVisited(
     optimization_guide::proto::FindsMetadata::ThemeType theme_type) {
+  if (!IsAllowedByEnterprisePolicy(pref_service_)) {
+    return;
+  }
+
   if (theme_type == optimization_guide::proto::FindsMetadata::UNKNOWN) {
     return;
   }
@@ -293,6 +304,10 @@ void FindsService::RecordThemeURLVisited(
 }
 
 void FindsService::SRPBackNavigationCountForOptInReached() {
+  if (!IsAllowedByEnterprisePolicy(pref_service_)) {
+    return;
+  }
+
   NotifyOptInCriteriaFulfilled(
       FindsOptInTriggerReason::kSrpBackNavigationCount);
 }
@@ -329,6 +344,9 @@ void FindsService::CheckFindsNotificationsEnabledAndMaybeExecute() {
   pref_service_->ClearPref(prefs::kFindsOptInPromoLastInteractedTimestamp);
 
 #if BUILDFLAG(IS_ANDROID)
+  if (!IsAllowedByEnterprisePolicy(pref_service_)) {
+    return;
+  }
   FindsServiceAndroid::CheckAreFindsNotificationsEnabledAndroid(
       base::BindOnce(&FindsService::OnCheckAreFindsNotificationsEnabled,
                      weak_ptr_factory_.GetWeakPtr()));
@@ -466,10 +484,18 @@ bool FindsService::ScheduleNotificationWithModelResult(
   notifications::ScheduleParams scheduler_params = GetCurrentScheduleParams();
   notifications::NotificationData data =
       GetNotificationData(suggestion, theme.theme_type());
+  // Shouldn't happen, but proactively delete stale notifications that have been
+  // scheduled but not yet sent out.
+  notification_schedule_service_->DeleteNotifications(
+      notifications::SchedulerClientType::kChromeFinds);
   notification_schedule_service_->Schedule(
       std::make_unique<notifications::NotificationParams>(
           notifications::SchedulerClientType::kChromeFinds, std::move(data),
           std::move(scheduler_params)));
+  // Track model execution timestamp to properly cooldown the model from being
+  // rerun during the window between scheduling and notification being shown.
+  finds::MarkModelExecutionLastTimestamp(pref_service_);
+
   return true;
 }
 

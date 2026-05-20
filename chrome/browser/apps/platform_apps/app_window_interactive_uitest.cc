@@ -6,7 +6,6 @@
 #include "chrome/browser/apps/platform_apps/app_window_interactive_uitest_base.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/test/base/interactive_test_utils.h"
@@ -257,8 +256,8 @@ IN_PROC_BROWSER_TEST_F(AppWindowInteractiveTest,
 
 #if BUILDFLAG(IS_MAC) || defined(THREAD_SANITIZER) || BUILDFLAG(IS_LINUX)
 // http://crbug.com/41126120
-// http://crbug.com/1263448 (tsan)
-// http://crbug.com/1263661 (linux)
+// http://crbug.com/40800211 (tsan)
+// http://crbug.com/40800332 (linux)
 #define MAYBE_TestInnerBounds DISABLED_TestInnerBounds
 #else
 #define MAYBE_TestInnerBounds TestInnerBounds

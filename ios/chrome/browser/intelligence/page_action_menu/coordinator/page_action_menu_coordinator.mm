@@ -11,8 +11,8 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
 #import "ios/chrome/browser/dom_distiller/model/distiller_service_factory.h"
-#import "ios/chrome/browser/intelligence/bwg/model/bwg_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_tab_helper.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
@@ -38,6 +38,7 @@
 #import "ios/chrome/browser/shared/public/commands/page_action_menu_commands.h"
 #import "ios/chrome/browser/shared/public/commands/reader_mode_commands.h"
 #import "ios/chrome/browser/shared/public/commands/reader_mode_options_commands.h"
+#import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
@@ -80,7 +81,7 @@ constexpr NSTimeInterval kEligibilityPollTimeout = 5.0;
 #pragma mark - ChromeCoordinator
 
 - (void)start {
-  raw_ptr<BwgService> geminiService =
+  raw_ptr<GeminiService> geminiService =
       GeminiServiceFactory::GetForProfile(self.profile);
   web::WebState* activeWebState =
       self.browser->GetWebStateList()->GetActiveWebState();
@@ -264,6 +265,19 @@ constexpr NSTimeInterval kEligibilityPollTimeout = 5.0;
   [_signinCoordinator start];
 }
 
+- (void)viewController:(PageActionMenuViewController*)viewController
+    didTapFooterItemLink:(NSString*)actionIdentifier {
+  if ([actionIdentifier
+          isEqualToString:kSearchEngineSettingsActionIdentifier]) {
+    // Capture the handler before dismissal tears down the coordinator.
+    id<SettingsCommands> settingsHandler = HandlerForProtocol(
+        self.browser->GetCommandDispatcher(), SettingsCommands);
+    [self.pageActionMenuHandler dismissPageActionMenuWithCompletion:^{
+      [settingsHandler showDefaultSearchEngineSettings];
+    }];
+  }
+}
+
 #pragma mark - UIAdaptivePresentationControllerDelegate
 
 - (void)presentationControllerDidDismiss:
@@ -300,7 +314,7 @@ constexpr NSTimeInterval kEligibilityPollTimeout = 5.0;
     (AccountMenuCoordinator*)coordinator {
   [self stopAccountMenu];
 
-  raw_ptr<BwgService> geminiService =
+  raw_ptr<GeminiService> geminiService =
       GeminiServiceFactory::GetForProfile(self.profile);
 
   // Re-check eligibility after the account menu closes.

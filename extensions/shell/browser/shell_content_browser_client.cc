@@ -25,6 +25,7 @@
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/child_process_id.h"
 #include "content/public/common/content_descriptors.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
@@ -58,6 +59,7 @@
 #include "extensions/shell/common/version.h"  // Generated file.
 #include "net/base/isolation_info.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
+#include "services/network/public/mojom/fetch_api.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "url/gurl.h"
 
@@ -145,7 +147,7 @@ void ShellContentBrowserClient::SiteInstanceGotProcessAndSite(
   }
 
   ProcessMap::Get(browser_main_parts_->browser_context())
-      ->Insert(extension->id(), site_instance->GetProcess()->GetDeprecatedID());
+      ->Insert(extension->id(), site_instance->GetProcess()->GetID());
 }
 
 void ShellContentBrowserClient::AppendExtraCommandLineSwitches(
@@ -245,6 +247,8 @@ ShellContentBrowserClient::CreateNonNetworkNavigationURLLoaderFactory(
 void ShellContentBrowserClient::
     RegisterNonNetworkWorkerMainResourceURLLoaderFactories(
         content::BrowserContext* browser_context,
+        const std::optional<url::Origin>& request_initiator,
+        network::mojom::RequestDestination request_destination,
         NonNetworkURLLoaderFactoryMap* factories) {
   DCHECK(browser_context);
   DCHECK(factories);
@@ -252,7 +256,7 @@ void ShellContentBrowserClient::
   factories->emplace(
       extensions::kExtensionScheme,
       extensions::CreateExtensionWorkerMainResourceURLLoaderFactory(
-          browser_context));
+          browser_context, request_initiator));
 }
 
 void ShellContentBrowserClient::

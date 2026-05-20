@@ -10,8 +10,8 @@
 #include "base/metrics/statistics_recorder.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/common/task_annotator.h"
-#include "base/test/test_trace_processor.h"
-#include "base/test/trace_test_utils.h"
+#include "base/test/tracing/test_trace_processor.h"
+#include "base/test/tracing/trace_test_utils.h"
 #include "build/build_config.h"
 #include "components/variations/active_field_trials.h"
 #include "content/public/browser/browser_child_process_host_iterator.h"
@@ -22,9 +22,9 @@
 #include "content/public/test/content_browser_test_utils.h"
 #include "services/resource_coordinator/public/cpp/memory_instrumentation/tracing_observer_proto.h"
 #include "services/tracing/public/cpp/perfetto/metadata_data_source.h"
+#include "services/tracing/public/cpp/perfetto/perfetto_data_source_names.h"
 #include "services/tracing/public/cpp/perfetto/track_name_recorder.h"
 #include "services/tracing/public/cpp/stack_sampling/tracing_sampler_profiler.h"
-#include "services/tracing/public/mojom/perfetto_service.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/perfetto/protos/perfetto/config/chrome/chrome_config.gen.h"
 #include "third_party/perfetto/protos/perfetto/config/chrome/histogram_samples.gen.h"
@@ -70,7 +70,7 @@ perfetto::protos::gen::TraceConfig TraceConfigWithHistograms(
 
   auto* histogram_data_source = perfetto_config.add_data_sources();
   auto* histogram_source_config = histogram_data_source->mutable_config();
-  histogram_source_config->set_name(tracing::mojom::kHistogramSampleSourceName);
+  histogram_source_config->set_name(tracing::kHistogramSampleSourceName);
   histogram_source_config->set_target_buffer(0);
 
   if (!histograms.empty()) {
@@ -1063,7 +1063,7 @@ IN_PROC_BROWSER_TEST_F(SystemTracingEndToEndBrowserTest,
   // sure that at least one of them is there.
   std::vector<char> trace;
   size_t i = 0;
-  for (; i < 300; i++) {
+  for (; i < 1000; i++) {
     EXPECT_TRUE(ExecJs(tab, "performance.mark('mark1');"));
 
     base::RunLoop flush;
@@ -1079,7 +1079,7 @@ IN_PROC_BROWSER_TEST_F(SystemTracingEndToEndBrowserTest,
       break;
     }
   }
-  ASSERT_LT(i, 300U);
+  ASSERT_LT(i, 1000U);
 
   base::test::TestTraceProcessorImpl ttp;
   absl::Status status = ttp.ParseTrace(trace);

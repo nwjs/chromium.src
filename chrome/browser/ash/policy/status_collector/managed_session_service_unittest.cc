@@ -7,10 +7,15 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/simple_test_clock.h"
 #include "base/time/time.h"
+#include "chrome/browser/ash/login/session/user_session_manager.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
+#include "chrome/browser/ash/settings/scoped_testing_cros_settings.h"
+#include "chrome/browser/global_features.h"
+#include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
+#include "chromeos/ash/components/install_attributes/stub_install_attributes.h"
 #include "chromeos/ash/components/login/auth/public/auth_failure.h"
 #include "chromeos/dbus/power/fake_power_manager_client.h"
 #include "components/session_manager/core/fake_session_manager_delegate.h"
@@ -19,6 +24,8 @@
 #include "components/user_manager/scoped_user_manager.h"
 #include "components/user_manager/user_names.h"
 #include "content/public/test/browser_task_environment.h"
+#include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
+#include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/cros_system_api/dbus/login_manager/dbus-constants.h"
@@ -35,11 +42,22 @@ class ManagedSessionServiceTest : public ::testing::Test,
   void SetUp() override {
     chromeos::PowerManagerClient::InitializeFake();
     ::ash::SessionManagerClient::InitializeFake();
+    TestingBrowserProcess::GetGlobal()->SetSharedURLLoaderFactory(
+        test_url_loader_factory_.GetSafeWeakWrapper());
     session_termination_manager_ =
         std::make_unique<::ash::SessionTerminationManager>();
     session_manager_ = std::make_unique<session_manager::SessionManager>(
         std::make_unique<session_manager::FakeSessionManagerDelegate>());
     user_manager_.Reset(std::make_unique<ash::FakeChromeUserManager>());
+    user_session_manager_ = std::make_unique<ash::UserSessionManager>(
+        TestingBrowserProcess::GetGlobal()->local_state(),
+        TestingBrowserProcess::GetGlobal()
+            ->GetFeatures()
+            ->application_locale_storage(),
+        TestingBrowserProcess::GetGlobal()->shared_url_loader_factory(),
+        TestingBrowserProcess::GetGlobal()
+            ->platform_part()
+            ->browser_policy_connector_ash());
 
     managed_session_service_ =
         std::make_unique<ManagedSessionService>(&test_clock_);
@@ -47,9 +65,12 @@ class ManagedSessionServiceTest : public ::testing::Test,
 
   void TearDown() override {
     managed_session_service_.reset();
+    user_session_manager_->Shutdown();
+    user_session_manager_.reset();
     session_manager_.reset();
     user_manager_.Reset();
     session_termination_manager_.reset();
+    TestingBrowserProcess::GetGlobal()->SetSharedURLLoaderFactory(nullptr);
     ::ash::SessionManagerClient::Shutdown();
     chromeos::PowerManagerClient::Shutdown();
   }
@@ -149,13 +170,22 @@ class ManagedSessionServiceTest : public ::testing::Test,
   std::unique_ptr<base::Time> suspend_time_;
 
  private:
+  // NOTE: InstallAttributes is required to construct BrowserPolicyConnectorAsh.
+  // CrosSettings is needed because otherwise TestingProfile automatically
+  // creates ScopedCrosSettingsTestHelper, which conflicts with
+  // ScopedStubInstallAttributes.
+  ash::ScopedTestingCrosSettings scoped_testing_cros_settings_;
+  ash::ScopedStubInstallAttributes scoped_stub_install_attributes_;
+
   content::BrowserTaskEnvironment task_environment_;
+  network::TestURLLoaderFactory test_url_loader_factory_;
 
   std::unique_ptr<::ash::SessionTerminationManager>
       session_termination_manager_;
   std::unique_ptr<session_manager::SessionManager> session_manager_;
   user_manager::TypedScopedUserManager<ash::FakeChromeUserManager>
       user_manager_;
+  std::unique_ptr<ash::UserSessionManager> user_session_manager_;
 
   base::SimpleTestClock test_clock_;
 

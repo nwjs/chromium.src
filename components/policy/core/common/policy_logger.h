@@ -15,6 +15,7 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "components/policy/policy_export.h"
+#include "components/policy/resources/webui/mojom/policy.mojom-forward.h"
 
 // Note: the DLOG_POLICY macro has no "#if DCHECK_IS_ON()" check because some
 // messages logged with DLOG are still important to be seen on the
@@ -105,6 +106,8 @@ class POLICY_EXPORT PolicyLogger {
 
     base::DictValue GetAsDict() const;
 
+    policy::mojom::LogPtr GetAsMojoLog() const;
+
    private:
     Severity log_severity_;
     Source log_source_;
@@ -169,6 +172,9 @@ class POLICY_EXPORT PolicyLogger {
   // Returns the logs list as base::ListValue to send to UI.
   base::ListValue GetAsList();
 
+  // Returns the logs in the mojo format.
+  std::vector<policy::mojom::LogPtr> GetAsMojoList();
+
   // Checks if browser is running on Android.
   bool IsPolicyLoggingEnabled() const;
 
@@ -181,6 +187,9 @@ class POLICY_EXPORT PolicyLogger {
   // Clears `logs_` and sets `is_log_deletion_scheduled_` as cleanup after every
   // test.
   void ResetLoggerForTesting();
+
+  // Deletes old logs for testing purposes.
+  void ScheduleOldLogsDeletionForTesting();
 
  private:
   // Adds a new log to the logs_ list and calls `ScheduleOldLogsDeletion` if

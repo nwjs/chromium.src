@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "base/cfi_buildflags.h"
+#include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
 #include "base/test/run_until.h"
@@ -25,7 +26,6 @@
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_source.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -806,6 +806,13 @@ IN_PROC_BROWSER_TEST_F(TabUsageScenarioTrackerBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(TabUsageScenarioTrackerBrowserTest,
                        InitialVisibleNotification) {
+#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+  if (base::FeatureList::IsEnabled(features::kInitialWebUI)) {
+    GTEST_SKIP() << "Skipping test because it fails with InitialWebUI enabled. "
+                    "See crbug.com/477426026.";
+  }
+#endif
+
   // This test causes a WebContents::OnVisibilityChanged(VISIBLE) signal to be
   // emitted for a tab that was already visible when adding it.
   ui_test_utils::BrowserCreatedObserver browser_created_observer;

@@ -12,6 +12,7 @@ export {MetricsProxyImpl} from 'chrome://resources/cr_components/history_cluster
 export {HistoryEmbeddingsBrowserProxyImpl} from 'chrome://resources/cr_components/history_embeddings/browser_proxy.js';
 export type {HistoryEmbeddingsMoreActionsClickEvent} from 'chrome://resources/cr_components/history_embeddings/history_embeddings.js';
 export {PageHandlerRemote as HistoryEmbeddingsPageHandlerRemote} from 'chrome://resources/cr_components/history_embeddings/history_embeddings.mojom-webui.js';
+export type {CrA11yAnnouncerMessagesSentEvent} from 'chrome://resources/cr_elements/cr_a11y_announcer/cr_a11y_announcer.js';
 export {CrActionMenuElement} from 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 export {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.js';
 export {CrCheckboxElement} from 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.js';
@@ -29,6 +30,7 @@ export {HistoryItemElement} from './history_item.js';
 export type {ActionMenuModel} from './history_list.js';
 export {HistoryListElement} from './history_list.js';
 export {HistoryToolbarElement} from './history_toolbar.js';
+export type {ChangeQueryEvent} from './query_manager.js';
 export {HistorySearchedLabelElement} from './searched_label.js';
 export {HistorySideBarElement} from './side_bar.js';
 export {HistorySyncedDeviceCardElement} from './synced_device_card.js';

@@ -295,7 +295,10 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
 
   self = [super initWithStyle:ChromeTableViewStyle()];
   if (self) {
-    self.title = l10n_util::GetNSString(IDS_AUTOFILL_ADDRESSES_SETTINGS_TITLE);
+    self.title =
+        l10n_util::GetNSString(IsYourSavedInfoSettingsPageIosEnabled()
+                                   ? IDS_AUTOFILL_CONTACT_INFO_TITLE
+                                   : IDS_AUTOFILL_ADDRESSES_SETTINGS_TITLE);
     self.shouldDisableDoneButtonOnEdit = YES;
     _browser = browser;
     _personalDataManager = autofill::PersonalDataManagerFactory::GetForProfile(
@@ -662,11 +665,7 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
 // Returns YES if the user can modify the Enhanced Autofill setting.
 - (BOOL)canModifyEnhancedAutofill {
   return autofill::CanPerformAutofillAiAction(
-      _browser->GetProfile(),
-      base::FeatureList::IsEnabled(
-          autofill::features::kAutofillAiAvailableByDefault)
-          ? autofill::AutofillAiAction::kEnableOrDisable
-          : autofill::AutofillAiAction::kOptIn);
+      _browser->GetProfile(), autofill::AutofillAiAction::kOptIn);
 }
 
 // Configures the enhancedAutofillItem based on capability to modify the
@@ -697,9 +696,11 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
       [[TableViewSwitchItem alloc] initWithType:ItemTypeVerificationSwitch];
   switchItem.text =
       l10n_util::GetNSString(IDS_IOS_AUTOFILL_VERIFICATION_INFO_LABEL);
-  switchItem.on = autofill::prefs::IsAutofillAiReauthBeforeFillingEnabled(
-      _browser->GetProfile()->GetPrefs());
-  switchItem.enabled = [_reauthenticationModule canAttemptReauth];
+  BOOL canAttemptReauth = [_reauthenticationModule canAttemptReauth];
+  switchItem.on = canAttemptReauth &&
+                  autofill::prefs::IsAutofillAiReauthBeforeFillingEnabled(
+                      _browser->GetProfile()->GetPrefs());
+  switchItem.enabled = canAttemptReauth;
   switchItem.target = self;
   switchItem.selector = @selector(verificationSwitchChanged:);
   switchItem.accessibilityIdentifier = kAutofillVerificationSwitchTableViewId;
@@ -1225,8 +1226,7 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
   AuthenticationService* authenticationService =
       AuthenticationServiceFactory::GetForProfile(_browser->GetProfile());
   CHECK(authenticationService);
-  id<SystemIdentity> identity =
-      authenticationService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
+  id<SystemIdentity> identity = authenticationService->GetPrimaryIdentity();
   if (identity) {
     _userEmail = identity.userEmail;
   }
@@ -1641,7 +1641,7 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
 
 // Returns whether to show the add menu with addresses and entities.
 - (bool)shouldShowAddMenu {
-  return _entityDataManager != nullptr;
+  return _entityDataManager != nullptr && [self canModifyEnhancedAutofill];
 }
 
 // Updates the add button in the toolbar based on whether the add menu should be
@@ -1653,6 +1653,7 @@ ItemType ItemTypeForEntitySectionHeader(SectionIdentifier section_identifier) {
     _addButtonInToolbar.target = nil;
     _addButtonInToolbar.menu =
         [self buildAddEntitiesMenuWithProfileEnabled:profileEnabled];
+    _addButtonInToolbar.enabled = YES;
   } else {
     _addButtonInToolbar.enabled = profileEnabled;
   }

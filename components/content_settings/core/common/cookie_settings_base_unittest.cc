@@ -82,7 +82,6 @@ class CallbackCookieSettings : public CookieSettingsBase {
     return MaybeBlockThirdPartyCookiesPerModifiers(top_frame_origin, overrides)
         .value_or(false);
   }
-  bool MitigationsEnabledFor3pcd() const override { return false; }
 
   bool IsThirdPartyCookiesAllowedScheme(
       std::string_view scheme) const override {
@@ -91,7 +90,8 @@ class CallbackCookieSettings : public CookieSettingsBase {
 
   bool ShouldIgnoreSameSiteRestrictions(
       const GURL& url,
-      const net::SiteForCookies& site_for_cookies) const override {
+      const net::SiteForCookies& site_for_cookies,
+      const url::Origin& top_level_origin) const override {
     NOTREACHED();
   }
 

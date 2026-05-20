@@ -9,7 +9,7 @@ chrome.test.runTests([function registerListeners() {
   for (let i = 0; i < MAX_LISTENERS; i++) {
     listeners.push({
       callback: function() {},
-      filter: {serviceType: `_${i}._tcp.local`}
+      filter: {serviceType: `_${i}._tcp.local`},
     });
   }
   listeners.forEach(function(x) {
@@ -22,11 +22,11 @@ chrome.test.runTests([function registerListeners() {
   let failedToAddLast = false;
   try {
     chrome.mdns.onServiceList.addListener(function() {}, {
-      serviceType: '_one_too_many._tcp.local'
+      serviceType: '_one_too_many._tcp.local',
     });
   } catch (e) {
     chrome.test.assertTrue(
-        e.message.indexOf('Too many listeners') != -1, e.message);
+        e.message.indexOf('Too many listeners') !== -1, e.message);
     failedToAddLast = true;
   }
   chrome.test.assertTrue(

@@ -14,6 +14,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/notimplemented.h"
+#include "base/strings/strcat.h"
 #include "base/time/tick_clock.h"
 #include "base/time/time.h"
 #include "base/values.h"
@@ -103,6 +104,12 @@ class ReportingServiceImpl : public ReportingService {
       return;
 
     // Strip username, password, and ref fragment from the URL.
+    //
+    // Note: This uses GURL::GetAsReferrer() which restricts the URL to
+    // http/https schemes. This is inconsistent with the Reporting API
+    // specification's "strip a URL for use in reports" algorithm
+    // (https://w3c.github.io/reporting/#strip-url-for-use-in-reports), which
+    // has no scheme restrictions (but clears credentials for fetch schemes).
     GURL sanitized_url = url.GetAsReferrer();
     if (!sanitized_url.is_valid())
       return;
@@ -126,8 +133,9 @@ class ReportingServiceImpl : public ReportingService {
     if (header_string.size() > kMaxJsonSize)
       return;
 
-    std::optional<base::Value> header_value = base::JSONReader::Read(
-        "[" + header_string + "]", base::JSON_PARSE_RFC, kMaxJsonDepth);
+    std::optional<base::Value> header_value =
+        base::JSONReader::Read(base::StrCat({"[", header_string, "]"}),
+                               base::JSON_PARSE_RFC, kMaxJsonDepth);
     if (!header_value)
       return;
 
@@ -343,9 +351,11 @@ ReportingService::~ReportingService() = default;
 std::unique_ptr<ReportingService> ReportingService::Create(
     const ReportingPolicy& policy,
     URLRequestContext* request_context,
-    ReportingCache::PersistentReportingStore* store) {
-  return std::make_unique<ReportingServiceImpl>(
-      ReportingContext::Create(policy, request_context, store));
+    ReportingCache::PersistentReportingStore* store,
+    ReportingUploader::PrepareUploadRequestCallback
+        prepare_upload_request_callback) {
+  return std::make_unique<ReportingServiceImpl>(ReportingContext::Create(
+      policy, request_context, store, prepare_upload_request_callback));
 }
 
 // static

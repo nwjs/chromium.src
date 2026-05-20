@@ -10,13 +10,13 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
+#include "base/notimplemented.h"
 #include "base/path_service.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/glic/fre/fre_util.h"
-#include "chrome/browser/glic/fre/glic_fre_dialog_view.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/host/glic_features.mojom.h"
 #include "chrome/browser/glic/host/guest_util.h"
@@ -236,22 +236,8 @@ void GlicE2ETest::TearDownOnMainThread() {
 }
 
 ui::test::InteractiveTestApi::MultiStep GlicE2ETest::WaitForAndInstrumentFre() {
-  MultiStep steps(Steps(
-      UninstrumentWebContents(kGlicFreContentsElementId, false),
-      UninstrumentWebContents(kGlicFreHostElementId, false),
-      InAnyContext(
-          ObserveState(kGlicFreShowingDialogState, std::ref(fre_controller())),
-          WaitForState(kGlicFreShowingDialogState, true),
-          Steps(InstrumentNonTabWebView(
-                    kGlicFreHostElementId,
-                    GlicFreDialogView::kWebViewElementIdForTesting),
-                InstrumentInnerWebContents(kGlicFreContentsElementId,
-                                           kGlicFreHostElementId, 0),
-                WaitForWebContentsReady(kGlicFreContentsElementId)),
-          StopObservingState(kGlicFreShowingDialogState))));
-
-  AddDescriptionPrefix(steps, "WaitForAndInstrumentFre");
-  return steps;
+  NOTIMPLEMENTED();
+  return MultiStep();
 }
 
 ui::test::InteractiveTestApi::MultiStep
@@ -262,8 +248,7 @@ GlicE2ETest::WaitForAndInstrumentGlic() {
       InAnyContext(
           ObserveState(kGlicInstanceCoordinatorState,
                        std::ref(instance_coordinator()), active_tab()),
-          WaitForState(kGlicInstanceCoordinatorState,
-                       GlicInstanceCoordinator::State::kOpen),
+          WaitForState(kGlicInstanceCoordinatorState, GlicPanelState::kOpen),
           Steps(InstrumentNonTabWebView(kGlicHostElementId, kGlicViewElementId),
                 InstrumentInnerWebContents(kGlicContentsElementId,
                                            kGlicHostElementId, 0),
@@ -348,16 +333,9 @@ void GlicE2ETest::ThrottleWebContentsNetwork(
 }
 
 void GlicE2ETest::ThrottleGlicNetwork() {
-  auto* glic_service =
-      glic::GlicKeyedServiceFactory::GetGlicKeyedService(browser()->profile());
-  for (auto* host : glic_service->host_manager().GetAllHosts()) {
-    auto* webui_contents = host->webui_contents();
-    if (webui_contents) {
-      content::WebContents* inner_contents =
-          webui_contents->GetInnerWebContents()[0];
-      CHECK(inner_contents);
-      ThrottleWebContentsNetwork(inner_contents);
-    }
+  for (auto* guest_contents :
+       glic::GetAllGlicGuestWebContentsForTesting(browser()->profile())) {
+    ThrottleWebContentsNetwork(guest_contents);
   }
 }
 

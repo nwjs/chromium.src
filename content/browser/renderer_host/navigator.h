@@ -171,8 +171,6 @@ class CONTENT_EXPORT Navigator {
       bool force_new_browsing_instance = false,
       bool is_container_initiated = false,
       bool has_rel_opener = false,
-      net::StorageAccessApiStatus storage_access_api_status =
-          net::StorageAccessApiStatus::kNone,
       std::optional<std::u16string> embedder_shared_storage_context =
           std::nullopt);
 
@@ -201,6 +199,9 @@ class CONTENT_EXPORT Navigator {
       int initiator_process_id,
       mojo::PendingReceiver<mojom::NavigationRendererCancellationListener>
           renderer_cancellation_listener,
+      mojo::PendingReceiver<
+          mojom::NavigationRendererIgnoreDuplicateNavigationListener>
+          renderer_ignore_duplicate_navigation_listener,
       mojo::PendingReceiver<
           blink::mojom::NavigationResumeDeferredCommitListener>
           deferred_commit_resume_listener);
@@ -232,9 +233,6 @@ class CONTENT_EXPORT Navigator {
   // Returns the NavigationController associated with this Navigator.
   NavigationControllerImpl& controller() { return controller_; }
   const NavigationControllerImpl& controller() const { return controller_; }
-
-  void SetWillNavigateFromFrameProxyCallbackForTesting(
-      const base::RepeatingClosure& callback);
 
  private:
   friend class NavigatorTestWithBrowserSideNavigation;
@@ -274,9 +272,6 @@ class CONTENT_EXPORT Navigator {
 
   // Tracks metrics for each navigation.
   std::unique_ptr<Navigator::NavigationMetricsData> metrics_data_;
-
-  // Called every time NavigateFromFrameProxy() is called.
-  base::RepeatingClosure will_navigate_from_frame_proxy_callback_for_testing_;
 };
 
 }  // namespace content

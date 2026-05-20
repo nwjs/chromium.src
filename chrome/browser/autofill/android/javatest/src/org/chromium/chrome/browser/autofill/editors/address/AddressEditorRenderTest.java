@@ -10,7 +10,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.base.ThreadUtils.runOnUiThreadBlocking;
-import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
 
 import android.view.View;
 
@@ -30,6 +29,7 @@ import org.chromium.base.test.params.ParameterAnnotations;
 import org.chromium.base.test.params.ParameterSet;
 import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Restriction;
@@ -75,7 +75,7 @@ import java.util.List;
 @DoNotBatch(reason = "The tests can't be batched because they run for different set-ups.")
 @RunWith(ParameterizedRunner.class)
 @ParameterAnnotations.UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
-@Restriction({DeviceFormFactor.PHONE, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
+@Restriction(DeviceFormFactor.PHONE)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 public class AddressEditorRenderTest {
     private static final String USER_EMAIL = "example@gmail.com";
@@ -182,7 +182,7 @@ public class AddressEditorRenderTest {
                         });
         runOnUiThreadBlocking(
                 () -> {
-                    when(mSyncService.getSelectedTypes()).thenReturn(new HashSet());
+                    when(mSyncService.getSelectedTypes()).thenReturn(new HashSet<>());
                     SyncServiceFactory.setInstanceForTesting(mSyncService);
 
                     when(mPersonalDataManager.getDefaultCountryCodeForNewAddress())
@@ -193,7 +193,7 @@ public class AddressEditorRenderTest {
                     IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
                     when(mIdentityServicesProvider.getIdentityManager(mProfile))
                             .thenReturn(mIdentityManager);
-                    when(mIdentityManager.getPrimaryAccountInfo(anyInt())).thenReturn(mAccountInfo);
+                    when(mIdentityManager.getPrimaryAccountInfo()).thenReturn(mAccountInfo);
                 });
 
         doAnswer(
@@ -273,6 +273,7 @@ public class AddressEditorRenderTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
+    @DisabledTest(message = "crbug.com/507512108")
     public void editLocalOrSyncableAddressProfile() throws Exception {
         View editor =
                 runOnUiThreadBlocking(

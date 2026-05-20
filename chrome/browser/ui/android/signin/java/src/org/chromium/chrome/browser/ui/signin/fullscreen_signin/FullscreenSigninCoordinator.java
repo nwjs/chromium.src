@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.ui.signin.fullscreen_signin;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.content.Context;
+import android.graphics.drawable.Drawable;
 
 import androidx.annotation.MainThread;
 import androidx.annotation.StringRes;
@@ -17,10 +18,11 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
+import org.chromium.chrome.browser.signin.services.BadgeConfig;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.identitymanager.PrimaryAccountChangeEvent;
+import org.chromium.components.signin.metrics.AccountConsistencyPromoAction;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.google_apis.gaia.CoreAccountId;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -56,9 +58,7 @@ public class FullscreenSigninCoordinator implements IdentityManager.Observer {
          *
          * @param promoAction the promo action corresponding to the account used to sign in.
          */
-        void recordUserSignInHistograms(
-                @org.chromium.components.signin.metrics.AccountConsistencyPromoAction
-                        int promoAction);
+        void recordUserSignInHistograms(@AccountConsistencyPromoAction int promoAction);
 
         /** Records histograms corresponding to the user dismissing the sign-in screen. */
         void recordSigninDismissedHistograms();
@@ -166,8 +166,7 @@ public class FullscreenSigninCoordinator implements IdentityManager.Observer {
             // If the sign-in occurred through this promo, then it is already being handled.
             return;
         }
-        if (eventDetails.getEventTypeFor(ConsentLevel.SIGNIN)
-                == PrimaryAccountChangeEvent.Type.SET) {
+        if (eventDetails.getEventTypeFor() == PrimaryAccountChangeEvent.Type.SET) {
             mDelegate.advanceToNextPage();
         }
     }
@@ -212,5 +211,21 @@ public class FullscreenSigninCoordinator implements IdentityManager.Observer {
     /** Abandon the sign-in process and dismiss the sign-in page. */
     public void cancelSignInAndDismiss() {
         mMediator.dismiss();
+    }
+
+    public Drawable getProfilePictureForTesting() {
+        return mMediator.getProfilePictureForTesting(); // IN-TEST
+    }
+
+    public void setStartAnimationForTesting(boolean start) {
+        mMediator.setStartAnimationForTesting(start); // IN-TEST
+    }
+
+    public @Nullable BadgeConfig getSigninAnimationBadgeConfigForTesting() {
+        return mMediator.getSigninAnimationBadgeConfigForTesting(); // IN-TEST
+    }
+
+    public @Nullable BadgeConfig getContinueButtonBadgeConfigForTesting() {
+        return mMediator.getContinueButtonBadgeConfigForTesting(); // IN-TEST
     }
 }

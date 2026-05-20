@@ -49,8 +49,8 @@ enum class GpuErrorReason {
 
 void FatalGpuErrorFn(const char* msg) {
   SCOPED_CRASH_KEY_STRING1024("ChromeML(GPU)", "error_msg", msg);
-  std::string msg_str(msg);
-  std::string msg_continued;
+  std::string_view msg_str = msg;
+  std::string_view msg_continued;
   constexpr size_t kCrashStringSize = 1024;
   // The error message may be long as it potentially includes the shader,
   // collect another 3k if needed.
@@ -183,7 +183,6 @@ ChromeMLConstraint ConstraintClone(ChromeMLConstraint constraint) {
 #endif
 
 // static
-DISABLE_CFI_DLSYM
 std::unique_ptr<ChromeML> ChromeML::Create(
     const std::optional<std::string>& library_name) {
 #if !BUILDFLAG(IS_IOS)
@@ -198,28 +197,25 @@ std::unique_ptr<ChromeML> ChromeML::Create(
     return nullptr;
   }
 
-  auto& api = holder->api();
+  std::unique_ptr<ChromeML> chrome_ml =
+      base::WrapUnique(new ChromeML(std::move(holder)));
 
   dawnProcSetProcs(&dawn::native::GetProcs());
-  api.InitDawnProcs(dawn::native::GetProcs());
-  if (api.SetFatalErrorFn) {
-    api.SetFatalErrorFn(&FatalGpuErrorFn);
-  }
-  if (api.SetMetricsFns) {
-    const ChromeMLMetricsFns metrics_fns{
-        .RecordExactLinearHistogram = &RecordExactLinearHistogram,
-        .RecordCustomCountsHistogram = &RecordCustomCountsHistogram,
-        .RecordMediumTimesHistogram = &RecordMediumTimesHistogram,
-    };
-    api.SetMetricsFns(&metrics_fns);
-  }
-  if (api.SetConstraintFns) {
-    api.SetConstraintFns(GetConstraintFns());
-  }
-  if (api.SetFatalErrorNonGpuFn) {
-    api.SetFatalErrorNonGpuFn(&FatalErrorFn);
-  }
-  return base::WrapUnique(new ChromeML(std::move(holder)));
+  chrome_ml->InitDawnProcs(dawn::native::GetProcs());
+  chrome_ml->SetFatalErrorFn(&FatalGpuErrorFn);
+
+  const ChromeMLMetricsFns metrics_fns{
+      .RecordExactLinearHistogram = &RecordExactLinearHistogram,
+      .RecordCustomCountsHistogram = &RecordCustomCountsHistogram,
+      .RecordMediumTimesHistogram = &RecordMediumTimesHistogram,
+  };
+  chrome_ml->SetMetricsFns(&metrics_fns);
+
+  chrome_ml->SetConstraintFns(GetConstraintFns());
+
+  chrome_ml->SetFatalErrorNonGpuFn(&FatalErrorFn);
+
+  return chrome_ml;
 }
 
 const ChromeMLConstraintFns* GetConstraintFns() {

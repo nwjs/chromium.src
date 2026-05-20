@@ -42,6 +42,7 @@ source_set("payments") {
       "offer_notification_controller_android.h",
     ]
     public_deps += [
+      "//chrome/browser/touch_to_fill/autofill/android:public",
       "//components/autofill/android:autofill_core_browser_java_enums",
       "//components/messages/android",
     ]
@@ -58,7 +59,6 @@ source_set("payments") {
     ]
     public_deps += [
       "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui:browser_list",
       "//chrome/browser/ui/webauthn",
       "//components/autofill/core/browser:legal_message_line",
       "//components/signin/public/identity_manager",
@@ -125,11 +125,12 @@ source_set("impl") {
     ]
     public_deps += [ "//chrome/browser/touch_to_fill/autofill/android:public" ]
     deps += [
-      "//chrome/browser/keyboard_accessory/android:public",
+      "//chrome/browser/keyboard_accessory/android",
       "//chrome/browser/mandatory_reauth/android:mandatory_reauth",
       "//chrome/browser/mandatory_reauth/android/internal:jni",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/touch_to_fill/autofill/android",
+      "//chrome/browser/touch_to_fill/autofill/android:impl",
       "//chrome/browser/ui/android/tab_model",
       "//chrome/browser/ui/browser_window",
       "//components/infobars/core",
@@ -150,9 +151,9 @@ source_set("impl") {
       "//chrome/app/vector_icons",
       "//chrome/browser/sync",
       "//chrome/browser/sync:factories",
-      "//chrome/browser/ui:browser_navigator_params_headers",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/desktop_to_mobile_promos:utils",
+      "//chrome/browser/ui/navigator",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/views/page_action",
       "//chrome/common",

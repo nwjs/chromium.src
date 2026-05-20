@@ -56,8 +56,8 @@ void HttpsUpgradesNavigationThrottle::MaybeCreateAndAdd(
   // HTTPS-First Mode is only relevant for primary main-frame HTTP(S)
   // navigations.
   content::NavigationHandle& handle = registry.GetNavigationHandle();
-  if (!registry.IsHTTPOrHTTPS() || !handle.IsInPrimaryMainFrame() ||
-      handle.IsSameDocument()) {
+  if (!registry.GetNavigationHandle().GetURL().SchemeIsHTTPOrHTTPS() ||
+      !handle.IsInPrimaryMainFrame() || handle.IsSameDocument()) {
     return;
   }
 
@@ -83,7 +83,7 @@ void HttpsUpgradesNavigationThrottle::MaybeCreateAndAdd(
   // if it has already been created for the WebContents). There are cases where
   // the tab helper won't get created by the initialization in
   // chrome/browser/ui/tab_helpers.cc but the criteria for adding the throttle
-  // are still met (see crbug.com/1233889 for one example).
+  // are still met (see crbug.com/40781148 for one example).
   HttpsOnlyModeTabHelper::CreateForWebContents(handle.GetWebContents());
 
   registry.AddThrottle(std::make_unique<HttpsUpgradesNavigationThrottle>(

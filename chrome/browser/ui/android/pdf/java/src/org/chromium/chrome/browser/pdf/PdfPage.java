@@ -59,7 +59,8 @@ public class PdfPage extends BasicNativePage {
                         ? PdfUtils.getFileNameFromUrl(decodedUrl, defaultTitle)
                         : pdfInfo.filename;
         mUrl = url;
-        mPdfCoordinator = new PdfCoordinator(host, profile, activity, filepath, tabId, url);
+        mPdfCoordinator =
+                new PdfCoordinator(host, profile, activity, filepath, mTitle, tabId, url);
         mIsIncognito = profile.isOffTheRecord();
         initWithView(mPdfCoordinator.getView());
         // PDF is downloading when the filepath is null.
@@ -108,6 +109,13 @@ public class PdfPage extends BasicNativePage {
         mPdfCoordinator.destroy();
     }
 
+    @Override
+    public void reload() {
+        if (PdfUtils.isInlinePdfV2Enabled()) {
+            mPdfCoordinator.reload();
+        }
+    }
+
     /**
      * Called after pdf download complete.
      *
@@ -130,7 +138,7 @@ public class PdfPage extends BasicNativePage {
             }
             pdfFilePath = uri.toString();
         }
-        mPdfCoordinator.onDownloadComplete(pdfFilePath);
+        mPdfCoordinator.onDownloadComplete(pdfFilePath, mTitle);
     }
 
     /**
@@ -158,5 +166,16 @@ public class PdfPage extends BasicNativePage {
      */
     public @Nullable String requestAssistContent(boolean isWorkProfile) {
         return mPdfCoordinator.requestAssistContent(getTitle(), isWorkProfile);
+    }
+
+    /**
+     * Retrieve uri of the pdf document and grant permission to the target package.
+     *
+     * @param isWorkProfile Whether Chrome is running in the Android work profile.
+     * @param targetPackage The package to grant access to. If null, the default assistant package
+     *     will be used.
+     */
+    public @Nullable Uri getFileUri(boolean isWorkProfile, @Nullable String targetPackage) {
+        return mPdfCoordinator.getFileUri(isWorkProfile, targetPackage);
     }
 }

@@ -372,7 +372,6 @@
   },
   "Linux ASAN Builder": {
     "additional_compile_targets": [
-      "extensions_browsertests",
       "net_unittests",
       "unit_tests"
     ]
@@ -403,6 +402,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -446,6 +446,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -480,6 +481,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -514,6 +516,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -557,6 +560,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -592,6 +596,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -626,6 +631,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -669,6 +675,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -703,6 +710,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -739,6 +747,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -775,6 +784,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -814,6 +824,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -857,6 +868,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -891,6 +903,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -925,6 +938,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -968,6 +982,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -1003,6 +1018,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -1037,6 +1053,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -1080,6 +1097,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -1114,6 +1132,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -1149,6 +1168,7 @@
         },
         "swarming": {
           "dimensions": {
+            "display_server": "x11",
             "gpu": "10de:2184-535.183.01",
             "os": "Ubuntu-22.04",
             "pool": "chromium.tests.gpu"
@@ -3984,7 +4004,6 @@
       "device_unittests",
       "display_unittests",
       "events_unittests",
-      "extensions_browsertests",
       "extensions_unittests",
       "gcm_unit_tests",
       "gfx_unittests",

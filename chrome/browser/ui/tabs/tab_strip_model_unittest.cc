@@ -31,7 +31,6 @@
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
@@ -2334,6 +2333,29 @@ TEST_P(TabStripModelTest, TabGroupsFocusingAutoCloseSwitchFocus) {
   EXPECT_FALSE(tabstrip()->group_model()->ContainsTabGroup(group_id1));
   EXPECT_TRUE(tabstrip()->group_model()->ContainsTabGroup(group_id2));
   EXPECT_EQ(4, tabstrip()->count());
+}
+
+TEST_P(TabStripModelTest, ActivateTabUnfocusesAndClosesGroupNoCrash) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      features::kTabGroupsFocusing,
+      {{"tab_groups_focusing_auto_close", "true"}});
+
+  PrepareTabs(tabstrip(), 3);
+  tab_groups::TabGroupId group_id = tabstrip()->AddToNewGroup({0, 1});
+  tabstrip()->SetFocusedGroup(group_id);
+
+  // Tab 2 is not in the group.
+  // This should call SetFocusedGroup(nullopt), which should close the group.
+  // This previously crashed due to ReentrancyCheck in CloseAllTabsInGroup
+  // because ActivateTabAt already has a ReentrancyCheck.
+  tabstrip()->ActivateTabAt(
+      2, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
+
+  EXPECT_EQ(std::nullopt, tabstrip()->GetFocusedGroup());
+  EXPECT_FALSE(tabstrip()->group_model()->ContainsTabGroup(group_id));
+  EXPECT_EQ(1, tabstrip()->count());
 }
 
 TEST_P(TabStripModelTest, SplitTabPinning) {
@@ -4925,7 +4947,7 @@ class DummySingleWebContentsDialogManager
 }  // namespace
 
 // Verifies a newly inserted tab retains its previous blocked state.
-// http://crbug.com/276334
+// http://crbug.com/41038967
 TEST_P(TabStripModelTest, TabBlockedState) {
   // Start with a source tab tabstrip()->
   TestTabStripModelDelegate dummy_tab_strip_delegate;
@@ -6013,7 +6035,7 @@ TEST_P(TabStripModelTest, MoveWebContentsAtCorrectlySendsGroupClearedEvent) {
 }
 
 // Ensure that the opener for a tab never refers to a dangling WebContents.
-// Regression test for crbug.com/1092308.
+// Regression test for crbug.com/40052517.
 TEST_P(TabStripModelTest, DanglingOpener) {
   PrepareTabs(tabstrip(), 2);
 
@@ -7273,4 +7295,55 @@ TEST_P(TabStripModelTest, ReinsertTabGroupCollectionVerifyListSelectionModel) {
   // Note the active and anchor did not change.
   EXPECT_EQ("active=2 anchor=2 selection=2 4",
             tabstrip()->selection_model().GetListSelectionModel().ToString());
+}
+
+TEST_P(TabStripModelTest, TabGroupCallbackOnTabAdded) {
+  PrepareTabstripForSelectionTest(tabstrip(), /*tab_count*/ 2,
+                                  /*pinned_count*/ 0,
+                                  /*selected_tabs*/ {0});
+
+  tab_groups::TabGroupId group_id =
+      tabstrip()->AddToNewGroup(std::vector<int>{0});
+  TabGroup* const tab_group = tabstrip()->group_model()->GetTabGroup(group_id);
+
+  bool was_notified = false;
+  base::CallbackListSubscription subscription =
+      tab_group->RegisterOnGroupChanged(base::BindRepeating(
+          [](bool* was_notified) { *was_notified = true; }, &was_notified));
+  tabstrip()->AddToExistingGroup({1}, group_id);
+  EXPECT_TRUE(was_notified);
+}
+
+TEST_P(TabStripModelTest, TabGroupCallbackOnTabRemoved) {
+  PrepareTabstripForSelectionTest(tabstrip(), /*tab_count*/ 2,
+                                  /*pinned_count*/ 0,
+                                  /*selected_tabs*/ {0});
+
+  tab_groups::TabGroupId group_id =
+      tabstrip()->AddToNewGroup(std::vector<int>{0, 1});
+  TabGroup* const tab_group = tabstrip()->group_model()->GetTabGroup(group_id);
+
+  bool was_notified = false;
+  base::CallbackListSubscription subscription =
+      tab_group->RegisterOnGroupChanged(base::BindRepeating(
+          [](bool* was_notified) { *was_notified = true; }, &was_notified));
+  tabstrip()->CloseWebContentsAt(0, TabCloseTypes::CLOSE_NONE);
+  EXPECT_TRUE(was_notified);
+}
+
+TEST_P(TabStripModelTest, TabGroupCallbackOnTabMoved) {
+  PrepareTabstripForSelectionTest(tabstrip(), /*tab_count*/ 2,
+                                  /*pinned_count*/ 0,
+                                  /*selected_tabs*/ {0});
+
+  tab_groups::TabGroupId group_id =
+      tabstrip()->AddToNewGroup(std::vector<int>{0, 1});
+  TabGroup* const tab_group = tabstrip()->group_model()->GetTabGroup(group_id);
+
+  bool was_notified = false;
+  base::CallbackListSubscription subscription =
+      tab_group->RegisterOnGroupChanged(base::BindRepeating(
+          [](bool* was_notified) { *was_notified = true; }, &was_notified));
+  tabstrip()->MoveWebContentsAt(0, 1, false);
+  EXPECT_TRUE(was_notified);
 }

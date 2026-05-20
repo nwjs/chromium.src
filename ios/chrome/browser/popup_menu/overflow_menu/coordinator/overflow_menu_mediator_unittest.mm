@@ -11,6 +11,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
 #import "base/test/metrics/histogram_tester.h"
+#import "base/test/scoped_feature_list.h"
 #import "base/time/default_clock.h"
 #import "components/bookmarks/browser/bookmark_model.h"
 #import "components/bookmarks/browser/bookmark_utils.h"
@@ -30,6 +31,7 @@
 #import "components/reading_list/core/fake_reading_list_model_storage.h"
 #import "components/reading_list/core/reading_list_model.h"
 #import "components/reading_list/core/reading_list_model_impl.h"
+#import "components/send_tab_to_self/features.h"
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
@@ -508,12 +510,19 @@ TEST_F(OverflowMenuMediatorTest, TestFeatureEngagementDisconnect) {
 // Tests that the mediator is returning the right number of items and sections
 // for the Tools Menu type.
 TEST_F(OverflowMenuMediatorTest, TestMenuItemsCount) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(send_tab_to_self::kIOSTabReminders);
+
   CreateMediator(/*incognito=*/NO);
   mediator_.model = model_;
 
   NSUInteger number_of_action_items = 7;
 
   if (ios::provider::IsTextZoomEnabled()) {
+    number_of_action_items++;
+  }
+
+  if (send_tab_to_self::AreIOSTabRemindersEnabled() && !mediator_.incognito) {
     number_of_action_items++;
   }
 
@@ -563,6 +572,40 @@ TEST_F(OverflowMenuMediatorTest, TestItemsStatusOnWebPage) {
   EXPECT_TRUE(HasItem(kToolsMenuSiteInformation, /*enabled=*/YES));
 }
 
+// Tests that the "Set Reminder" action is visible in regular mode.
+TEST_F(OverflowMenuMediatorTest, SetReminderIsVisibleInRegularMode) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(send_tab_to_self::kIOSTabReminders);
+
+  const GURL kUrl("https://chromium.test");
+  web_state_->SetCurrentURL(kUrl);
+  CreateMediator(/*incognito=*/NO);
+  SetUpActiveWebState();
+  mediator_.webStateList = browser_->GetWebStateList();
+
+  // Force model update.
+  mediator_.model = model_;
+
+  EXPECT_TRUE(HasItem(kToolsMenuSetTabReminder, /*enabled=*/YES));
+}
+
+// Tests that the "Set Reminder" action is hidden in incognito mode.
+TEST_F(OverflowMenuMediatorTest, SetReminderIsHiddenInIncognitoMode) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(send_tab_to_self::kIOSTabReminders);
+
+  const GURL kUrl("https://chromium.test");
+  web_state_->SetCurrentURL(kUrl);
+  CreateMediator(/*incognito=*/YES);
+  SetUpActiveWebState();
+  mediator_.webStateList = browser_->GetWebStateList();
+
+  // Force model update.
+  mediator_.model = model_;
+
+  EXPECT_FALSE(HasItem(kToolsMenuSetTabReminder, /*enabled=*/YES));
+}
+
 // Tests that the items returned by the mediator are correctly enabled on the
 // NTP.
 TEST_F(OverflowMenuMediatorTest, TestItemsStatusOnNTP) {
@@ -579,6 +622,40 @@ TEST_F(OverflowMenuMediatorTest, TestItemsStatusOnNTP) {
 
   EXPECT_TRUE(HasItem(kToolsMenuNewTabId, /*enabled=*/YES));
   EXPECT_FALSE(HasItem(kToolsMenuSiteInformation, /*enabled=*/YES));
+}
+
+// Tests that the share action is not added to the overflow menu when the share
+// icon is visible in the omnibox.
+TEST_F(OverflowMenuMediatorTest, TestShareActionNotVisibleByDefault) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kChromeNextIa, {{"chrome_next_ia_share_icon_visible", "true"}}},
+       {kComposeboxIpad, {}}},
+      {});
+
+  CreateMediator(/*incognito=*/NO);
+  SetUpActiveWebState();
+  web_state_->SetCurrentURL(GURL("http://chromium.org"));
+  mediator_.webStateList = browser_->GetWebStateList();
+  mediator_.model = model_;
+  EXPECT_FALSE(HasItem(kToolsMenuShareId, /*enabled=*/YES));
+}
+
+// Tests that the share action is added to the overflow menu when ChromeNextIa
+// is enabled without the share icon being visible.
+TEST_F(OverflowMenuMediatorTest, TestShareActionVisibleWithChromeNextIa) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kChromeNextIa, {{"chrome_next_ia_share_icon_visible", "false"}}},
+       {kComposeboxIpad, {}}},
+      {});
+
+  CreateMediator(/*incognito=*/NO);
+  SetUpActiveWebState();
+  web_state_->SetCurrentURL(GURL("http://chromium.org"));
+  mediator_.webStateList = browser_->GetWebStateList();
+  mediator_.model = model_;
+  EXPECT_TRUE(HasItem(kToolsMenuShareId, /*enabled=*/YES));
 }
 
 // Tests that the "Add to Reading List" button is disabled while overlay UI is
@@ -665,8 +742,7 @@ TEST_F(OverflowMenuMediatorTest, TestEnterpriseInfoShownForUserLevelPolicies) {
       ChromeAccountManagerServiceFactory::GetForProfile(profile_.get());
   authentication_service->SignIn(account_manager->GetDefaultIdentity(),
                                  signin_metrics::AccessPoint::kStartPage);
-  EXPECT_TRUE(authentication_service->HasPrimaryIdentityManaged(
-      signin::ConsentLevel::kSignin));
+  EXPECT_TRUE(authentication_service->HasPrimaryIdentityManaged());
 
   CreateMediator(/*incognito=*/NO);
   // Set the objects needed to detect the signed in managed account.

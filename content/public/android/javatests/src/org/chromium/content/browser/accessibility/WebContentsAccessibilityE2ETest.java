@@ -358,7 +358,7 @@ WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="ro
         String expectedDump =
 """
 WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
-  TextView text:"Some selected text" viewIdResName:"p1" actions:[CLEAR_AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="paragraph"] extendedSelectionStart:5 extendedSelectionEnd:13
+  TextView text:"Some selected text" viewIdResName:"p1" actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="paragraph"] extendedSelectionStart:5 extendedSelectionEnd:13
 """;
         Assert.assertEquals("Tree dump does not match expected value", expectedDump, treeDump);
     }
@@ -420,14 +420,124 @@ WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="ro
         String expectedDump =
 """
 WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
-  EditText text:"Line one\\nLink text node" clickable editable focusable focused multiLine textSelectionStart:9 textSelectionEnd:10 actions:[CLEAR_FOCUS, CLICK, CLEAR_AX_FOCUS, NEXT, PREVIOUS, COPY, PASTE, CUT, SET_SELECTION, SET_TEXT, IME_ENTER] bundle:[chromeRole="genericContainer", clickableScore="200"] extendedSelectionStart:9 extendedSelectionEnd:10
+  EditText text:"Line one\\nLink text node" clickable editable focusable focused multiLine textSelectionStart:9 textSelectionEnd:10 actions:[CLEAR_FOCUS, CLICK, AX_FOCUS, NEXT, PREVIOUS, COPY, PASTE, CUT, SET_SELECTION, SET_TEXT, IME_ENTER] bundle:[chromeRole="genericContainer", clickableScore="200"] extendedSelectionStart:9 extendedSelectionEnd:10
     TextView text:"Line one" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"]
     View text:"\\n" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="lineBreak", clickableScore="100"]
-    View text:"null" contentDescription:"Link text" viewIdResName:"link" clickable editable actions:[CLICK, AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="link", clickableScore="300", roleDescription="link", targetUrl="data:text/html;utf-8,%3Chtml%3E%3Cbody%3E%3Cdiv%20contenteditable%3E%0ALine%20one%3Cbr%3E%0A%3Ca%20id%3D%27link%27%20href%3D%27%23%27%3ELink%20text%3C%2Fa%3E%20node%0A%3C%2Fdiv%3E%3C%2Fbody%3E%3C%2Fhtml%3E%0A#"]
-      TextView text:"Link text" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"] extendedSelectionStart:0 extendedSelectionEnd:9
+    View text:"null" contentDescription:"Link text" viewIdResName:"link" clickable editable actions:[CLICK, AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="link", clickableScore="300", roleDescription="link", targetUrl="data:text/html;utf-8,%3Chtml%3E%3Cbody%3E%3Cdiv%20contenteditable%3E%0ALine%20one%3Cbr%3E%0A%3Ca%20id%3D%27link%27%20href%3D%27%23%27%3ELink%20text%3C%2Fa%3E%20node%0A%3C%2Fdiv%3E%3C%2Fbody%3E%3C%2Fhtml%3E%0A#"] extendedSelectionEnd:1
+      TextView text:"Link text" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"] extendedSelectionStart:0
     TextView text:" node" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"]
 """;
         Assert.assertEquals("Tree dump does not match expected value", expectedDump, treeDump);
+    }
+
+    @Test
+    @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.UPSIDE_DOWN_CAKE) // API Level 34
+    public void fireGeneratedEvent_ariaInvalidTrue_firesContentInvalid() throws Throwable {
+        // Create an HTML document where there is an input element and an element containing the
+        // text for the input's aria-errormessage.
+        String html =
+                """
+                <html><body>
+                <input type="text" id="input" aria-errormessage="err" aria-label="Name">
+                <div id="err">Invalid Name</div>
+                </body></html>
+                """;
+        mActivityTestRule.launchContentShellWithUrl(UrlUtils.encodeHtmlDataUri(html));
+
+        // Wait for the page to load by waiting for the initial TWCC.
+        boolean initialEventReceived =
+                getAccessibilityHelperService()
+                        .waitForEvent(
+                                new WaitForEventParamsBuilder()
+                                        .setEventType(
+                                                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+                                        .setClassName("android.webkit.WebView")
+                                        .build());
+        Assert.assertTrue(
+                "Service did not receive initial TYPE_WINDOW_CONTENT_CHANGED event",
+                initialEventReceived);
+
+        // Set aria-invalid="true" on the input element.
+        mActivityTestRule.executeJSAndGetResult(
+                "document.getElementById('input').setAttribute('aria-invalid', 'true');");
+
+        // Wait for TWCC event with ContentChangeType CONTENT_INVALID to be fired as a result of the
+        // invalid status changing.
+        boolean eventReceived =
+                getAccessibilityHelperService()
+                        .waitForEvent(
+                                new WaitForEventParamsBuilder()
+                                        .setEventType(
+                                                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+                                        .setContentChangeTypes(
+                                                AccessibilityEvent
+                                                        .CONTENT_CHANGE_TYPE_CONTENT_INVALID)
+                                        .build());
+        Assert.assertTrue("Service did not receive CONTENT_INVALID event", eventReceived);
+
+        // Dump the accessibility tree.
+        String treeDump = getAccessibilityHelperService().dumpWebContentsAccessibilityTree();
+
+        // Verify that the input element's AccessibilityNodeInfo has contentInvalid set to true.
+        Assert.assertTrue(
+                "Tree dump should contain 'contentInvalid'", treeDump.contains("contentInvalid"));
+    }
+
+    @Test
+    @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.UPSIDE_DOWN_CAKE) // API Level 34
+    public void fireGeneratedEvent_ariaInvalidChangesToFalse_firesContentInvalid()
+            throws Throwable {
+        // Create an HTML document where there is an input element and an element containing
+        // the text for the input's aria-errormessage.
+        String html =
+                """
+                <html><body>
+                <input type="text" id="input" aria-errormessage="err" aria-invalid="true" aria-label="Name">
+                <div id="err">Invalid Name</div>
+                </body></html>
+                """;
+        mActivityTestRule.launchContentShellWithUrl(UrlUtils.encodeHtmlDataUri(html));
+
+        // Wait for the page to load by waiting for the initial TWCC.
+        boolean initialEventReceived =
+                getAccessibilityHelperService()
+                        .waitForEvent(
+                                new WaitForEventParamsBuilder()
+                                        .setEventType(
+                                                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+                                        .setClassName("android.webkit.WebView")
+                                        .build());
+        Assert.assertTrue(
+                "Service did not receive initial TYPE_WINDOW_CONTENT_CHANGED event",
+                initialEventReceived);
+
+        // Set aria-invalid="false" on the input element.
+        mActivityTestRule.executeJSAndGetResult(
+                "document.getElementById('input').setAttribute('aria-invalid', 'false');");
+
+        // Wait for TWCC event with ContentChangeType CONTENT_INVALID to be fired as a result of the
+        // invalid status changing.
+        boolean eventReceived =
+                getAccessibilityHelperService()
+                        .waitForEvent(
+                                new WaitForEventParamsBuilder()
+                                        .setEventType(
+                                                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)
+                                        .setContentChangeTypes(
+                                                AccessibilityEvent
+                                                        .CONTENT_CHANGE_TYPE_CONTENT_INVALID)
+                                        .build());
+        Assert.assertTrue("Service did not receive CONTENT_INVALID event", eventReceived);
+
+        // Dump the accessibility tree.
+        String treeDump = getAccessibilityHelperService().dumpWebContentsAccessibilityTree();
+
+        // Verify that the input element's AccessibilityNodeInfo does not contain contentInvalid.
+        Assert.assertFalse(
+                "Tree dump should not contain 'contentInvalid'",
+                treeDump.contains("contentInvalid"));
     }
 
     private static class WaitForEventParamsBuilder {
@@ -435,6 +545,7 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
 
         private int mEventType;
         private String mClassName = "";
+        private int mContentChangeTypes;
         private String mText = "";
         private final long mTimeoutMs = DEFAULT_TIMEOUT_MS;
 
@@ -448,6 +559,11 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
             return this;
         }
 
+        public WaitForEventParamsBuilder setContentChangeTypes(int contentChangeTypes) {
+            mContentChangeTypes = contentChangeTypes;
+            return this;
+        }
+
         public WaitForEventParamsBuilder setText(String text) {
             mText = text;
             return this;
@@ -457,6 +573,7 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
             WaitForEventParams params = new WaitForEventParams();
             params.eventType = mEventType;
             params.className = mClassName;
+            params.contentChangeTypes = mContentChangeTypes;
             params.text = mText;
             params.timeoutMs = mTimeoutMs;
             return params;

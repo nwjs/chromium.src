@@ -46,10 +46,10 @@
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/platform_util_internal.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/common/extensions/api/downloads.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -3971,7 +3971,7 @@ IN_PROC_BROWSER_TEST_F(
 #endif
 }
 
-// Flaky. crbug.com/1147804
+// Flaky. crbug.com/40156773
 IN_PROC_BROWSER_TEST_F(
     DownloadExtensionTest,
     DISABLED_DownloadExtensionTest_OnDeterminingFilename_EmptyBasenameInvalid) {
@@ -4358,7 +4358,7 @@ IN_PROC_BROWSER_TEST_F(
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 // TODO(crbug.com/405219117): Support incognito on desktop Android.
-// This test is flaky on Linux ASan LSan Tests bot. https://crbug.com/1114226
+// This test is flaky on Linux ASan LSan Tests bot. https://crbug.com/40710698
 #if ((BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) && \
      defined(ADDRESS_SANITIZER))
 #define MAYBE_DownloadExtensionTest_OnDeterminingFilename_IncognitoSplit \
@@ -4845,7 +4845,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
 }
 
 // The DownloadExtensionBubbleEnabledTest relies on the download surface, which
-// ChromeOS_ASH and Android don't use (see crbug.com/1323505).
+// ChromeOS_ASH and Android don't use (see crbug.com/40224714).
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
 class DownloadExtensionBubbleEnabledTest : public DownloadExtensionTest {
  public:

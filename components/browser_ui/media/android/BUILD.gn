@@ -3,9 +3,21 @@
 # found in the LICENSE file.
 
 import("//build/config/android/rules.gni")
+import("//third_party/jni_zero/jni_zero.gni")
+
+source_set("android") {
+  sources = [ "media_feature_map.cc" ]
+  deps = [
+    ":media_jni_headers",
+    "//base",
+    "//media",
+  ]
+}
 
 android_library("java") {
   sources = [
+    "java/src/org/chromium/components/browser_ui/media/MediaFeatureList.java",
+    "java/src/org/chromium/components/browser_ui/media/MediaFeatureMap.java",
     "java/src/org/chromium/components/browser_ui/media/MediaImageCallback.java",
     "java/src/org/chromium/components/browser_ui/media/MediaImageManager.java",
     "java/src/org/chromium/components/browser_ui/media/MediaNotificationController.java",
@@ -21,6 +33,7 @@ android_library("java") {
     ":java_resources",
     "//base:base_java",
     "//components/browser_ui/notifications/android:java",
+    "//components/cached_flags:java",
     "//components/favicon/android:java",
     "//components/url_formatter/android:url_formatter_java",
     "//content/public/android:content_java",
@@ -29,25 +42,22 @@ android_library("java") {
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/androidx:androidx_core_core_java",
     "//third_party/androidx:androidx_media_media_java",
+    "//third_party/jni_zero:jni_zero_java",
     "//ui/android:ui_full_java",
     "//url:gurl_java",
   ]
+  srcjar_deps = [ ":media_jni_headers" ]
   resources_package = "org.chromium.components.browser_ui.media"
 }
 
-android_resources("java_resources") {
+generate_jni("media_jni_headers") {
   sources = [
-    "java/res/drawable-hdpi/audio_playing.png",
-    "java/res/drawable-hdpi/audio_playing_square.png",
-    "java/res/drawable-mdpi/audio_playing.png",
-    "java/res/drawable-mdpi/audio_playing_square.png",
-    "java/res/drawable-xhdpi/audio_playing.png",
-    "java/res/drawable-xhdpi/audio_playing_square.png",
-    "java/res/drawable-xxhdpi/audio_playing.png",
-    "java/res/drawable-xxhdpi/audio_playing_square.png",
-    "java/res/drawable-xxxhdpi/audio_playing.png",
-    "java/res/drawable-xxxhdpi/audio_playing_square.png",
+    "java/src/org/chromium/components/browser_ui/media/MediaFeatureMap.java",
   ]
+}
+
+android_resources("java_resources") {
+  sources = [ "java/res/drawable/chrome_product_vd_24.xml" ]
   deps = [
     "//components/browser_ui/strings/android:browser_ui_strings_grd",
     "//components/browser_ui/styles/android:java_resources",

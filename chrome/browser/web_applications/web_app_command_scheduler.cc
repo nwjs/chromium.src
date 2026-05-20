@@ -46,6 +46,7 @@
 #include "chrome/browser/web_applications/commands/install_from_sync_command.h"
 #include "chrome/browser/web_applications/commands/install_migrate_to_app_command.h"
 #include "chrome/browser/web_applications/commands/internal/callback_command.h"
+#include "chrome/browser/web_applications/commands/launch_or_reparent_web_contents_into_app_command.h"
 #include "chrome/browser/web_applications/commands/launch_web_app_command.h"
 #include "chrome/browser/web_applications/commands/manifest_silent_update_command.h"
 #include "chrome/browser/web_applications/commands/navigate_and_trigger_install_dialog_command.h"
@@ -317,6 +318,17 @@ void WebAppCommandScheduler::CleanupOrphanedIsolatedApps(
       call_location);
 }
 
+void WebAppCommandScheduler::LaunchOrReparentWebContentsIntoApp(
+    const webapps::AppId& app_id,
+    base::WeakPtr<content::WebContents> web_contents,
+    base::OnceCallback<void(LaunchOrReparentResult)> callback,
+    const base::Location& call_location) {
+  provider_->command_manager().ScheduleCommand(
+      std::make_unique<LaunchOrReparentWebContentsIntoAppCommand>(
+          app_id, web_contents, std::move(callback)),
+      call_location);
+}
+
 void WebAppCommandScheduler::PrepareAndStoreIsolatedWebAppUpdate(
     const IsolatedWebAppUpdatePrepareAndStoreCommand::UpdateInfo& update_info,
     const IsolatedWebAppUrlInfo& url_info,
@@ -463,7 +475,7 @@ void WebAppCommandScheduler::InstallFromSync(const WebApp& web_app,
   if (base::FeatureList::IsEnabled(
           features::kWebAppHandleAppMigrationViaSync) &&
       web_app.sync_proto().has_migrated_from_manifest_id()) {
-    migrated_from_manifest_id = webapps::ManifestId(
+    migrated_from_manifest_id = webapps::ManifestId::Create(
         GURL(web_app.sync_proto().migrated_from_manifest_id()));
   }
   InstallFromSyncCommand::Params params = InstallFromSyncCommand::Params(
@@ -606,7 +618,7 @@ void WebAppCommandScheduler::ComputeAppSize(
                                               std::move(callback)));
 }
 
-void WebAppCommandScheduler::LaunchApp(
+void WebAppCommandScheduler::LaunchAppFromCommandLine(
     const webapps::AppId& app_id,
     const base::CommandLine& command_line,
     const base::FilePath& current_directory,
@@ -622,10 +634,12 @@ void WebAppCommandScheduler::LaunchApp(
             std::move(callback), location);
 }
 
-void WebAppCommandScheduler::LaunchApp(const webapps::AppId& app_id,
-                                       const std::optional<GURL>& url,
-                                       LaunchWebAppCallback callback,
-                                       const base::Location& location) {
+void WebAppCommandScheduler::LaunchApp(
+    const webapps::AppId& app_id,
+    const std::optional<GURL>& url,
+    LaunchWebAppCallback callback,
+    std::optional<apps::LaunchSource> launch_source,
+    const base::Location& location) {
   CHECK(!url || url->is_valid());
   apps::AppLaunchParams params =
       WebAppUiManager::CreateAppLaunchParamsWithoutWindowConfig(
@@ -634,6 +648,9 @@ void WebAppCommandScheduler::LaunchApp(const webapps::AppId& app_id,
           /*protocol_handler_launch_url=*/std::nullopt,
           /*file_launch_url=*/std::nullopt, /*launch_files=*/{});
   params.override_url = url.value_or(GURL());
+  if (launch_source) {
+    params.launch_source = *launch_source;
+  }
 
   LaunchApp(std::move(params),
             LaunchWebAppWindowSetting::kOverrideWithWebAppConfig,

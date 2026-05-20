@@ -51,7 +51,9 @@
 
 namespace blink {
 
-OfflineAudioContext* OfflineAudioContext::Create(
+namespace {
+
+OfflineAudioContext* CreateOfflineAudioContext(
     ExecutionContext* context,
     unsigned number_of_channels,
     unsigned number_of_frames,
@@ -140,14 +142,17 @@ OfflineAudioContext* OfflineAudioContext::Create(
   return audio_context;
 }
 
+}  // namespace
+
 OfflineAudioContext* OfflineAudioContext::Create(
     ExecutionContext* context,
     unsigned number_of_channels,
     unsigned number_of_frames,
     float sample_rate,
     ExceptionState& exception_state) {
-  return Create(context, number_of_channels, number_of_frames, sample_rate,
-                /*render_quantum_frames=*/128, exception_state);
+  return CreateOfflineAudioContext(
+      context, number_of_channels, number_of_frames, sample_rate,
+      /*render_quantum_frames=*/128, exception_state);
 }
 
 OfflineAudioContext* OfflineAudioContext::Create(
@@ -163,8 +168,9 @@ OfflineAudioContext* OfflineAudioContext::Create(
       render_quantum_frames = options->renderSizeHint()->GetAsUnsignedLong();
     }
   }
-  return Create(context, options->numberOfChannels(), options->length(),
-                options->sampleRate(), render_quantum_frames, exception_state);
+  return CreateOfflineAudioContext(context, options->numberOfChannels(),
+                                   options->length(), options->sampleRate(),
+                                   render_quantum_frames, exception_state);
 }
 
 OfflineAudioContext::OfflineAudioContext(LocalDOMWindow* window,
@@ -293,11 +299,11 @@ ScriptPromise<IDLUndefined> OfflineAudioContext::suspendContext(
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
         StrCat({"cannot schedule a suspend at ",
-                String::NumberToStringECMAScript(when),
+                String::NumberToStringEcmaScript(when),
                 " seconds because it is greater than or equal to the "
                 "total render duration of ",
                 String::Number(total_render_frames_), " frames (",
-                String::NumberToStringECMAScript(total_render_duration),
+                String::NumberToStringEcmaScript(total_render_duration),
                 " seconds)"}));
     return EmptyPromise();
   }

@@ -17,13 +17,11 @@ if (is_android) {
 
 source_set("actor") {
   public = [
-    "actor_features.h",
     "actor_keyed_service.h",
     "actor_keyed_service_factory.h",
     "actor_metrics.h",
     "actor_navigation_throttle.h",
     "actor_proto_conversion.h",
-    "actor_switches.h",
     "actor_tab_data.h",
     "actor_task.h",
     "actor_task_metadata.h",
@@ -32,13 +30,12 @@ source_set("actor") {
     "aggregated_journal_file_serializer.h",
     "aggregated_journal_in_memory_serializer.h",
     "aggregated_journal_serializer.h",
-    "enterprise_policy_content_checker.h",
-    "enterprise_policy_url_checker.h",
+    "enterprise_policy_checker.h",
     "execution_engine.h",
-    "origin_checker.h",
     "site_policy.h",
     "tools/attempt_form_filling_tool_request.h",
     "tools/attempt_login_tool_request.h",
+    "tools/attempt_otp_filling_tool_request.h",
     "tools/click_tool_request.h",
     "tools/drag_and_release_tool_request.h",
     "tools/history_tool_request.h",
@@ -69,11 +66,13 @@ source_set("actor") {
     "//chrome/browser/subscription_eligibility",
     "//chrome/common",
     "//chrome/common:actor_webui_mojom",
-    "//components/actor",
+    "//components/actor/core",
     "//components/autofill/core/browser/integrators/actor:actor_form_filling_types",
     "//components/download/content/public",
     "//components/optimization_guide/content/browser",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/page_content_annotations/content/browser",
+    "//components/page_content_annotations/content/mojom",
     "//components/password_manager/core/browser/actor_login:common",
     "//components/policy/core/browser",
     "//components/tabs:public",
@@ -103,7 +102,6 @@ source_set("impl") {
   sources = [
     "action_tracker_for_metrics.cc",
     "action_tracker_for_metrics.h",
-    "actor_features.cc",
     "actor_keyed_service.cc",
     "actor_keyed_service_factory.cc",
     "actor_metrics.cc",
@@ -111,7 +109,6 @@ source_set("impl") {
     "actor_proto_conversion.cc",
     "actor_script_tool_receiver.cc",
     "actor_script_tool_receiver.h",
-    "actor_switches.cc",
     "actor_tab_data.cc",
     "actor_task.cc",
     "actor_task_metadata.cc",
@@ -121,9 +118,6 @@ source_set("impl") {
     "aggregated_journal_in_memory_serializer.cc",
     "aggregated_journal_serializer.cc",
     "execution_engine.cc",
-    "origin_checker.cc",
-    "safety_list_manager.cc",
-    "safety_list_manager.h",
     "site_policy.cc",
     "tools/attempt_form_filling_tool.cc",
     "tools/attempt_form_filling_tool.h",
@@ -133,6 +127,9 @@ source_set("impl") {
     "tools/attempt_login_tool.cc",
     "tools/attempt_login_tool.h",
     "tools/attempt_login_tool_request.cc",
+    "tools/attempt_otp_filling_tool.cc",
+    "tools/attempt_otp_filling_tool.h",
+    "tools/attempt_otp_filling_tool_request.cc",
     "tools/click_tool_request.cc",
     "tools/drag_and_release_tool_request.cc",
     "tools/history_tool.cc",
@@ -192,8 +189,8 @@ source_set("impl") {
     "//chrome/browser/signin",
     "//chrome/browser/tab_list",
     "//chrome/browser/ui",
-    "//chrome/browser/ui:browser_navigator_params_headers",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/navigator",
     "//chrome/browser/ui/tabs:tabs_public",
     "//chrome/common",
     "//components/affiliations/core/browser:affiliations",
@@ -243,7 +240,6 @@ source_set("impl") {
       "tools/window_management_tool_request.cc",
     ]
     deps += [
-      "//chrome/browser/ui:browser_list",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs:tab_strip_model_observer",
     ]
@@ -268,8 +264,6 @@ source_set("types") {
   sources = [
     "actor_task_delegate.h",
     "autofill_selection_dialog_event_handler.h",
-    "shared_types.cc",
-    "shared_types.h",
   ]
   public_deps = [
     "//base",
@@ -332,9 +326,6 @@ source_set("unit_tests") {
     "actor_test_util_unittest.cc",
     "aggregated_journal_unittest.cc",
     "execution_engine_unittest.cc",
-    "origin_checker_unittest.cc",
-    "safety_list_manager_unittest.cc",
-    "shared_types_unittest.cc",
     "site_policy_unittest.cc",
     "tools/attempt_form_filling_tool_request_unittest.cc",
   ]
@@ -394,7 +385,10 @@ source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
-  sources = [ "actor_keyed_service_browsertest.cc" ]
+  sources = [
+    "actor_keyed_service_browsertest.cc",
+    "actor_util_browsertest.cc",
+  ]
   deps = [
     ":actor",
     ":impl",
@@ -450,6 +444,7 @@ source_set("browser_tests") {
       "tools/action_tracker_for_metrics_browsertest.cc",
       "tools/attempt_form_filling_tool_browsertest.cc",
       "tools/attempt_login_tool_browsertest.cc",
+      "tools/attempt_otp_filling_tool_browsertest.cc",
       "tools/click_tool_browsertest.cc",
       "tools/drag_and_release_tool_browsertest.cc",
       "tools/history_tool_browsertest.cc",
@@ -469,6 +464,7 @@ source_set("browser_tests") {
       "tools/tab_management_tool_browsertest.cc",
       "tools/tool_agnostic_browsertest.cc",
       "tools/type_tool_browsertest.cc",
+      "tools/uaf_regression_browsertest.cc",
       "tools/wait_tool_browsertest.cc",
       "tools/window_management_tool_browsertest.cc",
     ]

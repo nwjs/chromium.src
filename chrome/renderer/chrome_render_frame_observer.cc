@@ -29,7 +29,7 @@
 #include "chrome/common/open_search_description_document_handler.mojom.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/renderer/actor/journal.h"
-#include "chrome/renderer/actor/page_stability_monitor.h"
+#include "chrome/renderer/actor/page_stability_monitor_delegate.h"
 #include "chrome/renderer/actor/tool_executor.h"
 #include "chrome/renderer/chrome_content_settings_agent_delegate.h"
 #include "chrome/renderer/media/media_feeds.h"
@@ -42,6 +42,7 @@
 #include "components/no_state_prefetch/renderer/no_state_prefetch_utils.h"
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/optimization_guide/content/renderer/page_text_agent.h"
+#include "components/page_content_annotations/content/renderer/page_stability_monitor.h"
 #include "components/translate/content/renderer/translate_agent.h"
 #include "components/translate/core/common/translate_util.h"
 #include "components/web_cache/renderer/web_cache_impl.h"
@@ -142,7 +143,7 @@ FrameHeaderMap& GetFrameHeaderMap() {
 // origins for OOM crashes. Keys are recorded here and not via
 // ChromeContentClient::SetActiveURL() because that method is only invoked in
 // response to IPC messages and most OOMs do not occur in response to an IPC.
-// https://crbug.com/1310046
+// https://crbug.com/40830140
 void UpdateLoadedOriginCrashKeys() {
   // Capture the origin for each RenderFrame.
   struct Visitor : public content::RenderFrameVisitor {
@@ -677,11 +678,15 @@ void ChromeRenderFrameObserver::GetCrossDocumentScriptToolResult(
 }
 
 void ChromeRenderFrameObserver::CreatePageStabilityMonitor(
-    mojo::PendingReceiver<actor::mojom::PageStabilityMonitor> monitor,
+    mojo::PendingReceiver<page_content_annotations::mojom::PageStabilityMonitor>
+        monitor,
     const actor::TaskId& task_id,
     bool supports_paint_stability) {
-  page_stability_monitor_ = std::make_unique<actor::PageStabilityMonitor>(
-      *render_frame(), supports_paint_stability, task_id, *actor_journal_);
+  page_stability_monitor_ =
+      std::make_unique<page_content_annotations::PageStabilityMonitor>(
+          *render_frame(), supports_paint_stability,
+          std::make_unique<actor::PageStabilityMonitorDelegate>(
+              task_id, *actor_journal_));
   page_stability_monitor_->Bind(std::move(monitor));
 }
 

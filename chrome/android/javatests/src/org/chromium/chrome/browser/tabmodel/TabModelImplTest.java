@@ -47,6 +47,8 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.RequiresRestart;
+import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -58,7 +60,6 @@ import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.Journeys;
@@ -153,7 +154,7 @@ public class TabModelImplTest {
 
     @Test
     @SmallTest
-    @DisabledTest(message = "https://crbug.com/1448777")
+    @DisabledTest(message = "https://crbug.com/40914476")
     public void validIndexAfterRestored_FromPreviousActivity() {
         mActivityTestRule.recreateActivity();
         ChromeTabbedActivity newActivity = mActivityTestRule.getActivity();
@@ -249,7 +250,7 @@ public class TabModelImplTest {
                     assertEquals(1, mTabModelJni.getCount());
 
                     GURL url = new GURL("https://www.chromium.org");
-                    Tab tab = mTabModelJni.openTabProgrammatically(url, 0);
+                    Tab tab = mTabModelJni.openTabProgrammatically(url, 0, true);
                     assertNotNull(tab);
                     assertEquals(url, tab.getUrl());
                     assertEquals(2, mTabModelJni.getCount());
@@ -265,6 +266,35 @@ public class TabModelImplTest {
                     assertTrue(
                             willOpenInForeground(
                                     TabLaunchType.FROM_TAB_LIST_INTERFACE,
+                                    tab.isIncognitoBranded(),
+                                    mTabModelJni.isIncognitoBranded()));
+                });
+    }
+
+    @Test
+    @SmallTest
+    public void testOpenTabProgrammatically_Background() {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    assertEquals(1, mTabModelJni.getCount());
+
+                    GURL url = new GURL("https://www.chromium.org");
+                    Tab tab = mTabModelJni.openTabProgrammatically(url, 0, false);
+                    assertNotNull(tab);
+                    assertEquals(url, tab.getUrl());
+                    assertEquals(2, mTabModelJni.getCount());
+
+                    Tab foundTab = mTabModelJni.getTabAt(0);
+                    assertNotNull(foundTab);
+                    assertEquals(tab, foundTab);
+                    assertEquals(url, foundTab.getUrl());
+                    assertEquals(
+                            TabLaunchType.FROM_TAB_LIST_INTERFACE_BACKGROUND,
+                            tab.getTabLaunchTypeAtCreation());
+
+                    assertFalse(
+                            willOpenInForeground(
+                                    TabLaunchType.FROM_TAB_LIST_INTERFACE_BACKGROUND,
                                     tab.isIncognitoBranded(),
                                     mTabModelJni.isIncognitoBranded()));
                 });
@@ -1996,6 +2026,7 @@ public class TabModelImplTest {
 
     @Test
     @SmallTest
+    @Restriction(DeviceFormFactor.PHONE_OR_TABLET) // crbug.com/503008051
     public void testPinTabInGroup_ActionListener_Reject() {
         TabGroupModelFilter filter = mPage.getTabGroupModelFilter();
         createTabGroup(1, filter); // Group with 1 tab.

@@ -22,13 +22,17 @@
 #include "base/test/test_timeouts.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
+#include "components/optimization_guide/content/browser/mock_autofill_annotations_provider.h"
 #include "components/optimization_guide/content/browser/mock_media_transcript_provider.h"
 #include "components/optimization_guide/content/browser/no_response_ai_page_content_agent.h"
+#include "components/optimization_guide/content/browser/page_content_proto_util.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
+#include "components/page_content_annotations/content/page_context_fetcher.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
@@ -107,6 +111,48 @@ const optimization_guide::proto::ContentNode* FindFirstInteractiveNode(
     const auto* current = stack.back();
     stack.pop_back();
     if (current->content_attributes().has_interaction_info()) {
+      return current;
+    }
+    for (const auto& child : current->children_nodes()) {
+      stack.push_back(&child);
+    }
+  }
+  return nullptr;
+}
+
+bool SubtreeContainsTextSubstring(
+    const optimization_guide::proto::ContentNode& node,
+    const std::string& substring) {
+  // Match against serialized text nodes so callers can find the owning APC
+  // node without depending on the exact child layout.
+  if (node.content_attributes().has_text_data() &&
+      node.content_attributes().text_data().text_content().find(substring) !=
+          std::string::npos) {
+    return true;
+  }
+
+  for (const auto& child : node.children_nodes()) {
+    if (SubtreeContainsTextSubstring(child, substring)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const optimization_guide::proto::ContentNode*
+FindFirstNodeWithAttributeTypeAndTextSubstring(
+    const optimization_guide::proto::ContentNode& root,
+    optimization_guide::proto::ContentAttributeType attribute_type,
+    const std::string& substring) {
+  std::vector<const optimization_guide::proto::ContentNode*> stack;
+  stack.push_back(&root);
+  while (!stack.empty()) {
+    const auto* current = stack.back();
+    stack.pop_back();
+    // Match the APC node by role first, then use descendant text to identify
+    // the specific control under test.
+    if (current->content_attributes().attribute_type() == attribute_type &&
+        SubtreeContainsTextSubstring(*current, substring)) {
       return current;
     }
     for (const auto& child : current->children_nodes()) {
@@ -252,6 +298,62 @@ void SimulateMouseClickAt(content::RenderWidgetHost* rwh, gfx::PointF point) {
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_MAC) &&
         // !BUILDFLAG(IS_FUCHSIA)
 
+class RecordingFetchPageProgressListener final
+    : public page_content_annotations::FetchPageProgressListener {
+ public:
+  RecordingFetchPageProgressListener() = default;
+  ~RecordingFetchPageProgressListener() override = default;
+
+  void BeginScreenshot() override { screenshot_started_ = true; }
+
+  void ScreenshotCaptured(const SkBitmap& bitmap) override {
+    // Keep the raw bitmap so the test can compare pixels before redaction.
+    captured_bitmap_ = bitmap;
+  }
+
+  void ScreenshotRedacted(const SkBitmap& bitmap) override {
+    // Keep the final bitmap so the test can verify the redaction paint.
+    redacted_bitmap_ = bitmap;
+  }
+
+  void EndScreenshot(std::optional<std::string> error) override {
+    screenshot_finished_ = true;
+    screenshot_error_ = std::move(error);
+  }
+
+  void BeginAPC() override { apc_started_ = true; }
+
+  void EndAPC(std::optional<std::string> error) override {
+    apc_finished_ = true;
+    apc_error_ = std::move(error);
+  }
+
+  bool screenshot_started() const { return screenshot_started_; }
+  bool screenshot_finished() const { return screenshot_finished_; }
+  bool apc_started() const { return apc_started_; }
+  bool apc_finished() const { return apc_finished_; }
+  const std::optional<SkBitmap>& captured_bitmap() const {
+    return captured_bitmap_;
+  }
+  const std::optional<SkBitmap>& redacted_bitmap() const {
+    return redacted_bitmap_;
+  }
+  const std::optional<std::string>& screenshot_error() const {
+    return screenshot_error_;
+  }
+  const std::optional<std::string>& apc_error() const { return apc_error_; }
+
+ private:
+  bool screenshot_started_ = false;
+  bool screenshot_finished_ = false;
+  bool apc_started_ = false;
+  bool apc_finished_ = false;
+  std::optional<SkBitmap> captured_bitmap_;
+  std::optional<SkBitmap> redacted_bitmap_;
+  std::optional<std::string> screenshot_error_;
+  std::optional<std::string> apc_error_;
+};
+
 class PageContentProtoProviderBrowserTest : public content::ContentBrowserTest {
  public:
   PageContentProtoProviderBrowserTest() = default;
@@ -290,6 +392,7 @@ class PageContentProtoProviderBrowserTest : public content::ContentBrowserTest {
     page_content_ = std::move(page_content);
     std::move(quit_closure).Run();
   }
+  bool has_page_content() const { return page_content_->has_value(); }
 
   const proto::AnnotatedPageContent& page_content() {
     return page_content_->value().proto;
@@ -358,6 +461,20 @@ class PageContentProtoProviderBrowserTest : public content::ContentBrowserTest {
   base::flat_map<std::string, content::WeakDocumentPtr> document_identifiers_;
 };
 
+class PageContentProtoProviderBrowserTestOtpRedaction
+    : public PageContentProtoProviderBrowserTest {
+ public:
+  PageContentProtoProviderBrowserTestOtpRedaction() {
+    feature_list_.InitWithFeatures(
+        {features::kAnnotatedPageContentWithAutofillAnnotations,
+         features::kAnnotatedPageContentAutofillOtpRedactions},
+        {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, BasicDefault) {
   LoadPage(https_server()->GetURL("/simple.html"));
 
@@ -375,8 +492,7 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, BasicActionable) {
            GetActionableAIPageContentOptions());
 
   EXPECT_EQ(page_content().version(),
-            optimization_guide::proto::
-                ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+            optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
   EXPECT_EQ(page_content().mode(),
             optimization_guide::proto::
                 ANNOTATED_PAGE_CONTENT_MODE_ACTIONABLE_ELEMENTS);
@@ -561,8 +677,7 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTestActionableElements,
                        AIPageContent) {
   LoadPage(https_server()->GetURL("/actionable_elements.html"));
   EXPECT_EQ(page_content().version(),
-            optimization_guide::proto::
-                ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+            optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
   EXPECT_EQ(page_content().root_node().children_nodes().size(), 1);
   const auto& child = page_content().root_node().children_nodes().at(0);
   EXPECT_TRUE(child.content_attributes().has_interaction_info());
@@ -573,8 +688,7 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, ForLabel) {
   LoadPage(https_server()->GetURL("/for_label.html"),
            GetActionableAIPageContentOptions());
   EXPECT_EQ(page_content().version(),
-            optimization_guide::proto::
-                ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+            optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
 
   EXPECT_EQ(ActionableContentRootNode().children_nodes().size(), 2);
 
@@ -600,8 +714,7 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
   LoadPage(https_server()->GetURL("/clickability_reason.html"),
            GetActionableAIPageContentOptions());
   EXPECT_EQ(page_content().version(),
-            optimization_guide::proto::
-                ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+            optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
 
   const auto& button_node = ActionableContentRootNode().children_nodes()[0];
   ASSERT_TRUE(button_node.content_attributes().has_interaction_info());
@@ -697,8 +810,7 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
   LoadPage(https_server()->GetURL("/label_not_actionable.html"),
            GetActionableAIPageContentOptions());
   EXPECT_EQ(page_content().version(),
-            optimization_guide::proto::
-                ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+            optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
 
   EXPECT_EQ(ActionableContentRootNode().children_nodes().size(), 2);
 
@@ -719,8 +831,7 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, AriaRole) {
   LoadPage(https_server()->GetURL("/aria_role.html"),
            GetActionableAIPageContentOptions());
   EXPECT_EQ(page_content().version(),
-            optimization_guide::proto::
-                ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+            optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
 
   EXPECT_EQ(ActionableContentRootNode().children_nodes().size(), 1);
   const auto& button = ActionableContentRootNode().children_nodes()[0];
@@ -743,6 +854,37 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, ZOrder) {
                 .interaction_info()
                 .document_scoped_z_order(),
             1);
+}
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
+                       AnchoredOffscreenFixedPopupLosesInteractionInfo) {
+  // The page models a fixed bottom popup that stays rendered below the
+  // viewport until another control changes state.
+  LoadPage(https_server()->GetURL("/anchored_offscreen_fixed_popup.html"),
+           nullptr);
+
+  LoadData(GetActionableAIPageContentOptions());
+
+  const auto& root = ActionableContentRootNode();
+  const auto* trigger = FindFirstNodeWithAttributeTypeAndTextSubstring(
+      root, optimization_guide::proto::CONTENT_ATTRIBUTE_FORM_CONTROL,
+      "Choose size");
+  ASSERT_TRUE(trigger);
+  ASSERT_TRUE(trigger->content_attributes().has_interaction_info());
+
+  const auto* size_option = FindFirstNodeWithAttributeTypeAndTextSubstring(
+      root, optimization_guide::proto::CONTENT_ATTRIBUTE_FORM_CONTROL,
+      "Size 6.5");
+  ASSERT_TRUE(size_option);
+
+  // The hidden option still exists in the DOM, but APC should stop presenting
+  // it as directly actionable because scrolling cannot bring it on screen.
+  const auto& option_geometry = size_option->content_attributes().geometry();
+  // The popup can start exactly at the bottom edge of the viewport and still
+  // be offscreen because there is no overlap with the viewport rect.
+  EXPECT_GE(option_geometry.outer_bounding_box().y(),
+            page_content().viewport_geometry().height());
+  EXPECT_FALSE(size_option->content_attributes().has_interaction_info());
 }
 
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
@@ -2084,6 +2226,109 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
             https_server()->GetURL("/relative/next").spec());
 }
 
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTestOtpRedaction,
+                       OtpScreenshotRedaction) {
+  LoadPage(https_server()->GetURL("/otp_redaction.html"), nullptr);
+
+  // Use a mock provider so the test stays focused on screenshot redaction.
+  auto provider =
+      std::make_unique<testing::NiceMock<MockAutofillAnnotationsProvider>>();
+  AutofillFieldMetadata otp_metadata;
+  otp_metadata.coarse_field_type =
+      proto::COARSE_AUTOFILL_FIELD_TYPE_UNSUPPORTED;
+  otp_metadata.section_id = 7u;
+  otp_metadata.redaction_reason =
+      AutofillFieldRedactionReason::kShouldRedactForOtp;
+  EXPECT_CALL(*provider, GetAutofillFieldData)
+      .WillRepeatedly(testing::Return(otp_metadata));
+  AutofillAnnotationsProvider::SetFor(web_contents(), std::move(provider));
+
+  auto progress_listener =
+      std::make_unique<RecordingFetchPageProgressListener>();
+  RecordingFetchPageProgressListener* const progress_listener_ptr =
+      progress_listener.get();
+  page_content_annotations::PageContextFetcher fetcher(
+      base::BindRepeating(
+          [](content::BrowserContext*)
+              -> page_content_annotations::PageContentScreenshotService* {
+            ADD_FAILURE()
+                << "Viewport-only screenshot fetches should not use paint "
+                   "preview.";
+            return nullptr;
+          }),
+      std::move(progress_listener));
+
+  page_content_annotations::FetchPageContextOptions options;
+  auto screenshot_options =
+      page_content_annotations::ScreenshotOptions::ViewportOnly(
+          /*paint_preview_options=*/std::nullopt,
+          /*screenshot_collection_options=*/std::nullopt);
+  screenshot_options.set_redaction_color_for_testing(SkColors::kRed);
+  options.screenshot_options = screenshot_options;
+  options.annotated_page_content_options = GetAIPageContentOptions();
+
+  base::test::TestFuture<
+      page_content_annotations::FetchPageContextResultCallbackArg>
+      future;
+  fetcher.FetchStart(*web_contents(), options, future.GetCallback());
+
+  page_content_annotations::FetchPageContextResultCallbackArg callback_result =
+      future.Take();
+  ASSERT_TRUE(callback_result.has_value()) << callback_result.error().message;
+
+  std::unique_ptr<page_content_annotations::FetchPageContextResult> result =
+      std::move(callback_result.value());
+  ASSERT_TRUE(result->screenshot_result.has_value())
+      << result->screenshot_result.error();
+  ASSERT_TRUE(result->annotated_page_content_result.has_value())
+      << result->annotated_page_content_result.error();
+
+  // The page only has one field, so there should be one clear redaction box.
+  const auto& annotated_page_content =
+      result->annotated_page_content_result.value();
+  ASSERT_EQ(annotated_page_content.visible_bounding_boxes_for_redaction.size(),
+            1u);
+  const gfx::Rect& redaction_rect =
+      annotated_page_content.visible_bounding_boxes_for_redaction.front();
+  const gfx::Point sample_point = redaction_rect.CenterPoint();
+
+  ASSERT_TRUE(progress_listener_ptr->screenshot_started());
+  ASSERT_TRUE(progress_listener_ptr->screenshot_finished());
+  ASSERT_TRUE(progress_listener_ptr->apc_started());
+  ASSERT_TRUE(progress_listener_ptr->apc_finished());
+  EXPECT_FALSE(progress_listener_ptr->screenshot_error().has_value());
+  EXPECT_FALSE(progress_listener_ptr->apc_error().has_value());
+  ASSERT_TRUE(progress_listener_ptr->captured_bitmap().has_value());
+  ASSERT_TRUE(progress_listener_ptr->redacted_bitmap().has_value());
+
+  const auto* form_control_node =
+      FindFirstNodeWithAttributeType(annotated_page_content.proto.root_node(),
+                                     proto::CONTENT_ATTRIBUTE_FORM_CONTROL);
+  ASSERT_NE(form_control_node, nullptr);
+  ASSERT_TRUE(form_control_node->content_attributes().has_form_control_data());
+  EXPECT_EQ(form_control_node->content_attributes()
+                .form_control_data()
+                .redaction_decision(),
+            proto::REDACTION_DECISION_REDACTED_IS_OTP);
+
+  const SkBitmap& captured_bitmap =
+      progress_listener_ptr->captured_bitmap().value();
+  const SkBitmap& redacted_bitmap =
+      progress_listener_ptr->redacted_bitmap().value();
+  ASSERT_GE(sample_point.x(), 0);
+  ASSERT_GE(sample_point.y(), 0);
+  ASSERT_LT(sample_point.x(), captured_bitmap.width());
+  ASSERT_LT(sample_point.y(), captured_bitmap.height());
+  ASSERT_LT(sample_point.x(), redacted_bitmap.width());
+  ASSERT_LT(sample_point.y(), redacted_bitmap.height());
+
+  // Compare the same pixel before and after painting the OTP redaction box.
+  EXPECT_NE(captured_bitmap.getColor(sample_point.x(), sample_point.y()),
+            SK_ColorRED);
+  EXPECT_EQ(redacted_bitmap.getColor(sample_point.x(), sample_point.y()),
+            SK_ColorRED);
+}
+
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
                        FragmentVisibleBoundingBoxes) {
   LoadPage(https_server()->GetURL("/fragment_boxes.html"),
@@ -2104,8 +2349,7 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
   // <body>
 
   EXPECT_EQ(page_content().version(),
-            optimization_guide::proto::
-                ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+            optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
 
   EXPECT_EQ(ActionableContentRootNode().children_nodes().size(), 1);
   const auto& section = ActionableContentRootNode().children_nodes()[0];
@@ -2265,8 +2509,7 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest, DisabledButton) {
   LoadPage(https_server()->GetURL("/disabled_button.html"),
            GetActionableAIPageContentOptions());
   EXPECT_EQ(page_content().version(),
-            optimization_guide::proto::
-                ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+            optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
 
   EXPECT_EQ(ActionableContentRootNode().children_nodes().size(), 1);
   const auto& button = ActionableContentRootNode().children_nodes()[0];
@@ -2285,8 +2528,7 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
   LoadPage(https_server()->GetURL("/aria_disabled_button.html"),
            GetActionableAIPageContentOptions());
   EXPECT_EQ(page_content().version(),
-            optimization_guide::proto::
-                ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+            optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
 
   EXPECT_EQ(ActionableContentRootNode().children_nodes().size(), 1);
   const auto& button = ActionableContentRootNode().children_nodes()[0];
@@ -2305,8 +2547,7 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
   LoadPage(https_server()->GetURL("/cursor_not_allowed_button.html"),
            GetActionableAIPageContentOptions());
   EXPECT_EQ(page_content().version(),
-            optimization_guide::proto::
-                ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+            optimization_guide::proto::ANNOTATED_PAGE_CONTENT_VERSION_1_0);
 
   EXPECT_EQ(ActionableContentRootNode().children_nodes().size(), 1);
   const auto& button = ActionableContentRootNode().children_nodes()[0];
@@ -2912,6 +3153,136 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTest,
                    gfx::Rect(100, 100, 200, 300));
   AssertRectsEqual(geometry.outer_bounding_box(),
                    gfx::Rect(100, 100, 200, 300));
+}
+
+class PageContentProtoProviderBrowserTestNoTimeouts
+    : public PageContentProtoProviderBrowserTest {
+ public:
+  PageContentProtoProviderBrowserTestNoTimeouts() {
+    // Disable timeouts so these tests only pass when APC handles the lost
+    // renderer response. A timeout would mask the fallback path under test.
+    feature_list_.InitWithFeatures(
+        /* enabled_features= */ {},
+        /* disabled_features= */ {
+            features::kGetAIPageContentMainFrameTimeoutEnabled,
+            features::kGetAIPageContentSubframeTimeoutEnabled});
+  }
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    PageContentProtoProviderBrowserTest::SetUpCommandLine(command_line);
+    content::IsolateAllSitesForTesting(command_line);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTestNoTimeouts,
+                       MainFrameMojoDisconnect) {
+  LoadPage(https_server()->GetURL("/simple.html"), /*options=*/nullptr);
+
+  // Hold the main-frame APC response so the request is still pending when the
+  // pipe closes.
+  NoResponseAIPageContentAgent no_response_agent(
+      web_contents()->GetPrimaryMainFrame());
+
+  base::RunLoop loading_run_loop;
+  LoadData(GetActionableAIPageContentOptions(), loading_run_loop.QuitClosure());
+
+  // Drop the response after the browser has installed its default callback.
+  no_response_agent.WaitForRequest();
+  no_response_agent.Disconnect();
+
+  // Closing the pipe runs the wrapped Mojo callback with nullptr, then the
+  // browser-side GetAIPageContent callback reports main-frame failure.
+  loading_run_loop.Run();
+
+  // A missing main-frame APC response makes the whole extraction fail.
+  EXPECT_FALSE(has_page_content());
+}
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTestNoTimeouts,
+                       MainFrameRendererCrashWithPendingRequest) {
+  LoadPage(https_server()->GetURL("/simple.html"), /*options=*/nullptr);
+
+  content::RenderFrameHost* main_frame = web_contents()->GetPrimaryMainFrame();
+  content::RenderProcessHost* child_process = main_frame->GetProcess();
+
+  // The title is the browser-side signal that the renderer's spin task started.
+  content::TitleWatcher title_watcher(web_contents(), u"BLOCKED");
+  content::ExecuteScriptAsync(main_frame, R"JS(
+    setTimeout(() => {
+      document.title = 'BLOCKED';
+
+      // Keep the renderer from reading the APC Mojo request. This makes the
+      // browser observe renderer shutdown, not a real APC response.
+      while (true) {}
+    }, 0);
+  )JS");
+  EXPECT_EQ(u"BLOCKED", title_watcher.WaitAndGetTitle());
+
+  base::RunLoop loading_run_loop;
+  LoadData(GetActionableAIPageContentOptions(), loading_run_loop.QuitClosure());
+
+  // The request has been posted to the renderer. Forcing the blocked process to
+  // exit should close the Mojo pipe and invoke APC's default failure callback.
+  content::RenderProcessHostWatcher crash_observer(
+      child_process, content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+  ASSERT_TRUE(child_process->Shutdown(0));
+  crash_observer.Wait();
+
+  // Renderer exit closes the pipe. The wrapped Mojo callback runs with nullptr,
+  // then the browser-side GetAIPageContent callback reports main-frame failure.
+  loading_run_loop.Run();
+
+  // A crashed main renderer makes the whole extraction fail.
+  EXPECT_FALSE(has_page_content());
+}
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTestNoTimeouts,
+                       SubframeMojoDisconnect) {
+  LoadPage(https_server()->GetURL("/iframe_cross_site.html"),
+           /*options=*/nullptr);
+
+  // Hold the second child frame so the first child can still return content.
+  content::RenderFrameHost* child_frame_2 =
+      ChildFrameAt(web_contents()->GetPrimaryMainFrame(), 1);
+  ASSERT_TRUE(child_frame_2);
+  NoResponseAIPageContentAgent no_response_agent(child_frame_2);
+
+  base::RunLoop loading_run_loop;
+  LoadData(GetActionableAIPageContentOptions(), loading_run_loop.QuitClosure());
+
+  // Drop only the second child response, matching an OOPIF pipe disconnect.
+  no_response_agent.WaitForRequest();
+  no_response_agent.Disconnect();
+  loading_run_loop.Run();
+
+  // The main frame still returns content; only the lost child frame is
+  // represented with default iframe data.
+  EXPECT_TRUE(has_page_content());
+
+  const auto& root_node = ActionableContentRootNode();
+  EXPECT_EQ(root_node.children_nodes().size(), 2);
+
+  const auto& b_frame = root_node.children_nodes()[0];
+  EXPECT_EQ(b_frame.content_attributes().attribute_type(),
+            optimization_guide::proto::CONTENT_ATTRIBUTE_IFRAME);
+  const auto& b_frame_data = b_frame.content_attributes().iframe_data();
+  AssertValidOrigin(b_frame_data.frame_data().security_origin(),
+                    ChildFrameAt(web_contents()->GetPrimaryMainFrame(), 0)
+                        ->GetLastCommittedOrigin());
+  EXPECT_FALSE(b_frame.content_attributes().is_ad_related());
+
+  const auto& c_frame = root_node.children_nodes()[1];
+  EXPECT_EQ(c_frame.content_attributes().attribute_type(),
+            optimization_guide::proto::CONTENT_ATTRIBUTE_IFRAME);
+
+  // We didn't wait for the frame to respond, so the iframe data is defaulted.
+  const auto& c_frame_data = c_frame.content_attributes().iframe_data();
+  EXPECT_FALSE(c_frame_data.frame_data().has_security_origin());
+  EXPECT_EQ(c_frame.children_nodes_size(), 0);
+  EXPECT_FALSE(c_frame.content_attributes().is_ad_related());
 }
 
 }  // namespace

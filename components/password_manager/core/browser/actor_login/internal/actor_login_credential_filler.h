@@ -57,6 +57,12 @@ class ActorLoginCredentialFiller {
   void AttemptLogin(
       password_manager::PasswordManagerInterface* password_manager);
 
+  bool should_store_permission() const { return should_store_permission_; }
+
+  // Called when the primary page changed, so that the filler can
+  // properly populate the actor login MQLS logs.
+  void OnPrimaryPageChanged();
+
  private:
   enum class FieldType { kUsername, kPassword };
 

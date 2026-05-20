@@ -29,125 +29,23 @@
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
+#include "chrome/browser/glic/service/glic_instance_coordinator_impl.h"
 #include "chrome/common/actor_webui.mojom.h"
 #include "chrome/common/chrome_features.h"
 #include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
+#include "components/guest_view/browser/guest_view_base.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/base/proto_wrapper.h"
-#include "third_party/blink/public/common/web_preferences/web_preferences.h"
 
 #if !BUILDFLAG(IS_ANDROID)  // NEEDS_ANDROID_IMPL
-#include "components/guest_view/browser/guest_view_base.h"
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
 #endif
 
 namespace glic {
 BASE_FEATURE(kGlicReloadUsesFreshWebContents, base::FEATURE_ENABLED_BY_DEFAULT);
-
-class EmptyInstanceDelegate : public Host::InstanceDelegate {
- public:
-  EmptyInstanceDelegate() = default;
-  ~EmptyInstanceDelegate() override = default;
-
-  tabs::TabInterface* CreateTab(
-      const ::GURL& url,
-      bool open_in_background,
-      const std::optional<int32_t>& window_id,
-      glic::mojom::WebClientHandler::CreateTabCallback callback) override {
-    std::move(callback).Run(nullptr);
-    return nullptr;
-  }
-  void CreateTask(
-      base::WeakPtr<actor::ActorTaskDelegate> delegate,
-      actor::webui::mojom::TaskOptionsPtr options,
-      mojom::WebClientHandler::CreateTaskCallback callback) override {
-    std::move(callback).Run(
-        base::unexpected(mojom::CreateTaskErrorReason::kUnknown));
-  }
-  void PerformActions(
-      const std::vector<uint8_t>& actions_proto,
-      mojom::WebClientHandler::PerformActionsCallback callback) override {
-    std::move(callback).Run(
-        base::unexpected(mojom::PerformActionsErrorReason::kUnknown));
-  }
-  void CancelActions(
-      actor::TaskId task_id,
-      mojom::WebClientHandler::CancelActionsCallback callback) override {
-    std::move(callback).Run(mojom::CancelActionsResult::kFailed);
-  }
-  void StopActorTask(actor::TaskId task_id,
-                     mojom::ActorTaskStopReason stop_reason) override {}
-  void PauseActorTask(actor::TaskId task_id,
-                      mojom::ActorTaskPauseReason pause_reason,
-                      tabs::TabInterface::Handle tab_handle) override {}
-  void ResumeActorTask(actor::TaskId task_id,
-                       const mojom::GetTabContextOptions& context_options,
-                       glic::mojom::WebClientHandler::ResumeActorTaskCallback
-                           callback) override {
-    std::move(callback).Run(mojom::GetContextResultWithActionResultCode::New());
-  }
-  void InterruptActorTask(actor::TaskId task_id,
-                          std::optional<mojom::ActorTaskInterruptReason>
-                              interrupt_reason) override {}
-  void UninterruptActorTask(actor::TaskId task_id) override {}
-  void CreateActorTab(
-      actor::TaskId task_id,
-      bool open_in_background,
-      const std::optional<int32_t>& initiator_tab_id,
-      const std::optional<int32_t>& initiator_window_id,
-      glic::mojom::WebClientHandler::CreateActorTabCallback callback) override {
-    std::move(callback).Run(nullptr);
-  }
-  void FetchZeroStateSuggestions(
-      bool is_first_run,
-      std::optional<std::vector<std::string>> supported_tools,
-      glic::mojom::WebClientHandler::
-          GetZeroStateSuggestionsForFocusedTabCallback callback) override {
-    std::move(callback).Run(nullptr);
-  }
-  void GetZeroStateSuggestionsAndSubscribe(
-      bool has_active_subscription,
-      const mojom::ZeroStateSuggestionsOptions& options,
-      mojom::WebClientHandler::GetZeroStateSuggestionsAndSubscribeCallback
-          callback) override {
-    std::move(callback).Run(nullptr);
-  }
-  void RegisterConversation(
-      glic::mojom::ConversationInfoPtr info,
-      mojom::WebClientHandler::RegisterConversationCallback callback) override {
-    std::move(callback).Run(mojom::RegisterConversationErrorReason::kUnknown);
-  }
-  void OnWebClientCleared() override {}
-  void PrepareForOpen() override {}
-  void OnUserInputSubmitted(mojom::WebClientMode mode) override {}
-  void OnInteractionModeChange(mojom::WebClientMode new_mode) override {}
-  GlicInstanceMetrics* instance_metrics() override { return nullptr; }
-  GlicInstanceMetricsBackwardsCompatibility&
-  instance_metrics_backwards_compatibility() override {
-    return metrics_backwards_compatibility_stub_;
-  }
-  bool IsActive() override { return true; }
-
- private:
-  class MetricsBackwardsCompatibilityStub
-      : public GlicInstanceMetricsBackwardsCompatibility {
-   public:
-    void OnUserInputSubmitted(mojom::WebClientMode mode) override {}
-    void DidRequestContextFromTab(tabs::TabInterface& tab) override {}
-    void OnResponseStarted() override {}
-    void OnResponseStopped(mojom::ResponseStopCause cause) override {}
-    void OnTurnCompleted(mojom::WebClientModel model,
-                         base::TimeDelta duration) override {}
-    void OnReaction(mojom::MetricUserInputReactionType reaction_type) override {
-    }
-    void OnGlicScrollAttempt() override {}
-    void OnGlicScrollComplete(bool success) override {}
-  };
-  MetricsBackwardsCompatibilityStub metrics_backwards_compatibility_stub_;
-};
 
 bool EmptyEmbedderDelegate::IsShowing() const {
   return true;
@@ -235,6 +133,12 @@ void Host::NotifySkillToInvokeChanged(mojom::SkillPtr skill) {
   }
 }
 
+void Host::NotifyIsInvoking(bool is_invoking) {
+  if (auto* client = GetPrimaryWebClient()) {
+    client->NotifyIsInvoking(is_invoking);
+  }
+}
+
 void Host::NotifyContextualSkillsChanged(
     std::vector<mojom::SkillPreviewPtr> contextual_skill_previews) {
   if (auto* client = GetPrimaryWebClient()) {
@@ -242,6 +146,17 @@ void Host::NotifyContextualSkillsChanged(
         std::move(contextual_skill_previews));
   } else {
     pending_contextual_skills_ = std::move(contextual_skill_previews);
+  }
+}
+
+void Host::GetExperimentalTriggeringUpdates(
+    mojo::PendingRemote<mojom::ExperimentalTriggeringUpdatesHandler> handler,
+    base::OnceCallback<void(bool)> success_status_callback) {
+  if (auto* client = GetPrimaryWebClient()) {
+    client->GetExperimentalTriggeringUpdates(
+        std::move(handler), std::move(success_status_callback));
+  } else {
+    std::move(success_status_callback).Run(false);
   }
 }
 
@@ -275,13 +190,12 @@ void Host::Reload() {
     return;
   }
 
-  if (GlicEnabling::IsMultiInstanceEnabled() &&
-      base::FeatureList::IsEnabled(kGlicReloadUsesFreshWebContents)) {
+  if (base::FeatureList::IsEnabled(kGlicReloadUsesFreshWebContents)) {
     if (handler_info_ && handler_info_->web_client) {
       UnsetWebClient(handler_info_->web_client);
     }
     Shutdown();
-    CreateContents(/*initially_hidden=*/false);
+    CreateContents();
     delegate_->OnReload();
   } else {
     contents->GetController().Reload(content::ReloadType::BYPASSING_CACHE,
@@ -295,7 +209,7 @@ void Host::OnWebContentsNavigated() {
   }
 }
 
-void Host::CreateContents(bool initially_hidden) {
+void Host::CreateContents() {
   if (contents_) {
     return;
   }
@@ -303,12 +217,7 @@ void Host::CreateContents(bool initially_hidden) {
   VLOG(1) << "Glic [Host] CreateContents";
 
   glic_service().fre_controller().RecordFrameworkStartTime();
-  if (base::FeatureList::IsEnabled(features::kGlicWebContentsWarming)) {
-    contents_ = glic_service().web_contents_warming_pool().TakeContainer();
-  } else {
-    contents_ = std::make_unique<WebUIContentsContainerImpl>(profile_,
-                                                             initially_hidden);
-  }
+  contents_ = instance_delegate_->CreateWebUIContentsContainer();
   contents_->AttachToHost(this);
 
   metrics_.StartRecording();
@@ -430,9 +339,7 @@ GlicKeyedService& Host::glic_service() {
 }
 
 GlicSharingManager& Host::sharing_manager() {
-  return sharing_manager_provider_
-             ? sharing_manager_provider_->sharing_manager()
-             : glic_service().sharing_manager();
+  return sharing_manager_provider_->sharing_manager();
 }
 
 GlicSkillsManager& Host::skills_manager() {
@@ -519,6 +426,7 @@ void Host::SetWebClient(GlicWebClientAccess* web_client) {
   CHECK(web_client);
   handler_info_->web_client = web_client;
 
+  // TODO(b/507074189): Refactor Skills to use the invoke API.
   if (!pending_contextual_skills_.empty()) {
     web_client->NotifyContextualSkillPreviewsChanged(
         std::move(pending_contextual_skills_));
@@ -625,7 +533,7 @@ content::WebContents* Host::webui_contents() const {
 }
 
 content::WebContents* Host::web_client_contents() const {
-  return web_client_contents_.get();
+  return content::WebContents::FromRenderFrameHost(GetGuestMainFrame());
 }
 
 bool Host::IsGlicWebUiHost(content::RenderProcessHost* host) const {
@@ -711,10 +619,9 @@ void Host::NotifyAdditionalContext(mojom::AdditionalContextPtr context) {
 }
 
 content::RenderProcessHost* Host::GetWebClientRenderProcessHost() const {
-  if (content::WebContents* contents = web_client_contents()) {
-    if (content::RenderFrameHost* rfh = contents->GetPrimaryMainFrame()) {
-      return rfh->GetProcess();
-    }
+  auto* guest_frame = GetGuestMainFrame();
+  if (guest_frame) {
+    return guest_frame->GetProcess();
   }
   return nullptr;
 }
@@ -854,143 +761,6 @@ void Host::FloatingPanelCanAttachChanged(bool can_attach) {
     return;
   }
   handler_info_->web_client->FloatingPanelCanAttachChanged(can_attach);
-}
-
-void Host::GuestAdded(content::WebContents* guest_contents) {
-  web_client_contents_ = guest_contents->GetWeakPtr();
-}
-
-HostManager::HostManager(
-    Profile* profile,
-    base::WeakPtr<GlicInstanceCoordinator> window_controller)
-    : profile_(profile),
-      window_controller_(window_controller),
-      empty_embedder_delegate_(std::make_unique<EmptyEmbedderDelegate>()),
-      instance_delegate_stub_(std::make_unique<EmptyInstanceDelegate>()) {}
-
-HostManager::~HostManager() = default;
-
-void HostManager::Shutdown() {
-  for (Host* host : GetAllHosts()) {
-    host->Shutdown();
-  }
-}
-
-void HostManager::GuestAdded(content::WebContents* guest_contents) {
-#if !BUILDFLAG(IS_ANDROID)  // NEEDS_ANDROID_IMPL
-  content::WebContents* top =
-      guest_view::GuestViewBase::GetTopLevelWebContents(guest_contents);
-#endif
-
-  for (Host* host : GetPrimaryHosts()) {
-    if (!host->webui_contents()) {
-      continue;
-    }
-
-    host->GuestAdded(guest_contents);
-
-#if !BUILDFLAG(IS_ANDROID)
-    // TODO(harringtond): This looks wrong, either fix or document this.
-    blink::web_pref::WebPreferences prefs(top->GetOrCreateWebPreferences());
-    prefs.default_font_size =
-        host->webui_contents()->GetOrCreateWebPreferences().default_font_size;
-    top->SetWebPreferences(prefs);
-#else
-    // TODO(b/470059315): What do we do for Android?
-#endif
-    return;
-  }
-}
-
-std::vector<Host*> HostManager::GetAllHosts() {
-  std::vector<Host*> hosts = GetPrimaryHosts();
-  for (std::unique_ptr<Host>& host : tab_hosts_) {
-    hosts.push_back(host.get());
-  }
-  return hosts;
-}
-
-Host* HostManager::GetOrCreateHostForTab(content::WebContents* web_contents) {
-  for (const auto& host : tab_hosts_) {
-    if (host->webui_contents() == web_contents) {
-      return host.get();
-    }
-  }
-
-  if (!tabs::TabInterface::MaybeGetFromContents(web_contents)) {
-    return nullptr;
-  }
-
-  // For backwards compatibility, tab hosts are tied to the window controller.
-  // In multi-instance mode, no instance is used for now. We should consider
-  // just creating new instances for these hosts.
-  GlicInstance* glic_instance = nullptr;
-  tab_hosts_.push_back(std::make_unique<Host>(profile_, nullptr, glic_instance,
-                                              instance_delegate_stub_.get()));
-  Host* new_host = tab_hosts_.back().get();
-  new_host->SetDelegate(empty_embedder_delegate_.get());
-  new_host->PanelWillOpen(mojom::InvocationSource::kOsButton, {});
-  return new_host;
-}
-
-bool HostManager::IsGlicWebUi(content::WebContents* contents) {
-  for (const Host* host : GetAllHosts()) {
-    if (host->IsGlicWebUi(contents)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool HostManager::IsGlicWebUiHost(content::RenderProcessHost* process_host) {
-  for (const Host* host : GetAllHosts()) {
-    if (host->IsGlicWebUiHost(process_host)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-void HostManager::WebUIPageHandlerAdded(GlicPageHandler* page_handler,
-                                        Host* host) {
-  CHECK(host);
-  host->WebUIPageHandlerAdded(page_handler);
-}
-
-void HostManager::WebUIPageHandlerRemoved(GlicPageHandler* page_handler) {
-  std::vector<Host*> instance_hosts = GetPrimaryHosts();
-  for (Host* host : GetAllHosts()) {
-    if (host->page_handler() == page_handler) {
-      host->WebUIPageHandlerRemoved(page_handler);
-      if (!std::ranges::contains(instance_hosts, host)) {
-        std::erase_if(tab_hosts_, [host](std::unique_ptr<Host>& h) {
-          return h.get() == host;
-        });
-      }
-      break;
-    }
-  }
-}
-
-Host* HostManager::FindHostForTabForTesting(tabs::TabInterface& tab) {
-  for (auto& host : tab_hosts_) {
-    if (host->webui_contents() == tab.GetContents()) {
-      return host.get();
-    }
-  }
-
-  return nullptr;
-}
-
-std::vector<Host*> HostManager::GetPrimaryHosts() {
-  if (!window_controller_) {
-    return {};
-  }
-  std::vector<Host*> hosts;
-  for (GlicInstance* instance : window_controller_->GetInstances()) {
-    hosts.push_back(&instance->host());
-  }
-  return hosts;
 }
 
 }  // namespace glic

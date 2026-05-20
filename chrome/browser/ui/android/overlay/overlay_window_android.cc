@@ -60,7 +60,7 @@ OverlayWindowAndroid::OverlayWindowAndroid(
 
   // We provide a small buffer for what "clipped" means, rather than enforcing
   // it strictly.  It'll still look fine while allowing small positioning errors
-  // that sites sometimes make.  See https://crbug.com/1411517 for an example.
+  // that sites sometimes make.  See https://crbug.com/40254849 for an example.
 
   // The java side will ignore any source bounds that are not on the screen for
   // the source rect hint. It will use the aspect ratio only in that case.  We
@@ -215,7 +215,9 @@ void OverlayWindowAndroid::DestroyStartedByJava(JNIEnv* env) {
 }
 
 void OverlayWindowAndroid::TogglePlayPause(JNIEnv* env, bool toggleOn) {
-  if (toggleOn == (playback_state_ == PlaybackState::kPaused)) {
+  bool is_paused_or_ended = playback_state_ == PlaybackState::kPaused ||
+                            playback_state_ == PlaybackState::kEndOfVideo;
+  if (toggleOn == is_paused_or_ended) {
     controller_->TogglePlayPause();
   }
 }

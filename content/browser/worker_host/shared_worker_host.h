@@ -16,10 +16,10 @@
 #include "base/scoped_observation.h"
 #include "base/supports_user_data.h"
 #include "base/unguessable_token.h"
+#include "content/browser/back_forward_cache/back_forward_cache_metrics.h"
 #include "content/browser/browser_interface_broker_impl.h"
 #include "content/browser/buckets/bucket_context.h"
 #include "content/browser/locks/lock_manager.h"
-#include "content/browser/renderer_host/back_forward_cache_metrics.h"
 #include "content/browser/renderer_host/code_cache_host_impl.h"
 #include "content/browser/renderer_host/policy_container_host.h"
 #include "content/common/content_export.h"
@@ -229,6 +229,14 @@ class CONTENT_EXPORT SharedWorkerHost
   // instance so the caller can be notified when the connection is lost. Should
   // be called right before deleting this instance.
   mojo::Remote<blink::mojom::SharedWorker> TerminateRemoteWorkerForTesting();
+
+  void set_client_security_state_for_testing(
+      network::mojom::ClientSecurityStatePtr client_security_state) {
+    worker_client_security_state_ = std::move(client_security_state);
+  }
+
+  // Computes the IsolationInfo used for WebSocket connections from this worker.
+  net::IsolationInfo ComputeIsolationInfoForWebSocket() const;
 
   base::WeakPtr<SharedWorkerHost> AsWeakPtr();
 

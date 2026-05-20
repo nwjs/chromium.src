@@ -32,7 +32,6 @@
 #include "build/build_config.h"
 #include "components/download/public/common/download_url_parameters.h"
 #include "components/input/render_widget_host_input_event_router.h"
-#include "content/browser/fenced_frame/fenced_frame_viewport_observer.h"
 #include "content/browser/media/audio_stream_monitor.h"
 #include "content/browser/media/forwarding_audio_stream_factory.h"
 #include "content/browser/preloading/prefetch/prefetch_handle_impl.h"
@@ -57,6 +56,7 @@
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/media_stream_request.h"
 #include "content/public/browser/preloading.h"
+#include "content/public/browser/tracing_support.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_capability_type.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -78,7 +78,6 @@
 #include "third_party/blink/public/mojom/choosers/popup_menu.mojom-forward.h"
 #include "third_party/blink/public/mojom/frame/blocked_navigation_types.mojom-shared.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-forward.h"
-#include "third_party/blink/public/mojom/frame/text_autosizer_page_info.mojom.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom-shared.h"
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom-forward.h"
 #include "third_party/blink/public/mojom/media/capture_handle_config.mojom.h"
@@ -98,6 +97,7 @@
 #include "ui/color/color_provider_source_observer.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/native_theme/native_theme_observer.h"
+#include "url/origin.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "content/public/browser/android/child_process_importance.h"
@@ -155,6 +155,7 @@ class ScopedAccessibilityMode;
 class ScreenChangeMonitor;
 class ScreenOrientationProvider;
 class SiteInstanceGroup;
+class SurfaceEmbedConnectorImpl;
 // For web_contents_impl_browsertest.cc
 class TestWCDelegateForDialogsAndFullscreen;
 class TestWebContents;
@@ -176,9 +177,9 @@ class WebContentsAndroid;
 class SelectionPopupDelegate;
 #endif
 
-#if BUILDFLAG(ENABLE_SURFACE_EMBED)
-class SurfaceEmbedConnectorImpl;
-#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
+namespace webid {
+enum class FederatedLoginResult;
+}
 
 // CreatedWindow holds the WebContentsImpl and target url between IPC calls to
 // CreateNewWindow and ShowCreatedWindow.
@@ -334,6 +335,9 @@ class CONTENT_EXPORT WebContentsImpl
                              const std::string& host,
                              RenderFrameHostImpl* rfh);
 
+  // RenderFrameHostDelegate implementation:
+  void OnCaptureHandleConfigUpdate(Page& page) override;
+
   // Returns the focused WebContents.
   // If there are multiple inner/outer WebContents (when embedding <webview>,
   // <guestview>, ...) returns the single one containing the currently focused
@@ -391,13 +395,13 @@ class CONTENT_EXPORT WebContentsImpl
   // WebContents ------------------------------------------------------
   WebContentsDelegate* GetDelegate() final;
   void SetDelegate(WebContentsDelegate* delegate) override;
-#if BUILDFLAG(ENABLE_SURFACE_EMBED)
   SurfaceEmbedConnector* GetSurfaceEmbedConnector() const override;
-#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
   NavigationControllerImpl& GetController() override;
   const NavigationControllerImpl& GetController() const override;
   BrowserContext* GetBrowserContext() override;
   base::WeakPtr<WebContents> GetWeakPtr() override;
+  const UniqueToken& GetUniqueToken() const override;
+  const perfetto::NamedTrack& GetTracingTrack() const override;
   const GURL& GetURL() override;
   const GURL& GetVisibleURL() override;
   const GURL& GetLastCommittedURL() const override;
@@ -464,7 +468,6 @@ class CONTENT_EXPORT WebContentsImpl
       bool stay_hidden,
       bool stay_awake,
       bool is_activity) override;
-  const blink::mojom::CaptureHandleConfig& GetCaptureHandleConfig() override;
   bool IsBeingCaptured() override;
   bool IsBeingVisiblyCaptured() override;
 #if BUILDFLAG(IS_MAC) && BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
@@ -669,10 +672,8 @@ class CONTENT_EXPORT WebContentsImpl
   void SetSupportsDraggableRegions(bool supports_draggable_regions) override;
   void SetV8CompileHints(base::ReadOnlySharedMemoryRegion data) override;
   void SetTabSwitchStartTime(base::TimeTicks start_time,
-                             bool destination_is_loaded) override;
-  bool IsInPreviewMode() const override;
-  void WillActivatePreviewPage() override;
-  void ActivatePreviewPage() override;
+                             bool destination_is_loaded,
+                             bool had_saved_frame_at_start) override;
   WindowOpenDisposition GetOriginalWindowOpenDisposition() const override;
 
   // Implementation of PageNavigator.
@@ -725,6 +726,7 @@ class CONTENT_EXPORT WebContentsImpl
       RenderFrameHostImpl* render_frame_host) override;
   void WebAuthnAssertionRequestSucceeded(
       RenderFrameHostImpl* render_frame_host) override;
+  void OnFedCmFederatedLogin(webid::FederatedLoginResult result) override;
   void BindDisplayCutoutHost(
       RenderFrameHostImpl* render_frame_host,
       mojo::PendingAssociatedReceiver<blink::mojom::DisplayCutoutHost> receiver)
@@ -746,8 +748,6 @@ class CONTENT_EXPORT WebContentsImpl
   void UpdateTargetURL(RenderFrameHostImpl* render_frame_host,
                        const GURL& url) override;
   bool IsNeverComposited() override;
-  void SetCaptureHandleConfig(
-      blink::mojom::CaptureHandleConfigPtr config) override;
   ui::AXMode GetAccessibilityMode() override;
   // Broadcasts the mode change to all frames.
   void ResetAccessibility() override;
@@ -1193,9 +1193,11 @@ class CONTENT_EXPORT WebContentsImpl
   // bool IsFullscreen() const override;
   blink::mojom::DisplayMode GetDisplayMode() const override;
   ui::mojom::WindowShowState GetWindowShowState() override;
-  blink::mojom::DevicePostureProvider* GetDevicePostureProvider() override;
+  DevicePostureProviderImpl* GetDevicePostureProvider() override;
   bool GetResizable() override;
   void LostPointerLock(RenderWidgetHostImpl* render_widget_host) override;
+  bool IsPointerLockSandboxedForWidget(
+      RenderWidgetHostImpl* render_widget_host) override;
   bool HasPointerLock(RenderWidgetHostImpl* render_widget_host) override;
   RenderWidgetHostImpl* GetPointerLockWidget() override;
   bool OnRenderFrameProxyVisibilityChanged(
@@ -1242,6 +1244,9 @@ class CONTENT_EXPORT WebContentsImpl
       RenderFrameHostImpl* new_frame) override;
   bool FocusLocationBarByDefault() override;
   void OnFrameTreeNodeDestroyed(FrameTreeNode* node) override;
+  void NotifySwappedRWHVChildFrameFromRenderManager(
+      RenderWidgetHostViewChildFrame* new_view,
+      bool allow_paint_holding) override;
 
   // PageDelegate -------------------------------------------------------------
 
@@ -1254,10 +1259,6 @@ class CONTENT_EXPORT WebContentsImpl
   void DidInferColorScheme(PageImpl& page) override;
   void OnVirtualKeyboardModeChanged(PageImpl& page) override;
   void NotifyPageBecamePrimary(PageImpl& page) override;
-
-  bool IsPageInPreviewMode() const override;
-  void CancelPreviewByMojoBinderPolicy(
-      const std::string& interface_name) override;
 
   // blink::mojom::ColorChooserFactory ---------------------------------------
   void OnColorChooserFactoryReceiver(
@@ -1525,7 +1526,6 @@ class CONTENT_EXPORT WebContentsImpl
   // Notifies observers that this WebContents completed preview activation
   // steps.
   // `activation_time` is the time the activation happened, in wall time.
-  void DidActivatePreviewedPage(base::TimeTicks activation_time);
 
   void OnServiceWorkerAccessed(RenderFrameHost* render_frame_host,
                                const GURL& scope,
@@ -1623,7 +1623,6 @@ class CONTENT_EXPORT WebContentsImpl
 
   WebContents* GetDocumentPictureInPictureOpener();
 
-#if BUILDFLAG(ENABLE_SURFACE_EMBED)
   // SetSurfaceEmbedConnector and ClearSurfaceEmbedConnector are used in WebUI
   // browser to embed a WebContents into a SurfaceEmbed plugin. The
   // SurfaceEmbedConnector is used to connect the WebContents to the plugin and
@@ -1636,7 +1635,6 @@ class CONTENT_EXPORT WebContentsImpl
   // Clears the SurfaceEmbedConnector for this WebContents. Called when the
   // WebContents is being detached from a SurfaceEmbed plugin.
   void ClearSurfaceEmbedConnector();
-#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
 
  private:
   using FrameTreeIterationCallback = base::FunctionRef<void(FrameTree&)>;
@@ -1701,7 +1699,6 @@ class CONTENT_EXPORT WebContentsImpl
   FRIEND_TEST_ALL_PREFIXES(SitePerProcessBrowserTest, CrossSiteIframe);
   FRIEND_TEST_ALL_PREFIXES(SitePerProcessBrowserTest,
                            TwoSubframesCreatePopupsSimultaneously);
-  FRIEND_TEST_ALL_PREFIXES(SitePerProcessBrowserTest, TextAutosizerPageInfo);
   FRIEND_TEST_ALL_PREFIXES(SitePerProcessBrowserTest,
                            TwoSubframesCreatePopupMenuWidgetsSimultaneously);
   FRIEND_TEST_ALL_PREFIXES(SitePerProcessAccessibilityBrowserTest,
@@ -2315,11 +2312,9 @@ class CONTENT_EXPORT WebContentsImpl
   // NULL otherwise.
   std::unique_ptr<BrowserPluginGuest> browser_plugin_guest_;
 
-#if BUILDFLAG(ENABLE_SURFACE_EMBED)
   // Helps connect to embedder when embedded in a SurfaceEmbed plugin.
   // nullptr if not embedded.
   std::unique_ptr<SurfaceEmbedConnectorImpl> surface_embed_connector_;
-#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
 
   // Helper classes ------------------------------------------------------------
 
@@ -2384,6 +2379,12 @@ class CONTENT_EXPORT WebContentsImpl
   // to be hidden but still paint.
   int visible_capturer_count_ = 0;
   int hidden_capturer_count_ = 0;
+
+  // The last notified Capture Handle configuration.
+  blink::mojom::CaptureHandleConfig last_notified_capture_handle_config_;
+
+  // The last notified Capture Handle origin.
+  url::Origin last_notified_capture_handle_origin_;
 
   // When > 0, |capture_wake_lock_| will be held to prevent display sleep.
   int stay_awake_capturer_count_ = 0;
@@ -2718,9 +2719,6 @@ class CONTENT_EXPORT WebContentsImpl
 
   viz::FrameSinkId xr_render_target_;
 
-  // Allows the app in the current WebContents to opt-in to exposing
-  // information to apps that capture it.
-  blink::mojom::CaptureHandleConfig capture_handle_config_;
 
   // Background color of the page set by the embedder to be passed to all
   // renderers attached to this WebContents, for use in the main frame.
@@ -2762,10 +2760,6 @@ class CONTENT_EXPORT WebContentsImpl
   // input event routing with InputVizard.
   const base::UnguessableToken compositor_frame_sink_grouping_id_;
 
-  // Indicates if the instance is hosted in a preview window.
-  // This will be set in Init() and will be reset in WillActivatePreviewPage().
-  bool is_in_preview_mode_ = false;
-
   // Indicates accessibility had an unrecoverable error.
   bool unrecoverable_accessibility_error_ = false;
 
@@ -2788,14 +2782,13 @@ class CONTENT_EXPORT WebContentsImpl
   WindowOpenDisposition original_window_open_disposition_ =
       WindowOpenDisposition::UNKNOWN;
 
-  // Tracks the number of same-site fenced frames in the viewport per top-level
-  // page load and stores it in the primary main frame's PageUserData. Metrics
-  // are logged via UMA every time the PageUserData is destroyed.
-  std::unique_ptr<FencedFrameViewportObserver> fenced_frame_viewport_observer_;
-
 #if BUILDFLAG(IS_ANDROID)
   bool supports_forward_transition_animation_ = true;
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+  const UniqueToken web_contents_token_;
+  const base::trace_event::TrackRegistration<perfetto::NamedTrack>
+      tracing_track_;
 
   base::WeakPtrFactory<WebContentsImpl> loading_weak_factory_{this};
   base::WeakPtrFactory<WebContentsImpl> weak_factory_{this};

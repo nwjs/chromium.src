@@ -35,6 +35,8 @@
 #include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/actor_webui.mojom.h"
 #include "chrome/common/chrome_features.h"
+#include "components/actor/core/actor_features.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/page_content_annotations/content/page_context_fetcher.h"
 #include "components/sessions/core/session_id.h"
@@ -135,6 +137,7 @@ void GlicActorTaskManager::CreateTask(
         GURL(), actor::TaskId(), "GlicActorTaskManager::CreateTask",
         actor::JournalDetailsBuilder()
             .AddError("Actuation capability disabled")
+            .Add("reason", base::ToString(reason_to_log))
             .Build());
     std::move(callback).Run(
         base::unexpected(mojom::CreateTaskErrorReason::kBlockedByPolicy));
@@ -142,11 +145,26 @@ void GlicActorTaskManager::CreateTask(
   }
 
   actor::RecordActorTaskCreated(true);
+
+  if (base::FeatureList::IsEnabled(actor::kGlicActorTransientTasks)) {
+    if (actor::kGlicActorTransientTasksForceTransient.Get()) {
+      if (!options) {
+        options = actor::webui::mojom::TaskOptions::New();
+      }
+      options->duration = actor::webui::mojom::TaskDuration::kTransient;
+    }
+  } else if (options && options->duration ==
+                            actor::webui::mojom::TaskDuration::kTransient) {
+    options->duration = actor::webui::mojom::TaskDuration::kDefault;
+  }
+
   current_task_id_ = actor_keyed_service_->CreateTaskWithOptions(
       actor::TaskSourceInfo(actor::TaskSourceInfo::Client::kGlic,
                             conversation_id),
       &actor_policy_checker_.get(), std::move(options), std::move(delegate));
   CHECK(!current_task_id_.is_null());
+
+  actuating_changed_callbacks_.Notify(true);
 
   actor_task_state_changed_subscription_ =
       actor_keyed_service_->AddTaskStateChangedCallback(base::BindRepeating(
@@ -456,7 +474,7 @@ void GlicActorTaskManager::PauseActorTask(
 
   if (tab_handle != tabs::TabHandle::Null()) {
     // Pausing the task on a tab means we're actuating on it.
-    task->AddTab(tab_handle, base::DoNothing());
+    task->AddTab(tab_handle, /*stop_task_on_detach=*/true, base::DoNothing());
   }
 
   const bool from_actor =
@@ -582,6 +600,12 @@ bool GlicActorTaskManager::IsActuating() const {
   return !!current_task_id_;
 }
 
+base::CallbackListSubscription
+GlicActorTaskManager::AddActuatingChangedCallback(
+    base::RepeatingCallback<void(bool)> callback) {
+  return actuating_changed_callbacks_.Add(std::move(callback));
+}
+
 void GlicActorTaskManager::InterruptActorTask(actor::TaskId task_id) {
   actor::ActorTask* task = actor_keyed_service_->GetTask(task_id);
   if (!task) {
@@ -689,6 +713,8 @@ void GlicActorTaskManager::NotifyActorTaskStateChanged(actor::ActorTask& task) {
     attempted_reload_after_crash_ = false;
     reload_observer_.reset();
     actor_task_state_changed_subscription_.reset();
+
+    actuating_changed_callbacks_.Notify(false);
   }
 }
 

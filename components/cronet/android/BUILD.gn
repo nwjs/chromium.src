@@ -594,6 +594,7 @@ cronet_impl_native_java_deps_to_package = [
   "//base:bundle_utils_java",
   "//base:wrapped_class_loader_java",
   "//base:build_info_java",
+  "//third_party/jni_zero:generate_jni_java",
   "//third_party/jni_zero:jni_zero_java",
   "//net/android:net_java",
   "//url:url_java",
@@ -1448,6 +1449,7 @@ android_resources("cronet_test_apk_resources") {
 
 generate_jni("cronet_test_apk_jni") {
   testonly = true
+  module_name = "cronet_tests"
   sources = [
     "test/src/org/chromium/net/CronetTestUtil.java",
     "test/src/org/chromium/net/MockCertVerifier.java",
@@ -1610,6 +1612,7 @@ if (!is_cronet_for_aosp_build) {
 
 generate_jni("cronet_tests_jni_headers") {
   testonly = true
+  module_name = "cronet_tests"
   sources = [
     "test/javatests/src/org/chromium/net/CronetUrlRequestContextTest.java",
     "test/javatests/src/org/chromium/net/CronetUrlRequestTest.java",

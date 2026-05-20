@@ -95,6 +95,7 @@
 #include "device/fido/public/features.h"
 #include "device/fido/public/fido_transport_protocol.h"
 #include "device/fido/public/fido_types.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "net/http/http_status_code.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -120,7 +121,7 @@
 
 // These tests are disabled under MSAN. The enclave subprocess is written in
 // Rust and FFI from Rust to C++ doesn't work in Chromium at this time
-// (crbug.com/1369167).
+// (crbug.com/40240570).
 #if !defined(MEMORY_SANITIZER)
 
 namespace {
@@ -207,23 +208,6 @@ static constexpr char kMakeCredentialUvDiscouraged[] = R"((() => {
       userVerification: 'discouraged',
       requireResidentKey: true,
     },
-  }}).then(c => window.domAutomationController.send('webauthn: OK'),
-           e => window.domAutomationController.send('error ' + e));
-})())";
-
-static constexpr char kMakeCredentialSecurePaymentConfirmation[] = R"((() => {
-  return navigator.credentials.create({ publicKey: {
-    rp: { name: "www.example.com" },
-    user: { id: new Uint8Array([0]), name: "foo", displayName: "" },
-    pubKeyCredParams: [{type: "public-key", alg: -7}],
-    challenge: new Uint8Array([0]),
-    timeout: 10000,
-    authenticatorSelection: {
-      userVerification: 'required',
-      residentKey: 'preferred',
-      authenticatorAttachment: 'platform',
-    },
-    extensions: {payment: {isPayment: true}},
   }}).then(c => window.domAutomationController.send('webauthn: OK'),
            e => window.domAutomationController.send('error ' + e));
 })())";
@@ -1034,38 +1018,6 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   EXPECT_THAT(GetDeviceLog(), testing::HasSubstr("\"key\": \"[redacted]\""));
 }
 
-IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest, NonWebauthnRequest) {
-  if (base::FeatureList::IsEnabled(
-          blink::features::kSecurePaymentConfirmationBrowserBoundKeys)) {
-    GTEST_SKIP() << "With kSecurePaymentConfirmationBrowserBoundKeys the "
-                    "SecurePaymentConfirmationService directs the request to "
-                    "the internal authenticator.";
-  }
-  if (!base::FeatureList::IsEnabled(features::kSecurePaymentConfirmation)) {
-    // SPC is not enabled in this configuration and so the `payment` extension
-    // in the Javascript will be ignored.
-    return;
-  }
-
-  CheckRegistrationStateNotRequested();
-
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  content::DOMMessageQueue message_queue(web_contents);
-  content::ExecuteScriptAsync(web_contents,
-                              kMakeCredentialSecurePaymentConfirmation);
-  delegate_observer()->WaitForUI();
-
-  // Non-WebAuthn requests (e.g. Secure Payment Confirmation and credit-card
-  // confirmation) must not use the enclave. In some cases, they will disable
-  // the UI, which is not simulated here.
-  EXPECT_TRUE(
-      dialog_model()->step() ==
-          AuthenticatorRequestDialogModel::Step::kChromeProfileCreatePasskey ||
-      dialog_model()->step() ==
-          AuthenticatorRequestDialogModel::Step::kErrorNoAvailableTransports);
-}
-
 // Regression test for https://crbug.com/451876194.
 // Tests a make credential operation when the enclave is already loaded and
 // ready and checking for UV takes long enough that the enclave is selected
@@ -1729,6 +1681,70 @@ IN_PROC_BROWSER_TEST_F(
   model_observer()->WaitForStep();
   dialog_model()->OnGPMCreationConfirmed();
   // And it is expected that the passkey can be successfully created.
+  std::string script_result;
+  ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
+  EXPECT_EQ(script_result, "\"webauthn: OK\"");
+}
+
+// Regression test for crbug.com/389093329.
+// Tests that Chrome doesn't crash when recovering from another source during a
+// WebAuthn request if GPMEnclaveController advances a step after keys have been
+// stored but before the enclave is ready.
+IN_PROC_BROWSER_TEST_F(OpportunisticKeyRetrievalEnclaveAuthenticatorBrowserTest,
+                       MakeCredentialStoreKeysFromAnotherSource) {
+  // First, make sure we can recover from a PIN.
+  const std::string pin = "123456";
+  base::test::TestFuture<bool> setup_future;
+  enclave_manager().SetupWithPIN(pin, setup_future.GetCallback());
+  ASSERT_TRUE(setup_future.Wait());
+  ASSERT_TRUE(setup_future.Get());
+
+  // Throw away the registration so the UI wants to recover.
+  enclave_manager().ClearRegistrationForTesting();
+
+  // Start a passkey make credential and get to the "trust this device" screen.
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::DOMMessageQueue message_queue(web_contents);
+  content::ExecuteScriptAsync(web_contents, kMakeCredentialUvDiscouraged);
+  delegate_observer()->WaitForUI();
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kGPMTrustThisComputerCreation);
+  model_observer()->WaitForStep();
+
+  // Simulate key retrieval from another source. This must not yet finish
+  // enrollment (or we are not testing the conditions that cause the crash).
+  SimulateTrustedVaultKeyRetrieval(/*with_store_keys_lock=*/true);
+  ASSERT_FALSE(enclave_manager().IsReady());
+
+  // Accepting the dialog should trigger the "trust this computer" screen again,
+  // since the dialog is reset after key retrieval made the state stale.
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kGPMTrustThisComputerCreation);
+  dialog_model()->OnGPMTrustThisComputer();
+  model_observer()->WaitForStep();
+
+  // Now finish enrolling with the enclave.
+  base::test::TestFuture<bool> enroll_enclave_future;
+  enclave_manager().AddDeviceAndPINToAccount(
+      pin, security_domain_service_->GetPinMemberPublicKey(),
+      enroll_enclave_future.GetCallback());
+  ASSERT_TRUE(enroll_enclave_future.Wait());
+  ASSERT_TRUE(enroll_enclave_future.Get());
+  ASSERT_TRUE(enclave_manager().IsReady());
+
+  // Finally, go through recovery. This used to make Chrome crash.
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kGPMRecoverSecurityDomain);
+  dialog_model()->OnGPMTrustThisComputer();
+  model_observer()->WaitForStep();
+
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kGPMCreatePasskey);
+  SimulateTrustedVaultKeyRetrieval(/*with_store_keys_lock=*/true);
+  model_observer()->WaitForStep();
+  dialog_model()->OnGPMCreationConfirmed();
+
   std::string script_result;
   ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
   EXPECT_EQ(script_result, "\"webauthn: OK\"");

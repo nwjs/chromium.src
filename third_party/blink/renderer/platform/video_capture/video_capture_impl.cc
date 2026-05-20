@@ -348,14 +348,18 @@ bool VideoCaptureImpl::ProcessBuffer(
     }
     case VideoFrameBufferHandleType::kSharedImageHandle: {
       CHECK(buffer_context->shared_image());
+      if (buffer_context->shared_image()->size() !=
+          gfx::Size(video_frame_init_data.ready_buffer->info->coded_size)) {
+        DLOG(ERROR) << "SharedImage size does not match coded_size";
+        return false;
+      }
       video_frame_init_data.frame = media::VideoFrame::WrapSharedImage(
           video_frame_init_data.ready_buffer->info->pixel_format,
           buffer_context->shared_image(),
           buffer_context->shared_image_sync_token(),
           media::VideoFrame::ReleaseMailboxCB(),
-          gfx::Size(video_frame_init_data.ready_buffer->info->coded_size),
           gfx::Rect(video_frame_init_data.ready_buffer->info->visible_rect),
-          video_frame_init_data.ready_buffer->info->visible_rect.size(),
+          video_frame_init_data.ready_buffer->info->natural_size,
           video_frame_init_data.ready_buffer->info->timestamp);
       break;
     }
@@ -940,10 +944,9 @@ void VideoCaptureImpl::OnBufferReady(
   // TODO(qiangchen): Change the metric name to "reference_time" and
   // "timestamp", so that we have consistent naming everywhere.
   // Used by chrome/browser/media/cast_mirroring_performance_browsertest.cc
-  TRACE_EVENT_INSTANT2("cast_perf_test", "OnBufferReceived",
-                       TRACE_EVENT_SCOPE_THREAD, "timestamp",
-                       (reference_time - base::TimeTicks()).InMicroseconds(),
-                       "time_delta", buffer->info->timestamp.InMicroseconds());
+  TRACE_EVENT_INSTANT("cast_perf_test", "OnBufferReceived", "timestamp",
+                      (reference_time - base::TimeTicks()).InMicroseconds(),
+                      "time_delta", buffer->info->timestamp.InMicroseconds());
 
   const int buffer_id = buffer->buffer_id;
   // Process the `buffer` to convert it into a media::VideoFrame directly or via
@@ -1183,6 +1186,15 @@ void VideoCaptureImpl::RecordStartOutcomeUMA(
     base::UmaHistogramEnumeration("Media.VideoCapture.StartOutcome", outcome);
     base::UmaHistogramEnumeration("Media.VideoCapture.StartErrorCode",
                                   error_code);
+    if (params_.request_type ==
+        media::CaptureSourceRequestType::kGetUserMedia) {
+      base::UmaHistogramEnumeration(
+          "Media.VideoCapture.StartErrorCode.GetUserMedia", error_code);
+    } else if (params_.request_type ==
+               media::CaptureSourceRequestType::kGetDisplayMedia) {
+      base::UmaHistogramEnumeration(
+          "Media.VideoCapture.StartErrorCode.GetDisplayMedia", error_code);
+    }
     start_outcome_reported_ = true;
   }
 }

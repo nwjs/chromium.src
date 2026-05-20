@@ -4,6 +4,9 @@
 
 package org.chromium.chrome.browser.app.feed;
 
+import static org.chromium.build.NullUtil.assertNonNull;
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.app.Activity;
 import android.content.Intent;
 
@@ -11,15 +14,11 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.app.creator.CreatorActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkManagerOpenerImpl;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
 import org.chromium.chrome.browser.feed.FeedActionDelegate;
 import org.chromium.chrome.browser.feed.R;
-import org.chromium.chrome.browser.feed.SingleWebFeedEntryPoint;
-import org.chromium.chrome.browser.feed.webfeed.CreatorIntentConstants;
-import org.chromium.chrome.browser.feed.webfeed.WebFeedBridge;
 import org.chromium.chrome.browser.native_page.NativePageNavigationDelegate;
 import org.chromium.chrome.browser.ntp.NewTabPageUma;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
@@ -30,7 +29,6 @@ import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherIm
 import org.chromium.chrome.browser.suggestions.SuggestionsConfig;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncConfig;
 import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncConfig.NoAccountSigninMode;
@@ -48,6 +46,7 @@ import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.common.Referrer;
 import org.chromium.net.NetError;
+import org.chromium.network.mojom.ReferrerPolicy;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
@@ -67,7 +66,6 @@ public class FeedActionDelegateImpl
     private final BookmarkModel mBookmarkModel;
     private final Activity mActivity;
     private final SnackbarManager mSnackbarManager;
-    private final TabModelSelector mTabModelSelector;
     private final Profile mProfile;
     private final BottomSheetController mBottomSheetController;
 
@@ -88,14 +86,12 @@ public class FeedActionDelegateImpl
             ModalDialogManager modalDialogManager,
             NativePageNavigationDelegate navigationDelegate,
             BookmarkModel bookmarkModel,
-            TabModelSelector tabModelSelector,
             Profile profile,
             BottomSheetController bottomSheetController) {
         mActivity = activity;
         mNavigationDelegate = navigationDelegate;
         mBookmarkModel = bookmarkModel;
         mSnackbarManager = snackbarManager;
-        mTabModelSelector = tabModelSelector;
         mProfile = profile;
         mBottomSheetController = bottomSheetController;
 
@@ -151,7 +147,7 @@ public class FeedActionDelegateImpl
                         SuggestionsConfig.getReferrerUrl(),
                         // WARNING: ReferrerPolicy.ALWAYS is assumed by other Chrome code for NTP
                         // tiles to set consider_for_ntp_most_visited.
-                        org.chromium.network.mojom.ReferrerPolicy.ALWAYS));
+                        ReferrerPolicy.ALWAYS));
 
         Tab tab =
                 inGroup
@@ -203,21 +199,6 @@ public class FeedActionDelegateImpl
                             new BookmarkManagerOpenerImpl(),
                             PriceDropNotificationManagerFactory.create(mProfile));
                 });
-    }
-
-    @Override
-    public void openWebFeed(String webFeedName, @SingleWebFeedEntryPoint int entryPoint) {
-        if (!WebFeedBridge.isCormorantEnabledForLocale()) {
-            return;
-        }
-
-        assert ThreadUtils.runningOnUiThread();
-        Class<?> creatorActivityClass = CreatorActivity.class;
-        Intent intent = new Intent(mActivity, creatorActivityClass);
-        intent.putExtra(CreatorIntentConstants.CREATOR_WEB_FEED_ID, webFeedName.getBytes());
-        intent.putExtra(CreatorIntentConstants.CREATOR_ENTRY_POINT, entryPoint);
-        intent.putExtra(CreatorIntentConstants.CREATOR_TAB_ID, mTabModelSelector.getCurrentTabId());
-        mActivity.startActivity(intent);
     }
 
     @Override
@@ -300,46 +281,55 @@ public class FeedActionDelegateImpl
     private static class FeedTabNavigationObserver extends EmptyTabObserver {
         private final boolean mInNewTab;
         private final int mPageId;
-        private final PageLoadObserver mPageLoadObserver;
+        private @Nullable PageLoadObserver mPageLoadObserver;
 
         FeedTabNavigationObserver(boolean inNewTab, int pageId, PageLoadObserver pageLoadObserver) {
             mInNewTab = inNewTab;
             mPageId = pageId;
             mPageLoadObserver = pageLoadObserver;
+
+            assertNonNull(mPageLoadObserver);
         }
 
         @Override
         public void onPageLoadStarted(Tab tab, GURL url) {
-            mPageLoadObserver.onPageLoadStarted(mPageId);
+            assumeNonNull(mPageLoadObserver).onPageLoadStarted(mPageId);
         }
 
         @Override
         public void onPageLoadFinished(Tab tab, GURL url) {
             // TODO(jianli): onPageLoadFinished is called on successful load, and if a user manually
             // stops the page load. We should only capture successful page loads.
-            mPageLoadObserver.onPageLoadFinished(mPageId, mInNewTab);
-            tab.removeObserver(this);
+            assumeNonNull(mPageLoadObserver).onPageLoadFinished(mPageId, mInNewTab);
+            destroy(tab);
         }
 
         @Override
         public void onPageLoadFailed(Tab tab, @NetError int errorCode) {
-            mPageLoadObserver.onPageLoadFailed(mPageId, errorCode);
-            tab.removeObserver(this);
+            assumeNonNull(mPageLoadObserver).onPageLoadFailed(mPageId, errorCode);
+            destroy(tab);
         }
 
         @Override
         public void onCrash(Tab tab) {
-            tab.removeObserver(this);
+            destroy(tab);
         }
 
         @Override
         public void onDestroyed(Tab tab) {
-            tab.removeObserver(this);
+            destroy(tab);
         }
 
         @Override
         public void didFirstVisuallyNonEmptyPaint(Tab tab) {
-            mPageLoadObserver.onPageFirstContentfulPaint(mPageId);
+            assumeNonNull(mPageLoadObserver).onPageFirstContentfulPaint(mPageId);
+        }
+
+        private void destroy(Tab tab) {
+            if (mPageLoadObserver == null) return;
+
+            tab.removeObserver(this);
+            mPageLoadObserver = null;
         }
     }
 }

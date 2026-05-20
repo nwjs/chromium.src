@@ -34,6 +34,7 @@
 #include "extensions/common/manifest_handlers/icons_handler.h"
 #include "extensions/common/manifest_handlers/incognito_info.h"
 #include "extensions/common/manifest_handlers/kiosk_mode_info.h"
+#include "extensions/common/manifest_handlers/manifest_url_handlers.h"
 #include "extensions/common/manifest_handlers/message_serialization_info.h"
 #include "extensions/common/manifest_handlers/mime_types_handler.h"
 #include "extensions/common/manifest_handlers/oauth2_manifest_handler.h"
@@ -45,9 +46,9 @@
 #include "extensions/common/manifest_handlers/sandboxed_page_info.h"
 #include "extensions/common/manifest_handlers/shared_module_info.h"
 #include "extensions/common/manifest_handlers/trial_tokens_handler.h"
+#include "extensions/common/manifest_handlers/version_name_info.h"
 #include "extensions/common/manifest_handlers/web_accessible_resources_info.h"
 #include "extensions/common/manifest_handlers/webview_info.h"
-#include "extensions/common/manifest_url_handlers.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "extensions/common/manifest_handlers/input_components_handler.h"
@@ -99,6 +100,7 @@ void RegisterCommonManifestHandlers(ManifestHandlerRegistry* registry) {
   registry->RegisterHandler(std::make_unique<UpdateURLHandler>());
   registry->RegisterHandler(std::make_unique<URLOverridesHandler>());
   registry->RegisterHandler(std::make_unique<UsbPrinterManifestHandler>());
+  registry->RegisterHandler(std::make_unique<VersionNameHandler>());
   registry->RegisterHandler(std::make_unique<WebAccessibleResourcesHandler>());
   registry->RegisterHandler(std::make_unique<WebviewHandler>());
 }

@@ -27,12 +27,13 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
+#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/feature_first_run/autofill_ai_first_run_dialog.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/performance_controls/performance_controls_metrics.h"
 #include "chrome/browser/ui/singleton_tabs.h"
@@ -48,6 +49,7 @@
 #include "chrome/browser/ui/toolbar/reading_list_sub_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/show_promo_in_page.h"
+#include "chrome/browser/ui/views/autofill/at_memory_promo_bubble_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_view_views.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -518,40 +520,20 @@ void MaybeRegisterChromeFeaturePromos(
                        "Triggered after autofill popup appears for disabled "
                        "virtual card.")));
 
-  // kIPHCreatePlusAddressSuggestionFeature:
+  // kIPHAutofillDownstreamCardAwarenessFeature:
   registry.RegisterFeature(std::move(
       FeaturePromoSpecification::CreateForToastPromo(
-          feature_engagement::kIPHPlusAddressCreateSuggestionFeature,
-          kPlusAddressCreateSuggestionElementId,
-          IDS_PLUS_ADDRESS_CREATE_SUGGESTION_IPH,
-          IDS_PLUS_ADDRESS_CREATE_SUGGESTION_IPH_SCREENREADER,
+          feature_engagement::kIPHAutofillDownstreamCardAwarenessFeature,
+          autofill::PopupViewViews::kAutofillCreditCardSuggestionEntryElementId,
+          IDS_AUTOFILL_DOWNSTREAM_CARD_AWARENESS_IPH_BUBBLE_LABEL,
+          IDS_AUTOFILL_DOWNSTREAM_CARD_AWARENESS_IPH_BUBBLE_LABEL_SCREENREADER,
           FeaturePromoSpecification::AcceleratorInfo())
           .SetBubbleArrow(HelpBubbleArrow::kLeftCenter)
-          .SetMetadata(128, "vidhanj@google.com",
-                       "Triggered after create plus address popup appears.")));
+          .SetMetadata(149, "ferny@google.com",
+                       "Triggered after autofill popup appears featuring an "
+                       "externally-saved card.")));
 
-  // kIPHPlusAddressFirstSaveFeature:
-  registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForCustomAction(
-          feature_engagement::kIPHPlusAddressFirstSaveFeature,
-          kToolbarAvatarButtonElementId,
-          IDS_PLUS_ADDRESS_FIRST_SAVE_IPH_DESCRIPTION,
-          IDS_PLUS_ADDRESS_FIRST_SAVE_IPH_ACCEPT,
-          CreateNavigationAction(
-              GURL(plus_addresses::features::kPlusAddressManagementUrl.Get())))
-          .SetCustomActionIsDefault(true)
-          .SetBubbleIcon(
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-              &plus_addresses::kPlusAddressLogoSmallIcon
-#else
-              &vector_icons::kEmailIcon
-#endif
-              )
-          .SetBubbleArrow(HelpBubbleArrow::kTopRight)
-          .SetBubbleTitleText(IDS_PLUS_ADDRESS_FIRST_SAVE_IPH_TITLE)
-          .SetMetadata(
-              131, "jkeitel@google.com",
-              "Triggered after first creation of a plus address on Desktop.")));
+
 
   // TODO(crbug.com/404437008): Update with final IPH strings.
   // kIPHAutofillEnableLoyaltyCardsFeature:
@@ -567,6 +549,18 @@ void MaybeRegisterChromeFeaturePromos(
           .SetMetadata(
               137, "vizcay@google.com",
               "Triggered after loyalty card autofill suggestions are shown.")));
+
+  // At-Memory Autofill Promo.
+  registry.RegisterFeature(std::move(
+      user_education::FeaturePromoSpecification::CreateForCustomUi(
+          feature_engagement::kIPHAutofillAtMemoryFeature, kOmniboxElementId,
+          user_education::CreateCustomHelpBubbleViewFactoryCallback(
+              base::BindRepeating(&autofill::AtMemoryPromoBubbleView::Create)))
+          .SetBubbleArrow(HelpBubbleArrow::kNone)
+          .SetMetadata(
+              149, "mmaryia@google.com",
+              "Triggered when the user copy-pasted info from another tab "
+              "within a specific time window.")));
 
   // kIPHDesktopPwaInstallFeature:
   registry.RegisterFeature(
@@ -607,7 +601,7 @@ void MaybeRegisterChromeFeaturePromos(
                   if (web_contents &&
                       web_contents->GetURL() != browser->GetNewTabURL()) {
                     NavigateParams params(browser->profile(),
-                                          GURL(chrome::kChromeUINewTabPageURL),
+                                          chrome::ChromeUINewTabPageURLAsGURL(),
                                           ui::PAGE_TRANSITION_LINK);
                     params.disposition =
                         WindowOpenDisposition::NEW_FOREGROUND_TAB;
@@ -625,7 +619,7 @@ void MaybeRegisterChromeFeaturePromos(
           .SetBubbleIcon(kLightbulbOutlineIcon)
           .SetCustomActionIsDefault(true)
           .SetCustomActionDismissText(IDS_PROMO_SNOOZE_BUTTON)
-          // See: crbug.com/1494923
+          // See: crbug.com/40075441
           .OverrideFocusOnShow(false)
           .SetMetadata(143, "rsult@google.com",
                        "Intro for the Customize Chrome Tutorial. Triggered "
@@ -787,24 +781,6 @@ void MaybeRegisterChromeFeaturePromos(
           .SetMetadata(
               142, "dewittj@chromium.org",
               "Attempts to trigger when the user is on a supported page.")));
-
-  // kGlicTrustFirstOnboarding shortcut toast IPH:
-  registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForToastPromo(
-          feature_engagement::
-              kIPHGlicTrustFirstOnboardingShortcutToastPromoFeature,
-          kGlicButtonElementId, IDS_GLIC_SHORTCUT_IPH_TEXT_TEMPLATE,
-          IDS_GLIC_SHORTCUT_IPH_SCREENREADER,
-          FeaturePromoSpecification::AcceleratorInfo(
-              glic::GlicLauncherConfiguration::GetGlobalHotkey()))
-          .SetAdditionalConditions(std::move(
-              AdditionalConditions().AddAdditionalCondition(AdditionalCondition{
-                  feature_engagement::events::kGlicOnboardingCompleted,
-                  AdditionalConditions::Constraint::kAtLeast, 1})))
-          .SetBubbleArrow(HelpBubbleArrow::kTopRight)
-          .SetMetadata(144, "zalmashni@google.com",
-                       "Triggered after the Glic side panel is closed or the "
-                       "user navigates to a new tab.")));
 
   // kGlicTrustFirstOnboarding shortcut snooze IPH:
   registry.RegisterFeature(std::move(
@@ -1082,6 +1058,20 @@ void MaybeRegisterChromeFeaturePromos(
           IDS_READING_LIST_IN_SIDE_PANEL_PROMO_PINNING)
           .SetHighlightedMenuItem(BookmarkSubMenuModel::kReadingListMenuItem)));
 
+  // kIPHReadingModeKeyboardShortcutFeature:
+  registry.RegisterFeature(std::move(
+      user_education::FeaturePromoSpecification::CreateForToastPromo(
+          feature_engagement::kIPHReadingModeKeyboardShortcutFeature,
+          kReadAnythingViewModeElementId,
+          IDS_READING_MODE_KEYBOARD_SHORTCUT_IPH_BODY,
+          IDS_READING_MODE_KEYBOARD_SHORTCUT_IPH_SCREENREADER,
+          user_education::FeaturePromoSpecification::AcceleratorInfo())
+          .SetBubbleArrow(user_education::HelpBubbleArrow::kNone)
+          .SetInAnyContext(true)
+          .SetMetadata(147, "martinglopez@google.com",
+                       "Triggered to educate users about the keyboard shortcut "
+                       "for Reading Mode.")));
+
   // kIPHReadingModeSidePanelFeature:
   registry.RegisterFeature(std::move(
       FeaturePromoSpecification::CreateForSnoozePromo(
@@ -1172,31 +1162,15 @@ void MaybeRegisterChromeFeaturePromos(
   registry.RegisterFeature(std::move(
       FeaturePromoSpecification::CreateForToastPromo(
           feature_engagement::kIPHSidePanelLensOverlayPinnableFollowupFeature,
-          kPinnedActionToolbarButtonElementId,
+          kPinnedToolbarActionShowSidePanelLensOverlayResultsElementId,
           IDS_SIDE_PANEL_LENS_OVERLAY_PINNABLE_FOLLOWUP_IPH,
           IDS_SIDE_PANEL_LENS_OVERLAY_PINNABLE_FOLLOWUP_IPH_SCREENREADER,
           FeaturePromoSpecification::AcceleratorInfo())
           .SetBubbleArrow(HelpBubbleArrow::kTopRight)
           .SetBubbleIcon(&vector_icons::kCelebrationIcon)
-          .SetMetadata(126, "dfried@chromium.org, jdonnelly@google.com",
-                       "Triggered when the lens overlay side panel is pinned.")
-          .SetAnchorElementFilter(base::BindRepeating(
-              [](const ui::ElementTracker::ElementList& elements)
-                  -> ui::TrackedElement* {
-                // Locate the action button associated with the Lens Overlay
-                // feature. The button must be present in the Actions
-                // container in the toolbar.
-                for (auto* element : elements) {
-                  auto* const button =
-                      views::AsViewClass<PinnedActionToolbarButton>(
-                          element->AsA<views::TrackedElementViews>()->view());
-                  if (button && button->GetActionId() ==
-                                    kActionSidePanelShowLensOverlayResults) {
-                    return element;
-                  }
-                }
-                return nullptr;
-              }))));
+          .SetMetadata(
+              126, "dfried@chromium.org, jdonnelly@google.com",
+              "Triggered when the lens overlay side panel is pinned.")));
 
   if (features::IsReadAnythingOmniboxChipEnabled()) {
     // kIPHReadingModePageActionLabelFeature:

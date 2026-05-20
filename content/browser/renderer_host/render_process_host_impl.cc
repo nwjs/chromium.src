@@ -86,6 +86,7 @@
 #include "components/viz/common/switches.h"
 #include "components/viz/host/gpu_client.h"
 #include "components/viz/host/host_frame_sink_manager.h"
+#include "components/vrp_flags/buildflags.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/blob_storage/blob_registry_wrapper.h"
 #include "content/browser/blob_storage/file_backed_blob_factory_worker_impl.h"
@@ -97,6 +98,7 @@
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/code_cache/generated_code_cache_context.h"
 #include "content/browser/compositor/surface_utils.h"
+#include "content/browser/cpu_performance/cpu_performance.h"
 #include "content/browser/field_trial_recorder.h"
 #include "content/browser/field_trial_synchronizer.h"
 #include "content/browser/file_system/file_system_manager_impl.h"
@@ -286,6 +288,10 @@
 #if BUILDFLAG(IS_P2P_ENABLED)
 #include "content/browser/renderer_host/p2p/socket_dispatcher_host.h"
 #endif  // BUILDFLAG(IS_P2P_ENABLED)
+
+#if BUILDFLAG(ENABLE_VRP_FLAGS)
+#include "components/vrp_flags/vrp_flags.h"  // nogncheck
+#endif
 
 // VLOG additional statements in Fuchsia release builds.
 #if BUILDFLAG(IS_FUCHSIA)
@@ -574,7 +580,6 @@ bool HasEnoughMemoryForAnotherMainFrame(RenderProcessHost* host,
 }
 
 bool IsBelowReuseResourceThresholds(RenderProcessHost* host,
-                                    SiteInstanceImpl* site_instance,
                                     ProcessReusePolicy process_reuse_policy) {
   if (process_reuse_policy !=
           ProcessReusePolicy::
@@ -782,25 +787,10 @@ class SiteProcessCountTracker : public base::SupportsUserData::Data,
         NOTREACHED();
       }
 
-      // It's possible that |host| has become unsuitable for hosting
-      // |site_instance|, for example if it was reused by a navigation to a
-      // different site, and |site_instance| requires a dedicated process. Do
-      // not allow such hosts to be reused.  See https://crbug.com/780661.
-      if (!RenderProcessHostImpl::MayReuseAndIsSuitable(host, site_instance)) {
+      if (!IsEligibleForProcessReuse(host, site_instance->GetIsolationContext(),
+                                     site_instance->GetSiteInfo(),
+                                     process_reuse_policy)) {
         continue;
-      }
-
-      // Don't reuse processes that have high resource usage already.
-      if (!IsBelowReuseResourceThresholds(host, site_instance,
-                                          process_reuse_policy)) {
-        continue;
-      }
-
-      if (process_reuse_policy ==
-          ProcessReusePolicy::kReusePrerenderingProcessForMainFrame) {
-        if (!host->IsOnlyHostingPrerenderedFramesOrEmpty()) {
-          continue;
-        }
       }
 
       if (host->VisibleClientCount())
@@ -813,6 +803,34 @@ class SiteProcessCountTracker : public base::SupportsUserData::Data,
     // eligible hosts in an arbitrary order. There are no duplicates in either
     // vector, because they are subsets of the keys of counts_per_process, which
     // is a map.
+  }
+
+  // Checks if there is a reusable process for a certain site in the tracker.
+  // The returned process will be locked to site_info and suitable for the given
+  // isolation_context and process reuse policy.
+  bool ContainsSuitableWarmLockedProcess(
+      const IsolationContext& isolation_context,
+      const SiteInfo& site_info,
+      ProcessReusePolicy process_reuse_policy) {
+    auto result = map_.find(site_info);
+    if (result == map_.end()) {
+      return false;
+    }
+
+    for (auto iter : result->second) {
+      auto* host = RenderProcessHostImpl::FromID(iter.first);
+      if (!host) {
+        continue;
+      }
+
+      if (host->GetProcessLock().IsLockedToSite() &&
+          host->GetProcessLock() == ProcessLock::FromSiteInfo(site_info) &&
+          IsEligibleForProcessReuse(host, isolation_context, site_info,
+                                    process_reuse_policy)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // Check whether |host| is associated with at least one URL for which
@@ -908,6 +926,35 @@ class SiteProcessCountTracker : public base::SupportsUserData::Data,
   using HostIdToSiteMap =
       base::flat_map<ChildProcessId, std::vector<std::string>>;
   using ChildProcessIdCountMap = std::map<ChildProcessId, Count>;
+
+  static bool IsEligibleForProcessReuse(
+      RenderProcessHost* host,
+      const IsolationContext& isolation_context,
+      const SiteInfo& site_info,
+      ProcessReusePolicy process_reuse_policy) {
+    // It's possible that |host| has become unsuitable for hosting
+    // |site_info|, for example if it was reused by a navigation to a
+    // different site, and |site_info| requires a dedicated process. Do
+    // not allow such hosts to be reused. See https://crbug.com/780661.
+    if (!RenderProcessHostImpl::MayReuseAndIsSuitable(host, isolation_context,
+                                                      site_info)) {
+      return false;
+    }
+
+    // Don't reuse processes that have high resource usage already.
+    if (!IsBelowReuseResourceThresholds(host, process_reuse_policy)) {
+      return false;
+    }
+
+    if (process_reuse_policy ==
+        ProcessReusePolicy::kReusePrerenderingProcessForMainFrame) {
+      if (!host->IsOnlyHostingPrerenderedFramesOrEmpty()) {
+        return false;
+      }
+    }
+
+    return true;
+  }
 
   // Creates a new mapping of the ProcessID to sites and their count based on
   // the current map_.
@@ -1817,6 +1864,24 @@ bool RenderProcessHostImpl::Init() {
   if (IsInitializedAndNotDead())
     return true;
 
+  if (IsForTopChromeWebUI()) {
+    bool existing_found = false;
+    auto* browser_context = GetBrowserContext();
+    for (auto it = RenderProcessHost::AllHostsIterator(); !it.IsAtEnd();
+         it.Advance()) {
+      RenderProcessHost* host = it.GetCurrentValue();
+      if (host != this && host->IsForTopChromeWebUI() &&
+          host->GetBrowserContext() == browser_context &&
+          host->IsInitializedAndNotDead()) {
+        existing_found = true;
+        break;
+      }
+    }
+    base::UmaHistogramBoolean(
+        "InitialWebUI.Toolbar.ProcessAlreadyExistsForTheSameProfileOnCreation",
+        existing_found);
+  }
+
   base::CommandLine::StringType renderer_prefix;
   // A command prefix is something prepended to the command line of the spawned
   // process.
@@ -1913,6 +1978,16 @@ bool RenderProcessHostImpl::Init() {
   RegisterMojoInterfaces();
   CreateMetricsAllocator();
 
+  // Calculate the CPU performance tier, allowing for overrides.
+  content::cpu_performance::Tier cpu_tier;
+  if (std::optional<int> override =
+          GetContentClient()->browser()->GetCpuPerformanceTierOverride(
+              GetBrowserContext())) {
+    cpu_tier = content::cpu_performance::TierFromInt(*override);
+  } else {
+    cpu_tier = content::cpu_performance::GetTier();
+  }
+
   // Call this now and not in OnProcessLaunched in case any mojo calls get
   // dispatched before this.
   uint64_t trace_id = base::Token::CreateRandom().high();
@@ -1922,8 +1997,8 @@ bool RenderProcessHostImpl::Init() {
       GetContentClient()->browser()->GetUserAgent(),
       GetContentClient()->browser()->GetUserAgentMetadata(),
       storage_partition_impl_->cors_exempt_header_list(),
-      GetContentClient()->browser()->GetOriginTrialsSettings(),
-      GetContentClient()->browser()->GetCpuPerformanceTier(), trace_id);
+      GetContentClient()->browser()->GetOriginTrialsSettings(), cpu_tier,
+      trace_id);
 
   if (run_renderer_in_process()) {
     base::ScopedAllowBlocking allow_io;
@@ -3522,8 +3597,8 @@ void RenderProcessHostImpl::NotifyRendererOfLockedStateUpdate() {
 
   // Only notify the renderer once to avoid reapplying static renderer
   // settings that are intended to be set once.
-  // TODO(http://crbug.com/434735272): — Handle other settings that are
-  // also meant to be applied once but may currently be updated dynamically.
+  // TODO(http://crbug.com/434735272): Handle other settings that
+  // are also meant to be applied once but may currently be updated dynamically.
   if (!did_update_renderer_locked_state_) {
     GetContentClient()->browser()->OnRendererProcessLockedStateUpdated(
         this, process_lock.site_url());
@@ -3741,6 +3816,9 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
       sandbox::policy::switches::kNoSandbox,
 #if BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS)
       switches::kDisableDevShmUsage,
+#endif
+#if BUILDFLAG(ENABLE_VRP_FLAGS)
+      vrp_flags::switches::kVrpFlags,
 #endif
 #if BUILDFLAG(IS_MAC)
       // Allow this to be set when invoking the browser and relayed along.
@@ -5008,6 +5086,38 @@ bool RenderProcessHostImpl::MayReuseAndIsSuitable(
     SiteInstanceImpl* site_instance) {
   return MayReuseAndIsSuitable(host, site_instance->GetIsolationContext(),
                                site_instance->GetSiteInfo());
+}
+
+// static
+bool RenderProcessHostImpl::HasWarmLockedProcess(
+    BrowserContext* browser_context,
+    const IsolationContext& isolation_context,
+    const SiteInfo& site_info,
+    ProcessReusePolicy process_reuse_policy) {
+  if (!ShouldTrackProcessForSite(site_info)) {
+    return false;
+  }
+
+  // Identify all process trackers to query for a reusable locked process.
+  std::vector<const void*> tracker_keys = {
+      kCommittedSiteProcessCountTrackerKey,
+      kPendingSiteProcessCountTrackerKey,
+  };
+
+  if (RenderProcessHostImpl::ShouldDelayProcessShutdown()) {
+    tracker_keys.push_back(kDelayedShutdownSiteProcessCountTrackerKey);
+  }
+
+  for (const void* key : tracker_keys) {
+    auto* tracker = static_cast<SiteProcessCountTracker*>(
+        browser_context->GetUserData(key));
+    if (tracker && tracker->ContainsSuitableWarmLockedProcess(
+                       isolation_context, site_info, process_reuse_policy)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // static

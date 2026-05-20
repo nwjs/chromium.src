@@ -27,8 +27,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
 #include "chromeos/ash/components/settings/cros_settings_provider.h"
 #include "content/public/browser/content_browser_client.h"
@@ -174,7 +174,7 @@ IN_PROC_BROWSER_TEST_P(KioskAccessibilityExtensionTest,
 
 // This test verifies that accessibility extensions do not preserve any local
 // data in-between session, as opposed to what they usually do in user sessions.
-// See crbug.com/1049566
+// See crbug.com/40117724
 IN_PROC_BROWSER_TEST_P(KioskAccessibilityExtensionTest,
                        PRE_ClearsStateOnSessionRestart) {
   auto& profile = CurrentProfile();

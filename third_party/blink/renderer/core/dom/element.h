@@ -33,7 +33,6 @@
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
-#include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_typedefs.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
@@ -55,7 +54,6 @@
 #include "third_party/blink/renderer/core/dom/whitespace_attacher.h"
 #include "third_party/blink/renderer/core/html/parser/fragment_parser.h"
 #include "third_party/blink/renderer/core/html_names.h"
-#include "third_party/blink/renderer/core/scroll/scoped_scroll_promise_resolver.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_types_names.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_types_util.h"
@@ -98,6 +96,7 @@ class ColumnPseudoElement;
 class ComputedStyleBuilder;
 class ContainerQueryData;
 class ContainerQueryEvaluator;
+class ContainerQueryList;
 class ContentData;
 class CSSPropertyName;
 class CSSPropertyValueSet;
@@ -121,6 +120,7 @@ class ExceptionState;
 class FocusOptions;
 class GetAnimationsOptions;
 class HTMLElement;
+class HTMLSubmitButtonBehavior;
 class HTMLTemplateElement;
 class Image;
 class InputDeviceCapabilities;
@@ -142,6 +142,7 @@ class ScriptState;
 class ScriptValue;
 class ScrollIntoViewOptions;
 class ScrollMarkerGroupData;
+class ScrollPromiseResolver;
 class ScrollResult;
 class ScrollMarkerPseudoElement;
 class ScrollToOptions;
@@ -439,6 +440,7 @@ class CORE_EXPORT Element : public ContainerNode {
   // Call this to get the value of an attribute that is known not to be the
   // style attribute or one of the SVG animatable attributes.
   bool FastHasAttribute(const QualifiedName&) const;
+  bool FastHasAttribute(const QualifiedNameWithHash&) const;
   const AtomicString& FastGetAttribute(const QualifiedName&) const;
 #if DCHECK_IS_ON()
   bool FastAttributeLookupAllowed(const QualifiedName&) const;
@@ -464,7 +466,7 @@ class CORE_EXPORT Element : public ContainerNode {
                                      const AtomicString& local_name) const;
 
   void setAttribute(AtomicString name,
-                    String value,
+                    AtomicString value,
                     ExceptionState& exception_state = ASSERT_NO_EXCEPTION) {
     AtomicStringTable::WeakResult weak_lowercase_name =
         WeakLowercaseIfNecessary(name);
@@ -494,7 +496,7 @@ class CORE_EXPORT Element : public ContainerNode {
       ExceptionState&);
   void setAttributeNS(const AtomicString& namespace_uri,
                       const AtomicString& qualified_name,
-                      String value,
+                      AtomicString value,
                       ExceptionState& exception_state);
   void setAttributeNS(const AtomicString& namespace_uri,
                       const AtomicString& qualified_name,
@@ -543,10 +545,12 @@ class CORE_EXPORT Element : public ContainerNode {
   // JavaScript and also easily identifiable (it is a single attribute).
   AttributeCollection AttributesWithoutStyleUpdate() const;
 
-  void scrollIntoViewWithOptions(const ScrollIntoViewOptions*);
+  void scrollIntoViewWithOptions(const ScrollIntoViewOptions*,
+                                 ScrollPromiseResolver* = nullptr);
   void ScrollIntoViewNoVisualUpdate(mojom::blink::ScrollIntoViewParamsPtr,
                                     const Element* container = nullptr,
-                                    bool include_self = false);
+                                    bool include_self = false,
+                                    ScrollPromiseResolver* = nullptr);
   void scrollIntoViewIfNeeded(bool center_if_needed = true);
 
   int OffsetLeft();
@@ -562,8 +566,8 @@ class CORE_EXPORT Element : public ContainerNode {
   int clientWidth();
   int clientHeight();
   double currentCSSZoom();
-  double scrollLeft();
-  double scrollTop();
+  virtual double scrollLeft();
+  virtual double scrollTop();
   void setScrollLeft(double);
   void setScrollTop(double);
   virtual int scrollWidth();
@@ -591,8 +595,7 @@ class CORE_EXPORT Element : public ContainerNode {
   void scrollByForTesting(double x, double y);
   void scrollToForTesting(double x, double y);
 
-  bool ScrollTo(const ScrollToOptions*,
-                std::unique_ptr<ScopedScrollPromiseResolver> = nullptr);
+  bool ScrollTo(const ScrollToOptions*, ScrollPromiseResolver* = nullptr);
 
   // Returns the bounds of this Element, unclipped, in the coordinate space of
   // the local root's widget. That is, in the outermost main frame, this will
@@ -626,6 +629,8 @@ class CORE_EXPORT Element : public ContainerNode {
   gfx::RectF GetBoundingClientRectNoLifecycleUpdate() const;
   DOMRect* GetBoundingClientRect();
   DOMRect* GetBoundingClientRectForBinding();
+
+  ContainerQueryList* matchContainer(const String& query);
 
   // Call the NoLifecycleUpdate variants if you are sure that the lifcycle is
   // already updated to at least pre-paint clean.
@@ -701,7 +706,8 @@ class CORE_EXPORT Element : public ContainerNode {
   Element& CloneWithChildren(NodeCloningData& data,
                              Document*,
                              ContainerNode*,
-                             CustomElementRegistry*,
+                             CustomElementRegistry* registry,
+                             CustomElementRegistry* fallback_registry,
                              ExceptionState& = ASSERT_NO_EXCEPTION) const;
   Element& CloneWithoutChildren(NodeCloningData& data,
                                 CustomElementRegistry*,
@@ -836,6 +842,9 @@ class CORE_EXPORT Element : public ContainerNode {
   // matching the given name. Is allowed to return false positives.
   bool CouldHaveAttribute(const QualifiedName& attribute_name) const {
     return CouldMatchFilter(FilterForAttribute(attribute_name));
+  }
+  bool CouldHaveAttribute(const QualifiedNameWithHash& attribute_name) const {
+    return CouldMatchFilter(attribute_name.bloom_filter);
   }
   bool CouldHaveClass(const AtomicString& class_name) const {
     return CouldMatchFilter(FilterForString(class_name));
@@ -1467,6 +1476,7 @@ class CORE_EXPORT Element : public ContainerNode {
   // script elements and some SVG elements for similar purposes, but making
   // parsing a special case in this respect should be avoided if possible.
   virtual void FinishParsingChildren();
+  void DidFinishParsingChildren();
 
   void BeginParsingChildren() { SetIsFinishedParsingChildren(false); }
 
@@ -1548,6 +1558,7 @@ class CORE_EXPORT Element : public ContainerNode {
 
   virtual bool MatchesDefaultPseudoClass() const { return false; }
   virtual bool MatchesEnabledPseudoClass() const { return false; }
+  virtual bool MatchesDisabledPseudoClass() const { return false; }
   virtual bool MatchesReadOnlyPseudoClass() const { return false; }
   virtual bool MatchesReadWritePseudoClass() const { return false; }
   virtual bool MatchesValidityPseudoClasses() const { return false; }
@@ -1624,6 +1635,15 @@ class CORE_EXPORT Element : public ContainerNode {
   bool DidAttachInternals() const;
   ElementInternals& EnsureElementInternals();
   const ElementInternals* GetElementInternals() const;
+
+  // Returns the HTMLSubmitButtonBehavior for this element, if any.
+  HTMLSubmitButtonBehavior* SubmitBehavior() const;
+
+  // Activated-submit flag for form submission. For native submit buttons
+  // (HTMLButtonElement, HTMLInputElement), subclasses override these. For
+  // custom elements with HTMLSubmitButtonBehavior, delegates to the behavior.
+  virtual void SetActivatedSubmit(bool flag);
+  virtual bool IsActivatedSubmit() const;
 
   bool ContainsFullScreenElement() const {
     return HasElementFlag(ElementFlags::kContainsFullScreenElement);
@@ -2178,14 +2198,15 @@ class CORE_EXPORT Element : public ContainerNode {
   // containment by modifying the box tree outside the container during layout.
   bool HasSiblingBoxPseudoElements() const;
 
-  bool ScrollLayoutBoxBy(const ScrollToOptions*,
-                         std::unique_ptr<ScopedScrollPromiseResolver>);
-  bool ScrollLayoutBoxTo(const ScrollToOptions*,
-                         std::unique_ptr<ScopedScrollPromiseResolver>);
-  bool ScrollFrameBy(const ScrollToOptions*,
-                     std::unique_ptr<ScopedScrollPromiseResolver>);
-  bool ScrollFrameTo(const ScrollToOptions*,
-                     std::unique_ptr<ScopedScrollPromiseResolver>);
+  // The following four methods return true if the scroll requests cause any
+  // change in scroll positions (vs no scrolling because of errors or early
+  // returns). The `ScrollPromiseResolver` holds a Promise for the JS side,
+  // which gets resolved either through a `ScrollableArea` affected by these
+  // methods, or by the caller if no `ScrollableArea` is affected.
+  bool ScrollLayoutBoxBy(const ScrollToOptions*, ScrollPromiseResolver*);
+  bool ScrollLayoutBoxTo(const ScrollToOptions*, ScrollPromiseResolver*);
+  bool ScrollFrameBy(const ScrollToOptions*, ScrollPromiseResolver*);
+  bool ScrollFrameTo(const ScrollToOptions*, ScrollPromiseResolver*);
 
   bool HasElementFlag(ElementFlags mask) const;
   void SetElementFlag(ElementFlags, bool value = true);
@@ -2358,10 +2379,10 @@ class CORE_EXPORT Element : public ContainerNode {
   }
 
   void AttachSucceedingPseudoElements(AttachContext& context) {
-    AttachPseudoElement(kPseudoIdInterestHint, context);
     AttachPseudoElement(kPseudoIdPickerIcon, context);
     AttachPseudoElement(kPseudoIdExpandIcon, context);
     AttachPseudoElement(kPseudoIdAfter, context);
+    AttachPseudoElement(kPseudoIdInterestButton, context);
     AttachDocumentElementSucceedingPseudoElements(context);
     AttachPseudoElement(kPseudoIdBackdrop, context);
     UpdateFirstLetterPseudoElement(StyleUpdatePhase::kAttachLayoutTree);
@@ -2396,10 +2417,10 @@ class CORE_EXPORT Element : public ContainerNode {
   }
 
   void DetachSucceedingPseudoElements(bool performing_reattach) {
-    DetachPseudoElement(kPseudoIdInterestHint, performing_reattach);
     DetachPseudoElement(kPseudoIdPickerIcon, performing_reattach);
     DetachPseudoElement(kPseudoIdExpandIcon, performing_reattach);
     DetachPseudoElement(kPseudoIdAfter, performing_reattach);
+    DetachPseudoElement(kPseudoIdInterestButton, performing_reattach);
     DetachPseudoElement(kPseudoIdScrollButtonBlockStart, performing_reattach);
     DetachPseudoElement(kPseudoIdScrollButtonInlineStart, performing_reattach);
     DetachPseudoElement(kPseudoIdScrollButtonInlineEnd, performing_reattach);
@@ -2467,18 +2488,14 @@ class CORE_EXPORT Element : public ContainerNode {
                                const AtomicString& value,
                                AttributeModificationReason);
   void RemoveAttributeInternal(wtf_size_t index, AttributeModificationReason);
-  String TrustedTypesCheckForAttribute(const QualifiedName&,
-                                       String value,
-                                       const char* legacy_sink_name,
-                                       ExceptionState&) const;
-  String TrustedTypesCheckForAttribute(const QualifiedName&,
-                                       const V8TrustedType* value,
-                                       const char* legacy_sink_name,
-                                       ExceptionState&) const;
-  String TrustedTypesCheckForAttribute(const QualifiedName&,
-                                       const AtomicString&,
-                                       const char* legacy_sink_name,
-                                       ExceptionState&) const;
+  AtomicString TrustedTypesCheckForAttribute(const QualifiedName&,
+                                             AtomicString value,
+                                             const char* legacy_sink_name,
+                                             ExceptionState&) const;
+  AtomicString TrustedTypesCheckForAttribute(const QualifiedName&,
+                                             const V8TrustedType* value,
+                                             const char* legacy_sink_name,
+                                             ExceptionState&) const;
 
   // These Hinted versions of the functions are subtle hot path
   // optimizations designed to reduce the number of unnecessary AtomicString
@@ -2496,7 +2513,7 @@ class CORE_EXPORT Element : public ContainerNode {
                                   AtomicStringTable::WeakResult hint) const;
   void SetAttributeHinted(AtomicString name,
                           AtomicStringTable::WeakResult hint,
-                          String value,
+                          AtomicString value,
                           ExceptionState& = ASSERT_NO_EXCEPTION);
   void SetAttributeHinted(AtomicString name,
                           AtomicStringTable::WeakResult hint,
@@ -2688,6 +2705,15 @@ inline bool Node::HasPreviousSibling() const {
 }
 
 inline bool Element::FastHasAttribute(const QualifiedName& name) const {
+#if DCHECK_IS_ON()
+  DCHECK(FastAttributeLookupAllowed(name))
+      << TagQName().ToString().Utf8() << "/@" << name.ToString().Utf8();
+#endif
+  return CouldHaveAttribute(name) && HasElementData() &&
+         GetElementData()->Attributes().Find(name);
+}
+
+inline bool Element::FastHasAttribute(const QualifiedNameWithHash& name) const {
 #if DCHECK_IS_ON()
   DCHECK(FastAttributeLookupAllowed(name))
       << TagQName().ToString().Utf8() << "/@" << name.ToString().Utf8();

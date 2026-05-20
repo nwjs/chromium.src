@@ -63,9 +63,9 @@ blink::WebString GetWebStringFromScriptContent(std::string_view script_content,
   if (emulate_greasemonkey) {
     std::string content_with_wrapper =
         base::StrCat({kUserScriptHead, script_content, kUserScriptTail});
-    return blink::WebString::FromUTF8(content_with_wrapper);
+    return blink::WebString::FromUtf8(content_with_wrapper);
   }
-  return blink::WebString::FromUTF8(script_content);
+  return blink::WebString::FromUtf8(script_content);
 }
 
 }  // namespace
@@ -156,10 +156,17 @@ bool UserScriptSet::UpdateUserScripts(
   bool only_inject_incognito =
       ExtensionsRendererClient::Get()->IsIncognitoProcess();
 
+  // Clear out the references in `scripts_` and `script_sources_`. These
+  // internally depend on the contents of `shared_memory_mapping_`, so we
+  // ensure these references are removed before releasing the memory.
+  scripts_.clear();
+  script_sources_.clear();
+
   // Create the shared memory mapping.
   shared_memory_mapping_ = shared_memory.Map();
-  if (!shared_memory.IsValid())
+  if (!shared_memory_mapping_.IsValid()) {
     return false;
+  }
 
   // First get the size of the memory block.
   const base::Pickle::Header* pickle_header =
@@ -186,8 +193,6 @@ bool UserScriptSet::UpdateUserScripts(
   // scripts so that we don't add OOM noise to crash reports.
   CHECK_LT(num_scripts, kNumScriptsArbitraryMax);
 
-  scripts_.clear();
-  script_sources_.clear();
   scripts_.reserve(num_scripts);
   for (uint32_t i = 0; i < num_scripts; ++i) {
     std::unique_ptr<UserScript> script(new UserScript());
@@ -340,7 +345,7 @@ blink::WebString UserScriptSet::GetCssSource(const UserScript::Content& file) {
 
   std::string_view script_content = file.GetContent();
   return script_sources_
-      .insert(std::make_pair(url, blink::WebString::FromUTF8(script_content)))
+      .insert(std::make_pair(url, blink::WebString::FromUtf8(script_content)))
       .first->second;
 }
 

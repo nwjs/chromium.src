@@ -19,9 +19,9 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/common/webui_url_constants.h"
@@ -132,7 +132,7 @@ class NewTabPageTest : public InProcessBrowserTest,
     agent_host_->DispatchProtocolMessage(
         this, base::as_byte_span("{\"id\": 2, \"method\": \"DOM.enable\"}"));
 
-    NavigateParams params(browser(), GURL(chrome::kChromeUINewTabPageURL),
+    NavigateParams params(browser(), chrome::ChromeUINewTabPageURLAsGURL(),
                           ui::PageTransition::PAGE_TRANSITION_FIRST);
     Navigate(&params);
     ASSERT_TRUE(WaitForLoadStop(contents_));

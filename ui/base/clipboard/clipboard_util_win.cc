@@ -25,6 +25,7 @@
 #include "base/json/json_reader.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/numerics/checked_math.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -523,14 +524,28 @@ std::optional<std::vector<base::FilePath>> GetVirtualFilenames(
   std::vector<base::FilePath> filenames;
 
   {
-    base::win::ScopedHGlobal<FileGroupDescriptorType*> fgd(medium.hGlobal);
-    if (!fgd.data()) {
+    base::win::ScopedHGlobal<FileGroupDescriptorType*> descriptor(
+        medium.hGlobal);
+    if (!descriptor.data()) {
       return std::nullopt;
     }
 
-    unsigned int num_files = fgd->cItems;
+    unsigned int num_files = descriptor->cItems;
     // We expect there to be at least one file in here.
-    DCHECK_GE(num_files, 1u);
+    if (num_files < 1u) {
+      return std::nullopt;
+    }
+    // We expect the medium to contain enough data for at least cItems file
+    // group descriptor.
+    const auto required_size =
+        base::CheckMul(num_files, sizeof(decltype(descriptor->fgd[0])));
+    const auto end_offset =
+        required_size + offsetof(FileGroupDescriptorType, fgd);
+    if (end_offset.IsInvalidOr([&descriptor](size_t result) {
+          return descriptor.size() < result;
+        })) {
+      return std::nullopt;
+    }
 
     // Value to be incremented to ensure a unique display name, as it is
     // possible that the filenames found in the file group descriptor are not
@@ -540,15 +555,15 @@ std::optional<std::vector<base::FilePath>> GetVirtualFilenames(
 
     for (size_t i = 0; i < num_files; i++) {
       // Folder entries not currently supported--skip this item.
-      if ((fgd->fgd[i].dwFlags & FD_ATTRIBUTES) &&
-          (fgd->fgd[i].dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+      if ((descriptor->fgd[i].dwFlags & FD_ATTRIBUTES) &&
+          (descriptor->fgd[i].dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
         DLOG(WARNING) << "GetVirtualFilenames: display name '"
-                      << ConvertString(fgd->fgd[i].cFileName)
+                      << ConvertString(descriptor->fgd[i].cFileName)
                       << "' refers to a directory (not supported).";
         continue;
       }
       base::FilePath display_name = GetUniqueVirtualFilename(
-          ConvertString(fgd->fgd[i].cFileName), filenames, &uniquifier);
+          ConvertString(descriptor->fgd[i].cFileName), filenames, &uniquifier);
 
       filenames.push_back(display_name);
     }
@@ -568,10 +583,28 @@ bool GetFileNameFromFirstDescriptor(IDataObject* data_object,
     return false;
 
   {
-    base::win::ScopedHGlobal<FileGroupDescriptorType*> fgd(medium.hGlobal);
+    base::win::ScopedHGlobal<FileGroupDescriptorType*> descriptor(
+        medium.hGlobal);
+    // We expect valid data in the file group descriptor.
+    if (!descriptor.data()) {
+      return false;
+    }
     // We expect there to be at least one file in here.
-    DCHECK_GE(fgd->cItems, 1u);
-    filename->assign(ConvertString(fgd->fgd[0].cFileName));
+    if (descriptor->cItems < 1u) {
+      return false;
+    }
+    // We expect the medium to contain enough data for at least cItems file
+    // group descriptor.
+
+    if (base::CheckAdd(offsetof(FileGroupDescriptorType, fgd),
+                       base::CheckMul(descriptor->cItems,
+                                      sizeof(decltype(descriptor->fgd[0]))))
+            .IsInvalidOr(
+                [&](size_t result) { return descriptor.size() < result; })) {
+      return false;
+    }
+
+    filename->assign(ConvertString(descriptor->fgd[0].cFileName));
   }
   ReleaseStgMedium(&medium);
   return true;
@@ -628,7 +661,10 @@ bool HasVirtualFilenames(IDataObject* data_object) {
 
 bool HasFileContents(IDataObject* data_object) {
   DCHECK(data_object);
-  return HasData(data_object, ClipboardFormatType::FileContentZeroType()) &&
+  FORMATETC format_etc =
+      ClipboardFormatType::FileContentAtIndexType(0).ToFormatEtc();
+  format_etc.tymed = TYMED_HGLOBAL | TYMED_ISTREAM;
+  return SUCCEEDED(data_object->QueryGetData(&format_etc)) &&
          (HasData(data_object, ClipboardFormatType::FileDescriptorType()) ||
           HasData(data_object, ClipboardFormatType::FileDescriptorAType()));
 }
@@ -1021,6 +1057,35 @@ bool GetHtml(IDataObject* data_object,
   return true;
 }
 
+bool ReadStreamToString(IStream* stream, std::string* out) {
+  DCHECK(stream);
+  DCHECK(out);
+  STATSTG statstg;
+  if (FAILED(stream->Stat(&statstg, STATFLAG_NONAME)) ||
+      statstg.cbSize.QuadPart == 0) {
+    return false;
+  }
+  const size_t total_size = static_cast<size_t>(statstg.cbSize.QuadPart);
+  out->resize(total_size);
+  const LARGE_INTEGER zero = {};
+  stream->Seek(zero, STREAM_SEEK_SET, nullptr);
+  // Loop to handle partial reads.
+  size_t bytes_remaining = total_size;
+  char* ptr = out->data();
+  while (bytes_remaining > 0) {
+    ULONG bytes_read = 0;
+    HRESULT hr = stream->Read(ptr, base::checked_cast<ULONG>(bytes_remaining),
+                              &bytes_read);
+    if (FAILED(hr) || bytes_read == 0) {
+      out->clear();
+      return false;
+    }
+    ptr += bytes_read;
+    bytes_remaining -= bytes_read;
+  }
+  return true;
+}
+
 bool GetFileContents(IDataObject* data_object,
                      std::wstring* filename,
                      std::string* file_contents) {
@@ -1029,13 +1094,27 @@ bool GetFileContents(IDataObject* data_object,
     return false;
 
   STGMEDIUM content;
-  // The call to GetData can be very slow depending on what is in
-  // |data_object|.
-  if (GetData(data_object, ClipboardFormatType::FileContentZeroType(),
-              &content)) {
+
+  FORMATETC format_etc =
+      ClipboardFormatType::FileContentAtIndexType(0).ToFormatEtc();
+  // Request only TYMED_HGLOBAL and TYMED_ISTREAM.
+  // TYMED_ISTORAGE (e.g. .msg files dragged from Outlook) is excluded here;
+  // it is currently handled via CopyFileContentsToHGlobal() in the
+  // GetVirtualFilesAsTempFiles() path, which converts IStorage to HGLOBAL
+  // and writes the result to a temp file.
+  // TODO(crbug.com/41452260): Add native TYMED_ISTORAGE support on the drop
+  // target side to read IStorage data directly into memory and avoid temp
+  // file creation.
+  format_etc.tymed = TYMED_HGLOBAL | TYMED_ISTREAM;
+  // The call to GetData can be very slow depending on what is in |data_object|.
+  if (SUCCEEDED(data_object->GetData(&format_etc, &content))) {
     if (TYMED_HGLOBAL == content.tymed) {
       base::win::ScopedHGlobal<char*> data(content.hGlobal);
       file_contents->assign(data.data(), data.size());
+    } else if (TYMED_ISTREAM == content.tymed) {
+      if (!ReadStreamToString(content.pstm, file_contents)) {
+        file_contents->clear();
+      }
     }
     ReleaseStgMedium(&content);
   }

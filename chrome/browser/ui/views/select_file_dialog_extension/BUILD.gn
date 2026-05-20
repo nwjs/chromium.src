@@ -26,6 +26,7 @@ static_library("select_file_dialog_extension") {
     "//chrome/browser/download",
     "//chrome/browser/extensions",
     "//chrome/browser/ui/ash/login",
+    "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/webui/ash/system_web_dialog",
     "//ui/chromeos/styles:cros_tokens_color_mappings_generator",
   ]
@@ -51,8 +52,8 @@ source_set("browser_tests") {
     "//chrome/browser/chromeos/policy/dlp",
     "//chrome/browser/chromeos/policy/dlp/test:test_support",
     "//chrome/browser/ui",
-    "//chrome/browser/ui:browser_navigator_params_headers",
     "//chrome/browser/ui/ash/keyboard",
+    "//chrome/browser/ui/navigator",
     "//chrome/common:constants",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",

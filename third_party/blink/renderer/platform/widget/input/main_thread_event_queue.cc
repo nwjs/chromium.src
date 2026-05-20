@@ -22,7 +22,6 @@
 #include "third_party/blink/public/common/input/web_gesture_event.h"
 #include "third_party/blink/public/common/input/web_input_event_attribution.h"
 #include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 
@@ -527,7 +526,7 @@ void MainThreadEventQueue::HandleEvent(
 
   HandledEventCallback event_callback;
   if (is_blocking) {
-    TRACE_EVENT_INSTANT0("input", "Blocking", TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT("input", "Blocking");
     event_callback = std::move(callback);
   }
 

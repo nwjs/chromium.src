@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "base/memory/weak_ptr.h"
 #include "remoting/protocol/authenticator.h"
 #include "remoting/protocol/host_authentication_config.h"
 
@@ -71,8 +72,6 @@ class NegotiatingAuthenticatorBase : public Authenticator {
   RejectionDetails rejection_details() const override;
   const std::string& GetAuthKey() const override;
   const SessionPolicies* GetSessionPolicies() const override;
-  std::unique_ptr<ChannelAuthenticator> CreateChannelAuthenticator()
-      const override;
 
   // Calls |current_authenticator_| to process |message|, passing the supplied
   // |resume_callback|.
@@ -104,6 +103,8 @@ class NegotiatingAuthenticatorBase : public Authenticator {
   State state_;
   RejectionReason rejection_reason_ = RejectionReason::INVALID_CREDENTIALS;
   RejectionDetails rejection_details_;
+
+  base::WeakPtrFactory<NegotiatingAuthenticatorBase> weak_factory_{this};
 };
 
 }  // namespace remoting::protocol

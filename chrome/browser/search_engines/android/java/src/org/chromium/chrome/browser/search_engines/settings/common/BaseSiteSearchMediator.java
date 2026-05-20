@@ -64,7 +64,11 @@ public abstract class BaseSiteSearchMediator
      */
     public void initializeTemplateUrlService() {
         mTemplateUrlService.addObserver(this);
-        mTemplateUrlService.runWhenLoaded(this::refreshList);
+        mTemplateUrlService.runWhenLoaded(
+                () -> {
+                    refreshList();
+                    updatePositions(mModelList);
+                });
     }
 
     /** Cleans up native resources and observers. Must be called when the UI is destroyed. */
@@ -76,6 +80,7 @@ public abstract class BaseSiteSearchMediator
     @Override
     public void onTemplateURLServiceChanged() {
         refreshList();
+        updatePositions(mModelList);
     }
 
     /**
@@ -105,19 +110,19 @@ public abstract class BaseSiteSearchMediator
     /**
      * Fetches the favicon for the search engine asynchronously and updates the PropertyModel.
      *
-     * @param url The TemplateUrl containing the favicon URL.
-     * @param model The PropertyModel to update once the icon is fetched.
+     * @param templateUrl The TemplateUrl representing the search engine.
+     * @param model The PropertyModel to update once the favicon is fetched.
      */
-    protected void fetchFavicon(TemplateUrl url, PropertyModel model) {
-        GURL faviconUrl = url.getFaviconURL();
-        if (faviconUrl == null) return;
-
+    protected void fetchFavicon(TemplateUrl templateUrl, PropertyModel model) {
+        // Since we're fetching the favicon from Google server, we're using the origin as the page
+        // URL rather than using {@link TemplateUrl#getFaviconURL()}
+        GURL pageUrl = new GURL(templateUrl.getURL()).getOrigin();
         executeIconUpdate(
                 mContext,
                 model,
                 SiteSearchProperties.ICON,
-                url,
-                faviconUrl,
+                templateUrl,
+                pageUrl,
                 mLargeIconBridge,
                 mIconCache);
     }
@@ -129,11 +134,46 @@ public abstract class BaseSiteSearchMediator
             PropertyModel model,
             PropertyModel.WritableObjectPropertyKey<Bitmap> propertyKey,
             TemplateUrl templateUrl,
-            GURL faviconUrl,
+            GURL pageUrl,
             LargeIconBridge largeIconBridge,
             Map<GURL, Bitmap> iconCache) {
         SearchEngineIconUtils.updateIcon(
-                context, model, propertyKey, templateUrl, faviconUrl, largeIconBridge, iconCache);
+                context, model, propertyKey, templateUrl, pageUrl, largeIconBridge, iconCache);
+    }
+
+    /**
+     * Updates the POSITION property for all items in the ModelList. Call whenever the list content
+     * changes, e.g. template urls refreshed, list expanded, etc.
+     *
+     * @param modelList The ModelList to update.
+     */
+    @VisibleForTesting
+    void updatePositions(ModelList modelList) {
+        int size = modelList.size();
+        if (size == 0) {
+            return;
+        }
+
+        if (size == 1) {
+            mModelList
+                    .get(0)
+                    .model
+                    .set(SiteSearchProperties.POSITION, SiteSearchProperties.ItemPosition.SINGLE);
+            return;
+        }
+
+        for (int i = 0; i < size; i++) {
+            PropertyModel model = modelList.get(i).model;
+            int position;
+            if (i == 0) {
+                position = SiteSearchProperties.ItemPosition.TOP;
+            } else if (i == size - 1) {
+                position = SiteSearchProperties.ItemPosition.BOTTOM;
+            } else {
+                position = SiteSearchProperties.ItemPosition.MIDDLE;
+            }
+            model.set(SiteSearchProperties.POSITION, position);
+        }
     }
 
     /**

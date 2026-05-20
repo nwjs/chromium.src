@@ -31,8 +31,10 @@ source_set("location_bar") {
       "record_replay_page_action_controller.h",
       "selected_keyword_view.h",
       "star_view.h",
+      "webui_content_setting_image_control.h",
       "webui_location_bar.h",
       "zoom_bubble_coordinator.h",
+      "zoom_bubble_manager.h",
       "zoom_bubble_view.h",
     ]
 
@@ -47,9 +49,11 @@ source_set("location_bar") {
       "//chrome/browser/ui/page_action:icon_type",
       "//chrome/browser/ui/views/frame:immersive_mode_controller",
       "//chrome/browser/ui/views/page_action",
+      "//components/browser_apis/ui_controllers/toolbar:mojom",
       "//components/browser_apis/ui_controllers/toolbar:mojom_data_model",
       "//components/omnibox/browser:location_bar",
       "//components/page_info/core",
+      "//components/record_replay/core/browser",
       "//components/sessions:session_id",
       "//content/public/browser",
       "//extensions/browser",
@@ -92,8 +96,11 @@ source_set("impl") {
       "record_replay_page_action_controller.cc",
       "selected_keyword_view.cc",
       "star_view.cc",
+      "webui_content_setting_image_control.cc",
       "webui_location_bar.cc",
       "zoom_bubble_coordinator.cc",
+      "zoom_bubble_manager_views.cc",
+      "zoom_bubble_manager_views.h",
       "zoom_bubble_view.cc",
     ]
 
@@ -144,7 +151,6 @@ source_set("impl") {
       "//chrome/browser/ui/webui/cr_components/composebox",
       "//chrome/browser/web_applications",
       "//chrome/browser/web_applications:features",
-      "//chrome/common/record_replay",
       "//components/autofill/core/common:features",
       "//components/commerce/core:feature_list",
       "//components/contextual_search:public",
@@ -158,6 +164,8 @@ source_set("impl") {
       "//components/omnibox/browser:vector_icons",
       "//components/omnibox/common",
       "//components/performance_manager",
+      "//components/record_replay/core/browser",
+      "//components/record_replay/core/common",
       "//components/safe_browsing/core/common:features",
       "//components/search",
       "//components/security_interstitials/content:security_interstitial_page",
@@ -278,6 +286,7 @@ source_set("unit_tests") {
     "icon_label_bubble_view_unittest.cc",
     "location_icon_state_helper_unittest.cc",
     "location_icon_view_unittest.cc",
+    "webui_content_setting_image_control_unittest.cc",
   ]
   deps = [
     ":icon_label_bubble",
@@ -304,9 +313,11 @@ source_set("interactive_ui_tests") {
     "lens_overlay_page_action_icon_view_interactive_uitest.cc",
     "location_icon_view_interactive_uitest.cc",
     "merchant_trust_chip_button_interactive_uitest.cc",
+    "record_replay_page_action_controller_interactive_uitest.cc",
     "selected_keyword_view_interactive_uitest.cc",
     "star_view_interactive_uitest.cc",
   ]
+
   deps = [
     ":location_bar",
     "//chrome/browser/ui:ui_features",

@@ -10,14 +10,14 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/preloading/preloading_features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/subscription_eligibility/subscription_eligibility_prefs.h"
-#include "chrome/browser/subscription_eligibility/subscription_eligibility_service.h"
 #include "chrome/browser/subscription_eligibility/subscription_eligibility_service_factory.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/settings/on_device_ai_settings_handler.h"
@@ -43,6 +43,8 @@
 #include "components/safe_browsing/core/common/features.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
+#include "components/subscription_eligibility/subscription_eligibility_prefs.h"
+#include "components/subscription_eligibility/subscription_eligibility_service.h"
 #include "components/variations/service/variations_service.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
@@ -253,6 +255,10 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, AiModeSearchPage) {
   RunTest("settings/ai_mode_search_page_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(SettingsTest, AiSuggestionsPage) {
+  RunTest("settings/ai_suggestions_page_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(SettingsTest, LoggingInfoBullet) {
   RunTest("settings/ai_logging_info_bullet_test.js", "mocha.run()");
 }
@@ -263,6 +269,10 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, PolicyIndicator) {
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, ExtensionControlledIndicator) {
   RunTest("settings/extension_controlled_indicator_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, ExtensionControlledMessage) {
+  RunTest("settings/extension_controlled_message_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, FileSystemSettingsSiteDetails) {
@@ -306,7 +316,7 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, LiveTranslate) {
 // Copied from Polymer 2 version of tests:
 // Times out on Windows Tests (dbg). See https://crbug.com/41278078.
 // Times out / crashes on chromium.linux/Linux Tests (dbg) crbug.com/41287641
-// Flaky everywhere crbug.com/1197768
+// Flaky everywhere crbug.com/40760356
 IN_PROC_BROWSER_TEST_F(SettingsTest, DISABLED_MainPage) {
   RunTest("settings/settings_main_test.js", "mocha.run()");
 }
@@ -323,7 +333,13 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, MAYBE_SettingsMain) {
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
 IN_PROC_BROWSER_TEST_F(SettingsTest, MetricsReporting) {
-  RunTest("settings/metrics_reporting_test.js", "mocha.run()");
+  RunTest("settings/metrics_reporting_test.js",
+          "runMochaSuite('MetricsReporting')");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, MetricsConsentRestructureDisabled) {
+  RunTest("settings/metrics_reporting_test.js",
+          "runMochaSuite('MetricsConsentRestructureDisabled')");
 }
 #endif
 
@@ -437,6 +453,11 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, GlicSubpage) {
 IN_PROC_BROWSER_TEST_F(SettingsTest, GlicSubpageExperimentalTriggeringToggle) {
   RunTest("settings/glic_subpage_test.js",
           "runMochaSuite('GlicSubpage ExperimentalTriggeringToggle')");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, GlicSubpageWebActuation) {
+  RunTest("settings/glic_subpage_test.js",
+          "runMochaSuite('GlicSubpage WebActuationSettingFeatureEnabled')");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, GlicLoginPermissionsPage) {
@@ -743,12 +764,9 @@ class SettingsGlicSubPageWebActuationTableTest
 
     SetUserTier(p.user_tier);
     if (p.consent_pref_set) {
-      GetProfile()->GetPrefs()->SetBoolean(
-          glic::prefs::kGlicUserEnabledActuationOnWeb, true);
-    } else {
-      // For "No Pref" branch, clear the pref so IsDefaultValue() returns true.
-      GetProfile()->GetPrefs()->ClearPref(
-          glic::prefs::kGlicUserEnabledActuationOnWeb);
+      glic::GlicKeyedService::Get(GetProfile())
+          ->enabling()
+          .SetUserEnabledActuationOnWeb(true);
     }
     if (p.is_dogfooder) {
       auto* variations_service = g_browser_process->variations_service();
@@ -955,7 +973,7 @@ IN_PROC_BROWSER_TEST_F(
       "runMochaSuite('GlicSubpage DataProtection_UserStatusCheckDisabled')");
 }
 
-// Timeout on Linux dbg bots: https://crbug.com/1394737
+// Timeout on Linux dbg bots: https://crbug.com/40881745
 #if !(BUILDFLAG(IS_LINUX) && !defined(NDEBUG))
 IN_PROC_BROWSER_TEST_F(SettingsTest, SyncSettings) {
   RunTest("settings/people_page_sync_page_test.js",
@@ -1028,6 +1046,10 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, SearchEngineEntry) {
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, SearchEngineIcon) {
   RunTest("settings/search_engine_icon_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, SearchEngineListDialog) {
+  RunTest("settings/search_engine_list_dialog_test.js", "mocha.run()");
 }
 
 // TODO(crbug.com/448517054): Flaky on Linux debug builds.
@@ -1326,7 +1348,7 @@ class SettingsWithPixelOutputTest : public SettingsBrowserTest {
   }
 };
 
-// https://crbug.com/1044390 - maybe flaky on Mac?
+// https://crbug.com/40115579 - maybe flaky on Mac?
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_FingerprintProgressArc DISABLED_FingerprintProgressArc
 #else
@@ -1934,7 +1956,7 @@ IN_PROC_BROWSER_TEST_F(SettingsSpellCheckPageTest, OfficialBuild) {
 class SettingsSiteDetailsTest : public SettingsBrowserTest {};
 
 // Disabling on debug due to flaky timeout on Win7 Tests (dbg)(1) bot.
-// https://crbug.com/41378604 - later for other platforms in crbug.com/1021219.
+// https://crbug.com/41378604 - later for other platforms in crbug.com/40106090.
 #if !defined(NDEBUG)
 #define MAYBE_SiteDetails DISABLED_SiteDetails
 #else
@@ -1956,7 +1978,7 @@ IN_PROC_BROWSER_TEST_F(SettingsSiteListTest, MAYBE_SiteList) {
   RunTest("settings/site_list_test.js", "runMochaSuite('SiteList')");
 }
 
-// TODO(crbug.com/41439813, crbug.com/1064002): Flaky test. When it is fixed,
+// TODO(crbug.com/41439813, crbug.com/40123519): Flaky test. When it is fixed,
 // merge SiteListDisabled back into SiteList.
 IN_PROC_BROWSER_TEST_F(SettingsSiteListTest, DISABLED_SiteListDisabled) {
   RunTest("settings/site_list_test.js", "runMochaSuite('DISABLED_SiteList')");
@@ -2073,6 +2095,10 @@ IN_PROC_BROWSER_TEST_F(YourSavedInfoTest, YourSavedInfoPageIndex) {
 
 IN_PROC_BROWSER_TEST_F(YourSavedInfoTest, IdentityDocsPageTest) {
   RunTest("settings/identity_docs_page_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(YourSavedInfoTest, ShoppingPageTest) {
+  RunTest("settings/shopping_page_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(YourSavedInfoTest, TravelPageTest) {

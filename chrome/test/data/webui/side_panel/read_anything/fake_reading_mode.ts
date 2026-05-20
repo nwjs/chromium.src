@@ -103,6 +103,9 @@ export class FakeReadingMode {
   // Whether the readability feature flag is enabled.
   isReadabilityEnabled: boolean = false;
 
+  // Whether the select text for readability feature flag is enabled.
+  isReadabilitySelectTextEnabled: boolean = false;
+
   // Returns true if the webpage corresponds to a Google Doc.
   isGoogleDocs: boolean = false;
 
@@ -388,6 +391,10 @@ export class FakeReadingMode {
   // Called when distillation completes with the word count.
   onDistilled(_wordCount: number) {}
 
+  // Called by the Read Anything app to provide the rendered text blocks from
+  // the distilled content for AXTree mapping.
+  onRenderedTextBlocksAvailable(_blocks: string[]) {}
+
   sendGetVoicePackInfoRequest(_: string) {}
 
   // Sends an async request to install a Natural voice pack for a
@@ -575,4 +582,5 @@ export class FakeReadingMode {
   // There has been a long delay between starting speech and speech
   // playing.
   onSpeechEngineStalled() {}
+  onSpeechEngineFirstStall() {}
 }

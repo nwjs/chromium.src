@@ -28,7 +28,6 @@
 #include "components/autofill/core/browser/autofill_browser_util.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
-#include "components/autofill/core/browser/data_model/payments/autofill_offer_data.h"
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card_benefit.h"
@@ -44,7 +43,6 @@
 #include "components/autofill/core/browser/metrics/payments/card_metadata_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/save_and_fill_metrics.h"
 #include "components/autofill/core/browser/metrics/suggestions_list_metrics.h"
-#include "components/autofill/core/browser/payments/autofill_offer_manager.h"
 #include "components/autofill/core/browser/payments/bnpl_manager.h"
 #include "components/autofill/core/browser/payments/bnpl_util.h"
 #include "components/autofill/core/browser/payments/constants.h"
@@ -69,7 +67,13 @@ namespace autofill {
 namespace {
 
 constexpr int64_t kCentsPerDollar = 100;
+// Unicode characters used in IBAN value obfuscation:
+//  - \u2022 - Bullet.
+//  - \u2006 - SIX-PER-EM SPACE (small space between bullets).
 constexpr char16_t kEllipsisDotSeparator[] = u"\u2022";
+constexpr char16_t kEllipsisOneSpace[] = u"\u2006";
+static constexpr int kPrefixLength = 2;
+static constexpr int kSuffixLength = 4;
 
 Suggestion CreateUndoOrClearFormSuggestion() {
 #if BUILDFLAG(IS_IOS)
@@ -254,7 +258,7 @@ Suggestion::Text GetBenefitTextWithTermsAppended(
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 // Set the labels to be shown in the suggestion. Note that this does not
-// account for virtual cards or card-linked offers.
+// account for virtual cards.
 // `metadata_logging_context` the instrument ids of credit cards for which
 // benefits data is available. When displaying card benefits is disabled,
 // `metadata_logging_context` will be populated but a benefit label will not
@@ -1088,13 +1092,13 @@ bool IsCreditCardFooterSuggestion(
     case SuggestionType::kManageAutofillAiTravel:
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
-    case SuggestionType::kManagePlusAddress:
     case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kViewPasswordDetails:
     case SuggestionType::kAccountStoragePasswordEntry:
     case SuggestionType::kAddressEntry:
     case SuggestionType::kAddressEntryOnTyping:
     case SuggestionType::kAtMemorySearchResult:
+    case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kAddressFieldByFieldFilling:
     case SuggestionType::kAutocompleteEntry:
     case SuggestionType::kComposeResumeNudge:
@@ -1109,7 +1113,6 @@ bool IsCreditCardFooterSuggestion(
     case SuggestionType::kDevtoolsTestAddressByCountry:
     case SuggestionType::kDevtoolsTestAddressEntry:
     case SuggestionType::kDevtoolsTestAddresses:
-    case SuggestionType::kFillExistingPlusAddress:
     case SuggestionType::kFillPassword:
     case SuggestionType::kGeneratePasswordEntry:
     case SuggestionType::kIbanEntry:
@@ -1132,6 +1135,7 @@ bool IsCreditCardFooterSuggestion(
     case SuggestionType::kLoyaltyCardEntry:
     case SuggestionType::kOneTimePasswordEntry:
     case SuggestionType::kLoadingThrobber:
+    case SuggestionType::kAutocompleteAtMemoryButton:
       return false;
   }
 }
@@ -1155,13 +1159,11 @@ Suggestion CreateCreditCardSuggestionForTest(
     const AutofillClient& client,
     FieldType trigger_field_type,
     bool virtual_card_option,
-    bool card_linked_offer_available,
     base::optional_ref<autofill_metrics::CardMetadataLoggingContext>
         metadata_logging_context) {
   autofill_metrics::CardMetadataLoggingContext dummy_context;
   return CreateCreditCardSuggestion(
       credit_card, client, trigger_field_type, virtual_card_option,
-      card_linked_offer_available,
       metadata_logging_context.has_value() ? *metadata_logging_context
                                            : dummy_context);
 }
@@ -1239,18 +1241,7 @@ std::vector<CreditCard> GetOrderedCardsToSuggest(
     bool include_virtual_cards) {
   std::vector<const CreditCard*> available_cards = GetCreditCardsToSuggest(
       client.GetPersonalDataManager().payments_data_manager());
-  // If a card has available card linked offers on the last committed url, rank
-  // it to the top.
-  if (std::map<std::string, const AutofillOfferData*> card_linked_offers_map =
-          GetCardLinkedOffers(client);
-      !card_linked_offers_map.empty()) {
-    std::ranges::stable_sort(
-        available_cards,
-        [&card_linked_offers_map](const CreditCard* a, const CreditCard* b) {
-          return card_linked_offers_map.contains(a->guid()) &&
-                 !card_linked_offers_map.contains(b->guid());
-        });
-  }
+
   // Suppress disused credit cards when triggered from an empty field.
   if (suppress_disused_cards) {
     const base::Time min_last_used =
@@ -1283,19 +1274,6 @@ std::vector<CreditCard> GetOrderedCardsToSuggest(
   return cards_to_suggest;
 }
 
-// Returns the card-linked offers map with credit card guid as the key and the
-// pointer to the linked AutofillOfferData as the value.
-std::map<std::string, const AutofillOfferData*> GetCardLinkedOffers(
-    const AutofillClient& autofill_client) {
-  if (const AutofillOfferManager* offer_manager =
-          autofill_client.GetPaymentsAutofillClient()
-              ->GetAutofillOfferManager()) {
-    return offer_manager->GetCardLinkedOffersMap(
-        autofill_client.GetLastCommittedPrimaryMainFrameURL());
-  }
-  return {};
-}
-
 bool ShouldUseNewFopDisplay() {
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   return false;
@@ -1318,7 +1296,6 @@ Suggestion CreateCreditCardSuggestion(
     const AutofillClient& client,
     FieldType trigger_field_type,
     bool virtual_card_option,
-    bool card_linked_offer_available,
     autofill_metrics::CardMetadataLoggingContext& metadata_logging_context) {
   Suggestion suggestion(SuggestionType::kCreditCardEntry);
   suggestion.icon = credit_card.CardIconForAutofillSuggestion();
@@ -1359,34 +1336,23 @@ Suggestion CreateCreditCardSuggestion(
 
   // For virtual cards, make some adjustments for the suggestion contents.
   if (virtual_card_option) {
-    // We don't show card linked offers for virtual card options.
     AdjustVirtualCardSuggestionContent(suggestion, credit_card, client,
                                        trigger_field_type);
-  } else if (card_linked_offer_available) {
-#if BUILDFLAG(IS_ANDROID)
-    // For Keyboard Accessory, set Suggestion::iph_metadata and change the
-    // suggestion icon only if card linked offers are also enabled.
-    if (base::FeatureList::IsEnabled(
-            features::kAutofillEnableOffersInClankKeyboardAccessory)) {
-      suggestion.iph_metadata = Suggestion::IPHMetadata(
-          &feature_engagement::kIPHKeyboardAccessoryPaymentOfferFeature);
-      suggestion.icon = Suggestion::Icon::kOfferTag;
-    } else {
-#else   // Add the offer label on Desktop unconditionally.
-    {
-#endif  // BUILDFLAG(IS_ANDROID)
-      suggestion.labels.push_back(
-          std::vector<Suggestion::Text>{Suggestion::Text(
-              l10n_util::GetStringUTF16(IDS_AUTOFILL_OFFERS_CASHBACK))});
-    }
-  }
-
-  if (virtual_card_option) {
     suggestion.acceptance_a11y_announcement = l10n_util::GetStringUTF16(
         IDS_AUTOFILL_A11Y_ANNOUNCE_FILLED_CARD_INFORMATION_ENTRY);
   } else {
     suggestion.acceptance_a11y_announcement =
         l10n_util::GetStringUTF16(IDS_AUTOFILL_A11Y_ANNOUNCE_FILLED_FORM);
+  }
+
+  // Newly-synced cards start with a `use_count()` of 1.
+  if (credit_card.card_creation_source() ==
+          CreditCard::CardCreationSource::kCreationSourceNonChromePayments &&
+      credit_card.usage_history().use_count() == 1 &&
+      base::FeatureList::IsEnabled(
+          features::kAutofillEnableDownstreamCardAwarenessIph)) {
+    suggestion.iph_metadata = Suggestion::IPHMetadata(
+        &feature_engagement::kIPHAutofillDownstreamCardAwarenessFeature);
   }
 
   return suggestion;
@@ -1594,6 +1560,26 @@ bool ShouldShowScanCreditCard(const FormStructure& form,
 
   static const int kShowScanCreditCardMaxValueLength = 6;
   return trigger_field.value().size() <= kShowScanCreditCardMaxValueLength;
+}
+
+std::u16string GetObfuscatedIban(std::u16string_view prefix,
+                                 std::u16string_view suffix) {
+  if (prefix.empty() && suffix.empty()) {
+    return std::u16string();
+  }
+
+  return base::StrCat({prefix, kEllipsisOneSpace,
+                       kEllipsisDotSeparator, kEllipsisDotSeparator, suffix});
+}
+
+std::u16string GetObfuscatedIban(std::u16string_view iban_value) {
+  if (iban_value.length() < kPrefixLength + kSuffixLength) {
+    return std::u16string(iban_value);
+  }
+
+  return GetObfuscatedIban(
+      iban_value.substr(0, kPrefixLength),
+      iban_value.substr(iban_value.length() - kSuffixLength));
 }
 
 }  // namespace autofill

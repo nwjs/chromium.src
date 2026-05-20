@@ -13,6 +13,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
+#include "base/scoped_observation.h"
 #include "build/build_config.h"
 #include "ui/accessibility/ax_enums.mojom-forward.h"
 #include "ui/accessibility/ax_node_id_forward.h"
@@ -23,7 +24,9 @@
 #include "ui/accessibility/platform/ax_platform_tree_manager_delegate.h"
 #include "ui/views/accessibility/tree/view_accessibility_ax_tree_source.h"
 #include "ui/views/accessibility/tree/widget_ax_manager_observer.h"
+#include "ui/views/focus/focus_manager.h"
 #include "ui/views/views_export.h"
+#include "ui/views/widget/widget_observer.h"
 
 namespace ui {
 class BrowserAccessibilityManager;
@@ -47,7 +50,9 @@ using ViewAccessibilityAXTreeSerializer = ui::AXTreeSerializer<
 // construction.
 class VIEWS_EXPORT WidgetAXManager : public ui::AXModeObserver,
                                      public ui::AXNodeIdDelegate,
-                                     public ui::AXPlatformTreeManagerDelegate {
+                                     public ui::AXPlatformTreeManagerDelegate,
+                                     public WidgetObserver,
+                                     public FocusChangeListener {
  public:
   explicit WidgetAXManager(Widget* widget);
   WidgetAXManager(const WidgetAXManager&) = delete;
@@ -94,6 +99,10 @@ class VIEWS_EXPORT WidgetAXManager : public ui::AXModeObserver,
   // ui::AXModeObserver:
   void OnAXModeAdded(ui::AXMode mode) override;
 
+  // WidgetObserver:
+  void OnWidgetCreated(Widget* widget) override;
+  void OnWidgetDestroyed(Widget* widget) override;
+
   // ui::AXNodeIdDelegate:
   ui::AXPlatformNodeId GetOrCreateAXNodeUniqueId(
       ui::AXNodeID ax_node_id) override;
@@ -124,12 +133,24 @@ class VIEWS_EXPORT WidgetAXManager : public ui::AXModeObserver,
       override;
   bool AccessibilityIsWebContentSource() override;
 
+  // FocusChangeListener:
+  void OnDidChangeFocus(View* focused_before, View* focused_now) override;
+  void OnFocusManagerDestroying(FocusManager* focus_manager) override;
+
+  ui::AXNodeID GetFocusedNodeId() const { return focused_node_id_; }
+
  private:
   friend class WidgetAXManagerTestApi;
 
   void InitAXTreeManager();
+  void EnableWhenWidgetCreated();
   void Enable();
   void NotifyEnabled();
+  void SetParentAXTreeID(const ui::AXTreeID& parent_ax_tree_id);
+  void UpdateParentAXTreeIDFromWidget();
+
+  void StartObservingFocus();
+  ui::AXNodeID GetFocusedViewNodeId() const;
 
   void SchedulePendingUpdate();
   void SendPendingUpdate();
@@ -157,6 +178,20 @@ class VIEWS_EXPORT WidgetAXManager : public ui::AXModeObserver,
 
   // Indicates whether we're actively serializing widget accessibility data.
   bool is_enabled_ = false;
+
+  // Automatically unsubscribes from FocusManager on destruction.
+  base::ScopedObservation<FocusManager, FocusChangeListener>
+      focus_manager_observation_{this};
+
+  base::ScopedObservation<Widget, WidgetObserver> widget_observation_{this};
+
+  // Tracks WidgetObserver::OnWidgetCreated(), which precedes
+  // Widget::IsNativeWidgetInitialized().
+  bool widget_created_ = false;
+  bool enable_on_widget_created_ = false;
+
+  // The AXNodeID of the currently focused node in this widget's tree.
+  ui::AXNodeID focused_node_id_ = ui::kInvalidAXNodeID;
 
   // Indicates whether we have already posted an event or data changed task to
   // SendPendingUpdate().

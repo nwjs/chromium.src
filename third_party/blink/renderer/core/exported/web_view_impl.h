@@ -105,12 +105,6 @@ class WebFrameWidgetImpl;
 
 enum class FullscreenRequestType;
 
-namespace mojom {
-namespace blink {
-class TextAutosizerPageInfo;
-}
-}  // namespace mojom
-
 using PaintHoldingCommitTrigger = cc::PaintHoldingCommitTrigger;
 
 class CORE_EXPORT WebViewImpl final : public WebView,
@@ -297,6 +291,7 @@ class CORE_EXPORT WebViewImpl final : public WebView,
       mojom::blink::PrerenderPageActivationParamsPtr
           prerender_page_activation_params,
       ActivatePrerenderedPageCallback callback) override;
+  void UpgradePrerenderUntilScriptToFullPrerender() override;
   void UpdateWebPreferences(
       const blink::web_pref::WebPreferences& preferences) override;
   void UpdateRendererPreferences(
@@ -422,9 +417,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   void DidChangeContentsSize();
   void PageScaleFactorChanged();
   void OutermostMainFrameScrollOffsetChanged();
-  void TextAutosizerPageInfoChanged(
-      const mojom::blink::TextAutosizerPageInfo& page_info);
-
   bool ShouldAutoResize() const { return should_auto_resize_; }
 
   gfx::Size MinAutoSize() const { return min_auto_size_; }
@@ -603,11 +595,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   void Restore(WindowingControlsChangeCallback);
   // Sends window.setResizable() requests to the browser window.
   void SetResizable(bool resizable, WindowingControlsChangeCallback);
-
-  // Resolve promises to window functions above.
-  void OnWindowShowStateChanged(ui::mojom::blink::WindowShowState old_state,
-                                ui::mojom::blink::WindowShowState new_state);
-  void OnResizableChanged(bool new_resizable);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
   // TODO(crbug.com/1149992): This is called from the associated widget and this
@@ -800,22 +787,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   // trigger recalculation of zoom factor for all affected widgets.
   void UpdateWidgetZoomFactors();
   void UpdateInspectorDeviceScaleFactorOverride();
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  // Additional Windowing Controls API helpers.
-  void WasMaximized();
-  void WasMinimized();
-  void WasRestored();
-
-  enum class WindowShowStateChangeType {
-    kMaximize,
-    kMinimize,
-    kRestore,
-  };
-  void PostDelayedRejectionForAWCPromise(uint64_t id);
-  void RejectAWCPromise(uint64_t id);
-  void HandleWindowShowStateChangeCallbackWith(WindowShowStateChangeType type);
-#endif
 
   // A value provided by the browser to state that all Widgets in this
   // WebView's frame tree will never be user-visible and thus never need to
@@ -1034,21 +1005,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
 
   // All the registered observers.
   base::ObserverList<WebViewObserver> observers_;
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  struct WindowShowStateCallbackData {
-    uint64_t id;
-    WindowShowStateChangeType requested_action;
-    WindowingControlsChangeCallback callback;
-  };
-  std::optional<WindowShowStateCallbackData> window_show_state_change_callback_;
-
-  struct SetResizableCallbackData {
-    uint64_t id;
-    bool requested_resizable;
-    WindowingControlsChangeCallback callback;
-  };
-  std::optional<SetResizableCallbackData> set_resizable_change_callback_;
-#endif
 };
 
 // WebView is always implemented by WebViewImpl, so explicitly allow the

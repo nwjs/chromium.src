@@ -71,7 +71,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTab.AdaptiveToolbarButton.FallbackUi"
-    enum="AdaptiveToolbarButtonVariant" expires_after="2026-08-02">
+    enum="AdaptiveToolbarButtonVariant" expires_after="2026-10-04">
   <owner>jinsukkiim@google.com</owner>
   <owner>clank-app-team@google.com</owner>
   <summary>
@@ -80,22 +80,6 @@ chromium-metrics-reviews@google.com.
     Message UI when when the button itself was hidden due to various reasons.
     Recorded when the user click the fallback UI. Android only.
   </summary>
-</histogram>
-
-<histogram name="CustomTab.SessionDuration{CustomTabOpenSource}" units="ms"
-    expires_after="2020-10-18">
-  <owner>ranj@chromium.org</owner>
-  <owner>yfriedman@chromium.org</owner>
-  <summary>
-    Records the time duration in CustomTab Activity from onStart/onResume to
-    onStop/onPause, if that activity is opened by Webapp/WebApk/Trusted Web
-    Activity. {CustomTabOpenSource}
-  </summary>
-  <token key="CustomTabOpenSource">
-    <variant name=".MediaLauncherActivity"
-        summary="CustomTab opened by MediaLauncherActivity."/>
-    <variant name=".Other" summary="CustomTab opened by other apps."/>
-  </token>
 </histogram>
 
 <histogram name="CustomTabs.AdaptiveToolbarButton.ChosenRanking" units="rank"
@@ -143,7 +127,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.AdaptiveToolbarButton.Shown"
-    enum="AdaptiveToolbarButtonVariant" expires_after="2026-08-02">
+    enum="AdaptiveToolbarButtonVariant" expires_after="2026-10-04">
   <owner>jinsukkiim@google.com</owner>
   <owner>clank-app-team@google.com</owner>
   <summary>
@@ -163,7 +147,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.AuthTab.ExternalNavigationScheme"
-    enum="CustomTabsAuthScheme" expires_after="2026-08-23">
+    enum="CustomTabsAuthScheme" expires_after="2026-10-25">
   <owner>sinansahin@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -330,7 +314,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.ContextMenu.DisplayedContextualCustomActionType"
-    enum="ContextualCustomActionType" expires_after="2026-04-30">
+    enum="ContextualCustomActionType" expires_after="2026-10-31">
   <owner>adelm@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -342,7 +326,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.ContextMenu.SelectedContextualCustomActionType"
-    enum="ContextualCustomActionType" expires_after="2026-04-30">
+    enum="ContextualCustomActionType" expires_after="2026-10-31">
   <owner>adelm@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -367,7 +351,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.DetachedResourceRequest.FinalStatus"
-    enum="NetErrorCodes" expires_after="2026-08-16">
+    enum="NetErrorCodes" expires_after="2026-10-18">
   <owner>lizeb@chromium.org</owner>
   <owner>cct-team@google.com</owner>
   <summary>
@@ -624,7 +608,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.NavigationEvent" enum="CustomTabsNavigationEvent"
-    expires_after="2026-07-23">
+    expires_after="2026-10-25">
   <owner>jinsukkim@chromium.org</owner>
   <owner>clank-app-team@chromium.org</owner>
   <summary>
@@ -752,7 +736,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.ResetTimeout.ElapsedTimeInMinutesOnReturn"
-    units="minutes" expires_after="2026-08-01">
+    units="minutes" expires_after="2026-10-18">
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -768,7 +752,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.ResetTimeout.IsFromEmbedder" enum="Boolean"
-    expires_after="2026-08-01">
+    expires_after="2026-10-18">
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -779,7 +763,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.ResetTimeout.Outcome"
-    enum="CustomTabsResetTimeoutOutcome" expires_after="2026-08-01">
+    enum="CustomTabsResetTimeoutOutcome" expires_after="2026-10-18">
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -901,7 +885,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.Startup.TimeToFirstCommitNavigation2.{suffix}"
-    units="ms" expires_after="2026-08-23">
+    units="ms" expires_after="2026-10-25">
   <owner>mthiesse@chromium.org</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -922,7 +906,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.Startup.TimeToFirstContentfulPaint.{suffix}"
-    units="ms" expires_after="2026-08-23">
+    units="ms" expires_after="2026-10-25">
   <owner>mthiesse@chromium.org</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -943,7 +927,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.Startup.TimeToLargestContentfulPaint2.{suffix}"
-    units="ms" expires_after="2026-08-23">
+    units="ms" expires_after="2026-10-25">
   <owner>mthiesse@chromium.org</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -1005,7 +989,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.WebAppHeader.BackButtonEvent"
-    enum="WebAppBackButtonEvent" expires_after="2026-05-31">
+    enum="WebAppBackButtonEvent" expires_after="2027-05-31">
   <owner>vkorotkevich@google.com</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1015,7 +999,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.WebAppHeader.ControlsHiddenTime2" units="seconds"
-    expires_after="2026-05-31">
+    expires_after="2027-05-31">
   <owner>vkorotkevich@google.com</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1026,7 +1010,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.WebAppHeader.ControlsShownTime2" units="seconds"
-    expires_after="2026-05-31">
+    expires_after="2027-05-31">
   <owner>vkorotkevich@google.com</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1038,7 +1022,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.WebAppHeader.DisplayMode2"
-    enum="WebAppHeaderDisplayMode" expires_after="2026-08-02">
+    enum="WebAppHeaderDisplayMode" expires_after="2027-08-02">
   <owner>vkorotkevich@google.com</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1049,7 +1033,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.WebAppHeader.ReloadButtonEvent"
-    enum="WebAppReloadButtonEvent" expires_after="2026-05-31">
+    enum="WebAppReloadButtonEvent" expires_after="2027-05-31">
   <owner>vkorotkevich@google.com</owner>
   <owner>pwa-team@google.com</owner>
   <summary>

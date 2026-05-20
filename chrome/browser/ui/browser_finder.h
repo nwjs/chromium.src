@@ -7,31 +7,20 @@
 
 #include <stddef.h>
 
-#include <vector>
-
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "ui/display/types/display_constants.h"
-#include "ui/gfx/native_ui_types.h"
 
 namespace base {
 class FilePath;
 }
 
 class Browser;
+class BrowserWindowInterface;
 class Profile;
-class SessionID;
 
 namespace content {
 class WebContents;
-}
-
-namespace tab_groups {
-class TabGroupId;
-}
-
-namespace ui {
-class ElementContext;
 }
 
 // Collection of functions to find Browsers based on various criteria.
@@ -105,36 +94,11 @@ Browser* FindTabbedBrowser(const Profile* profile,
                            bool match_original_profiles,
                            int64_t display_id = display::kInvalidDisplayId);
 
-// Returns an existing browser window of any kind.
-// WARNING: Do not use this method. See comment at top of file.
-Browser* FindAnyBrowser(const Profile* profile, bool match_original_profiles);
-
 // Returns an existing browser window with the provided profile. Searches in the
 // order of last activation. Only browsers that have been active can be
 // returned. Returns nullptr if no such browser currently exists.
 // WARNING: Do not use this method. See comment at top of file.
 Browser* FindBrowserWithProfile(const Profile* profile);
-
-// Returns all tabbed browsers with the provided profile. Returns an empty
-// vector if no such browsers currently exist.
-std::vector<Browser*> FindAllTabbedBrowsersWithProfile(const Profile* profile);
-
-// Returns all browsers of any type with the provided profile. Returns an empty
-// vector if no such browsers currently exist.
-std::vector<Browser*> FindAllBrowsersWithProfile(const Profile* profile);
-
-// Returns an existing browser with the provided ID. Returns nullptr if no such
-// browser currently exists.
-Browser* FindBrowserWithID(SessionID desired_id);
-
-// Returns the browser represented by `window`. Returns nullptr if no such
-// browser currently exists.
-Browser* FindBrowserWithWindow(gfx::NativeWindow window);
-
-// Returns the browser with the currently active window. Returns nullptr if no
-// such browser currently exists.
-// WARNING: Do not use this method. See comment at top of file.
-Browser* FindBrowserWithActiveWindow();
 
 // Returns the browser containing the specified `web_contents` as a tab in that
 // browser. Returns nullptr if no such browser currently exists. `web_contents`
@@ -152,18 +116,6 @@ Browser* FindBrowserWithActiveWindow();
 // WARNING: Do not use this method. See comment at top of file.
 Browser* FindBrowserWithTab(const content::WebContents* web_contents);
 
-// Returns the browser containing the group with ID `group` within the given
-// `profile`. If the specified profile is nullptr, returns any browser
-// containing a group with the given group ID. Returns nullptr if no such
-// browser currently exists.
-// WARNING: Do not use this method. See comment at top of file.
-Browser* FindBrowserWithGroup(tab_groups::TabGroupId group, Profile* profile);
-
-// Returns the browser for the given element context. Returns nullptr if no such
-// browser currently exists.
-// WARNING: Do not use this method. See comment at top of file.
-Browser* FindBrowserWithUiElementContext(ui::ElementContext context);
-
 // Returns the browser owned by `profile` whose window was most recently active.
 // Returns nullptr if no such browser currently exists.
 //
@@ -173,7 +125,7 @@ Browser* FindBrowserWithUiElementContext(ui::ElementContext context);
 // returns nullptr.
 //
 // WARNING #2: This will always return nullptr in unit tests run on the bots.
-Browser* FindLastActiveWithProfile(Profile* profile);
+BrowserWindowInterface* FindLastActiveWithProfile(Profile* profile);
 
 // Returns the browser whose window was most recently active. Returns nullptr if
 // no such browser currently exists.
@@ -184,7 +136,7 @@ Browser* FindLastActiveWithProfile(Profile* profile);
 // returns nullptr.
 //
 // WARNING #2: This will always return nullptr in unit tests run on the bots.
-Browser* FindLastActive();
+BrowserWindowInterface* FindLastActive();
 
 // Returns the number of browsers across all profiles. This does not include
 // pending delete browsers.

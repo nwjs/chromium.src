@@ -5,10 +5,12 @@
 #import <string>
 
 #import "base/base_paths.h"
+#import "base/functional/function_ref.h"
 #import "base/path_service.h"
 #import "base/strings/escape.h"
 #import "base/strings/stringprintf.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/test/ios/wait_util.h"
 #import "base/values.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
 #import "components/optimization_guide/proto/features/common_quality_data.pb.h"
@@ -27,6 +29,12 @@
 
 namespace {
 
+struct FindNodeResult {
+  const optimization_guide::proto::ContentNode* node = nullptr;
+  const optimization_guide::proto::ContentNode* parent = nullptr;
+  std::string frame_token;
+};
+
 // Returns a simple HTML page with the content specified in the "content" query
 // parameter.
 std::unique_ptr<net::test_server::HttpResponse> EchoResponse(
@@ -35,21 +43,39 @@ std::unique_ptr<net::test_server::HttpResponse> EchoResponse(
     return nullptr;
   }
   std::string content;
-  if (!net::GetValueForKeyInQuery(request.GetURL(), "content", &content)) {
+  const GURL& requestUrl = request.GetURL();
+  for (net::QueryIterator it(requestUrl); !it.IsAtEnd(); it.Advance()) {
+    if (it.GetKey() == "content") {
+      content = base::UnescapeBinaryURLComponent(
+          it.GetValue(), base::UnescapeRule::NORMAL |
+                             base::UnescapeRule::REPLACE_PLUS_WITH_SPACE);
+      break;
+    }
+  }
+  if (content.empty()) {
     return nullptr;
   }
   auto response = std::make_unique<net::test_server::BasicHttpResponse>();
   response->set_code(net::HTTP_OK);
   response->set_content_type("text/html");
-  response->set_content(
-      base::StringPrintf("<html><body>%s</body></html>", content.c_str()));
+  response->set_content(base::StringPrintf(
+      R"(
+            <html>
+                <body>
+                    %s
+                </body>
+            </html>
+        )",
+      content.c_str()));
   return response;
 }
 
-std::pair<const optimization_guide::proto::ContentNode*, std::string>
-FindNodeWithText(const optimization_guide::proto::ContentNode& node,
-                 const std::string& text,
-                 const std::string& current_frame_token) {
+FindNodeResult FindNodeWithPredicate(
+    const optimization_guide::proto::ContentNode& node,
+    base::FunctionRef<bool(const optimization_guide::proto::ContentNode&)>
+        predicate,
+    const std::string& current_frame_token,
+    const optimization_guide::proto::ContentNode* parent = nullptr) {
   std::string frame_token = current_frame_token;
   if (node.content_attributes().has_iframe_data()) {
     frame_token = node.content_attributes()
@@ -59,21 +85,43 @@ FindNodeWithText(const optimization_guide::proto::ContentNode& node,
                       .serialized_token();
   }
 
-  if (node.content_attributes().has_text_data() &&
-      node.content_attributes().text_data().text_content() == text) {
-    return {&node, frame_token};
-  }
-  if (node.content_attributes().has_form_control_data() &&
-      node.content_attributes().form_control_data().field_value() == text) {
-    return {&node, frame_token};
+  if (predicate(node)) {
+    return {&node, parent, frame_token};
   }
   for (const auto& child : node.children_nodes()) {
-    auto [found, token] = FindNodeWithText(child, text, frame_token);
-    if (found) {
-      return {found, token};
+    FindNodeResult result =
+        FindNodeWithPredicate(child, predicate, frame_token, &node);
+    if (result.node) {
+      return result;
     }
   }
-  return {nullptr, ""};
+  return {nullptr, nullptr, ""};
+}
+
+FindNodeResult FindNodeWithText(
+    const optimization_guide::proto::ContentNode& node,
+    const std::string& text,
+    const std::string& current_frame_token,
+    const optimization_guide::proto::ContentNode* parent = nullptr) {
+  return FindNodeWithPredicate(
+      node,
+      [&text](const optimization_guide::proto::ContentNode& n) {
+        if (n.content_attributes().has_text_data()) {
+          std::string original =
+              n.content_attributes().text_data().text_content();
+          std::string trimmed = base::CollapseWhitespaceASCII(
+              original, /**trim_sequences_with_line_breaks=*/true);
+          if (trimmed == text) {
+            return true;
+          }
+        }
+        if (n.content_attributes().has_form_control_data() &&
+            n.content_attributes().form_control_data().field_value() == text) {
+          return true;
+        }
+        return false;
+      },
+      current_frame_token, parent);
 }
 
 }  // namespace
@@ -149,6 +197,20 @@ FindNodeWithText(const optimization_guide::proto::ContentNode& node,
   GREYAssertNil(executionError, @"Action failed: %@", executionError);
 }
 
+// Makes a JavaScript function that will find the center coordinates of the
+// element with the given selector.
+- (NSString*)findCenterJsForElementWithSelector:(const std::string&)selector {
+  return base::SysUTF8ToNSString(base::StringPrintf(
+      R"(
+      (function() {
+        const rect = document.querySelector('%s').getBoundingClientRect();
+        return {x: Math.round(rect.x + rect.width / 2),
+                y: Math.round(rect.y + rect.height / 2)};
+      })();
+      )",
+      selector.c_str()));
+}
+
 #pragma mark - Tests
 
 // Tests that the navigate tool successfully navigates the active tab to a new
@@ -207,13 +269,7 @@ FindNodeWithText(const optimization_guide::proto::ContentNode& node,
   [ChromeEarlGrey loadURL:[self URLForHTML:buttonHTML]];
   [ChromeEarlGrey waitForWebStateContainingText:"Click Me"];
 
-  NSString* script = base::SysUTF8ToNSString(
-      "(function() {"
-      "  const rect = "
-      "document.querySelector('button')?.getBoundingClientRect();"
-      "  return {x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y "
-      "+ rect.height / 2)};"
-      "})();");
+  NSString* script = [self findCenterJsForElementWithSelector:"button"];
   base::Value result = [ChromeEarlGrey evaluateJavaScript:script];
   GREYAssertTrue(result.is_dict(), @"Result is not a dict");
 
@@ -259,11 +315,11 @@ FindNodeWithText(const optimization_guide::proto::ContentNode& node,
       page_context.ParseFromArray([apc_data bytes], [apc_data length]),
       @"Failed to parse PageContext");
 
-  auto [node, token] = FindNodeWithText(
+  FindNodeResult result = FindNodeWithText(
       page_context.annotated_page_content().root_node(), "Click Me", "");
-  GREYAssertTrue(node != nullptr, @"Failed to find button node");
-  NSString* frameToken = base::SysUTF8ToNSString(token);
-  int nodeId = node->content_attributes().common_ancestor_dom_node_id();
+  GREYAssertTrue(result.node != nullptr, @"Failed to find button node");
+  NSString* frameToken = base::SysUTF8ToNSString(result.frame_token);
+  int nodeId = result.node->content_attributes().common_ancestor_dom_node_id();
 
   GREYAssertNotNil(frameToken, @"Failed to get frame token.");
   GREYAssertTrue(nodeId > 0, @"Failed to get node ID.");
@@ -308,13 +364,13 @@ FindNodeWithText(const optimization_guide::proto::ContentNode& node,
                                 .main_frame_data()
                                 .document_identifier()
                                 .serialized_token();
-  auto [node, token] =
+  FindNodeResult result =
       FindNodeWithText(page_context.annotated_page_content().root_node(),
                        "Click Me", frame_token);
-  GREYAssertTrue(node != nullptr, @"Failed to find button node");
+  GREYAssertTrue(result.node != nullptr, @"Failed to find button node");
 
-  NSString* nsFrameToken = base::SysUTF8ToNSString(token);
-  int nodeId = node->content_attributes().common_ancestor_dom_node_id();
+  std::string frameToken = result.frame_token;
+  int nodeId = result.node->content_attributes().common_ancestor_dom_node_id();
 
   optimization_guide::proto::Action action;
   optimization_guide::proto::ClickAction* clickAction = action.mutable_click();
@@ -325,8 +381,7 @@ FindNodeWithText(const optimization_guide::proto::ContentNode& node,
   optimization_guide::proto::ActionTarget* target =
       clickAction->mutable_target();
   target->set_content_node_id(nodeId);
-  target->mutable_document_identifier()->set_serialized_token(
-      base::SysNSStringToUTF8(nsFrameToken));
+  target->mutable_document_identifier()->set_serialized_token(frameToken);
 
   [self executeAction:action];
 
@@ -407,14 +462,7 @@ FindNodeWithText(const optimization_guide::proto::ContentNode& node,
       waitForWebStateContainingElement:[ElementSelector
                                            selectorWithCSSSelector:"input"]];
 
-  NSString* getCoordinates = base::SysUTF8ToNSString(
-      R"(
-      (function() {
-        const rect = document.querySelector('input').getBoundingClientRect();
-        return {x: Math.round(rect.x + rect.width / 2),
-                y: Math.round(rect.y + rect.height / 2)};
-      })();
-      )");
+  NSString* getCoordinates = [self findCenterJsForElementWithSelector:"input"];
   base::Value coordinates = [ChromeEarlGrey evaluateJavaScript:getCoordinates];
   GREYAssertTrue(coordinates.is_dict(), @"Result is not a dict");
 
@@ -464,12 +512,12 @@ FindNodeWithText(const optimization_guide::proto::ContentNode& node,
                                    .main_frame_data()
                                    .document_identifier()
                                    .serialized_token();
-  auto [node, token] =
+  FindNodeResult result =
       FindNodeWithText(pageContext.annotated_page_content().root_node(),
                        initialValue, mainFrameToken);
 
-  GREYAssertTrue(node != nullptr, @"Failed to find input node");
-  int nodeId = node->content_attributes().common_ancestor_dom_node_id();
+  GREYAssertTrue(result.node != nullptr, @"Failed to find input node");
+  int nodeId = result.node->content_attributes().common_ancestor_dom_node_id();
 
   optimization_guide::proto::Action action;
   optimization_guide::proto::TypeAction* typeAction = action.mutable_type();
@@ -480,7 +528,8 @@ FindNodeWithText(const optimization_guide::proto::ContentNode& node,
   optimization_guide::proto::ActionTarget* target =
       typeAction->mutable_target();
   target->set_content_node_id(nodeId);
-  target->mutable_document_identifier()->set_serialized_token(token);
+  target->mutable_document_identifier()->set_serialized_token(
+      result.frame_token);
 
   [self executeAction:action];
 
@@ -489,6 +538,358 @@ FindNodeWithText(const optimization_guide::proto::ContentNode& node,
           @"window.frames[0].document.querySelector('input').value"];
   GREYAssertEqualObjects(base::SysUTF8ToNSString(value.GetString()),
                          @"Hello World", @"Input value did not match");
+}
+
+// Tests that the ScrollTool can successfully scroll an element given its
+// coordinates.
+- (void)testScrollTool_scrollsByCoordinates {
+  const std::string scrollableHTML =
+      R"(
+      <div id="outer" style='width: 100px; height: 100px; overflow: auto;'>
+        <div id="inner" style='width: 200px; height: 200px;'></div>
+      </div>
+      )";
+  [ChromeEarlGrey loadURL:[self URLForHTML:scrollableHTML]];
+  [ChromeEarlGrey
+      waitForWebStateContainingElement:[ElementSelector
+                                           selectorWithCSSSelector:"div"]];
+
+  NSString* getCoordinates = [self findCenterJsForElementWithSelector:"#outer"];
+  base::Value coordinates = [ChromeEarlGrey evaluateJavaScript:getCoordinates];
+  GREYAssertTrue(coordinates.is_dict(), @"Result is not a dict");
+
+  int x = static_cast<int>(coordinates.GetDict().FindDouble("x").value());
+  int y = static_cast<int>(coordinates.GetDict().FindDouble("y").value());
+
+  optimization_guide::proto::Action action;
+  optimization_guide::proto::ScrollAction* scrollAction =
+      action.mutable_scroll();
+  scrollAction->set_tab_id([ChromeEarlGrey currentTabID].intValue);
+  scrollAction->set_direction(optimization_guide::proto::ScrollAction::DOWN);
+  scrollAction->set_distance(12.999);
+
+  optimization_guide::proto::ActionTarget* target =
+      scrollAction->mutable_target();
+  target->mutable_coordinate()->set_x(x);
+  target->mutable_coordinate()->set_y(y);
+
+  [self executeAction:action];
+
+  // Safari's WkWebView rounds down the arguments provided to scrollTop and
+  // scrollLeft.
+  base::Value scrollTop = [ChromeEarlGrey
+      evaluateJavaScript:
+          @"Math.floor(document.querySelector('#outer').scrollTop).toString()"];
+  GREYAssertEqualObjects(base::SysUTF8ToNSString(scrollTop.GetString()), @"12",
+                         @"Element was not scrolled the expected distance.");
+}
+
+// Tests that the ScrollTool can successfully scroll an element given its
+// document and node identifiers.
+- (void)testScrollTool_scrollsByIdentifiers {
+  const std::string scrollableHTML =
+      R"(
+      <div id='scroll' style='width: 100px; height: 100px; overflow: auto;'>
+        Target
+        <div style='width: 200px; height: 200px;'></div>
+      </div>
+      )";
+  [ChromeEarlGrey loadURL:[self URLForHTML:scrollableHTML]];
+  [ChromeEarlGrey waitForWebStateContainingText:"Target"];
+
+  NSData* apcData = [ActorAppInterface fetchLatestAPC];
+  optimization_guide::proto::PageContext pageContext;
+  GREYAssertTrue(pageContext.ParseFromArray([apcData bytes], [apcData length]),
+                 @"Failed to parse PageContext");
+
+  std::string mainFrameToken = pageContext.annotated_page_content()
+                                   .main_frame_data()
+                                   .document_identifier()
+                                   .serialized_token();
+  FindNodeResult result =
+      FindNodeWithText(pageContext.annotated_page_content().root_node(),
+                       "Target", mainFrameToken);
+  GREYAssertTrue(result.node != nullptr,
+                 @"Failed to find text node with \"Target\"");
+  GREYAssertTrue(result.node->content_attributes().has_text_data(),
+                 @"Text node does not have text data");
+
+  // Scroll the parent node since "Target" is in a TEXT node and only ELEMENT
+  // nodes are scrollable.
+  int nodeId =
+      result.parent->content_attributes().common_ancestor_dom_node_id();
+  optimization_guide::proto::Action action;
+  optimization_guide::proto::ScrollAction* scrollAction =
+      action.mutable_scroll();
+  scrollAction->set_tab_id([ChromeEarlGrey currentTabID].intValue);
+  scrollAction->set_direction(optimization_guide::proto::ScrollAction::DOWN);
+  scrollAction->set_distance(12.999);
+
+  optimization_guide::proto::ActionTarget* target =
+      scrollAction->mutable_target();
+  target->set_content_node_id(nodeId);
+  target->mutable_document_identifier()->set_serialized_token(
+      result.frame_token);
+
+  [self executeAction:action];
+
+  // Safari's WkWebView rounds down the arguments provided to scrollTop and
+  // scrollLeft.
+  base::Value scrollTop =
+      [ChromeEarlGrey evaluateJavaScript:@"Math.floor(document.getElementById('"
+                                         @"scroll').scrollTop).toString()"];
+  GREYAssertEqualObjects(base::SysUTF8ToNSString(scrollTop.GetString()), @"12",
+                         @"Element was not scrolled the expected distance.");
+}
+
+// Tests that the ScrollTool can successfully scroll the viewport when target is
+// omitted.
+- (void)testScrollTool_scrollsViewport {
+  const std::string scrollableHTML = R"(
+      <div id='big-div' style='height: 2000px;'>
+      </div>
+  )";
+  [ChromeEarlGrey loadURL:[self URLForHTML:scrollableHTML]];
+  [ChromeEarlGrey
+      waitForWebStateContainingElement:[ElementSelector
+                                           selectorWithCSSSelector:"#big-div"]];
+
+  NSData* apcData = [ActorAppInterface fetchLatestAPC];
+  optimization_guide::proto::PageContext pageContext;
+  GREYAssertTrue(pageContext.ParseFromArray([apcData bytes], [apcData length]),
+                 @"Failed to parse PageContext");
+
+  optimization_guide::proto::Action action;
+  optimization_guide::proto::ScrollAction* scrollAction =
+      action.mutable_scroll();
+  scrollAction->set_tab_id([ChromeEarlGrey currentTabID].intValue);
+  scrollAction->set_direction(optimization_guide::proto::ScrollAction::DOWN);
+  scrollAction->set_distance(123);
+
+  [self executeAction:action];
+
+  base::Value scrollTop = [ChromeEarlGrey
+      evaluateJavaScript:@"document.scrollingElement.scrollTop.toString()"];
+  GREYAssertEqualObjects(base::SysUTF8ToNSString(scrollTop.GetString()), @"123",
+                         @"Viewport was not scrolled");
+}
+// Tests that the ScrollToTool can successfully scroll an element into view
+// when given its coordinates.
+- (void)testScrollToTool_scrollsByCoordinates {
+  // Make the target div nearly hidden, with only its top-left corner in view.
+  const std::string scrollableHTML =
+      R"(
+      <style>body { margin: 0; }</style>
+      <div id="outer" style="width: 200px; height: 200px; overflow: auto;">
+        <div id="target" style="position: relative; left: 190px; top: 190px;
+                                width: 50px; height: 50px; background: red;">
+        </div>
+        <div id="spacer" style="height: 500px;width: 500px"></div>
+      </div>
+      )";
+  [ChromeEarlGrey loadURL:[self URLForHTML:scrollableHTML]];
+  [ChromeEarlGrey
+      waitForWebStateContainingElement:[ElementSelector
+                                           selectorWithCSSSelector:"#target"]];
+  NSString* getCoordinates = base::SysUTF8ToNSString(R"(
+        (function() {
+          const rect = document.querySelector('#target')
+                               .getBoundingClientRect();
+          return {x: rect.left, y: rect.top};
+        })();
+      )");
+  base::Value coordinates = [ChromeEarlGrey evaluateJavaScript:getCoordinates];
+  GREYAssertTrue(coordinates.is_dict(), @"Result is not a dict");
+
+  optimization_guide::proto::Action action;
+  optimization_guide::proto::ScrollToAction* scrollToAction =
+      action.mutable_scroll_to();
+  scrollToAction->set_tab_id([ChromeEarlGrey currentTabID].intValue);
+  optimization_guide::proto::ActionTarget* target =
+      scrollToAction->mutable_target();
+  target->mutable_coordinate()->set_x(
+      static_cast<int>(coordinates.GetDict().FindDouble("x").value()));
+  target->mutable_coordinate()->set_y(
+      coordinates.GetDict().FindDouble("y").value());
+
+  [self executeAction:action];
+
+  // Verify that the target is now fully within view of the outer container.
+  std::string checkScroll = R"(
+    (function() {
+      const outer = document.getElementById('outer').getBoundingClientRect();
+      const target = document.getElementById('target').getBoundingClientRect();
+      const visibleX = target.left >= outer.left && target.right <= outer.right;
+      const visibleY = target.top >= outer.top && target.bottom <= outer.bottom;
+      return visibleX && visibleY;
+    })()
+    )";
+  base::Value scrolled =
+      [ChromeEarlGrey evaluateJavaScript:base::SysUTF8ToNSString(checkScroll)];
+  GREYAssertTrue(
+      scrolled.GetBool(),
+      @"The target element is not fully within view of its container.");
+}
+
+// Tests that the ScrollToTool can successfully scroll an element into view
+// given its document and node identifiers.
+- (void)testScrollToTool_scrollsByIdentifiers {
+  const std::string scrollableHTML =
+      R"(
+      <style>body { margin: 0; }</style>
+      <div id="outer" style="width: 200px; height: 200px; overflow: auto;">
+        <button id="target" style="position:relative; left:300px; width: 50px;
+                                  height: 50px;">Target</button>
+        <div id="spacer" style="height: 500px;width: 500px"></div>
+      </div>
+      )";
+  [ChromeEarlGrey loadURL:[self URLForHTML:scrollableHTML]];
+  [ChromeEarlGrey waitForWebStateContainingText:"Target"];
+
+  NSData* apcData = [ActorAppInterface fetchLatestAPC];
+  optimization_guide::proto::PageContext pageContext;
+  GREYAssertTrue(pageContext.ParseFromArray([apcData bytes], [apcData length]),
+                 @"Failed to parse PageContext");
+  std::string mainFrameToken = pageContext.annotated_page_content()
+                                   .main_frame_data()
+                                   .document_identifier()
+                                   .serialized_token();
+  FindNodeResult result =
+      FindNodeWithText(pageContext.annotated_page_content().root_node(),
+                       "Target", mainFrameToken);
+  GREYAssertTrue(result.node != nullptr,
+                 @"Failed to find text node with \"Target\"");
+  GREYAssertTrue(result.parent != nullptr, @"Failed to find parent node");
+
+  int nodeId =
+      result.parent->content_attributes().common_ancestor_dom_node_id();
+  optimization_guide::proto::Action action;
+  optimization_guide::proto::ScrollToAction* scrollToAction =
+      action.mutable_scroll_to();
+  scrollToAction->set_tab_id([ChromeEarlGrey currentTabID].intValue);
+  optimization_guide::proto::ActionTarget* target =
+      scrollToAction->mutable_target();
+  target->set_content_node_id(nodeId);
+  target->mutable_document_identifier()->set_serialized_token(
+      result.frame_token);
+
+  [self executeAction:action];
+
+  // Verify that the target is now fully within view of the outer container.
+  std::string checkScroll = R"(
+    (function() {
+      const outer = document.getElementById('outer').getBoundingClientRect();
+      const target = document.getElementById('target').getBoundingClientRect();
+      const visibleX = target.left >= outer.left && target.right <= outer.right;
+      const visibleY = target.top >= outer.top && target.bottom <= outer.bottom;
+      return visibleX && visibleY;
+    })()
+    )";
+  base::Value scrolled =
+      [ChromeEarlGrey evaluateJavaScript:base::SysUTF8ToNSString(checkScroll)];
+  GREYAssertTrue(scrolled.GetBool(),
+                 @"The target element is not within view of its container.");
+}
+
+// Tests that the SelectTool can successfully select an option in a <select>
+// given its coordinates.
+- (void)testSelectTool_selectsByCoordinates {
+  const std::string selectHTML =
+      R"(
+      <select>
+        <option value='v1'>Option 1</option>
+        <option value='v2'>Option 2</option>
+      </select>
+      )";
+  [ChromeEarlGrey loadURL:[self URLForHTML:selectHTML]];
+  [ChromeEarlGrey
+      waitForWebStateContainingElement:[ElementSelector
+                                           selectorWithCSSSelector:"select"]];
+
+  NSString* getCoordinates = [self findCenterJsForElementWithSelector:"select"];
+  base::Value coordinates = [ChromeEarlGrey evaluateJavaScript:getCoordinates];
+  GREYAssertTrue(coordinates.is_dict(), @"Result is not a dict");
+
+  optimization_guide::proto::Action action;
+  optimization_guide::proto::SelectAction* selectAction =
+      action.mutable_select();
+  selectAction->set_tab_id([ChromeEarlGrey currentTabID].intValue);
+  selectAction->set_value("v2");
+
+  optimization_guide::proto::ActionTarget* target =
+      selectAction->mutable_target();
+  target->mutable_coordinate()->set_x(
+      static_cast<int>(coordinates.GetDict().FindDouble("x").value()));
+  target->mutable_coordinate()->set_y(
+      static_cast<int>(coordinates.GetDict().FindDouble("y").value()));
+
+  [self executeAction:action];
+
+  bool success = base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForUIElementTimeout, ^bool {
+        base::Value value = [ChromeEarlGrey
+            evaluateJavaScript:@"document.querySelector('select').value"];
+        return value.is_string() && value.GetString() == "v2";
+      });
+  GREYAssertTrue(success, @"Select value did not match");
+}
+
+// Tests that the SelectTool can successfully select an option in a <select>
+// given its document and node identifiers.
+- (void)testSelectTool_selectsByIdentifiers {
+  const std::string selectHTML =
+      R"(
+      <select>
+        <option value='v1'>Option 1</option>
+        <option value='v2'>Option 2</option>
+      </select>
+      )";
+  [ChromeEarlGrey loadURL:[self URLForHTML:selectHTML]];
+  [ChromeEarlGrey
+      waitForWebStateContainingElement:[ElementSelector
+                                           selectorWithCSSSelector:"select"]];
+
+  NSData* apcData = [ActorAppInterface fetchLatestAPC];
+  optimization_guide::proto::PageContext pageContext;
+  GREYAssertTrue(pageContext.ParseFromArray([apcData bytes], [apcData length]),
+                 @"Failed to parse PageContext");
+
+  std::string mainFrameToken = pageContext.annotated_page_content()
+                                   .main_frame_data()
+                                   .document_identifier()
+                                   .serialized_token();
+  FindNodeResult result = FindNodeWithPredicate(
+      pageContext.annotated_page_content().root_node(),
+      [](const optimization_guide::proto::ContentNode& n) {
+        return n.content_attributes().has_form_control_data() &&
+               n.content_attributes().form_control_data().form_control_type() ==
+                   optimization_guide::proto::FormControlType::
+                       FORM_CONTROL_TYPE_SELECT_ONE;
+      },
+      mainFrameToken);
+
+  GREYAssertTrue(result.node != nullptr, @"Failed to find select node");
+  int nodeId = result.node->content_attributes().common_ancestor_dom_node_id();
+
+  optimization_guide::proto::Action action;
+  optimization_guide::proto::SelectAction* selectAction =
+      action.mutable_select();
+  selectAction->set_tab_id([ChromeEarlGrey currentTabID].intValue);
+  selectAction->set_value("v2");
+  selectAction->mutable_target()->set_content_node_id(nodeId);
+  selectAction->mutable_target()
+      ->mutable_document_identifier()
+      ->set_serialized_token(result.frame_token);
+
+  [self executeAction:action];
+
+  bool success = base::test::ios::WaitUntilConditionOrTimeout(
+      base::test::ios::kWaitForUIElementTimeout, ^bool {
+        base::Value value = [ChromeEarlGrey
+            evaluateJavaScript:@"document.querySelector('select').value"];
+        return value.is_string() && value.GetString() == "v2";
+      });
+  GREYAssertTrue(success, @"Select value did not match");
 }
 
 @end

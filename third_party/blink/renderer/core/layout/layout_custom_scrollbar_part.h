@@ -75,10 +75,7 @@ class CORE_EXPORT LayoutCustomScrollbarPart final : public LayoutReplaced {
   // Rerturn the overridden size set by SetOverriddenSize();
   PhysicalSize StitchedSize() const override;
 
-  LayoutUnit MarginTop() const override;
-  LayoutUnit MarginBottom() const override;
-  LayoutUnit MarginLeft() const override;
-  LayoutUnit MarginRight() const override;
+  PhysicalBoxStrut MarginOutsets() const override;
 
   bool IsLayoutCustomScrollbarPart() const final {
     NOT_DESTROYED();
@@ -117,26 +114,14 @@ class CORE_EXPORT LayoutCustomScrollbarPart final : public LayoutReplaced {
     return nullptr;
   }
 
-  // Have all padding getters return 0. The important point here is to avoid
+  // Have our padding resolve to zero. The important point here is to avoid
   // resolving percents against the containing block, since scroll bar corners
   // don't always have one (so it would crash). Scroll bar corners are not
   // actually laid out, and they don't have child content, so what we return
   // here doesn't really matter.
-  LayoutUnit PaddingTop() const override {
+  PhysicalBoxStrut PaddingOutsets() const override {
     NOT_DESTROYED();
-    return LayoutUnit();
-  }
-  LayoutUnit PaddingBottom() const override {
-    NOT_DESTROYED();
-    return LayoutUnit();
-  }
-  LayoutUnit PaddingLeft() const override {
-    NOT_DESTROYED();
-    return LayoutUnit();
-  }
-  LayoutUnit PaddingRight() const override {
-    NOT_DESTROYED();
-    return LayoutUnit();
+    return PhysicalBoxStrut();
   }
 
   void SetNeedsPaintInvalidation();

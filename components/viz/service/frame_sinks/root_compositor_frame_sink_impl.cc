@@ -281,7 +281,8 @@ RootCompositorFrameSinkImpl::Create(
       std::move(params->display_private), std::move(display_client),
       std::move(synthetic_begin_frame_source),
       std::move(external_begin_frame_source), std::move(display),
-      hw_support_for_multiple_refresh_rates));
+      hw_support_for_multiple_refresh_rates,
+      params->enable_video_conference_matcher));
 
   // Set up the callback for updating VSyncParameters.
 #if !BUILDFLAG(IS_APPLE)
@@ -373,6 +374,10 @@ void RootCompositorFrameSinkImpl::SetDisplayColorSpaces(
 #if BUILDFLAG(IS_MAC)
 void RootCompositorFrameSinkImpl::SetVSyncDisplayID(int64_t display_id) {
   begin_frame_source()->SetVSyncDisplayID(display_id, /*force_update=*/false);
+}
+
+void RootCompositorFrameSinkImpl::RefreshRateChangedOnSameDisplay() {
+  begin_frame_source()->RefreshRateChangedOnSameDisplay();
 }
 #endif
 
@@ -620,7 +625,8 @@ RootCompositorFrameSinkImpl::RootCompositorFrameSinkImpl(
     std::unique_ptr<SyntheticBeginFrameSource> synthetic_begin_frame_source,
     std::unique_ptr<ExternalBeginFrameSource> external_begin_frame_source,
     std::unique_ptr<Display> display,
-    bool hw_support_for_multiple_refresh_rates)
+    bool hw_support_for_multiple_refresh_rates,
+    bool enable_video_conference_matcher)
     : compositor_frame_sink_client_(std::move(frame_sink_client)),
       compositor_frame_sink_receiver_(this, std::move(frame_sink_receiver)),
       display_client_(std::move(display_client)),
@@ -632,7 +638,8 @@ RootCompositorFrameSinkImpl::RootCompositorFrameSinkImpl(
           /*is_root=*/true)),
       synthetic_begin_frame_source_(std::move(synthetic_begin_frame_source)),
       external_begin_frame_source_(std::move(external_begin_frame_source)),
-      display_(std::move(display)) {
+      display_(std::move(display)),
+      enable_video_conference_matcher_(enable_video_conference_matcher) {
   DCHECK(display_);
   DCHECK(begin_frame_source());
   frame_sink_manager->RegisterBeginFrameSource(begin_frame_source(),
@@ -702,9 +709,11 @@ void RootCompositorFrameSinkImpl::UpdateFrameIntervalDeciderSettings() {
     matchers.push_back(std::make_unique<OnlyVideoMatcher>());
   }
 
-  // Only desktop platforms get VideoConferenceMatcher.
-  matchers.push_back(std::make_unique<VideoConferenceMatcher>());
 #endif
+
+  if (enable_video_conference_matcher_) {
+    matchers.push_back(std::make_unique<VideoConferenceMatcher>());
+  }
 
   FrameIntervalDecider::Settings settings = decider->settings();
   if (interval_decider_use_fixed_intervals_) {
@@ -893,16 +902,16 @@ RootCompositorFrameSinkImpl::StopOverdrawTracking() {
 }
 
 void RootCompositorFrameSinkImpl::DisplayDidReceiveCALayerParams(
-    const gfx::CALayerParams& ca_layer_params) {
+    gfx::CALayerParams ca_layer_params) {
 #if BUILDFLAG(IS_APPLE)
   // If |ca_layer_params| should have content only when there exists a client
   // to send it to.
-  DCHECK(ca_layer_params.is_empty || display_client_);
+  DCHECK(ca_layer_params.IsEmpty() || display_client_);
   if (last_ca_layer_params_ == ca_layer_params &&
       base::TimeTicks::Now() < next_forced_ca_layer_params_update_time_) {
     return;
   }
-  last_ca_layer_params_ = ca_layer_params;
+  last_ca_layer_params_ = ca_layer_params.CloneWithoutFence();
   // OnDisplayReceivedCALayerParams() is ultimately responsible for triggering
   // updates to vsync. VSync may change dynamically. To ensure the value is
   // updated correctly, OnDisplayReceivedCALayerParams() is periodically called,
@@ -911,7 +920,7 @@ void RootCompositorFrameSinkImpl::DisplayDidReceiveCALayerParams(
   next_forced_ca_layer_params_update_time_ =
       base::TimeTicks::Now() + base::Seconds(10);
   if (display_client_)
-    display_client_->OnDisplayReceivedCALayerParams(ca_layer_params);
+    display_client_->OnDisplayReceivedCALayerParams(std::move(ca_layer_params));
 #else
   NOTREACHED();
 #endif

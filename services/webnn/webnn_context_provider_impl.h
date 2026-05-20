@@ -13,7 +13,6 @@
 #include "base/sequence_checker.h"
 #include "base/types/optional_ref.h"
 #include "gpu/command_buffer/service/sequence_id.h"
-#include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/config/gpu_feature_info.h"
 #include "gpu/config/gpu_info.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -62,7 +61,6 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextProviderImpl
   // the GPU service and used to add additional WebNNContextProvider
   // receivers.
   static std::unique_ptr<WebNNContextProviderImpl> Create(
-      scoped_refptr<gpu::SharedContextState> shared_context_state,
       gpu::GpuFeatureInfo gpu_feature_info,
       gpu::GPUInfo gpu_info,
       gpu::SharedImageManager* shared_image_manager,
@@ -131,7 +129,6 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextProviderImpl
 
  private:
   WebNNContextProviderImpl(
-      scoped_refptr<gpu::SharedContextState> shared_context_state,
       gpu::GpuFeatureInfo gpu_feature_info,
       gpu::GPUInfo gpu_info,
       gpu::SharedImageManager* shared_image_manager,
@@ -179,7 +176,6 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextProviderImpl
       mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
       mojo::ScopedDataPipeProducerHandle read_tensor_producer,
       mojo::ScopedDataPipeConsumerHandle read_tensor_consumer,
-      gpu::CommandBufferId command_buffer_id,
       std::unique_ptr<ScopedGpuSequence> gpu_sequence,
       scoped_refptr<base::SingleThreadTaskRunner> task_runner,
       mojo::PendingReceiver<mojom::WebNNContext> receiver,
@@ -197,7 +193,6 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextProviderImpl
       mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
       mojo::ScopedDataPipeProducerHandle read_tensor_producer,
       mojo::ScopedDataPipeConsumerHandle read_tensor_consumer,
-      gpu::CommandBufferId command_buffer_id,
       std::unique_ptr<ScopedGpuSequence> gpu_sequence,
       scoped_refptr<base::SingleThreadTaskRunner> task_runner,
       mojo::PendingReceiver<mojom::WebNNContext> receiver,
@@ -214,7 +209,6 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextProviderImpl
                        mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
                        mojo::ScopedDataPipeProducerHandle read_tensor_producer,
                        mojo::ScopedDataPipeConsumerHandle read_tensor_consumer,
-                       gpu::CommandBufferId command_buffer_id,
                        std::unique_ptr<ScopedGpuSequence> gpu_sequence,
                        scoped_refptr<base::SingleThreadTaskRunner> task_runner,
                        mojo::PendingReceiver<mojom::WebNNContext> receiver,
@@ -232,7 +226,6 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextProviderImpl
       mojo::ScopedDataPipeConsumerHandle write_tensor_consumer,
       mojo::ScopedDataPipeProducerHandle read_tensor_producer,
       mojo::ScopedDataPipeConsumerHandle read_tensor_consumer,
-      gpu::CommandBufferId command_buffer_id,
       std::unique_ptr<ScopedGpuSequence> gpu_sequence,
       scoped_refptr<base::SingleThreadTaskRunner> task_runner,
       mojo::PendingReceiver<mojom::WebNNContext> receiver,
@@ -243,8 +236,6 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextProviderImpl
       base::flat_map<std::string, mojom::EpPackageInfoPtr> ep_package_info);
 #endif  // BUILDFLAG(IS_WIN)
 
-  scoped_refptr<gpu::SharedContextState> shared_context_state_
-      GUARDED_BY_CONTEXT(main_sequence_checker_);
   const gpu::GpuFeatureInfo gpu_feature_info_;
   const gpu::GPUInfo gpu_info_;
 

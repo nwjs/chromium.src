@@ -20,6 +20,7 @@
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/glic/test_support/mock_glic_instance_coordinator.h"
+#include "chrome/browser/glic/test_support/mock_glic_keyed_service.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -33,6 +34,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "content/public/test/browser_task_environment.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/vector_icon_types.h"
@@ -53,6 +55,12 @@ class TestingGlicInstanceCoordinator
   }
 
   void NotifyShowHide() { global_show_hide_subscriptions_.Notify(); }
+
+  void GetExperimentalTriggeringUpdates(
+      mojo::PendingRemote<mojom::ExperimentalTriggeringUpdatesHandler> handler,
+      base::OnceCallback<void(bool)> success_status_callback) override {
+    std::move(success_status_callback).Run(true);
+  }
 
  private:
   base::RepeatingClosureList global_show_hide_subscriptions_;
@@ -77,20 +85,23 @@ class TestingGlicFreController : public glic::GlicFreController {
       webui_state_callback_list_;
 };
 
-class MockGlicKeyedService : public glic::GlicKeyedService {
+// We subclass here since we mock functions that need to return references
+// to concrete instances that not all unit tests may want to provide.
+class MockGlicKeyedServiceForButtonController : public MockGlicKeyedService {
  public:
-  MockGlicKeyedService(content::BrowserContext* browser_context,
-                       signin::IdentityManager* identity_manager,
-                       ProfileManager* profile_manager,
-                       GlicProfileManager* glic_profile_manager,
-                       glic::ContextualCueingService* contextual_cueing_service,
-                       actor::ActorKeyedService* actor_keyed_service)
-      : GlicKeyedService(Profile::FromBrowserContext(browser_context),
-                         identity_manager,
-                         profile_manager,
-                         glic_profile_manager,
-                         contextual_cueing_service,
-                         actor_keyed_service),
+  MockGlicKeyedServiceForButtonController(
+      content::BrowserContext* browser_context,
+      signin::IdentityManager* identity_manager,
+      ProfileManager* profile_manager,
+      GlicProfileManager* glic_profile_manager,
+      glic::ContextualCueingService* contextual_cueing_service,
+      actor::ActorKeyedService* actor_keyed_service)
+      : MockGlicKeyedService(browser_context,
+                             identity_manager,
+                             profile_manager,
+                             glic_profile_manager,
+                             contextual_cueing_service,
+                             actor_keyed_service),
         window_controller_(std::make_unique<TestingGlicInstanceCoordinator>()),
         fre_controller_(std::make_unique<TestingGlicFreController>(
             Profile::FromBrowserContext(browser_context),
@@ -101,8 +112,6 @@ class MockGlicKeyedService : public glic::GlicKeyedService {
       const BrowserWindowInterface& bwi) const override {
     return browser_with_open_panel_ == &bwi;
   }
-
-  bool IsFreShowing() const override { return fre_open_; }
 
   GlicInstanceCoordinator& instance_coordinator() const override {
     return *window_controller_;
@@ -116,14 +125,8 @@ class MockGlicKeyedService : public glic::GlicKeyedService {
     window_controller_->NotifyShowHide();
   }
 
-  void SimulateFREShown(bool open) {
-    fre_open_ = open;
-    fre_controller_->NotifyStateChanged();
-  }
-
  private:
   raw_ptr<BrowserWindowInterface> browser_with_open_panel_ = nullptr;
-  bool fre_open_ = false;
   std::unique_ptr<TestingGlicInstanceCoordinator> window_controller_;
   std::unique_ptr<TestingGlicFreController> fre_controller_;
 };
@@ -176,10 +179,11 @@ class GlicButtonControllerTest : public testing::Test {
     actor_keyed_service_ =
         std::make_unique<actor::ActorKeyedServiceFake>(profile_);
 
-    mock_glic_service_ = std::make_unique<MockGlicKeyedService>(
-        profile_, identity_test_environment.identity_manager(),
-        testing_profile_manager->profile_manager(), &glic_profile_manager_,
-        /*contextual_cueing_service=*/nullptr, actor_keyed_service_.get());
+    mock_glic_service_ =
+        std::make_unique<MockGlicKeyedServiceForButtonController>(
+            profile_, identity_test_environment.identity_manager(),
+            testing_profile_manager->profile_manager(), &glic_profile_manager_,
+            /*contextual_cueing_service=*/nullptr, actor_keyed_service_.get());
 
     mock_browser_window_interface_ =
         std::make_unique<MockBrowserWindowInterface>();
@@ -229,7 +233,7 @@ class GlicButtonControllerTest : public testing::Test {
   base::HistogramTester& histograms() { return *histograms_; }
 
   Profile* profile() { return profile_; }
-  MockGlicKeyedService* glic_keyed_service() {
+  MockGlicKeyedServiceForButtonController* glic_keyed_service() {
     return mock_glic_service_.get();
   }
   BrowserWindowInterface* browser_window_interface() {
@@ -255,7 +259,7 @@ class GlicButtonControllerTest : public testing::Test {
   MockGlicButtonControllerDelegate mock_toolbar_glic_controller_delegate_;
   std::unique_ptr<base::HistogramTester> histograms_;
   std::unique_ptr<actor::ActorKeyedServiceFake> actor_keyed_service_;
-  std::unique_ptr<MockGlicKeyedService> mock_glic_service_;
+  std::unique_ptr<MockGlicKeyedServiceForButtonController> mock_glic_service_;
   std::unique_ptr<GlicButtonController> glic_button_controller_;
   std::unique_ptr<MockBrowserWindowInterface> mock_browser_window_interface_;
 };
@@ -306,21 +310,6 @@ TEST_F(GlicButtonControllerTest, PanelStateChangedSameBrowser) {
   EXPECT_TRUE(toolbar_controller_delegate()->panel_open());
 
   glic_keyed_service()->SimulatePanelShownForBrowser(nullptr);
-  EXPECT_FALSE(tab_strip_controller_delegate()->panel_open());
-  EXPECT_FALSE(toolbar_controller_delegate()->panel_open());
-}
-
-TEST_F(GlicButtonControllerTest, FREStateChanged) {
-  EXPECT_TRUE(tab_strip_controller_delegate()->show_state());
-  EXPECT_TRUE(toolbar_controller_delegate()->show_state());
-  EXPECT_FALSE(tab_strip_controller_delegate()->panel_open());
-  EXPECT_FALSE(toolbar_controller_delegate()->panel_open());
-
-  glic_keyed_service()->SimulateFREShown(true);
-  EXPECT_TRUE(tab_strip_controller_delegate()->panel_open());
-  EXPECT_TRUE(toolbar_controller_delegate()->panel_open());
-
-  glic_keyed_service()->SimulateFREShown(false);
   EXPECT_FALSE(tab_strip_controller_delegate()->panel_open());
   EXPECT_FALSE(toolbar_controller_delegate()->panel_open());
 }

@@ -13,6 +13,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom.h"
 #include "content/public/browser/web_contents.h"
 #include "net/cert/cert_status_flags.h"
@@ -92,6 +93,19 @@ void WebUIReadOnlyOmnibox::Update() {
   }
 }
 
+void WebUIReadOnlyOmnibox::SetTextAndSelectedRange(
+    const std::u16string& text,
+    const std::u16string& inline_autocompletion,
+    const gfx::Range& selection) {
+  text_ = text;
+  inline_autocompletion_ = inline_autocompletion;
+
+  // The JS side will likely render the inline completion using selection,
+  // but conceptually we're at end of text.
+  selection_ = gfx::Range(text.size());
+  ResetFormatting();
+}
+
 std::u16string WebUIReadOnlyOmnibox::GetText() const {
   return text_;
 }
@@ -101,14 +115,12 @@ void WebUIReadOnlyOmnibox::SetWindowTextAndCaretPos(const std::u16string& text,
                                                     bool update_popup,
                                                     bool notify_text_changed) {
   text_ = text;
-  text_strike_through_.SetMax(text_.size());
-  text_colors_.SetMax(text_.size());
-  text_strike_through_.ClearAndSetInitialValue(false);
-  text_colors_.ClearAndSetInitialValue(
-      toolbar_ui_api::mojom::OmniboxTextColor::kOmniboxText);
   selection_ = gfx::Range(caret_pos);
+  ResetFormatting();
 
-  // TODO(crbug.com/474060468): update_popup?
+  if (update_popup) {
+    UpdatePopup();
+  }
 
   if (notify_text_changed) {
     TextChanged();
@@ -151,7 +163,15 @@ void WebUIReadOnlyOmnibox::SelectAll(bool reversed) {
 }
 
 void WebUIReadOnlyOmnibox::UpdatePopup() {
-  NOTIMPLEMENTED();
+  controller()->edit_model()->UpdateInput(
+      /*prevent_inline_autocomplete=*/selection_.GetMin() != text_.size());
+}
+
+void WebUIReadOnlyOmnibox::RevertAll() {
+  OmniboxView::RevertAll();
+  if (auto* popup_closer = controller()->client()->GetOmniboxPopupCloser()) {
+    popup_closer->CloseWithReason(omnibox::PopupCloseReason::kRevertAll);
+  }
 }
 
 void WebUIReadOnlyOmnibox::SetFocus(bool is_user_initiated) {
@@ -172,32 +192,65 @@ void WebUIReadOnlyOmnibox::OnTemporaryTextMaybeChanged(
     const AutocompleteMatch& match,
     bool save_original_selection,
     bool notify_text_changed) {
-  NOTIMPLEMENTED();
+  if (save_original_selection) {
+    saved_selection_for_temporary_text_ = selection_;
+  }
+
+  // This will call RequestUpdateWebUI(), so we don't have to.
+  SetWindowTextAndCaretPos(display_text, display_text.length(),
+                           /*update_popup=*/false, notify_text_changed);
 }
 
 void WebUIReadOnlyOmnibox::OnInlineAutocompleteTextMaybeChanged(
     const std::u16string& user_text,
     const std::u16string& inline_autocompletion) {
-  NOTIMPLEMENTED();
+  if (user_text == text_ && inline_autocompletion == inline_autocompletion_) {
+    return;
+  }
+
+  // The JS side will likely render the inline completion using selection,
+  // but conceptually we're at end of text.
+  gfx::Range selection(user_text.size());
+  SetTextAndSelectedRange(user_text, inline_autocompletion, selection);
+  ResetFormatting();
+  EmphasizeURLComponents();
+  RequestUpdateWebUI();
 }
 
 void WebUIReadOnlyOmnibox::OnInlineAutocompleteTextCleared() {
-  NOTIMPLEMENTED();
+  inline_autocompletion_.clear();
+  RequestUpdateWebUI();
 }
 
 void WebUIReadOnlyOmnibox::OnRevertTemporaryText(
     const std::u16string& display_text,
     const AutocompleteMatch& match) {
-  NOTIMPLEMENTED();
+  // Just restore the selection; the model has already taken care of the text.
+  selection_ = saved_selection_for_temporary_text_;
+  RequestUpdateWebUI();
 }
 
 void WebUIReadOnlyOmnibox::OnBeforePossibleChange() {
-  NOTIMPLEMENTED();
+  state_before_change_ = GetState();
 }
 
 bool WebUIReadOnlyOmnibox::OnAfterPossibleChange(bool allow_keyword_ui_change) {
-  NOTIMPLEMENTED();
-  return false;
+  State new_state = GetState();
+  OmniboxView::StateChanges state_changes =
+      GetStateChanges(state_before_change_, new_state);
+
+  bool something_changed = controller()->edit_model()->OnAfterPossibleChange(
+      state_changes, allow_keyword_ui_change);
+
+  // TODO(crbug.com/503784450): Might need to do unelision.
+  if (something_changed &&
+      (state_changes.text_differs || state_changes.keyword_differs)) {
+    TextChanged();
+  } else if (state_changes.selection_differs) {
+    EmphasizeURLComponents();
+  }
+
+  return something_changed;
 }
 
 int WebUIReadOnlyOmnibox::GetOmniboxTextLength() const {
@@ -258,6 +311,7 @@ WebUIReadOnlyOmnibox::ComputeMojoState() const {
   if (selection_.IsValid()) {
     state->selection = selection_;
   }
+  state->inline_autocompletion = inline_autocompletion_;
   state->text_is_url = text_is_url_;
 
   // Figure out all the breakpoints so we can go through text span-by-span.
@@ -290,4 +344,12 @@ WebUIReadOnlyOmnibox::ComputeMojoState() const {
 
 void WebUIReadOnlyOmnibox::RequestUpdateWebUI() {
   update_propagator_->PropagateOmniboxUpdate(ComputeMojoState());
+}
+
+void WebUIReadOnlyOmnibox::ResetFormatting() {
+  text_strike_through_.SetMax(text_.size());
+  text_colors_.SetMax(text_.size());
+  text_strike_through_.ClearAndSetInitialValue(false);
+  text_colors_.ClearAndSetInitialValue(
+      toolbar_ui_api::mojom::OmniboxTextColor::kOmniboxText);
 }

@@ -35,10 +35,10 @@
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
@@ -68,6 +68,7 @@
 #include "components/policy/policy_constants.h"
 #include "components/search_engines/enterprise/search_aggregator_policy_handler.h"
 #include "components/search_engines/enterprise/site_search_policy_handler.h"
+#include "components/search_engines/search_engines_switches.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_data.h"
 #include "components/search_engines/template_url_service.h"
@@ -480,7 +481,7 @@ class OmniboxViewTest : public InProcessBrowserTest {
 };
 
 // Test if ctrl-* accelerators are workable in omnibox.
-// Flaky. See https://crbug.com/751031.
+// Flaky. See https://crbug.com/41337043.
 IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_BrowserAccelerators) {
   OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
@@ -938,7 +939,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, BasicTextOperations) {
 
 // Make sure the cursor position doesn't get set past the last character of
 // user input text when the URL is longer than the keyword.
-// (http://crbug.com/656209)
+// (http://crbug.com/40489150)
 IN_PROC_BROWSER_TEST_F(OmniboxViewTest, FocusSearchLongUrl) {
   OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
@@ -1068,7 +1069,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, NonSubstitutingKeywordTest) {
   ASSERT_FALSE(GetOmniboxController()->IsPopupOpen());
 }
 
-// Flaky. See https://crbug.com/751031.
+// Flaky. See https://crbug.com/41337043.
 IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_DeleteItem) {
   // Disable the search provider, to make sure the popup contains only history
   // items.
@@ -1346,8 +1347,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, BackspaceDeleteHalfWidthKatakana) {
   // Move the cursor to the end.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_END, 0));
 
-  // Backspace should delete the character. In http://crbug.com/192743, the bug
-  // was that nothing was deleted.
+  // Backspace should delete the character. In http://crbug.com/40975847, the
+  // bug was that nothing was deleted.
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_BACK, 0));
 #if BUILDFLAG(IS_MAC)
   // Cocoa text fields attach the sound mark and delete the whole thing. This
@@ -1429,13 +1430,16 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, EditSearchEngines) {
   EXPECT_TRUE(chrome::ExecuteCommand(browser(), IDC_EDIT_SEARCH_ENGINES));
   ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
   const std::string target_url =
-      std::string(chrome::kChromeUISettingsURL) + chrome::kSearchEnginesSubPage;
+      std::string(chrome::kChromeUISettingsURL) +
+      (base::FeatureList::IsEnabled(switches::kSearchSettingsUpdate)
+           ? chrome::kSearchSubPage
+           : chrome::kSearchEnginesSubPage);
   EXPECT_EQ(ASCIIToUTF16(target_url), omnibox_view->GetText());
   EXPECT_FALSE(GetOmniboxController()->IsPopupOpen());
 }
 
 // Flaky test. The below suggestions are in a random order, and the injected
-// keys may or may not have registered. Probably https://crbug.com/751031,
+// keys may or may not have registered. Probably https://crbug.com/41337043,
 // but I believe the whole input mechanism needs to be re-architected.
 // What I'd like to see is, after a sequence of keys is injected, we inject
 // an artificial input, and, *only* after that input has been registered,
@@ -1485,7 +1489,7 @@ size_t GetSelectionSize(OmniboxView* omnibox_view) {
 
 // Test that if the Omnibox has focus, and had everything selected before a
 // non-user-initiated update, then it retains the selection after the update.
-// Flaky. See https://crbug.com/751031.
+// Flaky. See https://crbug.com/41337043.
 IN_PROC_BROWSER_TEST_F(OmniboxViewTest, DISABLED_SelectAllStaysAfterUpdate) {
   OmniboxView* omnibox_view = nullptr;
   ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));

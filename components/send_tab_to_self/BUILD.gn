@@ -90,6 +90,7 @@ if (is_android) {
     sources = [
       "entry_point_display_reason.h",
       "metrics_util.h",
+      "send_tab_to_self_model.h",
     ]
   }
 
@@ -101,16 +102,20 @@ if (is_android) {
     deps = [ "//third_party/androidx:androidx_annotation_annotation_java" ]
   }
 }
-
 source_set("test_support") {
   testonly = true
   sources = [
-    "test_send_tab_to_self_model.cc",
-    "test_send_tab_to_self_model.h",
+    "fake_send_tab_to_self_model.cc",
+    "fake_send_tab_to_self_model.h",
+    "test_matchers.cc",
+    "test_matchers.h",
   ]
   deps = [
     ":send_tab_to_self",
     "//base",
+    "//components/autofill/core/common",
+    "//testing/gmock",
+    "//url",
   ]
 }
 
@@ -119,6 +124,7 @@ source_set("unit_tests") {
   sources = [
     "entry_point_display_reason_unittest.cc",
     "outgoing_tab_form_field_extractor_unittest.cc",
+    "proto_conversions_unittest.cc",
     "received_tab_forms_filler_unittest.cc",
     "send_tab_to_self_bridge_unittest.cc",
     "send_tab_to_self_entry_unittest.cc",

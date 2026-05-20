@@ -118,7 +118,7 @@ found in the LICENSE file.
         <item name="windowActionBar">true</item>
         <item name="windowNoTitle">false</item>
         <!-- Status bar color -->
-        <!-- Action bar color. This is intentionally a dark color. See crbug.com/871193.
+        <!-- Action bar color. This is intentionally a dark color. See crbug.com/41406168.
              The custom styling can be removed once Android N is deprecated. -->
         <item name="android:statusBarColor">@color/dark_action_bar_color</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -243,7 +243,7 @@ found in the LICENSE file.
     <!-- Manage Space Activity styles -->
     <style name="ManageSpaceActionBarModern" parent="Widget.MaterialComponents.ActionBar.Primary">
         <item name="titleTextStyle">@style/TextAppearance.Headline.Primary.Baseline.Light</item>
-        <!-- Action bar color. This is intentionally a dark color. See crbug.com/871193.
+        <!-- Action bar color. This is intentionally a dark color. See crbug.com/41406168.
              The custom styling can be removed once Android N is deprecated. -->
         <item name="background">@color/dark_action_bar_color</item>
     </style>
@@ -611,7 +611,10 @@ found in the LICENSE file.
     </style>
 
     <!-- Gesture User Education IPH styles -->
-    <style name="TextAppearance.GestureUserEducationIphText" parent="TextAppearance.TextLarge">
-        <item name="android:textColor">?attr/colorOnPrimary</item>
+    <style name="TextAppearance.GestureUserEducationIphText" parent="TextAppearance.Headline2">
+        <item name="android:textColor">@color/baseline_primary_100</item>
+    </style>
+    <style name="GestureUserEducationIphDismissText">
+        <item name="android:layout_gravity">bottom|center_horizontal</item>
     </style>
 </resources>

@@ -24,17 +24,18 @@
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/download/bubble/download_bubble_ui_controller.h"
+#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/file_system_access/file_system_access_features.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/singleton_tabs.h"
@@ -312,7 +313,8 @@ void ShowSiteSettingsFileSystemImpl(BrowserWindowInterface* browser,
 }
 
 BrowserWindowInterface* GetOrCreateBrowserForProfile(Profile* profile) {
-  BrowserWindowInterface* browser = chrome::FindTabbedBrowser(profile, false);
+  BrowserWindowInterface* browser =
+      ProfileBrowserCollection::GetForProfile(profile)->FindTabbedBrowser();
   if (!browser) {
     return Browser::Create(Browser::CreateParams(profile, true));
   }
@@ -386,14 +388,7 @@ void ShowDownloads(BrowserWindowInterface* browser) {
 void ShowExtensions(BrowserWindowInterface* browser,
                     const std::string& extension_to_highlight) {
   base::RecordAction(UserMetricsAction("ShowExtensions"));
-  GURL url(kChromeUIExtensionsURL);
-  if (!extension_to_highlight.empty()) {
-    GURL::Replacements replacements;
-    std::string query("id=");
-    query += extension_to_highlight;
-    replacements.SetQueryStr(query);
-    url = url.ReplaceComponents(replacements);
-  }
+  GURL url = extensions::util::GetExtensionsPageUrl(extension_to_highlight);
   ShowSingletonTabIgnorePathOverwriteNTP(browser, url);
 }
 
@@ -490,7 +485,7 @@ void ShowSettingsSubPageInTabbedBrowser(BrowserWindowInterface* browser,
 
   // Since the user may be triggering navigation from another UI element such as
   // a menu, ensure the web contents (and therefore the settings page that is
-  // about to be shown) is focused. (See crbug/926492 for motivation.)
+  // about to be shown) is focused. (See crbug.com/41438063 for motivation.)
   FocusWebContents(browser);
   ShowSingletonTabIgnorePathOverwriteNTP(browser, GetSettingsUrl(sub_page));
 }
@@ -555,7 +550,7 @@ void ShowClearBrowsingDataDialog(BrowserWindowInterface* browser) {
 
 void ShowPasswordManager(BrowserWindowInterface* bwi) {
   base::RecordAction(UserMetricsAction("Options_ShowPasswordManager"));
-  // This code is necessary to fix a bug (crbug.com/1448559) during Password
+  // This code is necessary to fix a bug (crbug.com/40269361) during Password
   // Manager Shortcut tutorial flow.
   auto* service =
       UserEducationServiceFactory::GetForBrowserContext(bwi->GetProfile());

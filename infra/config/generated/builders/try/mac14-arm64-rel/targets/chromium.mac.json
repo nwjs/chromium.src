@@ -5,6 +5,12 @@
     ],
     "scripts": [
       {
+        "module_name": "blink_lint",
+        "module_scheme": "single",
+        "name": "blink_lint",
+        "script": "blink_lint_expectations.py"
+      },
+      {
         "args": [
           "--allow-coverage-initializer"
         ],
@@ -18,12 +24,6 @@
         "module_scheme": "pyunit",
         "name": "metrics_python_tests",
         "script": "metrics_python_tests.py"
-      },
-      {
-        "module_name": "webkit_lint",
-        "module_scheme": "single",
-        "name": "webkit_lint",
-        "script": "blink_lint_expectations.py"
       }
     ]
   },
@@ -543,24 +543,6 @@
         },
         "test": "events_unittests",
         "test_id_prefix": "ninja://ui/events:events_unittests/"
-      },
-      {
-        "ci_only": true,
-        "merge": {
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "module_name": "//extensions:extensions_browsertests",
-        "module_scheme": "gtest",
-        "name": "extensions_browsertests",
-        "swarming": {
-          "dimensions": {
-            "cpu": "arm64",
-            "os": "Mac-14"
-          },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "extensions_browsertests",
-        "test_id_prefix": "ninja://extensions:extensions_browsertests/"
       },
       {
         "ci_only": true,

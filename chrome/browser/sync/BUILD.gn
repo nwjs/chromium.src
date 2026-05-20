@@ -102,11 +102,14 @@ source_set("sync") {
     "//chrome/browser/gcm",
     "//chrome/browser/glic",
     "//chrome/browser/history",
+    "//chrome/browser/metrics",
     "//chrome/browser/password_manager/factories",
     "//chrome/browser/plus_addresses",
     "//chrome/browser/signin",
     "//chrome/browser/skills",
     "//chrome/browser/subscription_eligibility",
+    "//chrome/browser/supervised_user",
+    "//chrome/browser/ui/navigator",
     "//chrome/browser/ui/sync",
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/webauthn",
@@ -122,6 +125,7 @@ source_set("sync") {
     "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/reading_list",
     "//chrome/browser/search_engines",
+    "//chrome/browser/tab_group_sync",
     "//chrome/browser/tab_group_sync:utils",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/undo",
@@ -210,11 +214,12 @@ source_set("sync") {
       "sessions/browser_list_router_helper.h",
     ]
     public_deps += [
-      "//chrome/browser/ui:browser_list",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip_model_observer",
     ]
     deps += [
       "//chrome/browser/accessibility/tree_fixing:prefs",
+      "//chrome/browser/ui/read_anything:prefs",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs/saved_tab_groups",
     ]

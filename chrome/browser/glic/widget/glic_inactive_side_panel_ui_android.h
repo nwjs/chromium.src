@@ -34,6 +34,7 @@ class GlicInactiveSidePanelUi : public GlicUiEmbedder {
   Host::EmbedderDelegate* GetHostEmbedderDelegate() override;
   void Show(const ShowOptions& options) override;
   bool IsShowing() const override;
+  bool IsShowingOrBackgrounded() const override;
   void Close(const CloseOptions& options) override;
   void Focus() override;
   bool HasFocus() override;
@@ -44,9 +45,11 @@ class GlicInactiveSidePanelUi : public GlicUiEmbedder {
 
  private:
   GlicSidePanelCoordinator* GetGlicSidePanelCoordinator() const;
+  void OnSidePanelStateChanged(GlicSidePanelCoordinator::State state);
 
   base::WeakPtr<tabs::TabInterface> tab_;
   const raw_ref<GlicUiEmbedder::Delegate> delegate_;
+  base::CallbackListSubscription state_subscription_;
 
   base::WeakPtrFactory<GlicInactiveSidePanelUi> weak_ptr_factory_{this};
 };

@@ -16,6 +16,7 @@ import org.chromium.base.SysUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.TimingMetric;
 import org.chromium.base.supplier.OneshotSupplier;
+import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.ServiceTabLauncher;
@@ -54,6 +55,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 /** This class creates various kinds of new tabs and adds them to the right {@link TabModel}. */
+@NullMarked
 public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabModelOrderController {
     /**
      * The application ID used for tabs opened from an application that does not specify an app ID
@@ -166,6 +168,8 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
                 return "LinkToNewWindow";
             case TabLaunchType.FROM_TIPS_NOTIFICATIONS:
                 return "TipsNotifications";
+            case TabLaunchType.FROM_TAB_LIST_INTERFACE_BACKGROUND:
+                return "TabListInterfaceBackground";
             default:
                 assert false : "Unexpected serialization of tabLaunchType: " + tabLaunchType;
                 return "TypeUnknown";
@@ -184,6 +188,7 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
 
     /**
      * Preconnect to the URL and its subresources as the tab is being created.
+     *
      * @param url URL to be preconnected to.
      */
     private void maybePreconnectUrlAndSubResources(GURL url) {
@@ -534,6 +539,7 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
             futureAddTabToModel.thenAccept(
                     addTabToModel -> {
                         if (addTabToModel) {
+                            assumeNonNull(mTabModel);
                             mTabModel.addTab(tab, position, type, creationState);
                         }
                     });
@@ -690,7 +696,7 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
                                     createDefaultTabDelegateFactory()),
                             params.getFinalizeCallback());
             // TODO(crbug.com/40141359): Photos/videos viewed in custom tabs aren't displayed
-            // properly after reparenting. This is a temporary fix for RBS issue crbug.com/1105810,
+            // properly after reparenting. This is a temporary fix for RBS issue crbug.com/40706018,
             // investigate and fix the root cause.
             if (tab.getUrl().getScheme().equals(UrlConstants.FILE_SCHEME)) {
                 tab.reloadIgnoringCache();
@@ -769,9 +775,10 @@ public class ChromeTabCreator implements TabCreator, NeedsTabModel, NeedsTabMode
             case TabLaunchType.FROM_SPECULATIVE_BACKGROUND_CREATION:
             case TabLaunchType.FROM_TAB_LIST_INTERFACE:
             case TabLaunchType.FROM_TIPS_NOTIFICATIONS:
+            case TabLaunchType.FROM_TAB_LIST_INTERFACE_BACKGROUND:
                 // On low end devices tabs are backgrounded in a frozen state, so we set the
                 // transition type to RELOAD to avoid handling intents when the tab is foregrounded.
-                // (https://crbug.com/758027)
+                // (https://crbug.com/40536523)
                 transition =
                         SysUtils.isLowEndDevice() ? PageTransition.RELOAD : PageTransition.LINK;
                 break;

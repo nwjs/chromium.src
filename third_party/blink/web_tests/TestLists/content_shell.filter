@@ -20,24 +20,20 @@ virtual/task-tracking/wpt_internal/*
 virtual/fenced-frame-mparch-internal/wpt_internal/*
 virtual/js-shared-memory/wpt_internal/*
 virtual/text-size-adjust/wpt_internal/*
-virtual/text-size-adjust-with-os-font-scale/wpt_internal/*
 virtual/generic-sensor-extra-classes/wpt_internal/*
 virtual/unload-allowed/wpt_internal/*
-virtual/indexeddb_sqlite/wpt_internal/*
+virtual/indexeddb_leveldb/wpt_internal/*
+virtual/cpu-compositing/wpt_internal/*
+virtual/gpu/wpt_internal/*
 
 # Blocklisted tests fail unexpectedly on headless shell for at least one
 # platform, so continue running them on content shell.
-external/wpt/accname/name/comp_host_language_label.html
-external/wpt/accname/name/comp_label.html
-external/wpt/accname/name/comp_name_from_content.html
-external/wpt/accname/name/comp_text_node.html
 external/wpt/background-fetch/abort.https.window.html
 external/wpt/background-fetch/fetch.https.window.html
 external/wpt/background-fetch/fetch-uploads.https.window.html
 external/wpt/background-fetch/match.https.window.html
 external/wpt/background-fetch/update-ui.https.window.html
 external/wpt/client-hints/viewport-size/viewport-size-window-different-dimensions.https.html
-external/wpt/clipboard-apis/async-navigator-clipboard-write-multiple.tentative.https.sub.html
 external/wpt/compat/webkit-box-clamp-bottom-border.html
 external/wpt/compat/webkit-box-horizontal-rtl-variants.html
 external/wpt/compat/webkit-box-rtl-flex.html
@@ -83,7 +79,6 @@ external/wpt/css/CSS2/borders/border-color-applies-to-012.xht
 external/wpt/css/CSS2/borders/border-width-applies-to-012.xht
 external/wpt/css/CSS2/floats-clear/floats-142.xht
 external/wpt/css/CSS2/floats-clear/floats-143.xht
-external/wpt/css/CSS2/floats/float-nowrap-*
 external/wpt/css/CSS2/linebox/empty-inline-003.xht
 external/wpt/css/CSS2/linebox/inline-formatting-context-003.xht
 external/wpt/css/CSS2/linebox/inline-formatting-context-004.xht
@@ -371,16 +366,12 @@ external/wpt/css/css-text/i18n/unknown-lang/css-text-line-break-in-loose.html
 external/wpt/css/css-text/i18n/zh/css-text-line-break-zh-in-loose.html
 external/wpt/css/css-text/i18n/zh/css-text-line-break-zh-pr-normal.html
 external/wpt/css/css-text/i18n/zh/css-text-line-break-zh-pr-strict.html
-external/wpt/css/css-text/letter-spacing/letter-spacing-ligatures-002.html
 external/wpt/css/css-text/line-breaking/line-breaking-atomic-022.html
 external/wpt/css/css-text/tab-size/tab-size.html
 external/wpt/css/css-text/text-autospace/text-autospace-first-line-001.html
-external/wpt/css/css-text/text-transform/text-transform-capitalize-*
-external/wpt/css/css-text/text-transform/text-transform-upperlower-001.html
 external/wpt/css/css-text/white-space/control-chars-*
 external/wpt/css/css-text/white-space/eol-spaces-bidi-003.html
 external/wpt/css/css-text/white-space/pre-float-001.html
-external/wpt/css/css-text/white-space/pre-wrap-018.html
 external/wpt/css/css-text/white-space/seg-break-transformation-004.tentative.html
 external/wpt/css/css-text/white-space/tab-stop-threshold-001.html
 external/wpt/css/css-text/white-space/tab-stop-threshold-003.html
@@ -721,7 +712,6 @@ external/wpt/svg/text/reftests/textpath-letter-spacing-01.svg
 external/wpt/svg/text/scripted/getcharnumatposition.html
 external/wpt/svg/text/scripted/getcharnumatposition-slr.tentative.html
 external/wpt/svg/text/scripted/getstartpositionofchar.html
-external/wpt/top-level-storage-access-api/requestStorageAccessFor.sub.https.window.html
 external/wpt/trusted-types/trusted-types-navigation.html
 external/wpt/uievents/interface/keyboard-accesskey-click-event.html
 external/wpt/upgrade-insecure-requests/gen/iframe-blank-inherit.meta/upgrade/websocket.https.html
@@ -981,3 +971,10 @@ virtual/webnn-service-on-cpu/*
 virtual/webnn-service-on-npu/*
 virtual/webnn-service-with-gpu/*
 virtual/lna-webrtc/wpt_internal/*
+
+# See crbug.com/476646486:
+# > Requires content plugin:
+virtual/prevent-svg-filter-paint/external/wpt/svg/styling/svg-filter-render-web-plugin.tentative.https.html
+# > Requires site isolation:
+virtual/prevent-svg-filter-paint/external/wpt/svg/styling/svg-filter-render-remote-frame-in-local-frame.tentative.https.html
+virtual/prevent-svg-filter-paint/external/wpt/svg/styling/svg-filter-render-remote-frame.tentative.sub.https.html

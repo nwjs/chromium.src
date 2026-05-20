@@ -37,7 +37,7 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/search/instant_service.h"
-#include "chrome/browser/ui/webui/webui_util_desktop.h"
+#include "chrome/browser/ui/webui/util/webui_util_desktop.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 namespace {
@@ -73,8 +73,8 @@ bool IsOriginAllowedServerFallback(const GURL& url) {
   if (url == history_url.Resolve(chrome::kChromeUIHistorySyncedTabs)) {
     return true;
   }
-  if (url == GURL(chrome::kChromeUINewTabURL) ||
-      url == GURL(chrome::kChromeUINewTabPageURL)) {
+  if (url == chrome::ChromeUINewTabURLAsGURL() ||
+      url == chrome::ChromeUINewTabPageURLAsGURL()) {
     return true;
   }
   return false;

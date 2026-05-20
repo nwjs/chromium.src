@@ -184,7 +184,8 @@ def ci_builder(
     )
 
 def browser_builder(
-        max_concurrent_invocations = 4,
+        # Increasing this could overload the remote workers for build, so don't increase it much.
+        max_concurrent_invocations = 3,
         build_config = None,
         clusterfuzz_archive_name_prefix = None,
         clusterfuzz_archive_subdir = None,
@@ -885,7 +886,7 @@ libfuzzer_linux_asan_builder(
     build_config = builder_config.build_config.RELEASE,
     target_bits = 64,
     console_short_name = "linux",
-    execution_timeout = 4 * time.hour,
+    execution_timeout = 5 * time.hour,
     gn_extra_configs = [
         "mojo_fuzzer",
     ],
@@ -910,11 +911,15 @@ libfuzzer_linux_asan_builder(
     test_builder_name = "linux-x64-libfuzzer-asan-dbg-tests",
 )
 
+# TODO(crbug.com/447520906): Compare between Libfuzzer Upload Linux Asan with
+# AsanBrpV1 and with AsanBrpV2. After we verify AsanBrpV2 is able to find at
+# least the same issues as AsanBrpV2 finds, we will make AsanBrpV2 default
+# (Libfuzzer Upload Linux Asan will use AsanBrpV2) and remove this builder.
 libfuzzer_linux_asan_builder(
     name = "Libfuzzer Upload Linux ASanBrpV2",
     description_html = "This builder uploads libfuzzer fuzzers, for x64 using ASan with AsanBackupRefPtrV2.",
-    # TODO(487852130): remove this once we've added a test builder for this and
-    # we've verified that the builder works.
+    # TODO(crbug.com/447520906): Add to gardening rotation once the build
+    # is proven green.
     gardener_rotations = args.ignore_default(None),
     build_config = builder_config.build_config.RELEASE,
     target_bits = 64,
@@ -954,6 +959,7 @@ libfuzzer_linux_builder(
     build_config = builder_config.build_config.RELEASE,
     target_bits = 64,
     chromium_extra_apply_configs = ["msan"],
+    clusterfuzz_archive_schema_version = 1,
     console_short_name = "linux-msan",
     gn_extra_configs = [
         "msan",

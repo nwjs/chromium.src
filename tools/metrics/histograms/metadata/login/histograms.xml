@@ -225,9 +225,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Login.PageLoad.DetectionType" enum="LoginDetectionType"
-    expires_after="2026-05-30">
-  <owner>tbansal@chromium.org</owner>
+    expires_after="2027-05-30">
   <owner>yigu@chromium.org</owner>
+  <owner>tbansal@chromium.org</owner>
   <owner>web-identity-eng@google.com</owner>
   <summary>
     Type of login detected for a page load based on different heuristics.
@@ -252,18 +252,6 @@ chromium-metrics-reviews@google.com.
   <summary>
     Tracks the reason why a user was sent through the GAIA re-auth flow which
     did not cause the local password change.
-  </summary>
-</histogram>
-
-<histogram name="Login.PasswordStoreSites.InitializedBeforeQuery"
-    enum="Boolean" expires_after="2022-11-30">
-  <owner>rajendrant@chromium.org</owner>
-  <owner>mcrouse@chromium.org</owner>
-  <summary>
-    Records whether the passworded sites list is initialized when the query for
-    sites happens. This is used to measure how many queries happened before the
-    list got populated the first time. Recorded on every query to the password
-    store.
   </summary>
 </histogram>
 

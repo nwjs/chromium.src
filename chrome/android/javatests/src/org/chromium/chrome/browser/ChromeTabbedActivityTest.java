@@ -43,7 +43,6 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
@@ -66,7 +65,6 @@ import org.chromium.chrome.browser.tabmodel.MultiTabMetadata;
 import org.chromium.chrome.browser.tabmodel.RedirectTabCreator;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabGroupMetadata;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabstrip.StripVisibilityState;
@@ -124,11 +122,11 @@ public class ChromeTabbedActivityTest {
     /**
      * Verifies that the front tab receives the hide() call when the activity is stopped (hidden);
      * and that it receives the show() call when the activity is started again. This is a regression
-     * test for http://crbug.com/319804 .
+     * test for http://crbug.com/40341526 .
      */
     @Test
     @MediumTest
-    @DisabledTest(message = "https://crbug.com/1347506")
+    @DisabledTest(message = "https://crbug.com/40854746")
     public void testTabVisibility() {
         // Create two tabs - tab[0] in the foreground and tab[1] in the background.
         final Tab[] tabs = new Tab[2];
@@ -229,7 +227,7 @@ public class ChromeTabbedActivityTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "https://crbug.com/1347506")
+    @DisabledTest(message = "https://crbug.com/40854746")
     public void testMultiUrlIntent() {
         Intent viewIntent =
                 new Intent(
@@ -594,7 +592,8 @@ public class ChromeTabbedActivityTest {
     @MediumTest
     // Intentionally not batched due to recreating activity.
     @RequiresRestart
-    @DisabledTest(message = "crbug.com/1187320 This doesn't work with FeedV2 and crbug.com/1096295")
+    @DisabledTest(
+            message = "crbug.com/40754249 This doesn't work with FeedV2 and crbug.com/40136142")
     public void testActivityCanBeGarbageCollectedAfterFinished() {
         WeakReference<ChromeTabbedActivity> activityRef =
                 new WeakReference<>(mActivityTestRule.getActivity());
@@ -679,9 +678,8 @@ public class ChromeTabbedActivityTest {
                                                             .getURL(FILE_PATH)),
                                             TabLaunchType.FROM_LINK,
                                             null);
-                            TabGroupModelFilter filter =
-                                    mActivity.getTabModelSelector().getTabGroupModelFilter(false);
-                            filter.createSingleTabGroup(newTab);
+                            TabModel tabModel = mActivity.getTabModelSelector().getModel(false);
+                            tabModel.createSingleTabGroup(newTab);
                             return newTab;
                         });
 
@@ -709,17 +707,9 @@ public class ChromeTabbedActivityTest {
     }
 
     private void testTabGroupIntent(boolean shouldApplyCollapse) {
-        HistogramWatcher histogramExpectation =
-                HistogramWatcher.newBuilder()
-                        .expectIntRecord("Android.Reparent.TabGroup.GroupSize", 3)
-                        .expectIntRecord("Android.Reparent.TabGroup.GroupSize.Diff", 0)
-                        .expectAnyRecord("Android.Reparent.TabGroup.Duration")
-                        .build();
-        long startTime = SystemClock.elapsedRealtime();
         int initialWindowCount = MultiWindowUtils.getInstanceCount(PersistedInstanceType.ANY);
         Intent intent =
                 new Intent(Intent.ACTION_VIEW, Uri.parse(JUnitTestGURLs.EXAMPLE_URL.getSpec()));
-        intent.putExtra(IntentHandler.EXTRA_REPARENT_START_TIME, startTime);
         intent.addCategory(Intent.CATEGORY_BROWSABLE);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
@@ -766,18 +756,13 @@ public class ChromeTabbedActivityTest {
                     }
 
                     // Verify other tab group properties.
-                    TabGroupModelFilter filter =
-                            mActivity.getTabModelSelector().getTabGroupModelFilter(false);
-                    Assert.assertEquals(TAB_GROUP_TITLE, filter.getTabGroupTitle(TAB_GROUP_ID));
-                    Assert.assertEquals(0, filter.getTabGroupColor(TAB_GROUP_ID));
+                    Assert.assertEquals(TAB_GROUP_TITLE, tabModel.getTabGroupTitle(TAB_GROUP_ID));
+                    Assert.assertEquals(0, tabModel.getTabGroupColor(TAB_GROUP_ID));
                     if (shouldApplyCollapse) {
-                        Assert.assertTrue(filter.getTabGroupCollapsed(TAB_GROUP_ID));
+                        Assert.assertTrue(tabModel.getTabGroupCollapsed(TAB_GROUP_ID));
                     } else {
-                        Assert.assertFalse(filter.getTabGroupCollapsed(TAB_GROUP_ID));
+                        Assert.assertFalse(tabModel.getTabGroupCollapsed(TAB_GROUP_ID));
                     }
-
-                    // Verify histograms.
-                    histogramExpectation.assertExpected();
                 });
     }
 
@@ -1204,10 +1189,7 @@ public class ChromeTabbedActivityTest {
                     Tab movedTab2 = tabModel2.getTabById(tab2.getId());
                     Criteria.checkThat(movedTab2, Matchers.notNullValue());
 
-                    TabGroupModelFilter filter2 =
-                            (TabGroupModelFilter)
-                                    activity2.getTabModelSelector().getTabGroupModelFilter(false);
-                    List<Tab> relatedTabs = filter2.getRelatedTabList(tab1.getId());
+                    List<Tab> relatedTabs = tabModel2.getRelatedTabList(tab1.getId());
                     Criteria.checkThat(relatedTabs.size(), Matchers.is(2));
                     Criteria.checkThat(
                             relatedTabs,

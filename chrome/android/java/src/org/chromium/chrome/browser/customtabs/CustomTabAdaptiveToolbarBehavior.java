@@ -28,6 +28,7 @@ import org.chromium.chrome.browser.browserservices.intents.CustomButtonParams;
 import org.chromium.chrome.browser.browserservices.intents.CustomButtonParams.ButtonType;
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabMtbHiddenReason;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarBehavior;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonController;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant;
@@ -66,7 +67,7 @@ public class CustomTabAdaptiveToolbarBehavior implements AdaptiveToolbarBehavior
         mOpenInBrowserButton = openInBrowserButton;
         mOpenInBrowserRunnable = openInBrowserRunnable;
         mRegisterVoiceSearchRunnable = registerVoiceSearchRunnable;
-        mValidButtons = new HashSet(COMMON_BUTTONS);
+        mValidButtons = new HashSet<>(COMMON_BUTTONS);
         if (isOpenInBrowserButtonEnabled()) {
             mValidButtons.add(AdaptiveToolbarButtonVariant.OPEN_IN_BROWSER);
         }
@@ -197,7 +198,7 @@ public class CustomTabAdaptiveToolbarBehavior implements AdaptiveToolbarBehavior
     }
 
     @Override
-    public @AdaptiveToolbarButtonVariant int getSegmentationDefault() {
+    public @AdaptiveToolbarButtonVariant int getSegmentationDefault(Profile profile) {
         var defVariant = ChromeFeatureList.sCctAdaptiveButtonDefaultVariant.getValue();
         return isButtonDuplicated(defVariant) ? UNKNOWN : defVariant;
     }

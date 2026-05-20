@@ -1222,7 +1222,7 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest,
 
 // Makes sure that clicking a field while there is no enough height in the
 // content area for at least one suggestion, won't show the autofill popup. This
-// is a regression test for crbug.com/1108181
+// is a regression test for crbug.com/40052907
 IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest,
                        DontAutofillShowPopupWhenNoEnoughHeightInContentArea) {
   // This firstname field starts at y=-100px and has a height of 5120px. There
@@ -3115,6 +3115,16 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTestDynamicForm,
   expect_count("Autofill.KeyMetrics.FillingAcceptance.CreditCard", 1, 1);
   expect_count("Autofill.KeyMetrics.FillingCorrectness.CreditCard", 1, 1);
   expect_count("Autofill.KeyMetrics.FillingAssistance.CreditCard", 1, 1);
+#if !BUILDFLAG(IS_CHROMEOS)
+  expect_count("Autofill.KeyMetrics.FillingReadiness.CreditCard.Profile0", 1,
+               1);
+  expect_count("Autofill.KeyMetrics.FillingAcceptance.CreditCard.Profile0", 1,
+               1);
+  expect_count("Autofill.KeyMetrics.FillingCorrectness.CreditCard.Profile0", 1,
+               1);
+  expect_count("Autofill.KeyMetrics.FillingAssistance.CreditCard.Profile0", 1,
+               1);
+#endif
   // Ensure that refills don't count as edits.
   expect_count("Autofill.PerfectFilling.CreditCards", 1, 1);
   // Bucket 0 = edited, 1 = accepted; 3 samples for 3 fields.
@@ -3230,7 +3240,7 @@ INSTANTIATE_TEST_SUITE_P(ManifestVersion,
                                            ash::ManifestVersion::kThree));
 
 // Ensure that autofill suggestions are properly read out via ChromeVox.
-// This is a regressions test for crbug.com/1208913.
+// This is a regressions test for crbug.com/40766297.
 // TODO(crbug.com/40820453): Flaky on ChromeOS
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_TestNotificationOfAutofillDropdown \

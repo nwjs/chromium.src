@@ -26,17 +26,19 @@ let testUrl = '';
 const debug = 0;
 if (debug) {
   testUrl = 'http://www.google.com';
-  chrome.test.log = function(msg) { console.log(msg) };
+  chrome.test.log = function(msg) {
+    console.info(msg);
+  };
   chrome.test.runTests = function(tests) {
-    for (let i in tests) {
+    for (const i in tests) {
       tests[i]();
     }
   };
   chrome.test.succeed = function() {
-    console.log('succeed');
+    console.info('succeed');
   };
   chrome.test.fail = function() {
-    console.log('fail');
+    console.info('fail');
   };
 }
 
@@ -44,11 +46,11 @@ function runTests() {
   chrome.test.runTests([function test1() {
     chrome.runtime.onMessage.addListener(function(req, sender) {
       chrome.test.log(`got request: ${JSON.stringify(req)}`);
-      if (req == 'fail') {
+      if (req === 'fail') {
         fail();
-      } else if (req == 'content_script_start') {
+      } else if (req === 'content_script_start') {
         const tab = sender.tab;
-        if (tab.url.indexOf('#') != -1) {
+        if (tab.url.indexOf('#') !== -1) {
           fail();
         } else {
           chrome.tabs.update(tab.id, {url: `${tab.url}#foo`});
@@ -57,7 +59,7 @@ function runTests() {
     });
     chrome.tabs.onUpdated.addListener(function(tabid, info, tab) {
       chrome.test.log(`onUpdated status: ${info.status} url:${tab.url}`);
-      if (info.status == 'complete' && tab.url.indexOf('#foo') != -1) {
+      if (info.status === 'complete' && tab.url.indexOf('#foo') !== -1) {
         setTimeout(function() {
           if (!didFail()) {
             chrome.test.succeed();

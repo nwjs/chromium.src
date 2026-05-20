@@ -247,14 +247,22 @@ class AILanguageModel::PromptState
   // input+output tokens. `callback` may delete this object.
   void AppendAndGenerate(
       mojo::PendingRemote<on_device_model::mojom::Session> session,
-      uint32_t max_output_tokens,
+      uint32_t available_context_tokens,
+      std::optional<uint32_t> configured_max_output_tokens,
       base::OnceClosure callback) {
     start_ = base::TimeTicks::Now();
     callback_ = std::move(callback);
     // Subtract 1 to make sure the model's max tokens is never actually reached.
     max_output_tokens_ =
-        max_output_tokens - 1 +
+        available_context_tokens - 1 +
         features::kAILanguageModelOverrideConfigurationOutputBuffer.Get();
+    // Clamp max_output_tokens_ to the remaining available context and any
+    // config-specific maximum per-response limit.
+    if (configured_max_output_tokens.has_value()) {
+      DCHECK_GT(configured_max_output_tokens.value(), 0u);
+      max_output_tokens_ =
+          std::min(max_output_tokens_, configured_max_output_tokens.value());
+    }
     safety_checker_->RunRequestChecks(
         CreateStringMessage(*input_),
         base::BindOnce(&PromptState::RequestSafetyChecksComplete,
@@ -411,6 +419,12 @@ class AILanguageModel::PromptState
     session_.Bind(std::move(session));
     session_.set_disconnect_with_reason_handler(
         base::BindOnce(&PromptState::OnDisconnect, base::Unretained(this)));
+
+    if (!constraint_.is_null()) {
+      auto hint_options = on_device_model::mojom::HintOptions::New();
+      hint_options->constrained_decoding_hint = true;
+      session_->Hint(std::move(hint_options));
+    }
 
     // Append() will call the on_device_model::mojom::ContextClient::OnComplete
     // override when finished.
@@ -627,7 +641,8 @@ std::optional<base::flat_set<std::string>>
 AILanguageModel::GetEnabledLanguageBaseCodes() {
   // Comma-separated language codes to enable; or "*" enables all supported.
   const base::FeatureParam<std::string> kAIPromptAPILanguagesEnabled{
-      &blink::features::kAIPromptAPI, "langs", /*default=*/"en,es,ja"};
+      &blink::features::kAIPromptAPI, "langs",
+      /*default_value=*/"en,es,ja,de,fr"};
   return on_device_ai::GetEnabledLanguagesForFeature(
       GetDefaultSupportedLanguageBaseCodes(), kAIPromptAPILanguagesEnabled);
 }
@@ -637,7 +652,7 @@ base::flat_set<std::string>
 AILanguageModel::GetDefaultSupportedLanguageBaseCodes() {
   // TODO(crbug.com/394841624): Get supported languages from the model config.
   auto kSupportedBaseLanguages =
-      base::MakeFixedFlatSet<std::string_view>({"en", "ja", "es"});
+      base::MakeFixedFlatSet<std::string_view>({"en", "ja", "es", "de", "fr"});
   return base::flat_set<std::string>(kSupportedBaseLanguages.begin(),
                                      kSupportedBaseLanguages.end());
 }
@@ -832,7 +847,7 @@ AILanguageModel::GetLanguageModelInstanceInfo() {
       blink::mojom::AILanguageModelSamplingParams::New(
           session_params_->top_k, session_params_->temperature),
       std::move(input_types).extract(), audio_sample_rate_hz,
-      audio_channel_count);
+      audio_channel_count, /*sampling_mode=*/std::nullopt);
 }
 
 mojo::PendingRemote<blink::mojom::AILanguageModel>
@@ -1056,9 +1071,13 @@ void AILanguageModel::PromptGetInputSizeComplete(
   // the previous state if a prompt is cancelled.
   mojo::PendingRemote<on_device_model::mojom::Session> session;
   current_session_->Clone(session.InitWithNewPipeAndPassReceiver());
+  std::optional<uint32_t> configured_max_output_tokens =
+      model_client_
+          ? std::make_optional(model_client_->token_limits().max_output_tokens)
+          : std::nullopt;
   prompt_state_->AppendAndGenerate(
       std::move(session), context_->GetAvailableTokens() - *token_count,
-      std::move(on_complete));
+      configured_max_output_tokens, std::move(on_complete));
 }
 
 void AILanguageModel::OnPromptOutputComplete() {

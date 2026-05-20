@@ -52,10 +52,6 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kPaymentHandler,
           WebFeature::kPaymentRequestShowWithoutGesture,
           WebFeature::kPaymentRequestShowWithoutGestureOrToken,
-          WebFeature::kCredentialManagerCreatePublicKeyCredential,
-          WebFeature::kCredentialManagerGetPublicKeyCredential,
-          WebFeature::kCredentialManagerMakePublicKeyCredentialSuccess,
-          WebFeature::kCredentialManagerGetPublicKeyCredentialSuccess,
           WebFeature::kWebAuthenticationCspDisallowsRpId,
           WebFeature::kTextToSpeech_Speak,
           WebFeature::kTextToSpeech_SpeakDisallowedByAutoplay,
@@ -478,6 +474,13 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kSvgFilterPaintedOnRemoteFrame,
           WebFeature::kSvgFilterPaintedOnWebPlugin,
           WebFeature::kSameDocumentCrossOriginInitiator,
+          WebFeature::kAdScriptMainFrameNavigationWithoutUserGesture,
+          WebFeature::kHTMLGeolocationElement,
+          WebFeature::kHTMLInstallElement,
+          WebFeature::kHTMLUserMediaElement,
+          WebFeature::kCredentialsGetImmediateMediationWithWebAuthnOnly,
+          WebFeature::kCredentialsGetImmediateMediationWithWebAuthnAndPasswords,
+          WebFeature::kPreventSvgFilterPaint,
           // NOTE: before adding new use counters here, verify in UMA that
           // their emissions are very rare, e.g. <1% of page loads.
       }));

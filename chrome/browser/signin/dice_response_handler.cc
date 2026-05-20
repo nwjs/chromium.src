@@ -4,6 +4,7 @@
 
 #include "chrome/browser/signin/dice_response_handler.h"
 
+#include <algorithm>
 #include <optional>
 #include <string_view>
 
@@ -76,9 +77,8 @@ enum DiceResponseHeader {
 enum DiceTokenFetchResult {
   // The token fetch succeeded.
   kFetchSuccess = 0,
-  // The token fetch was aborted. For example, if another request for the same
-  // account is already in flight.
-  kFetchAbort = 1,
+  // The token fetch was aborted. Deprecated.
+  // kFetchAbort = 1,
   // The token fetch failed because Gaia responsed with an error.
   kFetchFailure = 2,
   // The token fetch failed because no response was received from Gaia.
@@ -119,22 +119,20 @@ DiceResponseHandler::DiceTokenFetcher::DiceTokenFetcher(
     bool mtls_token_binding,
     SigninClient* signin_client,
     AccountReconcilor* account_reconcilor,
-    std::unique_ptr<ProcessDiceHeaderDelegate> delegate,
     base::expected<raw_ref<BindingKeyRegistrationTokenHelper>,
                    TokenBindingOutcome> registration_token_helper_or_error,
-    DiceResponseHandler* dice_response_handler)
+    DiceSigninSession* session)
     : gaia_id_(gaia_id),
       email_(email),
       authorization_code_(authorization_code),
       mtls_token_binding_(mtls_token_binding),
-      delegate_(std::move(delegate)),
-      dice_response_handler_(dice_response_handler),
+      session_(session),
       signin_client_(signin_client),
       timeout_closure_(
           base::BindOnce(&DiceResponseHandler::DiceTokenFetcher::OnTimeout,
                          base::Unretained(this))),
       should_enable_sync_(false) {
-  DCHECK(dice_response_handler_);
+  CHECK(session_);
   account_reconcilor_lock_ =
       std::make_unique<AccountReconcilor::Lock>(account_reconcilor);
   if (registration_token_helper_or_error.has_value()) {
@@ -153,7 +151,7 @@ void DiceResponseHandler::DiceTokenFetcher::OnTimeout() {
   RecordDiceFetchTokenResult(kFetchTimeout);
   gaia_auth_fetcher_.reset();
   timeout_closure_.Cancel();
-  dice_response_handler_->OnTokenExchangeFailure(
+  session_->OnTokenExchangeFailure(
       this, GoogleServiceAuthError::CreateRequestCanceled());
   // |this| may be deleted at this point.
 }
@@ -175,9 +173,9 @@ void DiceResponseHandler::DiceTokenFetcher::OnClientOAuthSuccess(
   }
   base::UmaHistogramEnumeration(kDiceTokenBindingOutcomeHistogram,
                                 token_binding_outcome_);
-  dice_response_handler_->OnTokenExchangeSuccess(
-      this, result.refresh_token, result.is_under_advanced_protection,
-      wrapped_binding_key_);
+  session_->OnTokenExchangeSuccess(this, result.refresh_token,
+                                   result.is_under_advanced_protection,
+                                   wrapped_binding_key_);
   // |this| may be deleted at this point.
 }
 
@@ -186,7 +184,7 @@ void DiceResponseHandler::DiceTokenFetcher::OnClientOAuthFailure(
   RecordDiceFetchTokenResult(kFetchFailure);
   gaia_auth_fetcher_.reset();
   timeout_closure_.Cancel();
-  dice_response_handler_->OnTokenExchangeFailure(this, error);
+  session_->OnTokenExchangeFailure(this, error);
   // |this| may be deleted at this point.
 }
 
@@ -235,6 +233,184 @@ void DiceResponseHandler::DiceTokenFetcher::OnRegistrationTokenGenerated(
   StartTokenFetch();
 }
 
+// DiceSigninSession
+
+DiceResponseHandler::DiceSigninSession::DiceSigninSession(
+    DiceResponseHandler* handler,
+    std::unique_ptr<ProcessDiceHeaderDelegate> delegate,
+    signin::DiceResponseParams::SigninInfo signin_info)
+    : handler_(handler),
+      delegate_(std::move(delegate)),
+      signin_info_(std::move(signin_info)) {
+  CHECK(handler_);
+  CHECK(delegate_);
+}
+
+DiceResponseHandler::DiceSigninSession::~DiceSigninSession() = default;
+
+void DiceResponseHandler::DiceSigninSession::StartTokenFetches() {
+  CHECK(signin_info_.GetInitiator());
+
+  // The user is signing in, which means that account fetching will shortly be
+  // triggered.
+  //
+  // Notify identity manager. This will trigger pre-connecting the network
+  // socket to the AccountCapabilities endpoint, in parallel with the LST and
+  // access token requests (instead of waiting for these to complete).
+  handler_->identity_manager_->PrepareForAddingNewAccount();
+
+  // TODO(crbug.com/475435113): Add complex handling/priority for initiator vs
+  // secondary accounts.
+  for (const auto& account : signin_info_.accounts()) {
+    FetchTokenForAccount(account);
+  }
+
+  if (token_fetchers_.empty()) {
+    handler_->DeleteSession(this);
+  }
+}
+
+void DiceResponseHandler::DiceSigninSession::FetchTokenForAccount(
+    const signin::DiceResponseParams::SigninInfo::SigninAccount& account) {
+  if (!account.IsValid()) {
+    return;
+  }
+
+  if (account.no_authorization_code) {
+    handler_->OnNoAuthorizationCode();
+    return;
+  }
+
+  base::expected<raw_ref<BindingKeyRegistrationTokenHelper>,
+                 TokenBindingOutcome>
+      registration_token_helper_or_error =
+          handler_->MaybeGetBindingRegistrationTokenHelper(
+              account.supported_algorithms_for_token_binding);
+
+  token_fetchers_.push_back(std::make_unique<DiceTokenFetcher>(
+      account.account_info.gaia_id, account.account_info.email,
+      account.authorization_code, account.mtls_token_binding,
+      handler_->signin_client_, handler_->account_reconcilor_,
+      registration_token_helper_or_error, this));
+}
+
+void DiceResponseHandler::DiceSigninSession::DeleteFetcher(
+    DiceTokenFetcher* fetcher) {
+  size_t delete_count = std::erase_if(
+      token_fetchers_,
+      [fetcher](const auto& current) { return current.get() == fetcher; });
+  CHECK_EQ(delete_count, 1U);
+
+  if (token_fetchers_.empty()) {
+    handler_->DeleteSession(this);
+  }
+}
+
+void DiceResponseHandler::DiceSigninSession::OnTokenExchangeSuccess(
+    DiceTokenFetcher* fetcher,
+    const std::string& refresh_token,
+    bool is_under_advanced_protection,
+    const std::vector<uint8_t>& wrapped_binding_key) {
+  const std::string& email = fetcher->email();
+  const GaiaId& gaia_id = fetcher->gaia_id();
+  // Log is consumed by E2E tests. Please CC potassium-engprod@google.com if you
+  // have to change this log.
+  VLOG(1) << "[Dice] OAuth success for email " << email;
+  CoreAccountId account_id =
+      handler_->identity_manager_->PickAccountIdForAccount(gaia_id, email);
+  bool is_new_account =
+      !handler_->identity_manager_->HasAccountWithRefreshToken(account_id);
+
+  handler_->identity_manager_->GetAccountsMutator()->AddOrUpdateAccount(
+      gaia_id, email, refresh_token, is_under_advanced_protection,
+      delegate_->GetAccessPoint(),
+      signin_metrics::SourceForRefreshTokenOperation::
+          kDiceResponseHandler_Signin,
+      signin::TokenBindingInfo(wrapped_binding_key,
+                               fetcher->mtls_token_binding()));
+
+  bool is_initiator =
+      (fetcher->gaia_id() == signin_info_.GetInitiator()->account_info.gaia_id);
+
+  handler_->about_signin_internals_->OnRefreshTokenReceived(
+      base::StringPrintf("Successful (%s)", account_id.ToString().c_str()));
+
+  if (is_initiator) {
+    delegate_->HandleTokenExchangeSuccess(account_id, is_new_account);
+
+    if (fetcher->should_enable_sync()) {
+      delegate_->CompleteChromeSignInAfterGaiaSignin(
+          handler_->identity_manager_->FindExtendedAccountInfoByAccountId(
+              account_id));
+    }
+  }
+
+  DeleteFetcher(fetcher);
+}
+
+void DiceResponseHandler::DiceSigninSession::OnTokenExchangeFailure(
+    DiceTokenFetcher* fetcher,
+    const GoogleServiceAuthError& error) {
+  const std::string& email = fetcher->email();
+  CoreAccountId account_id =
+      handler_->identity_manager_->PickAccountIdForAccount(fetcher->gaia_id(),
+                                                           email);
+  handler_->about_signin_internals_->OnRefreshTokenReceived(
+      base::StringPrintf("Failure (%s)", account_id.ToString().c_str()));
+
+  bool is_initiator =
+      (fetcher->gaia_id() == signin_info_.GetInitiator()->account_info.gaia_id);
+
+  if (is_initiator) {
+    delegate_->HandleTokenExchangeFailure(email, error);
+  }
+
+  VLOG(1) << "Token fetch failed for account " << account_id << " (" << email
+          << "). Ignoring.";
+  DeleteFetcher(fetcher);
+}
+
+bool DiceResponseHandler::DiceSigninSession::IsFetchingForAccount(
+    const CoreAccountId& account_id) const {
+  return std::any_of(
+      token_fetchers_.begin(), token_fetchers_.end(), [&](const auto& fetcher) {
+        return handler_->identity_manager_->PickAccountIdForAccount(
+                   fetcher->gaia_id(), fetcher->email()) == account_id;
+      });
+}
+
+bool DiceResponseHandler::DiceSigninSession::CancelFetchForAccount(
+    const CoreAccountId& account_id) {
+  size_t delete_count =
+      std::erase_if(token_fetchers_, [&](const auto& fetcher) {
+        CoreAccountId fetcher_account_id =
+            handler_->identity_manager_->PickAccountIdForAccount(
+                fetcher->gaia_id(), fetcher->email());
+        return fetcher_account_id == account_id;
+      });
+
+  if (delete_count > 0) {
+    if (token_fetchers_.empty()) {
+      handler_->DeleteSession(this);
+    }
+    return true;
+  }
+  return false;
+}
+
+bool DiceResponseHandler::DiceSigninSession::MarkEnableSyncIfFetching(
+    const GaiaId& gaia_id,
+    const std::string& email) {
+  for (const auto& fetcher : token_fetchers_) {
+    if (fetcher->gaia_id() == gaia_id) {
+      DCHECK(gaia::AreEmailsSame(fetcher->email(), email));
+      fetcher->set_should_enable_sync(true);
+      return true;
+    }
+  }
+  return false;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // DiceResponseHandler
 ////////////////////////////////////////////////////////////////////////////////
@@ -260,7 +436,7 @@ DiceResponseHandler::DiceResponseHandler(
 DiceResponseHandler::~DiceResponseHandler() = default;
 
 void DiceResponseHandler::ProcessDiceHeader(
-    const signin::DiceResponseParams& dice_params,
+    signin::DiceResponseParams dice_params,
     std::unique_ptr<ProcessDiceHeaderDelegate> delegate) {
   if (!dice_params.IsValid()) {
     return;
@@ -269,19 +445,10 @@ void DiceResponseHandler::ProcessDiceHeader(
   CHECK(delegate);
   switch (dice_params.user_intention()) {
     case signin::DiceAction::SIGNIN: {
-      const signin::DiceResponseParams::SigninInfo* signin_info =
+      signin::DiceResponseParams::SigninInfo* signin_info =
           dice_params.signin_info();
       CHECK(signin_info);
-      const signin::DiceResponseParams::SigninInfo::SigninAccount* initiator =
-          signin_info->GetInitiator();
-      CHECK(initiator);
-      const signin::DiceResponseParams::AccountInfo& info =
-          initiator->account_info;
-      ProcessDiceSigninHeader(
-          info.gaia_id, info.email, initiator->authorization_code,
-          initiator->no_authorization_code,
-          initiator->supported_algorithms_for_token_binding,
-          initiator->mtls_token_binding, std::move(delegate));
+      ProcessDiceSigninHeader(std::move(*signin_info), std::move(delegate));
       return;
     }
     case signin::DiceAction::ENABLE_SYNC: {
@@ -307,8 +474,43 @@ void DiceResponseHandler::ProcessDiceHeader(
   NOTREACHED();
 }
 
+void DiceResponseHandler::ProcessDiceSigninHeader(
+    signin::DiceResponseParams::SigninInfo signin_info,
+    std::unique_ptr<ProcessDiceHeaderDelegate> delegate) {
+  VLOG(1) << "Start processing Dice signin response";
+  RecordDiceResponseHeader(kSignin);
+
+  delegate->OnDiceSigninHeaderReceived();
+
+  auto session = std::make_unique<DiceSigninSession>(this, std::move(delegate),
+                                                     std::move(signin_info));
+  sessions_.push_back(std::move(session));
+  sessions_.back()->StartTokenFetches();
+}
+
 size_t DiceResponseHandler::GetPendingDiceTokenFetchersCountForTesting() const {
-  return token_fetchers_.size();
+  size_t count = 0;
+  for (const auto& session : sessions_) {
+    count += session->GetPendingDiceTokenFetchersCountForTesting();  // IN-TEST
+  }
+  return count;
+}
+
+void DiceResponseHandler::OnNoAuthorizationCode() {
+  if (!lock_) {
+    lock_ = std::make_unique<AccountReconcilor::Lock>(account_reconcilor_);
+    about_signin_internals_->OnRefreshTokenReceived(
+        "Missing authorization code due to OAuth outage in Dice.");
+  }
+  if (!timer_) {
+    timer_ = std::make_unique<base::OneShotTimer>();
+    if (task_runner_) {
+      timer_->SetTaskRunner(task_runner_);
+    }
+  }
+  timer_->Start(FROM_HERE, base::Hours(kLockAccountReconcilorTimeoutHours),
+                base::BindOnce(&DiceResponseHandler::OnTimeoutUnlockReconcilor,
+                               base::Unretained(this)));
 }
 
 void DiceResponseHandler::OnTimeoutUnlockReconcilor() {
@@ -320,73 +522,12 @@ void DiceResponseHandler::SetTaskRunner(
   task_runner_ = std::move(task_runner);
 }
 
-void DiceResponseHandler::SetRegistrationTokenHelperFactoryForTesting(
-    RegistrationTokenHelperFactory factory) {
+void DiceResponseHandler::
+    SetRegistrationTokenHelperFactoryForTesting(  // IN-TEST
+        RegistrationTokenHelperFactory factory) {
   CHECK(
       switches::IsChromeRefreshTokenBindingEnabled(signin_client_->GetPrefs()));
   registration_token_helper_factory_ = std::move(factory);
-}
-
-void DiceResponseHandler::ProcessDiceSigninHeader(
-    const GaiaId& gaia_id,
-    const std::string& email,
-    const std::string& authorization_code,
-    bool no_authorization_code,
-    const std::string& supported_algorithms_for_token_binding,
-    bool mtls_token_binding,
-    std::unique_ptr<ProcessDiceHeaderDelegate> delegate) {
-  if (no_authorization_code) {
-    lock_ = std::make_unique<AccountReconcilor::Lock>(account_reconcilor_);
-    about_signin_internals_->OnRefreshTokenReceived(
-        "Missing authorization code due to OAuth outage in Dice.");
-    if (!timer_) {
-      timer_ = std::make_unique<base::OneShotTimer>();
-      if (task_runner_) {
-        timer_->SetTaskRunner(task_runner_);
-      }
-    }
-    // If there is already another lock, the timer will be reset and
-    // we'll wait another full timeout.
-    timer_->Start(
-        FROM_HERE, base::Hours(kLockAccountReconcilorTimeoutHours),
-        base::BindOnce(&DiceResponseHandler::OnTimeoutUnlockReconcilor,
-                       base::Unretained(this)));
-    return;
-  }
-
-  DCHECK(!gaia_id.empty());
-  DCHECK(!email.empty());
-  DCHECK(!authorization_code.empty());
-  VLOG(1) << "Start processing Dice signin response";
-  RecordDiceResponseHeader(kSignin);
-
-  delegate->OnDiceSigninHeaderReceived();
-
-  for (auto it = token_fetchers_.begin(); it != token_fetchers_.end(); ++it) {
-    if ((it->get()->gaia_id() == gaia_id) && (it->get()->email() == email) &&
-        (it->get()->authorization_code() == authorization_code)) {
-      RecordDiceFetchTokenResult(kFetchAbort);
-      return;  // There is already a request in flight with the same parameters.
-    }
-  }
-
-  // The user is signing in, which means that account fetching will shortly be
-  // triggered.
-  //
-  // Notify identity manager. This will trigger pre-connecting the network
-  // socket to the AccountCapabilities endpoint, in parallel with the LST and
-  // access token requests (instead of waiting for these to complete).
-  identity_manager_->PrepareForAddingNewAccount();
-
-  base::expected<raw_ref<BindingKeyRegistrationTokenHelper>, TokenBindingOutcome>
-      registration_token_helper_or_error =
-          MaybeGetBindingRegistrationTokenHelper(
-              supported_algorithms_for_token_binding);
-
-  token_fetchers_.push_back(std::make_unique<DiceTokenFetcher>(
-      gaia_id, email, authorization_code, mtls_token_binding, signin_client_,
-      account_reconcilor_, std::move(delegate),
-      registration_token_helper_or_error, this));
 }
 
 void DiceResponseHandler::ProcessEnableSyncHeader(
@@ -395,14 +536,8 @@ void DiceResponseHandler::ProcessEnableSyncHeader(
     std::unique_ptr<ProcessDiceHeaderDelegate> delegate) {
   VLOG(1) << "Start processing Dice enable sync response";
   RecordDiceResponseHeader(kEnableSync);
-  for (auto it = token_fetchers_.begin(); it != token_fetchers_.end(); ++it) {
-    DiceTokenFetcher* fetcher = it->get();
-    if (fetcher->gaia_id() == gaia_id) {
-      DCHECK(gaia::AreEmailsSame(fetcher->email(), email));
-      // If there is a fetch in progress for a resfresh token for the given
-      // account, then simply mark it to enable sync after the refresh token is
-      // available.
-      fetcher->set_should_enable_sync(true);
+  for (const auto& session : sessions_) {
+    if (session->MarkEnableSyncIfFetching(gaia_id, email)) {
       return;  // There is already a request in flight with the same parameters.
     }
   }
@@ -446,18 +581,20 @@ void DiceResponseHandler::ProcessDiceSignoutHeader(
     }
 
     // If a token fetch is in flight for the same account, cancel it.
-    for (auto it = token_fetchers_.begin(); it != token_fetchers_.end(); ++it) {
-      CoreAccountId token_fetcher_account_id =
-          identity_manager_->PickAccountIdForAccount(it->get()->gaia_id(),
-                                                     it->get()->email());
-      if (token_fetcher_account_id == signed_out_account) {
-        token_fetchers_.erase(it);
-        break;
-      }
+    // Note: This might lead to the session being deleted synchronously inside
+    // `CancelFetchForAccount()`, invalidating the iterator. This is safe as we
+    // do not use the iterator after this call.
+    auto it =
+        std::find_if(sessions_.begin(), sessions_.end(),
+                     [&signed_out_account](const auto& session) {
+                       return session->IsFetchingForAccount(signed_out_account);
+                     });
+    if (it != sessions_.end()) {
+      (*it)->CancelFetchForAccount(signed_out_account);
     }
   }
 
-  if (token_fetchers_.empty()) {
+  if (sessions_.empty()) {
     registration_token_helper_.reset();
   }
 
@@ -466,67 +603,15 @@ void DiceResponseHandler::ProcessDiceSignoutHeader(
   }
 }
 
-void DiceResponseHandler::DeleteTokenFetcher(DiceTokenFetcher* token_fetcher) {
-  size_t delete_count =
-      std::erase_if(token_fetchers_, [token_fetcher](const auto& current) {
-        return current.get() == token_fetcher;
-      });
+void DiceResponseHandler::DeleteSession(DiceSigninSession* session) {
+  size_t delete_count = std::erase_if(
+      sessions_,
+      [session](const auto& current) { return current.get() == session; });
   CHECK_EQ(delete_count, 1U);
 
-  if (token_fetchers_.empty()) {
+  if (sessions_.empty()) {
     registration_token_helper_.reset();
   }
-}
-
-void DiceResponseHandler::OnTokenExchangeSuccess(
-    DiceTokenFetcher* token_fetcher,
-    const std::string& refresh_token,
-    bool is_under_advanced_protection,
-    const std::vector<uint8_t>& wrapped_binding_key) {
-  const std::string& email = token_fetcher->email();
-  const GaiaId& gaia_id = token_fetcher->gaia_id();
-
-  // Log is consumed by E2E tests. Please CC potassium-engprod@google.com if you
-  // have to change this log.
-  VLOG(1) << "[Dice] OAuth success for email " << email;
-  bool should_enable_sync = token_fetcher->should_enable_sync();
-  CoreAccountId account_id =
-      identity_manager_->PickAccountIdForAccount(gaia_id, email);
-  bool is_new_account =
-      !identity_manager_->HasAccountWithRefreshToken(account_id);
-  const bool mtls_token_binding = token_fetcher->mtls_token_binding();
-
-  identity_manager_->GetAccountsMutator()->AddOrUpdateAccount(
-      gaia_id, email, refresh_token, is_under_advanced_protection,
-      token_fetcher->delegate()->GetAccessPoint(),
-      signin_metrics::SourceForRefreshTokenOperation::
-          kDiceResponseHandler_Signin,
-      signin::TokenBindingInfo(wrapped_binding_key, mtls_token_binding));
-
-  about_signin_internals_->OnRefreshTokenReceived(
-      base::StringPrintf("Successful (%s)", account_id.ToString().c_str()));
-  token_fetcher->delegate()->HandleTokenExchangeSuccess(account_id,
-                                                        is_new_account);
-  if (should_enable_sync) {
-    token_fetcher->delegate()->CompleteChromeSignInAfterGaiaSignin(
-        identity_manager_->FindExtendedAccountInfoByAccountId(account_id));
-  }
-
-  DeleteTokenFetcher(token_fetcher);
-}
-
-void DiceResponseHandler::OnTokenExchangeFailure(
-    DiceTokenFetcher* token_fetcher,
-    const GoogleServiceAuthError& error) {
-  const std::string& email = token_fetcher->email();
-  const GaiaId& gaia_id = token_fetcher->gaia_id();
-  CoreAccountId account_id =
-      identity_manager_->PickAccountIdForAccount(gaia_id, email);
-  about_signin_internals_->OnRefreshTokenReceived(
-      base::StringPrintf("Failure (%s)", account_id.ToString().c_str()));
-  token_fetcher->delegate()->HandleTokenExchangeFailure(email, error);
-
-  DeleteTokenFetcher(token_fetcher);
 }
 
 base::expected<raw_ref<BindingKeyRegistrationTokenHelper>,
@@ -573,5 +658,6 @@ DiceResponseHandler::MaybeGetBindingRegistrationTokenHelper(
   // list may mismatch `supported_algorithms`. We ignore this because it's more
   // important to reuse the same key.
   CHECK(registration_token_helper_);
-  return raw_ref<BindingKeyRegistrationTokenHelper>(*registration_token_helper_);
+  return raw_ref<BindingKeyRegistrationTokenHelper>(
+      *registration_token_helper_);
 }

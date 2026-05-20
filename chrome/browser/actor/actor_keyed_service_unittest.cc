@@ -9,10 +9,9 @@
 
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_test_util.h"
-#include "chrome/browser/actor/enterprise_policy_url_checker.h"
+#include "chrome/browser/actor/enterprise_policy_checker.h"
 #include "chrome/browser/actor/execution_engine.h"
 #include "chrome/browser/actor/ui/event_dispatcher.h"
 #include "chrome/browser/actor/ui/test_support/mock_actor_ui_state_manager.h"
@@ -21,7 +20,9 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
-#include "components/actor/task_source_info.h"
+#include "components/actor/core/actor_features.h"
+#include "components/actor/core/task_source_info.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -96,6 +97,7 @@ TEST_F(ActorKeyedServiceTest, StopActiveTask) {
   base::WeakPtr<ActorTask> task = actor_service->GetTask(id)->GetWeakPtr();
   base::RunLoop loop;
   task->AddTab(tabs::TabHandle(123),
+               /*stop_task_on_detach=*/true,
                base::BindLambdaForTesting([&](mojom::ActionResultPtr result) {
                  EXPECT_TRUE(IsOk(*result));
                  loop.Quit();
@@ -149,6 +151,7 @@ TEST_F(ActorKeyedServiceTest, AddTabToPausedOrStoppedTask) {
   {
     base::RunLoop loop;
     task->AddTab(tab_handle,
+                 /*stop_task_on_detach=*/true,
                  base::BindLambdaForTesting([&](mojom::ActionResultPtr result) {
                    EXPECT_EQ(result->code,
                              mojom::ActionResultCode::kTaskPaused);
@@ -177,7 +180,8 @@ TEST_F(ActorKeyedServiceTest, PausedTaskTabs) {
 
   {
     base::test::TestFuture<mojom::ActionResultPtr> future;
-    task->AddTab(tab_handle, future.GetCallback());
+    task->AddTab(tab_handle, /*stop_task_on_detach=*/true,
+                 future.GetCallback());
     ASSERT_TRUE(future.Wait());
   }
 

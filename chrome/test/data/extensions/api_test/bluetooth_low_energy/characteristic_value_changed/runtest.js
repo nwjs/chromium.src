@@ -16,26 +16,24 @@ function testCharacteristicValueChanged() {
   chrome.test.succeed();
 }
 
-var charId0 = 'char_id0';
-var charId2 = 'char_id2';
-var error;
+const charId0 = 'char_id0';
+const charId2 = 'char_id2';
+let error;
 
-var changedChrcs = {};
+const changedChrcs = {};
 
 function sendReady() {
-  chrome.test.sendMessage('ready', function (message) {
+  chrome.test.sendMessage('ready', function(message) {
     chrome.test.runTests([testCharacteristicValueChanged]);
   });
 }
 
-chrome.bluetoothLowEnergy.onCharacteristicValueChanged.addListener(
-    function (chrc) {
-      changedChrcs[chrc.instanceId] = chrc;
+chrome.bluetoothLowEnergy.onCharacteristicValueChanged.addListener(function(
+    chrc) {
+  changedChrcs[chrc.instanceId] = chrc;
 });
 
-chrome.bluetoothLowEnergy.startCharacteristicNotifications(
-    charId0,
-    function () {
+chrome.bluetoothLowEnergy.startCharacteristicNotifications(charId0, function() {
   if (chrome.runtime.lastError) {
     error = chrome.runtime.lastError;
     sendReady();
@@ -43,10 +41,10 @@ chrome.bluetoothLowEnergy.startCharacteristicNotifications(
   }
 
   chrome.bluetoothLowEnergy.startCharacteristicNotifications(
-      charId2,
-      function () {
-    if (chrome.runtime.lastError)
-      error = chrome.runtime.lastError;
-    sendReady();
-  });
+      charId2, function() {
+        if (chrome.runtime.lastError) {
+          error = chrome.runtime.lastError;
+        }
+        sendReady();
+      });
 });

@@ -117,6 +117,7 @@ import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.undo_tab_close_snackbar.UndoBarExplicitTrigger;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.styles.ChromeColors;
+import org.chromium.components.browser_ui.util.TextResolver;
 import org.chromium.components.browser_ui.util.motion.MotionEventInfo;
 import org.chromium.components.browser_ui.widget.list_view.ListViewTouchTracker;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
@@ -220,8 +221,8 @@ class TabListMediator implements TabListNotificationHandler {
      * An interface to get a SelectionDelegate that contains the selected items for a selectable tab
      * list.
      */
-    public interface SelectionDelegateProvider {
-        SelectionDelegate getSelectionDelegate();
+    public interface SelectionDelegateProvider<E> {
+        SelectionDelegate<E> getSelectionDelegate();
     }
 
     /** An interface to get the onClickListener when clicking on a grid card. */
@@ -337,7 +338,8 @@ class TabListMediator implements TabListNotificationHandler {
             mCurrentTabGroupModelFilterSupplier;
     private final @Nullable ThumbnailProvider mThumbnailProvider;
     private final TabListFaviconProvider mTabListFaviconProvider;
-    private final @Nullable SelectionDelegateProvider mSelectionDelegateProvider;
+    private final @Nullable SelectionDelegateProvider<TabListEditorItemSelectionId>
+            mSelectionDelegateProvider;
     private final @Nullable GridCardOnClickListenerProvider mGridCardOnClickListenerProvider;
     private final @Nullable TabGridDialogHandler mTabGridDialogHandler;
     private final @Nullable Supplier<@Nullable PriceWelcomeMessageController>
@@ -386,12 +388,7 @@ class TabListMediator implements TabListNotificationHandler {
 
                     PropertyModel model = mModelList.getModelFromTabId(tabId);
                     if (model != null) {
-                        boolean isTabGroupCard = mActionsOnAllRelatedTabs && isTabInTabGroup(tab);
-                        model.set(
-                                TabProperties.ACTOR_UI_STATE,
-                                (isTabGroupCard || state.tabIndicator == TabIndicatorStatus.NONE)
-                                        ? null
-                                        : state);
+                        updateActorUiState(model, tab, state);
                     }
 
                     if (mActionsOnAllRelatedTabs && isTabInTabGroup(tab)) {
@@ -415,26 +412,18 @@ class TabListMediator implements TabListNotificationHandler {
 
                     TabModel tabModel = getCurrentTabModelChecked();
                     if (!mActionsOnAllRelatedTabs) {
-                        Tab currentTab = TabModelUtils.getCurrentTab(tabModel);
-                        assumeNonNull(currentTab);
-                        Tab newlySelectedTab = tabModel.getTabById(tabId);
-                        assumeNonNull(newlySelectedTab);
-
                         // We filtered the tab switching related metric for components that takes
                         // actions on all related tabs (e.g. GTS) because that component can
                         // switch to different TabModel before switching tabs, while this class
                         // only contains information for all tabs that are in the same TabModel,
                         // more specifically:
-                        //   * For Tabs.TabOffsetOfSwitch, we do not want to log anything if the
-                        // user
-                        //     switched from normal to incognito or vice-versa.
                         //   * For MobileTabSwitched, as compared to the VTS, we need to account for
                         //     MobileTabReturnedToCurrentTab action. This action is defined as
                         // return to the
                         //     same tab as before entering the component, and we don't have this
                         // information
                         //     here.
-                        recordUserSwitchedTab(currentTab, newlySelectedTab);
+                        recordUserSwitchedTab();
                     }
                     if (mGridCardOnClickListenerProvider != null) {
                         mGridCardOnClickListenerProvider.onTabSelecting(
@@ -453,28 +442,11 @@ class TabListMediator implements TabListNotificationHandler {
                 }
 
                 /**
-                 * Records MobileTabSwitched for the component. Also, records Tabs.TabOffsetOfSwitch
-                 * but only when fromTab and toTab are within the same group. This method only
-                 * records UMA for components other than TabSwitcher.
-                 *
-                 * @param fromTab The previous selected tab.
-                 * @param toTab The new selected tab.
+                 * Records MobileTabSwitched for the component. This method only records UMA for
+                 * components other than TabSwitcher.
                  */
-                private void recordUserSwitchedTab(Tab fromTab, Tab toTab) {
-                    TabGroupModelFilter filter = getCurrentFilterChecked();
-                    int fromFilterIndex = filter.representativeIndexOf(fromTab);
-                    int toFilterIndex = filter.representativeIndexOf(toTab);
-
+                private void recordUserSwitchedTab() {
                     RecordUserAction.record("MobileTabSwitched." + mComponentName);
-
-                    if (fromFilterIndex != toFilterIndex) return;
-
-                    TabModel tabModel = filter.getTabModel();
-                    int fromIndex = TabModelUtils.getTabIndexById(tabModel, fromTab.getId());
-                    int toIndex = TabModelUtils.getTabIndexById(tabModel, toTab.getId());
-
-                    RecordHistogram.recordSparseHistogram(
-                            "Tabs.TabOffsetOfSwitch." + mComponentName, fromIndex - toIndex);
                 }
             };
 
@@ -565,7 +537,7 @@ class TabListMediator implements TabListNotificationHandler {
                     // The URL of the tab and the navigation handle can match without it being a
                     // same document navigation if the tab had no renderer and needed to start a
                     // new one.
-                    // See https://crbug.com/1359002.
+                    // See https://crbug.com/40862141.
                     if (navigationHandle.isSameDocument()
                             || UrlUtilities.isNtpUrl(tab.getUrl())
                             || tab.getUrl().equals(navigationHandle.getUrl())) {
@@ -1068,7 +1040,8 @@ class TabListMediator implements TabListNotificationHandler {
             @Nullable ThumbnailProvider thumbnailProvider,
             TabListFaviconProvider tabListFaviconProvider,
             boolean actionOnRelatedTabs,
-            @Nullable SelectionDelegateProvider selectionDelegateProvider,
+            @Nullable SelectionDelegateProvider<TabListEditorItemSelectionId>
+                    selectionDelegateProvider,
             @Nullable GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
             @Nullable TabGridDialogHandler dialogHandler,
             @Nullable Supplier<@Nullable PriceWelcomeMessageController>
@@ -1412,7 +1385,7 @@ class TabListMediator implements TabListNotificationHandler {
                         // The DefaultItemAnimator is prone to crashing in combination with the
                         // swipe animation when closing the last tab. Avoid this issue by disabling
                         // the default item animation for the duration of the removal of the last
-                        // tab. This is a framework issue. For more details see crbug.com/1319859.
+                        // tab. This is a framework issue. For more details see crbug.com/40223318.
                         TabGroupModelFilter filter = mCurrentTabGroupModelFilterSupplier.get();
 
                         boolean shouldDisableItemAnimations =
@@ -1844,6 +1817,10 @@ class TabListMediator implements TabListNotificationHandler {
         setupPersistedTabDataFetcherForTab(tab, index);
 
         updateFaviconForTab(model, tab, null, null);
+
+        ActorUiTabController controller = ActorUiTabController.from(tab);
+        updateActorUiState(model, tab, controller == null ? null : controller.getUiTabState());
+
         boolean forceUpdate = isTabSelected && !quickMode;
         boolean forceUpdateLastSelected =
                 mActionsOnAllRelatedTabs && index == mLastSelectedTabListModelIndex && !quickMode;
@@ -1858,6 +1835,15 @@ class TabListMediator implements TabListNotificationHandler {
                         || isInTabGroup)) {
             updateThumbnailFetcher(model, tab.getId());
         }
+    }
+
+    private void updateActorUiState(PropertyModel model, Tab tab, @Nullable UiTabState state) {
+        boolean isTabGroupCard = mActionsOnAllRelatedTabs && isTabInTabGroup(tab);
+        model.set(
+                TabProperties.ACTOR_UI_STATE,
+                (isTabGroupCard || state == null || state.tabIndicator == TabIndicatorStatus.NONE)
+                        ? null
+                        : state);
     }
 
     @VisibleForTesting
@@ -2055,7 +2041,8 @@ class TabListMediator implements TabListNotificationHandler {
 
     private void unbindTabActionStateProperties(PropertyModel model) {
         model.set(TabProperties.IS_SELECTED, false);
-        for (WritableObjectPropertyKey propertyKey : TabProperties.TAB_ACTION_STATE_OBJECT_KEYS) {
+        for (WritableObjectPropertyKey<?> propertyKey :
+                TabProperties.TAB_ACTION_STATE_OBJECT_KEYS) {
             model.set(propertyKey, null);
         }
     }
@@ -2199,7 +2186,8 @@ class TabListMediator implements TabListNotificationHandler {
 
     private boolean isTabSelected(@TabActionState int tabActionState, Tab tab) {
         if (tabActionState == TabActionState.SELECTABLE) {
-            SelectionDelegate selectionDelegate = getTabSelectionDelegate();
+            SelectionDelegate<TabListEditorItemSelectionId> selectionDelegate =
+                    getTabSelectionDelegate();
             assert selectionDelegate != null : "Null selection delegate while in SELECTABLE state.";
             return selectionDelegate.isItemSelected(
                     TabListEditorItemSelectionId.createTabId(tab.getId()));
@@ -2223,15 +2211,6 @@ class TabListMediator implements TabListNotificationHandler {
 
     private void addTabInfoToModel(Tab tab, int index, boolean isSelected) {
         assert index != TabModel.INVALID_TAB_INDEX;
-        boolean isInTabGroup = isTabInTabGroup(tab);
-        ActorUiTabController controller = ActorUiTabController.from(tab);
-        UiTabState initialState = null;
-        if (controller != null && !(mActionsOnAllRelatedTabs && isInTabGroup)) {
-            UiTabState state = controller.getUiTabState();
-            if (state != null && state.tabIndicator != TabIndicatorStatus.NONE) {
-                initialState = state;
-            }
-        }
         PropertyModel tabInfo =
                 new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
                         .with(TabProperties.TAB_ACTION_STATE, mTabActionState)
@@ -2257,8 +2236,13 @@ class TabListMediator implements TabListNotificationHandler {
                         .with(TabProperties.USE_SHRINK_CLOSE_ANIMATION, false)
                         .with(TabProperties.MEDIA_INDICATOR, getTabGridMediaIndicator(tab))
                         .with(TabProperties.IS_PINNED, tab.getIsPinned())
-                        .with(TabProperties.ACTOR_UI_STATE, initialState)
+                        .with(TabProperties.ACTOR_UI_STATE, null)
                         .build();
+
+        ActorUiTabController controller = ActorUiTabController.from(tab);
+        updateActorUiState(tabInfo, tab, controller == null ? null : controller.getUiTabState());
+
+        boolean isInTabGroup = isTabInTabGroup(tab);
         if (!mActionsOnAllRelatedTabs || isInTabGroup) {
             tabInfo.set(
                     TabProperties.FAVICON_FETCHER,
@@ -2877,7 +2861,14 @@ class TabListMediator implements TabListNotificationHandler {
         tab.addObserver(mTabObserver);
 
         ActorUiTabController controller = ActorUiTabController.from(tab);
-        if (controller != null) controller.addObserver(mActorObserver);
+        if (controller != null) {
+            controller.addObserver(mActorObserver);
+
+            @Nullable PropertyModel model = mModelList.getModelFromTabId(tab.getId());
+            if (model != null) {
+                updateActorUiState(model, tab, controller.getUiTabState());
+            }
+        }
     }
 
     private void removeObserversForTab(Tab tab) {

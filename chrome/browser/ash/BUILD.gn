@@ -14,9 +14,6 @@ source_set("unit_tests") {
   testonly = true
 
   sources = [
-    "../download/notification/multi_profile_download_notifier_unittest.cc",
-    "../extensions/api/enterprise_platform_keys/enterprise_platform_keys_api_unittest.cc",
-    "../extensions/api/enterprise_platform_keys_private/enterprise_platform_keys_private_api_unittest.cc",
     "../extensions/updater/local_extension_cache_unittest.cc",
     "../metrics/chromeos_system_profile_provider_unittest.cc",
     "../metrics/cros_healthd_metrics_provider_unittest.cc",
@@ -45,7 +42,6 @@ source_set("unit_tests") {
     "//chrome/browser/ash/settings:test_support",
     "//chrome/browser/extensions",
     "//chrome/browser/extensions/api/enterprise_platform_keys",
-    "//chrome/browser/extensions/api/enterprise_platform_keys_private",
     "//chrome/browser/metrics",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/signin",
@@ -210,7 +206,6 @@ source_set("unit_tests") {
     "//chrome/browser/ash/printing/history:unit_tests",
     "//chrome/browser/ash/printing/oauth2:unit_tests",
     "//chrome/browser/ash/printing/print_management:unit_tests",
-    "//chrome/browser/ash/printing/print_preview:unit_tests",
     "//chrome/browser/ash/release_notes:unit_tests",
     "//chrome/browser/ash/remote_apps:unit_tests",
     "//chrome/browser/ash/report_controller_initializer:unit_tests",

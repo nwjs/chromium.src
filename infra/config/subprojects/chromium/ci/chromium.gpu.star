@@ -236,7 +236,6 @@ gpu.ci.mac_builder(
         ],
     ),
     targets = targets.bundle(),
-    gardener_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "Mac|Builder",
         short_name = "rel",
@@ -534,6 +533,12 @@ ci.thin_tester(
             "tab_capture_end2end_tests": targets.remove(
                 reason = "Run these only on Release bots.",
             ),
+            "trace_test": targets.mixin(
+                # Debug builds are slow enough to warrant an extra shard.
+                swarming = targets.swarming(
+                    shards = 2,
+                ),
+            ),
         },
     ),
     targets_settings = targets.settings(
@@ -582,7 +587,6 @@ ci.thin_tester(
         browser_config = targets.browser_config.RELEASE,
         os_type = targets.os_type.MAC,
     ),
-    gardener_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "Mac|Intel",
         short_name = "rel",
@@ -676,7 +680,6 @@ ci.thin_tester(
         browser_config = targets.browser_config.RELEASE,
         os_type = targets.os_type.MAC,
     ),
-    gardener_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "Mac|AMD",
         short_name = "rel",

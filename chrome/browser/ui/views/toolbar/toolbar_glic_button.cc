@@ -4,7 +4,9 @@
 // found in the LICENSE file.
 #include "chrome/browser/ui/views/toolbar/toolbar_glic_button.h"
 
+#include "base/logging.h"
 #include "chrome/app/vector_icons/vector_icons.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
@@ -43,14 +45,39 @@ ToolbarGlicButton::ToolbarGlicButton(
                                 mouse_down_callback,
                                 expansion_animation_done_callback,
                                 tooltip,
-                                pressed_callback) {}
+                                kToolbarGlicIconSize,
+                                pressed_callback) {
+  UpdateIcon();
+  auto* image_view = static_cast<views::ImageView*>(image_container_view());
+  image_view->SetImageSize({kToolbarGlicIconSize, kToolbarGlicIconSize});
+  image_view->SetProperty(views::kMarginsKey,
+                          gfx::Insets().set_left(kIconLeftMargin));
+
+  SetLabelMargins();
+
+  UpdateColors();
+}
 
 ToolbarGlicButton::~ToolbarGlicButton() = default;
+
+gfx::Size ToolbarGlicButton::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  gfx::Size size =
+      GlicButton<ToolbarButton>::CalculatePreferredSize(available_size);
+  size.set_height(GetLayoutConstant(LayoutConstant::kToolbarButtonHeight));
+  return size;
+}
 
 void ToolbarGlicButton::AddedToWidget() {
   split_rounded_edge_radius_ = GetRoundedCornerRadius();
   SetLeftRightCornerRadii(GetRoundedCornerRadius(), GetRoundedCornerRadius());
-  SetDefaultBackgroundColorId(kColorToolbarGlicButtonBackgroundDefault);
+  bool show_before_avatar =
+      base::FeatureList::IsEnabled(features::kGlicToolbarButtonLocation) &&
+      features::kGlicToolbarButtonLocationParam.Get() ==
+          features::GlicToolbarButtonLocation::kLeftOfProfileChip;
+  SetDefaultBackgroundColorId(show_before_avatar
+                                  ? kColorToolbar
+                                  : kColorToolbarGlicButtonBackgroundDefault);
   GlicButton<ToolbarButton>::AddedToWidget();
 }
 
@@ -82,17 +109,20 @@ void ToolbarGlicButton::SetLeftRightCornerRadii(int left, int right) {
 }
 
 float ToolbarGlicButton::GetCornerRadiusFor(ToolbarButton::Edge edge) const {
-  return edge == ToolbarButton::Edge::kLeft
-             ? left_corner_radius_.value_or(GetRoundedCornerRadius())
-             : right_corner_radius_.value_or(GetRoundedCornerRadius());
+  switch (edge) {
+    case ToolbarButton::Edge::kLeft:
+    case ToolbarButton::Edge::kTopLeft:
+    case ToolbarButton::Edge::kBottomLeft:
+      return left_corner_radius_.value_or(GetRoundedCornerRadius());
+    case ToolbarButton::Edge::kRight:
+    case ToolbarButton::Edge::kTopRight:
+    case ToolbarButton::Edge::kBottomRight:
+      return right_corner_radius_.value_or(GetRoundedCornerRadius());
+  }
 }
 
 int ToolbarGlicButton::GetSplitRoundedEdgeRadius() {
   return split_rounded_edge_radius_;
-}
-
-int ToolbarGlicButton::GetGlicIconSize() {
-  return kToolbarGlicIconSize;
 }
 
 int ToolbarGlicButton::GetIconSize() const {
@@ -101,6 +131,15 @@ int ToolbarGlicButton::GetIconSize() const {
 
 void ToolbarGlicButton::UpdateColors() {
   ToolbarButton::UpdateColorsAndInsets();
+}
+
+void ToolbarGlicButton::UpdateStyle(bool should_match_toolbar) {
+  ChromeColorIds background_color_id =
+      should_match_toolbar ? kColorToolbar
+                           : kColorToolbarGlicButtonBackgroundDefault;
+
+  SetDefaultBackgroundColorId(background_color_id);
+  UpdateColors();
 }
 
 void ToolbarGlicButton::SetCloseButtonFocusBehavior(
@@ -173,8 +212,20 @@ void ToolbarGlicButton::Expand() {
   GlicButton<ToolbarButton>::Expand();
 }
 
+bool ToolbarGlicButton::GetIsShowingNudge() const {
+  return width_state_ == WidthState::kNudge;
+}
+
 void ToolbarGlicButton::ResetSplitButtonCornerStyling() {
   SetLeftRightCornerRadii(GetRoundedCornerRadius(), GetRoundedCornerRadius());
+}
+
+float ToolbarGlicButton::GetWidthFactor() const {
+  return width_factor_;
+}
+void ToolbarGlicButton::SetWidthFactor(float factor) {
+  width_factor_ = factor;
+  this->PreferredSizeChanged();
 }
 
 BEGIN_METADATA(ToolbarGlicButton)

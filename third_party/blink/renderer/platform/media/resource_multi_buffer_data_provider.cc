@@ -94,8 +94,8 @@ void ResourceMultiBufferDataProvider::Start() {
           ? network::mojom::blink::RequestDestination::kAudio
           : network::mojom::blink::RequestDestination::kVideo);
   request.SetHttpHeaderField(
-      WebString::FromUTF8(net::HttpRequestHeaders::kRange),
-      WebString::FromUTF8(
+      WebString::FromUtf8(net::HttpRequestHeaders::kRange),
+      WebString::FromUtf8(
           net::HttpByteRange::RightUnbounded(byte_pos()).GetHeaderValue()));
 
   // We would like to send an if-match header with the request to
@@ -107,8 +107,8 @@ void ResourceMultiBufferDataProvider::Start() {
 
   // Disable compression, compression for audio/video doesn't make sense...
   request.SetHttpHeaderField(
-      WebString::FromUTF8(net::HttpRequestHeaders::kAcceptEncoding),
-      WebString::FromUTF8("identity;q=1, *;q=0"));
+      WebString::FromUtf8(net::HttpRequestHeaders::kAcceptEncoding),
+      WebString("identity;q=1, *;q=0"));
 
   // Start resource loading.
   WebAssociatedURLLoaderOptions options;
@@ -188,7 +188,8 @@ bool ResourceMultiBufferDataProvider::WillFollowRedirect(
   // This test is vital for security!
   if (cors_mode_ == UrlData::CORS_UNSPECIFIED) {
     // We allow the redirect if the origin is the same.
-    if (!SecurityOrigin::AreSameOrigin(original_url_, redirects_to_)) {
+    if (!SecurityOrigin::AreSameOrigin(original_url_, redirects_to_) ||
+        !SecurityOrigin::AreSameOrigin(url_data_->url(), redirects_to_)) {
       // We also allow the redirect if we don't have any data in the
       // cache, as that means that no dangerous data mixing can occur.
       if (url_data_->multibuffer()->map().empty() && fifo_.empty())

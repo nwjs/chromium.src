@@ -149,10 +149,6 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // override in the generic IS_ANDROID block below, guarded by an appropriate
   // runtime check.
 
-  // Enable the link hover status bar.
-  // TODO(crbug.com/404678510): Remove when the feature is stable.
-  feature_overrides.EnableFeature(chrome::android::kLinkHoverStatusBar);
-
   // If enabled, render processes associated only with tabs in unfocused windows
   // will be downgraded to "vis" priority, rather than remaining at "fg". This
   // will allow tabs in unfocused windows to be prioritized for OOM kill in
@@ -164,7 +160,7 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // factors. Currently we have no conclusion whether to enable this on mobile
   // phones yet.
   feature_overrides.EnableFeature(
-      features::kAndroidEnableBackgroundMediaCapturing);
+      media::kAndroidEnableBackgroundMediaCapturing);
   // TODO(crbug.com/465596248): Remove when experiment is complete.
   feature_overrides.EnableFeature(chrome::android::kProtectRecentlyVisibleTab);
   // TODO(crbug.com/422903297): Remove when tablet rollout is complete.
@@ -270,9 +266,6 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // TODO(crbug.com/450281745): Remove once feature is enabled by default.
   feature_overrides.EnableFeature(::features::kAndroidDesktopZoomScaling);
 
-  // Enable Android desktop fluid resize to improve UX.
-  // TODO(crbug.com/464967916): Remove when the feature is stable.
-  feature_overrides.EnableFeature(features::kFluidResize);
 #endif  // BUILDFLAG(IS_DESKTOP_ANDROID)
   // Desktop-first features which are past incubation should either end up here,
   // or to a finch trial that enables it for all form factors.

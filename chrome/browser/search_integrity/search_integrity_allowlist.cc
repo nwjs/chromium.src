@@ -11,6 +11,7 @@
 #include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/logging.h"
+#include "base/memory/singleton.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/values.h"
@@ -47,7 +48,7 @@ SearchEngineAllowlist::~SearchEngineAllowlist() = default;
 
 // static
 std::string SearchEngineAllowlist::LoadBloomFilterData(
-    const base::FilePath& json_file_path,
+    const std::string& json_data,
     const base::FilePath& bloom_filter_path) {
   // Attempt to load an existing bloom filter from the file system.
   // This provides a fast startup path if the filter has been previously
@@ -57,10 +58,8 @@ std::string SearchEngineAllowlist::LoadBloomFilterData(
     return bloom_filter_data;
   }
 
-  // If loading the bloom filter fails, parse the JSON file to build it.
-  // This typically happens on the first run or if the filter file is missing.
-  std::string json_data;
-  if (!base::ReadFileToString(json_file_path, &json_data)) {
+  // If loading the bloom filter fails, parse the JSON data to build it.
+  if (json_data.empty()) {
     return std::string();
   }
 

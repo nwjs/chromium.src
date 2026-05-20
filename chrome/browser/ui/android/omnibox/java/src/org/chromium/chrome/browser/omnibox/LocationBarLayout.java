@@ -25,15 +25,14 @@ import org.chromium.base.MathUtils;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lens.LensEntryPoint;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.status.StatusView;
-import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
+import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.components.browser_ui.widget.CompositeTouchDelegate;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.ui.base.DeviceFormFactor;
@@ -64,7 +63,6 @@ public class LocationBarLayout extends ConstraintLayout {
     protected @Nullable CompositeTouchDelegate mCompositeTouchDelegate;
     protected @Nullable SearchEngineUtils mSearchEngineUtils;
     private boolean mUrlBarLaidOutAtFocusedWidth;
-    private final int mStatusIconAndUrlBarOffset;
     private int mUrlActionContainerEndMargin;
 
     private boolean mHidingActionContainerForNarrowWindow;
@@ -98,9 +96,6 @@ public class LocationBarLayout extends ConstraintLayout {
         mInstallButton = findViewById(R.id.install_button);
         mNavigateButton = findViewById(R.id.navigate_button);
         mMarginSpacer = findViewById(R.id.margin_spacer);
-        mStatusIconAndUrlBarOffset =
-                OmniboxResourceProvider.getToolbarSidePaddingForNtp(context)
-                        - OmniboxResourceProvider.getToolbarSidePadding(context);
         mUrlActionContainerEndMargin =
                 getResources().getDimensionPixelOffset(R.dimen.location_bar_url_action_offset);
         mLocationBarIconStartingPadding =
@@ -128,10 +123,7 @@ public class LocationBarLayout extends ConstraintLayout {
         statusView.setCompositeTouchDelegate(mCompositeTouchDelegate);
         statusView
                 .getIsVisibleSupplier()
-                .addSyncObserverAndCallIfNonNull(
-                        (visible) ->
-                                setLocationBarStartPadding(
-                                        visible ? 0 : mLocationBarIconStartingPadding));
+                .addSyncObserverAndCallIfNonNull((visible) -> updateStartPadding());
     }
 
     @Override
@@ -272,6 +264,23 @@ public class LocationBarLayout extends ConstraintLayout {
         setButtonVisibility(mDeleteButton, shouldShow);
     }
 
+    protected boolean isBackButtonVisible() {
+        return false;
+    }
+
+    /* package */ void setBackButtonVisibility(boolean shouldShow) {}
+
+    /* package */ void setBackButtonEnabled(boolean enabled) {}
+
+    /* package */ void setBackButtonTint(ColorStateList colorStateList) {}
+
+    /* package */ void updateStartPadding() {
+        View statusView = findViewById(R.id.location_bar_status);
+        boolean statusVisible = statusView != null && statusView.getVisibility() == VISIBLE;
+        setLocationBarStartPadding(
+                (statusVisible || isBackButtonVisible()) ? 0 : mLocationBarIconStartingPadding);
+    }
+
     /** Sets the visibility of the Navigate. */
     /* package */ void setNavigateButtonVisibility(boolean shouldShow) {
         mShowNavigateButton = shouldShow;
@@ -329,15 +338,6 @@ public class LocationBarLayout extends ConstraintLayout {
         setNavigateButtonVisibility(mShowNavigateButton);
     }
 
-    /** Returns the increase in StatusView end padding, when the Url bar is focused. */
-    public int getEndPaddingPixelSizeOnFocusDelta() {
-        return getResources()
-                .getDimensionPixelSize(
-                        mLocationBarDataProvider.isIncognitoBranded()
-                                ? R.dimen.location_bar_icon_end_padding_focused_incognito
-                                : R.dimen.location_bar_icon_end_padding_focused);
-    }
-
     /**
      * Expand the left and right margins besides the status view, and increase the location bar
      * vertical padding based on current animation progress percent.
@@ -355,48 +355,8 @@ public class LocationBarLayout extends ConstraintLayout {
         float urlFocusPercentage = Math.max(ntpSearchBoxScrollFraction, urlFocusChangeFraction);
         mUrlBarLaidOutAtFocusedWidth = urlFocusPercentage > 0.0f || mUrlBar.hasFocus();
 
-        setStatusViewLeftMarginPercent(
-                ntpSearchBoxScrollFraction, urlFocusChangeFraction, isUrlFocusChangeInProgress);
         setStatusViewRightMarginPercent(
                 ntpSearchBoxScrollFraction, urlFocusChangeFraction, isUrlFocusChangeInProgress);
-
-        int urlBarStartMargin =
-                mUrlBarLaidOutAtFocusedWidth ? getFocusedStatusViewSpacingDelta() : 0;
-        MarginLayoutParams layoutParams = (MarginLayoutParams) mUrlBar.getLayoutParams();
-        if (layoutParams.getMarginStart() != urlBarStartMargin) {
-            layoutParams.setMarginStart(urlBarStartMargin);
-            mUrlBar.setLayoutParams(layoutParams);
-        }
-    }
-
-    /**
-     * Set the "left margin width" based on current animation progress percent. This uses
-     * translation to avoid triggering a relayout.
-     *
-     * @param ntpSearchBoxScrollFraction The degree to which the omnibox has expanded to full width
-     *     in NTP due to the NTP search box is being scrolled up.
-     * @param urlFocusChangeFraction The degree to which the omnibox has expanded due to it is
-     *     getting focused.
-     * @param isUrlFocusChangeInProgress True if the url focus change is in progress.
-     */
-    protected void setStatusViewLeftMarginPercent(
-            float ntpSearchBoxScrollFraction,
-            float urlFocusChangeFraction,
-            boolean isUrlFocusChangeInProgress) {
-        float maxPercent = Math.max(ntpSearchBoxScrollFraction, urlFocusChangeFraction);
-        boolean isOnTablet = DeviceFormFactor.isNonMultiDisplayContextOnTablet(getContext());
-        float translationX;
-        if (!isOnTablet && isUrlFocusChangeInProgress && ntpSearchBoxScrollFraction == 1) {
-            translationX =
-                    OmniboxResourceProvider.getFocusedStatusViewLeftSpacing(getContext())
-                            + mStatusIconAndUrlBarOffset * (1 - urlFocusChangeFraction);
-        } else {
-            translationX =
-                    OmniboxResourceProvider.getFocusedStatusViewLeftSpacing(getContext())
-                            * maxPercent;
-        }
-        mStatusCoordinator.setTranslationX(
-                MathUtils.flipSignIf(translationX, getLayoutDirection() == LAYOUT_DIRECTION_RTL));
     }
 
     /**
@@ -413,7 +373,7 @@ public class LocationBarLayout extends ConstraintLayout {
             float ntpSearchBoxScrollFraction,
             float urlFocusChangeFraction,
             boolean isUrlFocusChangeInProgress) {
-        float translationX;
+        float translationX = 0;
         if (mUrlBarLaidOutAtFocusedWidth) {
             translationX =
                     getUrlBarTranslationXForFocusAndScrollAnimationOnNtp(
@@ -421,13 +381,14 @@ public class LocationBarLayout extends ConstraintLayout {
                             urlFocusChangeFraction,
                             isUrlFocusChangeInProgress,
                             DeviceFormFactor.isNonMultiDisplayContextOnTablet(getContext()));
-        } else {
-            // No compensation is needed at 0% because the margin is reset to normal.
-            translationX = 0.0f;
         }
 
-        mUrlBar.setTranslationX(
-                MathUtils.flipSignIf(translationX, getLayoutDirection() == LAYOUT_DIRECTION_RTL));
+        // TODO(crbug.com/488840224): Possibly dead code.
+        if (mUrlBar.getTranslationX() != translationX) {
+            mUrlBar.setTranslationX(
+                    MathUtils.flipSignIf(
+                            translationX, getLayoutDirection() == LAYOUT_DIRECTION_RTL));
+        }
     }
 
     /**
@@ -445,14 +406,7 @@ public class LocationBarLayout extends ConstraintLayout {
             float urlFocusChangeFraction,
             boolean isUrlFocusChangeInProgress,
             boolean isOnTablet) {
-
-        if (!isOnTablet && isUrlFocusChangeInProgress && ntpSearchBoxScrollFraction == 1) {
-            // For the focus and un-focus animation when the real search box is visible
-            // on NTP.
-            return mStatusIconAndUrlBarOffset * (1 - urlFocusChangeFraction);
-        }
-
-        float translationX = -getFocusedStatusViewSpacingDelta();
+        float translationX = 0;
 
         boolean isNtpOnPhone =
                 mStatusCoordinator.isSearchEngineStatusIconVisible()
@@ -485,19 +439,6 @@ public class LocationBarLayout extends ConstraintLayout {
         // magnitude of the compensation decreases as % increases and is 0 at full focus %.
         float percent = Math.max(ntpSearchBoxScrollFraction, urlFocusChangeFraction);
         return translationX * (1.0f - percent);
-    }
-
-    /**
-     * The delta between the total status view spacing (left + right) when unfocused vs focused. The
-     * status view has additional spacing applied when focused to visually align it and the UrlBar
-     * with omnibox suggestions. See below diagram; the additional spacing is denoted with _
-     * Unfocused: [ (i) www.example.com] Focused: [ _(G)_ Search or type web address] [ 🔍 Foobar ↖
-     * ] [ 🔍 Barbaz ↖ ]
-     */
-    @VisibleForTesting
-    int getFocusedStatusViewSpacingDelta() {
-        return getEndPaddingPixelSizeOnFocusDelta()
-                + OmniboxResourceProvider.getFocusedStatusViewLeftSpacing(getContext());
     }
 
     /** Applies the new SearchEngineUtils. */
@@ -555,6 +496,14 @@ public class LocationBarLayout extends ConstraintLayout {
     /* package */ void onFuseboxStateChanged(@FuseboxState int state) {}
 
     /**
+     * Returns the view to which the omnibox suggestions list should be aligned to horizontally and
+     * vertically.
+     */
+    /* package */ View getAlignmentView() {
+        return this;
+    }
+
+    /**
      * This should be called when the autocomplete request type for the active omnibox session
      * changes to/from specialized (e.g. aim)/conventional (e.g. plain old search). It is not
      * assumed that this will be called when the session ends.
@@ -570,7 +519,20 @@ public class LocationBarLayout extends ConstraintLayout {
     void onSuggestionsChanged(boolean hasSuggestions) {}
 
     private void setLocationBarStartPadding(int padding) {
-        if (!ChromeFeatureList.sAndroidPageInfoAsAppMenuItem.isEnabled()) return;
+        if (!isPageInfoMovedToAppMenu()) {
+            return;
+        }
         setPaddingRelative(padding, getPaddingTop(), getPaddingEnd(), getPaddingBottom());
     }
+
+    private boolean isPageInfoMovedToAppMenu() {
+        return BrowserUiUtils.isPageInfoMovedToAppMenu(getContext());
+    }
+
+    /**
+     * Signal that the associated omnibox suggestions list has changed scroll offset.
+     *
+     * @param verticalScrollOffset The current vertical scroll offset.
+     */
+    void onSuggestionsListScrollOffsetChanged(int verticalScrollOffset) {}
 }

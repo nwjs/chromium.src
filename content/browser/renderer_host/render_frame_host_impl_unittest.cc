@@ -130,7 +130,7 @@ TEST_F(RenderFrameHostImplTest_NoOriginKeyedProcessesByDefault,
   RenderFrameHostImpl* initial_rfh = main_test_rfh();
   // This test is for a bug that only happens when there is no RFH swap on
   // same-site navigations, so we should disable same-site proactive
-  // BrowsingInstance for |initial_rfh| before continiung.
+  // BrowsingInstance for |initial_rfh| before continuing.
   DisableProactiveBrowsingInstanceSwapFor(initial_rfh);
   if (ShouldCreateNewHostForAllFrames()) {
     GTEST_SKIP();
@@ -197,6 +197,27 @@ TEST_F(RenderFrameHostImplTest, InvalidURL) {
   EXPECT_FALSE(invalid_url.is_valid());
   NavigateAndCommit(invalid_url);
   EXPECT_EQ(GURL(url::kAboutBlankURL), main_rfh()->GetLastCommittedURL());
+}
+
+TEST_F(RenderFrameHostImplTest, ExitFullscreenDestruction) {
+  class DestructionDelegate : public WebContentsDelegate {
+   public:
+    explicit DestructionDelegate(base::OnceClosure destruction_closure)
+        : destruction_closure_(std::move(destruction_closure)) {}
+    void ExitFullscreenModeForTab(WebContents* web_contents) override {
+      std::move(destruction_closure_).Run();
+    }
+
+   private:
+    base::OnceClosure destruction_closure_;
+  };
+
+  DestructionDelegate delegate(base::BindOnce(
+      &RenderFrameHostImplTest::DeleteContents, base::Unretained(this)));
+  contents()->SetDelegate(&delegate);
+
+  // This should not crash.
+  main_test_rfh()->ExitFullscreen();
 }
 
 // Ensures that IsolationInfo's SiteForCookies is empty and
@@ -293,7 +314,7 @@ TEST_F(RenderFrameHostImplTest_NoOriginKeyedProcessesByDefault,
     simulator->Commit();
   }
 
-  // This test is targetted at the case an RFH is reused between navigations.
+  // This test is targeted at the case an RFH is reused between navigations.
   RenderFrameHost* initial_rfh = main_rfh();
   DisableProactiveBrowsingInstanceSwapFor(main_rfh());
   if (ShouldCreateNewHostForAllFrames()) {
@@ -703,7 +724,7 @@ TEST_F(RenderFrameHostImplTest, CalculateStorageKey) {
                                                          grandchild_frame));
 
   // With no host permissions the grandchild document should have a cross-site
-  // storage key with the `initial_url_ext` as it's top level origin.
+  // storage key with the `initial_url_ext` as its top level origin.
   blink::StorageKey expected_grandchild_no_permissions_storage_key =
       blink::StorageKey::Create(
           grandchild_frame->GetLastCommittedOrigin(),
@@ -725,7 +746,7 @@ TEST_F(RenderFrameHostImplTest, CalculateStorageKey) {
                 grandchild_frame->GetLastCommittedOrigin(), nullptr));
 
   // Now give extension host permissions to `child_frame`. Since the root
-  // extension rfh has host permissions to`child_frame` calling
+  // extension rfh has host permissions to `child_frame` calling
   // `CalculateStorageKey` should create a storage key with the `child_origin`
   // as the `top_level_site`.
   AddHostPermissions("childframe.com", main_rfh());
@@ -834,7 +855,7 @@ TEST_F(RenderFrameHostImplTest,
   // Give extension host permissions to `child_url`.
   AddHostPermissions("childframe.com", main_rfh());
 
-  // The top level document has host permssions to the child_url so the top
+  // The top level document has host permissions to the child_url so the top
   // level document should be excluded from storage key calculations and a first
   // party, same-site storage key is expected.
   blink::StorageKey expected_child_with_permissions_storage_key =
@@ -1476,7 +1497,7 @@ INSTANTIATE_TEST_SUITE_P(All,
                          RenderFrameHostImplCookieChangeListenerTest,
                          testing::Bool());
 
-// Tests the behavior or the `RenderFrameHostImpl::CookieChangeListener`.
+// Tests the behavior of the `RenderFrameHostImpl::CookieChangeListener`.
 TEST_P(RenderFrameHostImplCookieChangeListenerTest, CookieChangeListener) {
   StoragePartition* partition = main_rfh()->GetStoragePartition();
   GURL url("https://example.com");

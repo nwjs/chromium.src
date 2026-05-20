@@ -60,11 +60,11 @@ class DeviceInfo {
     kUnknown = 0,
     kSmsFetcher = 3,
     kRemoteCopy = 4,
-    kDiscovery = 6,
     kClickToCallV2 = 7,
     kSharedClipboardV2 = 8,
     kOptimizationGuidePushNotification = 9,
     kOneTimeTokenBackendNotification = 10,
+    kGlicExperimentalTriggering = 11,
   };
   // LINT.ThenChange(/components/sync/protocol/device_info_specifics.proto:EnabledFeatures)
 
@@ -170,29 +170,39 @@ class DeviceInfo {
     kTv = 6,
   };
 
-  DeviceInfo(const std::string& guid,
-             const std::string& client_name,
-             const std::string& chrome_version,
-             const std::string& sync_user_agent,
-             DeviceType device_type,
-             OsType os_type,
-             FormFactor form_factor,
-             const std::string& signin_scoped_device_id,
-             const std::string& manufacturer_name,
-             const std::string& model_name,
-             const std::string& full_hardware_class,
-             base::Time last_updated_timestamp,
-             base::TimeDelta pulse_interval,
-             bool send_tab_to_self_receiving_enabled,
-             SendTabReceivingType send_tab_to_self_receiving_type,
-             const std::optional<SharingInfo>& sharing_info,
-             const std::optional<PhoneAsASecurityKeyInfo>& paask_info,
-             const std::string& fcm_registration_token,
-             const DataTypeSet& interested_data_types,
-             std::optional<base::Time> auto_sign_out_last_signin_timestamp,
-             bool desktop_to_ios_promo_receiving_enabled,
-             const MobilePromoOnDesktopPromoTypeSet&
-                 desktop_to_ios_promo_receiving_types = {});
+  // LINT.IfChange(GlicExperimentalTriggeringState)
+  enum class GlicExperimentalTriggeringState {
+    kUnavailable = 0,
+    kNeedsOptIn = 1,
+    kReady = 2,
+  };
+  // LINT.ThenChange(//components/sync/protocol/sync_enums.proto:GlicExperimentalTriggeringState)
+
+  DeviceInfo(
+      const std::string& guid,
+      const std::string& client_name,
+      const std::string& chrome_version,
+      const std::string& sync_user_agent,
+      DeviceType device_type,
+      OsType os_type,
+      FormFactor form_factor,
+      const std::string& signin_scoped_device_id,
+      const std::string& manufacturer_name,
+      const std::string& model_name,
+      const std::string& full_hardware_class,
+      base::Time last_updated_timestamp,
+      base::TimeDelta pulse_interval,
+      bool send_tab_to_self_receiving_enabled,
+      SendTabReceivingType send_tab_to_self_receiving_type,
+      const std::optional<SharingInfo>& sharing_info,
+      const std::optional<PhoneAsASecurityKeyInfo>& paask_info,
+      const std::string& fcm_registration_token,
+      const DataTypeSet& interested_data_types,
+      std::optional<base::Time> auto_sign_out_last_signin_timestamp,
+      bool desktop_to_ios_promo_receiving_enabled,
+      const MobilePromoOnDesktopPromoTypeSet&
+          desktop_to_ios_promo_receiving_types,
+      GlicExperimentalTriggeringState glic_experimental_triggering_state);
 
   DeviceInfo(const DeviceInfo&) = delete;
   DeviceInfo& operator=(const DeviceInfo&) = delete;
@@ -280,6 +290,9 @@ class DeviceInfo {
   const MobilePromoOnDesktopPromoTypeSet& desktop_to_ios_promo_receiving_types()
       const;
 
+  // Returns the state of experimental triggering.
+  GlicExperimentalTriggeringState glic_experimental_triggering_state() const;
+
   // Apps can set ids for a device that is meaningful to them but
   // not unique enough so the user can be tracked. Exposing |guid|
   // would lead to a stable unique id for a device which can potentially
@@ -307,6 +320,9 @@ class DeviceInfo {
   void set_desktop_to_ios_promo_receiving_enabled(bool new_value);
   void set_desktop_to_ios_promo_receiving_types(
       const MobilePromoOnDesktopPromoTypeSet& new_types);
+
+  void set_glic_experimental_triggering_state(
+      GlicExperimentalTriggeringState state);
 
  private:
   const std::string guid_;
@@ -368,6 +384,8 @@ class DeviceInfo {
   // promo types feature is fully launched.
   bool desktop_to_ios_promo_receiving_enabled_;
   MobilePromoOnDesktopPromoTypeSet desktop_to_ios_promo_receiving_types_;
+
+  GlicExperimentalTriggeringState glic_experimental_triggering_state_;
 
   // NOTE: when adding a member, don't forget to update
   // |StoredDeviceInfoStillAccurate| in device_info_sync_bridge.cc or else

@@ -45,11 +45,11 @@ class ProtobufRuleInputStreamImpl {
       is_reading_url_rules_ = false;
       rule_index_ = 0;
     }
-    if (!is_reading_url_rules_ && rule_index_ >= rules_.css_rules_size()) {
+    if (!is_reading_url_rules_ && rule_index_ >= rules_.style_rules_size()) {
       return url_pattern_index::proto::RULE_TYPE_UNSPECIFIED;
     }
     return is_reading_url_rules_ ? url_pattern_index::proto::RULE_TYPE_URL
-                                 : url_pattern_index::proto::RULE_TYPE_CSS;
+                                 : url_pattern_index::proto::RULE_TYPE_STYLE;
   }
 
   const url_pattern_index::proto::UrlRule& GetUrlRule() {
@@ -57,9 +57,9 @@ class ProtobufRuleInputStreamImpl {
     return rules_.url_rules(rule_index_);
   }
 
-  const url_pattern_index::proto::CssRule& GetCssRule() {
-    CHECK(!is_reading_url_rules_ && rule_index_ < rules_.css_rules_size());
-    return rules_.css_rules(rule_index_);
+  const url_pattern_index::proto::StyleRule& GetStyleRule() {
+    CHECK(!is_reading_url_rules_ && rule_index_ < rules_.style_rules_size());
+    return rules_.style_rules(rule_index_);
   }
 
  private:
@@ -100,9 +100,9 @@ class FilterListRuleInputStream : public RuleInputStream {
     return parser_.url_rule().ToProtobuf();
   }
 
-  url_pattern_index::proto::CssRule GetCssRule() override {
-    CHECK_EQ(url_pattern_index::proto::RULE_TYPE_CSS, parser_.rule_type());
-    return parser_.css_rule().ToProtobuf();
+  url_pattern_index::proto::StyleRule GetStyleRule() override {
+    CHECK_EQ(url_pattern_index::proto::RULE_TYPE_STYLE, parser_.rule_type());
+    return parser_.style_rule().ToProtobuf();
   }
 
  private:
@@ -125,7 +125,7 @@ class FilterListRuleOutputStream : public RuleOutputStream {
     return !output_->bad();
   }
 
-  bool PutCssRule(const url_pattern_index::proto::CssRule& rule) override {
+  bool PutStyleRule(const url_pattern_index::proto::StyleRule& rule) override {
     std::string line = ToString(rule) + '\n';
     output_->write(line.data(), line.size());
     return !output_->bad();
@@ -160,8 +160,8 @@ class ProtobufRuleInputStream : public RuleInputStream {
   url_pattern_index::proto::UrlRule GetUrlRule() override {
     return impl_->GetUrlRule();
   }
-  url_pattern_index::proto::CssRule GetCssRule() override {
-    return impl_->GetCssRule();
+  url_pattern_index::proto::StyleRule GetStyleRule() override {
+    return impl_->GetStyleRule();
   }
 
  private:
@@ -184,8 +184,8 @@ class ProtobufRuleOutputStream : public RuleOutputStream {
     return true;
   }
 
-  bool PutCssRule(const url_pattern_index::proto::CssRule& rule) override {
-    *all_rules_.add_css_rules() = rule;
+  bool PutStyleRule(const url_pattern_index::proto::StyleRule& rule) override {
+    *all_rules_.add_style_rules() = rule;
     return true;
   }
 
@@ -236,8 +236,8 @@ class UnindexedRulesetRuleInputStream : public RuleInputStream {
   url_pattern_index::proto::UrlRule GetUrlRule() override {
     return impl_->GetUrlRule();
   }
-  url_pattern_index::proto::CssRule GetCssRule() override {
-    return impl_->GetCssRule();
+  url_pattern_index::proto::StyleRule GetStyleRule() override {
+    return impl_->GetStyleRule();
   }
 
  private:
@@ -275,8 +275,8 @@ class UnindexedRulesetRuleOutputStream : public RuleOutputStream {
     return ruleset_writer_.AddUrlRule(rule);
   }
 
-  bool PutCssRule(const url_pattern_index::proto::CssRule& rule) override {
-    return true;
+  bool PutStyleRule(const url_pattern_index::proto::StyleRule& rule) override {
+    return ruleset_writer_.AddStyleRule(rule);
   }
 
   bool Finish() override {
@@ -379,7 +379,7 @@ static_assert(!(kChrome54To58ElementTypes &
 
 bool TransferRules(RuleInputStream* input,
                    RuleOutputStream* url_rules_output,
-                   RuleOutputStream* css_rules_output,
+                   RuleOutputStream* style_rules_output,
                    int chrome_version) {
   while (true) {
     auto rule_type = input->FetchNextRule();
@@ -397,11 +397,16 @@ bool TransferRules(RuleInputStream* input,
         }
         break;
       }
-      case url_pattern_index::proto::RULE_TYPE_CSS:
-        if (css_rules_output) {
-          css_rules_output->PutCssRule(input->GetCssRule());
+      case url_pattern_index::proto::RULE_TYPE_STYLE: {
+        if (!style_rules_output) {
+          break;
+        }
+        url_pattern_index::proto::StyleRule style_rule = input->GetStyleRule();
+        if (!DeleteStyleRuleOrAmend(&style_rule)) {
+          style_rules_output->PutStyleRule(style_rule);
         }
         break;
+      }
       case url_pattern_index::proto::RULE_TYPE_COMMENT:
         // Ignore comments.
         break;
@@ -451,6 +456,35 @@ bool DeleteUrlRuleOrAmend(url_pattern_index::proto::UrlRule* rule,
 
   // The rule should have at least 1 type bit, otherwise it targets nothing.
   return !rule->element_types() && !rule->activation_types();
+}
+
+bool DeleteStyleRuleOrAmend(url_pattern_index::proto::StyleRule* rule) {
+  bool is_site_specific = false;
+  for (const auto& domain : rule->domains()) {
+    if (!domain.exclude()) {
+      is_site_specific = true;
+      break;
+    }
+  }
+
+  std::vector<std::string> classes;
+  std::vector<std::string> ids;
+  if (!GetAnchorsIfSupported(rule->selector(), is_site_specific, classes,
+                             ids)) {
+    return true;
+  }
+
+  // Populate anchors if not already there.
+  if (rule->classes_size() == 0 && rule->ids_size() == 0) {
+    for (const auto& class_name : classes) {
+      rule->add_classes(class_name);
+    }
+    for (const auto& id_name : ids) {
+      rule->add_ids(id_name);
+    }
+  }
+
+  return false;
 }
 
 }  // namespace subresource_filter

@@ -40,7 +40,6 @@ import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.ui.hats.SurveyConfig.RequestedBrowserType;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
@@ -203,7 +202,8 @@ public class SurveyClientUnitTest {
                         new String[0],
                         new String[0],
                         null,
-                        SurveyConfig.RequestedBrowserType.REGULAR);
+                        RequestedBrowserType.REGULAR,
+                        ProfileAgeRequirement.ANY_AGE);
         SurveyClientImpl client =
                 new SurveyClientImpl(
                         config,
@@ -426,7 +426,8 @@ public class SurveyClientUnitTest {
                         new String[] {"bitField"},
                         new String[] {"stringField"},
                         null,
-                        SurveyConfig.RequestedBrowserType.REGULAR);
+                        RequestedBrowserType.REGULAR,
+                        ProfileAgeRequirement.ANY_AGE);
         SurveyClientImpl client =
                 new SurveyClientImpl(
                         config,
@@ -438,15 +439,11 @@ public class SurveyClientUnitTest {
         assertThrows(
                 "Expected PSD(s) are missing.",
                 AssertionError.class,
-                () -> {
-                    client.showSurvey(mActivity, mLifecycleDispatcher);
-                });
+                () -> client.showSurvey(mActivity, mLifecycleDispatcher));
         assertThrows(
                 "Expected PSD(s) are missing.",
                 AssertionError.class,
-                () -> {
-                    client.showSurvey(mActivity, mLifecycleDispatcher, bitValues, stringValues);
-                });
+                () -> client.showSurvey(mActivity, mLifecycleDispatcher, bitValues, stringValues));
 
         // Provide bit values without strings values.
         stringValues.clear();
@@ -455,9 +452,7 @@ public class SurveyClientUnitTest {
         assertThrows(
                 "Expected PSD(s) are missing.",
                 AssertionError.class,
-                () -> {
-                    client.showSurvey(mActivity, mLifecycleDispatcher, bitValues, stringValues);
-                });
+                () -> client.showSurvey(mActivity, mLifecycleDispatcher, bitValues, stringValues));
 
         // Provide string values without bit values.
         stringValues.clear();
@@ -466,9 +461,7 @@ public class SurveyClientUnitTest {
         assertThrows(
                 "Expected PSD(s) are missing.",
                 AssertionError.class,
-                () -> {
-                    client.showSurvey(mActivity, mLifecycleDispatcher, bitValues, stringValues);
-                });
+                () -> client.showSurvey(mActivity, mLifecycleDispatcher, bitValues, stringValues));
 
         // Provide extra string values without bit values.
         stringValues.clear();
@@ -478,9 +471,7 @@ public class SurveyClientUnitTest {
         assertThrows(
                 "Extra string PSDs were provided.",
                 AssertionError.class,
-                () -> {
-                    client.showSurvey(mActivity, mLifecycleDispatcher, bitValues, stringValues);
-                });
+                () -> client.showSurvey(mActivity, mLifecycleDispatcher, bitValues, stringValues));
 
         // Provide both value.
         stringValues.clear();
@@ -504,6 +495,7 @@ public class SurveyClientUnitTest {
                 new String[0],
                 new String[0],
                 null,
-                requestedBrowserType);
+                requestedBrowserType,
+                ProfileAgeRequirement.ANY_AGE);
     }
 }

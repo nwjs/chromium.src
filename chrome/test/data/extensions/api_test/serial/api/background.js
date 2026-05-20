@@ -17,7 +17,7 @@ const createTestArrayBuffer = function(dataLength) {
     uint8View[i] = (42 + i * 2) & 0xFF;  // An arbitrary pattern.
   }
   return buffer;
-}
+};
 
 const testSerial = function() {
   let serialPort = null;
@@ -43,7 +43,7 @@ const testSerial = function() {
         break;
       case 2: {
         const bitrate = 57600;
-        console.log(
+        console.info(
             `Connecting to serial device ${serialPort} at ${bitrate} bps.`);
         serial.connect(serialPort, {bitrate: bitrate}, onConnect);
         break;
@@ -84,7 +84,7 @@ const testSerial = function() {
         break;
       case 11: {
         const bitrate = 115200;
-        console.log(
+        console.info(
             `Reconnecting to serial device ${serialPort} at ${bitrate} bps.`);
         serial.connect(serialPort, {bitrate: bitrate}, onConnect);
         break;
@@ -137,11 +137,13 @@ const testSerial = function() {
     const data = new Uint8Array(receiveInfo.data);
     bytesToReceive -= data.length;
     const receiveBufferIndex = bufferLength - bytesToReceive - data.length;
-    for (let i = 0; i < data.length; i++)
+    for (let i = 0; i < data.length; i++) {
       receiveBufferUint8View[i + receiveBufferIndex] = data[i];
-    if (bytesToReceive == 0) {
-      chrome.test.assertEq(sendBufferUint8View, receiveBufferUint8View,
-                           'Buffer received was not equal to buffer sent.');
+    }
+    if (bytesToReceive === 0) {
+      chrome.test.assertEq(
+          sendBufferUint8View, receiveBufferUint8View,
+          'Buffer received was not equal to buffer sent.');
       if (!hasReadError) {
         doNextOperation();
       }
@@ -151,15 +153,16 @@ const testSerial = function() {
   };
 
   const onReceiveError = function(errorInfo) {
-    chrome.test.assertEq(connectionId, errorInfo.connectionId,
-                         'Unmatch connectionId for ReceiveError');
+    chrome.test.assertEq(
+        connectionId, errorInfo.connectionId,
+        'Unmatch connectionId for ReceiveError');
     if (expectDisconnect && errorInfo.error === 'disconnected') {
       expectDisconnect = false;
       doNextOperation();
       return;
     }
     hasReadError = true;
-    if (errorInfo.error == 'parity_error') {
+    if (errorInfo.error === 'parity_error') {
       serial.getInfo(connectionId, onGetInfoToReconnect);
     } else {
       chrome.test.fail(`Failed to receive serial data: ${errorInfo.error}`);
@@ -167,8 +170,9 @@ const testSerial = function() {
   };
 
   const onGetInfoToReconnect = function(connectionInfo) {
-    chrome.test.assertEq(true, connectionInfo.paused,
-                         'Failed to pause connection on read error.');
+    chrome.test.assertEq(
+        true, connectionInfo.paused,
+        'Failed to pause connection on read error.');
     // Try to reconnect the read data pipe.
     serial.setPaused(connectionId, false, () => {
       serial.getInfo(connectionId, onGetInfoAfterReconnect);
@@ -176,7 +180,7 @@ const testSerial = function() {
   };
 
   const onGetInfoAfterReconnect = function(connectionInfo) {
-    if (connectionInfo.paused != false) {
+    if (connectionInfo.paused !== false) {
       chrome.test.fail('Failed to reconnect on read error.');
     }
     hasReadError = false;
@@ -184,8 +188,8 @@ const testSerial = function() {
   };
 
   const onSend = function(sendInfo) {
-    chrome.test.assertEq(bufferLength, sendInfo.bytesSent,
-                         'Failed to send byte.');
+    chrome.test.assertEq(
+        bufferLength, sendInfo.bytesSent, 'Failed to send byte.');
   };
 
   const onGetControlSignals = function(options) {
@@ -202,8 +206,8 @@ const testSerial = function() {
   };
 
   const onConnect = function(connectionInfo) {
-    chrome.test.assertTrue(!!connectionInfo,
-                           'Failed to connect to serial port.');
+    chrome.test.assertTrue(
+        !!connectionInfo, 'Failed to connect to serial port.');
     connectionId = connectionInfo.connectionId;
     doNextOperation();
   };
@@ -215,8 +219,9 @@ const testSerial = function() {
         if (shouldSkipPort(devices[portNumber].path)) {
           portNumber++;
           continue;
-        } else
+        } else {
           break;
+        }
       }
       if (portNumber < devices.length) {
         serialPort = devices[portNumber].path;

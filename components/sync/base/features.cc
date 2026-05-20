@@ -41,6 +41,9 @@ BASE_FEATURE(kSyncGeminiThread, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncThemesIos, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kNewTabPageCustomizationThemeSync,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kSyncLoyaltyCardMetadata, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncAccessibilityAnnotation, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -58,9 +61,6 @@ BASE_FEATURE(kUnoPhase2FollowUp,
 // If enabled, shows a user-actionable error when the bookmarks count limit is
 // exceeded.
 BASE_FEATURE(kSyncShowBookmarksLimitExceededError,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSyncResetBookmarksInitialMergeLimitExceededError,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncEnableContactInfoDataTypeForCustomPassphraseUsers,
@@ -142,7 +142,6 @@ bool IsReadingListAccountStorageEnabled() {
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kMigrateAccountPrefs, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 
 // Enabled by default, intended as a kill switch.
@@ -206,12 +205,16 @@ BASE_FEATURE_PARAM(int,
                    1);
 
 BASE_FEATURE(kSyncDeviceInfoUseWallClockTimer,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncValidateAccessToken, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncInvalidationsBypassScheduler,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kSyncSearchEnginesAndroidLFF, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS)
 BASE_FEATURE(kEstimateNewSignInUsersWithFinchAvailablePopulation,

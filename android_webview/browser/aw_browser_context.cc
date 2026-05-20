@@ -25,10 +25,12 @@
 #include "android_webview/browser/aw_permission_manager.h"
 #include "android_webview/browser/aw_quota_manager_bridge.h"
 #include "android_webview/browser/aw_web_ui_controller_factory.h"
+#include "android_webview/browser/content_restriction/aw_content_restriction_blocked_navigation_tracker.h"
 #include "android_webview/browser/content_restriction/aw_content_restriction_manager_client.h"
 #include "android_webview/browser/cookie_manager.h"
 #include "android_webview/browser/metrics/aw_metrics_service_client.h"
 #include "android_webview/browser/network_service/net_helpers.h"
+#include "android_webview/browser/prefetch/aw_prefetch_prefs.h"
 #include "android_webview/browser/prefetch/aw_preloading_utils.h"
 #include "android_webview/browser/safe_browsing/aw_safe_browsing_allowlist_manager.h"
 #include "android_webview/common/aw_features.h"
@@ -240,6 +242,8 @@ AwBrowserContext::AwBrowserContext(std::string name,
 
   content_restriction_manager_client_ =
       std::make_unique<AwContentRestrictionManagerClient>();
+  content_restriction_blocked_navigation_tracker_ =
+      std::make_unique<AwContentRestrictionBlockedNavigationTracker>();
 }
 
 AwBrowserContext::~AwBrowserContext() {
@@ -275,6 +279,16 @@ base::FilePath AwBrowserContext::GetCookieStorePath() {
 // static
 void AwBrowserContext::RegisterPrefs(PrefRegistrySimple* registry) {
   safe_browsing::RegisterProfilePrefs(registry);
+
+  // Register to persist the latest prefetch info, ensuring `AwPrefetchManager`
+  // can initialize `PrePrefetchService` with these as optimization hints for
+  // the likely initial PrePrefetch request. Initialized with empty values.
+  if (base::FeatureList::IsEnabled(
+          features::kWebViewPrefetchOffTheMainThread)) {
+    registry->RegisterStringPref(prefs::kAwPrefetchLatestOrigin, "");
+    registry->RegisterBooleanPref(prefs::kAwPrefetchLatestJavascriptEnabled,
+                                  false);
+  }
 
   // Register the Autocomplete Data Retention Policy pref.
   // The default value '0' represents the latest Chrome major version on which
@@ -314,6 +328,15 @@ void AwBrowserContext::CreateUserPrefService() {
   persistent_prefs.insert(cdm::prefs::kMediaDrmStorage);
   // Persisted to ensure client hints can be sent on next page load.
   persistent_prefs.insert(prefs::kClientHintsCachedPerOriginMap);
+
+  // Register to persist the latest prefetch info, ensuring `AwPrefetchManager`
+  // can initialize `PrePrefetchService` with these as optimization hints for
+  // the likely initial PrePrefetch request.
+  if (base::FeatureList::IsEnabled(
+          features::kWebViewPrefetchOffTheMainThread)) {
+    persistent_prefs.insert(prefs::kAwPrefetchLatestOrigin);
+    persistent_prefs.insert(prefs::kAwPrefetchLatestJavascriptEnabled);
+  }
 
   pref_service_factory.set_user_prefs(base::MakeRefCounted<SegregatedPrefStore>(
       base::MakeRefCounted<InMemoryPrefStore>(),
@@ -387,6 +410,12 @@ AwContentRestrictionManagerClient*
 AwBrowserContext::GetContentRestrictionManagerClient() {
   DCHECK(content_restriction_manager_client_);
   return content_restriction_manager_client_.get();
+}
+
+AwContentRestrictionBlockedNavigationTracker*
+AwBrowserContext::GetContentRestrictionBlockedNavigationTracker() {
+  DCHECK(content_restriction_blocked_navigation_tracker_);
+  return content_restriction_blocked_navigation_tracker_.get();
 }
 
 CookieManager* AwBrowserContext::GetCookieManager() {
@@ -573,6 +602,11 @@ void AwBrowserContext::ConfigureNetworkContextParams(
   context_params->file_paths = network::mojom::NetworkContextFilePaths::New();
   // Adding HTTP cache dir here
   context_params->file_paths->http_cache_directory = GetHttpCachePath();
+  if (base::FeatureList::IsEnabled(
+          features::kWebViewPersistHttpServerProperties)) {
+    context_params->file_paths->http_server_properties_file_name =
+        base::FilePath(FILE_PATH_LITERAL("Network Persistent State"));
+  }
   base::FilePath cookie_path = AwBrowserContext::GetCookieStorePath();
   context_params->file_paths->data_directory = cookie_path.DirName();
   context_params->file_paths->cookie_database_name = cookie_path.BaseName();

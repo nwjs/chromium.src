@@ -29,7 +29,8 @@ enum class FuseboxAttachmentButtonType {
   kGallery = 3,
   kFiles = 4,
   kClipboard = 5,
-  kMaxValue = kClipboard
+  kSuggestedTab = 6,
+  kMaxValue = kSuggestedTab
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:FuseboxAttachmentButtonType)
 
@@ -62,7 +63,8 @@ enum class ComposeboxDragAndDropType {
   kTab = 2,
   kPDF = 3,
   kUnknown = 4,
-  kMaxValue = kUnknown,
+  kRawFile = 5,
+  kMaxValue = kRawFile,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:ComposeboxDragAndDropType)
 

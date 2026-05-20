@@ -68,6 +68,7 @@
 #if BUILDFLAG(ENABLE_PDF_INK2)
 #include "pdf/pdf_ink_ids.h"
 #include "pdf/pdf_ink_metrics_handler.h"
+#include "pdf/pdf_ink_text.h"
 #include "third_party/ink/src/ink/geometry/partitioned_mesh.h"
 #include "ui/gfx/geometry/transform.h"
 #endif
@@ -400,6 +401,21 @@ class PDFiumEngine : public DocumentLoader::Client,
                                 float device_pixel_ratio,
                                 SendThumbnailCallback send_callback);
 #if BUILDFLAG(ENABLE_PDF_INK2)
+  // See method of the same name in PdfInkModuleClient. Virtual to support
+  // testing.
+  virtual void AddFont(FontId font_id,
+                       base::span<const uint8_t> serialized_typeface);
+  // Returns a font that was previously loaded with AddFont().
+  FPDF_FONT GetAddedFont(FontId font_id);
+
+  // See method of the same name in PdfInkModuleClient. Virtual to support
+  // testing.
+  virtual void DrawText(int page_index,
+                        InkTextId id,
+                        base::span<const InkTextInfo> text_info,
+                        double pdf_zoom,
+                        const InkTextBoxAttributes& attributes);
+
   // Virtual to support testing.
   virtual gfx::Size GetThumbnailSize(int page_index, float device_pixel_ratio);
 
@@ -493,8 +509,8 @@ class PDFiumEngine : public DocumentLoader::Client,
   }
 
   const std::map<int, PDFiumPage::ScopedUnloadPreventer>&
-  stroked_pages_unload_preventers_for_testing() const {
-    return stroked_pages_unload_preventers_;
+  edited_pages_unload_preventers_for_testing() const {
+    return edited_pages_unload_preventers_;
   }
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
@@ -1290,9 +1306,9 @@ class PDFiumEngine : public DocumentLoader::Client,
 
    private:
     uint32_t page_index_;
-    gfx::Rect rect_;            // In screen coordinates.
-    SkBitmap image_data_;       // Maintains reference while |bitmap_| exists.
-    ScopedFPDFBitmap bitmap_;   // Must come after |image_data_|.
+    gfx::Rect rect_;           // In screen coordinates.
+    SkBitmap image_data_;      // Maintains reference while |bitmap_| exists.
+    ScopedFPDFBitmap bitmap_;  // Must come after |image_data_|.
     // Temporary used to figure out if in a series of Paint() calls whether this
     // pending paint was updated or not.
     bool painted_ = false;
@@ -1368,7 +1384,7 @@ class PDFiumEngine : public DocumentLoader::Client,
   // unload preventers ensure those page handles stay valid by keeping the page
   // in memory.  Use one unload preventer per page for simplicity.
   std::map<int, PDFiumPage::ScopedUnloadPreventer>
-      stroked_pages_unload_preventers_;
+      edited_pages_unload_preventers_;
 
   struct InkStrokeData {
     InkStrokeData(int page_index, std::vector<FPDF_PAGEOBJECT> page_objects);
@@ -1379,7 +1395,7 @@ class PDFiumEngine : public DocumentLoader::Client,
     int page_index;
 
     // The handles for stroke path page objects within the PDF document.
-    // `stroked_pages_unload_preventers_` protects these handles from going
+    // `edited_pages_unload_preventers_` protects these handles from going
     // stale.
     std::vector<FPDF_PAGEOBJECT> page_objects;
   };
@@ -1405,6 +1421,14 @@ class PDFiumEngine : public DocumentLoader::Client,
   // Key: ID to identify a shape.
   // Value: The PDFium page object associated with the shape.
   std::map<InkModeledShapeId, FPDF_PAGEOBJECT> ink_modeled_shape_map_;
+
+  // Key: ID to identify the font.
+  // Value: The associated PDFium font objects.
+  std::map<FontId, ScopedFPDFFont> font_map_;
+
+  // The next available ID for a textbox for writing into the PDF.
+  // TODO(crbug.com/408926609): Implement ID collision avoidance.
+  int next_textbox_id_ = 0;
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
   base::WeakPtrFactory<PDFiumEngine> weak_factory_{this};

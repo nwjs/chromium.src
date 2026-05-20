@@ -28,7 +28,7 @@
 #include "third_party/blink/public/common/shared_storage/shared_storage_utils.h"
 #include "third_party/blink/public/mojom/css/preferred_color_scheme.mojom.h"
 #include "third_party/blink/public/mojom/favicon/favicon_url.mojom.h"
-#include "third_party/blink/public/mojom/frame/text_autosizer_page_info.mojom.h"
+#include "third_party/blink/public/mojom/media/capture_handle_config.mojom.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/ime/mojom/virtual_keyboard_types.mojom.h"
 #include "url/gurl.h"
@@ -92,6 +92,13 @@ class CONTENT_EXPORT PageImpl : public Page {
     is_on_load_completed_in_main_document_ = completed;
   }
 
+  bool has_recorded_partitioned_cookie_use() const {
+    return has_recorded_partitioned_cookie_use_;
+  }
+  void set_has_recorded_partitioned_cookie_use(bool recorded) {
+    has_recorded_partitioned_cookie_use_ = recorded;
+  }
+
   std::optional<base::TimeDelta> GetFirstContentfulPaintInMainDocumentDuration()
       const {
     return first_contentful_paint_in_main_document_duration_;
@@ -125,6 +132,10 @@ class CONTENT_EXPORT PageImpl : public Page {
     favicon_urls_ = std::move(favicon_urls);
   }
 
+  const blink::mojom::CaptureHandleConfig& GetCaptureHandleConfig() override;
+  void SetCaptureHandleConfig(
+      blink::mojom::CaptureHandleConfigPtr config) override;
+
   void OnThemeColorChanged(const std::optional<SkColor>& theme_color);
 
   void DidChangeBackgroundColor(SkColor4f background_color, bool color_adjust);
@@ -148,13 +159,6 @@ class CONTENT_EXPORT PageImpl : public Page {
   }
 
   void SetContentsMimeType(std::string mime_type);
-
-  void OnTextAutosizerPageInfoChanged(
-      blink::mojom::TextAutosizerPageInfoPtr page_info);
-
-  blink::mojom::TextAutosizerPageInfo text_autosizer_page_info() const {
-    return text_autosizer_page_info_;
-  }
 
   FencedFrameURLMapping& fenced_frame_urls_map() {
     return fenced_frame_urls_map_;
@@ -231,7 +235,8 @@ class CONTENT_EXPORT PageImpl : public Page {
 
   // Retrieves the index from `select_url_saved_query_index_results_` for the
   // given key, or a special value indicating the status of the query. The key
-  // is a tuple of (`origin`, `script_url`, `operation_name`, `query_name`).
+  // is a tuple of (`context_origin`, `data_origin`, `script_url`,
+  // `operation_name`, `query_name`).
   //
   // - New Query: If no entry exists for the key, initializes a new entry with
   //   an index of -1 (indicating pending) and returns -2.
@@ -240,21 +245,23 @@ class CONTENT_EXPORT PageImpl : public Page {
   // - Completed Query: If an entry exists and the index is nonnegative, returns
   //   the index.
   int32_t GetSavedQueryResultIndexOrStoreCallback(
-      const url::Origin& origin,
+      const url::Origin& context_origin,
+      const url::Origin& data_origin,
       const GURL& script_url,
       const std::string& operation_name,
       const std::u16string& query_name,
       base::OnceCallback<void(uint32_t)> callback);
 
   // Updates `select_url_saved_query_index_results_` for the given key as
-  // follows. The key is a tuple of (`origin`, `script_url`, `operation_name`,
-  // `query_name`).
+  // follows. The key is a tuple of (`context_origin`, `data_origin`,
+  // `script_url`, `operation_name`, `query_name`).
   //  - The index is of the entry is set to `index`.
   //  - If the entry has any callbacks, runs them in order.
   //
   // Precondition: The entry exists and its index has value -1.
   void SetSavedQueryResultIndexAndRunCallbacks(
-      const url::Origin& origin,
+      const url::Origin& context_origin,
+      const url::Origin& data_origin,
       const GURL& script_url,
       const std::string& operation_name,
       const std::u16string& query_name,
@@ -312,6 +319,10 @@ class CONTENT_EXPORT PageImpl : public Page {
   // run for the main document.
   bool is_on_load_completed_in_main_document_ = false;
 
+  // True if we have already recorded the PartitionedCookiePresent UKM event
+  // for this page.
+  bool has_recorded_partitioned_cookie_use_ = false;
+
   // Time taken for first contentful paint to occur.
   std::optional<base::TimeDelta>
       first_contentful_paint_in_main_document_duration_;
@@ -344,6 +355,10 @@ class CONTENT_EXPORT PageImpl : public Page {
   // Candidate favicon URLs. Each page may have a collection and will be
   // displayed when active (i.e., upon activation for prerendering).
   std::vector<blink::mojom::FaviconURLPtr> favicon_urls_;
+
+  // The capture handle configuration for this page. This allows the app in this
+  // page to opt-in to exposing information to apps that capture it.
+  blink::mojom::CaptureHandleConfig capture_handle_config_;
 
   // Whether the first visually non-empty paint has occurred.
   bool did_first_visually_non_empty_paint_ = false;
@@ -397,10 +412,12 @@ class CONTENT_EXPORT PageImpl : public Page {
   // `blink::features::kSharedStorageSelectURLLimit` is enabled.
   base::flat_map<net::SchemefulSite, double> select_url_per_site_budget_;
 
-  // A map of tuples (origin, worklet script URL, operation name, query name) to
-  // the index returned for the corresponding `sharedStorage.selectURL()` query.
-  base::flat_map<std::tuple<url::Origin, GURL, std::string, std::u16string>,
-                 SharedStorageSavedQueryData>
+  // A map of tuples (context origin, data origin, worklet script URL, operation
+  // name, query name) to the index returned for the corresponding
+  // `sharedStorage.selectURL()` query.
+  base::flat_map<
+      std::tuple<url::Origin, url::Origin, GURL, std::string, std::u16string>,
+      SharedStorageSavedQueryData>
       select_url_saved_query_index_results_;
 
   // This class is owned by the main RenderFrameHostImpl and it's safe to keep a
@@ -415,10 +432,6 @@ class CONTENT_EXPORT PageImpl : public Page {
   // This page is owned by the RenderFrameHostImpl, which in turn does not
   // outlive the delegate (the contents).
   const raw_ref<PageDelegate> delegate_;
-
-  // Stores information from the main frame's renderer that needs to be shared
-  // with OOPIF renderers.
-  blink::mojom::TextAutosizerPageInfo text_autosizer_page_info_;
 
   // Prerender2: The start time of the activation navigation for prerendering,
   // which is passed to the renderer process, and will be accessible in the

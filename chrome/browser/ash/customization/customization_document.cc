@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "ash/constants/ash_paths.h"
+#include "ash/constants/ash_pref_names.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -19,6 +20,7 @@
 #include "base/json/json_reader.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/singleton.h"
 #include "base/memory/weak_ptr.h"
 #include "base/path_service.h"
 #include "base/strings/pattern.h"
@@ -40,7 +42,6 @@
 #include "chrome/browser/extensions/external_loader.h"
 #include "chrome/browser/extensions/external_provider_impl.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/common/pref_names.h"
 #include "chromeos/ash/components/system/statistics_provider.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -493,7 +494,7 @@ ServicesCustomizationDocument* ServicesCustomizationDocument::GetInstance() {
 void ServicesCustomizationDocument::RegisterPrefs(
     PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(kServicesCustomizationAppliedPref, false);
-  registry->RegisterStringPref(prefs::kCustomizationDefaultWallpaperURL,
+  registry->RegisterStringPref(ash::prefs::kCustomizationDefaultWallpaperURL,
                                std::string());
 }
 
@@ -878,7 +879,7 @@ void ServicesCustomizationDocument::CheckAndApplyWallpaper() {
   if (!GetDefaultWallpaperUrl(&wallpaper_url)) {
     PrefService* pref_service = g_browser_process->local_state();
     std::string current_url =
-        pref_service->GetString(prefs::kCustomizationDefaultWallpaperURL);
+        pref_service->GetString(ash::prefs::kCustomizationDefaultWallpaperURL);
     if (!current_url.empty()) {
       VLOG(1) << "ServicesCustomizationDocument::CheckAndApplyWallpaper() : "
               << "No wallpaper URL attribute in customization document, "
@@ -932,7 +933,7 @@ void ServicesCustomizationDocument::ApplyWallpaper(
   PrefService* pref_service = g_browser_process->local_state();
 
   std::string current_url =
-      pref_service->GetString(prefs::kCustomizationDefaultWallpaperURL);
+      pref_service->GetString(ash::prefs::kCustomizationDefaultWallpaperURL);
   if (current_url != wallpaper_url.spec()) {
     if (wallpaper_url_present) {
       VLOG(1) << "ServicesCustomizationDocument::ApplyWallpaper() : "

@@ -15,11 +15,13 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/typed_macros.h"
+#include "base/tracing/protos/chrome_track_event.pbzero.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_variant.h"
 #include "base/win/windows_version.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_role_properties.h"
+#include "ui/accessibility/platform/assistive_tech.h"
 #include "ui/accessibility/platform/ax_fragment_root_win.h"
 #include "ui/accessibility/platform/ax_platform.h"
 #include "ui/accessibility/platform/ax_platform_node_delegate_utils_win.h"
@@ -55,6 +57,12 @@ BrowserAccessibility* GetUiaTextPatternProvider(BrowserAccessibility& node) {
 
   return nullptr;
 }
+
+// Used by the JAWS kSelection workaround (see kWindowActivated handling in
+// FireSourceEvent). Must match View::GetClassName() of `BrowserRootView` and
+// `Tab`.
+constexpr char kBrowserRootViewClassName[] = "BrowserRootView";
+constexpr char kTabClassName[] = "Tab";
 
 }  // namespace
 
@@ -297,9 +305,13 @@ void BrowserAccessibilityManagerWin::FireSourceEvent(
       FireUiaPropertyChangedEvent(UIA_ControllerForPropertyId, node);
       break;
     case ax::mojom::Event::kEndOfTest:
-      // Event tests use kEndOfTest as a sentinel to mark the end of the test.
-      FireUiaAccessibilityEvent(
-          UiaRegistrarWin::GetInstance().GetTestCompleteEventId(), node);
+      // Defer the TestComplete UIA event to FinalizeAccessibilityEvents so it
+      // fires after all other finalized UIA events (e.g. Text_TextChanged).
+      // Source events fire before FinalizeAccessibilityEvents, so firing
+      // TestComplete here would cause the UIA event recorder to shut down
+      // before receiving events that are enqueued during generated-event
+      // processing and only raised during finalization.
+      end_of_test_node_ = node;
       break;
     case ax::mojom::Event::kLoadComplete:
       FireWinAccessibilityEvent(IA2_EVENT_DOCUMENT_LOAD_COMPLETE, node);
@@ -327,6 +339,29 @@ void BrowserAccessibilityManagerWin::FireSourceEvent(
       // SUBTREE_CREATED already fires EVENT_OBJECT_SHOW for the new tooltip
       // node, so only fire the UIA-specific tooltip event here.
       FireUiaAccessibilityEvent(UIA_ToolTipOpenedEventId, node);
+      break;
+    case ax::mojom::Event::kWindowActivated:
+      // JAWS uses kSelection events to track which tab is active. This is
+      // an imperfect approach to enable per-tab settings (e.g. virtual
+      // cursor): switching tabs within a window fires kSelection naturally,
+      // but Alt+Tabbing between windows does not, so the correct state is
+      // not restored. Re-fire the event on the last selected tab when the
+      // browser window is activated to bridge that gap. Only applies to
+      // BrowserRootView (not dialogs/popups).
+      // TODO(crbug.com/505781387): Collaborating with the JAWS team on a
+      // more robust signal; remove once adopted.
+      if (node == GetBrowserAccessibilityRoot() &&
+          AXPlatform::GetInstance().active_assistive_tech() ==
+              AssistiveTech::kJaws) {
+        const std::string& root_class = node->GetData().GetStringAttribute(
+            ax::mojom::StringAttribute::kClassName);
+        if (root_class == kBrowserRootViewClassName) {
+          BrowserAccessibility* tab = GetFromID(last_selected_tab_id_);
+          if (tab) {
+            FireWinAccessibilityEvent(EVENT_OBJECT_SELECTION, tab);
+          }
+        }
+      }
       break;
     default:
       break;
@@ -603,6 +638,22 @@ void BrowserAccessibilityManagerWin::FireGeneratedEvent(
       HandleSelectedStateChanged(uia_selection_events_, wrapper,
                                  IsUIANodeSelected(wrapper));
       HandleAriaPropertiesChangedEvent(*wrapper);
+
+      // Cache the last selected tab for the JAWS workaround. See
+      // kWindowActivated handling in FireSourceEvent for details.
+      if (wrapper->GetData().GetStringAttribute(
+              ax::mojom::StringAttribute::kClassName) == kTabClassName &&
+          wrapper->GetData().GetBoolAttribute(
+              ax::mojom::BoolAttribute::kSelected)) {
+        BrowserAccessibility* root = GetBrowserAccessibilityRoot();
+        const std::string& root_class =
+            root ? root->GetData().GetStringAttribute(
+                       ax::mojom::StringAttribute::kClassName)
+                 : "";
+        if (root_class == kBrowserRootViewClassName) {
+          last_selected_tab_id_ = node->id();
+        }
+      }
       break;
     case AXEventGenerator::Event::SELECTED_CHILDREN_CHANGED:
       FireWinAccessibilityEvent(EVENT_OBJECT_SELECTIONWITHIN, wrapper);
@@ -630,6 +681,12 @@ void BrowserAccessibilityManagerWin::FireGeneratedEvent(
     case AXEventGenerator::Event::TEXT_ATTRIBUTE_CHANGED:
       FireWinAccessibilityEvent(IA2_EVENT_TEXT_ATTRIBUTE_CHANGED, wrapper);
       break;
+    case AXEventGenerator::Event::TEXT_SELECTION_CHANGED:
+      if (delegate() && !delegate()->AccessibilityIsWebContentSource()) {
+        FireWinAccessibilityEvent(IA2_EVENT_TEXT_CARET_MOVED, wrapper);
+        EnqueueSelectionChangedEvent(*wrapper);
+      }
+      break;
     case AXEventGenerator::Event::SPELLING_MARKER_CHANGED:
       FireUiaChangesEvent(wrapper, AnnotationType_SpellingError);
       break;
@@ -640,6 +697,8 @@ void BrowserAccessibilityManagerWin::FireGeneratedEvent(
       FireUiaChangesEvent(wrapper, AnnotationType_Highlighted);
       break;
     case AXEventGenerator::Event::VALUE_IN_TEXT_FIELD_CHANGED:
+    case AXEventGenerator::Event::VALUE_IN_SPIN_BUTTON_DECREMENTED:
+    case AXEventGenerator::Event::VALUE_IN_SPIN_BUTTON_INCREMENTED:
       DCHECK(wrapper->IsTextField());
       FireWinAccessibilityEvent(EVENT_OBJECT_VALUECHANGE, wrapper);
       FireUiaPropertyChangedEvent(UIA_ValueValuePropertyId, wrapper);
@@ -669,7 +728,6 @@ void BrowserAccessibilityManagerWin::FireGeneratedEvent(
     case AXEventGenerator::Event::RELATED_NODE_CHANGED:
     case AXEventGenerator::Event::ROW_COUNT_CHANGED:
     case AXEventGenerator::Event::STATE_CHANGED:
-    case AXEventGenerator::Event::TEXT_SELECTION_CHANGED:
       break;
   }
 }
@@ -709,9 +767,14 @@ void BrowserAccessibilityManagerWin::FireWinAccessibilityEvent(
   // on the HWND's accessibility object and pass it that same id, which
   // we can use to retrieve the IAccessible for this node.
   auto* const com = ToBrowserAccessibilityWin(node)->GetCOM();
-  TRACE_EVENT("accessibility", "NotifyWinEvent",
-              perfetto::Flow::FromPointer(com), "win_event_type",
-              base::StringPrintf("0x%04lX", win_event_type));
+  TRACE_EVENT(
+      "accessibility", "NotifyWinEvent", perfetto::Flow::FromPointer(com),
+      [&](perfetto::EventContext ctx) {
+        auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
+        auto* accessibility_event =
+            event->set_chrome_accessibility_win_notify_win_event();
+        accessibility_event->set_native_event(win_event_type);
+      });
   ::NotifyWinEvent(win_event_type, hwnd, OBJID_CLIENT, -(com->GetUniqueId()));
 }
 
@@ -1263,6 +1326,16 @@ void BrowserAccessibilityManagerWin::FinalizeAccessibilityEvents() {
           base::Unretained(this)));
 
   ignored_changed_nodes_.clear();
+
+  // Fire the TestComplete sentinel last, after all other finalized events.
+  // This ensures the UIA event recorder receives every platform event before
+  // shutting down.
+  if (end_of_test_node_) {
+    FireUiaAccessibilityEvent(
+        UiaRegistrarWin::GetInstance().GetTestCompleteEventId(),
+        end_of_test_node_);
+    end_of_test_node_ = nullptr;
+  }
 }
 
 BrowserAccessibilityManagerWin::SelectionEvents::SelectionEvents() = default;

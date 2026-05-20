@@ -93,9 +93,12 @@
 #
 #     configs_to_remove / configs_to_add: A list of GN config labels.
 #
-#     visibility: A list of targets that the crate should be visible to.
-#
 #     extra_deps: A list of dependencies to be added to the crate.
+#
+#     override_crate_type_as_dylib_in_component_builds: If true, then the
+#       crate will be built as `--crate-type=dylib` if `is_component_build`.
+#
+#     visibility: A list of targets that the crate should be visible to.
 #
 # Additional, less commonly needed options can also be discovered by reading
 # the doc comments in `//tools/crates/gnrt/lib/config.rs` (e.g. `CrateConfig`'s
@@ -207,6 +210,10 @@ allow_unsafe = false
 [crate.cfg-if.extra_kv]
 allow_unsafe = false
 
+[crate.cfg_aliases]
+allow_first_party_usage = false
+extra_kv = { allow_unsafe = false }
+
 [crate.chrono]
 extra_kv = { allow_unsafe = true }
 
@@ -226,6 +233,20 @@ allow_unsafe = true
 
 [crate.codespan-reporting.extra_kv]
 allow_unsafe = false
+
+[crate.const_format]
+group = 'test'
+allow_first_party_usage = false
+extra_kv = { allow_unsafe = true }
+
+[crate.const_format_proc_macros]
+allow_first_party_usage = false
+extra_kv = { allow_unsafe = false }
+
+[crate.const_panic]
+group = 'test'
+allow_first_party_usage = false
+extra_kv = { allow_unsafe = true }
 
 [crate.core-foundation-sys]
 extra_kv = { allow_unsafe = true }
@@ -278,6 +299,11 @@ allow_unsafe = true
 [crate.equivalent.extra_kv]
 allow_unsafe = false
 
+[crate.erased-serde]
+group = 'test'
+allow_first_party_usage = false
+extra_kv = { allow_unsafe = true }
+
 [crate.fdeflate.extra_kv]
 allow_unsafe = false
 # Web tests (aka WPT tests, also formerly known as Layout Tests) require fast
@@ -313,9 +339,21 @@ allow_unsafe = true
 [crate.font-types.extra_kv]
 allow_unsafe = true
 
-[crate.getrandom]
+[crate.fs2]
+group = 'test'
 allow_first_party_usage = false
+remove_deps = ['winapi']
 extra_kv = { allow_unsafe = true }
+
+[crate.getrandom]
+group = 'test'
+allow_first_party_usage = false
+
+# TODO: Remove multiple versions of the `getrandom` crate:
+# getrandom@0.3.4, getrandom@0.4.1
+[crate.getrandom.extra_kv]
+allow_unsafe = true
+multiversion_cleanup_bug = "https://crbug.com/493648964"
 
 [crate.gimli]
 allow_first_party_usage = false
@@ -348,6 +386,11 @@ visibility = [
   # `//third_party/boringssl` for its SHA-256 imlementation).
   '//build/rust/chromium_prelude:*',
 ]
+
+[crate.hostname]
+group = 'test'
+allow_first_party_usage = false
+extra_kv = { allow_unsafe = true }
 
 [crate.iana-time-zone]
 extra_kv = { allow_unsafe = true }
@@ -478,6 +521,12 @@ allow_unsafe = true
 configs_to_remove = ['//build/config/compiler:default_optimization']
 configs_to_add = ['//build/config/compiler:optimize']
 
+[crate.konst]
+extra_kv = { allow_unsafe = true }
+
+[crate.konst_macro_rules]
+extra_kv = { allow_unsafe = true }
+
 [crate.lazy_static.extra_kv]
 allow_unsafe = true
 
@@ -497,8 +546,9 @@ extra_kv = { allow_unsafe = true }
 [crate.litemap.extra_kv]
 allow_unsafe = false
 
-[crate.llguidance.extra_kv]
-allow_unsafe = true
+[crate.llguidance]
+extra_kv = { allow_unsafe = true }
+remove_build_rs = true  # See https://crbug.com/502997368
 
 [crate.lock_api]
 extra_kv = { allow_unsafe = true }
@@ -529,8 +579,16 @@ extra_kv = { allow_unsafe = true }
 [crate.murmur3]
 extra_kv = { allow_unsafe = false }
 
+[crate.nix]
+group = 'test'
+allow_first_party_usage = false
+extra_kv = { allow_unsafe = true }
+
 [crate.num-bigint.extra_kv]
 allow_unsafe = true
+
+[crate.num-complex]
+extra_kv = { allow_unsafe = true }
 
 [crate.num-derive]
 extra_kv = { allow_unsafe = false }
@@ -546,19 +604,22 @@ allow_unsafe = false
 remove_build_rs = true
 extra_kv = { allow_unsafe = true }
 
+[crate.num_enum]
+group = 'test'
+allow_first_party_usage = false
+extra_kv = { allow_unsafe = false }
+
+[crate.num_enum_derive]
+allow_first_party_usage = false
+extra_kv = { allow_unsafe = false }
+remove_deps = ["proc-macro-crate"] #num_enum_derive is vendored with a copy of proc-macro-crate, which is optional and not needed
+
 [crate.object]
 allow_first_party_usage = false
 extra_kv = { allow_unsafe = true }
 
 [crate.once_cell]
 extra_kv = { allow_unsafe = true }
-
-[crate.opusic-sys]
-extra_kv = { allow_unsafe = true, extra_deps = ["//third_party/opus:opus"] }
-remove_build_rs = true
-# Opusic-sys is vendored with a copy of libopus, which we don't need.
-remove_vendored_files = ["opus", "opus.patch", "build.rs"]
-ban_features = ["bundled"]
 
 [crate.ordered-float]
 extra_kv = { allow_unsafe = true }
@@ -579,6 +640,9 @@ configs_to_add = ['//build/config/compiler:optimize']
 
 [crate.potential_utf.extra_kv]
 allow_unsafe = true
+
+[crate.primal-check]
+extra_kv = { allow_unsafe = false }
 
 [crate.proc-macro-error-attr2]
 extra_kv = { allow_unsafe = false }
@@ -608,7 +672,7 @@ allow_unsafe = false
 allow_unsafe = false
 
 [crate.read-fonts]
-extra_src_roots = ['../generated']
+extra_src_roots = ['../generated', '../data/generated']
 extra_kv = { allow_unsafe = false }
 
 [crate.regex-automata.extra_kv]
@@ -626,6 +690,9 @@ allow_unsafe = false
 [crate.rustc-demangle-capi]
 extra_kv = { allow_unsafe = true }
 shipped = false
+
+[crate.rustfft]
+extra_kv = { allow_unsafe = true }
 
 [crate.rustversion]
 build_script_outputs = [ "version.expr" ]
@@ -657,6 +724,7 @@ allow_unsafe = true
 
 [crate.simd-adler32.extra_kv]
 allow_unsafe = true
+allow_unstable_features = ["stdarch_arm_neon_intrinsics"]
 
 [crate.skrifa]
 extra_src_roots = ['../generated']
@@ -679,6 +747,9 @@ allow_unsafe = false
 [crate.strck.extra_kv]
 allow_unsafe = true
 
+[crate.strength_reduce]
+extra_kv = { allow_unsafe = false }
+
 [crate.strsim.extra_kv]
 allow_unsafe = false
 
@@ -695,10 +766,6 @@ allow_unsafe = false
 
 [crate.symphonia.extra_kv]
 allow_unsafe = false
-
-[crate.symphonia-adapter-libopus]
-extra_input_roots = ['../README.md']
-extra_kv = { allow_unsafe = true }
 
 [crate.symphonia-bundle-flac.extra_kv]
 allow_unsafe = false
@@ -752,6 +819,9 @@ allow_unsafe = true
 [crate.toktrie.extra_kv]
 allow_unsafe = true
 
+[crate.transpose]
+extra_kv = { allow_unsafe = true }
+
 [crate.typed-arena]
 extra_kv = { allow_unsafe = true }
 
@@ -759,11 +829,23 @@ extra_kv = { allow_unsafe = true }
 extra_input_roots = ['../README.md']
 extra_kv = { allow_unsafe = true }
 
+[crate.typeid]
+allow_first_party_usage = false
+extra_kv = { allow_unsafe = true }
+
+[crate.typewit]
+allow_first_party_usage = false
+extra_kv = { allow_unsafe = true }
+
 [crate.unicode-ident.extra_kv]
 allow_unsafe = true
 
 [crate.unicode-width.extra_kv]
 allow_unsafe = false
+
+[crate.unicode-xid]
+allow_first_party_usage = false
+extra_kv = { allow_unsafe = false }
 
 [crate.unty]
 allow_first_party_usage = false
@@ -844,8 +926,9 @@ allow_unsafe = true
 [crate.zerovec-derive.extra_kv]
 allow_unsafe = false
 
-[crate.zip.extra_kv]
-allow_unsafe = true
+[crate.zip]
+extra_input_roots = ['../README.md']
+extra_kv = { allow_unsafe = true }
 
 [crate.zmij]
 extra_kv = { allow_unsafe = true }

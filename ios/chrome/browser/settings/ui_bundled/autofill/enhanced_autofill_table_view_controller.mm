@@ -8,10 +8,13 @@
 #import "base/check.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
+#import "components/prefs/pref_service.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/autofill/model/autofill_ai_util.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_settings_constants.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_switch_item.h"
@@ -98,8 +101,12 @@ UIImage* GetBrandedGoogleServicesSymbol() {
       forSectionWithIdentifier:SectionIdentifierThingsToConsider];
   [model addItem:[self dataUsageItem]
       toSectionWithIdentifier:SectionIdentifierThingsToConsider];
-  [model addItem:[self storedOnDeviceItem]
-      toSectionWithIdentifier:SectionIdentifierThingsToConsider];
+
+  PrefService* prefs = _browser->GetProfile()->GetPrefs();
+  if (!autofill::IsAutofillAiAllowedByEnterprisePolicy(prefs)) {
+    [model addItem:[self enterpriseManagedLoggingDisabledItem]
+        toSectionWithIdentifier:SectionIdentifierThingsToConsider];
+  }
 }
 
 #pragma mark - SettingsControllerProtocol
@@ -148,6 +155,14 @@ UIImage* GetBrandedGoogleServicesSymbol() {
                                          kSettingsRootSymbolImagePointSize)];
 }
 
+- (TableViewDetailIconItem*)enterpriseManagedLoggingDisabledItem {
+  return [self detailItemWithTitleId:
+                   IDS_SETTINGS_AUTOFILL_AI_ENTERPRISE_LOGGING_MANAGED_DISABLED
+                           iconImage:CustomSymbolWithPointSize(
+                                         kEnterpriseSymbol,
+                                         kSettingsRootSymbolImagePointSize)];
+}
+
 - (TableViewHeaderFooterItem*)thingsToConsiderSectionHeader {
   TableViewTextHeaderFooterItem* header =
       [[TableViewTextHeaderFooterItem alloc] initWithType:ItemTypeHeader];
@@ -161,14 +176,6 @@ UIImage* GetBrandedGoogleServicesSymbol() {
       detailItemWithTitleId:IDS_SETTINGS_AUTOFILL_AI_TO_CONSIDER_DATA_USAGE
                   iconImage:MakeSymbolMonochrome(
                                 GetBrandedGoogleServicesSymbol())];
-}
-
-- (TableViewDetailIconItem*)storedOnDeviceItem {
-  return [self
-      detailItemWithTitleId:IDS_IOS_SETTINGS_ENHANCED_AUTOFILL_SAVED_INFORMATION
-                  iconImage:CustomSymbolWithPointSize(
-                                kRecentTabsSymbol,
-                                kSettingsRootSymbolImagePointSize)];
 }
 
 - (TableViewDetailIconItem*)detailItemWithTitleId:(NSInteger)titleId

@@ -12,6 +12,7 @@
 #include <string_view>
 #include <vector>
 
+#include "base/check.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
@@ -29,8 +30,6 @@
 
 #if !BUILDFLAG(IS_MAC)
 #include "ui/gl/gl_fence_egl.h"
-#include "base/check_op.h"
-#include "base/check.h"
 #endif
 
 namespace gpu::gles2 {
@@ -1515,29 +1514,9 @@ void FeatureInfo::InitializeFeatures(uint32_t complete_fbo_for_workarounds) {
 
   EnableWEBGLMultiDrawIfPossible(extensions);
 
-#if BUILDFLAG(IS_MAC)
+  // Only expose BaseVertex/BaseInstance extensions on passthrough.
   if (is_passthrough_cmd_decoder_ &&
       gfx::HasExtension(extensions, "GL_ANGLE_base_vertex_base_instance")) {
-#else
-  if ((!is_passthrough_cmd_decoder_ &&
-       ((gl_version_info_->IsAtLeastGLES(3, 2) &&
-         gfx::HasExtension(extensions, "GL_EXT_base_instance")))) ||
-      gfx::HasExtension(extensions, "GL_ANGLE_base_vertex_base_instance")) {
-#endif
-    // TODO(shrekshao): change condition to the following after workaround for
-    // Mac AMD and non-native base instance support are implemented, or when
-    // angle is universally used.
-    //
-    // if ((!is_passthrough_cmd_decoder_ &&
-    //      ((gl_version_info_->IsAtLeastGLES(3, 2) ||
-    //        gfx::HasExtension(extensions,
-    //          "GL_OES_draw_elements_base_vertex_base_instance") ||
-    //        gfx::HasExtension(extensions,
-    //          "GL_EXT_draw_elements_base_vertex_base_instance")) ||
-    //       (gl_version_info_->is_desktop_core_profile &&
-    //        gl_version_info_->IsAtLeastGL(3, 2)))) ||
-    //     gfx::HasExtension(extensions, "GL_ANGLE_base_vertex_base_instance"))
-    //     {
     feature_flags_.webgl_draw_instanced_base_vertex_base_instance = true;
     AddExtensionString("GL_WEBGL_draw_instanced_base_vertex_base_instance");
     if (feature_flags_.webgl_multi_draw) {

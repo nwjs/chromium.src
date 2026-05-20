@@ -28,7 +28,7 @@ let cachedUrl = null;
 let iframeDone = null;
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-  if (request.message == 'xhr') {
+  if (request.message === 'xhr') {
     sendResponse({url: cachedUrl});
   } else {
     assertTrue(request.success);
@@ -37,21 +37,20 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 });
 
 const iframeUrl = chrome.runtime.getURL('iframe.html');
-const injectIframe =
-    `let iframe = document.createElement('iframe');\n` +
+const injectIframe = `let iframe = document.createElement('iframe');\n` +
     `iframe.src = '${iframeUrl}';\n` +
     `document.body.appendChild(iframe);\n`;
 
 let runCount = 0;
 chrome.browserAction.onClicked.addListener(function(tab) {
   runCount++;
-  if (runCount == 1) {
+  if (runCount === 1) {
     // First pass is done without granting activeTab permission, the extension
     // shouldn't have access to tab.url here.
     assertFalse(!!tab.url);
     chrome.test.succeed();
     return;
-  } else if (runCount == 3) {
+  } else if (runCount === 3) {
     // Third pass is done in a public session, and activeTab permission is
     // granted to the extension. URL should be scrubbed down to the origin
     // here (tested at the C++ side).
@@ -70,8 +69,9 @@ chrome.browserAction.onClicked.addListener(function(tab) {
 
 let navigationCount = 0;
 chrome.webNavigation.onCompleted.addListener(function(details) {
-  if (!details.url.endsWith('page.html'))
+  if (!details.url.endsWith('page.html')) {
     return;
+  }
 
   navigationCount++;
   chrome.test.sendMessage(navigationCount.toString());

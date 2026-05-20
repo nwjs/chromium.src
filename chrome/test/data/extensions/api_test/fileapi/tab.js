@@ -13,20 +13,19 @@ function successCallback(entry) {
 }
 
 function successEntryCallback(entry) {
-  fileSystem.root.getDirectory('dir', {create:false},
-      function(directory) {
-        // Do clean-up.  (Assume the tab won't be reloaded in testing.)
-        directory.removeRecursively(successCallback, errorCallback);
-      }, errorCallback);
+  fileSystem.root.getDirectory('dir', {create: false}, function(directory) {
+    // Do clean-up.  (Assume the tab won't be reloaded in testing.)
+    directory.removeRecursively(successCallback, errorCallback);
+  }, errorCallback);
 }
 
 chrome.test.runTests([function tab() {
-  console.log('Requesting a filesystem...');
+  console.info('Requesting a filesystem...');
   webkitRequestFileSystem(window.TEMPORARY, 100, function(fs) {
     fileSystem = fs;
     // See if we get the same filesystem image.
-    console.log(`DONE requesting filesystem: ${fileSystem.name}`);
-    fileSystem.root.getFile('dir/file', {create:false},
-                            successEntryCallback, errorCallback);
+    console.info(`DONE requesting filesystem: ${fileSystem.name}`);
+    fileSystem.root.getFile(
+        'dir/file', {create: false}, successEntryCallback, errorCallback);
   }, errorCallback);
 }]);

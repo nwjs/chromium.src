@@ -130,7 +130,6 @@
 #include "third_party/blink/renderer/core/layout/pagination_utils.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_root.h"
-#include "third_party/blink/renderer/core/layout/text_autosizer.h"
 #include "third_party/blink/renderer/core/layout/traced_layout_object.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/loader/frame_loader.h"
@@ -190,6 +189,7 @@
 #include "third_party/blink/renderer/platform/widget/frame_widget.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
+#include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/cursor/cursor.h"
 #include "ui/base/cursor/mojom/cursor_type.mojom-blink.h"
@@ -720,9 +720,11 @@ void LocalFrameView::PerformLayout() {
     }
   }
 
-  TRACE_EVENT_OBJECT_SNAPSHOT_WITH_ID(
-      TRACE_DISABLED_BY_DEFAULT("blink.debug.layout.trees"), "LayoutTree", this,
-      TracedLayoutObject::Create(*GetLayoutView(), false));
+  TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("blink.debug.layout.trees"),
+                      "LayoutTree:layout_snapshot",
+                      perfetto::Flow::FromPointer(this, "LocalFrameView"),
+                      "snapshot",
+                      TracedLayoutObject::Create(*GetLayoutView(), false));
 
   gfx::Size old_size(Size());
 
@@ -816,12 +818,6 @@ void LocalFrameView::PerformLayout() {
     InvalidateLayoutForViewportConstrainedObjects();
   }
 
-  if (frame_->IsMainFrame()) {
-    if (auto* text_autosizer = document->GetTextAutosizer()) {
-      if (text_autosizer->HasLayoutInlineSizeChanged())
-        text_autosizer->UpdatePageInfoInAllFrames(frame_);
-    }
-  }
 #if EXPENSIVE_DCHECKS_ARE_ON()
   DCHECK(!Lifecycle().LifecyclePostponed() && !ShouldThrottleRendering());
   document->AssertLayoutTreeUpdatedAfterLayout();
@@ -1101,7 +1097,7 @@ void LocalFrameView::RunIntersectionObserverSteps() {
     LayoutObject* layout_object = GetLayoutView();
     gfx::Rect main_frame_dimensions(ToRoundedSize(
         To<LayoutBox>(layout_object)->ScrollableOverflowRect().size));
-    GetFrame().Client()->OnMainFrameIntersectionChanged(main_frame_dimensions);
+    GetFrame().Client()->OnMainFrameRectangleChanged(main_frame_dimensions);
     GetFrame().Client()->OnMainFrameViewportRectangleChanged(
         gfx::Rect(frame_->GetOutermostMainFrameScrollPosition(),
                   frame_->GetOutermostMainFrameSize()));
@@ -1413,6 +1409,12 @@ void LocalFrameView::DynamicViewportUnitsChanged() {
     GetFrame().GetDocument()->DynamicViewportUnitsChanged();
 }
 
+void LocalFrameView::LargeViewportUnitsChanged() {
+  if (Document* document = GetFrame().GetDocument()) {
+    document->MarkViewportUnitsDirty();
+  }
+}
+
 bool LocalFrameView::ShouldSetCursor() const {
   Page* page = GetFrame().GetPage();
   return page && page->IsPageVisible() &&
@@ -1646,8 +1648,6 @@ void LocalFrameView::ScheduleRelayoutOfSubtree(LayoutObject* relayout_root) {
 
     if (GetPage()->Animator().IsServicingAnimations())
       Lifecycle().EnsureStateAtMost(DocumentLifecycle::kStyleClean);
-  } else {
-    relayout_root->DumpForBug478682594();
   }
   DEVTOOLS_TIMELINE_TRACE_EVENT_INSTANT_WITH_CATEGORIES(
       TRACE_DISABLED_BY_DEFAULT("devtools.timeline"), "InvalidateLayout",
@@ -1851,9 +1851,11 @@ void LocalFrameView::PerformPostLayoutTasks(bool visual_viewport_size_changed) {
   DCHECK(!IsInPerformLayout());
   TRACE_EVENT0("blink,benchmark", "LocalFrameView::performPostLayoutTasks");
 
-  TRACE_EVENT_OBJECT_SNAPSHOT_WITH_ID(
-      TRACE_DISABLED_BY_DEFAULT("blink.debug.layout.trees"), "LayoutTree", this,
-      TracedLayoutObject::Create(*GetLayoutView(), true));
+  TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("blink.debug.layout.trees"),
+                      "LayoutTree:post_layout_snapshot",
+                      perfetto::Flow::FromPointer(this, "LocalFrameView"),
+                      "snapshot",
+                      TracedLayoutObject::Create(*GetLayoutView(), true));
   layout_count_for_testing_++;
   Document* document = GetFrame().GetDocument();
   DCHECK(document);
@@ -2728,16 +2730,6 @@ bool LocalFrameView::ShouldDeferLayoutSnap() const {
   return false;
 }
 
-void LocalFrameView::EnqueueScrollSnapChangingFromImplIfNecessary() {
-  ForAllNonThrottledLocalFrameViews([](LocalFrameView& frame_view) {
-    for (const auto& area : frame_view.scrollable_areas_.Values()) {
-      if (area->ScrollsOverflow()) {
-        area->EnqueueScrollSnapChangingEventFromImplIfNeeded();
-      }
-    }
-  });
-}
-
 bool LocalFrameView::RunStyleAndLayoutLifecyclePhases(
     DocumentLifecycle::LifecycleState target_state) {
   TRACE_EVENT0("blink,benchmark",
@@ -2766,9 +2758,6 @@ bool LocalFrameView::RunStyleAndLayoutLifecyclePhases(
   });
 
   ExecutePendingSnapUpdates();
-
-  // Fire scrollsnapchanging events based on the new layout if necessary.
-  EnqueueScrollSnapChangingFromImplIfNecessary();
 
   ExecutePendingScrollMarkerSelectionUpdates();
 
@@ -3411,7 +3400,7 @@ void LocalFrameView::UpdateStyleAndLayout() {
   }
 
   gfx::Size visual_viewport_size =
-      GetScrollableArea()->VisibleContentRect().size();
+      GetScrollableArea()->VisibleContentRect(kExcludeScrollbars).size();
 
   bool did_layout = false;
   {
@@ -3457,7 +3446,7 @@ void LocalFrameView::UpdateStyleAndLayout() {
 
   if (did_layout) {
     gfx::Size new_visual_viewport_size =
-        GetScrollableArea()->VisibleContentRect().size();
+        GetScrollableArea()->VisibleContentRect(kExcludeScrollbars).size();
     bool visual_viewport_size_changed =
         (new_visual_viewport_size != visual_viewport_size);
     SetNeedsUpdateGeometries();
@@ -3595,10 +3584,6 @@ void LocalFrameView::ForceLayoutForPagination(float maximum_shrink_factor) {
         CalculateInitialContainingBlockSizeForPagination(document);
     layout_view->SetInitialContainingBlockSizeForPrinting(new_size);
     LayoutForPrinting();
-  }
-
-  if (TextAutosizer* text_autosizer = document.GetTextAutosizer()) {
-    text_autosizer->UpdatePageInfo();
   }
   AdjustViewSize();
   UpdateStyleAndLayout();
@@ -4015,8 +4000,6 @@ void LocalFrameView::SetLayoutSizeInternal(const gfx::Size& size,
   if (!document || !document->IsActive())
     return;
   document->LayoutViewportWasResized(options);
-  if (frame_->IsMainFrame())
-    TextAutosizer::UpdatePageInfoInAllFrames(frame_);
 }
 
 void LocalFrameView::DidChangeScrollOffset() {
@@ -4951,7 +4934,7 @@ String LocalFrameView::MainThreadScrollingReasonsAsText() {
     CHECK(compositor);
     reasons = compositor->GetMainThreadRepaintReasons(*properties->Scroll());
   }
-  return String(cc::MainThreadScrollingReason::AsText(reasons).c_str());
+  return String(cc::MainThreadScrollingReason::AsText(reasons));
 }
 
 bool LocalFrameView::MapToVisualRectInRemoteRootFrame(
@@ -5088,6 +5071,9 @@ void LocalFrameView::DidPaintCanvasChild(HTMLCanvasElement& canvas,
                                          Element& child) {
   DCHECK(RuntimeEnabledFeatures::CanvasDrawElementEnabled(
       GetFrame().GetDocument()->GetExecutionContext()));
+  if (canvas.IsInCanvasSubtree()) {
+    return;
+  }
   if (IsUpdatingLifecycle()) {
     auto add_result = canvas_elements_needing_onpaint_.insert(&canvas, nullptr);
     if (add_result.is_new_entry) {
@@ -5101,6 +5087,9 @@ void LocalFrameView::DidPaintCanvasChild(HTMLCanvasElement& canvas,
 void LocalFrameView::RequestCanvasOnpaint(HTMLCanvasElement& canvas) {
   DCHECK(RuntimeEnabledFeatures::CanvasDrawElementEnabled(
       GetFrame().GetDocument()->GetExecutionContext()));
+  if (canvas.IsInCanvasSubtree()) {
+    return;
+  }
   auto add_result = canvas_elements_needing_onpaint_.insert(&canvas, nullptr);
   if (add_result.is_new_entry) {
     add_result.stored_value->value =

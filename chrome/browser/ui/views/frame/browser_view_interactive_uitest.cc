@@ -344,7 +344,14 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, FullscreenShowBookmarkBar) {
       false)
       .Wait();
   EXPECT_FALSE(browser_view->GetTabStripVisible());
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // Bookmark bar in immersive fullscreen mode on ChromeOS is accessible and
+  // should be considered visible.
+  EXPECT_TRUE(browser_view->IsBookmarkBarVisible());
+#else
   EXPECT_FALSE(browser_view->IsBookmarkBarVisible());
+#endif
 
 #if BUILDFLAG(IS_MAC)
   // Test toggling toolbar state in fullscreen mode would also affect bookmark
@@ -411,8 +418,8 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest,
   auto bubble = std::make_unique<views::BubbleDialogModelHost>(
       std::move(dialog_model), anchor, views::BubbleBorder::TOP_RIGHT);
   bubble->set_close_on_deactivate(false);
-  views::Widget* widget =
-      views::BubbleDialogDelegate::CreateBubble(std::move(bubble));
+  views::Widget* widget = views::BubbleDialogDelegate::CreateBubble(
+      std::move(bubble), views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
 
   widget->Show();
   views::test::WaitForWidgetActive(widget, true);

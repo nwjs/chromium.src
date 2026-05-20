@@ -9,6 +9,9 @@
 #import <variant>
 
 #import "base/memory/weak_ptr.h"
+#import "base/time/time.h"
+#import "components/password_manager/core/browser/password_store/password_store_consumer.h"
+#import "components/password_manager/core/browser/password_store/password_store_interface.h"
 #import "components/webauthn/core/browser/passkey_model.h"
 #import "components/webauthn/core/browser/remote_validation.h"
 #import "components/webauthn/ios/ios_passkey_client.h"
@@ -35,7 +38,8 @@ namespace webauthn {
 // interactions with WebAuthn credentials and for now logs appropriate metrics.
 class PasskeyTabHelper : public web::WebStateObserver,
                          public web::WebStateUserData<PasskeyTabHelper>,
-                         public web::WebFramesManager::Observer {
+                         public web::WebFramesManager::Observer,
+                         public password_manager::PasswordStoreConsumer {
  public:
   // These values are logged to UMA. Entries should not be renumbered and
   // numeric values should never be reused.
@@ -127,9 +131,11 @@ class PasskeyTabHelper : public web::WebStateObserver,
   using PendingRequest =
       std::variant<AssertionRequestParams, RegistrationRequestParams>;
 
-  explicit PasskeyTabHelper(web::WebState* web_state,
-                            PasskeyModel* passkey_model,
-                            std::unique_ptr<IOSPasskeyClient> client);
+  explicit PasskeyTabHelper(
+      web::WebState* web_state,
+      PasskeyModel* passkey_model,
+      scoped_refptr<password_manager::PasswordStoreInterface> password_store,
+      std::unique_ptr<IOSPasskeyClient> client);
 
   // Handles passkey assertion requests. Defers if the rp ID is invalid.
   void HandleGetRequestedEvent(web::WebFrame* web_frame,
@@ -184,7 +190,8 @@ class PasskeyTabHelper : public web::WebStateObserver,
 
   // Whether automatic passkey upgrade is allowed.
   bool CanPerformAutomaticPasskeyUpgrade(
-      const RegistrationRequestParams& params) const;
+      const RegistrationRequestParams& params,
+      const std::vector<password_manager::StoredCredential>& logins) const;
 
   // Handles passkey registration requests after it passes validation.
   void HandleRegistration(RegistrationRequestParams params);
@@ -229,11 +236,19 @@ class PasskeyTabHelper : public web::WebStateObserver,
   void WebFrameBecameAvailable(web::WebFramesManager* web_frames_manager,
                                web::WebFrame* web_frame) override;
 
+  // PasswordStoreConsumer:
+  void OnGetPasswordStoreResultsOrErrorFrom(
+      password_manager::PasswordStoreInterface* store,
+      password_manager::LoginsResultOrError results_or_error) override;
+
   // Gets a weak pointer to this object.
   base::WeakPtr<PasskeyTabHelper> AsWeakPtr();
 
   // Provides access to stored WebAuthn credentials.
   const raw_ref<PasskeyModel> passkey_model_;
+
+  // Provides access to the account password store.
+  scoped_refptr<password_manager::PasswordStoreInterface> password_store_;
 
   // The WebState with which this object is associated.
   base::WeakPtr<web::WebState> web_state_;
@@ -253,6 +268,9 @@ class PasskeyTabHelper : public web::WebStateObserver,
 
   // Map of request IDs to their ongoing remote validation loaders.
   absl::flat_hash_map<std::string, std::unique_ptr<RemoteValidation>> loaders_;
+
+  // Flag to avoid duplicate queries to the password store.
+  bool is_querying_password_store_ = false;
 
   // This is necessary because this object could be deleted during any callback,
   // and we don't want to risk a UAF if that happens.

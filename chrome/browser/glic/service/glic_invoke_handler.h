@@ -5,6 +5,9 @@
 #ifndef CHROME_BROWSER_GLIC_SERVICE_GLIC_INVOKE_HANDLER_H_
 #define CHROME_BROWSER_GLIC_SERVICE_GLIC_INVOKE_HANDLER_H_
 
+#include <memory>
+#include <vector>
+
 #include "base/callback_list.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
@@ -16,31 +19,44 @@
 #include "chrome/browser/glic/public/glic_instance.h"
 #include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_passkeys.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents_observer.h"
 
-namespace tabs {
-class TabInterface;
-}
+class Profile;
 
 namespace glic {
 
 class GlicInstanceImpl;
 
+class SequentialTaskGroup;
+
 // Handles an invocation of Glic, parsing options and communicating with the
 // instance's host.
-class GlicInvokeHandler : public Host::Observer,
-                          public content::WebContentsObserver {
+class GlicInvokeHandler {
  public:
   using CompletionCallback =
       base::OnceCallback<void(GlicInstance*, GlicInvokeHandler*)>;
 
+  struct ResolvedTarget {
+    raw_ptr<tabs::TabInterface> tab = nullptr;
+    bool is_new = false;
+  };
+
+  // Resolves the target surface to a specific tab.
+  static ResolvedTarget ResolveTargetSurface(Profile* profile,
+                                             const Target& target);
+
+  // `tab` must be non-nullptr.
+  // `completion_callback` should be called exactly once and results in
+  // destruction of `this`.
   GlicInvokeHandler(
       GlicInstanceImpl& instance,
-      tabs::TabInterface* tab,
+      ResolvedTarget resolved_target,
       GlicInvokeOptions options,
+      GlicInvokeWithAutoSubmitOptions auto_submit_options,
       std::optional<InvokeWithAutoSubmitPasskey> auto_submit_passkey,
       CompletionCallback completion_callback);
-  ~GlicInvokeHandler() override;
+  ~GlicInvokeHandler();
 
   GlicInvokeHandler(const GlicInvokeHandler&) = delete;
   GlicInvokeHandler& operator=(const GlicInvokeHandler&) = delete;
@@ -48,46 +64,34 @@ class GlicInvokeHandler : public Host::Observer,
   // Kicks off the invocation process.
   void Invoke();
 
-  // Ends the invocation process with the given error.
-  // May delete this.
-  void OnError(GlicInvokeError error);
-
-  // glic::Host::Observer
-  void WebClientConnected() override;
-
-  // content::WebContentsObserver:
-  void PrimaryMainFrameWasResized(bool width_changed) override;
 
  private:
-  void MaybeWaitForWebClientReady();
-  void OnWebClientReady();
-  void MaybeWaitForPanelOpen();
-  void OnPanelOpen();
-  void MaybeWaitForStableWidth();
-  void OnStateChange(bool is_showing);
-  void OnStabilized();
-
-  void SendToClient();
   mojom::InvokeOptionsPtr CreateMojoOptions();
-  bool RequiresAutoSubmitIncompatibleFre() const;
-  bool RequiresOverrideIncompatibleFre() const;
+  bool IsActuatingFeatureMode() const;
 
-  // May delete this.
+  // Deletes `this`. Exactly one of these methods will be called.
   void OnSuccess();
-  void OnTabClosed(tabs::TabInterface* tab);
+  void OnError(GlicInvokeError error);
 
+  void OnTabWillDetach(tabs::TabInterface* tab,
+                       tabs::TabInterface::DetachReason reason);
+  void OnInstanceWillBeDestroyed(GlicInstance* instance);
+  void OnConversationInfoChanged(const mojom::ConversationInfo& info);
   const base::raw_ref<GlicInstanceImpl> instance_;
   raw_ptr<tabs::TabInterface> tab_;
   GlicInvokeOptions options_;
   std::optional<InvokeWithAutoSubmitPasskey> auto_submit_passkey_;
+  // Calling this synchronously destroys `this`.
+  GlicInvokeWithAutoSubmitOptions auto_submit_options_;
   CompletionCallback completion_callback_;
 
+  bool should_wait_for_load_ = false;
+  base::CallbackListSubscription instance_destruction_subscription_;
   base::CallbackListSubscription tab_destruction_subscription_;
-  base::ScopedObservation<Host, Host::Observer> host_observation_{this};
+  base::CallbackListSubscription conversation_subscription_;
   base::OneShotTimer timeout_timer_;
 
-  base::CallbackListSubscription state_change_subscription_;
-  base::OneShotTimer stabilization_timer_;
+  std::unique_ptr<SequentialTaskGroup> main_task_;
 
   base::WeakPtrFactory<GlicInvokeHandler> weak_ptr_factory_{this};
 };

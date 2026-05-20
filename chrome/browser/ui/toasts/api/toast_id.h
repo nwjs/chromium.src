@@ -54,7 +54,10 @@ enum class ToastId {
   kMultistepFilterSuggestion = 31,
   kMultistepFilterSuggestionRecent = 32,
   kSkillSavedWithoutInvokeButton = 33,
-  kMaxValue = kSkillSavedWithoutInvokeButton,
+  kSendTabToSelfTabOpened = 34,
+  kSendTabToSelfTabsOpenedInBackground = 35,
+  kSendTabToSelfSuccess = 36,
+  kMaxValue = kSendTabToSelfSuccess,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/toasts/enums.xml:ToastId)
 

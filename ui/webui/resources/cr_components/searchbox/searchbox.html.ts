@@ -7,7 +7,6 @@ import './searchbox_input.js';
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
 import type {SearchboxElement} from './searchbox.js';
-import {getHtml as getDropdownHtml} from './searchbox_searchbox_dropdown.html.js';
 
 export function getHtml(this: SearchboxElement) {
   // clang-format off
@@ -45,7 +44,15 @@ export function getHtml(this: SearchboxElement) {
     ` : ''}
   </cr-searchbox-input>
   <div class="dropdownContainer">
-    ${getDropdownHtml.bind(this)()}
+    <cr-searchbox-dropdown id="matches" part="searchbox-dropdown"
+        exportparts="dropdown-content"
+        role="listbox" .result="${this.result}"
+        selected-match-index="${this.selectedMatchIndex}"
+        @selected-match-index-changed="${this.onSelectedMatchIndexChanged}"
+        @match-focusin="${this.onMatchFocusin}"
+        @match-click="${this.onMatchClick}"
+        ?hidden="${!this.dropdownIsVisible}">
+    </cr-searchbox-dropdown>
   </div>
 </div>
 <!--_html_template_end_-->`;

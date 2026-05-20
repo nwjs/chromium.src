@@ -4,6 +4,7 @@
 
 #include "chrome/common/chrome_switches.h"
 
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "extensions/buildflags/buildflags.h"
@@ -42,6 +43,12 @@ const char kAllowCrossOriginAuthPrompt[] = "allow-cross-origin-auth-prompt";
 // Allow non-secure origins to use the screen capture API and the desktopCapture
 // extension API.
 const char kAllowHttpScreenCapture[] = "allow-http-screen-capture";
+
+// Allows DevTools frontend from remote origins to load local file:// resources.
+// This should only be enabled when explicitly needed for remote debugging
+// with local source maps.
+const char kAllowUnsafeDevToolsRemoteFileLoading[] =
+    "allow-unsafe-devtools-remote-file-loading";
 
 // By default, an https page cannot run JavaScript, CSS or plugins from http
 // URLs. This provides an override to get the old insecure behavior.
@@ -280,11 +287,6 @@ const char kEnableExtensionActivityLogging[] =
 
 const char kEnableExtensionActivityLogTesting[] =
     "enable-extension-activity-log-testing";
-
-// Enables installing/uninstalling extensions at runtime via Chrome DevTools
-// Protocol if the protocol client is connected over --remote-debugging-pipe.
-const char kEnableUnsafeExtensionDebugging[] =
-    "enable-unsafe-extension-debugging";
 
 // Force enabling HangoutServicesExtension.
 const char kEnableHangoutServicesExtensionForTesting[] =
@@ -726,6 +728,11 @@ const char kWinHttpProxyResolver[] = "winhttp-proxy-resolver";
 const char kWinJumplistAction[] = "win-jumplist-action";
 
 #if BUILDFLAG(IS_ANDROID)
+// If enabled Entra SSO will accept authentication headers from a specific list
+// of non-production Microsoft Authentication broker apps.
+const char kAndroidEntraSsoAllowDebugBrokers[] =
+    "android-entra-sso-allow-debug-brokers";
+
 // Android authentication account type for SPNEGO authentication
 const char kAuthAndroidNegotiateAccountType[] = "auth-spnego-account-type";
 
@@ -753,6 +760,9 @@ const char kMarketUrlForTesting[] = "market-url-for-testing";
 
 // Force enable user agent overrides to request desktop sites in Clank.
 const char kRequestDesktopSites[] = "request-desktop-sites";
+
+// Use WebUI New Tab Page instead of native NTP on Android.
+const char kUseWebUiNtp[] = "use-webui-ntp";
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_ANDROID) || BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
@@ -841,7 +851,7 @@ const char kEnableProfileShortcutManager[] = "enable-profile-shortcut-manager";
 // Indicates that this launch of the browser originated from the installer
 // (i.e., following a successful new install or over-install). This triggers
 // browser behaviors for this specific launch, such as a welcome announcement
-// for accessibility software (see https://crbug.com/1072735).
+// for accessibility software (see https://crbug.com/40685905).
 extern const char kFromInstaller[] = "from-installer";
 
 // Indicates that this launch of the browser originated from the Legacy Browser
@@ -861,7 +871,7 @@ const char kNoNetworkProfileWarning[] = "no-network-profile-warning";
 // Whether this process should PrefetchVirtualMemory on the contents of
 // Chrome.dll. This warms up the pages in memory to speed up startup but might
 // not be required in later renderers and/or GPU. For experiment info see
-// crbug.com/1350257.
+// crbug.com/40234091.
 const char kNoPreReadMainDll[] = "no-pre-read-main-dll";
 
 // Used in combination with kNotificationLaunchId to specify the inline reply
@@ -989,6 +999,15 @@ const char kUseSystemDefaultPrinter[] = "use-system-default-printer";
 // Indicates that this process is the product of a relaunch following migration
 // of User Data.
 const char kUserDataMigrated[] = "user-data-migrated";
+#endif
+
+#if BUILDFLAG(CHROME_FOR_TESTING)
+// Overrides the behavior of the sign-in dialog when creating a new profile for
+// an enterprise account.
+// Valid values are "accept-new-profile", "accept-current-profile", and
+// "cancel".
+const char kEnterpriseSigninDialogBehaviorForTesting[] =
+    "enterprise-signin-dialog-behavior-for-testing";
 #endif
 
 // -----------------------------------------------------------------------------

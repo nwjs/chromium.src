@@ -6,8 +6,6 @@ package org.chromium.chrome.browser.fullscreen;
 
 import static android.view.Display.INVALID_DISPLAY;
 
-import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
-
 import android.graphics.Point;
 import android.os.SystemClock;
 import android.view.View;
@@ -34,8 +32,8 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UrlUtils;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsUtils;
@@ -50,7 +48,6 @@ import org.chromium.chrome.browser.tab.TabStateBrowserControlsVisibilityDelegate
 import org.chromium.chrome.browser.tab.TabTestUtils;
 import org.chromium.chrome.browser.tab.TabWebContentsDelegateAndroid;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
@@ -517,7 +514,7 @@ public class FullscreenManagerTest {
     @Test
     @LargeTest
     @Feature({"Fullscreen"})
-    @DisabledTest(message = "crbug.com/1046749")
+    @DisabledTest(message = "crbug.com/40670999")
     @EnableFeatures({
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE
@@ -571,7 +568,7 @@ public class FullscreenManagerTest {
 
         FullscreenManagerTestUtils.waitForBrowserControlsToBeMoveable(activity);
 
-        // Check that the URL bar has not grabbed focus (http://crbug/236365)
+        // Check that the URL bar has not grabbed focus (http://crbug.com/40315594)
         UrlBar urlBar = (UrlBar) activity.findViewById(R.id.url_bar);
         Assert.assertFalse("Url bar grabbed focus", urlBar.hasFocus());
     }
@@ -599,7 +596,7 @@ public class FullscreenManagerTest {
 
         FullscreenManagerTestUtils.waitForBrowserControlsToBeMoveable(activity);
 
-        // Check that the URL bar has not grabbed focus (http://crbug/236365)
+        // Check that the URL bar has not grabbed focus (http://crbug.com/40315594)
         UrlBar urlBar = (UrlBar) activity.findViewById(R.id.url_bar);
         Assert.assertFalse("Url bar grabbed focus", urlBar.hasFocus());
     }
@@ -773,7 +770,6 @@ public class FullscreenManagerTest {
     @Test
     @LargeTest
     @Feature({"Fullscreen"})
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     @DisableFeatures({
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE,
@@ -807,7 +803,6 @@ public class FullscreenManagerTest {
     @Test
     @LargeTest
     @Feature({"Fullscreen"})
-    @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE)
     @EnableFeatures({
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE
@@ -1105,7 +1100,7 @@ public class FullscreenManagerTest {
     @Test
     @LargeTest
     @Feature({"Fullscreen"})
-    @DisabledTest(message = "crbug.com/979189")
+    @DisabledTest(message = "crbug.com/41468136")
     @EnableFeatures({
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE

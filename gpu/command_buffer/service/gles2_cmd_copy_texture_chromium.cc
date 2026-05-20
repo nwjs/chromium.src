@@ -677,6 +677,10 @@ bool PrepareUnpackBuffer(base::span<const GLuint> buffer,
     return false;
   }
 
+  // We're about to read pixels, so we need to reset PACK params
+  glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+
   // Result of glReadPixels with format == GL_RGB and type == GL_UNSIGNED_BYTE
   // from read framebuffer in RGBA format is not correct on desktop core
   // profile on both Linux Mesa and Linux NVIDIA. This may be a driver bug.
@@ -839,8 +843,14 @@ void DoReadbackAndTexImage(TexImageCommandType command_type,
       decoder->RestoreActiveTexture();
       decoder->RestoreFramebufferBindings();
       decoder->RestoreBufferBindings();
+      decoder->RestoreGlobalState();
       return;
     }
+
+    // Our buffer is tightly packed, so reset unpack params.
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, 0);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     if (command_type == kTexImage) {
       glTexImage2D(dest_target, dest_level, dest_internal_format, width, height,
@@ -858,6 +868,7 @@ void DoReadbackAndTexImage(TexImageCommandType command_type,
   decoder->RestoreActiveTexture();
   decoder->RestoreFramebufferBindings();
   decoder->RestoreBufferBindings();
+  decoder->RestoreGlobalState();
 }
 
 class CopyTextureResourceManagerImpl
@@ -1413,6 +1424,9 @@ void CopyTextureResourceManagerImpl::DoCopyTextureInternal(
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glDepthMask(GL_FALSE);
     glDisable(GL_BLEND);
+    if (decoder->GetFeatureInfo()->IsWebGL2OrES3OrHigherContext()) {
+      glDisable(GL_RASTERIZER_DISCARD);
+    }
 
     bool need_scissor =
         xoffset || yoffset || width != dest_width || height != dest_height;

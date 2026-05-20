@@ -75,6 +75,12 @@ std::string_view GetToastName(ToastId toast_id) {
       return "MultistepFilterSuggestionRecent";
     case ToastId::kSkillSavedWithoutInvokeButton:
       return "SkillSavedWithoutInvokeButton";
+    case ToastId::kSendTabToSelfTabOpened:
+      return "SendTabToSelfOpened";
+    case ToastId::kSendTabToSelfTabsOpenedInBackground:
+      return "SendTabToSelfTabsOpenedInBackground";
+    case ToastId::kSendTabToSelfSuccess:
+      return "SendTabToSelfSuccess";
   }
 
   NOTREACHED();

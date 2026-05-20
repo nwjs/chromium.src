@@ -32,9 +32,10 @@
 #include "cc/raster/raster_buffer_provider.h"
 #include "cc/test/animation_test_common.h"
 #include "cc/test/fake_compositor_frame_reporting_controller.h"
-#include "cc/test/fake_layer_tree_host_client.h"
+#include "cc/test/fake_layer_tree_host_delegate.h"
 #include "cc/test/test_layer_tree_frame_sink.h"
-#include "cc/trees/layer_tree_host_client.h"
+#include "cc/trees/client_layer_tree_host_impl.h"
+#include "cc/trees/layer_tree_host_delegate.h"
 #include "cc/trees/layer_tree_host_impl.h"
 #include "cc/trees/layer_tree_host_single_thread_client.h"
 #include "cc/trees/layer_tree_impl.h"
@@ -164,7 +165,7 @@ class SynchronousLayerTreeFrameSink : public TestLayerTreeFrameSink {
 }  // namespace
 
 // Adapts LayerTreeHostImpl for test. Runs real code, then invokes test hooks.
-class LayerTreeHostImplForTesting : public LayerTreeHostImpl {
+class LayerTreeHostImplForTesting : public ClientLayerTreeHostImpl {
  public:
   static std::unique_ptr<LayerTreeHostImplForTesting> Create(
       TestHooks* test_hooks,
@@ -191,7 +192,7 @@ class LayerTreeHostImplForTesting : public LayerTreeHostImpl {
       TaskGraphRunner* task_graph_runner,
       RenderingStatsInstrumentation* stats_instrumentation,
       scoped_refptr<base::SequencedTaskRunner> image_worker_task_runner)
-      : LayerTreeHostImpl(
+      : ClientLayerTreeHostImpl(
             settings,
             host_impl_client,
             task_runner_provider,
@@ -230,7 +231,7 @@ class LayerTreeHostImplForTesting : public LayerTreeHostImpl {
       const viz::BeginFrameArgs& args,
       bool next_bmf,
       bool scroll_and_viewport_changes_synced) override {
-    LayerTreeHostImpl::BeginMainFrameAborted(
+    ClientLayerTreeHostImpl::BeginMainFrameAborted(
         reason, std::move(swap_promises), args, next_bmf,
         scroll_and_viewport_changes_synced);
     test_hooks_->BeginMainFrameAbortedOnThread(
@@ -240,26 +241,27 @@ class LayerTreeHostImplForTesting : public LayerTreeHostImpl {
   void ReadyToCommit(bool scroll_and_viewport_changes_synced,
                      const BeginMainFrameMetrics* begin_main_frame_metrics,
                      bool commit_timeout) override {
-    LayerTreeHostImpl::ReadyToCommit(scroll_and_viewport_changes_synced,
-                                     begin_main_frame_metrics, commit_timeout);
+    ClientLayerTreeHostImpl::ReadyToCommit(scroll_and_viewport_changes_synced,
+                                           begin_main_frame_metrics,
+                                           commit_timeout);
     test_hooks_->ReadyToCommitOnThread(this);
   }
 
   void BeginCommit(int source_frame_number,
                    BeginMainFrameTraceId trace_id) override {
-    LayerTreeHostImpl::BeginCommit(source_frame_number, trace_id);
+    ClientLayerTreeHostImpl::BeginCommit(source_frame_number, trace_id);
     test_hooks_->BeginCommitOnThread(this);
   }
 
   void CommitComplete() override {
     test_hooks_->WillCommitCompleteOnThread(this);
-    LayerTreeHostImpl::CommitComplete();
+    ClientLayerTreeHostImpl::CommitComplete();
     test_hooks_->CommitCompleteOnThread(this);
   }
 
   bool PrepareTiles() override {
     test_hooks_->WillPrepareTilesOnThread(this);
-    return LayerTreeHostImpl::PrepareTiles();
+    return ClientLayerTreeHostImpl::PrepareTiles();
   }
 
   DrawResult PrepareToDraw(FrameData* frame, bool expects_to_draw) override {
@@ -335,7 +337,7 @@ class LayerTreeHostImplForTesting : public LayerTreeHostImpl {
 
   void ActivateSyncTree() override {
     test_hooks_->WillActivateTreeOnThread(this);
-    LayerTreeHostImpl::ActivateSyncTree();
+    ClientLayerTreeHostImpl::ActivateSyncTree();
     DCHECK(!pending_tree());
     test_hooks_->DidActivateTreeOnThread(this);
   }
@@ -382,12 +384,12 @@ class LayerTreeHostImplForTesting : public LayerTreeHostImpl {
   }
 
   void InvalidateContentOnImplSide() override {
-    LayerTreeHostImpl::InvalidateContentOnImplSide();
+    ClientLayerTreeHostImpl::InvalidateContentOnImplSide();
     test_hooks_->DidInvalidateContentOnImplSide(this);
   }
 
   void InvalidateLayerTreeFrameSink(bool needs_redraw) override {
-    LayerTreeHostImpl::InvalidateLayerTreeFrameSink(needs_redraw);
+    ClientLayerTreeHostImpl::InvalidateLayerTreeFrameSink(needs_redraw);
     test_hooks_->DidInvalidateLayerTreeFrameSink(this);
   }
 
@@ -424,15 +426,15 @@ class LayerTreeHostImplForTesting : public LayerTreeHostImpl {
 };
 
 // Implementation of LayerTreeHost callback interface.
-class LayerTreeHostClientForTesting : public LayerTreeHostClient,
-                                      public LayerTreeHostSchedulingClient,
-                                      public LayerTreeHostSingleThreadClient {
+class LayerTreeHostDelegateForTesting : public LayerTreeHostDelegate,
+                                        public LayerTreeHostSchedulingClient,
+                                        public LayerTreeHostSingleThreadClient {
  public:
-  static std::unique_ptr<LayerTreeHostClientForTesting> Create(
+  static std::unique_ptr<LayerTreeHostDelegateForTesting> Create(
       TestHooks* test_hooks) {
-    return base::WrapUnique(new LayerTreeHostClientForTesting(test_hooks));
+    return base::WrapUnique(new LayerTreeHostDelegateForTesting(test_hooks));
   }
-  ~LayerTreeHostClientForTesting() override = default;
+  ~LayerTreeHostDelegateForTesting() override = default;
 
   void WillBeginMainFrame() override { test_hooks_->WillBeginMainFrame(); }
 
@@ -521,7 +523,7 @@ class LayerTreeHostClientForTesting : public LayerTreeHostClient,
   }
 
  private:
-  explicit LayerTreeHostClientForTesting(TestHooks* test_hooks)
+  explicit LayerTreeHostDelegateForTesting(TestHooks* test_hooks)
       : test_hooks_(test_hooks) {}
 
   raw_ptr<TestHooks> test_hooks_;
@@ -533,7 +535,7 @@ class LayerTreeHostForTesting : public LayerTreeHost {
   static std::unique_ptr<LayerTreeHostForTesting> Create(
       TestHooks* test_hooks,
       CompositorMode mode,
-      LayerTreeHostClient* client,
+      LayerTreeHostDelegate* client,
       LayerTreeHostSchedulingClient* scheduling_client,
       LayerTreeHostSingleThreadClient* single_thread_client,
       TaskGraphRunner* task_graph_runner,
@@ -574,7 +576,7 @@ class LayerTreeHostForTesting : public LayerTreeHost {
     return layer_tree_host;
   }
 
-  std::unique_ptr<LayerTreeHostImpl> CreateLayerTreeHostImplInternal(
+  std::unique_ptr<ClientLayerTreeHostImpl> CreateLayerTreeHostImplInternal(
       LayerTreeHostImplClient* host_impl_client,
       MutatorHost*,
       const LayerTreeSettings& settings,
@@ -587,7 +589,7 @@ class LayerTreeHostForTesting : public LayerTreeHost {
       RenderingStatsInstrumentation* rendering_stats_instrumentation,
       base::WeakPtr<CompositorDelegateForInput>& compositor_delegate_weak_ptr)
       override {
-    std::unique_ptr<LayerTreeHostImpl> host_impl =
+    std::unique_ptr<ClientLayerTreeHostImpl> host_impl =
         LayerTreeHostImplForTesting::Create(
             test_hooks_, settings, host_impl_client, scheduling_client,
             task_runner_provider, task_graph_runner,
@@ -958,7 +960,7 @@ void LayerTreeTest::WillBeginTest() {
 }
 
 void LayerTreeTest::DoBeginTest() {
-  client_ = LayerTreeHostClientForTesting::Create(this);
+  client_ = LayerTreeHostDelegateForTesting::Create(this);
 
   DCHECK(!impl_thread_ || impl_thread_->task_runner().get());
 

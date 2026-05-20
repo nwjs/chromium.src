@@ -23,6 +23,7 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/load_flags.h"
 #include "net/base/mime_util.h"
+#include "net/base/schemeful_site.h"
 #include "net/http/http_status_code.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -47,9 +48,9 @@ constexpr net::NetworkTrafficAnnotationTag
           "will not contain private information. They will be used to "
           "improve WebRTC (fix bugs, tune performance, etc.)."
         trigger:
-          "A Google service (e.g. Hangouts/Meet) has requested a peer "
-          "connection to be logged, and the resulting event log to be uploaded "
-          "at a time deemed to cause the least interference to the user (i.e., "
+          "A Web application has requested a peer connection to be logged, "
+          "and the resulting event log to be uploaded at a time deemed to "
+          "cause the least interference to the user (i.e., "
           "when the user is not busy making other VoIP calls)."
         data:
           "WebRTC events such as the timing of audio playout (but not the "
@@ -63,6 +64,11 @@ constexpr net::NetworkTrafficAnnotationTag
         chrome_policy {
           WebRtcEventLogCollectionAllowed {
             WebRtcEventLogCollectionAllowed: false
+          }
+          WebRtcDiagnosticLogCollectionAllowedForOrigins {
+            WebRtcDiagnosticLogCollectionAllowedForOrigins: {
+              entries: 'example.com'
+            }
           }
         }
       })");
@@ -109,8 +115,10 @@ void OnURLLoadUploadProgress(uint64_t current, uint64_t total) {
 }
 }  // namespace
 
-const char WebRtcEventLogUploaderImpl::kUploadURL[] =
-    "https://clients2.google.com/cr/report";
+bool IsOriginSameSiteWithUploadEndpoint(const url::Origin& origin) {
+  return net::SchemefulSite::IsSameSite(origin,
+                                        url::Origin::Create(GURL(kUploadURL)));
+}
 
 WebRtcEventLogUploaderImpl::Factory::Factory(
     scoped_refptr<base::SequencedTaskRunner> task_runner)

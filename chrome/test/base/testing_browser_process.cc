@@ -72,8 +72,8 @@
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/apps/platform_apps/chrome_apps_browser_api_provider.h"
 #include "chrome/browser/ui/apps/chrome_app_window_client.h"
-#include "components/storage_monitor/storage_monitor.h"
-#include "components/storage_monitor/test_storage_monitor.h"
+#include "components/storage_monitor/storage_monitor.h"  // nogncheck crbug.com/40147906
+#include "components/storage_monitor/test_storage_monitor.h"  // nogncheck crbug.com/40147906
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -223,6 +223,7 @@ TestingBrowserProcess::~TestingBrowserProcess() {
 raw_ptr<TestingProfileManager>
 TestingBrowserProcess::SetUpGlobalFeaturesForTesting(bool profile_manager) {
   CreateGlobalFeaturesPreProfileManager();
+  is_global_features_torn_down_ = false;
 
   raw_ptr<TestingProfileManager> testing_profile_manager = nullptr;
   if (profile_manager) {
@@ -274,10 +275,10 @@ const ui::UnownedUserDataHost& TestingBrowserProcess::GetUnownedUserDataHost()
 
 void TestingBrowserProcess::Init() {
   features_ = GlobalFeatures::CreateGlobalFeatures();
+  features_->Init();
   // Only initialize core features for now. If needed unit tests can call
   // TestingBrowserProcess::CreateGlobalFeaturesForTesting() to initialize rest
   // of the features.
-  features_->PreBrowserProcessInitCore();
   features_->PostBrowserProcessInitCore();
 
   // Assume locale is initialized to "en" during initialization.
@@ -664,8 +665,18 @@ HidSystemTrayIcon* TestingBrowserProcess::hid_system_tray_icon() {
   return hid_system_tray_icon_.get();
 }
 
+void TestingBrowserProcess::set_hid_system_tray_icon_for_test(
+    std::unique_ptr<HidSystemTrayIcon> icon) {
+  hid_system_tray_icon_ = std::move(icon);
+}
+
 UsbSystemTrayIcon* TestingBrowserProcess::usb_system_tray_icon() {
   return usb_system_tray_icon_.get();
+}
+
+void TestingBrowserProcess::set_usb_system_tray_icon_for_test(
+    std::unique_ptr<UsbSystemTrayIcon> icon) {
+  usb_system_tray_icon_ = std::move(icon);
 }
 #endif
 
@@ -705,7 +716,7 @@ void TestingBrowserProcess::CreateGlobalFeaturesPreProfileManager() {
   features_.reset();
 
   features_ = GlobalFeatures::CreateGlobalFeatures();
-  features_->PreBrowserProcessInit();
+  features_->Init();
 }
 
 void TestingBrowserProcess::CreateGlobalFeaturesPostProfileManager() {
@@ -806,16 +817,6 @@ void TestingBrowserProcess::SetComponentUpdater(
     std::unique_ptr<component_updater::ComponentUpdateService>
         component_updater) {
   component_updater_ = std::move(component_updater);
-}
-
-void TestingBrowserProcess::SetHidSystemTrayIcon(
-    std::unique_ptr<HidSystemTrayIcon> hid_system_tray_icon) {
-  hid_system_tray_icon_ = std::move(hid_system_tray_icon);
-}
-
-void TestingBrowserProcess::SetUsbSystemTrayIcon(
-    std::unique_ptr<UsbSystemTrayIcon> usb_system_tray_icon) {
-  usb_system_tray_icon_ = std::move(usb_system_tray_icon);
 }
 #endif
 

@@ -1,7 +1,7 @@
 // GENERATED CONTENT - DO NOT EDIT
 // Content was automatically extracted by Reffy into webref
 // (https://github.com/w3c/webref)
-// Source: Scalable Vector Graphics (SVG) 2 (https://svgwg.org/svg2-draft/)
+// Source: Scalable Vector Graphics (SVG) 2 (https://w3c.github.io/svgwg/svg2-draft/)
 
 [Exposed=Window]
 interface SVGElement : Element {
@@ -13,7 +13,6 @@ interface SVGElement : Element {
 };
 
 SVGElement includes GlobalEventHandlers;
-SVGElement includes SVGElementInstance;
 SVGElement includes HTMLOrSVGElement;
 
 dictionary SVGBoundingBoxOptions {
@@ -307,11 +306,6 @@ SVGUseElement includes SVGURIReference;
 
 [Exposed=Window]
 interface SVGUseElementShadowRoot : ShadowRoot {
-};
-
-interface mixin SVGElementInstance {
-  [SameObject] readonly attribute SVGElement? correspondingElement;
-  [SameObject] readonly attribute SVGUseElement? correspondingUseElement;
 };
 
 [Exposed=Window]

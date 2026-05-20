@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <memory>
 
 #include "base/auto_reset.h"
@@ -43,7 +44,7 @@
 #include "cc/resources/ui_resource_manager.h"
 #include "cc/test/fake_content_layer_client.h"
 #include "cc/test/fake_frame_info.h"
-#include "cc/test/fake_layer_tree_host_client.h"
+#include "cc/test/fake_layer_tree_host_delegate.h"
 #include "cc/test/fake_paint_image_generator.h"
 #include "cc/test/fake_picture_layer.h"
 #include "cc/test/fake_picture_layer_impl.h"
@@ -91,6 +92,8 @@
 #include "components/viz/common/quads/tile_draw_quad.h"
 #include "components/viz/service/display/output_surface.h"
 #include "components/viz/service/display/skia_output_surface.h"
+#include "components/viz/service/layers/layer_context_impl.h"
+#include "components/viz/service/layers/viz_layer_tree_host_impl.h"
 #include "components/viz/test/begin_frame_args_test.h"
 #include "components/viz/test/fake_output_surface.h"
 #include "components/viz/test/test_raster_interface.h"
@@ -849,8 +852,8 @@ class LayerTreeHostTestSetNeedsCommit1 : public LayerTreeHostTest {
   }
 
  private:
-  int num_commits_;
-  int num_draws_;
+  std::atomic<int> num_commits_;
+  std::atomic<int> num_draws_;
 };
 
 SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestSetNeedsCommit1);
@@ -885,13 +888,11 @@ class LayerTreeHostTestSetNeedsCommit2 : public LayerTreeHostTest {
   }
 
  private:
-  int num_commits_;
-  int num_draws_;
+  std::atomic<int> num_commits_;
+  std::atomic<int> num_draws_;
 };
 
-// TODO(crbug.com/485089667): Flaky. Reenable it.
-TEST_F(LayerTreeHostTestSetNeedsCommit2,
-       DISABLED_RunMultiThread_DelegatingRenderer) {
+TEST_F(LayerTreeHostTestSetNeedsCommit2, RunMultiThread_DelegatingRenderer) {
   RunTest(CompositorMode::THREADED);
 }
 
@@ -957,7 +958,7 @@ class LayerTreeHostTestPushPropertiesTo : public LayerTreeHostTest {
         EXPECT_EQ(gfx::Size(20, 20).ToString(), layer->bounds().ToString());
         break;
       case HIDE_LAYER_AND_SUBTREE:
-        EXPECT_EQ(tree.EffectiveOpacity(node), 0.f);
+        EXPECT_EQ(tree.EffectiveOpacity(*node), 0.f);
         break;
       case DRAWS_CONTENT:
         EXPECT_TRUE(layer->draws_content());
@@ -2543,8 +2544,8 @@ class LayerTreeHostTestSetNeedsRedraw : public LayerTreeHostTest {
   }
 
  private:
-  int num_commits_;
-  int num_draws_;
+  std::atomic<int> num_commits_;
+  std::atomic<int> num_draws_;
 };
 
 MULTI_THREAD_TEST_F(LayerTreeHostTestSetNeedsRedraw);
@@ -2599,7 +2600,7 @@ class LayerTreeHostTestSetNeedsRedrawRect : public LayerTreeHostTest {
   void AfterTest() override { EXPECT_EQ(2, num_draws_); }
 
  private:
-  int num_draws_;
+  std::atomic<int> num_draws_;
   const gfx::Size bounds_;
   const gfx::Rect invalid_rect_;
   FakeContentLayerClient client_;
@@ -9354,7 +9355,7 @@ MULTI_THREAD_TEST_F(LayerTreeHostTopControlsDeltaTriggersViewportUpdate);
 
 #if BUILDFLAG(IS_CHROMEOS)
 // Tests that custom sequence metrics tracking result is reported to
-// LayerTreeHostClient.
+// LayerTreeHostDelegate.
 constexpr MutatorHost::TrackedAnimationSequenceId kSequenceId = 1u;
 class LayerTreeHostCustomMetricsTrackerTest : public LayerTreeHostTest {
  public:
@@ -9705,6 +9706,8 @@ class LayerTreeHostTestEventsMetrics : public LayerTreeHostTest {
   void SimulateEventOnMain() {
     base::SimpleTestTickClock tick_clock;
     tick_clock.Advance(base::Microseconds(10));
+    base::TimeTicks scroll_begin_arrival_timestamp = tick_clock.NowTicks();
+    tick_clock.Advance(base::Microseconds(10));
     base::TimeTicks event_time = tick_clock.NowTicks();
     tick_clock.Advance(base::Microseconds(10));
     base::TimeTicks arrived_in_browser_main_timestamp = tick_clock.NowTicks();
@@ -9714,8 +9717,11 @@ class LayerTreeHostTestEventsMetrics : public LayerTreeHostTest {
             ui::EventType::kGestureScrollUpdate, ui::ScrollInputType::kWheel,
             /*is_inertial=*/false,
             ScrollUpdateEventMetrics::ScrollUpdateType::kContinued,
-            /*delta=*/10.0f, event_time, arrived_in_browser_main_timestamp,
-            &tick_clock, std::nullopt);
+            /*delta=*/10.0f, /*timestamp=*/event_time,
+            /*arrived_in_browser_main_timestamp=*/
+            arrived_in_browser_main_timestamp,
+            /*tick_clock=*/&tick_clock, /*trace_id=*/std::nullopt,
+            /*scroll_begin_arrival_timestamp=*/scroll_begin_arrival_timestamp);
     DCHECK_NE(metrics, nullptr);
     {
       tick_clock.Advance(base::Microseconds(10));
@@ -12091,7 +12097,103 @@ class LayerTreeHostTestTrackedElementRects
   void DidEndScroll() override {}
 #endif
 };
+
 SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestTrackedElementRects);
+
+class LayerTreeHostTestTreesInVizSyncViewportDeltas : public LayerTreeHostTest {
+ public:
+  LayerTreeHostTestTreesInVizSyncViewportDeltas() {
+    SetUseLayerLists();
+    feature_list_.InitAndEnableFeature(features::kTreesInViz);
+  }
+
+  void SetupTree() override {
+    SetInitialRootBounds(gfx::Size(100, 100));
+    LayerTreeHostTest::SetupTree();
+    Layer* root_layer = layer_tree_host()->root_layer();
+
+    SetupViewport(root_layer, gfx::Size(100, 100), gfx::Size(100, 100));
+  }
+
+  void BeginTest() override { PostSetNeedsCommitToMainThread(); }
+
+  void DidCommit() override {
+    if (layer_tree_host()->SourceFrameNumber() == 1) {
+      // Trigger a second frame without changing browser controls.
+      PostSetNeedsCommitWithForcedRedrawToMainThread();
+    }
+  }
+
+  void DidActivateTreeOnThread(LayerTreeHostImpl* host_impl) override {
+    client_host_impl_ = host_impl;
+    if (host_impl->active_tree()->source_frame_number() == 1) {
+      // Modify the deltas on the active tree. We do this after
+      // UpdateViewportContainerSizes() has run (which happened during
+      // activation).
+      host_impl->active_tree()
+          ->property_trees()
+          ->SetInnerViewportContainerBoundsDelta(gfx::Vector2dF(0.f, 25.f));
+      host_impl->active_tree()
+          ->property_trees()
+          ->SetOuterViewportContainerBoundsDelta(gfx::Vector2dF(0.f, 25.f));
+      host_impl->active_tree()->property_trees()->set_changed(true);
+
+      // Ensure that these changes are sent to the service.
+      host_impl->SetNeedsRedraw(false, false);
+    }
+  }
+
+  void DisplayReceivedCompositorFrameOnThread(
+      const viz::CompositorFrame& frame) override {
+    if (!client_host_impl_) {
+      return;
+    }
+
+    // Verify service-side deltas.
+    auto* frame_sink = static_cast<TestLayerTreeFrameSink*>(
+        client_host_impl_->layer_tree_frame_sink());
+    viz::LayerContextImpl* layer_context =
+        frame_sink->support()->layer_context_for_testing();
+    ASSERT_TRUE(layer_context);
+    auto* service_host_impl = layer_context->host_impl();
+    ASSERT_TRUE(service_host_impl);
+
+    // We only care about the frame that corresponds to our manual delta change.
+    if (service_host_impl->active_tree()->source_frame_number() != 1) {
+      return;
+    }
+
+    float inner_delta_y = service_host_impl->active_tree()
+                              ->property_trees()
+                              ->inner_viewport_container_bounds_delta()
+                              .y();
+    float outer_delta_y = service_host_impl->active_tree()
+                              ->property_trees()
+                              ->outer_viewport_container_bounds_delta()
+                              .y();
+
+    // It is possible that we receive a frame for source_frame_number 1 before
+    // the manual delta change was applied on the client impl thread and sent
+    // to the service. If so, just wait for the next frame.
+    if (inner_delta_y == 0.f) {
+      return;
+    }
+
+    // The deltas should be synced to the service-side active tree.
+    EXPECT_EQ(inner_delta_y, 25.f);
+    EXPECT_EQ(outer_delta_y, 25.f);
+
+    EndTest();
+  }
+
+  void AfterTest() override { client_host_impl_ = nullptr; }
+
+ private:
+  raw_ptr<LayerTreeHostImpl> client_host_impl_ = nullptr;
+  base::test::ScopedFeatureList feature_list_;
+};
+
+SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestTreesInVizSyncViewportDeltas);
 
 }  // namespace
 }  // namespace cc

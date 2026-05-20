@@ -31,6 +31,7 @@
 #include "components/contextual_tasks/public/features.h"
 #include "components/omnibox/browser/aim_eligibility_service_features.h"
 #include "components/omnibox/browser/mock_aim_eligibility_service.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/search/ntp_features.h"
 #include "components/user_education/common/user_education_features.h"
@@ -445,7 +446,7 @@ IN_PROC_BROWSER_TEST_P(NtpRealboxUiScreenshotTest, DISABLED_Screenshots) {
 
   RunTestSequence(
       // 1. Open 1P new tab page.
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       // 2. If compose button is enabled, wait for it to render. Otherwise, wait
       // on the realbox to render.
       If([&]() { return GetParam().compose_button_enabled; },
@@ -479,7 +480,7 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest, ComposeboxTypedSuggestions) {
 
   RunTestSequence(
       // Load NTP.
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       WaitForElementToRender(kNtpElementId, kRealbox),
       WaitForElementToRender(kNtpElementId, kComposeButton),
       // Click on the compose button.
@@ -504,7 +505,7 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest, RealboxMultilineInputTest) {
 #else
   RunTestSequence(
       // Load NTP.
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       // Wait for Realbox to render.
       WaitForElementToRender(kNtpElementId, kRealboxInput),
       // Click on Realbox input.
@@ -531,7 +532,7 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest,
       GetModelSelector(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO)};
 
   RunTestSequence(
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       WaitForElementToRender(kNtpElementId, kRealbox),
       WaitForElementToRender(kNtpElementId, kContextualEntrypoint),
       ClickElement(kNtpElementId, kContextualEntrypoint),
@@ -582,7 +583,7 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest,
   RunTestSequence(
       // 1. Open a webpage and NTP in separate tabs.
       AddInstrumentedTab(kFirstTabId, GURL("https://www.google.com/")),
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       // 2. Assert NTP has loaded by waiting for the Realbox.
       WaitForElementToRender(kNtpElementId, kRealbox),
       // 3. Wait for Contextual Entrypoint Button to render and click it.
@@ -665,7 +666,7 @@ IN_PROC_BROWSER_TEST_P(NtpRealboxUploadInteractiveTest,
 
   RunTestSequence(
       // Open NTP.
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       // Assert NTP has loaded by waiting for the Realbox.
       WaitForElementToRender(kNtpElementId, kRealbox),
       // Wait for Contextual Entrypoint Button to render and click it.
@@ -737,7 +738,7 @@ IN_PROC_BROWSER_TEST_P(NtpRealboxSubmitInteractiveTest,
 
   RunTestSequence(
       // Wait for the realbox to render on the NTP.
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       WaitForElementToRender(kNtpElementId, kRealbox),
       // Seed at least two history results to ensure the dropdown is visible in
       // multiline mode and to prevent flakiness.
@@ -807,7 +808,7 @@ IN_PROC_BROWSER_TEST_P(NtpRealboxToolInteractiveTest,
 
   RunTestSequence(
       // 1. Open NTP Tab.
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       // 2. Wait for Realbox and Contextual Entrypoint Button to render.
       WaitForElementToRender(kNtpElementId, kRealbox),
       WaitForElementToRender(kNtpElementId, kContextualEntrypoint),
@@ -868,7 +869,7 @@ IN_PROC_BROWSER_TEST_P(NtpComposeboxSearchFulfillmentTest,
 
   RunTestSequence(
       // Load NTP.
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       // Assert NTP has loaded by waiting for the realbox and compose button
       // to render.
       WaitForElementToRender(kNtpElementId, kRealbox),
@@ -927,7 +928,7 @@ IN_PROC_BROWSER_TEST_P(NtpComposeboxDismissTest,
 
   RunTestSequence(
       // Load NTP.
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       // Assert NTP has loaded by waiting for the realbox and compose button
       // to render.
       WaitForElementToRender(kNtpElementId, kRealbox),
@@ -959,20 +960,10 @@ class NtpRealboxCyclingPlaceholderInteractiveTest
     : public NtpRealboxUiTestBase {
  public:
   NtpRealboxCyclingPlaceholderInteractiveTest() {
-    std::vector<base::test::FeatureRefAndParams> default_features =
+    std::vector<base::test::FeatureRefAndParams> enabled_features =
         GetEnabledFeatures();
-    std::vector<base::test::FeatureRefAndParams> enabled_features;
-    for (const auto& feature_ref_and_params : default_features) {
-      if (feature_ref_and_params.feature->name ==
-          ntp_realbox::kNtpRealboxNext.name) {
-        base::FieldTrialParams new_params = feature_ref_and_params.params;
-        new_params[ntp_realbox::kCyclingPlaceholders.name] = "true";
-        enabled_features.emplace_back(*feature_ref_and_params.feature,
-                                      new_params);
-      } else {
-        enabled_features.push_back(feature_ref_and_params);
-      }
-    }
+    enabled_features.emplace_back(ntp_realbox::kNtpRealboxCyclingPlaceholders,
+                                  base::FieldTrialParams());
     feature_list_.InitWithFeaturesAndParameters(enabled_features,
                                                 GetDisabledFeatures());
   }
@@ -985,7 +976,7 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxCyclingPlaceholderInteractiveTest,
                        PlaceholderCycles) {
   RunTestSequence(
       // Load NTP.
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       // Wait for Realbox to render.
       WaitForElementToRender(kNtpElementId, kRealboxInput),
       // Wait and verify if placeholder text cycles.
@@ -996,7 +987,7 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxCyclingPlaceholderInteractiveTest,
 IN_PROC_BROWSER_TEST_F(NtpRealboxInteractiveTest,
                        ScrimAndDropdownAppearAndDisappear) {
   RunTestSequence(
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       WaitForElementToRender(kNtpElementId, kRealboxInput),
       // Seed history results to ensure the dropdown is populated when typing in
       // to the realbox.
@@ -1037,7 +1028,8 @@ class NtpRealboxDefaultExperienceInteractiveTest : public NtpRealboxUiTestBase {
     }
     disabled_features.push_back(ntp_features::kNtpNextFeatures);
 
-    feature_list_.InitWithFeaturesAndParameters({}, disabled_features);
+    feature_list_.InitWithFeaturesAndParameters(
+        {{omnibox::kOmniboxAppendInvocationSource, {}}}, disabled_features);
   }
 
  protected:
@@ -1051,7 +1043,7 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
                        DefaultExperienceRealboxUI) {
   RunTestSequence(
       // Load NTP.
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       // Wait for Realbox to render.
       WaitForElementToRender(kNtpElementId, kRealbox),
       // Wait for Voice Search, Lens, and AI Mode buttons to render.
@@ -1084,7 +1076,7 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
 #else
   RunTestSequence(
       // Load NTP.
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       // Wait for Realbox to render.
       WaitForElementToRender(kNtpElementId, kRealboxInput),
       // Wait for Voice Search, Lens, and AI Mode buttons to render.
@@ -1146,7 +1138,7 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
 
   RunTestSequence(
       // Load NTP.
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       // Wait for Realbox to render.
       WaitForElementToRender(kNtpElementId, kRealbox),
       // Wait for Voice Search button to render.
@@ -1179,7 +1171,7 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
 
   RunTestSequence(
       // Open the New Tab Page (NTP).
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       // Wait for the Realbox and Lens search button to render on the page.
       WaitForElementToRender(kNtpElementId, kRealbox),
       WaitForElementToRender(kNtpElementId, kLensSearchButton),
@@ -1213,7 +1205,7 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
 IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
                        KeyboardNavigationAndIndexCycling) {
   RunTestSequence(
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       WaitForElementToRender(kNtpElementId, kRealboxInput),
       // Seed history results to ensure the dropdown is populated.
       SeedSearchboxResult("h"),
@@ -1250,7 +1242,7 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
 IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
                        RemoveSuggestionViaClick) {
   RunTestSequence(
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       WaitForElementToRender(kNtpElementId, kRealboxInput),
       // Seed history results to populate the dropdown
       SeedSearchboxResult("aimode"),
@@ -1276,7 +1268,7 @@ IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
 IN_PROC_BROWSER_TEST_F(NtpRealboxDefaultExperienceInteractiveTest,
                        RemoveSuggestionViaKeyboard) {
   RunTestSequence(
-      AddInstrumentedTab(kNtpElementId, GURL(chrome::kChromeUINewTabURL)),
+      AddInstrumentedTab(kNtpElementId, chrome::ChromeUINewTabURLAsGURL()),
       WaitForElementToRender(kNtpElementId, kRealboxInput),
       // Seed history result to populate the dropdown
       SeedSearchboxResult("a"), SeedSearchboxResult("b"),

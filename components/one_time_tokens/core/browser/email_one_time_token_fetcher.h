@@ -24,6 +24,11 @@ struct AccessTokenInfo;
 
 namespace one_time_tokens {
 
+// Header name and value for user-facing criticality.
+inline constexpr char kOneTimeTokenServiceCriticalityHeaderName[] =
+    "x-goog-ext-174067345-bin";
+inline constexpr char kOneTimeTokenServiceCriticalityHeaderValue[] = "CgIIAg==";
+
 // A holder object for all the necessary state to make a single request to the
 // Gmail OTP endpoint.
 class EmailOneTimeTokenFetcher {
@@ -41,11 +46,19 @@ class EmailOneTimeTokenFetcher {
   void Start(ServerResponseCallback callback);
 
  private:
+  // Finalizes the fetch by invoking the callback with the |result| and
+  // notifying the backend that this fetcher can be destroyed.
+  // IMPORTANT: This method must be called last, as the object will be deleted
+  // during the callback execution.
+  void InvokeCallbackAndDestroySelf(
+      base::expected<OneTimeToken, OneTimeTokenRetrievalError> result);
+
   // Starts fetching the access token.
   void StartAccessTokenFetch();
 
   // Callback for when the access token fetch completes.
-  void OnAccessTokenFetched(GoogleServiceAuthError error,
+  void OnAccessTokenFetched(base::TimeTicks auth_start_time,
+                            GoogleServiceAuthError error,
                             signin::AccessTokenInfo info);
 
   // Starts the network request to the Gmail OTP endpoint.
@@ -53,6 +66,7 @@ class EmailOneTimeTokenFetcher {
 
   // Callback for when the network request to the Gmail OTP endpoint completes.
   void OnResponseBytesFromOneTimeTokenService(
+      base::TimeTicks network_request_start_time,
       std::optional<std::string> response_body);
 
   // Parses the response proto and extracts the OneTimeToken value from it.

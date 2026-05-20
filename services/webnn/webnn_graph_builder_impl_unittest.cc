@@ -20,6 +20,7 @@
 #include "services/webnn/public/cpp/operand_descriptor.h"
 #include "services/webnn/public/cpp/webnn_types.h"
 #include "services/webnn/public/mojom/features.mojom-features.h"
+#include "services/webnn/public/mojom/webnn_service_introspection.mojom.h"
 #include "services/webnn/public/mojom/webnn_tensor.mojom.h"
 #include "services/webnn/scoped_gpu_sequence.h"
 #include "services/webnn/webnn_constant_operand.h"
@@ -105,7 +106,7 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
 
   // WebNNContextImpl:
   base::WeakPtr<WebNNContextImpl> AsWeakPtr() override {
-    DCHECK_CALLED_ON_VALID_SEQUENCE(gpu_sequence_checker_);
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     return weak_factory_.GetWeakPtr();
   }
 
@@ -128,7 +129,7 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
     // Asynchronously resolve `callback` so there's an opportunity for
     // subsequent messages to be (illegally) sent from the `WebNNGraphBuilder`
     // remote before it's disconnected.
-    gpu_sequence()->ScheduleGpuTask(
+    RunOrScheduleTask(
         base::BindOnce(
             [](mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
                base::WeakPtr<WebNNContextImpl> context,
@@ -160,6 +161,11 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
   }
 
   std::string_view GetBackendName() const override { return "Fake Backend"; }
+
+  std::vector<mojom::WebNNExecutionProviderDetailsPtr>
+  GetExecutionProvidersInfo() const override {
+    return {};
+  }
 
   // Owned by FakeWebNNBackend. May be null if no capture is needed.
   raw_ptr<base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>>
@@ -201,7 +207,7 @@ class FakeWebNNBackend : public WebNNContextProviderImpl::BackendForTesting {
     auto success = mojom::CreateContextSuccess::New(
         std::move(remote), std::move(context_properties),
         context_impl->handle(), mojo::ScopedDataPipeProducerHandle(),
-        mojo::ScopedDataPipeConsumerHandle());
+        mojo::ScopedDataPipeConsumerHandle(), /*command_buffer_id=*/0);
     std::move(callback).Run(
         mojom::CreateContextResult::NewSuccess(std::move(success)));
     return context_impl;

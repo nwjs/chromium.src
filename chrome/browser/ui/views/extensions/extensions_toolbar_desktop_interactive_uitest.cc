@@ -81,7 +81,8 @@ views::Widget* CreateBubble(views::View* anchor_point) {
   auto bubble = std::make_unique<views::BubbleDialogModelHost>(
       std::move(dialog_model), anchor_point, views::BubbleBorder::TOP_RIGHT);
 
-  return views::BubbleDialogDelegate::CreateBubble(std::move(bubble));
+  return views::BubbleDialogDelegate::CreateBubble(
+      std::move(bubble), views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
 }
 
 }  // namespace
@@ -530,7 +531,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopUITest,
 }
 
 // Verifies that dragging extension icons is disabled in incognito windows.
-// https://crbug.com/1203833.
+// https://crbug.com/40763731.
 IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopUITest,
                        IncognitoDraggingIsDisabled) {
   // Load an extension, pin it, and enable it in incognito.
@@ -584,7 +585,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopUITest,
 }
 
 // Tests unloading an extension while the action is being slid out prior to the
-// popup being shown. Regression test for https://crbug.com/1345477.
+// popup being shown. Regression test for https://crbug.com/40853587.
 IN_PROC_BROWSER_TEST_F(ExtensionsToolbarDesktopUITest,
                        UnloadingExtensionWhileAboutToShowPopup) {
   // Load an extension.

@@ -319,8 +319,11 @@ HTMLCanvasElement* XRWebGLLayer::output_canvas() const {
   return nullptr;
 }
 
-const XRSharedImageData& XRWebGLLayer::CameraSharedImage() const {
-  return session()->LayerSharedImageManager().CameraSharedImage();
+void XRWebGLLayer::DoneWithSharedBuffer() {
+  if (is_direct_draw_frame) {
+    drawing_buffer_->DoneWithSharedBuffer();
+    is_direct_draw_frame = false;
+  }
 }
 
 void XRWebGLLayer::OnFrameStart() {
@@ -343,29 +346,16 @@ void XRWebGLLayer::OnFrameStart() {
 }
 
 void XRWebGLLayer::OnFrameEnd() {
-  OnFrameEndWithoutSubmit();
-  SubmitLayer();
-}
-
-void XRWebGLLayer::OnFrameEndWithoutSubmit() {
   // The session might have ended in the middle of the frame. Only perform the
   // main work of OnFrameEnd if it's still valid. Otherwise, simply ensure the
   // shared image access is properly ended.
   if (session()->ended()) {
-    if (is_direct_draw_frame) {
-      drawing_buffer_->DoneWithSharedBuffer();
-      is_direct_draw_frame = false;
-    }
-
+    DoneWithSharedBuffer();
     return;
   }
 
   if (framebuffer_) {
     framebuffer_->MarkOpaqueBufferComplete(false);
-    if (is_direct_draw_frame) {
-      drawing_buffer_->DoneWithSharedBuffer();
-      is_direct_draw_frame = false;
-    }
 
     // Submit the frame to the XR compositor.
     if (session()->immersive()) {
@@ -391,15 +381,11 @@ void XRWebGLLayer::OnFrameEndWithoutSubmit() {
           }
         }
       }
-    }
-  }
-}
 
-void XRWebGLLayer::SubmitLayer() {
-  // Always call submit, but notify if the contents were changed or not.
-  if (!session()->ended() && framebuffer_ && session()->immersive()) {
-    session()->xr()->frameProvider()->SubmitLayer(
-        layer_id(), this, framebuffer_->HaveContentsChanged());
+      // Always call submit, but notify if the contents were changed or not.
+      session()->xr()->frameProvider()->SubmitLayer(
+          layer_id(), this, framebuffer_->HaveContentsChanged());
+    }
   }
 }
 

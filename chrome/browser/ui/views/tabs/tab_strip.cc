@@ -43,6 +43,7 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_properties.h"
+#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -62,6 +63,8 @@
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_context.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/hovercard/tab_hover_card_controller.h"
+#include "chrome/browser/ui/views/tabs/shared/tab_strip_observer.h"
+#include "chrome/browser/ui/views/tabs/shared/tab_strip_types.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab_container_impl.h"
 #include "chrome/browser/ui/views/tabs/tab_group_header.h"
@@ -72,8 +75,6 @@
 #include "chrome/browser/ui/views/tabs/tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_layout_helper.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_layout_types.h"
-#include "chrome/browser/ui/views/tabs/tab_strip_observer.h"
-#include "chrome/browser/ui/views/tabs/tab_strip_types.h"
 #include "chrome/browser/ui/views/tabs/z_orderable_tab_container_element.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_tabbed_utils.h"
@@ -621,7 +622,7 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
 
     // Ensure that the tab strip and its parent views are correctly re-laid out
     // after repositioning dragged tabs. This avoids visual/layout issues such
-    // as https://crbug.com/1151092.
+    // as https://crbug.com/40732823.
     PreferredSizeChanged();
 
     // Reset the layout size as we've effectively laid out a different size.
@@ -664,7 +665,7 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
         // Make sure the bounds of the group views are up to date right now
         // instead of waiting for subsequent drag events - if we are dragging a
         // window by a group header, we won't get any more events. See
-        // https://crbug.com/1344774.
+        // https://crbug.com/40853154.
         tab_strip_->tab_container_->UpdateTabGroupVisuals(
             header->group().value());
       }
@@ -1191,17 +1192,7 @@ void TabStrip::NewTabButtonPressed(const ui::Event& event) {
 
     const ui::MouseEvent& mouse = static_cast<const ui::MouseEvent&>(event);
     if (mouse.IsOnlyMiddleMouseButton()) {
-      if (ui::Clipboard::IsSupportedClipboardBuffer(
-              ui::ClipboardBuffer::kSelection)) {
-        ui::Clipboard* clipboard = ui::Clipboard::GetForCurrentThread();
-        CHECK(clipboard)
-            << "Clipboard instance is not available, cannot proceed with "
-               "middle mouse button action.";
-        clipboard->ReadText(ui::ClipboardBuffer::kSelection,
-                            /* data_dst = */ std::nullopt,
-                            base::BindOnce(&TabStrip::OnMiddleClickReadText,
-                                           weak_ptr_factory_.GetWeakPtr()));
-      }
+      chrome::NewTabFromClipboardURL(GetBrowser());
       return;
     }
   }
@@ -2158,7 +2149,7 @@ void TabStrip::Layout(PassKey) {
   } else {
     // We still need to layout in this case, as the available width may have
     // changed, which can change layout outcomes (e.g. affecting tab
-    // visibility). See https://crbug.com/1370459.
+    // visibility). See https://crbug.com/40869772.
     // TODO(crbug.com/40870361): TabContainer should observe available width
     // changes and invalidate its layout when needed.
     tab_container_->DeprecatedLayoutImmediately();
@@ -2478,14 +2469,6 @@ void TabStrip::OnTouchUiChanged() {
 
   tab_container_->CompleteAnimationAndLayout();
   PreferredSizeChanged();
-}
-
-void TabStrip::OnMiddleClickReadText(std::u16string text) {
-  if (!text.empty()) {
-    base::RecordAction(
-        base::UserMetricsAction("NewTabButton_PasteAndNavigate"));
-    controller_->CreateNewTabWithLocation(text);
-  }
 }
 
 void TabStrip::AnnounceTabAddedToGroup(tab_groups::TabGroupId group_id) {

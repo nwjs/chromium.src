@@ -36,6 +36,7 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.FileUtils;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
+import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.Contract;
 import org.chromium.build.annotations.NullMarked;
@@ -158,6 +159,16 @@ public class IntentHandler {
      */
     public static final String EXTRA_INVOKED_FROM_LAUNCH_NEW_INCOGNITO_TAB =
             "org.chromium.chrome.browser.incognito.invoked_from_launch_new_incognito_tab";
+
+    /** An extra to indicate that the intent was created by the cross-device Handoff feature. */
+    public static final String EXTRA_INVOKED_FROM_HANDOFF =
+            "org.chromium.chrome.browser.invoked_from_handoff";
+
+    /**
+     * Intent extra providing the active tab URL for the cross-device Handoff feature. Used by the
+     * Handoff feature to launch the target page on the receiver device.
+     */
+    public static final String EXTRA_HANDOFF_URL = "org.chromium.chrome.browser.handoff_url";
 
     /** Intent extra used to deliver the original activity referrer. */
     public static final String EXTRA_ACTIVITY_REFERRER =
@@ -990,8 +1001,6 @@ public class IntentHandler {
                 }
                 setTabGroupMetadata(intent, tabGroupMetadata);
 
-                // TODO(crbug.com/384979079) Add metrics for invalid url and ignored intent during
-                // group drag drop.
                 return tabIdsToUrls.size() == 0;
             } else {
                 return shouldIgnoreIntentUrl(
@@ -1031,8 +1040,7 @@ public class IntentHandler {
 
         // Ignore all intents that specify a Chrome internal scheme if they did not come from
         // a trustworthy source.
-        String scheme = ExternalNavigationHandler.getSanitizedUrlScheme(url);
-        if (intentHasUnsafeInternalScheme(scheme, url, intent)) {
+        if (intentHasUnsafeUrl(url, intent)) {
             Log.w(TAG, "Ignoring internal Chrome URL from untrustworthy source.");
             return true;
         }
@@ -1062,19 +1070,16 @@ public class IntentHandler {
         return pendingUrl != null && pendingUrl.equals(intent.getDataString());
     }
 
-    @Contract("null, _, _ -> false")
-    private static boolean intentHasUnsafeInternalScheme(
-            @Nullable String scheme, @Nullable String url, Intent intent) {
-        if (scheme != null
+    @Contract("null, _ -> false")
+    private static boolean intentHasUnsafeUrl(@Nullable String url, Intent intent) {
+        if (url != null
                 && (intent.hasCategory(Intent.CATEGORY_BROWSABLE)
                         || intent.hasCategory(Intent.CATEGORY_DEFAULT)
                         || intent.getCategories() == null)) {
-            String lowerCaseScheme = scheme.toLowerCase(Locale.US);
-            if (UrlConstants.CHROME_SCHEME.equals(lowerCaseScheme)
-                    || UrlConstants.CHROME_NATIVE_SCHEME.equals(lowerCaseScheme)
-                    || UrlConstants.DEVTOOLS_SCHEME.equals(lowerCaseScheme)
-                    || UrlConstants.DISTILLER_SCHEME.equals(lowerCaseScheme)
-                    || ContentUrlConstants.ABOUT_SCHEME.equals(lowerCaseScheme)) {
+            // The native library may be uninitialized at this point. Ensure it's initialized before
+            // calling a native function validateLaunchUrl().
+            LibraryLoader.getInstance().ensureInitialized();
+            if (!IntentHandlerJni.get().validateLaunchUrl(new GURL(url))) {
                 // Allow certain "safe" internal URLs to be launched by external
                 // applications.
                 assumeNonNull(url);
@@ -1119,19 +1124,17 @@ public class IntentHandler {
     }
 
     /**
-     * Attempts to verify that an Intent was sent from either Chrome or a first-
-     * party app by evaluating a PendingIntent token within the passed Intent.
+     * Attempts to verify that an Intent was sent from either Chrome or a first- party app by
+     * evaluating a PendingIntent token within the passed Intent.
      *
-     * This method of verifying first-party apps is not secure, as it is not
-     * possible to determine the sender of an Intent. This method only verifies
-     * the creator of the PendingIntent token. But a malicious app may be able
-     * to obtain a PendingIntent from another application and use it to
-     * masquerade as it for the purposes of this check. Do not use this method.
+     * <p>This method of verifying first-party apps is not secure, as it is not possible to
+     * determine the sender of an Intent. This method only verifies the creator of the PendingIntent
+     * token. But a malicious app may be able to obtain a PendingIntent from another application and
+     * use it to masquerade as it for the purposes of this check. Do not use this method.
      *
      * @param intent An Intent to be checked.
      * @return Whether an intent originates from Chrome or a first-party app.
-     *
-     * @deprecated This method is not reliable, see https://crbug.com/832124
+     * @deprecated This method is not reliable, see https://crbug.com/40091085
      */
     @Deprecated
     public static boolean notSecureIsIntentChromeOrFirstParty(Intent intent) {
@@ -1252,6 +1255,7 @@ public class IntentHandler {
         if (url == null) url = getUrlForCustomTab(intent);
         if (url == null) url = getUrlForWebapp(intent);
         if (url == null) url = getUrlFromShareIntent(intent);
+        if (url == null) url = getUrlForHandoff(intent);
         if (url == null) url = intent.getDataString();
         if (url == null) return null;
         url = url.trim();
@@ -1339,6 +1343,16 @@ public class IntentHandler {
         return TextUtils.equals(data.getScheme(), WebappActivity.WEBAPP_SCHEME)
                 ? IntentUtils.safeGetStringExtra(intent, WebappConstants.EXTRA_URL)
                 : null;
+    }
+
+    private static @Nullable String getUrlForHandoff(@Nullable Intent intent) {
+        if (intent == null) return null;
+        return IntentUtils.safeGetStringExtra(intent, EXTRA_HANDOFF_URL);
+    }
+
+    public static boolean isIntentFromHandoff(@Nullable Intent intent) {
+        if (intent == null) return false;
+        return IntentUtils.safeGetBooleanExtra(intent, EXTRA_INVOKED_FROM_HANDOFF, false);
     }
 
     public static @Nullable String maybeAddAdditionalContentHeaders(
@@ -1923,10 +1937,13 @@ public class IntentHandler {
         return false;
     }
 
+    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     @NativeMethods
-    interface Natives {
+    public interface Natives {
         boolean isCorsSafelistedHeader(
                 @JniType("std::string") String name,
                 @JniType("std::string") @Nullable String value);
+
+        boolean validateLaunchUrl(GURL rul);
     }
 }

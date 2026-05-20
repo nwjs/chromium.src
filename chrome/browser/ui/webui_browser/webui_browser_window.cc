@@ -14,7 +14,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window_theme_observer.h"
@@ -22,7 +21,9 @@
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui_base.h"
+#include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/views/find_bar_host.h"
+#include "chrome/browser/ui/views/zoom/zoom_view_controller.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_client_view.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_exclusive_access_context.h"
@@ -32,6 +33,7 @@
 #include "chrome/browser/ui/webui_browser/webui_browser_ui.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_web_contents_delegate.h"
 #include "chrome/browser/ui/webui_browser/webui_stub_location_bar.h"
+#include "chrome/browser/ui/zoom/browser_window_zoom_observer.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/input/native_web_keyboard_event.h"
@@ -42,6 +44,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
+#include "ui/base/hit_test.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/content_accelerators/accelerator_util.h"
 #include "ui/views/controls/webview/webview.h"
@@ -100,6 +103,9 @@ class WebUIBrowserWindow::WidgetDelegate : public views::WidgetDelegate {
 
   views::ClientView* CreateClientView(views::Widget* widget) override;
   std::u16string GetWindowTitle() const override;
+  bool ShouldDescendIntoChildForEventHandling(
+      gfx::NativeView child,
+      const gfx::Point& location) override;
 
  private:
   raw_ptr<WebUIBrowserWindow> browser_window_;
@@ -120,6 +126,9 @@ WebUIBrowserWindow::WebUIBrowserWindow(Browser* browser) : browser_(browser) {
   params.bounds = gfx::Rect(0, 0, 800, 600);
   params.delegate = widget_delegate_.get();
   params.native_widget = CreateNativeWidget();
+#if BUILDFLAG(IS_CHROMEOS)
+  params.remove_standard_frame = true;
+#endif
   widget_->Init(std::move(params));
   widget_->SetNativeWindowProperty(kWebUIBrowserWindowKey, this);
   widget_->MakeCloseSynchronous(base::BindOnce(
@@ -157,6 +166,12 @@ WebUIBrowserWindow::WebUIBrowserWindow(Browser* browser) : browser_(browser) {
     theme_changed_subscription_ =
         theme_observer->RegisterThemeChangedCallback(base::BindRepeating(
             &WebUIBrowserWindow::UserChangedTheme, base::Unretained(this)));
+  }
+
+  if (auto* zoom_observer = BrowserWindowZoomObserver::From(browser_.get())) {
+    zoom_changed_subscription_ = zoom_observer->RegisterZoomChangedCallback(
+        base::BindRepeating(&WebUIBrowserWindow::ZoomChangedForActiveTab,
+                            base::Unretained(this)));
   }
 
   LoadAccelerators();
@@ -345,7 +360,7 @@ const ui::ThemeProvider* WebUIBrowserWindow::GetThemeProvider() const {
   // Ignore the system theme for web apps with window-controls-overlay as the
   // display_override so the web contents can blend with the overlay by using
   // the developer-provided theme color for a better experience. Context:
-  // https://crbug.com/1219073.
+  // https://crbug.com/40771982.
   if (app_controller && (!IsUsingLinuxSystemTheme(browser_->profile()) ||
                          app_controller->AppUsesWindowControlsOverlay())) {
     return app_controller->GetThemeProvider();
@@ -369,7 +384,7 @@ WebUIBrowserWindow::GetThemeInitializerSupplier() const {
   // Ignore the system theme for web apps with window-controls-overlay as the
   // display_override so the web contents can blend with the overlay by using
   // the developer-provided theme color for a better experience. Context:
-  // https://crbug.com/1219073.
+  // https://crbug.com/40771982.
   if (app_controller && (!IsUsingLinuxSystemTheme(browser_->profile()) ||
                          app_controller->AppUsesWindowControlsOverlay())) {
     return app_controller->GetThemeSupplier();
@@ -507,7 +522,6 @@ ui::TrackedElement* WebUIBrowserWindow::GetExtensionsMenuButtonAnchor() const {
 
 void WebUIBrowserWindow::ProcessFullscreen(bool fullscreen) {
   widget_->SetFullscreen(fullscreen);
-  browser_->WindowFullscreenStateChanged();
 
   auto* manager = browser_->GetFeatures().exclusive_access_manager();
   if (!manager) {
@@ -530,7 +544,7 @@ void WebUIBrowserWindow::ProcessFullscreen(bool fullscreen) {
     page->OnFullscreenModeChanged(fullscreen, context);
   }
 
-  controller->FullscreenTransitionCompleted();
+  browser_->WindowFullscreenStateChanged();
 }
 
 void WebUIBrowserWindow::DeleteBrowserWindow() {
@@ -630,25 +644,9 @@ void WebUIBrowserWindow::UpdateTitleBar() {
   // TODO(webium): The icon might also need updating.
 }
 
-void WebUIBrowserWindow::BookmarkBarStateChanged(
+void WebUIBrowserWindow::OnBookmarkBarStateChanged(
     BookmarkBar::AnimateChangeType change_type) {
   GetWebUIBrowserUI()->BookmarkBarStateChanged(change_type);
-}
-
-void WebUIBrowserWindow::TemporarilyShowBookmarkBar(base::TimeDelta duration) {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
-void WebUIBrowserWindow::UpdateDevTools(
-    content::WebContents* inspected_web_contents) {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
-bool WebUIBrowserWindow::CanDockDevTools() const {
-  // This forces DevTools to open in a new window, which is currently necessary
-  // because the code path for a launching docked DevTools requires BrowserView,
-  // ContentsContainerView, etc.
-  return false;
 }
 
 void WebUIBrowserWindow::UpdateLoadingAnimations(bool is_visible) {
@@ -699,29 +697,6 @@ void WebUIBrowserWindow::OnActiveTabChanged(content::WebContents* old_contents,
 
 void WebUIBrowserWindow::OnTabDetached(content::WebContents* contents,
                                        bool was_active) {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
-void WebUIBrowserWindow::ZoomChangedForActiveTab(bool can_show_bubble) {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
-bool WebUIBrowserWindow::ShouldHideUIForFullscreen() const {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
-}
-
-bool WebUIBrowserWindow::IsFullscreenBubbleVisible() const {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
-}
-
-bool WebUIBrowserWindow::IsForceFullscreen() const {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
-}
-
-void WebUIBrowserWindow::SetForceFullscreen(bool force_fullscreen) {
   NOTIMPLEMENTED_LOG_ONCE();
 }
 
@@ -778,10 +753,6 @@ void WebUIBrowserWindow::UpdateCustomTabBarVisibility(bool visible,
   NOTIMPLEMENTED_LOG_ONCE();
 }
 
-void WebUIBrowserWindow::SetDevToolsScrimVisibility(bool visible) {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
 void WebUIBrowserWindow::ResetToolbarTabState(content::WebContents* contents) {
   NOTIMPLEMENTED_LOG_ONCE();
 }
@@ -807,7 +778,7 @@ void WebUIBrowserWindow::FocusAppMenu() {
   NOTIMPLEMENTED_LOG_ONCE();
 }
 
-void WebUIBrowserWindow::FocusBookmarksToolbar() {
+void WebUIBrowserWindow::OnFocusBookmarksToolbar() {
   NOTIMPLEMENTED_LOG_ONCE();
 }
 
@@ -821,16 +792,6 @@ void WebUIBrowserWindow::RotatePaneFocus(bool forwards) {
 
 void WebUIBrowserWindow::FocusWebContentsPane() {
   NOTIMPLEMENTED_LOG_ONCE();
-}
-
-bool WebUIBrowserWindow::IsBookmarkBarVisible() const {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
-}
-
-bool WebUIBrowserWindow::IsBookmarkBarAnimating() const {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
 }
 
 bool WebUIBrowserWindow::IsTabStripEditable() const {
@@ -855,13 +816,6 @@ bool WebUIBrowserWindow::IsLocationBarVisible() const {
   return true;
 }
 
-SharingDialog* WebUIBrowserWindow::ShowSharingDialog(
-    content::WebContents* contents,
-    SharingDialogData data) {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return nullptr;
-}
-
 void WebUIBrowserWindow::ShowUpdateChromeDialog() {
   NOTIMPLEMENTED_LOG_ONCE();
 }
@@ -881,44 +835,9 @@ void WebUIBrowserWindow::ShowBookmarkBubble(const GURL& url,
   NOTIMPLEMENTED_LOG_ONCE();
 }
 
-sharing_hub::ScreenshotCapturedBubble*
-WebUIBrowserWindow::ShowScreenshotCapturedBubble(content::WebContents* contents,
-                                                 const gfx::Image& image) {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return nullptr;
-}
-
-qrcode_generator::QRCodeGeneratorBubbleView*
-WebUIBrowserWindow::ShowQRCodeGeneratorBubble(content::WebContents* contents,
-                                              const GURL& url,
-                                              bool show_back_button) {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return nullptr;
-}
-
-send_tab_to_self::SendTabToSelfBubbleView*
-WebUIBrowserWindow::ShowSendTabToSelfDevicePickerBubble(
-    content::WebContents* contents) {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return nullptr;
-}
-
-send_tab_to_self::SendTabToSelfBubbleView*
-WebUIBrowserWindow::ShowSendTabToSelfPromoBubble(content::WebContents* contents,
-                                                 bool show_signin_button) {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return nullptr;
-}
-
 #if BUILDFLAG(IS_CHROMEOS)
 void WebUIBrowserWindow::ToggleMultitaskMenu() {
   NOTIMPLEMENTED_LOG_ONCE();
-}
-#else
-sharing_hub::SharingHubBubbleView* WebUIBrowserWindow::ShowSharingHubBubble(
-    share::ShareAttempt attempt) {
-  NOTIMPLEMENTED_LOG_ONCE();
-  return nullptr;
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
@@ -957,6 +876,21 @@ void WebUIBrowserWindow::UserChangedTheme(
     BrowserThemeChangeType theme_change_type) {
   NotifyColorProviderChanged();
   extensions_container_->NotifyOfAllActions();  // Icons may need re-rendering.
+}
+
+void WebUIBrowserWindow::ZoomChangedForActiveTab(bool can_show_bubble) {
+  auto* tab = browser_->GetActiveTabInterface();
+  if (!tab) {
+    return;
+  }
+
+  auto* zoom_view_controller = tab->GetTabFeatures()->zoom_view_controller();
+  if (!zoom_view_controller) {
+    return;
+  }
+
+  zoom_view_controller->UpdatePageActionIconAndBubbleVisibility(
+      /*prefer_to_show_bubble=*/can_show_bubble, /*from_user_gesture=*/false);
 }
 
 void WebUIBrowserWindow::ShowAppMenu() {
@@ -1238,6 +1172,27 @@ std::u16string WebUIBrowserWindow::WidgetDelegate::GetWindowTitle() const {
   // on Mac.
   return browser_window_->browser()->GetWindowTitleForCurrentTab(
       true /* include_app_name */);
+}
+
+bool WebUIBrowserWindow::WidgetDelegate::ShouldDescendIntoChildForEventHandling(
+    gfx::NativeView child,
+    const gfx::Point& location) {
+#if BUILDFLAG(IS_CHROMEOS)
+  // The titlebar has `app-region: drag;` set, so we shouldn't descend into it
+  // for event handling on ChromeOS.
+  if (GetWidget() &&
+      GetWidget()->GetNonClientComponent(location) == HTCAPTION) {
+    return false;
+  }
+  return true;
+#else
+  // Other platforms such as Windows do hit testing (WM_NCHITTEST) before
+  // sending pointer events. That happens before aura::Window has a chance to
+  // call ShouldDescendIntoChildForEventHandling(), so use the default
+  // implementation instead.
+  return views::WidgetDelegate::ShouldDescendIntoChildForEventHandling(
+      child, location);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 WebUIBrowserUI* WebUIBrowserWindow::GetWebUIBrowserUI() const {

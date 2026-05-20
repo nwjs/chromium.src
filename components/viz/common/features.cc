@@ -48,6 +48,11 @@ BASE_FEATURE(kAndroidDumpForBadCompositedUiState,
 BASE_FEATURE(kBackForwardTransitionsSameDocSharedImage,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// If enabled, each render pass eligible for scanout gets its own BufferQueue.
+// This allows for BufferQueue to be used in scenarios like partial delegated
+// compositing, where no root render pass is present.
+BASE_FEATURE(kBufferQueuePerRenderPass, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kUseDrmBlackFullscreenOptimization,
 #if BUILDFLAG(IS_CHROMEOS)
              base::FEATURE_ENABLED_BY_DEFAULT
@@ -144,7 +149,7 @@ BASE_FEATURE(kUseSurfaceLayerForVideoDefault, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kWebViewNewInvalidateHeuristic, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebViewNewInvalidateHeuristicForTV,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled and the device's SOC manufacturer is in the allowlist, WebView
 // reports the set of threads involved in frame production to HWUI, and they're
@@ -234,7 +239,7 @@ BASE_FEATURE(kEnableADPFSeparateRendererMainSession,
 // workload during page load.
 // Supported only on Android >= 16.
 BASE_FEATURE(kEnableADPFWorkloadIncreaseOnPageLoad,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, Chrome uses ADPF's setPreferPowerEfficiency API to try and save
 // energy at the cost of performance. Supported only on Android >= 16.
@@ -380,6 +385,12 @@ BASE_FEATURE(kFlingSchedulingImprovements, base::FEATURE_DISABLED_BY_DEFAULT);
 // This is a temporary flag to work as a kill switch for the optimization and
 // should be removed as soon as we confirm that the optimization is stable.
 BASE_FEATURE(kRpdqFilterLookupOptimizations, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Use correct default ColorSpace in `SharedMemoryVideoFramePool::WrapBuffer`
+// when creating a VideoFrame instead of when it is used in
+// `FrameSinkVideoCapturerImpl::MaybeCaptureFrame`.
+BASE_FEATURE(kSharedMemoryVFPoolUseCorrectColorSpace,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)
 // Use BufferQueue for the primary plane instead of a DXGI swap chain or DComp

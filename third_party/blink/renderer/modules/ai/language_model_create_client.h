@@ -26,7 +26,8 @@ class LanguageModelCreateClient
   LanguageModelCreateClient(
       ScriptPromiseResolver<LanguageModel>* resolver,
       LanguageModelCreateOptions* options,
-      mojom::blink::AILanguageModelSamplingParamsPtr resolved_sampling_params);
+      mojom::blink::AILanguageModelSamplingParamsPtr resolved_sampling_params,
+      std::optional<mojom::blink::AILanguageModelSamplingMode> sampling_mode);
   ~LanguageModelCreateClient() override;
 
   LanguageModelCreateClient(const LanguageModelCreateClient&) = delete;
@@ -49,6 +50,8 @@ class LanguageModelCreateClient
   // Process options and create, if the availability result is valid.
   void Create(mojom::blink::ModelAvailabilityCheckResult result);
 
+  void OnConnectionError();
+
   // Continue creation after any initial prompts were processed or rejected.
   void OnInitialPromptsResolved(
       Vector<mojom::blink::AILanguageModelExpectedPtr> expected_inputs,
@@ -62,6 +65,7 @@ class LanguageModelCreateClient
   Member<LanguageModelCreateOptions> options_;
   Member<CreateMonitor> monitor_;
   mojom::blink::AILanguageModelSamplingParamsPtr resolved_sampling_params_;
+  std::optional<mojom::blink::AILanguageModelSamplingMode> sampling_mode_;
   Vector<mojom::blink::AILanguageModelToolDeclarationPtr> converted_tools_;
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
 };

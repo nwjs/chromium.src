@@ -24,6 +24,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/task/bind_post_task.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/hang_watcher.h"
 #include "base/timer/elapsed_timer.h"
@@ -360,6 +361,12 @@ class AsrStreamResponder final {
     return weak_ptr_factory_.GetWeakPtr();
   }
 
+  void OnCreateDone(std::optional<odmm::AsrError> error) {
+    if (error) {
+      responder_.ResetWithReason(static_cast<uint32_t>(error.value()), "");
+    }
+  }
+
  private:
   void Cancel() { session_ = nullptr; }
   void OnOutput(std::vector<odmm::SpeechRecognitionResultPtr> output) {
@@ -455,7 +462,7 @@ BackendImpl::CanCreate() {
         on_device_model::ServiceDisconnectReason::kFailedToLoadLibrary);
   }
   ml::DeviceInfo device_info =
-      ml::QueryDeviceInfo(chrome_ml_->api(), /*log_histogram=*/false);
+      ml::QueryDeviceInfo(*chrome_ml_, /*log_histogram=*/false);
   if (!on_device_model::IsCpuCapable() &&
       device_info.gpu_blocked_reason != GpuBlockedReason::kNotBlocked) {
     return base::unexpected(
@@ -464,15 +471,10 @@ BackendImpl::CanCreate() {
   return base::ok();
 }
 
-DISABLE_CFI_DLSYM
 on_device_model::Capabilities BackendImpl::GetCapabilities(
     on_device_model::ModelFile model_file) {
   TRACE_EVENT("optimization_guide", "BackendImpl::GetCapabilities");
   on_device_model::Capabilities result;
-  if (!chrome_ml_->api().GetCapabilities) {
-    return result;
-  }
-
   PlatformFile platform_file;
   if (model_file.IsFile()) {
     platform_file = model_file.file().TakePlatformFile();
@@ -482,7 +484,9 @@ on_device_model::Capabilities BackendImpl::GetCapabilities(
     platform_file = file.TakePlatformFile();
   }
   ChromeMLCapabilities capabilities;
-  chrome_ml_->api().GetCapabilities(platform_file, capabilities);
+  if (!chrome_ml_->GetCapabilities(platform_file, capabilities)) {
+    return result;
+  }
 
   if (capabilities.image_input) {
     result.Put(on_device_model::CapabilityFlags::kImageInput);
@@ -527,7 +531,6 @@ SessionImpl::SessionImpl(OnDeviceModelExecutor& executor,
       adaptation_id_(adaptation_id) {}
 SessionImpl::~SessionImpl() = default;
 
-DISABLE_CFI_DLSYM
 void SessionImpl::Append(
     on_device_model::mojom::AppendOptionsPtr options,
     mojo::PendingRemote<on_device_model::mojom::ContextClient> client,
@@ -567,7 +570,6 @@ void SessionImpl::Append(
   context_holders_.insert(std::move(context_holder));
 }
 
-DISABLE_CFI_DLSYM
 void SessionImpl::Generate(
     on_device_model::mojom::GenerateOptionsPtr options,
     mojo::PendingRemote<on_device_model::mojom::StreamingResponder> response,
@@ -604,7 +606,6 @@ void SessionImpl::Generate(
       executor_->GetConstraintFactory(), model_response_prefix_, output_fn);
 }
 
-DISABLE_CFI_DLSYM
 void SessionImpl::SizeInTokens(on_device_model::mojom::InputPtr input,
                                base::OnceCallback<void(uint32_t)> callback) {
   TRACE_EVENT("optimization_guide", "SessionImpl::SizeInTokens");
@@ -612,14 +613,12 @@ void SessionImpl::SizeInTokens(on_device_model::mojom::InputPtr input,
                          ConvertCallbackToFn(std::move(callback)));
 }
 
-DISABLE_CFI_DLSYM
 void SessionImpl::Score(const std::string& text,
                         base::OnceCallback<void(float)> callback) {
   TRACE_EVENT("optimization_guide", "SessionImpl::Score");
   session_->Score(text, ConvertCallbackToFn(std::move(callback)));
 }
 
-DISABLE_CFI_DLSYM
 void SessionImpl::GetProbabilitiesBlocking(
     const std::string& input,
     base::OnceCallback<void(const std::vector<float>&)> callback) {
@@ -628,7 +627,6 @@ void SessionImpl::GetProbabilitiesBlocking(
                                      ConvertCallbackToFn(std::move(callback)));
 }
 
-DISABLE_CFI_DLSYM
 void SessionImpl::AsrStream(
     odmm::AsrStreamOptionsPtr options,
     mojo::PendingRemote<odmm::AsrStreamResponder> responder) {
@@ -639,16 +637,22 @@ void SessionImpl::AsrStream(
   asr_responder_ = std::make_unique<AsrStreamResponder>(std::move(responder),
                                                         std::move(cloned));
   ChromeMLASRStreamOutputFn output_fn = asr_responder_->CreateOutputFn();
-  cloned_raw->CreateAsrStream(std::move(options), output_fn);
+  cloned_raw->CreateAsrStream(std::move(options), output_fn,
+                              base::BindOnce(&AsrStreamResponder::OnCreateDone,
+                                             asr_responder_->AsWeakPtr()));
 }
 
-DISABLE_CFI_DLSYM
 void SessionImpl::AsrAddAudioChunk(odmm::AudioDataPtr data) {
   TRACE_EVENT("optimization_guide.debug", "SessionImpl::AsrAddAudioChunk");
   if (!asr_responder_) {
     return;
   }
   asr_responder_->session()->AsrAddAudioChunk(std::move(data));
+}
+
+void SessionImpl::Hint(on_device_model::mojom::HintOptionsPtr options) {
+  TRACE_EVENT("optimization_guide", "SessionImpl::Hint");
+  session_->Hint(std::move(options), executor_->GetConstraintFactory());
 }
 
 std::unique_ptr<on_device_model::BackendSession> SessionImpl::Clone() {
@@ -670,18 +674,17 @@ void SessionImpl::RemoveContext(ContextHolder* context) {
   std::erase_if(context_holders_, base::MatchesUniquePtr(context));
 }
 
-DISABLE_CFI_DLSYM
 void DestroyModel(const ChromeML* chrome_ml, ChromeMLModel model) {
   TRACE_EVENT("optimization_guide", "DestroyModel");
-  chrome_ml->api().DestroyModel(model);
+  chrome_ml->DestroyModel(model);
 }
 
 OnDeviceModelExecutor::OnDeviceModelExecutor(
     base::PassKey<OnDeviceModelExecutor>,
     const ChromeML& chrome_ml)
     : chrome_ml_(chrome_ml),
-      model_task_runner_(
-          base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()})),
+      model_task_runner_(base::ThreadPool::CreateSequencedTaskRunner(
+          {base::MayBlock(), base::WithBaseSyncPrimitives()})),
       constraint_factory_(
           ConstraintFactory::Create(*chrome_ml_, model_task_runner_)) {}
 
@@ -747,15 +750,16 @@ void OnDeviceModelExecutor::UnloadAdaptation(uint32_t adaptation_id) {
   adaptation_params_.erase(adaptation_id);
 }
 
-DISABLE_CFI_DLSYM
 LoadModelResult OnDeviceModelExecutor::Init(
     on_device_model::mojom::LoadModelParamsPtr params,
     base::OnceClosure on_complete) {
   TRACE_EVENT("optimization_guide", "OnDeviceModelExecutor::Init");
   ml::DeviceInfo device_info =
-      ml::QueryDeviceInfo(chrome_ml_->api(), /*log_histogram=*/false);
+      ml::QueryDeviceInfo(*chrome_ml_, /*log_histogram=*/false);
   if (params->backend_type == ml::ModelBackendType::kGpuBackend &&
       device_info.gpu_blocked_reason != GpuBlockedReason::kNotBlocked) {
+    LOG(ERROR) << "GPU blocked for on-device model. Reason: "
+               << static_cast<int>(device_info.gpu_blocked_reason);
     return LoadModelResult::kGpuBlocked;
   }
   on_device_model::ModelAssets assets = std::move(params->assets);
@@ -773,7 +777,8 @@ LoadModelResult OnDeviceModelExecutor::Init(
     data.model_path = weights_path_str.data();
     data.sentencepiece_model_path = sp_model_path_str.data();
   }
-  // TODO(crbug.com/400998489): Cache files are experimental for now.
+  // TODO(crbug.com/461547475): Determine whether weight caches should be used
+  // for GPU or just CPU only.
   data.cache_file = params->backend_type == ml::ModelBackendType::kCpuBackend &&
                             assets.cache.IsValid()
                         ? assets.cache.TakePlatformFile()
@@ -802,12 +807,15 @@ LoadModelResult OnDeviceModelExecutor::Init(
   // `SessionCreateModel` may take a long time to load the model. Deactivate
   // hang watcher so it doesn't report it as a hang.
   base::HangWatcher::InvalidateActiveExpectations();
-  model_ = chrome_ml_->api().SessionCreateModel(
-      &descriptor, reinterpret_cast<uintptr_t>(this),
-      OnDeviceModelExecutor::Schedule);
+  model_ = chrome_ml_->SessionCreateModel(&descriptor,
+                                          reinterpret_cast<uintptr_t>(this),
+                                          OnDeviceModelExecutor::Schedule);
   model_task_runner_->PostTask(FROM_HERE, std::move(on_complete));
-  return (model_ != 0) ? LoadModelResult::kSuccess
-                       : LoadModelResult::kFailedToLoadLibrary;
+  if (model_ == 0) {
+    LOG(ERROR) << "SessionCreateModel failed.";
+    return LoadModelResult::kFailedToLoadLibrary;
+  }
+  return LoadModelResult::kSuccess;
 }
 
 // static

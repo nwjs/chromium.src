@@ -1,4 +1,4 @@
-// Copyright 2025 The Chromium Authors
+// Copyright 2026 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -454,6 +454,14 @@ chrome.accessibilityPrivate.ScrollDirection = {
 };
 
 /**
+ * @typedef {{
+ *   wasm: ArrayBuffer,
+ *   wrapperJs: ArrayBuffer
+ * }}
+ */
+chrome.accessibilityPrivate.TenjiData;
+
+/**
  * @enum {string}
  */
 chrome.accessibilityPrivate.FacialGesture = {
@@ -522,6 +530,13 @@ chrome.accessibilityPrivate.installPumpkinForDictation = function(callback) {};
  *     Resolves when the DLC download finishes.
  */
 chrome.accessibilityPrivate.installFaceGazeAssets = function(callback) {};
+
+/**
+ * Installs the Tenji Braille DLC
+ * @param {function(!chrome.accessibilityPrivate.TenjiData): void} callback
+ *     Resolves when Tenji download finishes.
+ */
+chrome.accessibilityPrivate.installTenji = function(callback) {};
 
 /**
  * Enables or disables native accessibility support. Once disabled, it is up to

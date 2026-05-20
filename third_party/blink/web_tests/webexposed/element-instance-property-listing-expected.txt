@@ -176,6 +176,7 @@ namespace http://www.w3.org/1999/xhtml
     property localName
     property lookupNamespaceURI
     property lookupPrefix
+    property matchContainer
     property matches
     property moveBefore
     property namespaceURI
@@ -199,6 +200,7 @@ namespace http://www.w3.org/1999/xhtml
     property onauxclick
     property onbeforecopy
     property onbeforecut
+    property onbeforefilter
     property onbeforeinput
     property onbeforematch
     property onbeforepaste
@@ -312,6 +314,8 @@ namespace http://www.w3.org/1999/xhtml
     property onwheel
     property outerHTML
     property outerText
+    property overscrollarea
+    property overscrollcontainer
     property ownerDocument
     property parentElement
     property parentNode
@@ -1070,6 +1074,7 @@ html element script
     property async
     property attributionSrc
     property blocking
+    property cacheHint
     property charset
     property crossOrigin
     property defer
@@ -1189,6 +1194,7 @@ html element td
 html element template
     property content
     property htmlFor
+    property shadowRootAdoptedStyleSheets
     property shadowRootClonable
     property shadowRootCustomElementRegistry
     property shadowRootDelegatesFocus
@@ -1536,6 +1542,7 @@ namespace http://www.w3.org/2000/svg
     property localName
     property lookupNamespaceURI
     property lookupPrefix
+    property matchContainer
     property matches
     property moveBefore
     property namespaceURI
@@ -1554,6 +1561,7 @@ namespace http://www.w3.org/2000/svg
     property onauxclick
     property onbeforecopy
     property onbeforecut
+    property onbeforefilter
     property onbeforeinput
     property onbeforematch
     property onbeforepaste

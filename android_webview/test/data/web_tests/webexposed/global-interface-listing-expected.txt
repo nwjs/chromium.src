@@ -556,6 +556,7 @@ interface CSSConditionRule : CSSGroupingRule
     method constructor
 interface CSSContainerRule : CSSConditionRule
     attribute @@toStringTag
+    getter conditions
     getter containerName
     getter containerQuery
     method constructor
@@ -1456,6 +1457,10 @@ interface ContactsManager
     method constructor
     method getProperties
     method select
+interface ContainerQueryList : EventTarget
+    attribute @@toStringTag
+    getter matches
+    method constructor
 interface ContentIndex
     attribute @@toStringTag
     method add
@@ -1958,6 +1963,7 @@ interface Document : Node
     getter onauxclick
     getter onbeforecopy
     getter onbeforecut
+    getter onbeforefilter
     getter onbeforeinput
     getter onbeforematch
     getter onbeforepaste
@@ -2187,6 +2193,7 @@ interface Document : Node
     setter onauxclick
     setter onbeforecopy
     setter onbeforecut
+    setter onbeforefilter
     setter onbeforeinput
     setter onbeforematch
     setter onbeforepaste
@@ -2523,6 +2530,7 @@ interface Element : Node
     method insertAdjacentElement
     method insertAdjacentHTML
     method insertAdjacentText
+    method matchContainer
     method matches
     method moveBefore
     method prepend
@@ -3450,6 +3458,10 @@ interface GeolocationCoordinates
     getter speed
     method constructor
     method toJSON
+interface GeolocationPermissionStatus : PermissionStatus
+    attribute @@toStringTag
+    getter accuracyMode
+    method constructor
 interface GeolocationPosition
     attribute @@toStringTag
     getter coords
@@ -3817,6 +3829,7 @@ interface HTMLElement : Element
     getter onanimationiteration
     getter onanimationstart
     getter onauxclick
+    getter onbeforefilter
     getter onbeforeinput
     getter onbeforematch
     getter onbeforetoggle
@@ -3922,6 +3935,8 @@ interface HTMLElement : Element
     getter onwebkittransitionend
     getter onwheel
     getter outerText
+    getter overscrollarea
+    getter overscrollcontainer
     getter popover
     getter scrollParent
     getter spellcheck
@@ -3960,6 +3975,7 @@ interface HTMLElement : Element
     setter onanimationiteration
     setter onanimationstart
     setter onauxclick
+    setter onbeforefilter
     setter onbeforeinput
     setter onbeforematch
     setter onbeforetoggle
@@ -4065,6 +4081,8 @@ interface HTMLElement : Element
     setter onwebkittransitionend
     setter onwheel
     setter outerText
+    setter overscrollarea
+    setter overscrollcontainer
     setter popover
     setter spellcheck
     setter style
@@ -4875,6 +4893,7 @@ interface HTMLScriptElement : HTMLElement
     getter async
     getter attributionSrc
     getter blocking
+    getter cacheHint
     getter charset
     getter crossOrigin
     getter defer
@@ -4894,6 +4913,7 @@ interface HTMLScriptElement : HTMLElement
     setter async
     setter attributionSrc
     setter blocking
+    setter cacheHint
     setter charset
     setter crossOrigin
     setter defer
@@ -5139,6 +5159,7 @@ interface HTMLTemplateElement : HTMLElement
     attribute @@toStringTag
     getter content
     getter htmlFor
+    getter shadowRootAdoptedStyleSheets
     getter shadowRootClonable
     getter shadowRootCustomElementRegistry
     getter shadowRootDelegatesFocus
@@ -5146,6 +5167,7 @@ interface HTMLTemplateElement : HTMLElement
     getter shadowRootSerializable
     method constructor
     setter htmlFor
+    setter shadowRootAdoptedStyleSheets
     setter shadowRootClonable
     setter shadowRootCustomElementRegistry
     setter shadowRootDelegatesFocus
@@ -5857,6 +5879,7 @@ interface MathMLElement : Element
     getter onanimationiteration
     getter onanimationstart
     getter onauxclick
+    getter onbeforefilter
     getter onbeforeinput
     getter onbeforematch
     getter onbeforetoggle
@@ -5975,6 +5998,7 @@ interface MathMLElement : Element
     setter onanimationiteration
     setter onanimationstart
     setter onauxclick
+    setter onbeforefilter
     setter onbeforeinput
     setter onbeforematch
     setter onbeforetoggle
@@ -6383,10 +6407,13 @@ interface MimeTypeArray
     method constructor
     method item
     method namedItem
-interface ModelContext
+interface ModelContext : EventTarget
     attribute @@toStringTag
+    getter ontoolchange
     method constructor
+    method getTools
     method registerTool
+    setter ontoolchange
 interface Mojo
     static method bindInterface
     static method createDataPipe
@@ -7164,6 +7191,7 @@ interface Performance : EventTarget
     method getEntries
     method getEntriesByName
     method getEntriesByType
+    method getSpeculations
     method mark
     method measure
     method now
@@ -7466,6 +7494,13 @@ interface PreferenceObject : EventTarget
     method constructor
     method requestOverride
     setter onchange
+interface PreloadData
+    attribute @@toStringTag
+    getter as
+    getter crossorigin
+    getter url
+    getter used
+    method constructor
 interface ProcessingInstruction : CharacterData
     attribute @@toStringTag
     getter sheet
@@ -7504,7 +7539,7 @@ interface QuotaExceededError : DOMException
     getter quota
     getter requested
     method constructor
-interface RTC : EventTarget
+interface RTC
     attribute @@toStringTag
     method cancelDiagnosticLogging
     method constructor
@@ -8196,6 +8231,7 @@ interface SVGElement : Element
     getter onanimationiteration
     getter onanimationstart
     getter onauxclick
+    getter onbeforefilter
     getter onbeforeinput
     getter onbeforematch
     getter onbeforetoggle
@@ -8316,6 +8352,7 @@ interface SVGElement : Element
     setter onanimationiteration
     setter onanimationstart
     setter onauxclick
+    setter onbeforefilter
     setter onbeforeinput
     setter onbeforematch
     setter onbeforetoggle
@@ -9210,10 +9247,12 @@ interface Sanitizer
     attribute @@toStringTag
     method allowAttribute
     method allowElement
+    method allowProcessingInstruction
     method constructor
     method get
     method removeAttribute
     method removeElement
+    method removeProcessingInstruction
     method removeUnsafe
     method replaceElementWithChildren
     method setComments
@@ -9536,6 +9575,10 @@ interface SourceBufferList : EventTarget
     method constructor
     setter onaddsourcebuffer
     setter onremovesourcebuffer
+interface SpeculationData
+    attribute @@toStringTag
+    getter preloads
+    method constructor
 interface SpeechGrammar
     attribute @@toStringTag
     getter src
@@ -11792,6 +11835,7 @@ interface WebSocketStream
 interface WebTransport
     attribute @@toStringTag
     getter closed
+    getter congestionControl
     getter datagrams
     getter incomingBidirectionalStreams
     getter incomingUnidirectionalStreams
@@ -11831,6 +11875,14 @@ interface WebTransportSendGroup
     attribute @@toStringTag
     method constructor
     method getStats
+interface WebTransportSendStream : WritableStream
+    attribute @@toStringTag
+    getter sendGroup
+    getter sendOrder
+    method constructor
+    method getStats
+    setter sendGroup
+    setter sendOrder
 interface WheelEvent : MouseEvent
     attribute @@toStringTag
     attribute DOM_DELTA_LINE
@@ -12394,6 +12446,7 @@ namespace console
     getter onanimationstart
     getter onappinstalled
     getter onauxclick
+    getter onbeforefilter
     getter onbeforeinput
     getter onbeforeinstallprompt
     getter onbeforematch
@@ -12624,6 +12677,7 @@ namespace console
     setter onanimationstart
     setter onappinstalled
     setter onauxclick
+    setter onbeforefilter
     setter onbeforeinput
     setter onbeforeinstallprompt
     setter onbeforematch

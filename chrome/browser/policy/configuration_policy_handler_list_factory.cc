@@ -30,9 +30,6 @@
 #include "chrome/browser/performance_manager/public/user_tuning/memory_saver_policy_handler.h"
 #include "chrome/browser/policy/annotations/blocklist_handler.h"
 #include "chrome/browser/policy/browsing_history_policy_handler.h"
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/policy/developer_tools_availability_list_policy_handler.h"
-#endif  // !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/policy/developer_tools_policy_handler.h"
 #include "chrome/browser/policy/drive_file_sync_available_policy_handler.h"
 #include "chrome/browser/policy/file_selection_dialogs_policy_handler.h"
@@ -128,7 +125,6 @@
 #include "components/search_engines/search_engines_pref_names.h"
 #include "components/security_interstitials/core/https_only_mode_policy_handler.h"
 #include "components/security_interstitials/core/pref_names.h"
-#include "components/sharing_message/buildflags.h"
 #include "components/sharing_message/pref_names.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/base/signin_pref_names.h"
@@ -159,6 +155,7 @@
 #include "chrome/browser/enterprise/reporting/extension_request/extension_request_policy_handler.h"
 #include "chrome/browser/media/router/discovery/access_code/access_code_cast_feature.h"
 #include "chrome/browser/policy/battery_saver_policy_handler.h"
+#include "chrome/browser/policy/developer_tools_availability_list_policy_handler.h"
 #include "chrome/browser/policy/local_sync_policy_handler.h"
 #include "chrome/browser/policy/managed_account_policy_handler.h"
 #include "chrome/browser/web_applications/policy/web_app_settings_policy_handler.h"
@@ -219,7 +216,7 @@
 #include "chromeos/dbus/power/power_policy_controller.h"
 #include "chromeos/ui/wm/fullscreen/pref_names.h"
 #include "components/account_manager_core/pref_names.h"
-#include "components/drive/drive_pref_names.h"  // nogncheck crbug.com/1125897
+#include "components/drive/drive_pref_names.h"  // nogncheck crbug.com/40147906
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_manager_pref_names.h"
@@ -261,7 +258,7 @@
 #include "chrome/browser/enterprise/idle/action.h"
 #include "chrome/browser/enterprise/signin/enterprise_signin_prefs.h"
 #include "chrome/browser/external_protocol/auto_launch_protocols_policy_handler.h"
-#include "components/device_signals/core/browser/pref_names.h"  // nogncheck due to crbug.com/1125897
+#include "components/device_signals/core/browser/pref_names.h"  // nogncheck due to crbug.com/40147906
 #include "components/proxy_config/proxy_config_pref_names.h"
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
@@ -289,6 +286,9 @@ using ::ash::MagnifierType;
 // clang-format off
 const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
 // Policies for all platforms - Start
+  { key::kAdsSettingForIntrusiveAdsSites,
+    prefs::kManagedDefaultAdsSetting,
+    base::Value::Type::INTEGER },
   { key::kAutoplayAllowed,
     prefs::kAutoplayAllowed,
     base::Value::Type::BOOLEAN },
@@ -304,6 +304,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kComponentUpdatesEnabled,
     prefs::kComponentUpdatesEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kCpuPerformanceTierOverride,
+    prefs::kCpuPerformanceTierPolicyOverride,
+    base::Value::Type::INTEGER },
   { key::kDataURLWhitespacePreservationEnabled,
     prefs::kDataURLWhitespacePreservationEnabled,
     base::Value::Type::BOOLEAN },
@@ -447,6 +450,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kSharedWorkerBlobURLFixEnabled,
     prefs::kSharedWorkerBlobURLFixEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kDataUrlInWebWorkerOpaqueOriginEnabled,
+    prefs::kDataUrlInWebWorkerOpaqueOriginEnabled,
+    base::Value::Type::BOOLEAN },
   { key::kSharedWorkerExtendedLifetimeEnabled,
     prefs::kSharedWorkerExtendedLifetimeEnabled,
     base::Value::Type::BOOLEAN },
@@ -528,9 +534,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kAccessibilityImageLabelsEnabled,
     prefs::kAccessibilityImageLabelsEnabled,
     base::Value::Type::BOOLEAN },
-  { key::kAdsSettingForIntrusiveAdsSites,
-    prefs::kManagedDefaultAdsSetting,
-    base::Value::Type::INTEGER },
   { key::kAdvancedProtectionAllowed,
     prefs::kAdvancedProtectionAllowed,
     base::Value::Type::BOOLEAN },
@@ -572,11 +575,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     side_search_prefs::kSideSearchEnabled,
     base::Value::Type::BOOLEAN },
 #endif // defined(TOOLKIT_VIEWS)
-#if BUILDFLAG(ENABLE_CLICK_TO_CALL)
   { key::kClickToCallEnabled,
     prefs::kClickToCallEnabled,
     base::Value::Type::BOOLEAN },
-#endif  // BUILDFLAG(ENABLE_CLICK_TO_CALL)
   { key::kCompressionDictionaryTransportEnabled,
     prefs::kCompressionDictionaryTransportEnabled,
     base::Value::Type::BOOLEAN },
@@ -1118,6 +1119,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kMetricsReportingEnabled,
     metrics::prefs::kMetricsReportingEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kMetricsReportingLevel,
+    metrics::prefs::kMetricsReportingLevel,
+    base::Value::Type::INTEGER },
   { key::kVariationsRestrictParameter,
     variations::prefs::kVariationsRestrictParameter,
     base::Value::Type::STRING },
@@ -1140,16 +1144,16 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     ::reporting::kReportWebsiteTelemetryCollectionRateMs,
     base::Value::Type::INTEGER },
   { key::kMicrosoftOfficeCloudUpload,
-    prefs::kMicrosoftOfficeCloudUpload,
+    ash::prefs::kMicrosoftOfficeCloudUpload,
     base::Value::Type::STRING },
   { key::kGoogleWorkspaceCloudUpload,
-    prefs::kGoogleWorkspaceCloudUpload,
+    ash::prefs::kGoogleWorkspaceCloudUpload,
     base::Value::Type::STRING},
     { key::kMicrosoftOneDriveMount,
-    prefs::kMicrosoftOneDriveMount,
+    ash::prefs::kMicrosoftOneDriveMount,
     base::Value::Type::STRING},
   { key::kMicrosoftOneDriveAccountRestrictions,
-    prefs::kMicrosoftOneDriveAccountRestrictions,
+    ash::prefs::kMicrosoftOneDriveAccountRestrictions,
     base::Value::Type::LIST},
   { key::kExtensionOAuthRedirectUrls,
     extensions::pref_names::kOAuthRedirectUrls,
@@ -1424,7 +1428,7 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     ash::prefs::kPersonalizationKeyboardBacklightColor,
     base::Value::Type::INTEGER },
   { key::kRebootAfterUpdate,
-    prefs::kRebootAfterUpdate,
+    ash::prefs::kRebootAfterUpdate,
     base::Value::Type::BOOLEAN },
   { key::kChromeOsMultiProfileUserBehavior,
     user_manager::prefs::kMultiProfileUserBehaviorPref,
@@ -1490,7 +1494,7 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     ash::prefs::kDeviceExternalPrintServersAllowlist,
     base::Value::Type::LIST },
   { key::kAllowedLanguages,
-    prefs::kAllowedLanguages,
+    ash::prefs::kAllowedLanguages,
     base::Value::Type::LIST },
   { key::kAllowedInputMethods,
     ash::prefs::kLanguageAllowedInputMethods,
@@ -1508,7 +1512,7 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     ash::prefs::kPowerSmartDimEnabled,
     base::Value::Type::BOOLEAN },
   { key::kNetBiosShareDiscoveryEnabled,
-    prefs::kNetBiosShareDiscoveryEnabled,
+    ash::prefs::kNetBiosShareDiscoveryEnabled,
     base::Value::Type::BOOLEAN },
   { key::kCrostiniAllowed,
     crostini::prefs::kUserCrostiniAllowedByPolicy,
@@ -1532,7 +1536,7 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     crostini::prefs::kCrostiniPortForwardingAllowedByPolicy,
     base::Value::Type::BOOLEAN },
   { key::kNTLMShareAuthenticationEnabled,
-    prefs::kNTLMShareAuthenticationEnabled,
+    ash::prefs::kNTLMShareAuthenticationEnabled,
     base::Value::Type::BOOLEAN },
   { key::kPrintingSendUsernameAndFilenameEnabled,
     ash::prefs::kPrintingSendUsernameAndFilenameEnabled,
@@ -1618,6 +1622,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kDeviceMetricsReportingEnabled,
     metrics::prefs::kMetricsReportingEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kDeviceMetricsReportingLevel,
+    metrics::prefs::kMetricsReportingLevel,
+    base::Value::Type::INTEGER },
   { key::kSystemTimezoneAutomaticDetection,
     ash::prefs::kSystemTimezoneAutomaticDetectionPolicy,
     base::Value::Type::INTEGER },
@@ -1670,10 +1677,10 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     ash::prefs::kSuggestedContentEnabled,
     base::Value::Type::BOOLEAN },
   { key::kRequiredClientCertificateForUser,
-    prefs::kRequiredClientCertificateForUser,
+    ash::prefs::kRequiredClientCertificateForUser,
     base::Value::Type::LIST },
   { key::kRequiredClientCertificateForDevice,
-    prefs::kRequiredClientCertificateForDevice,
+    ash::prefs::kRequiredClientCertificateForDevice,
     base::Value::Type::LIST },
   { key::kSecurityTokenSessionBehavior,
     prefs::kSecurityTokenSessionBehavior,
@@ -2155,6 +2162,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kKioskWebAppOfflineEnabled,
     ash::prefs::kKioskWebAppOfflineEnabled,
     base::Value::Type::BOOLEAN},
+  { key::kKioskPinchToZoomAllowed,
+    ash::prefs::kKioskPinchToZoomAllowed,
+    base::Value::Type::BOOLEAN},
   { key::kDevicePolicyRefreshRate,
     prefs::kDevicePolicyRefreshRate,
     base::Value::Type::INTEGER },
@@ -2628,8 +2638,7 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
 
   handlers->AddHandler(std::make_unique<DeveloperToolsPolicyHandler>());
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
+#if !BUILDFLAG(IS_ANDROID)
   handlers->AddHandler(
       std::make_unique<DeveloperToolsAvailabilityListPolicyHandler>(
           key::kDeveloperToolsAvailabilityAllowlist,
@@ -2639,8 +2648,7 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       std::make_unique<DeveloperToolsAvailabilityListPolicyHandler>(
           key::kDeveloperToolsAvailabilityBlocklist,
           prefs::kDeveloperToolsAvailabilityBlocklist));
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) \
-        // || BUILDFLAG(IS_CHROMEOS)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
   handlers->AddHandler(std::make_unique<IntRangePolicyHandler>(
       key::kGenAILocalFoundationalModelSettings,
@@ -2670,6 +2678,10 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       false));
   handlers->AddHandler(
       std::make_unique<performance_manager::MemorySaverPolicyHandler>());
+  handlers->AddHandler(std::make_unique<URLSchemeListPolicyHandler>(
+      key::kForceForegroundPriorityForUrls,
+      performance_manager::user_tuning::prefs::
+          kForceForegroundPriorityForUrls));
   // Note: This needs to be created after `DefaultSearchPolicyHandler`.
 
   handlers->AddHandler(
@@ -2832,7 +2844,7 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       prefs::kManagedWebHidAllowDevicesWithHidUsagesForUrls, chrome_schema));
 
   // WindowPlacement policies to be deprecated and replaced by WindowManagement.
-  // crbug.com/1328581
+  // crbug.com/40842072
   handlers->AddHandler(std::make_unique<SimpleDeprecatingPolicyHandler>(
       std::make_unique<SimplePolicyHandler>(
           key::kDefaultWindowPlacementSetting,
@@ -3042,9 +3054,15 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
           key::kUserSecurityAuthenticatedReporting,
           enterprise_reporting::kUserSecurityAuthenticatedReporting,
           base::Value::Type::BOOLEAN)));
-
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) ||
         // BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  handlers->AddHandler(std::make_unique<CloudUserOnlyPolicyChecker>(
+      std::make_unique<SimplePolicyHandler>(
+          key::kSecuritySignalsClientCertificatesSelectors,
+          enterprise_reporting::kSecuritySignalsClientCertificatesSelectors,
+          base::Value::Type::LIST)));
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   signin_legacy_policies.push_back(std::make_unique<SimplePolicyHandler>(
       key::kSigninAllowed,
 #if BUILDFLAG(IS_ANDROID)
@@ -3188,7 +3206,7 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       key::kUserActivityScreenDimDelayScale,
       ash::prefs::kPowerUserActivityScreenDimDelayFactor, 100, INT_MAX, true));
   handlers->AddHandler(std::make_unique<IntRangePolicyHandler>(
-      key::kUptimeLimit, prefs::kUptimeLimit, 3600, INT_MAX, true));
+      key::kUptimeLimit, ash::prefs::kUptimeLimit, 3600, INT_MAX, true));
   handlers->AddHandler(std::make_unique<IntRangePolicyHandler>(
       key::kDeviceLoginScreenDefaultScreenMagnifierType, nullptr,
       static_cast<int>(MagnifierType::kDisabled),
@@ -3265,7 +3283,7 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       ash::prefs::kPrintJobHistoryExpirationPeriod, -1, INT_MAX, true));
   handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
       key::kNetworkFileSharesPreconfiguredShares,
-      prefs::kNetworkFileSharesPreconfiguredShares, chrome_schema,
+      ash::prefs::kNetworkFileSharesPreconfiguredShares, chrome_schema,
       SCHEMA_ALLOW_UNKNOWN,
       SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
       SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
@@ -3488,10 +3506,6 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       key::kTabCompareSettings,
       optimization_guide::prefs::kProductSpecificationsEnterprisePolicyAllowed);
   gen_ai_default_policies.emplace_back(
-      key::kGeminiSettings, prefs::kGeminiSettings,
-      GenAiDefaultSettingsPolicyHandler::PolicyValueToPrefMap(
-          {{0, 0}, {1, 0}, {2, 1}}));
-  gen_ai_default_policies.emplace_back(
       key::kAutomatedPasswordChangeSettings,
       optimization_guide::prefs::
           kAutomatedPasswordChangeEnterprisePolicyAllowed);
@@ -3565,6 +3579,10 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
 #endif  // !BUILDFLAG(IS_ANDROID)
   gen_ai_default_policies.emplace_back(
       key::kAIModeSettings, omnibox::kAIModeSettings,
+      GenAiDefaultSettingsPolicyHandler::PolicyValueToPrefMap(
+          {{0, 0}, {1, 0}, {2, 1}}));
+  gen_ai_default_policies.emplace_back(
+      key::kGeminiSettings, prefs::kGeminiSettings,
       GenAiDefaultSettingsPolicyHandler::PolicyValueToPrefMap(
           {{0, 0}, {1, 0}, {2, 1}}));
   // Default value for SearchContentSharingSettings is 0 if

@@ -25,7 +25,7 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/corrupted_extension_reinstaller.h"
-#include "chrome/browser/extensions/extension_allowlist.h"
+#include "chrome/browser/extensions/extension_allowlist_factory.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/profile_util.h"
@@ -40,6 +40,7 @@
 #include "extensions/browser/allowlist_state.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/event_router.h"
+#include "extensions/browser/extension_allowlist.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
@@ -381,7 +382,7 @@ void InstalledLoader::LoadAllExtensions(Profile* profile) {
       // Reloading an extension reads files from disk.  We do this on the
       // UI thread because reloads should be very rare, and the complexity
       // added by delaying the time when the extensions service knows about
-      // all extensions is significant.  See crbug.com/37548 for details.
+      // all extensions is significant.  See crbug.com/40366546 for details.
       // |allow_blocking| disables tests that file operations run on the file
       // thread.
       base::ScopedAllowBlocking allow_blocking;
@@ -831,8 +832,9 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
     }
 
     LogHostPermissionsAccess(*extension);
-    if (ExtensionAllowlist::Get(profile)->GetExtensionAllowlistState(
-            extension->id()) == ALLOWLIST_NOT_ALLOWLISTED) {
+    if (ExtensionAllowlistFactory::GetForBrowserContext(profile)
+            ->GetExtensionAllowlistState(extension->id()) ==
+        ALLOWLIST_NOT_ALLOWLISTED) {
       // Record the number of not allowlisted enabled extensions.
       ++enabled_not_allowlisted_count;
     }
@@ -871,8 +873,9 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile) {
       }
     }
 
-    if (ExtensionAllowlist::Get(profile)->GetExtensionAllowlistState(
-            disabled_extension->id()) == ALLOWLIST_NOT_ALLOWLISTED) {
+    if (ExtensionAllowlistFactory::GetForBrowserContext(profile)
+            ->GetExtensionAllowlistState(disabled_extension->id()) ==
+        ALLOWLIST_NOT_ALLOWLISTED) {
       // Record the number of not allowlisted disabled extensions.
       ++disabled_not_allowlisted_count;
     }

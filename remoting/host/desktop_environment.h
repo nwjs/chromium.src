@@ -27,6 +27,7 @@ class DesktopDisplayInfoMonitor;
 class FileOperations;
 class InputInjector;
 class KeyboardLayoutMonitor;
+class AudioInjector;
 class RemoteWebAuthnStateChangeNotifier;
 class ScreenControls;
 class UrlForwarderConfigurator;
@@ -67,6 +68,7 @@ class DesktopEnvironment {
   CreateUrlForwarderConfigurator() = 0;
   virtual std::unique_ptr<RemoteWebAuthnStateChangeNotifier>
   CreateRemoteWebAuthnStateChangeNotifier() = 0;
+  virtual std::unique_ptr<AudioInjector> CreateAudioInjector() = 0;
 
   // Returns the set of all capabilities supported by |this|.
   virtual std::string GetCapabilities() const = 0;
@@ -74,10 +76,6 @@ class DesktopEnvironment {
   // Passes the final set of capabilities negotiated between the client and host
   // to |this|.
   virtual void SetCapabilities(const std::string& capabilities) = 0;
-
-  // Returns an id which identifies the current desktop session on Windows.
-  // Other platforms will always return the default value (UINT32_MAX).
-  virtual std::uint32_t GetDesktopSessionId() const = 0;
 };
 
 // Used to create |DesktopEnvironment| instances.

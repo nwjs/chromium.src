@@ -20,8 +20,6 @@ blink_core_hot_sources_layout = [
   "layout_box_hot.cc",
   "layout_object_hot.cc",
   "layout_object_inl.h",
-  "text_autosizer.cc",
-  "text_autosizer.h",
 ]
 
 blink_core_sources_layout = [
@@ -55,6 +53,8 @@ blink_core_sources_layout = [
   "break_token.cc",
   "break_token.h",
   "break_token_algorithm_data.h",
+  "column_gap_accumulator.cc",
+  "column_gap_accumulator.h",
   "column_layout_algorithm.cc",
   "column_layout_algorithm.h",
   "column_spanner_path.h",
@@ -334,6 +334,8 @@ blink_core_sources_layout = [
   "inline/text_offset_range.h",
   "inline/transformed_string.cc",
   "inline/transformed_string.h",
+  "inline/used_font.cc",
+  "inline/used_font.h",
   "layout_algorithm.h",
   "layout_block.cc",
   "layout_block.h",
@@ -447,6 +449,7 @@ blink_core_sources_layout = [
   "logical_box_fragment.cc",
   "logical_box_fragment.h",
   "logical_fragment.h",
+  "logical_fragment_link.cc",
   "logical_fragment_link.h",
   "map_coordinates_flags.h",
   "mathml/layout_mathml_block.cc",
@@ -845,6 +848,5 @@ blink_core_tests_layout = [
   "table/layout_table_section_test.cc",
   "table/layout_table_test.cc",
   "table/table_layout_utils_test.cc",
-  "text_autosizer_test.cc",
   "visual_rect_mapping_test.cc",
 ]

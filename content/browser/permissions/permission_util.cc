@@ -41,21 +41,25 @@ PermissionOption PermissionUtil::ToPermissionOption(
 }
 
 blink::mojom::PermissionStatusWithDetailsPtr
-PermissionUtil::ToPermissionStatusWithDetails(PermissionResult result) {
+PermissionUtil::ToPermissionStatusWithDetails(
+    blink::mojom::PermissionName permission_name,
+    PermissionResult result) {
   blink::mojom::PermissionStatus status = result.status;
   blink::mojom::PermissionDetailsPtr details;
 
-  GeolocationSetting* geolocation_setting =
-      result.retrieved_permission_setting
-          ? std::get_if<GeolocationSetting>(
-                &result.retrieved_permission_setting.value())
-          : nullptr;
-  if (status == blink::mojom::PermissionStatus::GRANTED &&
-      geolocation_setting) {
-    details = blink::mojom::PermissionDetails::NewGeolocationAccuracy(
-        geolocation_setting->precise == PermissionOption::kAllowed
-            ? blink::mojom::GeolocationAccuracy::kPrecise
-            : blink::mojom::GeolocationAccuracy::kApproximate);
+  if (permission_name == blink::mojom::PermissionName::GEOLOCATION) {
+    GeolocationSetting* geolocation_setting =
+        result.retrieved_permission_setting
+            ? std::get_if<GeolocationSetting>(
+                  &result.retrieved_permission_setting.value())
+            : nullptr;
+    if (status == blink::mojom::PermissionStatus::GRANTED &&
+        geolocation_setting) {
+      details = blink::mojom::PermissionDetails::NewGeolocationAccuracy(
+          geolocation_setting->precise == PermissionOption::kAllowed
+              ? blink::mojom::GeolocationAccuracy::kPrecise
+              : blink::mojom::GeolocationAccuracy::kApproximate);
+    }
   }
   return blink::mojom::PermissionStatusWithDetails::New(status,
                                                         std::move(details));
@@ -65,7 +69,7 @@ PermissionUtil::ToPermissionStatusWithDetails(PermissionResult result) {
 // components/permissions/permission_util.cc.
 GURL PermissionUtil::GetLastCommittedOriginAsURL(
     content::RenderFrameHost* render_frame_host) {
-  DCHECK(render_frame_host);
+  CHECK(render_frame_host);
 
   content::WebContents* web_contents =
       content::WebContents::FromRenderFrameHost(render_frame_host);
@@ -84,12 +88,13 @@ GURL PermissionUtil::GetLastCommittedOriginAsURL(
   }
 #endif
 
-  if (render_frame_host->GetLastCommittedOrigin().GetURL().is_empty()) {
+  GURL origin = render_frame_host->GetLastCommittedOrigin().GetURL();
+  if (origin.is_empty() && render_frame_host->IsInPrimaryMainFrame()) {
     if (!web_contents->GetVisibleURL().is_empty()) {
-      return web_contents->GetVisibleURL();
+      origin = web_contents->GetVisibleURL();
     }
   }
-  return render_frame_host->GetLastCommittedOrigin().GetURL();
+  return origin;
 }
 
 bool PermissionUtil::IsDomainOverride(

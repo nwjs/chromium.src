@@ -7,8 +7,9 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/notreached.h"
 #include "chrome/browser/finds/core/finds_features.h"
-#include "chrome/browser/finds/core/finds_metrics.h"
 #include "chrome/browser/finds/core/finds_pref_names.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
+#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 
@@ -48,8 +49,7 @@ std::string ThemeTypeEnumToString(SuggestionTheme::ThemeType theme_type) {
   }
 }
 
-void MarkNotificationShown(PrefService* pref_service) {
-  RecordNotificationShown();
+void MarkModelExecutionLastTimestamp(PrefService* pref_service) {
   // Update model execution cooldown timestamp.
   pref_service->SetInt64(prefs::kFindsModelExecutionLastTimestamp,
                          base::Time::Now().InMillisecondsSinceUnixEpoch());
@@ -71,6 +71,16 @@ void MarkThemeAsNotInterested(PrefService* pref_service,
 
 base::TimeDelta GetModelExecutionCooldownDurationTimeDelta() {
   return base::Days(features::kModelExecutionCooldownDurationInDays.Get());
+}
+
+bool IsAllowedByEnterprisePolicy(PrefService* pref_service) {
+  if (!pref_service) {
+    return false;
+  }
+  return pref_service->GetInteger(
+             optimization_guide::prefs::kFindsEnterprisePolicyAllowed) !=
+         static_cast<int>(optimization_guide::model_execution::prefs::
+                              ModelExecutionEnterprisePolicyValue::kDisable);
 }
 
 }  // namespace finds

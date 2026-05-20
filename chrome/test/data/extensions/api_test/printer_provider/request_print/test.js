@@ -8,11 +8,13 @@
 //     the content will be null on error.
 function readBlob(blob, callback) {
   const reader = new FileReader();
-  reader.onerror = function() { callback(null); };
+  reader.onerror = function() {
+    callback(null);
+  };
   reader.onloadend = function() {
     callback(reader.result);
-  }
-  reader.readAsText(blob)
+  };
+  reader.readAsText(blob);
 }
 
 // Invokes |callback| with |returnValue| and verified a subsequent callback
@@ -20,21 +22,19 @@ function readBlob(blob, callback) {
 function wrapPrintCallback(callback, returnValue) {
   callback(returnValue);
   chrome.test.assertThrows(
-      callback,
-      ['OK'],
-      'Event callback must not be called more than once.');
+      callback, ['OK'], 'Event callback must not be called more than once.');
 }
 
 chrome.test.sendMessage('loaded', function(test) {
   chrome.test.runTests([function printTest() {
-    if (test == 'NO_LISTENER') {
+    if (test === 'NO_LISTENER') {
       chrome.test.sendMessage('ready');
       chrome.test.succeed();
       return;
     }
 
-    chrome.printerProvider.onPrintRequested.addListener(function(job,
-                                                                 callback) {
+    chrome.printerProvider.onPrintRequested.addListener(function(
+        job, callback) {
       chrome.test.assertFalse(!!chrome.printerProviderInternal);
       chrome.test.assertTrue(!!job);
 
@@ -57,10 +57,11 @@ chrome.test.sendMessage('loaded', function(test) {
           break;
         case 'OK':
           readBlob(job.document, function(content) {
-            wrapPrintCallback(callback, !!content ? 'OK' : 'INVALID_DATA');
+            wrapPrintCallback(callback, content ? 'OK' : 'INVALID_DATA');
 
-            if (content)
+            if (content) {
               chrome.test.assertEq('bytes', content);
+            }
 
             chrome.test.assertEq('Print job', job.title);
 

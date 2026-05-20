@@ -34,7 +34,6 @@
 #include "url/gurl.h"
 
 class ExtensionFunctionRegistry;
-class PrefService;
 
 namespace base {
 class CommandLine;
@@ -52,6 +51,10 @@ class WebContents;
 namespace download {
 class DownloadItem;
 }  // namespace download
+
+namespace image_fetcher {
+class ImageDecoder;
+}  // namespace image_fetcher
 
 namespace mojo {
 template <typename>
@@ -205,7 +208,18 @@ class ExtensionsBrowserClient {
   // - if `context` is a System Profile: returns null.
   // - if `context` is Original: returns itself.
   // - if `context` is OTR: returns the associated parent context.
+  // - if `context` is ash internals: returns the associated parent context.
   virtual content::BrowserContext* GetContextRedirectedToOriginal(
+      content::BrowserContext* context) = 0;
+
+  // Similar to GetContextRedirectedToOriginal(), but additionally filters out
+  // ash-internal profiles.
+  // - if `context` is a System Profile: returns null.
+  // - if `context` is Original: returns itself.
+  // - if `context` is OTR: returns the associated parent context.
+  // - if `context` is ash internals: returns null.
+  virtual content::BrowserContext*
+  GetContextRedirectedToOriginalWithoutAshInternals(
       content::BrowserContext* context) = 0;
 
   // - if `context` is a System Profile: returns null.
@@ -281,10 +295,6 @@ class ExtensionsBrowserClient {
       const ExtensionSet& extensions,
       const ProcessMap& process_map,
       const GURL& upstream_url) = 0;
-
-  // Returns the PrefService associated with `context`.
-  virtual PrefService* GetPrefServiceForContext(
-      content::BrowserContext* context) = 0;
 
   // Populates a list of ExtensionPrefs observers to be attached to each
   // BrowserContext's ExtensionPrefs upon construction. These observers
@@ -478,6 +488,12 @@ class ExtensionsBrowserClient {
   virtual bool ShouldSchemeBypassNavigationChecks(
       const std::string& scheme) const;
 
+  // Checks whether the given `request_url` and `redirect_url` correspond to a
+  // Default Search Engine redirect.
+  virtual bool IsDefaultSearchEngineRedirect(content::BrowserContext* context,
+                                             const GURL& request_url,
+                                             const GURL& redirect_url) const;
+
   // Gets and sets the last save (download) path for a given context.
   virtual base::FilePath GetSaveFilePath(content::BrowserContext* context);
   virtual void SetLastSaveFilePath(content::BrowserContext* context,
@@ -664,6 +680,13 @@ class ExtensionsBrowserClient {
   virtual scoped_refptr<CrxInstaller> CreateCrxInstallerFromDownloadItem(
       content::BrowserContext* context,
       const download::DownloadItem& download);
+
+  // Creates an implementation of image_fetcher::ImageDecoder.
+  virtual std::unique_ptr<image_fetcher::ImageDecoder> CreateImageDecoder();
+
+  // Returns whether the given browser context is allowed to use non-component
+  // extensions.
+  virtual bool CanUseNonComponentExtensions(content::BrowserContext* context);
 
  protected:
   std::unique_ptr<ExtensionAssetsManager> assets_manager_;

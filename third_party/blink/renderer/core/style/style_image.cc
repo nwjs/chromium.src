@@ -8,6 +8,16 @@
 
 namespace blink {
 
+RespectImageOrientationEnum StyleImage::ForceOrientationIfNecessary(
+    RespectImageOrientationEnum default_orientation) const {
+  if (default_orientation == kRespectImageOrientation) {
+    return kRespectImageOrientation;
+  }
+  DCHECK_EQ(default_orientation, kDoNotRespectImageOrientation);
+  return IsCorsSameOrigin() ? kDoNotRespectImageOrientation
+                            : kRespectImageOrientation;
+}
+
 gfx::SizeF StyleImage::ApplyZoom(const gfx::SizeF& size, float multiplier) {
   if (multiplier == 1.0f) {
     return size;

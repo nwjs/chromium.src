@@ -139,7 +139,7 @@ std::vector<blink::WebScriptSource> ProgrammaticScriptInjector::GetJsSources(
   std::vector<blink::WebScriptSource> sources;
   sources.reserve(js_injection->sources.size());
   for (const auto& source : js_injection->sources) {
-    sources.emplace_back(blink::WebString::FromUTF8(source->code),
+    sources.emplace_back(blink::WebString::FromUtf8(source->code),
                          source->script_url);
   }
 
@@ -162,7 +162,7 @@ ProgrammaticScriptInjector::GetCssSources(
     if (source->key)
       style_sheet_key = blink::WebString::FromAscii(*source->key);
     sources.push_back(
-        CSSSource{blink::WebString::FromUTF8(source->code), style_sheet_key});
+        CSSSource{blink::WebString::FromUtf8(source->code), style_sheet_key});
   }
 
   return sources;

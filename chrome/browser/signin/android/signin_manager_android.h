@@ -35,8 +35,6 @@ class Profile;
 enum class ClearedTypes {
   // Clear the service worker caches for Google domains.
   kGoogleServiceWorkerCaches,
-  // Clear all the sync data.
-  kSyncData,
   // Clear all the profile data.
   kAllData
 };
@@ -63,8 +61,6 @@ class SigninManagerAndroid : public KeyedService {
 
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject();
 
-  bool IsForceSigninEnabled(JNIEnv* env);
-
   // Registers a CloudPolicyClient for fetching policy for a user and fetches
   // the policy if necessary.
   void FetchAndApplyCloudPolicy(JNIEnv* env,
@@ -73,17 +69,12 @@ class SigninManagerAndroid : public KeyedService {
 
   void StopApplyingCloudPolicy(JNIEnv* env);
 
-  base::android::ScopedJavaLocalRef<jstring> GetManagementDomain(JNIEnv* env);
-
   // Delete all data for this profile.
   void WipeProfileData(JNIEnv* env, const base::RepeatingClosure& callback);
 
   // Delete service worker caches for google.<eTLD>.
   void WipeGoogleServiceWorkerCaches(JNIEnv* env,
                                      const base::RepeatingClosure& callback);
-
-  // Delete sync data for this profile.
-  void WipeSyncUserData(JNIEnv* env, const base::RepeatingClosure& callback);
 
   void SetUserAcceptedAccountManagement(JNIEnv* env,
                                         bool accepted_account_management);
@@ -138,10 +129,6 @@ class SigninManagerAndroid : public KeyedService {
                        base::OnceClosure callback);
 
   const raw_ptr<Profile> profile_ = nullptr;
-
-  // Handler for prefs::kForceBrowserSignin. This preference is set in Local
-  // State, not in user prefs.
-  BooleanPrefMember force_browser_signin_;
 
   const raw_ptr<signin::IdentityManager> identity_manager_ = nullptr;
   const raw_ptr<policy::UserCloudPolicyManager> user_cloud_policy_manager_ =

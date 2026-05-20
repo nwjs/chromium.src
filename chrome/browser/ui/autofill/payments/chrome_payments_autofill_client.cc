@@ -79,9 +79,9 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/android/preferences/autofill/settings_navigation_helper.h"
 #include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
-#include "chrome/browser/keyboard_accessory/android/manual_filling_controller_impl.h"
 #include "chrome/browser/keyboard_accessory/android/payment_method_accessory_controller.h"
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_controller.h"
+#include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_controller_impl.h"
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_view_impl.h"
 #include "chrome/browser/ui/android/autofill/autofill_cvc_save_message_delegate.h"
 #include "chrome/browser/ui/android/autofill/autofill_save_card_bottom_sheet_bridge.h"
@@ -110,8 +110,8 @@
 #include "chrome/browser/ui/autofill/payments/save_card_bubble_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/webauthn_dialog_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/webauthn_dialog_state.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"  // nogncheck
 #include "chrome/browser/ui/desktop_to_mobile_promos/ios_promos_utils.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "components/autofill/core/browser/payments/desktop_bnpl_strategy.h"
@@ -131,7 +131,10 @@ ChromePaymentsAutofillClient::ChromePaymentsAutofillClient(
       client_(CHECK_DEREF(client)),
       save_and_fill_manager_(
           std::make_unique<payments::SaveAndFillManagerImpl>(&client_.get())) {
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+  touch_to_fill_payment_method_controller_ =
+      std::make_unique<TouchToFillPaymentMethodControllerImpl>(&client_.get());
+#else
   if (base::FeatureList::IsEnabled(features::kAutofillEnableOmniboxAutofill)) {
     omnibox_autofill_delegate_ =
         std::make_unique<OmniboxAutofillDelegate>(&client_.get());
@@ -405,7 +408,8 @@ void ChromePaymentsAutofillClient::CreditCardUploadCompleted(
           controller->GetShowConfirmationForCardSuccessfullySavedCallback();
 
       BrowserWindowInterface* browser =
-          chrome::FindBrowserWithTab(web_contents());
+          GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+              web_contents());
 
       if (!browser) {
         std::move(promo_not_shown_callback).Run();
@@ -512,7 +516,7 @@ void ChromePaymentsAutofillClient::OnCardDataAvailable(
             if (!contents) {
               return;
             }
-            ManualFillingControllerImpl::GetOrCreate(contents.get())
+            ManualFillingController::GetOrCreate(contents.get())
                 ->ShowAccessorySheetTab(
                     autofill::AccessoryTabType::CREDIT_CARDS);
           },

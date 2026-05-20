@@ -270,6 +270,31 @@ TEST_F(ViewAccessibilityTest, ViewUsesChildViewSelected) {
             data_2.GetBoolAttribute(ax::mojom::BoolAttribute::kSelected));
 }
 
+TEST_F(ViewAccessibilityTest, SetIsSelectedFiresSelectionEvents) {
+  auto widget = CreateTestWidget(Widget::InitParams::CLIENT_OWNS_WIDGET);
+  auto* listbox = widget->SetContentsView(std::make_unique<TestView>());
+  auto* option = listbox->AddChildView(std::make_unique<TestView>());
+  listbox->GetViewAccessibility().SetRole(ax::mojom::Role::kListBox);
+  option->GetViewAccessibility().SetRole(ax::mojom::Role::kListBoxOption);
+
+  std::vector<ax::mojom::Event> listbox_events;
+  CollectEvents(listbox, &listbox_events);
+  std::vector<ax::mojom::Event> option_events;
+  CollectEvents(option, &option_events);
+
+  option->GetViewAccessibility().SetIsSelected(true);
+  EXPECT_TRUE(HasEvent(option_events, ax::mojom::Event::kSelection));
+  EXPECT_TRUE(
+      HasEvent(listbox_events, ax::mojom::Event::kSelectedChildrenChanged));
+
+  listbox_events.clear();
+  option_events.clear();
+  option->GetViewAccessibility().SetIsSelected(false);
+  EXPECT_TRUE(HasEvent(option_events, ax::mojom::Event::kSelection));
+  EXPECT_TRUE(
+      HasEvent(listbox_events, ax::mojom::Event::kSelectedChildrenChanged));
+}
+
 TEST_F(ViewAccessibilityTest, ViewUsesChildViewEditable) {
   base::CallbackListSubscription editable_changed_subscription_ =
       child_view()->GetViewAccessibility().AddStateChangedCallback(
@@ -1277,6 +1302,26 @@ TEST_F(ViewAccessibilityTest, LiveRegionOffDoesNotFireEvents) {
   fired_events.clear();
   contents->GetViewAccessibility().SetName("Updated");
   EXPECT_FALSE(HasEvent(fired_events, ax::mojom::Event::kLiveRegionChanged));
+}
+
+TEST_F(ViewAccessibilityTest, SetIsEnabled_FiresEnabledChangedEvent) {
+  auto widget = CreateTestWidget(Widget::InitParams::CLIENT_OWNS_WIDGET);
+  auto* contents = widget->SetContentsView(std::make_unique<TestView>());
+
+  std::vector<ax::mojom::Event> fired_events;
+  CollectEvents(contents, &fired_events);
+
+  contents->GetViewAccessibility().SetIsEnabled(false);
+  EXPECT_TRUE(HasEvent(fired_events, ax::mojom::Event::kEnabledChanged));
+
+  fired_events.clear();
+  contents->GetViewAccessibility().SetIsEnabled(true);
+  EXPECT_TRUE(HasEvent(fired_events, ax::mojom::Event::kEnabledChanged));
+
+  // Setting the same value should not fire again.
+  fired_events.clear();
+  contents->GetViewAccessibility().SetIsEnabled(true);
+  EXPECT_FALSE(HasEvent(fired_events, ax::mojom::Event::kEnabledChanged));
 }
 
 }  // namespace views::test

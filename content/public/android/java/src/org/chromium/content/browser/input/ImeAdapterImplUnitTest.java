@@ -25,11 +25,9 @@ import android.text.style.SuggestionSpan;
 import android.view.KeyEvent;
 import android.view.ViewGroup;
 import android.view.inputmethod.CorrectionInfo;
-import android.widget.TextView;
 
 import androidx.test.core.app.ApplicationProvider;
 
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -40,28 +38,27 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.stubbing.Answer;
-import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowToast;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.blink.mojom.EventType;
 import org.chromium.blink_public.web.WebInputEventModifier;
-import org.chromium.content.R;
 import org.chromium.content.browser.webcontents.WebContentsImpl;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.ImeEventObserver;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ContentFeatures;
 import org.chromium.ui.base.ime.TextInputType;
+import org.chromium.ui.mojom.ImeTextSpanType;
 import org.chromium.ui.test.util.TestViewAndroidDelegate;
 
 /** Unit tests for {@link ImeAdapterImpl}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(shadows = {ShadowToast.class})
 @DisableFeatures({
     ContentFeatures.ANDROID_PK_AUTOCORRECT_UNDERLINE,
+    ContentFeatures.ANDROID_PK_AUTOCORRECT_UNDERLINE_V2,
+    ContentFeatureList.ANDROID_BLOCK_GRAMMAR_SUGGESTION_SPAN_IN_COMPOSITION_MODE,
     ContentFeatureList.ANDROID_BLOCK_MISSPELLING_SUGGESTION_SPAN_IN_COMPOSITION_MODE
 })
 public class ImeAdapterImplUnitTest {
@@ -92,11 +89,6 @@ public class ImeAdapterImplUnitTest {
                 .thenReturn(ApplicationProvider.getApplicationContext().getResources());
         when(mWebContentsImpl.getViewAndroidDelegate())
                 .thenReturn(new TestViewAndroidDelegate(mContainerView));
-    }
-
-    @After
-    public void tearDown() {
-        ShadowToast.reset();
     }
 
     @Test
@@ -205,6 +197,32 @@ public class ImeAdapterImplUnitTest {
         verify(mImeAdapterImplJni, never()).commitText(anyLong(), any(), any(), any(), anyInt());
         reset(mImeAdapterImplJni);
 
+        // Test ALT_RIGHT_ON (AltGr).
+        long timeAltGr = SystemClock.uptimeMillis();
+        KeyEvent eventAltGr =
+                new KeyEvent(
+                        timeAltGr,
+                        timeAltGr,
+                        KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_A,
+                        0,
+                        KeyEvent.META_ALT_RIGHT_ON);
+        adapter.onKeyPreIme(eventAltGr.getKeyCode(), eventAltGr);
+        adapter.sendCompositionToNative("a", 1, true, 0);
+        verify(mImeAdapterImplJni)
+                .sendKeyEvent(
+                        anyLong(),
+                        isNotNull(),
+                        eq(EventType.KEY_DOWN),
+                        eq(WebInputEventModifier.ALT_GR_KEY),
+                        eq(timeAltGr),
+                        eq(eventAltGr.getKeyCode()),
+                        eq(eventAltGr.getScanCode()),
+                        eq(false),
+                        eq(eventAltGr.getUnicodeChar()));
+        verify(mImeAdapterImplJni, never()).commitText(anyLong(), any(), any(), any(), anyInt());
+        reset(mImeAdapterImplJni);
+
         // Ignore events that are too old or don't match with the committed text.
         long time2 = SystemClock.uptimeMillis() - 60 * 1000;
         KeyEvent event2 =
@@ -252,62 +270,27 @@ public class ImeAdapterImplUnitTest {
     }
 
     @Test
-    public void testCommitContentSuccessfully() {
+    public void testCommitContent() {
         when(mImeAdapterImplJni.insertMediaFromBytes(anyLong(), any(), any())).thenReturn(true);
 
         ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
         adapter.onConnectedToRenderProcess();
 
-        adapter.commitContent(/* bytes= */ new byte[] {1, 2, 3}, /* extension= */ "png");
+        Assert.assertTrue(
+                adapter.commitContent(/* bytes= */ new byte[] {1, 2, 3}, /* extension= */ "png"));
 
         verify(mImeAdapterImplJni)
                 .insertMediaFromBytes(anyLong(), eq(new byte[] {1, 2, 3}), eq("png"));
-        Assert.assertNull(ShadowToast.getLatestToast());
     }
 
     @Test
-    public void testCommitContent_FailureShowsToast() {
+    public void testCommitContent_Failure() {
         when(mImeAdapterImplJni.insertMediaFromBytes(anyLong(), any(), any())).thenReturn(false);
 
         ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
         adapter.onConnectedToRenderProcess();
 
-        ShadowToast.reset();
         Assert.assertFalse(adapter.commitContent(new byte[] {1, 2, 3}, "png"));
-
-        Assert.assertNotNull(ShadowToast.getLatestToast());
-        TextView textView = (TextView) ShadowToast.getLatestToast().getView();
-        Assert.assertEquals(
-                ApplicationProvider.getApplicationContext()
-                        .getString(R.string.rich_content_commit_failure_message),
-                textView.getText().toString());
-    }
-
-    @Test
-    public void testOnCommitContentResult_SuccessNoToast() {
-        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
-        adapter.onConnectedToRenderProcess();
-
-        ShadowToast.reset();
-        adapter.onCommitContentResult(true);
-
-        Assert.assertNull(ShadowToast.getLatestToast());
-    }
-
-    @Test
-    public void testOnCommitContentResult_FailureShowsToast() {
-        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
-        adapter.onConnectedToRenderProcess();
-
-        ShadowToast.reset();
-        adapter.onCommitContentResult(false);
-
-        Assert.assertNotNull(ShadowToast.getLatestToast());
-        TextView textView = (TextView) ShadowToast.getLatestToast().getView();
-        Assert.assertEquals(
-                ApplicationProvider.getApplicationContext()
-                        .getString(R.string.rich_content_commit_failure_message),
-                textView.getText().toString());
     }
 
     @Test
@@ -332,8 +315,40 @@ public class ImeAdapterImplUnitTest {
     }
 
     @Test
+    public void testSendKeyEventKeyDownCallsonCommitTextOrSendKeyEvent() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.setAutocorrectManagerForTesting(mAutocorrectManager);
+        adapter.onConnectedToRenderProcess();
+
+        KeyEvent event = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_A);
+        adapter.sendKeyEvent(event);
+
+        verify(mAutocorrectManager).onCommitTextOrSendKeyEvent();
+    }
+
+    @Test
+    public void testSendKeyEventKeyUpDoesNotCallonCommitTextOrSendKeyEvent() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        adapter.setAutocorrectManagerForTesting(mAutocorrectManager);
+        adapter.onConnectedToRenderProcess();
+
+        KeyEvent event = new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_A);
+        adapter.sendKeyEvent(event);
+
+        verify(mAutocorrectManager, never()).onCommitTextOrSendKeyEvent();
+    }
+
+    @Test
     @EnableFeatures(ContentFeatures.ANDROID_PK_AUTOCORRECT_UNDERLINE)
     public void testAutocorrectManagerInitialisationWhenFlagEnabled() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+
+        assertNotNull(adapter.getAutocorrectManagerForTesting());
+    }
+
+    @Test
+    @EnableFeatures(ContentFeatures.ANDROID_PK_AUTOCORRECT_UNDERLINE_V2)
+    public void testAutocorrectManagerInitialisationWhenV2FlagEnabled() {
         ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
 
         assertNotNull(adapter.getAutocorrectManagerForTesting());
@@ -387,11 +402,64 @@ public class ImeAdapterImplUnitTest {
                         /* spanPtr= */ eq(123L),
                         /* start= */ eq(0),
                         /* end= */ eq(5),
-                        /* isMisspelling= */ eq(true),
+                        /* type= */ eq(ImeTextSpanType.MISSPELLING_SUGGESTION),
                         /* removeOnFinishComposing= */ eq(false),
                         /* underlineColor= */ anyInt(),
                         /* suggestionHighlightColor= */ anyInt(),
                         /* suggestions= */ eq(suggestions),
+                        /* shouldHideSuggestionMenu= */ eq(true));
+    }
+
+    @Test
+    public void testPopulateImeTextSpansFromJava_GrammarSpanNotBlocked() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        SpannableString text = new SpannableString("hello");
+        String[] suggestions = new String[] {"suggestion"};
+        SuggestionSpan span =
+                new SuggestionSpan(
+                        ApplicationProvider.getApplicationContext(),
+                        suggestions,
+                        SuggestionSpan.FLAG_GRAMMAR_ERROR);
+        text.setSpan(span, 0, 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+        adapter.populateImeTextSpansFromJava(text, 123L);
+
+        verify(mImeAdapterImplJni)
+                .appendSuggestionSpan(
+                        /* spanPtr= */ eq(123L),
+                        /* start= */ eq(0),
+                        /* end= */ eq(5),
+                        /* type= */ eq(ImeTextSpanType.GRAMMAR_SUGGESTION),
+                        /* removeOnFinishComposing= */ eq(false),
+                        /* underlineColor= */ anyInt(),
+                        /* suggestionHighlightColor= */ anyInt(),
+                        /* suggestions= */ eq(suggestions),
+                        /* shouldHideSuggestionMenu= */ eq(true));
+    }
+
+    @Test
+    public void testPopulateImeTextSpansFromJava_AutoCorrectionSpan() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        SpannableString text = new SpannableString("hello");
+        SuggestionSpan span =
+                new SuggestionSpan(
+                        ApplicationProvider.getApplicationContext(),
+                        new String[] {"suggestion"},
+                        SuggestionSpan.FLAG_AUTO_CORRECTION);
+        text.setSpan(span, 0, 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+        adapter.populateImeTextSpansFromJava(text, 123L);
+
+        verify(mImeAdapterImplJni)
+                .appendSuggestionSpan(
+                        /* spanPtr= */ eq(123L),
+                        /* start= */ eq(0),
+                        /* end= */ eq(5),
+                        /* type= */ eq(ImeTextSpanType.AUTOCORRECT),
+                        /* removeOnFinishComposing= */ eq(false),
+                        /* underlineColor= */ anyInt(),
+                        /* suggestionHighlightColor= */ anyInt(),
+                        /* suggestions= */ eq(new String[0]),
                         /* shouldHideSuggestionMenu= */ eq(true));
     }
 
@@ -415,7 +483,34 @@ public class ImeAdapterImplUnitTest {
                         /* spanPtr= */ anyLong(),
                         /* start= */ anyInt(),
                         /* end= */ anyInt(),
-                        /* isMisspelling= */ anyBoolean(),
+                        /* type= */ anyInt(),
+                        /* removeOnFinishComposing= */ anyBoolean(),
+                        /* underlineColor= */ anyInt(),
+                        /* suggestionHighlightColor= */ anyInt(),
+                        /* suggestions= */ any(),
+                        /* shouldHideSuggestionMenu= */ anyBoolean());
+    }
+
+    @Test
+    @EnableFeatures(ContentFeatureList.ANDROID_BLOCK_GRAMMAR_SUGGESTION_SPAN_IN_COMPOSITION_MODE)
+    public void testPopulateImeTextSpansFromJava_GrammarSpanBlocked() {
+        ImeAdapterImpl adapter = new ImeAdapterImpl(mWebContentsImpl);
+        SpannableString text = new SpannableString("hello");
+        SuggestionSpan span =
+                new SuggestionSpan(
+                        ApplicationProvider.getApplicationContext(),
+                        new String[] {"suggestion"},
+                        SuggestionSpan.FLAG_GRAMMAR_ERROR);
+        text.setSpan(span, 0, 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+        adapter.populateImeTextSpansFromJava(text, 123L);
+
+        verify(mImeAdapterImplJni, never())
+                .appendSuggestionSpan(
+                        /* spanPtr= */ anyLong(),
+                        /* start= */ anyInt(),
+                        /* end= */ anyInt(),
+                        /* type= */ anyInt(),
                         /* removeOnFinishComposing= */ anyBoolean(),
                         /* underlineColor= */ anyInt(),
                         /* suggestionHighlightColor= */ anyInt(),

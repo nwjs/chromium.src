@@ -27,7 +27,6 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.build.annotations.RequiresNonNull;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabGroupContextMenuCoordinator;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.InstanceInfo;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
@@ -96,7 +95,7 @@ public abstract class TabOverflowMenuCoordinator<T>
     private final @LayoutRes int mMenuLayout;
     private final @LayoutRes int mFlyoutMenuLayout;
     private final OnItemClickedCallback<T> mOnItemClickedCallback;
-    private final HierarchicalMenuController mHierarchicalMenuController;
+    private final HierarchicalMenuController<TabOverflowMenuHolder<T>> mHierarchicalMenuController;
 
     private boolean mIsIncognito;
     private @Nullable String mCollaborationId;
@@ -323,7 +322,7 @@ public abstract class TabOverflowMenuCoordinator<T>
      * adding collaboration items for {@link TabGroupContextMenuCoordinator}.
      */
     protected void resizeMenu() {
-        FlyoutController<TabOverflowMenuHolder> controller =
+        FlyoutController<TabOverflowMenuHolder<T>> controller =
                 mHierarchicalMenuController.getFlyoutController();
         if (controller != null) {
             controller.getMainPopup().resize();
@@ -342,7 +341,7 @@ public abstract class TabOverflowMenuCoordinator<T>
 
     /** Returns true if the menu is currently showing. */
     public boolean isMenuShowing() {
-        FlyoutController<TabOverflowMenuHolder> controller =
+        FlyoutController<TabOverflowMenuHolder<T>> controller =
                 mHierarchicalMenuController.getFlyoutController();
         if (controller == null) {
             return false;
@@ -353,7 +352,7 @@ public abstract class TabOverflowMenuCoordinator<T>
 
     protected void onMenuDismissed() {}
 
-    protected @Nullable TabModel getTabModel() {
+    protected TabModel getTabModel() {
         return mTabModelSupplier.get();
     }
 
@@ -416,7 +415,7 @@ public abstract class TabOverflowMenuCoordinator<T>
      * @param focusable True if the menu is focusable, false otherwise.
      */
     public void setMenuFocusable(boolean focusable) {
-        FlyoutController<TabOverflowMenuHolder> controller =
+        FlyoutController<TabOverflowMenuHolder<T>> controller =
                 mHierarchicalMenuController.getFlyoutController();
         if (controller != null) {
             controller.getMainPopup().getMenuWindow().setFocusable(focusable);
@@ -424,7 +423,7 @@ public abstract class TabOverflowMenuCoordinator<T>
     }
 
     public @Nullable ModelList getModelListForTesting() {
-        FlyoutController<TabOverflowMenuHolder> controller =
+        FlyoutController<TabOverflowMenuHolder<T>> controller =
                 mHierarchicalMenuController.getFlyoutController();
         if (controller == null) {
             return null;
@@ -434,7 +433,7 @@ public abstract class TabOverflowMenuCoordinator<T>
     }
 
     public @Nullable View getContentViewForTesting() {
-        FlyoutController<TabOverflowMenuHolder> controller =
+        FlyoutController<TabOverflowMenuHolder<T>> controller =
                 mHierarchicalMenuController.getFlyoutController();
         if (controller == null) {
             return null;
@@ -450,23 +449,19 @@ public abstract class TabOverflowMenuCoordinator<T>
      * @param isIncognito Whether we are in incognito mode.
      * @param pluralsRes The pluralizable string resource to move item(s) to another window.
      * @param menuId The menu ID to use when clicking.
+     * @param allowMoveToNewWindow Whether the set of tabs can be moved to a new window.
      * @return The {@link ListItem} letting a user choose a window to move to.
      */
     @RequiresNonNull("mMultiInstanceManager")
     protected ListItem createMoveToWindowItem(
-            T id, boolean isIncognito, @PluralsRes int pluralsRes, @IdRes int menuId) {
-        // TODO(crbug.com/437418051): Clean up move_tab_to_another_window strings.
-        int instanceType = PersistedInstanceType.ACTIVE;
-        if (IncognitoUtils.shouldOpenIncognitoAsWindow()) {
-            if (isIncognito) {
-                instanceType |= PersistedInstanceType.OFF_THE_RECORD;
-            } else {
-                instanceType |= PersistedInstanceType.REGULAR;
-            }
-        }
+            T id,
+            boolean isIncognito,
+            @PluralsRes int pluralsRes,
+            @IdRes int menuId,
+            boolean allowMoveToNewWindow) {
+        @PersistedInstanceType int instanceType = getActiveInstanceTypeForProfileType(isIncognito);
         List<InstanceInfo> activeInstances = mMultiInstanceManager.getInstanceInfo(instanceType);
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.SUBMENUS_TAB_CONTEXT_MENU_LFF_TAB_STRIP)
-                || activeInstances.size() <= 1) {
+        if (activeInstances.size() <= 1) {
             return new ListItemBuilder()
                     .withTitle(
                             mActivity
@@ -477,12 +472,14 @@ public abstract class TabOverflowMenuCoordinator<T>
                     .build();
         }
         List<ListItem> submenuItems = new ArrayList<>();
-        submenuItems.add(
-                new ListItemBuilder()
-                        .withTitleRes(R.string.menu_new_window)
-                        .withIsIncognito(isIncognito)
-                        .withClickListener(v -> moveToNewWindow(id))
-                        .build());
+        if (allowMoveToNewWindow) {
+            submenuItems.add(
+                    new ListItemBuilder()
+                            .withTitleRes(R.string.menu_new_window)
+                            .withIsIncognito(isIncognito)
+                            .withClickListener(v -> moveToNewWindow(id))
+                            .build());
+        }
         for (InstanceInfo instanceInfo : activeInstances) {
             if (mMultiInstanceManager.getCurrentInstanceId() == instanceInfo.instanceId) {
                 continue;
@@ -523,6 +520,18 @@ public abstract class TabOverflowMenuCoordinator<T>
     /** Moves item with ID {@param id} to window with instance info {@param instanceInfo}. */
     @RequiresNonNull("mMultiInstanceManager")
     protected void moveToWindow(InstanceInfo instanceInfo, T id) {}
+
+    protected static @PersistedInstanceType int getActiveInstanceTypeForProfileType(
+            boolean isIncognito) {
+        @PersistedInstanceType int instanceType = PersistedInstanceType.ACTIVE;
+        if (IncognitoUtils.shouldOpenIncognitoAsWindow()) {
+            instanceType |=
+                    isIncognito
+                            ? PersistedInstanceType.OFF_THE_RECORD
+                            : PersistedInstanceType.REGULAR;
+        }
+        return instanceType;
+    }
 
     @Override
     public Rect getPopupRect(TabOverflowMenuHolder<T> popupWindow) {

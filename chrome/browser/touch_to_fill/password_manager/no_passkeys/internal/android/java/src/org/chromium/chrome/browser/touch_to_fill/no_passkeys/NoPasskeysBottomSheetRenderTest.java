@@ -40,6 +40,8 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetTestSupport;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager.ScrimClient;
 import org.chromium.ui.KeyboardVisibilityDelegate;
+import org.chromium.ui.base.ImmutableWeakReference;
+import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.test.util.BlankUiTestActivity;
 import org.chromium.ui.test.util.NightModeTestUtils;
 import org.chromium.ui.test.util.RenderTestRule.Component;
@@ -83,6 +85,7 @@ public class NoPasskeysBottomSheetRenderTest {
 
     @Mock NoPasskeysBottomSheetCoordinator.NativeDelegate mNativeDelegate;
 
+    private InsetObserver mInsetObserver;
     private BottomSheetController mBottomSheetController;
     private NoPasskeysBottomSheetCoordinator mCoordinator;
 
@@ -99,6 +102,15 @@ public class NoPasskeysBottomSheetRenderTest {
         ApplicationTestUtils.waitForActivityState(mActivityRule.getActivity(), Stage.RESUMED);
         runOnUiThreadBlocking(
                 () -> {
+                    mInsetObserver =
+                            new InsetObserver(
+                                    new ImmutableWeakReference<>(
+                                            getActivity().getWindow().getDecorView()),
+                                    new ImmutableWeakReference<>(
+                                            getActivity().getApplicationContext()),
+                                    /* enableKeyboardOverlayMode= */ false,
+                                    /* enableExtraEdgeToEdgeLogging= */ false);
+
                     mBottomSheetController = createBottomSheetController();
                     mCoordinator =
                             new NoPasskeysBottomSheetCoordinator(
@@ -141,6 +153,7 @@ public class NoPasskeysBottomSheetRenderTest {
                 () -> scrimManager,
                 getActivity().getWindow(),
                 KeyboardVisibilityDelegate.getInstance(),
-                () -> activityContentView);
+                () -> activityContentView,
+                mInsetObserver);
     }
 }

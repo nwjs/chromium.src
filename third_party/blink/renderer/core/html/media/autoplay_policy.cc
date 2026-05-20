@@ -75,8 +75,6 @@ AutoplayPolicy::Type AutoplayPolicy::GetAutoplayPolicyForDocument(
   if (document.GetFrame()->isNodeJS())
     return Type::kNoUserGestureRequired;
 
-  if (DocumentHasUserExceptionFlag(document))
-    return Type::kNoUserGestureRequired;
 
   if (document.GetSettings()->GetPresentationReceiver())
     return Type::kNoUserGestureRequired;
@@ -91,6 +89,10 @@ bool AutoplayPolicy::IsDocumentAllowedToPlay(const Document& document) {
 
   if (DocumentIsCapturingUserMedia(document))
     return true;
+
+  if (DocumentHasUserExceptionFlag(document)) {
+    return true;
+  }
 
   if (!document.GetFrame())
     return false;

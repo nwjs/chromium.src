@@ -10,6 +10,7 @@
 #import "components/password_manager/core/browser/features/password_features.h"
 #import "components/password_manager/core/browser/password_ui_utils.h"
 #import "components/strings/grit/components_strings.h"
+#import "components/webauthn/ios/features.h"
 #import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
 #import "ios/chrome/browser/authentication/test/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/autofill/ui_bundled/autofill_app_interface.h"
@@ -20,7 +21,7 @@
 #import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/passwords/bottom_sheet/test/credential_suggestion_bottom_sheet_app_interface.h"
 #import "ios/chrome/browser/passwords/password_suggestion/public/password_suggestion_constants.h"
-#import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_constants.h"
+#import "ios/chrome/browser/settings/manage_sync/public/manage_sync_settings_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_details/password_details_table_view_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_manager_egtest_utils.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/passwords_table_view_constants.h"
@@ -302,6 +303,12 @@ void CheckKeyboardIsUpAndNotCovered() {
   // is tested in its own suite in password_suggestion_egtest.mm.
   config.features_disabled.push_back(
       password_manager::features::kIOSProactivePasswordGenerationBottomSheet);
+
+  if ([self isRunningTest:@selector
+            (testNoCredentialsMessageIsVisibleWhenPasskeysEnabled)]) {
+    config.features_enabled.push_back(kIOSPasskeyShim);
+    config.features_enabled.push_back(kIOSPasskeyConditionalLoginWithShim);
+  }
 
   return config;
 }
@@ -881,16 +888,26 @@ void CheckKeyboardIsUpAndNotCovered() {
       l10n_util::GetNSString(IDS_IOS_MANUAL_FALLBACK_NO_PASSWORDS_FOR_SITE));
   [[EarlGrey selectElementWithMatcher:noPasswordsFoundMessage]
       assertWithMatcher:grey_sufficientlyVisible()];
+}
 
-  // Verify that the number of visible suggestions in the manual fallback was
-  // correctly recorded.
-  GREYAssertNil(
-      [MetricsAppInterface
-          expectUniqueSampleWithCount:1
-                            forBucket:0
-                         forHistogram:@"ManualFallback.VisibleSuggestions."
-                                      @"OpenPasswords"],
-      @"Unexpected histogram error for number of visible suggestions.");
+// Tests that the message indicating no credentials were found is visible when
+// no password or passkey suggestions are available for the current website.
+- (void)testNoCredentialsMessageIsVisibleWhenPasskeysEnabled {
+  [AutofillAppInterface clearProfilePasswordStore];
+
+  // Bring up the keyboard.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:TapWebElementWithId(kFormElementUsername)];
+
+  // Open the password manual fill view.
+  OpenPasswordManualFillView(/*has_suggestions=*/false);
+
+  // Assert that the correct empty state message is visible.
+  id<GREYMatcher> noCredentialsMessage =
+      grey_accessibilityLabel(l10n_util::GetNSString(
+          IDS_IOS_MANUAL_FALLBACK_NO_PASSWORDS_OR_PASSKEYS_FOR_SITE));
+  [[EarlGrey selectElementWithMatcher:noCredentialsMessage]
+      assertWithMatcher:grey_sufficientlyVisible()];
 }
 
 // Tests password generation on manual fallback.

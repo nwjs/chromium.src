@@ -273,30 +273,27 @@ enum class PresentedState {
 }
 
 - (void)presentFolderChooser {
-  CHECK_EQ(PresentedState::NONE, self.currentPresentedState,
-           base::NotFatalUntil::M152)
+  DUMP_WILL_BE_CHECK_EQ(PresentedState::NONE, self.currentPresentedState)
       << [self description];
-  CHECK(!self.bookmarkNavigationController, base::NotFatalUntil::M152)
-      << [self description];
+  DUMP_WILL_BE_CHECK(!self.bookmarkNavigationController) << [self description];
   [self dismissSnackbar];
   self.currentPresentedState = PresentedState::FOLDER_SELECTION;
   self.folderChooserCoordinator = [[BookmarksFolderChooserCoordinator alloc]
       initWithBaseViewController:self.baseViewController
                          browser:self.browser
-                     hiddenNodes:std::set<const bookmarks::BookmarkNode*>()];
+                     hiddenNodes:std::set<
+                                     raw_ptr<const bookmarks::BookmarkNode>>()];
   self.folderChooserCoordinator.delegate = self;
   [self.folderChooserCoordinator start];
 }
 
 // Presents the bookmark editor for the given URL `node`.
 - (void)presentEditorForURLNode:(const bookmarks::BookmarkNode*)node {
-  CHECK_EQ(PresentedState::NONE, self.currentPresentedState,
-           base::NotFatalUntil::M152)
+  DUMP_WILL_BE_CHECK_EQ(PresentedState::NONE, self.currentPresentedState)
       << [self description];
-  CHECK(!self.bookmarkNavigationController, base::NotFatalUntil::M152)
-      << [self description];
-  CHECK(node, base::NotFatalUntil::M152) << [self description];
-  CHECK_EQ(node->type(), BookmarkNode::URL, base::NotFatalUntil::M152);
+  DUMP_WILL_BE_CHECK(!self.bookmarkNavigationController) << [self description];
+  DUMP_WILL_BE_CHECK(node) << [self description];
+  DUMP_WILL_BE_CHECK_EQ(node->type(), BookmarkNode::URL);
   [self dismissSnackbar];
   self.currentPresentedState = PresentedState::BOOKMARK_EDITOR;
   UIViewController* baseViewController =
@@ -719,15 +716,13 @@ enum class PresentedState {
     // `-presentationControllerDidDismiss:`, it is possible for this method to
     // be called before `self.bookmarkNavigationController` is reset. In that
     // case reset `self.bookmarkNavigationController` and continue.
-    CHECK_EQ(PresentedState::BOOKMARK_BROWSER, self.currentPresentedState,
-             base::NotFatalUntil::M152)
+    DUMP_WILL_BE_CHECK_EQ(PresentedState::BOOKMARK_BROWSER,
+                          self.currentPresentedState)
         << [self description];
     [self bookmarkBrowserDismissed];
   }
-  CHECK_EQ(PresentedState::NONE, self.currentPresentedState,
-           base::NotFatalUntil::M152);
-  CHECK(!self.bookmarkNavigationController, base::NotFatalUntil::M152)
-      << [self description];
+  DUMP_WILL_BE_CHECK_EQ(PresentedState::NONE, self.currentPresentedState);
+  DUMP_WILL_BE_CHECK(!self.bookmarkNavigationController) << [self description];
 
   self.bookmarkBrowser =
       [[BookmarksHomeViewController alloc] initWithBrowser:self.browser];

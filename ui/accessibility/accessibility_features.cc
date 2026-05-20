@@ -158,10 +158,6 @@ bool IsExtensionManifestV3NetworkSpeechSynthesisEnabled() {
 }
 
 
-BASE_FEATURE(kTextBasedAudioDescription, base::FEATURE_DISABLED_BY_DEFAULT);
-bool IsTextBasedAudioDescriptionEnabled() {
-  return base::FeatureList::IsEnabled(::features::kTextBasedAudioDescription);
-}
 
 BASE_FEATURE(kUseAXPositionForDocumentMarkers,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -280,6 +276,13 @@ bool IsAccessibilityFlashScreenFeatureEnabled() {
       ::features::kAccessibilityFlashScreenFeature);
 }
 
+BASE_FEATURE(kAccessibilityInvertedMouseCursor,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsAccessibilityInvertedMouseCursorEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kAccessibilityInvertedMouseCursor);
+}
+
 BASE_FEATURE(kAccessibilityShakeToLocate, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsAccessibilityShakeToLocateEnabled() {
   return base::FeatureList::IsEnabled(::features::kAccessibilityShakeToLocate);
@@ -304,6 +307,13 @@ BASE_FEATURE(kAccessibilityManifestV3GoogleTts,
 bool IsAccessibilityManifestV3EnabledForGoogleTts() {
   return base::FeatureList::IsEnabled(
       ::features::kAccessibilityManifestV3GoogleTts);
+}
+
+BASE_FEATURE(kAccessibilityChromeVoxJapaneseBraille,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsAccessibilityChromeVoxJapaneseBrailleEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kAccessibilityChromeVoxJapaneseBraille);
 }
 
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -341,15 +351,6 @@ bool IsScreenAIOCREnabled() {
   return base::FeatureList::IsEnabled(ax::mojom::features::kScreenAIOCREnabled);
 }
 
-// This feature is only used for generating training data for Screen2x and
-// should never be used in any other circumstance, and should not be enabled by
-// default.
-BASE_FEATURE(kDataCollectionModeForScreen2x, base::FEATURE_DISABLED_BY_DEFAULT);
-bool IsDataCollectionModeForScreen2xEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kDataCollectionModeForScreen2x);
-}
-
 BASE_FEATURE(kImmersiveReadAnything, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsImmersiveReadAnythingEnabled() {
   return base::FeatureList::IsEnabled(::features::kImmersiveReadAnything);
@@ -358,6 +359,11 @@ bool IsImmersiveReadAnythingEnabled() {
 BASE_FEATURE(kMainNodeAnnotations, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsMainNodeAnnotationsEnabled() {
   return base::FeatureList::IsEnabled(::features::kMainNodeAnnotations);
+}
+
+BASE_FEATURE(kImprovedReadAloud, base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsImprovedReadAloudEnabled() {
+  return base::FeatureList::IsEnabled(::features::kImprovedReadAloud);
 }
 
 BASE_FEATURE(kReadAnythingMenuShuffleExperiment,
@@ -408,6 +414,11 @@ bool IsReadAnythingLineFocusEnabled() {
   return base::FeatureList::IsEnabled(::features::kReadAnythingLineFocus);
 }
 
+BASE_FEATURE(kHatsReadingModeSurvey, base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsHatsReadingModeSurveyEnabled() {
+  return base::FeatureList::IsEnabled(::features::kHatsReadingModeSurvey);
+}
+
 BASE_FEATURE(kReadAnythingImagesViaAlgorithm,
              base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsReadAnythingImagesViaAlgorithmEnabled() {
@@ -433,20 +444,12 @@ bool IsReadAnythingWithReadabilityEnabled() {
   return base::FeatureList::IsEnabled(::features::kReadAnythingWithReadability);
 }
 
-BASE_FEATURE(kReadAnythingWithReadabilityAllowLinks,
+BASE_FEATURE(kReadAnythingReadabilitySelectText,
              base::FEATURE_DISABLED_BY_DEFAULT);
-bool IsReadAnythingWithReadabilityAllowLinksEnabled() {
+bool IsReadAnythingReadabilitySelectTextEnabled() {
   return base::FeatureList::IsEnabled(
-             ::features::kReadAnythingWithReadability) &&
-         base::FeatureList::IsEnabled(
-             ::features::kReadAnythingWithReadabilityAllowLinks);
-}
-
-// This feature is only for debug purposes and for security/privacy reasons,
-// should be never enabled by default .
-BASE_FEATURE(kScreenAIDebugMode, base::FEATURE_DISABLED_BY_DEFAULT);
-bool IsScreenAIDebugModeEnabled() {
-  return base::FeatureList::IsEnabled(::features::kScreenAIDebugMode);
+             ::features::kReadAnythingReadabilitySelectText) &&
+         base::FeatureList::IsEnabled(::features::kReadAnythingWithReadability);
 }
 
 // This feature is only used in tests and must not be enabled by default.
@@ -487,6 +490,12 @@ BASE_FEATURE(kBlockRootWindowAccessibleNameChangeEvent,
 bool IsBlockRootWindowAccessibleNameChangeEventEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kBlockRootWindowAccessibleNameChangeEvent);
+}
+
+BASE_FEATURE(kMacAccessibilityTextOperation, base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsMacAccessibilityTextOperationEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kMacAccessibilityTextOperation);
 }
 #endif  // BUILDFLAG(IS_MAC)
 

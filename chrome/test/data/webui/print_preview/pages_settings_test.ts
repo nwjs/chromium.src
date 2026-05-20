@@ -34,7 +34,7 @@ suite('PagesSettingsTest', function() {
    * @return Promise that resolves when the input has been set and
    *     the input-change event has fired.
    */
-  function setCustomInput(inputString: string): Promise<void> {
+  function setCustomInput(inputString: string): Promise<CustomEvent<string>> {
     const pagesInput = pagesSection.$.pageSettingsCustomInput.inputElement;
     return triggerInputEvent(pagesInput, inputString, pagesSection);
   }
@@ -56,8 +56,8 @@ suite('PagesSettingsTest', function() {
     const rangesValue = pagesSection.getSettingValue('ranges');
     assertEquals(expectedRanges.length, rangesValue.length);
     expectedRanges.forEach((range: Range, index: number) => {
-      assertEquals(range.to, rangesValue[index].to);
-      assertEquals(range.from, rangesValue[index].from);
+      assertEquals(range.to, rangesValue[index]!.to);
+      assertEquals(range.from, rangesValue[index]!.from);
     });
     assertEquals(!invalid, pagesSection.getSetting('pages').valid);
     assertEquals(

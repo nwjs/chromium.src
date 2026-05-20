@@ -138,10 +138,10 @@ int AudioDestination::Render(base::TimeDelta delay,
   // or the requested render size is greater than FIFO size return here.
   // (crbug.com/692423)
   if (!fifo_ || fifo_->length() < number_of_frames) {
-    TRACE_EVENT_INSTANT1(
+    TRACE_EVENT_INSTANT(
         "webaudio",
         "AudioDestination::Render - FIFO not ready or the size is too small",
-        TRACE_EVENT_SCOPE_THREAD, "fifo length", fifo_ ? fifo_->length() : 0);
+        "fifo length", fifo_ ? fifo_->length() : 0);
     return 0;
   }
 
@@ -160,7 +160,7 @@ int AudioDestination::Render(base::TimeDelta delay,
 
   if (is_output_buffer_bypassed_) {
     // Fill the FIFO if necessary.
-    const uint32_t frames_available = fifo_->GetFramesAvailable();
+    const uint32_t frames_available = fifo_->FramesAvailable();
     const uint32_t frames_to_render = number_of_frames > frames_available
                                           ? number_of_frames - frames_available
                                           : 0;
@@ -176,22 +176,31 @@ int AudioDestination::Render(base::TimeDelta delay,
       if (posted_successfully) {
         TRACE_EVENT0("webaudio", "AudioDestination::Render waiting");
         base::ScopedAllowBaseSyncPrimitivesOutsideBlockingScope allow_wait;
-        // This is `Wait()`ing on the audio render thread for a `Signal()` from
-        // the `worklet_task_runner_` thread, which will come from
-        // `RequestRenderWait()`.
+        // In bypass mode with a worklet, the audio callback waits for either:
+        //   1) RequestRenderWait() to finish and signal
+        //      output_buffer_bypass_wait_event_, or
+        //   2) Stop() to signal output_buffer_bypass_stop_event_.
+        // The separate stop event avoids a shutdown race with
+        // output_buffer_bypass_wait_event_.Reset() in Render().
         //
-        // `WaitableEvent` should generally not be allowed on the real-time
+        // WaitableEvents should generally not be allowed on the real-time
         // audio threads. In particular, no other code executed on the worklet
-        // task runner thread should be using `WaitableEvent`. Additionally, the
-        // below should be the only call to `Wait()` in `AudioDestination`.
-        // Both the `Wait()` and `Signal()` should only be executed when the
-        // kWebAudioBypassOutputBuffering flag is enabled, for testing output
-        // latency differences when the output buffer is bypassed.
+        // task runner thread should be using WaitableEvent. The below should
+        // be the only blocking wait in AudioDestination, and should only be
+        // executed when the kWebAudioBypassOutputBuffering flag is enabled,
+        // for testing output latency differences when the output buffer is
+        // bypassed.
         //
-        // As long as the above is true, it is not possible to deadlock or have
-        // both threads waiting on each other. There is, however, no guarantee
-        // that the task runner will finish within the real-time budget.
-        output_buffer_bypass_wait_event_.Wait();
+        // As long as the above is true, it is not possible to deadlock or
+        // have both threads waiting on each other. There is, however, no
+        // guarantee that the task runner will finish within the real-time
+        // budget.
+        base::WaitableEvent* events[] = {&output_buffer_bypass_wait_event_,
+                                         &output_buffer_bypass_stop_event_};
+        base::WaitableEvent::WaitMany(events);
+        if (output_buffer_bypass_stop_event_.IsSignaled()) {
+          state_change_underrun_in_bypass_mode_ = true;
+        }
       } else {
         // The render request failed to post
         state_change_underrun_in_bypass_mode_ = true;
@@ -203,7 +212,7 @@ int AudioDestination::Render(base::TimeDelta delay,
           glitch_info, /*request_timestamp=*/base::TimeTicks::Now());
     }
 
-    const uint32_t frames_after_render = fifo_->GetFramesAvailable();
+    const uint32_t frames_after_render = fifo_->FramesAvailable();
     if (frames_after_render < number_of_frames) {
       // This can happen if the device has stopped or is stopping when
       // `Render()` is called.
@@ -220,8 +229,8 @@ int AudioDestination::Render(base::TimeDelta delay,
   // Fill the FIFO.
   if (worklet_task_runner_) {
     // Use the dual-thread rendering if the AudioWorklet is activated.
-    auto result =
-        fifo_->PullAndUpdateEarmark(output_bus_.get(), number_of_frames);
+    auto result = fifo_->PullAndUpdateEarmarkedFrames(output_bus_.get(),
+                                                      number_of_frames);
     // The audio that we just pulled from the fifo will be played before the
     // audio that we are about to request, so we add that duration to the
     // delay of the audio we request. Note that it doesn't matter if there was
@@ -292,6 +301,13 @@ void AudioDestination::Stop() {
   if (device_state_ == DeviceState::kStopped) {
     return;
   }
+
+  // Signal before WebAudioDevice::Stop() so any Render() callback already
+  // blocked in WaitMany() can exit promptly. This uses a manual-reset event
+  // so the stop wakeup cannot be lost to a concurrent Reset() of
+  // output_buffer_bypass_wait_event_.
+  output_buffer_bypass_stop_event_.Signal();
+
   web_audio_device_->Stop();
 
   // Resetting `worklet_task_runner_` here is safe because
@@ -300,6 +316,7 @@ void AudioDestination::Stop() {
   worklet_task_runner_ = nullptr;
 
   SetDeviceState(DeviceState::kStopped);
+  output_buffer_bypass_stop_event_.Reset();
 }
 
 void AudioDestination::Pause() {
@@ -338,7 +355,7 @@ void AudioDestination::SetWorkletTaskRunner(
 
   // The dual-thread rendering kicks off, so update the earmark frames
   // accordingly.
-  fifo_->SetEarmarkFrames(callback_buffer_size_);
+  fifo_->SetEarmarkedFrames(callback_buffer_size_);
   worklet_task_runner_ = std::move(worklet_task_runner);
 
   uma_reporter_.UpdateMetricNameForDualThreadMode();
@@ -391,8 +408,10 @@ void AudioDestination::SetDetectSilence(bool detect_silence) {
   DCHECK(IsMainThread());
   TRACE_EVENT1("webaudio", "AudioDestination::SetDetectSilence",
                "detect_silence", detect_silence);
-  SendLogMessage(__func__,
-                 String::Format("({detect_silence=%d})", detect_silence));
+  SendLogMessage(
+      __func__,
+      StrCat({"({detect_silence=",
+              String::Number(static_cast<int>(detect_silence)), "})"}));
 
   web_audio_device_->SetDetectSilence(detect_silence);
 }
@@ -435,14 +454,16 @@ AudioDestination::AudioDestination(
       is_output_buffer_bypassed_(BypassOutputBuffer()) {
   CHECK(web_audio_device_);
 
-  SendLogMessage(__func__, String::Format("({output_channels=%u})",
-                                          number_of_output_channels));
   SendLogMessage(__func__,
-                 String::Format("=> (FIFO size=%u bytes)", fifo_->length()));
+                 StrCat({"({output_channels=",
+                         String::Number(number_of_output_channels), "})"}));
+  SendLogMessage(
+      __func__,
+      StrCat({"=> (FIFO size=", String::Number(fifo_->length()), " bytes)"}));
 
   SendLogMessage(__func__,
-                 String::Format("=> (device callback buffer size=%u frames)",
-                                callback_buffer_size_));
+                 StrCat({"=> (device callback buffer size=",
+                         String::Number(callback_buffer_size_), " frames)"}));
   SendLogMessage(__func__, String::Format("=> (device sample rate=%.0f Hz)",
                                           web_audio_device_->SampleRate()));
   if (is_output_buffer_bypassed_) {
@@ -567,7 +588,7 @@ bool AudioDestination::RequestRender(size_t frames_requested,
               "delay_timestamp (ms)",
               (delay_timestamp - base::TimeTicks()).InMillisecondsF(),
               "playout_delay (ms)", delay.InMillisecondsF(), "delay (frames)",
-              fifo_->GetFramesAvailable());
+              fifo_->FramesAvailable());
 
   // The state might be changing by ::Stop() call. If the state is locked, do
   // not touch the below.
@@ -582,12 +603,12 @@ bool AudioDestination::RequestRender(size_t frames_requested,
   metric_reporter_.BeginTrace();
 
   if (frames_elapsed_ == 0) {
-    SendLogMessage(__func__, String::Format("=> (rendering is now alive)"));
+    SendLogMessage(__func__, "=> (rendering is now alive)");
   }
 
   // FIFO contains audio at the output device sample rate.
   base::TimeDelta fifo_delay = audio_utilities::FramesToTime(
-      fifo_->GetFramesAvailable(), web_audio_device_->SampleRate());
+      fifo_->FramesAvailable(), web_audio_device_->SampleRate());
   uma_reporter_.AddFifoDelay(fifo_delay);
   if (has_fifo_underrun_occurred) {
     uma_reporter_.IncreaseFifoUnderrunCount();
@@ -683,11 +704,9 @@ void AudioDestination::TransferElapsedFramesFrom(
 
 void AudioDestination::SendLogMessage(const String& function_name,
                                       const String& message) const {
-  WebRtcLogMessage(
-      String::Format("[WA]AD::%s %s [state=%s]", function_name.Utf8().c_str(),
-                     message.Utf8().c_str(),
-                     DeviceStateToString(device_state_).Utf8().c_str())
-          .Utf8());
+  WebRtcLogMessage(StrCat({"[WA]AD::", function_name, " ", message,
+                           " [state=", DeviceStateToString(device_state_), "]"})
+                       .Utf8());
 }
 
 }  // namespace blink

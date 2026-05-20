@@ -105,11 +105,6 @@ void WifiConfigurationBridge::OnShuttingDown() {
   }
 }
 
-std::unique_ptr<syncer::MetadataChangeList>
-WifiConfigurationBridge::CreateMetadataChangeList() {
-  return syncer::DataTypeStore::WriteBatch::CreateMetadataChangeList();
-}
-
 std::optional<syncer::ModelError> WifiConfigurationBridge::MergeFullSyncData(
     std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
     syncer::EntityChangeList change_list) {
@@ -225,13 +220,7 @@ WifiConfigurationBridge::ApplyIncrementalSyncChanges(
       if (it != entries_.end()) {
         entries_.erase(it);
         batch->DeleteData(change->storage_key());
-        if (!base::FeatureList::IsEnabled(features::kWifiSyncApplyDeletes)) {
-          // Don't apply deletes to the local device.
-          NET_LOG(EVENT) << "Ignoring delete request from sync server.";
-          continue;
-        }
-        synced_network_updater_->RemoveNetwork(
-            NetworkIdentifier::DeserializeFromString(change->storage_key()));
+        NET_LOG(EVENT) << "Ignoring delete request from sync server.";
       } else {
         NET_LOG(EVENT) << "Received delete request for network which is not "
                           "tracked by sync.";
@@ -327,7 +316,8 @@ void WifiConfigurationBridge::ApplyDisableSyncChanges(
   network_guid_to_timer_map_.clear();
   networks_to_sync_when_ready_.clear();
   if (store_) {
-    store_->DeleteAllDataAndMetadata(base::DoNothing());
+    store_->DeleteAllDataAndMetadata(std::move(delete_metadata_change_list),
+                                     base::DoNothing());
   }
   // Callbacks are no longer valid.
   weak_ptr_factory_.InvalidateWeakPtrs();

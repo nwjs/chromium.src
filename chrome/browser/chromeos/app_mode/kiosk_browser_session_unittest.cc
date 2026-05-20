@@ -43,7 +43,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
@@ -161,7 +160,6 @@ class FullscreenTestBrowserWindow : public TestBrowserWindow,
   ~FullscreenTestBrowserWindow() override = default;
 
   // TestBrowserWindow:
-  bool ShouldHideUIForFullscreen() const override { return fullscreen_; }
   bool IsFullscreen() const override { return fullscreen_; }
   void EnterFullscreen(const url::Origin& origin,
                        ExclusiveAccessBubbleType type,

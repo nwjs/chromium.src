@@ -84,6 +84,7 @@ class VIZ_SERVICE_EXPORT RootCompositorFrameSinkImpl
       const gfx::DisplayColorSpaces& display_color_spaces) override;
 #if BUILDFLAG(IS_MAC)
   void SetVSyncDisplayID(int64_t display_id) override;
+  void RefreshRateChangedOnSameDisplay() override;
 #endif
   void SetOutputIsSecure(bool secure) override;
   void SetDisplayVSyncParameters(base::TimeTicks timebase,
@@ -152,7 +153,8 @@ class VIZ_SERVICE_EXPORT RootCompositorFrameSinkImpl
       std::unique_ptr<SyntheticBeginFrameSource> synthetic_begin_frame_source,
       std::unique_ptr<ExternalBeginFrameSource> external_begin_frame_source,
       std::unique_ptr<Display> display,
-      bool hw_support_for_multiple_refresh_rates);
+      bool hw_support_for_multiple_refresh_rates,
+      bool enable_video_conference_matcher);
 
   void UpdateFrameIntervalDeciderSettings();
   void FrameIntervalDeciderResultCallback(
@@ -165,7 +167,7 @@ class VIZ_SERVICE_EXPORT RootCompositorFrameSinkImpl
                               AggregatedRenderPassList* render_passes) override;
   void DisplayDidDrawAndSwap() override;
   void DisplayDidReceiveCALayerParams(
-      const gfx::CALayerParams& ca_layer_params) override;
+      gfx::CALayerParams ca_layer_params) override;
   void DisplayDidCompleteSwapWithSize(const gfx::Size& pixel_size) override;
   void DisplayAddChildWindowToBrowser(gpu::SurfaceHandle child_window) override;
   void SetWideColorEnabled(bool enabled) override;
@@ -251,6 +253,8 @@ class VIZ_SERVICE_EXPORT RootCompositorFrameSinkImpl
   // `FrameIntervalDecider`. Absent if the display does not support those
   // features.
   std::optional<base::TimeDelta> max_vsync_interval_ = std::nullopt;
+
+  bool enable_video_conference_matcher_ = false;
 };
 
 }  // namespace viz

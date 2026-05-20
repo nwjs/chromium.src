@@ -46,7 +46,6 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/commerce/core/commerce_feature_list.h"
-#include "components/user_education/views/view_subregion_anchor.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/clipboard/clipboard_constants.h"
@@ -66,6 +65,7 @@
 #include "ui/views/border.h"
 #include "ui/views/cascading_property.h"
 #include "ui/views/controls/button/image_button.h"
+#include "ui/views/interaction/view_subregion_anchor.h"
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/layout/flex_layout_types.h"
 #include "ui/views/style/typography.h"
@@ -97,7 +97,7 @@ class FrameGrabHandle : public views::View {
   }
 
   void AddedToWidget() override {
-    dialog_anchor_ = std::make_unique<user_education::ViewSubregionAnchor>(
+    dialog_anchor_ = std::make_unique<views::ViewSubregionAnchor>(
         kTabStripFrameDialogAnchorId, *this);
   }
 
@@ -114,7 +114,7 @@ class FrameGrabHandle : public views::View {
  private:
   // Anchor point for help bubbles and other dialogs that lies in an empty
   // region of the tabstrip.
-  std::unique_ptr<user_education::ViewSubregionAnchor> dialog_anchor_;
+  std::unique_ptr<views::ViewSubregionAnchor> dialog_anchor_;
 };
 
 BEGIN_METADATA(FrameGrabHandle)
@@ -276,7 +276,7 @@ HorizontalTabStripRegionView::HorizontalTabStripRegionView(
   std::unique_ptr<TabStripActionContainer> tab_strip_action_container;
   if (browser &&
       (browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL)) {
-    if (glic::GlicEnabling::IsEnabledByFlags()) {
+    if (glic::GlicEnabling::IsEnabledByGlobalCriteria()) {
       tab_strip_action_container = std::make_unique<TabStripActionContainer>(
           browser, browser->GetFeatures().glic_nudge_controller());
 
@@ -502,7 +502,7 @@ void HorizontalTabStripRegionView::Layout(PassKey) {
             GetLayoutConstant(LayoutConstant::kTabStripPadding) +
             GetLayoutConstant(LayoutConstant::kNewTabButtonLeadingMargin);
 
-    gfx::Point button_new_position = gfx::Point(x, 0);
+    gfx::Point button_new_position = gfx::Point(x, GetInsets().top());
     gfx::Rect button_new_bounds = gfx::Rect(button_new_position, button_size);
 
     // If the tabsearch button is before the tabstrip container, then manually
@@ -630,8 +630,16 @@ std::optional<int> HorizontalTabStripRegionView::GetFocusedTabIndex() const {
   return std::nullopt;
 }
 
-const tabs::TabData& HorizontalTabStripRegionView::GetTabData(int tab_index) {
-  return tab_strip_->tab_at(tab_index)->data();
+const tabs::TabData& HorizontalTabStripRegionView::GetTabData(
+    const tabs::TabHandle& tab) {
+  for (int i = 0; i < tab_strip_->GetTabCount(); ++i) {
+    Tab* tab_view = tab_strip_->tab_at(i);
+    if (tab_view->tab_handle() == tab) {
+      return tab_view->data();
+    }
+  }
+
+  NOTREACHED() << "Tab view not found for handle";
 }
 
 views::View* HorizontalTabStripRegionView::GetTabAnchorViewAt(int tab_index) {
@@ -725,7 +733,7 @@ void HorizontalTabStripRegionView::UpdateButtonBorders() {
   // tabstrip. Extend the border of the button such that it extends to the top
   // of the tabstrip bounds. This is essential to ensure it is targetable on the
   // edge of the screen when in fullscreen mode and ensures the button abides
-  // by the correct Fitt's Law behavior (https://crbug.com/1136557).
+  // by the correct Fitt's Law behavior (https://crbug.com/40152330).
   // TODO(crbug.com/40727472): The left border is 0 in order to abut the NTB
   // directly with the tabstrip. That's the best immediately available
   // approximation to the prior behavior of aligning the NTB relative to the
@@ -835,7 +843,8 @@ void HorizontalTabStripRegionView::AdjustViewBoundsRect(View* view,
   const int x = tab_strip_->x() + TabStyle::Get()->GetBottomCornerRadius() -
                 GetLayoutConstant(LayoutConstant::kTabStripPadding) -
                 view_size.width() - offset;
-  const gfx::Rect new_bounds = gfx::Rect(gfx::Point(x, 0), view_size);
+  const gfx::Rect new_bounds =
+      gfx::Rect(gfx::Point(x, GetInsets().top()), view_size);
   view->SetBoundsRect(new_bounds);
 }
 

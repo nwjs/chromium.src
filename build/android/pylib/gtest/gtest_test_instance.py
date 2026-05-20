@@ -18,9 +18,9 @@ from pylib import constants
 from pylib.constants import host_paths
 from pylib.base import base_test_result
 from pylib.base import test_instance
+from pylib.base import test_run
 from pylib.symbols import deobfuscator
 from pylib.symbols import stack_symbolizer
-from pylib.utils import logging_utils
 from pylib.utils import test_filter
 
 with host_paths.SysPath(host_paths.BUILD_UTIL_PATH):
@@ -722,7 +722,7 @@ class GtestTestInstance(test_instance.TestInstance):
       for gtest_filter_string in gtest_filter_strings:
         logging.debug('Filtering tests using: %s', gtest_filter_string)
         filtered_test_list = unittest_util.FilterTestNames(
-            filtered_test_list, gtest_filter_string)
+            filtered_test_list, gtest_filter_string, TestNameWithoutPrefixes)
 
       if self._gtest_filters:
         out_filtered_test_list = list(set(test_list)-set(filtered_test_list))
@@ -733,18 +733,15 @@ class GtestTestInstance(test_instance.TestInstance):
             continue
           if all(
               unittest_util.FilterTestNames([test_name_no_disabled],
-                                            gtest_filter)
+                                            gtest_filter,
+                                            TestNameWithoutPrefixes)
               for gtest_filter in self._gtest_filters):
             disabled_tests.append(test)
         if disabled_tests:
           if self._run_disabled:
             filtered_test_list += disabled_tests
           else:
-            color = (logging_utils.BACK.YELLOW, logging_utils.FORE.BLACK)
-            with logging_utils.OverrideColor(logging.WARNING, color):
-              logging.warning(
-                  'Excluded one or more disabled tests. '
-                  'Consider adding: --gtest_also_run_disabled_tests')
+            test_run.ShowDisabledTestsHint(count=len(disabled_tests))
     return filtered_test_list
 
   def _GenerateDisabledFilterString(self, disabled_prefixes):

@@ -5531,7 +5531,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="4971" label="DocumentPolicyIncludeJSCallStacksInCrashReports"/>
   <int value="4972" label="MaximumHTMLParserDOMTreeDepthHit"/>
   <int value="4973" label="V8ModelGenericSession_Destroy_Method"/>
-  <int value="4974" label="UsedDeviceScaleAdjustment"/>
+  <int value="4974" label="OBSOLETE_UsedDeviceScaleAdjustment"/>
   <int value="4975" label="OBSOLETE_DisableThirdPartyStoragePartitioning2"/>
   <int value="4976" label="LinkRelFacilitatedPayment"/>
   <int value="4977" label="OBSOLETE_V8GPUAdapter_RequestAdapterInfo_Method"/>
@@ -5990,7 +5990,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5375" label="AriaLabeledByAlternativeSpelling"/>
   <int value="5376" label="OBSOLETE_CanvasTextNg"/>
   <int value="5377" label="DOMWindowOpenPopup"/>
-  <int value="5378" label="FencedFrameDisableUntrustedNetwork"/>
+  <int value="5378" label="OBSOLETE_FencedFrameDisableUntrustedNetwork"/>
   <int value="5379" label="FencedFrameNotifyEvent"/>
   <int value="5380" label="OBSOLETE_SharedStorageGetInFencedFrame"/>
   <int value="5381" label="OBSOLETE_Translator_MeasureInputUsage_Method"/>
@@ -6254,7 +6254,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5627" label="LocalNetworkAccessWithinSharedWorker"/>
   <int value="5628" label="LocalNetworkAccessWithinDedicatedWorker"/>
   <int value="5629" label="CSSPseudoParentInScope"/>
-  <int value="5630" label="InterestHintPseudoElement"/>
+  <int value="5630" label="InterestButtonPseudoElement"/>
   <int value="5631" label="CookieStoreEmptyPath"/>
   <int value="5632" label="V8CookieListItem_Domain_AttributeGetter"/>
   <int value="5633" label="V8CookieListItem_Path_AttributeGetter"/>
@@ -6301,26 +6301,28 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5674" label="SmartCardConnect"/>
   <int value="5675" label="NavigatorCPUPerformance"/>
   <int value="5676" label="OBSOLETE_SelectionRemoveRangeNotFoundWouldThrow"/>
-  <int value="5677" label="NestedSvgCssSizingProperties"/>
+  <int value="5677" label="OBSOLETE_NestedSvgCssSizingProperties"/>
   <int value="5678" label="CryptoAlgorithmChaCha20Poly1305"/>
   <int value="5679" label="CryptoAlgorithmMlDsa44"/>
   <int value="5680" label="CryptoAlgorithmMlDsa65"/>
   <int value="5681" label="CryptoAlgorithmMlDsa87"/>
   <int value="5682" label="CryptoAlgorithmMlKem768"/>
   <int value="5683" label="CryptoAlgorithmMlKem1024"/>
-  <int value="5684" label="ClipboardChangedBetweenReadAndGetType"/>
-  <int value="5685" label="ClipboardChangedBetweenGetTypes"/>
+  <int value="5684" label="OBSOLETE_ClipboardChangedBetweenReadAndGetType"/>
+  <int value="5685" label="OBSOLETE_ClipboardChangedBetweenGetTypes"/>
   <int value="5686"
-      label="ClipboardReadAndGetTypeTimeDiffIsBetween5SecAnd1Min"/>
+      label="OBSOLETE_ClipboardReadAndGetTypeTimeDiffIsBetween5SecAnd1Min"/>
   <int value="5687"
-      label="ClipboardReadAndGetTypeTimeDiffIsBetween1MinAnd10Min"/>
-  <int value="5688" label="ClipboardReadAndGetTypeTimeDiffIsMoreThan10Min"/>
+      label="OBSOLETE_ClipboardReadAndGetTypeTimeDiffIsBetween1MinAnd10Min"/>
+  <int value="5688"
+      label="OBSOLETE_ClipboardReadAndGetTypeTimeDiffIsMoreThan10Min"/>
   <int value="5689"
-      label="ClipboardGetTypeTimeDiffOfSameTypeIsBetween5SecAnd1Min"/>
+      label="OBSOLETE_ClipboardGetTypeTimeDiffOfSameTypeIsBetween5SecAnd1Min"/>
   <int value="5690"
-      label="ClipboardGetTypeTimeDiffOfSameTypeIsBetween1MinAnd10Min"/>
-  <int value="5691" label="ClipboardGetTypeTimeDiffOfSameTypeIsMoreThan10Min"/>
-  <int value="5692" label="ClipboardGetTypeWindowNotInFocus"/>
+      label="OBSOLETE_ClipboardGetTypeTimeDiffOfSameTypeIsBetween1MinAnd10Min"/>
+  <int value="5691"
+      label="OBSOLETE_ClipboardGetTypeTimeDiffOfSameTypeIsMoreThan10Min"/>
+  <int value="5692" label="OBSOLETE_ClipboardGetTypeWindowNotInFocus"/>
   <int value="5693" label="ReportBodyToJSON"/>
   <int value="5694" label="CSPViolationReportBodyToJSON"/>
   <int value="5695" label="DeprecationReportBodyToJSON"/>
@@ -6509,6 +6511,23 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5867" label="ConnectionAllowlist"/>
   <int value="5868" label="StyleTypeModule"/>
   <int value="5869" label="ShadowRootAdoptedStyleSheets"/>
+  <int value="5870" label="WebAuthnConditionalCreate"/>
+  <int value="5871" label="WebAuthnConditionalCreateSuccess"/>
+  <int value="5872" label="AdScriptMainFrameNavigationWithoutUserGesture"/>
+  <int value="5873" label="FocusWithoutUserActivationAllowedByPolicy"/>
+  <int value="5874" label="FocusWithoutUserActivationAllowedByDescendant"/>
+  <int value="5875" label="FocusWithoutUserActivationBlocked"/>
+  <int value="5876" label="FocusWithoutUserActivationPolicySet"/>
+  <int value="5877" label="CacheHintAttributeOnScript"/>
+  <int value="5878" label="ElementInternalsWithBehaviors"/>
+  <int value="5879" label="HTMLSubmitButtonBehaviorUsage"/>
+  <int value="5880" label="ElementInternalsBehaviorsAccess"/>
+  <int value="5881" label="CSSURLRequestModifierCrossOrigin"/>
+  <int value="5882" label="CSSURLRequestModifierIntegrity"/>
+  <int value="5883" label="CSSURLRequestModifierReferrerPolicy"/>
+  <int value="5884" label="PreventSvgFilterPaint"/>
+  <int value="5885" label="LanguageModel_Prompt_ResponseConstraint"/>
+  <int value="5886" label="LanguageModel_Prompt_Prefix"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom:WebFeature) -->
@@ -6665,6 +6684,7 @@ Called by update_permissions_policy_enum.py.-->
   <int value="143" label="ManualText"/>
   <int value="144" label="LocalNetwork"/>
   <int value="145" label="LoopbackNetwork"/>
+  <int value="146" label="Tools"/>
 </enum>
 
 <!-- LINT.IfChange(FedCmAccountChooserResult) -->
@@ -7128,8 +7148,8 @@ Called by update_permissions_policy_enum.py.-->
 <!-- LINT.IfChange(FedCmRpMode) -->
 
 <enum name="FedCmRpMode">
-  <int value="0" label="Passive"/>
-  <int value="1" label="Active"/>
+  <int value="0" label="Active"/>
+  <int value="1" label="Passive"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/webid/federated_auth_request.mojom:RpMode) -->
@@ -7295,29 +7315,6 @@ Called by update_permissions_policy_enum.py.-->
       label="Supports-Loading-Mode response header 'fenced-frame' not
              opted-in"/>
 </enum>
-
-<!-- LINT.IfChange(FencedFrameDisableUntrustedNetworkOutcome) -->
-
-<enum name="FencedFrameDisableUntrustedNetworkOutcome">
-  <int value="0" label="Network disabled and promise resolved"/>
-  <int value="1" label="Document not fully active"/>
-  <int value="2" label="Not allowed to disable network"/>
-</enum>
-
-<!-- LINT.ThenChange(//third_party/blink/public/common/fenced_frame/fenced_frame_utils.h:DisableUntrustedNetworkOutcome) -->
-
-<!-- LINT.IfChange(FencedFrameNotifyEventOutcome) -->
-
-<enum name="FencedFrameNotifyEventOutcome">
-  <int value="0" label="Success"/>
-  <int value="1" label="Document not active"/>
-  <int value="2" label="Not called from a fenced frame root"/>
-  <int value="3" label="Invalid event passed in"/>
-  <int value="4" label="Unsupported event type passed in"/>
-  <int value="5" label="No transient user activation"/>
-</enum>
-
-<!-- LINT.ThenChange(//third_party/blink/public/common/fenced_frame/fenced_frame_utils.h:NotifyEventOutcome) -->
 
 <!-- LINT.IfChange(FirstCookieRequest) -->
 
@@ -8352,14 +8349,14 @@ Called by update_use_counter_css.py.-->
   <int value="888" label="rule-inset"/>
   <int value="889" label="column-rule-visibility-items"/>
   <int value="890" label="row-rule-visibility-items"/>
-  <int value="891" label="column-rule-edge-inset-start"/>
-  <int value="892" label="column-rule-edge-inset-end"/>
-  <int value="893" label="column-rule-interior-inset-start"/>
-  <int value="894" label="column-rule-interior-inset-end"/>
-  <int value="895" label="row-rule-edge-inset-start"/>
-  <int value="896" label="row-rule-edge-inset-end"/>
-  <int value="897" label="row-rule-interior-inset-start"/>
-  <int value="898" label="row-rule-interior-inset-end"/>
+  <int value="891" label="column-rule-inset-cap-start"/>
+  <int value="892" label="column-rule-inset-cap-end"/>
+  <int value="893" label="column-rule-inset-junction-start"/>
+  <int value="894" label="column-rule-inset-junction-end"/>
+  <int value="895" label="row-rule-inset-cap-start"/>
+  <int value="896" label="row-rule-inset-cap-end"/>
+  <int value="897" label="row-rule-inset-junction-start"/>
+  <int value="898" label="row-rule-inset-junction-end"/>
   <int value="899" label="timeline-trigger-range (obsolete)"/>
   <int value="900" label="timeline-trigger-exit-range (obsolete)"/>
   <int value="901" label="trigger-scope"/>
@@ -8371,12 +8368,12 @@ Called by update_use_counter_css.py.-->
   <int value="907" label="hash"/>
   <int value="908" label="base-url"/>
   <int value="909" label="pattern"/>
-  <int value="910" label="column-rule-edge-inset"/>
-  <int value="911" label="row-rule-edge-inset"/>
-  <int value="912" label="column-rule-interior-inset"/>
-  <int value="913" label="row-rule-interior-inset"/>
-  <int value="914" label="rule-edge-inset"/>
-  <int value="915" label="rule-interior-inset"/>
+  <int value="910" label="column-rule-inset-cap"/>
+  <int value="911" label="row-rule-inset-cap"/>
+  <int value="912" label="column-rule-inset-junction"/>
+  <int value="913" label="row-rule-inset-junction"/>
+  <int value="914" label="rule-inset-cap"/>
+  <int value="915" label="rule-inset-junction"/>
   <int value="916" label="page-margin-safety"/>
   <int value="917" label="timeline-trigger-entry-range-start (obsolete)"/>
   <int value="918" label="timeline-trigger-entry-range-end (obsolete)"/>
@@ -8402,6 +8399,9 @@ Called by update_use_counter_css.py.-->
   <int value="938" label="rule-inset-start"/>
   <int value="939" label="rule-inset-end"/>
   <int value="940" label="path-length"/>
+  <int value="941" label="hanging-punctuation"/>
+  <int value="942" label="flex-line-count"/>
+  <int value="943" label="text-decoration-skip-spaces"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/css_property_id.mojom:CSSSampleId) -->
@@ -8952,10 +8952,11 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="428" label="LoadingLazyMedia"/>
   <int value="429" label="ManifestLocalization"/>
   <int value="430" label="ContrastColor"/>
-  <int value="431" label="DRAFT_WebAppMigration"/>
+  <int value="431" label="AppMigration"/>
   <int value="432" label="DeclarativeWebmcp"/>
   <int value="433" label="Webgl"/>
   <int value="434" label="Webgl2"/>
+  <int value="435" label="DigitalCredentials"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom:WebDXFeature) -->

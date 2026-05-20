@@ -35,7 +35,8 @@ class ContainerQueryTest : public PageTestBase {
     if (!rule) {
       return false;
     }
-    const ConditionalExpNode* query = rule->GetContainerQuery().Query();
+    const ConditionalExpNode* query =
+        rule->GetContainerQuerySet().SingleQuery()->Query();
     return query && (ContainerSelector::CollectFeatureFlags(*query) &
                      ContainerSelector::kFeatureUnknown);
   }
@@ -58,7 +59,7 @@ class ContainerQueryTest : public PageTestBase {
     return rule;
   }
 
-  ContainerQuery* ParseContainerQuery(
+  const ContainerQuery* ParseContainerQuery(
       String query,
       UnknownHandling unknown_handling = UnknownHandling::kError) {
     String rule = "@container " + query + " {}";
@@ -66,12 +67,12 @@ class ContainerQueryTest : public PageTestBase {
     if (!container) {
       return nullptr;
     }
-    return &container->GetContainerQuery();
+    return container->GetContainerQuerySet().SingleQuery();
   }
 
   std::optional<ContainerSelector::FeatureFlags> FeatureFlagsFrom(
       String query_string) {
-    ContainerQuery* query =
+    const ContainerQuery* query =
         ParseContainerQuery(query_string, UnknownHandling::kAllow);
     if (!query) {
       return std::nullopt;
@@ -80,7 +81,7 @@ class ContainerQueryTest : public PageTestBase {
   }
 
   ContainerSelector ContainerSelectorFrom(String query_string) {
-    ContainerQuery* query =
+    const ContainerQuery* query =
         ParseContainerQuery(query_string, UnknownHandling::kAllow);
     if (!query) {
       return ContainerSelector();
@@ -92,10 +93,11 @@ class ContainerQueryTest : public PageTestBase {
     if (!container) {
       return "";
     }
-    return container->GetContainerQuery().ToString();
+    return container->GetContainerQuerySet().ToString();
   }
 
-  const ConditionalExpNode& GetInnerQuery(ContainerQuery& container_query) {
+  const ConditionalExpNode& GetInnerQuery(
+      const ContainerQuery& container_query) {
     return *container_query.Query();
   }
 
@@ -327,7 +329,8 @@ TEST_F(ContainerQueryTest, RuleParsing) {
     }
   )CSS");
   ASSERT_TRUE(container);
-  ASSERT_EQ("test_name", container->GetContainerQuery().Selector().Name());
+  ASSERT_EQ("test_name",
+            container->GetContainerQuerySet().SingleQuery()->Selector().Name());
 
   CSSStyleSheet* sheet = css_test_helpers::CreateStyleSheet(GetDocument());
   auto* rule = DynamicTo<CSSContainerRule>(
@@ -369,11 +372,11 @@ TEST_F(ContainerQueryTest, RuleCopy) {
   EXPECT_NE(rules[0], rules_copy[0]);
 
   // The ContainerQuery should be copied.
-  EXPECT_NE(&container->GetContainerQuery(), &copy->GetContainerQuery());
+  EXPECT_NE(&container->GetContainerQuerySet(), &copy->GetContainerQuerySet());
 
   // The inner ConditionalExpNode is immutable, and does not need to be copied.
-  EXPECT_EQ(&GetInnerQuery(container->GetContainerQuery()),
-            &GetInnerQuery(copy->GetContainerQuery()));
+  EXPECT_EQ(&GetInnerQuery(*container->GetContainerQuerySet().SingleQuery()),
+            &GetInnerQuery(*copy->GetContainerQuerySet().SingleQuery()));
 }
 
 TEST_F(ContainerQueryTest, ContainerQueryEvaluation) {

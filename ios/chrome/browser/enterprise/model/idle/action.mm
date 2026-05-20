@@ -22,6 +22,7 @@
 #import "components/enterprise/idle/idle_pref_names.h"
 #import "components/enterprise/idle/metrics.h"
 #import "components/prefs/pref_service.h"
+#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/browsing_data/model/browsing_data_remover_factory.h"
@@ -70,7 +71,7 @@ class SignOutAction : public Action {
     if (identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
       signout_start_time_ = base::TimeTicks::Now();
       signin::MultiProfileSignOutForProfile(
-          profile,
+          profile, /*trigger_scene_session_id=*/std::string(),
           signin_metrics::ProfileSignout::kIdleTimeoutPolicyTriggeredSignOut,
           base::BindOnce(&SignOutAction::OnSignOutCompleted,
                          base::Unretained(this), std::move(continuation)));
@@ -80,7 +81,7 @@ class SignOutAction : public Action {
     std::move(continuation).Run(true);
   }
 
-  void OnSignOutCompleted(Continuation continuation) {
+  void OnSignOutCompleted(Continuation continuation, SceneState*) {
     metrics::RecordIdleTimeoutActionTimeTaken(
         metrics::IdleTimeoutActionType::kSignOut,
         base::TimeTicks::Now() - signout_start_time_);

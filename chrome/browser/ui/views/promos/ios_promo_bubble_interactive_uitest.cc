@@ -19,7 +19,7 @@
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/promos/ios_promo_bubble.h"
-#include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
+#include "chrome/browser/ui/views/toolbar/app_menu_control.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
@@ -86,7 +86,7 @@ class IOSPromoBubbleBrowserTest
           browser_view->toolbar_button_provider();
 
       PromoType promo_type = GetPromoType();
-      views::BubbleAnchor anchor = nullptr;
+      views::BubbleAnchor anchor;
       views::Button* highlighted_button = nullptr;
       std::optional<ui::ElementIdentifier> highlighted_element;
 
@@ -120,8 +120,7 @@ class IOSPromoBubbleBrowserTest
           break;
         case PromoType::kEnhancedBrowsing:
         case PromoType::kLens:
-          anchor =
-              views::BubbleAnchor(browser_view->toolbar()->app_menu_button());
+          anchor = button_provider->GetAppMenuControl()->GetAnchor();
           break;
         default:
           NOTREACHED();

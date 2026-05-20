@@ -16,8 +16,8 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "base/test/task_environment.h"
-#include "base/test/trace_event_analyzer.h"
-#include "base/test/trace_test_utils.h"
+#include "base/test/tracing/trace_event_analyzer.h"
+#include "base/test/tracing/trace_test_utils.h"
 #include "base/time/time.h"
 #include "base/types/optional_ref.h"
 #include "build/build_config.h"
@@ -4006,6 +4006,8 @@ TEST_P(InputHandlerProxyScrollEventMetricsTest, SavesScrollEndMetrics) {
 
   // Inject the gesture scroll update. `InputHandlerProxy` will enqueue it.
   tick_clock_.Advance(base::Microseconds(10));
+  base::TimeTicks begin_frame_arrival_timestamp = tick_clock_.NowTicks();
+  tick_clock_.Advance(base::Microseconds(10));
   base::TimeTicks timestamp = tick_clock_.NowTicks();
   tick_clock_.Advance(base::Microseconds(10));
   base::TimeTicks arrived_in_browser_main_timestamp = tick_clock_.NowTicks();
@@ -4020,7 +4022,7 @@ TEST_P(InputHandlerProxyScrollEventMetricsTest, SavesScrollEndMetrics) {
       cc::ScrollEventMetrics::CreateForTesting(
           ui::EventType::kGestureScrollEnd, ui::ScrollInputType::kTouchscreen,
           param.is_inertial, timestamp, arrived_in_browser_main_timestamp,
-          &tick_clock_);
+          &tick_clock_, begin_frame_arrival_timestamp);
   input_handler_proxy_.HandleInputEventWithLatencyInfo(
       std::make_unique<WebCoalescedInputEvent>(std::move(gesture_event),
                                                ui::LatencyInfo()),
@@ -4105,6 +4107,8 @@ TEST_P(InputHandlerProxyScrollUpdateEventMetricsTest,
 
   // Inject the gesture scroll update. `InputHandlerProxy` will enqueue it.
   tick_clock_.Advance(base::Microseconds(10));
+  base::TimeTicks begin_frame_arrival_timestamp = tick_clock_.NowTicks();
+  tick_clock_.Advance(base::Microseconds(10));
   base::TimeTicks timestamp = tick_clock_.NowTicks();
   tick_clock_.Advance(base::Microseconds(10));
   base::TimeTicks arrived_in_browser_main_timestamp = tick_clock_.NowTicks();
@@ -4122,7 +4126,8 @@ TEST_P(InputHandlerProxyScrollUpdateEventMetricsTest,
           ui::ScrollInputType::kTouchscreen, param.is_inertial,
           param.scroll_update_type,
           /* delta= */ 1.0f, timestamp, arrived_in_browser_main_timestamp,
-          &tick_clock_, /* trace_id= */ std::nullopt);
+          &tick_clock_, /* trace_id= */ std::nullopt,
+          begin_frame_arrival_timestamp);
   input_handler_proxy_.HandleInputEventWithLatencyInfo(
       std::make_unique<WebCoalescedInputEvent>(std::move(gesture_event),
                                                ui::LatencyInfo()),
@@ -4178,6 +4183,64 @@ INSTANTIATE_TEST_SUITE_P(
         InputHandlerProxyScrollUpdateEventMetricsTest::ParamType>& info) {
       return info.param.test_name;
     });
+
+TEST_F(InputHandlerProxyEventMetricsTest, ScrollEndRequiresMainThreadRepaint) {
+  // Inject a gesture scroll begin first.
+  input_handler_proxy_.HandleInputEventWithLatencyInfo(
+      std::make_unique<WebCoalescedInputEvent>(
+          std::make_unique<WebGestureEvent>(
+              WebInputEvent::Type::kGestureScrollBegin,
+              WebInputEvent::kNoModifiers,
+              WebInputEvent::GetStaticTimeStampForTests(),
+              WebGestureDevice::kTouchscreen),
+          ui::LatencyInfo()),
+      /* metrics= */ nullptr, /* callback= */ base::DoNothing());
+
+  // Pretend that the current scroll is slow-path (i.e. on main).
+  cc::InputHandlerScrollEndResult result;
+  result.updates_need_main_thread_repaint = true;
+  EXPECT_CALL(mock_input_handler_, ScrollEnd(_, _)).WillOnce(Return(result));
+
+  // The metrics on which we expect `input_handler_proxy_` to set
+  // `cc::EventMetrics::requires_main_thread_update()`.
+  tick_clock_.Advance(base::Microseconds(10));
+  base::TimeTicks begin_frame_arrival_timestamp = tick_clock_.NowTicks();
+  tick_clock_.Advance(base::Microseconds(10));
+  base::TimeTicks timestamp = tick_clock_.NowTicks();
+  tick_clock_.Advance(base::Microseconds(10));
+  base::TimeTicks arrived_in_browser_main_timestamp = tick_clock_.NowTicks();
+  tick_clock_.Advance(base::Microseconds(10));
+  std::unique_ptr<cc::EventMetrics> metrics =
+      cc::ScrollEventMetrics::CreateForTesting(
+          ui::EventType::kGestureScrollEnd, ui::ScrollInputType::kTouchscreen,
+          /*is_inertial=*/false, timestamp, arrived_in_browser_main_timestamp,
+          &tick_clock_, begin_frame_arrival_timestamp);
+
+  input_handler_proxy_.HandleInputEventWithLatencyInfo(
+      std::make_unique<WebCoalescedInputEvent>(
+          std::make_unique<WebGestureEvent>(
+              WebInputEvent::Type::kGestureScrollEnd,
+              WebInputEvent::kNoModifiers,
+              WebInputEvent::GetStaticTimeStampForTests(),
+              WebGestureDevice::kTouchscreen),
+          ui::LatencyInfo()),
+      std::move(metrics),
+      /* callback= */ base::DoNothing());
+
+  // Send a begin frame to dispatch the enqueued scroll end event.
+  constexpr base::TimeDelta kInterval = base::Milliseconds(16);
+  base::TimeTicks frame_ts = tick_clock_.NowTicks();
+  input_handler_proxy_.DeliverInputForBeginFrame(viz::BeginFrameArgs::Create(
+      BEGINFRAME_FROM_HERE, /* source_id= */ 0, /* sequence_number= */ 42,
+      frame_ts, frame_ts + kInterval, kInterval, viz::BeginFrameArgs::NORMAL));
+
+  cc::EventMetrics::List saved_metrics =
+      mock_input_handler_.events_metrics_manager.TakeSavedEventsMetrics();
+  EXPECT_THAT(saved_metrics, SizeIs(1u));
+  EXPECT_EQ(saved_metrics[0]->type(),
+            cc::EventMetrics::EventType::kGestureScrollEnd);
+  EXPECT_TRUE(saved_metrics[0]->requires_main_thread_update());
+}
 
 }  // namespace test
 }  // namespace blink

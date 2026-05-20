@@ -36,10 +36,15 @@ bool CanUseKeyForSignatureKind(SignatureKind kind,
       // There exists an EVP_PKEY_RSA_PSS key type for RSA-PSS-specific keys,
       // but BoringSSL doesn't implement it and Chromium doesn't use it.
       return id == EVP_PKEY_RSA;
+    case ECDSA_SHA1:
     case ECDSA_SHA256:
+    case ECDSA_SHA384:
+    case ECDSA_SHA512:
       return id == EVP_PKEY_EC;
     case ED25519:
       return id == EVP_PKEY_ED25519 && mode == kOneShot;
+    case MLDSA_44:
+      return id == EVP_PKEY_ML_DSA_44 && mode == kOneShot;
   }
 
   return false;
@@ -48,6 +53,7 @@ bool CanUseKeyForSignatureKind(SignatureKind kind,
 const EVP_MD* DigestForSignatureKind(SignatureKind kind) {
   switch (kind) {
     case RSA_PKCS1_SHA1:
+    case ECDSA_SHA1:
       return EVP_sha1();
     case RSA_PKCS1_SHA256:
     case RSA_PSS_SHA256:
@@ -55,11 +61,14 @@ const EVP_MD* DigestForSignatureKind(SignatureKind kind) {
       return EVP_sha256();
     case RSA_PKCS1_SHA384:
     case RSA_PSS_SHA384:
+    case ECDSA_SHA384:
       return EVP_sha384();
     case RSA_PKCS1_SHA512:
     case RSA_PSS_SHA512:
+    case ECDSA_SHA512:
       return EVP_sha512();
     case ED25519:
+    case MLDSA_44:
       return nullptr;
   }
 }

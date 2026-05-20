@@ -9,6 +9,7 @@
 
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_view_delegate.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_group_consumer.h"
+#import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_group_edition_delegate.h"
 
 @class TabGroupGridViewController;
 class TabGroup;
@@ -17,8 +18,9 @@ class TabGroup;
 @protocol TabGroupPresentationCommands;
 
 // Tab group view controller displaying one group.
-@interface TabGroupViewController
-    : UIViewController <GridViewDelegate, TabGroupConsumer>
+@interface TabGroupViewController : UIViewController <GridViewDelegate,
+                                                      TabGroupConsumer,
+                                                      TabGroupHeaderDelegate>
 
 // Mutator used to send notification to the tab group  model.
 @property(nonatomic, weak) id<TabGroupMutator> mutator;
@@ -29,10 +31,10 @@ class TabGroup;
 // The embedded grid view controller.
 @property(nonatomic, readonly) TabGroupGridViewController* gridViewController;
 
-// Initiates a TabGroupViewController with `handler` to handle user action,
-// `incognito` to YES to have a dark theme, `tabGroup` to get tab group
+// Initiates a TabGroupViewController with `tabGroupsHandler` to handle user
+// action, `incognito` to YES to have a dark theme, `tabGroup` to get tab group
 // information.
-- (instancetype)initWithHandler:(id<TabGroupsCommands>)handler
+- (instancetype)initWithHandler:(id<TabGroupsCommands>)tabGroupsHandler
                       incognito:(BOOL)incognito
                        tabGroup:(const TabGroup*)tabGroup;
 

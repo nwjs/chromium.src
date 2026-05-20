@@ -20,7 +20,6 @@
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 
 namespace views {
-class View;
 class WebView;
 }  // namespace views
 
@@ -50,7 +49,7 @@ class DiceWebSigninInterceptionBubbleView
   [[nodiscard]] static std::unique_ptr<ScopedWebSigninInterceptionBubbleHandle>
   CreateBubble(
       Browser* browser,
-      views::View* anchor_view,
+      views::BubbleAnchor anchor,
       const WebSigninInterceptor::Delegate::BubbleParameters& bubble_parameters,
       base::OnceCallback<void(SigninInterceptionResult)> callback);
 
@@ -125,7 +124,7 @@ class DiceWebSigninInterceptionBubbleView
 
   DiceWebSigninInterceptionBubbleView(
       Browser* browser,
-      views::View* anchor_view,
+      views::BubbleAnchor anchor,
       const WebSigninInterceptor::Delegate::BubbleParameters& bubble_parameters,
       base::OnceCallback<void(SigninInterceptionResult)> callback);
 
@@ -170,7 +169,7 @@ class DiceWebSigninInterceptionBubbleView
   void ApplyAvatarButtonEffects();
 
   // This bubble can outlive the Browser, in particular on Mac (see
-  // https://crbug.com/1302729). Retain the profile to prevent use-after-free.
+  // https://crbug.com/40217096). Retain the profile to prevent use-after-free.
   ScopedProfileKeepAlive profile_keep_alive_;
 
   base::WeakPtr<Browser> browser_;

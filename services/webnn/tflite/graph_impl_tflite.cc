@@ -47,15 +47,6 @@
 #include "third_party/tflite/src/tensorflow/lite/interpreter_builder.h"
 #include "third_party/tflite/src/tensorflow/lite/stderr_reporter.h"
 
-#if BUILDFLAG(BUILD_TFLITE_WITH_NNAPI)
-#include "third_party/tflite/src/tensorflow/lite/core/c/c_api_types.h"
-#include "third_party/tflite/src/tensorflow/lite/delegates/nnapi/nnapi_delegate.h"
-#endif
-
-#if BUILDFLAG(BUILD_TFLITE_WITH_OPENCL)
-#include "third_party/tflite/src/tensorflow/lite/delegates/gpu/delegate.h"
-#endif
-
 #if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
 #include "third_party/tflite/src/tensorflow/lite/delegates/xnnpack/xnnpack_delegate.h"
 #include "third_party/xnnpack/src/include/xnnpack.h"  // nogncheck
@@ -396,52 +387,28 @@ class GraphImplTflite::ComputeResources {
                       mojom::Device context_device,
                       bool graph_requires_fp32_precision,
                       int num_of_threads) {
-#if BUILDFLAG(BUILD_TFLITE_WITH_NNAPI)
-    if (context_device == mojom::Device::kNpu) {
-      TfLiteDelegate* delegate = new ::tflite::StatefulNnApiDelegate();
-      builder.AddDelegate(delegate);
-      delegates_.emplace_back(
-          TfLiteDelegatePtr(
-              delegate,
-              [](TfLiteDelegate* delegate) {
-                // Cast `delegate` back to a C++ object type so that the correct
-                // destructor is invoked.
-                delete static_cast<::tflite::StatefulNnApiDelegate*>(delegate);
-              }),
-          mojom::Device::kNpu);
-    }
-#endif
-
     if (context_device == mojom::Device::kGpu) {
 #if BUILDFLAG(WEBNN_USE_CHROME_ML_API)
       // TODO(crbug.com/394119734): Simplify this check once these functions are
       // always available.
       auto* chrome_ml = ml::ChromeML::Get();
-      if (chrome_ml && chrome_ml->api().CreateGpuDelegate &&
-          chrome_ml->api().DestroyGpuDelegate) {
+      if (chrome_ml && chrome_ml->HasCreateGpuDelegate() &&
+          chrome_ml->HasDestroyGpuDelegate()) {
         GpuDelegatePrecision precision = GpuDelegatePrecision::kFp16;
         if (graph_requires_fp32_precision) {
           precision = GpuDelegatePrecision::kFp32;
         }
         TfLiteDelegate* delegate =
-            ml::ChromeML::Get()->api().CreateGpuDelegateWithPrecision(
-                precision);
+            ml::ChromeML::Get()->CreateGpuDelegateWithPrecision(precision);
         builder.AddDelegate(delegate);
         delegates_.emplace_back(
             TfLiteDelegatePtr(delegate,
                               [](TfLiteDelegate* delegate) {
-                                ml::ChromeML::Get()->api().DestroyGpuDelegate(
+                                ml::ChromeML::Get()->DestroyGpuDelegate(
                                     delegate);
                               }),
             mojom::Device::kGpu);
       }
-
-#elif BUILDFLAG(BUILD_TFLITE_WITH_OPENCL)
-      TfLiteDelegate* delegate = TfLiteGpuDelegateV2Create(nullptr);
-      builder.AddDelegate(delegate);
-      delegates_.emplace_back(
-          TfLiteDelegatePtr(delegate, TfLiteGpuDelegateV2Delete),
-          mojom::Device::kGpu);
 #endif
     }
 
@@ -533,7 +500,8 @@ GraphImplTflite::CreateAndBuildOnBackgroundThread(
       GraphBuilderTflite::CreateAndBuild(
           context_properties, *graph_info, std::move(constant_operands),
           std::move(operand_to_dependent_operations),
-          std::move(operand_to_producing_operation), std::move(weights_file)),
+          std::move(operand_to_producing_operation), std::move(weights_file),
+          /*use_external_buffer=*/false),
       [](std::string error) {
         return mojom::Error::New(mojom::Error::Code::kNotSupportedError,
                                  std::move(error));

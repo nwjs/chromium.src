@@ -186,8 +186,7 @@ void ServiceWorkerHost::DidInitializeServiceWorkerContext(
 
   content::ChildProcessId render_process_id = render_process_host_->GetID();
   auto* process_map = ProcessMap::Get(browser_context);
-  if (!process_map || !process_map->Contains(
-                          extension_id, render_process_id.GetUnsafeValue())) {
+  if (!process_map || !process_map->Contains(extension_id, render_process_id)) {
     // We check the process in addition to the registry to guard against
     // situations in which an extension may still be enabled, but no longer
     // running in a given process.
@@ -224,13 +223,16 @@ void ServiceWorkerHost::DidStartServiceWorkerContext(
   DCHECK_NE(kMainThreadId, worker_thread_id);
   content::ChildProcessId render_process_id = render_process_host_->GetID();
   auto* process_map = ProcessMap::Get(browser_context);
-  if (!process_map || !process_map->Contains(
-                          extension_id, render_process_id.GetUnsafeValue())) {
+  if (!process_map || !process_map->Contains(extension_id, render_process_id)) {
     // We can legitimately get here if the extension was already unloaded.
     return;
   }
-  CHECK(service_worker_scope.SchemeIs(kExtensionScheme) &&
-        extension_id == service_worker_scope.host());
+  if (!service_worker_scope.SchemeIs(kExtensionScheme) ||
+      extension_id != service_worker_scope.host()) {
+    bad_message::ReceivedBadMessage(
+        render_process_host_, bad_message::SWH_INVALID_SERVICE_WORKER_SCOPE);
+    return;
+  }
 
   ServiceWorkerTaskQueue::Get(browser_context)
       ->RendererDidStartServiceWorkerContext(
@@ -255,13 +257,16 @@ void ServiceWorkerHost::DidStopServiceWorkerContext(
   DCHECK_NE(kMainThreadId, worker_thread_id);
   content::ChildProcessId render_process_id = render_process_host_->GetID();
   auto* process_map = ProcessMap::Get(browser_context);
-  if (!process_map || !process_map->Contains(
-                          extension_id, render_process_id.GetUnsafeValue())) {
+  if (!process_map || !process_map->Contains(extension_id, render_process_id)) {
     // We can legitimately get here if the extension was already unloaded.
     return;
   }
-  CHECK(service_worker_scope.SchemeIs(kExtensionScheme) &&
-        extension_id == service_worker_scope.host());
+  if (!service_worker_scope.SchemeIs(kExtensionScheme) ||
+      extension_id != service_worker_scope.host()) {
+    bad_message::ReceivedBadMessage(
+        render_process_host_, bad_message::SWH_INVALID_SERVICE_WORKER_SCOPE);
+    return;
+  }
   CHECK_NE(blink::mojom::kInvalidServiceWorkerVersionId,
            service_worker_version_id);
   ServiceWorkerTaskQueue::Get(browser_context)

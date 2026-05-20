@@ -42,6 +42,7 @@
 #include "net/http/http_response_headers.h"
 
 #if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/signin/android/signin_bridge.h"
 #include "chrome/browser/signin/android/signin_bridge_factory.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
@@ -50,8 +51,8 @@
 #include "ui/android/view_android.h"
 #else
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -60,12 +61,6 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "components/supervised_user/core/browser/supervised_user_service.h"
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "content/public/browser/render_process_host.h"
-#include "extensions/browser/guest_view/web_view/web_view_renderer_state.h"
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
-
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -112,8 +107,6 @@ std::optional<CoreAccountInfo> FindCoreAccountInfoByEmail(
 #endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-
-const char kGoogleSignoutResponseHeader[] = "Google-Accounts-SignOut";
 
 // Refcounted wrapper that facilitates creating and deleting a
 // AccountReconcilor::Lock.
@@ -201,7 +194,8 @@ bool IsWebContentsForemost(Profile* profile,
                            content::WebContents* web_contents,
                            GAIAServiceType service_type) {
 #if BUILDFLAG(IS_CHROMEOS)
-  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents);
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents);
   // Do not do anything if the navigation happened in the "background".
   if (!browser || !browser->GetWindow()->IsActive()) {
     return false;
@@ -294,7 +288,7 @@ void ProcessMirrorHeader(
   //    webpages, thereby decreasing their session validity. After their session
   //    expires, they will receive a "Mirror" re-authentication request for all
   //    Google web properties. Another case when this can be triggered is
-  //    https://crbug.com/1012649.
+  //    https://crbug.com/40102460.
   // 3. Displaying an account addition window: when user clicks "Add another
   //    account" in One Google Bar.
   // 4. Displaying the Account Manager for managing accounts.
@@ -387,6 +381,9 @@ void ProcessMirrorHeader(
       base::FeatureList::IsEnabled(switches::kSupportWebSigninAddSession)) {
     if (!target_account_info.has_value()) {
       // Target account is not on the device.
+      base::UmaHistogramEnumeration(
+          "Signin.ProcessMirrorHeaders.Event",
+          signin::MirrorHeaderEvent::kAccountNotOnDevice);
       SigninBridgeFactory::GetForProfile(profile)->StartAddAccountFlow(
           TabAndroid::FromWebContents(web_contents),
           manage_accounts_params.email, continue_url);
@@ -397,6 +394,9 @@ void ProcessMirrorHeader(
     // error.
     if (identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
             target_account_info->account_id)) {
+      base::UmaHistogramEnumeration(
+          "Signin.ProcessMirrorHeaders.Event",
+          signin::MirrorHeaderEvent::kAccountInPersistentError);
       SigninBridgeFactory::GetForProfile(profile)->StartUpdateCredentialsFlow(
           TabAndroid::FromWebContents(web_contents), continue_url,
           target_account_info->account_id);
@@ -405,6 +405,9 @@ void ProcessMirrorHeader(
 
     // If the account is available on the device but is not in error state
     // then we wait for cookies.
+    base::UmaHistogramEnumeration(
+        "Signin.ProcessMirrorHeaders.Event",
+        signin::MirrorHeaderEvent::kAccountRecentlyAdded);
     SigninBridgeFactory::GetForProfile(profile)->WaitForCookiesAndRedirect(
         TabAndroid::FromWebContents(web_contents), continue_url,
         target_account_info->account_id);
@@ -426,7 +429,7 @@ void ProcessMirrorHeader(
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 void ProcessDiceHeader(
-    const DiceResponseParams& dice_params,
+    DiceResponseParams dice_params,
     const content::WebContents::Getter& web_contents_getter) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
@@ -445,7 +448,8 @@ void ProcessDiceHeader(
   DiceResponseHandler* dice_response_handler =
       DiceResponseHandlerFactory::GetForProfile(profile);
   dice_response_handler->ProcessDiceHeader(
-      dice_params, ProcessDiceHeaderDelegateImpl::Create(web_contents));
+      std::move(dice_params),
+      ProcessDiceHeaderDelegateImpl::Create(web_contents));
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
@@ -514,48 +518,14 @@ void ProcessDiceResponseHeaderIfExists(ResponseAdapter* response,
   if (!response_headers)
     return;
 
-  DiceResponseParams params;
-  std::optional<std::string> header_value;
-  if (header_value = response_headers->GetNormalizedHeader(kDiceResponseHeader);
-      header_value) {
-    params = DiceHeaderHelper::BuildDiceSigninResponseParams(*header_value);
-    // The header must be removed for privacy reasons, so that renderers never
-    // have access to the authorization code.
+  DiceResponseParams params =
+      DiceHeaderHelper::CreateDiceResponseParams(response_headers);
+
+  if (response_headers->HasHeader(kDiceResponseHeader)) {
     response->RemoveHeader(kDiceResponseHeader);
-  } else if (header_value = response_headers->GetNormalizedHeader(
-                 kGoogleSignoutResponseHeader);
-             header_value) {
-    params = DiceHeaderHelper::BuildDiceSignoutResponseParams(*header_value);
-  }
-
-  if (std::optional<std::string> meta_header_value =
-          response_headers->GetNormalizedHeader(kDiceLinkedAccountsMetaHeader);
-      meta_header_value) {
-    DiceResponseParams::SigninInfo::LinkedAccountsMetadata meta_header =
-        DiceHeaderHelper::ParseLinkedAccountsMetadata(*meta_header_value);
-    if (!meta_header.IsValid()) {
-      // TODO(crbug.com/475435113):
-      // - Revisit handling gracefully malformed meta header. The code as it is
-      // as of now, sign-in will fail completely if `initiator_id is empty`.
-      // - Add histogram
-      DLOG(WARNING)
-          << "Malformed X-Chrome-ID-Consistency-LinkedAccounts-Meta header: "
-          << *meta_header_value;
-    }
-
-    if (DiceResponseParams::SigninInfo* signin_info = params.signin_info();
-        signin_info) {
-      signin_info->set_linked_accounts_metadata(std::move(meta_header));
-    } else {
-      DLOG(WARNING) << "X-Chrome-ID-Consistency-LinkedAccounts-Meta is only "
-                       "supported for Sign-in Dice action";
-    }
   }
 
   if (!params.IsValid()) {
-    if (header_value) {
-      DLOG(WARNING) << "Invalid header: " << *header_value;
-    }
     return;
   }
 

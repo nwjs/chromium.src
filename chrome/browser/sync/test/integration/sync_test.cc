@@ -67,7 +67,6 @@
 #include "components/gcm_driver/instance_id/instance_id_driver.h"
 #include "components/gcm_driver/instance_id/instance_id_profile_service.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/os_crypt/sync/os_crypt_mocker.h"
 #include "components/plus_addresses/core/common/features.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/signin/public/base/consent_level.h"
@@ -135,8 +134,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/webui/signin/login_ui_service.h"
-#include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "components/trusted_vault/command_line_switches.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -216,10 +213,10 @@ SyncTest::SyncTest(TestType test_type)
                        : IN_PROCESS_FAKE_SERVER),
       test_construction_time_(base::Time::Now()),
       num_clients_(GetNumClients(test_type_)),
-      sync_run_loop_timeout(FROM_HERE, TestTimeouts::action_max_timeout()),
+      sync_run_loop_timeout_(FROM_HERE, TestTimeouts::action_max_timeout()),
       previous_profile_(nullptr) {
   // Any RunLoop timeout will by default result in test failure.
-  sync_run_loop_timeout.SetAddGTestFailureOnTimeout();
+  sync_run_loop_timeout_.SetAddGTestFailureOnTimeout();
 
   sync_datatype_helper::AssociateWithTest(this);
 }
@@ -227,9 +224,6 @@ SyncTest::SyncTest(TestType test_type)
 SyncTest::~SyncTest() = default;
 
 void SyncTest::SetUp() {
-  // Mock the Mac Keychain service.  The real Keychain can block on user input.
-  OSCryptMocker::SetUp();
-
   switch (server_type_) {
     case EXTERNAL_LIVE_SERVER: {
       break;
@@ -256,9 +250,6 @@ void SyncTest::TearDown() {
 
   // Allow the PlatformBrowserTest framework to perform its tear down.
   PlatformBrowserTest::TearDown();
-
-  // Return OSCrypt to its real behaviour
-  OSCryptMocker::TearDown();
 }
 
 void SyncTest::PostRunTestOnMainThread() {
@@ -424,7 +415,7 @@ bool SyncTest::CreateProfile(int index) {
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
-  DCHECK_EQ(index, 0);
+  CHECK_EQ(index, 0);
   Profile* profile = ProfileManager::GetLastUsedProfile();
 #else  // BUILDFLAG(IS_ANDROID)
   Profile* profile = nullptr;
@@ -466,12 +457,12 @@ bool SyncTest::CreateProfile(int index) {
 }
 
 Profile* SyncTest::GetProfile(int index) const {
-  DCHECK(!profiles_.empty()) << "SetupClients() has not yet been called.";
-  DCHECK(index >= 0 && index < static_cast<int>(profiles_.size()))
+  CHECK(!profiles_.empty()) << "SetupClients() has not yet been called.";
+  CHECK(index >= 0 && index < static_cast<int>(profiles_.size()))
       << "GetProfile(): Index is out of bounds: " << index;
 
   Profile* profile = profiles_[index];
-  DCHECK(profile) << "No profile found at index: " << index;
+  CHECK(profile) << "No profile found at index: " << index;
 
   return profile;
 }
@@ -497,12 +488,12 @@ void SyncTest::SetUsePrimaryUserProfile(bool value) {
 
 #if !BUILDFLAG(IS_ANDROID)
 Browser* SyncTest::GetBrowser(int index) {
-  DCHECK(!browsers_.empty()) << "SetupClients() has not yet been called.";
-  DCHECK(index >= 0 && index < static_cast<int>(browsers_.size()))
+  CHECK(!browsers_.empty()) << "SetupClients() has not yet been called.";
+  CHECK(index >= 0 && index < static_cast<int>(browsers_.size()))
       << "GetBrowser(): Index is out of bounds: " << index;
 
   Browser* browser = browsers_[index];
-  DCHECK(browser);
+  CHECK(browser);
 
   return browser;
 }
@@ -511,7 +502,7 @@ Browser* SyncTest::AddBrowser(int profile_index) {
   Profile* profile = GetProfile(profile_index);
   browsers_.push_back(Browser::Create(Browser::CreateParams(profile, true)));
   profiles_.push_back(profile);
-  DCHECK_EQ(browsers_.size(), profiles_.size());
+  CHECK_EQ(browsers_.size(), profiles_.size());
 
   Browser* browser = browsers_.back();
   chrome::AddSelectedTabWithURL(browser, GetInitialURL(),
@@ -539,12 +530,9 @@ SyncServiceImplHarness* SyncTest::GetClient(int index) {
 }
 
 const SyncServiceImplHarness* SyncTest::GetClient(int index) const {
-  if (clients_.empty()) {
-    LOG(FATAL) << "SetupClients() has not yet been called.";
-  }
-  if (index < 0 || index >= static_cast<int>(clients_.size())) {
-    LOG(FATAL) << "GetClient(): Index is out of bounds.";
-  }
+  CHECK(!clients_.empty()) << "SetupClients() has not yet been called.";
+  CHECK(index >= 0 && index < static_cast<int>(clients_.size()))
+      << "GetClient(): Index is out of bounds.";
   return clients_[index].get();
 }
 
@@ -583,12 +571,8 @@ SyncTest::GetSyncServices() {
 }
 
 Profile* SyncTest::verifier() {
-  if (!UseVerifier()) {
-    LOG(FATAL) << "Verifier account is disabled.";
-  }
-  if (verifier_ == nullptr) {
-    LOG(FATAL) << "SetupClients() has not yet been called.";
-  }
+  CHECK(UseVerifier()) << "Verifier account is disabled.";
+  CHECK(verifier_ != nullptr) << "SetupClients() has not yet been called.";
   return verifier_;
 }
 
@@ -597,15 +581,16 @@ bool SyncTest::UseVerifier() {
 }
 
 bool SyncTest::SetupClients() {
+  CHECK(profiles_.empty());
+  CHECK(clients_.empty());
+  CHECK_GT(num_clients_, 0) << "num_clients_ incorrectly initialized.";
+
   previous_profile_ =
       g_browser_process->profile_manager()->GetLastUsedProfile();
 
-  base::ScopedAllowBlockingForTesting allow_blocking;
-  if (num_clients_ <= 0) {
-    LOG(FATAL) << "num_clients_ incorrectly initialized.";
-  }
-  bool has_any_browser = false;
 #if !BUILDFLAG(IS_ANDROID)
+  CHECK(browsers_.empty());
+
   // Create the browser observer now that GlobalBrowserCollection is available.
   // This cannot be done in the constructor because it runs before browser
   // process initialization.
@@ -614,11 +599,7 @@ bool SyncTest::SetupClients() {
         std::make_unique<ClosedBrowserObserver>(base::BindRepeating(
             &SyncTest::OnBrowserRemoved, base::Unretained(this)));
   }
-  has_any_browser = !browsers_.empty();
 #endif
-  if (!profiles_.empty() || has_any_browser || !clients_.empty()) {
-    LOG(FATAL) << "SetupClients() has already been called.";
-  }
 
   // Create the required number of sync profiles, browsers and clients.
   profiles_.resize(num_clients_);
@@ -644,6 +625,8 @@ bool SyncTest::SetupClients() {
               }));
 #endif
 
+  base::ScopedAllowBlockingForTesting allow_blocking;
+
   for (int i = 0; i < num_clients_; ++i) {
     if (!CreateProfile(i)) {
       return false;
@@ -655,12 +638,12 @@ bool SyncTest::SetupClients() {
   }
 
   // Verifier account is not useful when running against external servers.
-  DCHECK(server_type_ != EXTERNAL_LIVE_SERVER || !UseVerifier());
+  CHECK(server_type_ != EXTERNAL_LIVE_SERVER || !UseVerifier());
 
 // Verifier needs to create a test profile. But Clank doesn't support multiple
 // profiles.
 #if BUILDFLAG(IS_ANDROID)
-  DCHECK(!UseVerifier());
+  CHECK(!UseVerifier());
 #endif
 
   // Create the verifier profile.
@@ -698,7 +681,7 @@ void SyncTest::InitializeProfile(int index, Profile* profile) {
 
 #if !BUILDFLAG(IS_ANDROID)
   browsers_.push_back(Browser::Create(Browser::CreateParams(profile, true)));
-  DCHECK_EQ(static_cast<size_t>(index), browsers_.size() - 1);
+  CHECK_EQ(static_cast<size_t>(index), browsers_.size() - 1);
 
   Browser* browser = browsers_.back();
   chrome::AddSelectedTabWithURL(browser, GetInitialURL(),
@@ -714,7 +697,7 @@ void SyncTest::InitializeProfile(int index, Profile* profile) {
     // Make sure that an instance of GCMProfileService has been created. This is
     // required for some tests which only call SetupClients().
     gcm::GCMProfileServiceFactory::GetForProfile(profile);
-    DCHECK(profile_to_fake_gcm_driver_.contains(profile));
+    CHECK(profile_to_fake_gcm_driver_.contains(profile));
     fake_server_sync_invalidation_sender_->AddFakeGCMDriver(
         profile_to_fake_gcm_driver_[profile]);
   }
@@ -724,7 +707,7 @@ void SyncTest::InitializeProfile(int index, Profile* profile) {
           ? SyncServiceImplHarness::SigninType::UI_SIGNIN
           : SyncServiceImplHarness::SigninType::FAKE_SIGNIN;
 
-  DCHECK(!clients_[index]);
+  CHECK(!clients_[index]);
   clients_[index] =
       SyncServiceImplHarness::Create(GetProfile(index), signin_type);
   EXPECT_NE(nullptr, GetClient(index)) << "Could not create Client " << index;
@@ -732,7 +715,8 @@ void SyncTest::InitializeProfile(int index, Profile* profile) {
 
 bool SyncTest::SetupSyncInternal(SetupSyncMode setup_mode,
                                  SyncWaitCondition wait_condition,
-                                 SyncTestAccount account) {
+                                 SyncTestAccount account,
+                                 bool enable_history_sync_in_transport_mode) {
   // Create sync profiles and clients if they haven't already been created.
   if (profiles_.empty()) {
     if (!SetupClients()) {
@@ -758,9 +742,10 @@ bool SyncTest::SetupSyncInternal(SetupSyncMode setup_mode,
     DVLOG(1) << "Setting up " << client_index << " client";
 
     if (setup_mode == SetupSyncMode::kSyncTransportOnly) {
-      if (!client->SignInPrimaryAccount(account) ||
+      if (!client->SignInNoWaitForCompletion(account) ||
           !client->AwaitEngineInitialization() ||
-          !client->EnableHistorySyncNoWaitForCompletion()) {
+          (enable_history_sync_in_transport_mode &&
+           !client->EnableHistorySyncNoWaitForCompletion())) {
         ADD_FAILURE() << "SetupSync() failed.";
         return false;
       }
@@ -779,7 +764,7 @@ bool SyncTest::SetupSyncInternal(SetupSyncMode setup_mode,
       // forever.
       // TODO(crbug.com/40173160): remove this workaround once SetupSync doesn't
       // rely on self-notifications.
-      DCHECK(GetSyncService(client_index)->IsEngineInitialized());
+      CHECK(GetSyncService(client_index)->IsEngineInitialized());
       GetSyncService(client_index)->SetInvalidationsForSessionsEnabled(true);
     }
 
@@ -823,6 +808,24 @@ bool SyncTest::SetupSyncInternal(SetupSyncMode setup_mode,
               << "cache guid: " << GetCacheGuid(client_index);
   }
 
+  // Because clients may modify sync data as part of startup (for example
+  // local session-related data is rewritten), we need to ensure all
+  // startup-based changes have propagated between the clients.
+  //
+  // Tests that don't use self-notifications or are allowlisted to run in E2E
+  // mode can't await quiescence. They'll have to find their own way of waiting
+  // for an initial state if they really need such guarantees.
+  if (wait_condition != NO_WAITING && TestUsesSelfNotifications() &&
+      !sync_integration_test_util::IsCurrentTestAllowlistedForE2EMode()) {
+    // Bypass E2E check because all tests are calling SetupSync(), and in this
+    // call site it's also verified that it's not called in E2E tests
+    // (implicitly via TestUsesSelfNotifications()).
+    if (!SyncServiceImplHarness::AwaitQuiescence(GetSyncClients())) {
+      ADD_FAILURE() << "AwaitQuiescence() failed.";
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -847,44 +850,32 @@ bool SyncTest::SetupSyncWithMode(SetupSyncMode setup_mode,
 
   base::ScopedAllowBlockingForTesting allow_blocking;
 
-  if (!SetupSyncInternal(setup_mode, wait_condition, account)) {
+  if (!SetupSyncInternal(setup_mode, wait_condition, account,
+                         /*enable_history_sync_in_transport_mode=*/true)) {
     return false;
   }
 
-  // Because clients may modify sync data as part of startup (for example
-  // local session-related data is rewritten), we need to ensure all
-  // startup-based changes have propagated between the clients.
-  //
-  // Tests that don't use self-notifications or are allowlisted to run in E2E
-  // mode can't await quiescence. They'll have to find their own way of waiting
-  // for an initial state if they really need such guarantees.
-  if (wait_condition != NO_WAITING && TestUsesSelfNotifications() &&
-      !sync_integration_test_util::IsCurrentTestAllowlistedForE2EMode()) {
-    // Bypass E2E check because all tests are calling SetupSync(), and in this
-    // call site it's also verified that it's not called in E2E tests
-    // (implicitly via TestUsesSelfNotifications()).
-    if (!SyncServiceImplHarness::AwaitQuiescence(GetSyncClients())) {
-      ADD_FAILURE() << "AwaitQuiescence() failed.";
-      return false;
-    }
-  }
+  DLOG(INFO) << "SyncTest::SetupSync() completed.";
+  return true;
+}
 
-#if !BUILDFLAG(IS_ANDROID)
-  if (server_type_ == EXTERNAL_LIVE_SERVER) {
-    // OneClickSigninSyncStarter observer is created with a real user sign in.
-    // It is deleted on certain conditions which are not satisfied by our tests,
-    // and this causes the SigninTracker observer to stay hanging at shutdown.
-    // Calling LoginUIService::SyncConfirmationUIClosed forces the observer to
-    // be removed. http://crbug.com/40416788
-    for (int i = 0; i < num_clients_; ++i) {
-      LoginUIServiceFactory::GetForProfile(GetProfile(i))
-          ->SyncConfirmationUIClosed(
-              LoginUIService::SYNC_WITH_DEFAULT_SETTINGS);
-    }
-  }
+bool SyncTest::SignIn(SyncTestAccount account) {
+#if BUILDFLAG(IS_ANDROID)
+  // For Android, currently the framework only supports one client.
+  // The client uses the default profile.
+  CHECK(num_clients_ == 1)
+      << "For Android, currently it only supports one client.";
 #endif
 
-  DLOG(INFO) << "SyncTest::SetupSync() completed.";
+  base::ScopedAllowBlockingForTesting allow_blocking;
+
+  if (!SetupSyncInternal(SetupSyncMode::kSyncTransportOnly,
+                         WAIT_FOR_COMMITS_TO_COMPLETE, account,
+                         /*enable_history_sync_in_transport_mode=*/false)) {
+    return false;
+  }
+
+  DLOG(INFO) << "SyncTest::SignIn() completed.";
   return true;
 }
 
@@ -1018,7 +1009,7 @@ void SyncTest::OnProfileWillBeDestroyed(Profile* profile) {
     profiles_[index] = nullptr;
     clients_[index].reset();
 #if !BUILDFLAG(IS_ANDROID)
-    DCHECK(!browsers_[index]);
+    CHECK(!browsers_[index]);
 #endif  // !BUILDFLAG(IS_ANDROID)
   }
 }
@@ -1099,7 +1090,7 @@ bool SyncTest::ResetSyncForPrimaryAccount() {
       SyncServiceImplHarness::Create(
           &profile, SyncServiceImplHarness::SigninType::UI_SIGNIN);
   CHECK(client);
-  if (!client->SignInPrimaryAccount()) {
+  if (!client->SignInNoWaitForCompletion()) {
     LOG(ERROR) << "Failed to sign in primary account";
     return false;
   }
@@ -1258,7 +1249,7 @@ bool SyncTest::WaitForAsyncChangesToBeCommitted(size_t profile_index) const {
 }
 
 void SyncTest::CheckForDataTypeFailures(size_t client_index) const {
-  DCHECK(GetClient(client_index));
+  CHECK(GetClient(client_index));
 
   auto* service = GetClient(client_index)->service();
   syncer::DataTypeSet types_to_check = service->GetRegisteredDataTypesForTest();
@@ -1294,7 +1285,7 @@ std::string SetupSyncModeAsString(SyncTest::SetupSyncMode sync_test_mode) {
 // enabled by default, e.g. HISTORY requires a dedicated opt-in via
 // SyncUserSettings::SetSelectedTypes().
 syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
-  static_assert(63 == syncer::GetNumDataTypes(),
+  static_assert(64 == syncer::GetNumDataTypes(),
                 "Add new types below if they can run in transport mode");
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1372,12 +1363,16 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
       }
     }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-    if (switches::IsExtensionsExplicitBrowserSigninEnabled()) {
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#if BUILDFLAG(IS_CHROMEOS)
+    if (base::FeatureList::IsEnabled(
+            syncer::kReplaceSyncPromosWithSignInPromos))
+#endif
+    {
       allowed_types.Put(syncer::EXTENSIONS);
       allowed_types.Put(syncer::EXTENSION_SETTINGS);
     }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   }
   allowed_types.Put(syncer::AUTOFILL_VALUABLE);
 
@@ -1401,6 +1396,9 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
     allowed_types.Put(syncer::ACCESSIBILITY_ANNOTATION);
   }
 
+  if (base::FeatureList::IsEnabled(syncer::kNewTabPageCustomizationThemeSync)) {
+    allowed_types.Put(syncer::THEMES_ANDROID);
+  }
   if (base::FeatureList::IsEnabled(syncer::kSyncAccountSettings)) {
     allowed_types.Put(syncer::ACCOUNT_SETTING);
   }

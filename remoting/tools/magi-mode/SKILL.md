@@ -1,0 +1,184 @@
+---
+name: magi-mode
+description: Resolves complex or ambiguous architectural problems in //remoting
+  using the MAGI multi-agent debate protocol. Use when the primary agent is
+  stuck, faces conflicting platform requirements, or needs a high-level
+  architectural decision.
+---
+
+# MAGI Protocol (Multi-Agent Guided Iteration)
+
+This skill implements the MAGI multi-agent debate protocol to resolve complex,
+high-stakes, or ambiguous problems. It utilizes a "Consensus Loop" of
+specialized sub-agents to explore dimensions, moderate feedback, and synthesize
+code without overwhelming the main Orchestrator.
+
+## The Core Personas (Dynamic Selection)
+
+The Orchestrator MUST dynamically select 3+ expert personas best suited for
+the specific task. While **Security**, **Performance**, and **Architect** are
+the defaults for production code, the Orchestrator may swap them for others
+(e.g., **Test Expert**, **Platform Expert**) if the task context warrants it.
+
+Each persona prompt MUST be anchored with the relevant **Platform** and
+**Language** (e.g., "Windows C++ Security Expert").
+
+## The Auxiliary Personas (The Consensus Loop)
+
+To prevent context bloat and semantic drift, the Orchestrator MUST NOT write
+code or summarize state itself. It delegates to several auxiliary personas:
+1.  **The Synthesizing Architect:** Writes the actual C++ code by combining
+    initial drafts and adhering to constraints provided by the Continuity Analyst.
+2.  **The Review Analyst:** Condenses raw feedback from multiple reviewers into a
+    strict list of actionable constraints.
+3.  **The Continuity Analyst:** Maintains the State Block across rounds,
+    explicitly checking for "flip-flopping" or stalled progress, and provides
+    the final constraints to the Architect.
+4.  **The Liaison:** Reports progress to the human via `update_topic` or chat
+    messages at the end of each cycle and at the conclusion of the loop.
+5.  **The Trainer:** Captures knowledge or systemic gaps discovered during the
+    Consensus Loop and upgrades the expert Persona definitions.
+6.  **The Release Engineer:** A terminal agent invoked with a clean context to
+    handle workspace hygiene, formatting, and the final staging/upload of CLs.
+
+**MANDATE:** Every sub-agent invoked in the MAGI protocol MUST call the
+`update_topic` tool as its first action to identify its role in the UI (e.g.,
+`title="MAGI Persona: Engineering Manager"`).
+
+## Workflow
+
+### 1. Preparation & Persona Selection (The Engineering Manager)
+- Identify the target file(s) and the core problem.
+- **The Engineering Manager:** The Orchestrator MUST act as or invoke a
+  sub-agent acting as the "Engineering Manager". The Engineering Manager reads
+  `src/remoting/tools/magi-mode/PERSONAS.md` (the routing catalog) to assess
+  and select the most appropriate experts. It returns the absolute file paths
+  of their definition files to the Orchestrator.
+- **The Recruiter (Talent Acquisition):** If the Engineering Manager determines
+  that a required expertise is lacking in the current catalog, they MUST invoke
+  a "Recruiter" sub-agent. The Recruiter is responsible for dynamically
+  generating the missing persona markdown file in
+  `src/remoting/tools/magi-mode/personas/` and updating the `PERSONAS.md` catalog.
+  *CRITICAL:* These MAGI system changes MUST NOT be entangled with the main work CL
+  (see VCS Isolation rule below).
+- **Transparency:** The Orchestrator MUST output the Engineering Manager's
+  persona selection logic to the human. Ensure the workspace is clean.
+- **Opaque Passing:** The Orchestrator passes the *file paths* of the selected
+  personas to the sub-agents. The sub-agents use `read_file` to load their
+  mandate, keeping the Orchestrator's context window lean.
+
+### 2. Scaffolding (The Pathfinder)
+- **Roughing In:** Invoke a "Pathfinder" sub-agent (e.g., Chromium Expert) to
+  create a base scaffold.
+- **Mandate:** Create necessary files, define class interfaces, set up Mojo
+  pipes, and GN/DEPS rules. Leave implementation details empty or stubbed (e.g.,
+  `NOTIMPLEMENTED()`).
+- **Snapshot:** The Orchestrator records this state (e.g., as a local commit) as
+  the "Base Scaffold" so all parallel ideators share the exact same multi-file API
+  boundaries. The Synthesizing Architect will eventually amend/squash the final
+  implementation into this scaffold, ensuring no broken stubs land in the final CL.
+
+### 3. Parallel Compute (Ideation)
+Invoke the selected expert sub-agents in parallel (`wait_for_previous: false`).
+Instruct each to implement the stubbed internals from the Base Scaffold.
+*Note: Sub-agents are permitted to change scaffolded signatures if their
+priority
+requires it. Their first action must be to call `update_topic` to identify
+their specific persona.*
+
+### 4. The Synthesis Phase
+Once the ideation agents finish:
+1.  **The Continuity Analyst:** Initialize the State Block with the identified
+    trade-offs to prevent context bloat:
+    *   **Iteration:** [N]
+    *   **Personas:** [Selected Experts]
+    *   **Resolved:** [Addressed critiques]
+    *   **Active Conflicts:** [Specific trade-offs, e.g., "Security vs.
+        Performance"]
+    *   **Stall Count:** [Count of non-productive iterations]
+2.  **The Synthesizing Architect:** Pass the `.magi` drafts to this agent to
+    synthesize into "Draft A" in the original file.
+
+### 5. The Consensus Loop (Expanded Review)
+1.  **Blind Critique:** Push Draft A to an expanded panel of Reviewers. The
+    panel MUST include the core ideators PLUS 3-6 specialized reviewer personas
+    (e.g., **Test Expert**, **Readability Expert**, **Cross-Platform Expert**).
+    **Prompt Template:**
+    > "**IMPORTANT:** Your very first action MUST be to call the `update_topic`
+    > tool with the `title` set to your assigned MAGI Persona name (e.g.,
+    > 'MAGI Persona: WebRTC Expert') and a `summary` of your immediate goal.
+    >
+    > Role Details: Read your mandate from `[persona_file_path]`.
+    > Priority: [Priority].
+    > Task: Review Draft [filename].
+    > Output ONLY: `Verdict: [ACCEPT/REJECT]` and `Reasoning: [Bullet points]`."
+2.  **The Review Analyst:** If any agent rejects, pass all feedback to the
+    Review Analyst agent to condense into a strict list of 3-5 Actionable
+    Constraints.
+3.  **The Continuity Analyst:** Pass the Review Analyst's constraints to the
+    Continuity Analyst. The Continuity Analyst updates the State Block and
+    checks for "flip-flopping" (e.g., Constraint 1 violates a constraint from
+    Round 1) and modifies the feedback provided to the Architect if necessary
+    to ensure progress.
+4.  **The Liaison:** Provide a brief status update to the human (e.g., via
+    `update_topic` or chat) detailing what is being considered and the
+    decision process for this cycle.
+5.  **Convergence & Iteration:** Pass the updated State Block and Draft back to
+    the Synthesizing Architect to generate Draft B.
+6.  **Executive Tie-Breaker (Handover):** If the Continuity Analyst detects a
+    deadlock, the Orchestrator MUST pause and escalate to the human with a
+    structured **Deadlock Report**. Feed the human's decision back to break the
+    tie.
+7.  **CLEANUP:** Immediately execute `rm *.magi.*` once consensus is reached.
+    The Liaison should report the final conclusion of the work.
+
+### 6. Specialized Modes
+*   **Paranoia Mode:** For high-stakes security code, use a **Multi-Model
+    Cohort** for the Reviewers (up to 9 agents). Run each persona through
+    multiple models.
+
+### 7. Production Hardening Checklist
+The Synthesizing Architect MUST ensure:
+1.  **Lifetime Safety:** Use `base::RefCountedDeleteOnSequence` for timers.
+2.  **Zero-Copy:** Prefer `std::move` and `base::RefCountedString`.
+3.  **DoS Mitigation:** Enforce strict length limits (e.g., 64KB).
+4.  **Atomic State:** Ensure callback checks (e.g., `if (callback_)`) are
+    atomically sound or strictly sequence-enforced to prevent double-runs.
+
+### 8. Continuous Improvement (The Trainer)
+Once consensus is reached, the Orchestrator MUST invoke a "Trainer" sub-agent.
+The Trainer evaluates the final State Block and Review Analyst constraints to
+identify systemic gaps in the Personas' knowledge. If a Persona made a recurring
+mistake or lacked domain context, the Trainer proposes an upgrade to their
+`personas/*.md` file and applies the improvements.
+
+**VCS Isolation Rule:** Any modifications to MAGI files (e.g., adding/updating
+personas by the Recruiter or Trainer) MUST be excluded from the feature/bugfix
+CL. Ensure MAGI paths are not staged during upload. Once the main solution is
+uploaded, create a completely separate, independent CL for the MAGI upgrades.
+
+### 9. Validation
+Run the standard suite (`git cl presubmit`, `gn check`, and unit tests).
+
+### 10. Deployment (The Release Engineer)
+Once Validation passes, the Orchestrator pauses its own actions and delegates
+strictly to the **Release Engineer** sub-agent. The Orchestrator passes only two
+pieces of information: the name of the feature/bug, and the list of MAGI files
+updated by the Trainer/Recruiter.
+
+The Release Engineer's **exclusive mandate** is:
+1. **Workspace Hygiene:** Run `git status` / `jj st`. Detect and revert
+   accidental submodule bumps. Remove any lingering `*.magi` temporary files.
+2. **Formatting:** Enforce `git cl format` or project-specific formatters.
+3. **The Feature CL:** Stage *only* the product source files. Verify the commit
+   message. Upload the main feature CL.
+4. **The MAGI CL:** Create a new branch/bookmark. Stage the `PERSONAS.md` and
+   `personas/*.md` files updated by the Recruiter/Trainer. Upload the secondary
+   CL.
+
+## When to Invoke
+- When an automated review finds a flaw that is hard to resolve without
+  trade-offs.
+- When a bug occurs only on a specific platform and the fix might impact others.
+- When adding a new feature that has significant performance or security
+  implications.

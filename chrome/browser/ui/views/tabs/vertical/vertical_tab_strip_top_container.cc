@@ -33,6 +33,10 @@
 #include "ui/views/layout/proposed_layout.h"
 #include "ui/views/view_class_properties.h"
 
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(
+    VerticalTabStripTopContainer,
+    kToggleVerticalTabsExpandOnHoverElementId);
+
 VerticalTabStripTopContainer::VerticalTabStripTopContainer(
     tabs::VerticalTabStripStateController* state_controller,
     actions::ActionItem* root_action_item,
@@ -112,6 +116,13 @@ views::ProposedLayout VerticalTabStripTopContainer::CalculateProposedLayout(
     if (first_button_height > 0) {
       const int baseline_height = GetBaselineMinHeight();
       current_y = std::max(0, (baseline_height - first_button_height) / 2);
+    }
+
+    // Because the collapsed state is set at the end of the transition, we need
+    // to ensure that the top container's button do not appear behind the
+    // caption buttons when they are leading.
+    if (caption_button_width_ > 0) {
+      current_y = std::max(current_y, toolbar_height_);
     }
 
     if (unfocus_button_ && unfocus_button_->GetVisible()) {
@@ -330,6 +341,9 @@ void VerticalTabStripTopContainer::ShowContextMenuForViewImpl(
         IDC_TOGGLE_VERTICAL_TABS_EXPAND_ON_HOVER,
         l10n_util::GetStringUTF16(
             IDS_VERTICAL_TABS_COLLAPSE_BUTTON_TOGGLE_EXPAND_ON_HOVER));
+    context_menu_model_->SetElementIdentifierAt(
+        context_menu_model_->GetItemCount() - 1,
+        kToggleVerticalTabsExpandOnHoverElementId);
 
     int32_t menu_runner_flags =
         views::MenuRunner::HAS_MNEMONICS | views::MenuRunner::CONTEXT_MENU;
@@ -339,7 +353,7 @@ void VerticalTabStripTopContainer::ShowContextMenuForViewImpl(
     CHECK(browser_view->tab_strip_view());
     expand_on_hover_lock_ =
         browser_view->tab_strip_view()->GetExpandOnHoverLock(
-            ExpandOnHoverLockType::kKeepExpanded);
+            ExpandOnHoverLockType::kKeepCurrentState);
 
     // `base::Unretained(this)` is safe because `context_menu_runner_` is owned
     // by `this`, ensuring the callback cannot outlive `this`.

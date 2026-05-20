@@ -32,6 +32,7 @@
 #include "components/content_settings/core/browser/permission_settings_registry.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_constraints.h"
+#include "components/content_settings/core/common/content_settings_enums.mojom-shared.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
@@ -749,6 +750,7 @@ void PageInfo::OnSitePermissionChanged(
     if (content_settings::ShouldTypeExpireActively(type)) {
       constraints.set_lifetime(permissions::kOneTimePermissionMaximumLifetime);
     }
+    constraints.set_ephemeral_clears_persistent_grant(true);
   }
   if (type == ContentSettingsType::STORAGE_ACCESS) {
     constraints.set_lifetime(
@@ -1738,6 +1740,12 @@ void PageInfo::PresentPageFeatureInfo() {
 }
 
 void PageInfo::PresentAdPersonalizationData() {
+  // If the Ad Privacy UX Deprecation feature is enabled, do not set or show the
+  // ad personalization data.
+  if (base::FeatureList::IsEnabled(
+          privacy_sandbox::kPrivacySandboxAdPrivacyUxDeprecation)) {
+    return;
+  }
   PageInfoUI::AdPersonalizationInfo info;
   auto* settings = GetPageSpecificContentSettings();
   if (!settings) {

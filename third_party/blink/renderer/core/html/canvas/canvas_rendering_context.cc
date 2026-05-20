@@ -221,7 +221,7 @@ scoped_refptr<StaticBitmapImage> CanvasRenderingContext::GetElementImage(
           gfx::ColorSpace::CreateSRGB(), wrapper,
           gpu::SHARED_IMAGE_USAGE_RASTER_WRITE | usage);
 
-      return resource_provider->DoExternalDrawAndSnapshot(
+      return resource_provider->DoExternalOverdrawAndSnapshot(
           [&](cc::PaintCanvas& canvas) { draw_to_canvas(canvas); },
           ImageOrientation());
     }
@@ -240,7 +240,7 @@ scoped_refptr<StaticBitmapImage> CanvasRenderingContext::GetElementImage(
 }
 
 void CanvasRenderingContext::DidDraw(
-    const SkIRect& dirty_rect,
+    const gfx::Rect& dirty_rect,
     CanvasPerformanceMonitor::DrawType draw_type) {
   CanvasRenderingContextHost* const host = Host();
   host->DidDraw(dirty_rect);

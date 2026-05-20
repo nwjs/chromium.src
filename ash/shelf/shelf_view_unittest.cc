@@ -72,7 +72,6 @@
 #include "base/time/time.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/prefs/pref_service.h"
-#include "components/user_education/common/user_education_events.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/aura/client/aura_constants.h"
@@ -102,6 +101,7 @@
 #include "ui/views/animation/test/ink_drop_impl_test_api.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/interaction/element_tracker_views.h"
+#include "ui/views/interaction/view_subregion_anchor.h"
 #include "ui/views/view_model.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -458,9 +458,6 @@ TEST_F(ShelfObserverIconTest, AddRemoveWithMultipleDisplays) {
 
 class ShelfViewTest : public AshTestBase {
  public:
-  static const char*
-      kTimeBetweenWindowMinimizedAndActivatedActionsHistogramName;
-
   template <typename... TaskEnvironmentTraits>
   explicit ShelfViewTest(TaskEnvironmentTraits&&... traits)
       : AshTestBase(std::forward<TaskEnvironmentTraits>(traits)...) {}
@@ -571,7 +568,7 @@ class ShelfViewTest : public AshTestBase {
 
     auto subscription =
         ui::ElementTracker::GetElementTracker()->AddCustomEventCallback(
-            user_education::kHelpBubbleAnchorBoundsChangedEvent,
+            views::ViewSubregionAnchor::kAnchorBoundsChangedEvent,
             views::ElementTrackerViews::GetContextForView(shelf_view_),
             base::BindLambdaForTesting(
                 [&](ui::TrackedElement* tracked_element) {
@@ -816,11 +813,6 @@ class LtrRtlShelfViewTest : public ShelfViewTest,
 };
 
 INSTANTIATE_TEST_SUITE_P(All, LtrRtlShelfViewTest, testing::Bool());
-
-const char*
-    ShelfViewTest::kTimeBetweenWindowMinimizedAndActivatedActionsHistogramName =
-        ShelfButtonPressedMetricTracker::
-            kTimeBetweenWindowMinimizedAndActivatedActionsHistogramName;
 
 TEST_P(LtrRtlShelfViewTest, GetAnchorBoundsInScreen) {
   // Help bubble anchor bounds changed events are only propagated when user
@@ -1663,7 +1655,7 @@ TEST_P(LtrRtlShelfViewTest, HomeButtonMetricsInTablet) {
       GetPrimaryShelf()->navigation_widget()->GetHomeButton();
 
   // Make sure we're not showing the app list.
-  std::unique_ptr<aura::Window> window = CreateTestWindow();
+  std::unique_ptr<aura::Window> window = CreateWindowWithAppType();
   wm::ActivateWindow(window.get());
   EXPECT_FALSE(home_button->IsShowingAppList());
 
@@ -1892,27 +1884,6 @@ TEST_P(LtrRtlShelfViewTest, Launcher_TaskUserActionsRecordedWhenItemSelected) {
 
   SimulateClick(0);
   EXPECT_EQ(1, user_action_tester.GetActionCount("Launcher_LaunchTask"));
-}
-
-// Verifies that metrics are recorded when an item is minimized and subsequently
-// activated.
-TEST_P(LtrRtlShelfViewTest,
-       VerifyMetricsAreRecordedWhenAnItemIsMinimizedAndActivated) {
-  base::HistogramTester histogram_tester;
-
-  ShelfItemSelectionTracker* selection_tracker = new ShelfItemSelectionTracker;
-  model_->ReplaceShelfItemDelegate(
-      model_->items()[0].id,
-      base::WrapUnique<ShelfItemSelectionTracker>(selection_tracker));
-
-  selection_tracker->set_item_selected_action(SHELF_ACTION_WINDOW_MINIMIZED);
-  SimulateClick(0);
-
-  selection_tracker->set_item_selected_action(SHELF_ACTION_WINDOW_ACTIVATED);
-  SimulateClick(0);
-
-  histogram_tester.ExpectTotalCount(
-      kTimeBetweenWindowMinimizedAndActivatedActionsHistogramName, 1);
 }
 
 // Verify the animations of the shelf items are as long as expected.
@@ -2787,7 +2758,7 @@ class LockedFullscreenShelfViewTest : public ShelfViewTest,
 TEST_P(LockedFullscreenShelfViewTest, ContextMenuVisibilityWithPinnedWindow) {
   // Create an item on the shelf and a test window for testing purposes.
   const ShelfAppButton* const shelf_button = GetButtonByID(AddApp());
-  const std::unique_ptr<aura::Window> window = CreateTestWindow();
+  const std::unique_ptr<aura::Window> window = CreateWindowWithAppType();
 
   // Open context menu before pinning the window.
   base::test::TestFuture<void> context_menu_future;
@@ -3831,7 +3802,13 @@ TEST_F(ShelfViewGestureTapTest, TapAfterShowingSystemModalWindow) {
 
   auto item_1_delegate_owned =
       std::make_unique<SystemModalWindowShelfItemDelegate>(base::BindRepeating(
-          &AshTestBase::CreateTestWindow, base::Unretained(this)));
+          [](AshTestBase* test_base, const gfx::Rect& bounds,
+             aura::client::WindowType type, int shell_window_id) {
+            EXPECT_EQ(type, aura::client::WINDOW_TYPE_NORMAL);
+            return test_base->CreateWindowWithAppType(
+                chromeos::AppType::NON_APP, bounds, shell_window_id);
+          },
+          base::Unretained(this)));
   SystemModalWindowShelfItemDelegate* item_1_delegate =
       item_1_delegate_owned.get();
   model_->ReplaceShelfItemDelegate(id1, std::move(item_1_delegate_owned));

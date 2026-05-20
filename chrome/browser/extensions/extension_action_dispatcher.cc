@@ -21,6 +21,29 @@ static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 namespace extensions {
 
+namespace {
+
+// Forwards events to the `context`'s event router.
+void DispatchEventToExtension(
+    content::BrowserContext* context,
+    const ExtensionId& extension_id,
+    events::HistogramValue histogram_value,
+    const std::string& event_name,
+    base::ListValue event_args,
+    EventRouter::UserGestureState user_gesture_state) {
+  auto* event_router = EventRouter::Get(context);
+  if (!event_router) {
+    return;
+  }
+
+  auto event = std::make_unique<Event>(histogram_value, event_name,
+                                       std::move(event_args), context);
+  event->user_gesture = user_gesture_state;
+  event_router->DispatchEventToExtension(extension_id, std::move(event));
+}
+
+}  // namespace
+
 static base::LazyInstance<
     BrowserContextKeyedAPIFactory<ExtensionActionDispatcher>>::DestructorAtExit
     g_extension_action_dispatcher_factory = LAZY_INSTANCE_INITIALIZER;
@@ -96,12 +119,14 @@ void ExtensionActionDispatcher::DispatchExtensionActionClicked(
 
     DispatchEventToExtension(web_contents->GetBrowserContext(),
                              extension_action.extension_id(), histogram_value,
-                             event_name, std::move(args));
+                             event_name, std::move(args),
+                             EventRouter::UserGestureState::kEnabled);
   }
 }
 
 void ExtensionActionDispatcher::ClearAllValuesForTab(
-    content::WebContents* web_contents) {
+    content::WebContents* web_contents,
+    bool web_contents_being_destroyed) {
   DCHECK(web_contents);
   const SessionID tab_id = sessions::SessionTabHelper::IdForTab(web_contents);
   content::BrowserContext* browser_context = web_contents->GetBrowserContext();
@@ -115,6 +140,11 @@ void ExtensionActionDispatcher::ClearAllValuesForTab(
         action_manager->GetExtensionAction(*extension);
     if (extension_action) {
       extension_action->ClearAllValuesForTab(tab_id.id());
+      // Declarative state is reverted by the ContentRulesRegistry on
+      // navigations, but must be explicitly cleaned up on destruction.
+      if (web_contents_being_destroyed) {
+        extension_action->ClearDeclarativeValuesForTab(tab_id.id());
+      }
       NotifyChange(extension_action, web_contents, browser_context);
     }
   }
@@ -131,22 +161,6 @@ ExtensionPrefs* ExtensionActionDispatcher::GetExtensionPrefs() {
   return extension_prefs_;
 }
 
-void ExtensionActionDispatcher::DispatchEventToExtension(
-    content::BrowserContext* context,
-    const ExtensionId& extension_id,
-    events::HistogramValue histogram_value,
-    const std::string& event_name,
-    base::ListValue event_args) {
-  if (!EventRouter::Get(context)) {
-    return;
-  }
-
-  auto event = std::make_unique<Event>(histogram_value, event_name,
-                                       std::move(event_args), context);
-  event->user_gesture = EventRouter::UserGestureState::kEnabled;
-  EventRouter::Get(context)->DispatchEventToExtension(extension_id,
-                                                      std::move(event));
-}
 
 void ExtensionActionDispatcher::Shutdown() {
   for (auto& observer : observers_) {
@@ -166,7 +180,8 @@ void ExtensionActionDispatcher::OnActionPinnedStateChanged(
   args.Append(std::move(change));
   DispatchEventToExtension(browser_context_, extension_id,
                            events::ACTION_ON_USER_SETTINGS_CHANGED,
-                           "action.onUserSettingsChanged", std::move(args));
+                           "action.onUserSettingsChanged", std::move(args),
+                           EventRouter::UserGestureState::kNotEnabled);
 }
 
 }  // namespace extensions

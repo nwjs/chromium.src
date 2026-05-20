@@ -6,6 +6,7 @@ source_set("constants") {
   sources = [
     "gemini_constants.h",
     "gemini_constants.mm",
+    "gemini_entry_flow_result.h",
   ]
 }
 
@@ -19,5 +20,36 @@ source_set("prefs") {
     "//components/prefs",
     "//ios/chrome/browser/intelligence/bwg/utils:constants",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
+  ]
+}
+
+source_set("feature_availability") {
+  sources = [
+    "gemini_feature_availability.h",
+    "gemini_feature_availability.mm",
+  ]
+  deps = [
+    "//components/signin/public/identity_manager",
+    "//ios/chrome/browser/intelligence/features",
+    "//ios/chrome/browser/shared/model/profile",
+    "//ios/chrome/browser/signin/model",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "gemini_feature_availability_unittest.mm" ]
+  deps = [
+    ":feature_availability",
+    "//base",
+    "//base/test:test_support",
+    "//components/signin/public/identity_manager",
+    "//components/signin/public/identity_manager:test_support",
+    "//ios/chrome/browser/intelligence/features",
+    "//ios/chrome/browser/shared/model/profile/test",
+    "//ios/chrome/browser/signin/model",
+    "//ios/chrome/browser/signin/model:test_support",
+    "//ios/web/public/test",
+    "//testing/gtest",
   ]
 }

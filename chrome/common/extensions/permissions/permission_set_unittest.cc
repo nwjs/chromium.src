@@ -872,6 +872,7 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kFirstRunPrivate);
 #endif
   skip.insert(APIPermissionID::kGlicPrivate);
+  skip.insert(APIPermissionID::kGlicPrivateInvoke);
   skip.insert(APIPermissionID::kImageLoaderPrivate);
   skip.insert(APIPermissionID::kInputMethodPrivate);
   skip.insert(APIPermissionID::kLanguageSettingsPrivate);
@@ -889,14 +890,13 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kTabCaptureForTab);
   skip.insert(APIPermissionID::kTerminalPrivate);
   skip.insert(APIPermissionID::kVirtualKeyboardPrivate);
-  skip.insert(APIPermissionID::kWebrtcAudioPrivate);
   skip.insert(APIPermissionID::kWebrtcDesktopCapturePrivate);
   skip.insert(APIPermissionID::kWebrtcLoggingPrivate);
   skip.insert(APIPermissionID::kWebrtcLoggingPrivateAudioDebug);
-  skip.insert(APIPermissionID::kWebstorePrivate);
   skip.insert(APIPermissionID::kWmDesksPrivate);
   skip.insert(APIPermissionID::kSystemLog);
   skip.insert(APIPermissionID::kOdfsConfigPrivate);
+  skip.insert(APIPermissionID::kIndigoPrivate);
 
   // Warned as part of host permissions.
   skip.insert(APIPermissionID::kDevtools);
@@ -1056,8 +1056,8 @@ TEST(PermissionsTest, SuppressedPermissionMessages) {
   }
 }
 
-#if BUILDFLAG(ENABLE_PLATFORM_APPS)
-// "serial" is a platform app permission and not supported on desktop Android.
+#if BUILDFLAG(IS_CHROMEOS)
+// "serial" is a platform app permission only supported on ChromeOS.
 TEST(PermissionsTest, AccessToDevicesMessages) {
   {
     APIPermissionSet api_permissions;
@@ -1098,7 +1098,7 @@ TEST(PermissionsTest, AccessToDevicesMessages) {
             IDS_EXTENSION_PROMPT_WARNING_BLUETOOTH_SERIAL)));
   }
 }
-#endif  // BUILDFLAG(ENABLE_PLATFORM_APPS)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 TEST(PermissionsTest, MergedFileSystemPermissionComparison) {
   APIPermissionSet write_api_permissions;
@@ -1827,7 +1827,7 @@ TEST(PermissionsTest, SyncFileSystemPermission) {
 // Make sure that we don't crash when we're trying to show the permissions
 // even though everything with a chrome:// scheme except chrome://favicon is
 // not a valid permission.
-// More details here: crbug/246314.
+// More details here: crbug.com/40320274.
 TEST(PermissionsTest, ChromeURLs) {
   URLPatternSet allowed_hosts;
   allowed_hosts.AddPattern(

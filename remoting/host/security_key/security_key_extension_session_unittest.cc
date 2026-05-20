@@ -74,6 +74,7 @@ class TestClientStub : public protocol::ClientStub {
   void SetVideoLayout(const protocol::VideoLayout& layout) override;
   void SetTransportInfo(const protocol::TransportInfo& transport_info) override;
   void SetActiveDisplay(const protocol::ActiveDisplay& active_display) override;
+  void ControlMicrophone(const protocol::MicrophoneControl& control) override;
 
   // protocol::ClipboardStub implementation.
   void InjectClipboardEvent(const protocol::ClipboardEvent& event) override;
@@ -119,6 +120,9 @@ void TestClientStub::SetTransportInfo(
 void TestClientStub::SetActiveDisplay(
     const protocol::ActiveDisplay& active_display) {}
 
+void TestClientStub::ControlMicrophone(
+    const protocol::MicrophoneControl& control) {}
+
 void TestClientStub::InjectClipboardEvent(
     const protocol::ClipboardEvent& event) {}
 
@@ -158,13 +162,9 @@ class TestClientSessionDetails : public ClientSessionDetails {
   ~TestClientSessionDetails() override;
 
   // ClientSessionDetails interface.
-  uint32_t desktop_session_id() const override { return desktop_session_id_; }
   ClientSessionControl* session_control() override { return nullptr; }
 
-  void set_desktop_session_id(uint32_t new_id) { desktop_session_id_ = new_id; }
-
  private:
-  uint32_t desktop_session_id_ = UINT32_MAX;
 };
 
 TestClientSessionDetails::TestClientSessionDetails() = default;

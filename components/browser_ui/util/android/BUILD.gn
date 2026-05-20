@@ -20,6 +20,7 @@ android_library("java") {
     "java/src/org/chromium/components/browser_ui/util/DrawableUtils.java",
     "java/src/org/chromium/components/browser_ui/util/FirstDrawDetector.java",
     "java/src/org/chromium/components/browser_ui/util/GlobalDiscardableReferencePool.java",
+    "java/src/org/chromium/components/browser_ui/util/TextResolver.java",
     "java/src/org/chromium/components/browser_ui/util/TimeTextResolver.java",
     "java/src/org/chromium/components/browser_ui/util/ToolbarUtils.java",
     "java/src/org/chromium/components/browser_ui/util/TraceEventVectorDrawableCompat.java",
@@ -116,5 +117,5 @@ android_library("unit_device_javatests") {
     "//third_party/junit",
     "//ui/android:ui_java_test_support",
   ]
-  resources_package = "org.chromium.components.browser_ui.util.test"
+  resources_package = "org.chromium.components.browser_ui.util"
 }

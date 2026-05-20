@@ -8,7 +8,10 @@
 #include <memory>
 
 #include "base/functional/callback.h"
+#include "base/functional/callback_forward.h"
+#include "base/scoped_observation.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
+#include "chrome/browser/contextual_tasks/search_ai_mode_signin_promo_controller_observer.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -38,12 +41,20 @@ BASE_DECLARE_FEATURE(kEnableLoadOriginalAIMSearchAfterSigninPromo);
 class SearchAiModePromoTabHelper
     : public content::WebContentsObserver,
       public content::WebContentsUserData<SearchAiModePromoTabHelper>,
-      public signin::IdentityManager::Observer {
+      public signin::IdentityManager::Observer,
+      public SearchAIModeSignInPromoControllerObserver {
  public:
   SearchAiModePromoTabHelper(const SearchAiModePromoTabHelper&) = delete;
   SearchAiModePromoTabHelper& operator=(const SearchAiModePromoTabHelper&) =
       delete;
   ~SearchAiModePromoTabHelper() override;
+
+  void FireTimeoutReachedForTesting();
+  void SetSigninPromoControllerFactoryForTesting(
+      base::RepeatingCallback<
+          std::unique_ptr<SearchAIModeSignInPromoController>(
+              content::WebContents*)> factory_callback);
+  SearchAIModeSignInPromoController* GetSigninPromoControllerForTesting();
 
  private:
   friend class content::WebContentsUserData<SearchAiModePromoTabHelper>;
@@ -67,6 +78,9 @@ class SearchAiModePromoTabHelper
   void OnIdentityManagerShutdown(
       signin::IdentityManager* identity_manager) override;
 
+  // SearchAIModeSignInPromoControllerObserver implementation:
+  void OnFlowAborted() override;
+
   void TriggerCoBrowsePostSignIn();
   void MaybeTriggerCobrowse(const CoreAccountInfo& account_info);
 
@@ -80,16 +94,23 @@ class SearchAiModePromoTabHelper
 
   bool has_checked_initial_navigation_ = false;
   bool should_show_promo_ = false;
+  bool has_triggered_cobrowse_flow_ = false;
   base::OneShotTimer promo_timer_;
   content::GlobalRenderFrameHostId primary_main_frame_id_;
   base::WeakPtr<content::WebContents> aim_search_web_contents_;
   std::unique_ptr<SearchAIModeSignInPromoController> signin_promo_controller_;
+  base::RepeatingCallback<std::unique_ptr<SearchAIModeSignInPromoController>(
+      content::WebContents*)>
+      signin_promo_controller_factory_for_testing_;
   GURL target_url_;
   std::unique_ptr<ContextualTaskNavigationObserver> contextual_task_observer_;
 
   base::ScopedObservation<signin::IdentityManager,
                           signin::IdentityManager::Observer>
       identity_manager_scoped_observation_{this};
+  base::ScopedObservation<SearchAIModeSignInPromoController,
+                          SearchAIModeSignInPromoControllerObserver>
+      signin_promo_controller_observation_{this};
   base::WeakPtrFactory<SearchAiModePromoTabHelper> weak_ptr_factory_{this};
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };

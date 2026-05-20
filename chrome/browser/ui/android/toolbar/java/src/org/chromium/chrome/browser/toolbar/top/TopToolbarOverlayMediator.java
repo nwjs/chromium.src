@@ -380,7 +380,7 @@ public class TopToolbarOverlayMediator {
     void updateOffsetTag(@Nullable BrowserControlsOffsetTagsInfo offsetTagsInfo) {
         mBrowserControlsOffsetTagsInfo = offsetTagsInfo;
 
-        if (offsetTagsInfo == null || getControlsPosition() == ControlsPosition.NONE) {
+        if (offsetTagsInfo == null) {
             mModel.set(TopToolbarOverlayProperties.TOOLBAR_OFFSET_TAG, null);
         } else if (getControlsPosition() == ControlsPosition.TOP) {
             mModel.set(
@@ -630,8 +630,12 @@ public class TopToolbarOverlayMediator {
         // If BCIV is enabled, we keep the composited view visible even when hiding the toolbar,
         // but the shadow isn't included in the toolbar's height, so we shift the toolbar up by
         // the shadow's height to hide the toolbar completely.
-        if (contentOffset == mBrowserControlsStateProvider.getTopControlsMinHeight()) {
-            contentOffset -= mBrowserControlsStateProvider.getTopControlsHairlineHeight();
+        int topControlsMinHeight = mBrowserControlsStateProvider.getTopControlsMinHeight();
+        int topControlsHairlineHeight =
+                mBrowserControlsStateProvider.getTopControlsHairlineHeight();
+        if (contentOffset >= topControlsMinHeight
+                && contentOffset <= topControlsMinHeight + topControlsHairlineHeight) {
+            contentOffset -= topControlsHairlineHeight;
         }
 
         if (ChromeFeatureList.sAndroidBookmarkBar.isEnabled()) {

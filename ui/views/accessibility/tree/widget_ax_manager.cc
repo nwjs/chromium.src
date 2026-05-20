@@ -54,7 +54,14 @@ bool ShouldSerializeEvent(Event event_type) {
     case Event::kActiveDescendantChanged:
     case Event::kCheckedStateChanged:
     case Event::kChildrenChanged:
+    case Event::kEnabledChanged:
+    case Event::kExpandedChanged:
     case Event::kLiveRegionChanged:
+    case Event::kSelection:
+    case Event::kSelectedChildrenChanged:
+    case Event::kTextChanged:
+    case Event::kTextSelectionChanged:
+    case Event::kValueChanged:
       return false;
     default:
       break;
@@ -68,10 +75,12 @@ bool ShouldSerializeEvent(Event event_type) {
   switch (event_type) {
     // TODO(crbug.com/40672441): Add events here as needed.
     case Event::kLocationChanged:
-    case Event::kScrollPositionChanged:
-    case Event::kTreeChanged:
     case Event::kRowCollapsed:
+    case Event::kRowCountChanged:
     case Event::kRowExpanded:
+    case Event::kScrollPositionChanged:
+    case Event::kStateChanged:
+    case Event::kTreeChanged:
       return false;
     default:
       break;
@@ -80,19 +89,12 @@ bool ShouldSerializeEvent(Event event_type) {
   // Events fired by views on some platforms but not yet handled. These are
   // being addressed incrementally, one event at a time.
   switch (event_type) {
-    case Event::kExpandedChanged:
     case Event::kFocusAfterMenuClose:
     case Event::kFocusContext:
     case Event::kMenuEnd:
     case Event::kMenuPopupEnd:
     case Event::kMenuPopupStart:
     case Event::kMenuStart:
-    case Event::kSelection:
-    case Event::kSelectedChildrenChanged:
-    case Event::kStateChanged:
-    case Event::kTextChanged:
-    case Event::kTextSelectionChanged:
-    case Event::kValueChanged:
       return false;
     default:
       break;
@@ -114,6 +116,10 @@ WidgetAXManager::WidgetAXManager(Widget* widget)
       << "WidgetAXManager should only be created when the "
          "accessibility tree feature is enabled.";
 
+  if (widget_) {
+    widget_created_ = widget_->IsNativeWidgetInitialized();
+    widget_observation_.Observe(widget_);
+  }
   ui::AXPlatform::GetInstance().AddModeObserver(this);
 }
 
@@ -126,7 +132,7 @@ void WidgetAXManager::Init() {
   CHECK(widget_->GetRootView());
   if (ui::AXPlatform::GetInstance().GetMode().has_mode(
           ui::AXMode::kNativeAPIs)) {
-    Enable();
+    EnableWhenWidgetCreated();
   } else {
     if (widget_->is_top_level()) {
       InitAXTreeManager();
@@ -198,11 +204,11 @@ void WidgetAXManager::OnChildRemoved(ViewAccessibility& child,
 }
 
 void WidgetAXManager::OnChildManagerAdded(WidgetAXManager& child_manager) {
-  child_manager.parent_ax_tree_id_ = ax_tree_id_;
+  child_manager.SetParentAXTreeID(ax_tree_id_);
 }
 
 void WidgetAXManager::OnChildManagerRemoved(WidgetAXManager& child_manager) {
-  child_manager.parent_ax_tree_id_ = ui::AXTreeID();
+  child_manager.SetParentAXTreeID(ui::AXTreeIDUnknown());
 }
 
 void WidgetAXManager::AddObserver(WidgetAXManagerObserver* observer) {
@@ -215,8 +221,22 @@ void WidgetAXManager::RemoveObserver(WidgetAXManagerObserver* observer) {
 
 void WidgetAXManager::OnAXModeAdded(ui::AXMode mode) {
   if (mode.has_mode(ui::AXMode::kNativeAPIs)) {
+    EnableWhenWidgetCreated();
+  }
+}
+
+void WidgetAXManager::OnWidgetCreated(Widget* widget) {
+  CHECK_EQ(widget_, widget);
+  widget_created_ = true;
+  if (enable_on_widget_created_) {
+    enable_on_widget_created_ = false;
     Enable();
   }
+}
+
+void WidgetAXManager::OnWidgetDestroyed(Widget* widget) {
+  DCHECK_EQ(widget_, widget);
+  widget_observation_.Reset();
 }
 
 gfx::NativeViewAccessible WidgetAXManager::GetNativeViewAccessibleForId(
@@ -388,6 +408,55 @@ bool WidgetAXManager::AccessibilityIsWebContentSource() {
   return false;
 }
 
+void WidgetAXManager::OnDidChangeFocus(View* focused_before,
+                                       View* focused_now) {
+  // focused_node_id_ persists when the widget deactivates, matching web
+  // content behavior. The BAM gates on AccessibilityViewHasFocus() to
+  // suppress events when the window isn't active.
+  focused_node_id_ = GetFocusedViewNodeId();
+  if (is_enabled_) {
+    CHECK(tree_source_);
+    tree_source_->SetFocusedNodeId(focused_node_id_);
+    SchedulePendingUpdate();
+  }
+}
+
+void WidgetAXManager::OnFocusManagerDestroying(FocusManager* focus_manager) {
+  focus_manager_observation_.Reset();
+  focused_node_id_ = ui::kInvalidAXNodeID;
+  CHECK(tree_source_);
+  tree_source_->SetFocusedNodeId(ui::kInvalidAXNodeID);
+}
+
+void WidgetAXManager::StartObservingFocus() {
+  if (focus_manager_observation_.IsObserving() || !widget_) {
+    return;
+  }
+  FocusManager* fm = widget_->GetFocusManager();
+  if (!fm) {
+    return;
+  }
+  focus_manager_observation_.Observe(fm);
+  focused_node_id_ = GetFocusedViewNodeId();
+  CHECK(tree_source_);
+  tree_source_->SetFocusedNodeId(focused_node_id_);
+}
+
+// Returns the focused view's AXNodeID, or kInvalidAXNodeID if no view
+// has focus. Active descendants are not resolved here; the AXTree
+// applies the activedescendant relationship when resolving focus,
+// matching how Blink populates focus_id.
+ui::AXNodeID WidgetAXManager::GetFocusedViewNodeId() const {
+  if (!widget_) {
+    return ui::kInvalidAXNodeID;
+  }
+  FocusManager* fm = widget_->GetFocusManager();
+  if (!fm || !fm->GetFocusedView()) {
+    return ui::kInvalidAXNodeID;
+  }
+  return fm->GetFocusedView()->GetViewAccessibility().GetUniqueId();
+}
+
 void WidgetAXManager::SchedulePendingUpdate() {
   if (processing_update_posted_ || !is_enabled_) {
     return;
@@ -415,14 +484,34 @@ void WidgetAXManager::InitAXTreeManager() {
       ui::BrowserAccessibilityManager::Create(update, *this, this));
 }
 
+void WidgetAXManager::EnableWhenWidgetCreated() {
+  if (!widget_) {
+    return;
+  }
+
+  if (!widget_created_) {
+    // WidgetAXManager can be attached after OnWidgetCreated() has already fired.
+    widget_created_ = widget_->IsNativeWidgetInitialized();
+  }
+
+  if (widget_created_) {
+    Enable();
+    return;
+  }
+
+  enable_on_widget_created_ = true;
+}
+
 void WidgetAXManager::Enable() {
   if (is_enabled_) {
     return;
   }
+  UpdateParentAXTreeIDFromWidget();
   is_enabled_ = true;
   tree_source_ = std::make_unique<ViewAccessibilityAXTreeSource>(
       widget_->GetRootView()->GetViewAccessibility().GetUniqueId(), ax_tree_id_,
       cache_.get());
+  tree_source_->SetParentTreeId(parent_ax_tree_id_);
   tree_serializer_ =
       std::make_unique<ViewAccessibilityAXTreeSerializer>(tree_source_.get());
 
@@ -433,6 +522,8 @@ void WidgetAXManager::Enable() {
     InitAXTreeManager();
   }
   cache_->Init(widget_->GetRootView()->GetViewAccessibility());
+
+  StartObservingFocus();
 
   // Fully serialize the tree starting from the root immediately.
   pending_data_updates_.insert(
@@ -445,6 +536,39 @@ void WidgetAXManager::NotifyEnabled() {
   for (WidgetAXManagerObserver& observer : observers_) {
     observer.OnWidgetAXManagerEnabled();
   }
+}
+
+void WidgetAXManager::SetParentAXTreeID(const ui::AXTreeID& parent_ax_tree_id) {
+  if (parent_ax_tree_id_ == parent_ax_tree_id) {
+    return;
+  }
+
+  parent_ax_tree_id_ = parent_ax_tree_id;
+  if (!tree_source_) {
+    return;
+  }
+
+  tree_source_->SetParentTreeId(parent_ax_tree_id_);
+  if (is_enabled_) {
+    pending_data_updates_.insert(
+        widget_->GetRootView()->GetViewAccessibility().GetUniqueId());
+    SchedulePendingUpdate();
+  }
+}
+
+void WidgetAXManager::UpdateParentAXTreeIDFromWidget() {
+  if (!widget_) {
+    SetParentAXTreeID(ui::AXTreeIDUnknown());
+    return;
+  }
+
+  Widget* parent = widget_->parent();
+  if (!parent || !parent->ax_manager()) {
+    SetParentAXTreeID(ui::AXTreeIDUnknown());
+    return;
+  }
+
+  SetParentAXTreeID(parent->ax_manager()->ax_tree_id_);
 }
 
 void WidgetAXManager::SendPendingUpdate() {
@@ -544,7 +668,20 @@ void WidgetAXManager::SendPendingUpdate() {
     }
   }
 
-  // TODO(crbug.com/40672441): Make sure the focused node is serialized.
+  // Ensure the focused node is serialized so it is added to the accessibility
+  // tree cache before tree_data.focus_id refers to it.
+  if (focused_node_id_ != ui::kInvalidAXNodeID &&
+      !already_serialized_ids.contains(focused_node_id_)) {
+    if (ViewAccessibility* focused_ax = cache_->Get(focused_node_id_)) {
+      ui::AXTreeUpdate update;
+      if (tree_serializer_->SerializeChanges(focused_ax, &update)) {
+        for (auto& node : update.nodes) {
+          already_serialized_ids.insert(node.id);
+        }
+        tree_updates.push_back(std::move(update));
+      }
+    }
+  }
 
   if (tree_updates.empty() && events.empty()) {
     // Nothing to do, no updates or events.

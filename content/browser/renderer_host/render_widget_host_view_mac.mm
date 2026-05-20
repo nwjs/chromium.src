@@ -25,6 +25,7 @@
 #include "base/mac/mac_util.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/numerics/ranges.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
@@ -47,6 +48,7 @@
 #include "content/browser/renderer_host/render_view_host_delegate.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/renderer_host/render_widget_helper.h"
+#include "content/browser/renderer_host/render_widget_host_delegate.h"
 #import "content/browser/renderer_host/text_input_client_mac.h"
 #include "content/browser/renderer_host/visible_time_request_trigger.h"
 #include "content/public/browser/browser_context.h"
@@ -176,7 +178,8 @@ bool RenderWidgetHostViewMac::ShouldWaitRemoteCompositorFrameOnResize() const {
 ////////////////////////////////////////////////////////////////////////////////
 // AcceleratedWidgetMacNSView, public:
 
-void RenderWidgetHostViewMac::AcceleratedWidgetCALayerParamsUpdated() {
+void RenderWidgetHostViewMac::AcceleratedWidgetCALayerParamsUpdated(
+    gfx::CALayerParams ca_layer_params) {
   // Set the background color for the root layer from the frame that just
   // swapped. See RenderWidgetHostViewAura for more details. Note that this is
   // done only after the swap has completed, so that the background is not set
@@ -184,10 +187,7 @@ void RenderWidgetHostViewMac::AcceleratedWidgetCALayerParamsUpdated() {
   SetBackgroundLayerColor(last_frame_root_background_color_);
 
   // Update the contents that the NSView is displaying.
-  const gfx::CALayerParams* ca_layer_params =
-      browser_compositor_->GetLastCALayerParams();
-  if (ca_layer_params)
-    ns_view_->SetCALayerParams(*ca_layer_params);
+  ns_view_->SetCALayerParams(std::move(ca_layer_params));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -543,22 +543,22 @@ void RenderWidgetHostViewMac::NotifyHostAndDelegateOnWasShown(
   DCHECK(host_->IsHidden());
 
   // SetRenderWidgetHostIsHidden may cause a state transition that switches to
-  // a new instance of DelegatedFrameHost and calls WasShown, which causes
-  // HasSavedFrame to always return true. So cache the HasSavedFrame result
-  // before the transition, and do not save this DelegatedFrameHost* locally.
-  const bool has_saved_frame =
-      browser_compositor_->GetDelegatedFrameHost()->HasSavedFrame();
-
+  // a new instance of DelegatedFrameHost and calls WasShown without a
+  // RecordContentToVisibleTimeRequest. So if there's a saved frame (meaning the
+  // tab switch measurement should go through DelegatedFrameHost) it's important
+  // to call RequestSuccessfulPresentationTimeForNextFrame to register the
+  // request before the compositor has a chance to commit.
   browser_compositor_->SetRenderWidgetHostIsHidden(false);
 
   // If the frame for the renderer is already available, then the
   // tab-switching time is the presentation time for the browser-compositor.
   // SetRenderWidgetHostIsHidden above will show the DelegatedFrameHost
   // in this state, but doesn't include the presentation time request.
-  if (has_saved_frame && tab_switch_start_state) {
+  if (tab_switch_start_state) {
     if (std::optional<blink::RecordContentToVisibleTimeRequest>
             delegated_visible_time_request =
-                tab_switch_start_state->ExtractTabSwitchEvents()) {
+                tab_switch_start_state
+                    ->ExtractTabSwitchEventsWithSavedFrame()) {
       browser_compositor_->GetDelegatedFrameHost()
           ->RequestSuccessfulPresentationTimeForNextFrame(
               std::move(*delegated_visible_time_request));
@@ -573,18 +573,14 @@ void RenderWidgetHostViewMac::
         blink::RecordContentToVisibleTimeRequest visible_time_request) {
   DCHECK(!host_->IsHidden());
 
-  // No state transition here so don't use
-  // has_saved_frame_before_state_transition.
-  if (browser_compositor_->GetDelegatedFrameHost()->HasSavedFrame()) {
-    // If the frame for the renderer is already available, then the
-    // tab-switching time is the presentation time for the browser-compositor.
-    if (std::optional<blink::RecordContentToVisibleTimeRequest>
-            delegated_visible_time_request =
-                visible_time_request.ExtractTabSwitchEvents()) {
-      browser_compositor_->GetDelegatedFrameHost()
-          ->RequestSuccessfulPresentationTimeForNextFrame(
-              std::move(*delegated_visible_time_request));
-    }
+  // If the frame for the renderer is already available, then the tab-switching
+  // time is the presentation time for the browser-compositor.
+  if (std::optional<blink::RecordContentToVisibleTimeRequest>
+          delegated_visible_time_request =
+              visible_time_request.ExtractTabSwitchEventsWithSavedFrame()) {
+    browser_compositor_->GetDelegatedFrameHost()
+        ->RequestSuccessfulPresentationTimeForNextFrame(
+            std::move(*delegated_visible_time_request));
   }
 
   if (!visible_time_request.events.empty()) {
@@ -953,10 +949,21 @@ void RenderWidgetHostViewMac::UpdateScreenInfo() {
   // Update with the latest display list from the remote process if needed.
   bool current_display_changed = false;
   bool any_display_changed = false;
+  bool refresh_rate_changed_on_same_display = false;
   if (new_screen_infos_from_shim_.has_value()) {
     current_display_changed =
         new_screen_infos_from_shim_->current() != screen_infos_.current();
     any_display_changed = new_screen_infos_from_shim_.value() != screen_infos_;
+
+    if (new_screen_infos_from_shim_->current().display_id ==
+            screen_infos_.current().display_id &&
+        screen_infos_.current().display_frequency != 0 &&
+        !base::IsApproximatelyEqual(
+            new_screen_infos_from_shim_->current().display_frequency,
+            screen_infos_.current().display_frequency,
+            display::Display::kRefreshRateEpsilon)) {
+      refresh_rate_changed_on_same_display = true;
+    }
 
     screen_infos_ = new_screen_infos_from_shim_.value();
     original_screen_infos_ = screen_infos_;
@@ -970,9 +977,11 @@ void RenderWidgetHostViewMac::UpdateScreenInfo() {
   bool dip_size_changed = view_bounds_in_window_dip_.size() !=
                           browser_compositor_->GetRendererSize();
 
-  if (dip_size_changed || current_display_changed) {
+  if (dip_size_changed || current_display_changed ||
+      refresh_rate_changed_on_same_display) {
     browser_compositor_->UpdateSurfaceFromNSView(
-        view_bounds_in_window_dip_.size());
+        view_bounds_in_window_dip_.size(),
+        refresh_rate_changed_on_same_display);
   }
 
   // TODO(crbug.com/40165361): Unify display info caching and change detection.
@@ -1157,7 +1166,7 @@ void RenderWidgetHostViewMac::TakeFallbackContentFrom(
   const gfx::CALayerParams* ca_layer_params =
       view_mac->browser_compositor_->GetLastCALayerParams();
   if (ca_layer_params)
-    ns_view_->SetCALayerParams(*ca_layer_params);
+    ns_view_->SetCALayerParams(ca_layer_params->CloneWithoutFence());
   browser_compositor_->TakeFallbackContentFrom(
       view_mac->browser_compositor_.get());
 }
@@ -1411,6 +1420,11 @@ void RenderWidgetHostViewMac::OnUnconfirmedTapConvertedToTap() {
 
 bool RenderWidgetHostViewMac::RequestRepaintOnNewSurface() {
   return browser_compositor_->ForceNewSurfaceId();
+}
+
+bool RenderWidgetHostViewMac::HasSavedCompositorFrame() const {
+  return browser_compositor_ &&
+         browser_compositor_->GetDelegatedFrameHost()->HasSavedFrame();
 }
 
 void RenderWidgetHostViewMac::TransformPointToRootSurface(gfx::PointF* point) {
@@ -1841,7 +1855,8 @@ void RenderWidgetHostViewMac::OnFirstResponderChanged(bool is_first_responder) {
   //   overwriting the valid focus set by OnWindowIsKeyChanged.
   //
   // - Losing focus:
-  //   - Only when the host is currently focused.
+  //   - When the widget is currently focused. The widget can be the main
+  //   frame's widget, or a guest view's widget.
   //   This prevents duplicate LostFocus notifications.
   if (is_first_responder_) {
     if (IsHeadless() || is_getting_focus_ || is_window_key_) {
@@ -1849,7 +1864,11 @@ void RenderWidgetHostViewMac::OnFirstResponderChanged(bool is_first_responder) {
       SetTextInputActive(true);
     }
   } else {
-    if (IsHeadless() || host()->is_focused()) {
+    bool has_focused_widget =
+        host()->delegate() &&
+        host()->delegate()->GetRenderWidgetHostWithPageFocus() &&
+        host()->delegate()->GetRenderWidgetHostWithPageFocus()->is_focused();
+    if (IsHeadless() || has_focused_widget) {
       SetTextInputActive(false);
       host()->LostFocus();
     }
@@ -2199,9 +2218,9 @@ bool RenderWidgetHostViewMac::SyncGetFirstRectForRange(
   *success = true;
   if (!GetCachedFirstRectForCharacterRange(requested_range, rect,
                                            actual_range)) {
-    // GetFirstRectForRange() can enter a nested RunLoop that might clear the
-    // ScreenInfos list used by GetDeviceScaleFactor(), so cache the result
-    // first.
+    // Cache the result of GetDeviceScaleFactor() before calling
+    // GetFirstRectForRange() in case anything clear the ScreenInfos list while
+    // waiting for the result.
     const float device_scale_factor = GetDeviceScaleFactor();
 
     // https://crbug.com/121917

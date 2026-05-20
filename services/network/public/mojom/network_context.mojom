@@ -6,6 +6,7 @@ module network.mojom;
 
 import "components/content_settings/core/common/content_settings.mojom";
 import "components/unexportable_keys/mojom/unexportable_key_service.mojom";
+import "components/variations/variations.mojom";
 import "mojo/public/mojom/base/big_buffer.mojom";
 import "mojo/public/mojom/base/file_path.mojom";
 import "mojo/public/mojom/base/time.mojom";
@@ -13,11 +14,13 @@ import "mojo/public/mojom/base/unguessable_token.mojom";
 import "mojo/public/mojom/base/values.mojom";
 import "sandbox/policy/mojom/context.mojom";
 import "services/network/public/mojom/address_list.mojom";
-import "services/network/public/mojom/connection_allowlist.mojom";
+import "services/network/public/mojom/auth.mojom";
 import "services/network/public/mojom/cache_encryption_provider.mojom";
 import "services/network/public/mojom/cert_verifier_service.mojom";
+import "services/network/public/mojom/cert_verify_result.mojom";
 import "services/network/public/mojom/clear_data_filter.mojom";
 import "services/network/public/mojom/client_security_state.mojom";
+import "services/network/public/mojom/connection_allowlist.mojom";
 import "services/network/public/mojom/connection_change_observer_client.mojom";
 import "services/network/public/mojom/cookie_access_observer.mojom";
 import "services/network/public/mojom/cookie_encryption_provider.mojom";
@@ -26,7 +29,6 @@ import "services/network/public/mojom/cookie_setting_overrides.mojom";
 import "services/network/public/mojom/cors_origin_pattern.mojom";
 import "services/network/public/mojom/cross_origin_embedder_policy.mojom";
 import "services/network/public/mojom/ct_policy.mojom";
-import "services/network/public/mojom/originating_process_id.mojom";
 import "services/network/public/mojom/default_credentials.mojom";
 import "services/network/public/mojom/device_bound_sessions.mojom";
 import "services/network/public/mojom/devtools_observer.mojom";
@@ -37,6 +39,7 @@ import "services/network/public/mojom/hash_value.mojom";
 import "services/network/public/mojom/host_resolver.mojom";
 import "services/network/public/mojom/http_cache_backend_file_operations.mojom";
 import "services/network/public/mojom/http_request_headers.mojom";
+import "services/network/public/mojom/http_response_headers.mojom";
 import "services/network/public/mojom/ip_address.mojom";
 import "services/network/public/mojom/ip_address_space.mojom";
 import "services/network/public/mojom/ip_endpoint.mojom";
@@ -49,6 +52,7 @@ import "services/network/public/mojom/network_context_client.mojom";
 import "services/network/public/mojom/network_isolation_key.mojom";
 import "services/network/public/mojom/network_param.mojom";
 import "services/network/public/mojom/oblivious_http_request.mojom";
+import "services/network/public/mojom/originating_process_id.mojom";
 import "services/network/public/mojom/parsed_headers.mojom";
 import "services/network/public/mojom/proxy_config.mojom";
 import "services/network/public/mojom/proxy_config_with_annotation.mojom";
@@ -64,6 +68,7 @@ import "services/network/public/mojom/shared_dictionary_usage_info.mojom";
 import "services/network/public/mojom/site_for_cookies.mojom";
 import "services/network/public/mojom/socket_broker.mojom";
 import "services/network/public/mojom/ssl_config.mojom";
+import "services/network/public/mojom/ssl_info.mojom";
 import "services/network/public/mojom/storage_access_api.mojom";
 import "services/network/public/mojom/tcp_socket.mojom";
 import "services/network/public/mojom/transferable_directory.mojom";
@@ -77,6 +82,7 @@ import "services/network/public/mojom/url_request.mojom";
 import "services/network/public/mojom/url_response_head.mojom";
 import "services/network/public/mojom/web_transport.mojom";
 import "services/network/public/mojom/websocket.mojom";
+import "services/network/public/mojom/x509_certificate.mojom";
 import "services/proxy_resolver/public/mojom/proxy_resolver.mojom";
 import "url/mojom/origin.mojom";
 import "url/mojom/scheme_host_port.mojom";
@@ -630,6 +636,9 @@ struct NetworkContextParams {
   // Sessions and nothing else.
   pending_remote<unexportable_keys.mojom.UnexportableKeyService>?
       bound_sessions_unexportable_key_service;
+
+  // Initial variations headers to use.
+  variations.mojom.VariationsHeaders? initial_variations_headers;
 };
 
 struct NetworkConditions {
@@ -949,8 +958,6 @@ struct URLLoaderFactoryParams {
   mojo_base.mojom.UnguessableToken? network_restrictions_id;
 };
 
-// If allowlisted_patterns is empty then it falls back to the earlier use case
-// of all network revoked (only applicable to fenced frames).
 struct NonceAndAllowlistedPatterns {
   mojo_base.mojom.UnguessableToken nonce;
   ConnectionAllowlists allowlists;
@@ -965,17 +972,13 @@ struct NonceAndAllowlistedPatterns {
 // to it.
 //
 // WARNING: When adding a new entry point function in the NetworkContext to
-// send a network request, if it is passed the IsolationInfo, either directly
-// or via one of its resultant keys like NetworkIsolationKey,
-// NetworkAnonymizationKey etc., or via its container like
-// `URLRequest.trusted_params`, make sure to check that the nonce in the key is
-// not revoked via NetworkContext::IsNetworkForNonceAndUrlAllowed() (See
-// example check in NetworkContext::ResolveHost). If it is, the request should
-// most likely be abandoned unless it is considered privacy safe, since the
-// initiating context has revoked access to the network. If the request is
+// send a network request, make sure to send the network_restrictions_id
+// so it can be checked that network is not restricted via
+// NetworkContext::IsNetworkForNonceAndUrlAllowed() (See
+// example check in NetworkContext::ResolveHost). If the request is
 // allowed to access the network, please add a comment in the function as to
-// why network revocation doesn’t apply to that request. More context on
-// network revocation is in the comment for `RevokeNetworkForNonces()` below.
+// why network restrictions don’t apply to that request. More context on
+// network restrictions is in the comment for `RevokeNetworkForNonces()` below.
 [RequireContext=sandbox.mojom.Context.kPrivilegedUtility]
 interface NetworkContext {
   // Sets a client for this network context.
@@ -1283,6 +1286,7 @@ interface NetworkContext {
   // The throttling will be applied only to requests that have matching
   // throttling_profile_id.
   SetNetworkConditions(mojo_base.mojom.UnguessableToken throttling_profile_id,
+                       mojo_base.mojom.UnguessableToken throttling_client_id,
                        array<MatchedNetworkConditions> conditions);
 
   // Updates the Accept-Language header to be used for requests.
@@ -1486,6 +1490,7 @@ interface NetworkContext {
       NetworkAnonymizationKey network_anonymization_key,
       array<WebTransportCertificateFingerprint> fingerprints,
       array<string> application_protocols,
+      WebTransportCongestionControl congestion_control,
       pending_remote<WebTransportHandshakeClient> handshake_client,
       pending_remote<URLLoaderNetworkServiceObserver>?
           url_loader_network_observer,
@@ -1594,10 +1599,10 @@ interface NetworkContext {
 
   // Performs 2-QWAC verification. Returns the verified 2-QWAC certificate
   // chain if `binding` is a valid 2-QWAC binding for `hostname` which binds
-  // `tls_certificate`.
+  // `tls_certificate`, or null otherwise.
   Verify2QwacCertBinding(
       string binding, string hostname, X509Certificate tls_certificate)
-      => (X509Certificate verified_cert);
+      => (X509Certificate? verified_cert);
 
   // Adds explicitly-specified data as if it was processed from an
   // HSTS header. Used by tests and implementation of chrome://net-internals.
@@ -1738,7 +1743,7 @@ interface NetworkContext {
   // Will flush cached client certificate for `host` if `certificate`
   // doesn't match the corresponding cached certificate.
   FlushCachedClientCertIfNeeded(
-      HostPortPair host, X509Certificate certificate);
+      HostPortPair host, X509Certificate? certificate);
 
   // Flushes a cached client certificate preference if `certificate` matches
   // the cached certificate.
@@ -1759,16 +1764,7 @@ interface NetworkContext {
   // the connection-allowlist feature it is extended to also add allowlisted
   // URLs for iframes and top-level frames. Also rename the corresponding
   // NetworkContext::network_revocation_nonces_ to network_restriction_nonces_.
-  // Used for the following scenarios:
-  // 1. Used for fenced frames network
-  // revocation:
-  // https://github.com/WICG/fenced-frame/blob/master/explainer/fenced_frames_with_local_unpartitioned_data_access.md#revoking-network-access
-  // Each fenced frame tree primarily uses one "fenced frame nonce" for
-  // requests that originate from it, but requests from credentialless iframes
-  // within the fenced frame tree use a different "credentialless iframes
-  // nonce". Currently these are the two nonces passed in `nonces`.
-  //
-  // 2. Used for connection-allowlist (see
+  // Used for connection-allowlist (see
   // https://github.com/WICG/connection-allowlists). Network from the
   // URLLoaderfactory whose `network_restriction_id` matches `nonces` will only
   // be allowed to `allowlisted_patterns` and blocked otherwise.
@@ -1783,16 +1779,8 @@ interface NetworkContext {
   // `NetworkService` crash. Note that this will only clear nonces specified
   // previously in `RevokeNetworkForNonces`, and should only be called when
   // those nonces are no longer relevant (for instance, after the corresponding
-  // fenced frame is destroyed).
+  // frame is destroyed).
   ClearNonces(array<mojo_base.mojom.UnguessableToken> nonces);
-
-  // Register that network requests operating under the nonce `nonce` whose url
-  // without filename is `exempted_url` should be exempt from network
-  // revocation. This can be called before network is revoked for `nonce` with
-  // `RevokeNetworkForNonce`, and it will store the exemption so that it can
-  // take effect afterwards.
-  ExemptUrlFromNetworkRevocationForNonce(
-      url.mojom.Url exempted_url, mojo_base.mojom.UnguessableToken nonce) => ();
 
   // Request that `request` be performed and cached as a prefetch. If a matching
   // request is subseqently received from a render process, the prefetch will
@@ -1821,4 +1809,7 @@ interface NetworkContext {
   // origins.
   AddQuicHints(array<url.mojom.SchemeHostPort> origins,
                NetworkAnonymizationKey network_anonymization_key);
+
+  // Updates the variations headers to be used for requests.
+  SetVariationsHeaders(variations.mojom.VariationsHeaders? variations_headers);
 };

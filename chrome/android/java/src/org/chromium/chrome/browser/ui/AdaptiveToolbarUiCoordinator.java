@@ -8,6 +8,7 @@ import static org.chromium.build.NullUtil.assertNonNull;
 
 import android.app.Activity;
 import android.content.Context;
+import android.view.View;
 
 import androidx.appcompat.content.res.AppCompatResources;
 
@@ -88,7 +89,7 @@ public class AdaptiveToolbarUiCoordinator {
     private BottomSheetController mBottomSheetController;
     private MonotonicObservableSupplier<Profile> mProfileSupplier;
     private Supplier<ScrimManager> mScrimSupplier;
-    private Supplier<TabModelSelector> mTabModelSelectorSupplier;
+    private Supplier<@Nullable TabModelSelector> mTabModelSelectorSupplier;
     private @Nullable CommerceBottomSheetContentCoordinator mCommerceBottomSheetContentCoordinator;
 
     /**
@@ -119,7 +120,7 @@ public class AdaptiveToolbarUiCoordinator {
     void initialize(
             AdaptiveToolbarBehavior toolbarBehavior,
             ActivityLifecycleDispatcher activityLifecycleDispatcher,
-            Supplier<TabModelSelector> tabModelSelectorSupplier,
+            MonotonicObservableSupplier<TabModelSelector> tabModelSelectorSupplier,
             BottomSheetController bottomSheetController,
             Supplier<SnackbarManager> snackbarManagerSupplier,
             Supplier<TabBookmarker> tabBookmarkerSupplier,
@@ -133,7 +134,8 @@ public class AdaptiveToolbarUiCoordinator {
             DeviceLockActivityLauncher deviceLockActivityLauncher,
             Supplier<@Nullable Tracker> trackerSupplier,
             Supplier<ScrimManager> scrimSupplier,
-            Supplier<@Nullable ReaderModeIphController> readerModeIphControllerSupplier) {
+            Supplier<@Nullable ReaderModeIphController> readerModeIphControllerSupplier,
+            View toolbarContainer) {
         if (!toolbarBehavior.shouldInitialize()) return;
 
         mBottomSheetController = bottomSheetController;
@@ -206,7 +208,8 @@ public class AdaptiveToolbarUiCoordinator {
                         profileSupplier,
                         new AdaptiveButtonActionMenuCoordinator(toolbarBehavior.canShowSettings()),
                         toolbarBehavior,
-                        windowAndroid);
+                        windowAndroid,
+                        toolbarContainer);
 
         DiscountsButtonController discountsButtonController =
                 new DiscountsButtonController(

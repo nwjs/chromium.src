@@ -26,7 +26,7 @@ class GlicMetrics;
 class GlicPinnedTabManagerImpl : public GlicPinnedTabManager {
  public:
   explicit GlicPinnedTabManagerImpl(Profile* profile,
-                                    GlicInstance::UiDelegate* ui_delegate,
+                                    GlicInstance* glic_instance,
                                     GlicMetrics* metrics);
   ~GlicPinnedTabManagerImpl() override;
 
@@ -77,6 +77,8 @@ class GlicPinnedTabManagerImpl : public GlicPinnedTabManager {
 
   // Visible for testing.
   virtual bool IsBrowserValidForSharing(BrowserWindowInterface* browser_window);
+  // Visible for testing.
+  virtual bool IsTabValidForPinning(tabs::TabInterface* tab);
   // Visible for testing.
   virtual bool IsValidForSharing(content::WebContents* web_contents);
   // Visible for testing.
@@ -154,7 +156,7 @@ class GlicPinnedTabManagerImpl : public GlicPinnedTabManager {
   // Enables searching for pin_candidates.
   raw_ptr<Profile> profile_;
 
-  raw_ptr<GlicInstance::UiDelegate> ui_delegate_;
+  raw_ptr<GlicInstance> glic_instance_;
 
   // Enables providing pin-related input to metrics.
   raw_ptr<GlicMetrics> metrics_;

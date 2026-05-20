@@ -112,12 +112,12 @@
 #include "ui/base/l10n/l10n_util.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "extensions/browser/api/management/management_api.h"
 #include "extensions/browser/extension_system.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"  // nogncheck
-#include "extensions/browser/api/management/management_api.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension_set.h"
 #include "extensions/common/manifest.h"
@@ -201,7 +201,7 @@ class ProfileDestructionObserver : public base::SupportsUserData::Data {
 };
 
 // There may be multiple profile creations happening, but only one stack trace
-// is recorded (the most recent one). See https://crbug.com/1472849
+// is recorded (the most recent one). See https://crbug.com/40069557
 void SetCrashKeysForAsyncProfileCreation(Profile* profile,
                                          bool creation_complete) {
   static crash_reporter::CrashKeyString<1024> async_profile_creation_trace_key(
@@ -1612,7 +1612,7 @@ void ProfileManager::DoFinalInitForServices(Profile* profile,
   // initializing the supervised flag if necessary).
   ChildAccountServiceFactory::GetForProfile(profile)->Init();
   ListFamilyMembersServiceFactory::GetForProfile(profile)->Init();
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // After the ManagementPolicy has been set, update it for the Supervised User
   // Extension Delegate, which has been created before the profile
   // initialization and needs to obtain the new policies.
@@ -1620,7 +1620,7 @@ void ProfileManager::DoFinalInitForServices(Profile* profile,
       ->Get(profile)
       ->GetSupervisedUserExtensionsDelegate()
       ->UpdateManagementPolicyRegistration();
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
   // Ensure NavigationPredictorKeyedService is started.
   NavigationPredictorKeyedServiceFactory::GetForProfile(profile);
@@ -1837,7 +1837,7 @@ Profile* ProfileManager::CreateAndInitializeProfile(
 
     // Load the profile synchronously while it's being loaded asynchronously.
     // Try recovering from this and avoid crashing.
-    // See https://crbug.com/1472849
+    // See https://crbug.com/40069557
     base::debug::DumpWithoutCrashing();
     base::RunLoop loop(base::RunLoop::Type::kNestableTasksAllowed);
     // Use a weak pointer, in case the profile is deleted by a task executed by
@@ -2087,8 +2087,8 @@ void ProfileManager::AddProfileToStorage(Profile* profile) {
   init_params.profile_name =
       base::UTF8ToUTF16(profile->GetPrefs()->GetString(prefs::kProfileName));
 
-  init_params.icon_index =
-      profile->GetPrefs()->GetInteger(prefs::kProfileAvatarIndex);
+  init_params.icon_index = profiles::GetSanitizedAvatarIndex(
+      profile->GetPrefs()->GetInteger(prefs::kProfileAvatarIndex));
 
   init_params.supervised_user_id =
       profile->GetPrefs()->GetString(prefs::kSupervisedUserId);
@@ -2200,7 +2200,7 @@ void ProfileManager::OnProfileDestructionComplete(
 void ProfileManager::SetProfileAsLastUsed(Profile* last_active) {
 #if !BUILDFLAG(IS_ANDROID)
   // The profile may incorrectly become "active" during its destruction, caused
-  // by the UI teardown. See https://crbug.com/1073451
+  // by the UI teardown. See https://crbug.com/40686320
   if (IsProfileDirectoryMarkedForDeletion(last_active->GetPath())) {
     return;
   }

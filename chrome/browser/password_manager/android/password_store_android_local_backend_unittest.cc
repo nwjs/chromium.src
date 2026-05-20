@@ -22,6 +22,7 @@
 #include "components/affiliations/core/browser/fake_affiliation_service.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_store/android_backend_error.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -135,10 +136,13 @@ TEST_F(PasswordStoreAndroidLocalBackendTest, CallsBridgeForGetAllLogins) {
       .WillOnce(Return(kJobId));
   backend().GetAllLoginsAsync(mock_reply.Get());
 
-  EXPECT_CALL(
-      mock_reply,
-      Run(VariantWith<LoginsResult>(ElementsAreArray(CreateTestLogins()))));
-  consumer().OnCompleteWithLogins(kJobId, CreateTestLogins());
+  EXPECT_CALL(mock_reply, Run(VariantWith<LoginsResult>(testing::ResultOf(
+                              [](const std::vector<StoredCredential>& creds) {
+                                return ToPasswordForms(creds);
+                              },
+                              ElementsAreArray(CreateTestLogins())))));
+  consumer().OnCompleteWithLogins(kJobId,
+                                  FromPasswordForms(CreateTestLogins()));
   RunUntilIdle();
 }
 
@@ -154,10 +158,13 @@ TEST_F(PasswordStoreAndroidLocalBackendTest,
       .WillOnce(Return(kJobId));
   backend().GetAllLoginsWithAffiliationAndBrandingAsync(mock_reply.Get());
 
-  EXPECT_CALL(
-      mock_reply,
-      Run(VariantWith<LoginsResult>(ElementsAreArray(CreateTestLogins()))));
-  consumer().OnCompleteWithLogins(kJobId, CreateTestLogins());
+  EXPECT_CALL(mock_reply, Run(VariantWith<LoginsResult>(testing::ResultOf(
+                              [](const std::vector<StoredCredential>& creds) {
+                                return ToPasswordForms(creds);
+                              },
+                              ElementsAreArray(CreateTestLogins())))));
+  consumer().OnCompleteWithLogins(kJobId,
+                                  FromPasswordForms(CreateTestLogins()));
   RunUntilIdle();
 }
 
@@ -173,10 +180,13 @@ TEST_F(PasswordStoreAndroidLocalBackendTest,
       .WillOnce(Return(kJobId));
   backend().GetAutofillableLoginsAsync(mock_reply.Get());
 
-  EXPECT_CALL(
-      mock_reply,
-      Run(VariantWith<LoginsResult>(ElementsAreArray(CreateTestLogins()))));
-  consumer().OnCompleteWithLogins(kJobId, CreateTestLogins());
+  EXPECT_CALL(mock_reply, Run(VariantWith<LoginsResult>(testing::ResultOf(
+                              [](const std::vector<StoredCredential>& creds) {
+                                return ToPasswordForms(creds);
+                              },
+                              ElementsAreArray(CreateTestLogins())))));
+  consumer().OnCompleteWithLogins(kJobId,
+                                  FromPasswordForms(CreateTestLogins()));
   RunUntilIdle();
 }
 
@@ -197,15 +207,15 @@ TEST_F(PasswordStoreAndroidLocalBackendTest,
   backend().GetGroupedMatchingLoginsAsync(form_digest, mock_reply.Get());
 
   LoginsResult returned_logins;
-  returned_logins.push_back(CreateEntry("Todd Tester", "S3cr3t",
-                                        GURL(u"https://example.com/"),
-                                        PasswordForm::MatchType::kAffiliated));
-  returned_logins.push_back(CreateEntry(
+  returned_logins.push_back(FromPasswordForm(
+      CreateEntry("Todd Tester", "S3cr3t", GURL(u"https://example.com/"),
+                  PasswordForm::MatchType::kAffiliated)));
+  returned_logins.push_back(FromPasswordForm(CreateEntry(
       "Marcus McSpartanGregor", "S0m3th1ngCr34t1v3",
-      GURL(u"https://m.example.com/"), PasswordForm::MatchType::kGrouped));
-  returned_logins.push_back(CreateEntry(
+      GURL(u"https://m.example.com/"), PasswordForm::MatchType::kGrouped)));
+  returned_logins.push_back(FromPasswordForm(CreateEntry(
       "Marcus McSpartanGregor", "S0m3th1ngCr34t1v3",
-      GURL(u"https://example.org/"), PasswordForm::MatchType::kGrouped));
+      GURL(u"https://example.org/"), PasswordForm::MatchType::kGrouped)));
 
   std::vector<PasswordForm> expected_logins;
   // Exact match is defined as such even if it was marked as affiliated match
@@ -223,9 +233,11 @@ TEST_F(PasswordStoreAndroidLocalBackendTest,
       "Marcus McSpartanGregor", "S0m3th1ngCr34t1v3",
       GURL(u"https://example.org/"), PasswordForm::MatchType::kGrouped));
 
-  EXPECT_CALL(
-      mock_reply,
-      Run(VariantWith<LoginsResult>(ElementsAreArray(expected_logins))));
+  EXPECT_CALL(mock_reply, Run(VariantWith<LoginsResult>(testing::ResultOf(
+                              [](const std::vector<StoredCredential>& creds) {
+                                return ToPasswordForms(creds);
+                              },
+                              ElementsAreArray(expected_logins)))));
   consumer().OnCompleteWithLogins(kJobId, std::move(returned_logins));
   RunUntilIdle();
 }
@@ -239,13 +251,13 @@ TEST_F(PasswordStoreAndroidLocalBackendTest, CallsBridgeForAddLogin) {
   const JobId kAddLoginJobId{13388};
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
   PasswordForm form = CreateEntry("tod", "qwerty", GURL(kTestUrl));
-  EXPECT_CALL(*bridge_helper(), AddLogin(form, std::string()))
+  EXPECT_CALL(*bridge_helper(), AddLogin(_, std::string()))
       .WillOnce(Return(kAddLoginJobId));
-  backend().AddLoginAsync(form, mock_reply.Get());
+  backend().AddLoginAsync(FromPasswordForm(form), mock_reply.Get());
 
   PasswordStoreChangeList expected_changes;
-  expected_changes.emplace_back(
-      PasswordStoreChange(PasswordStoreChange::ADD, form));
+  expected_changes.emplace_back(PasswordStoreChange::ADD,
+                                FromPasswordForm(std::move(form)));
   EXPECT_CALL(mock_reply,
               Run(VariantWith<PasswordChanges>(Optional(expected_changes))));
   consumer().OnLoginsChanged(kAddLoginJobId, expected_changes);
@@ -260,13 +272,13 @@ TEST_F(PasswordStoreAndroidLocalBackendTest, CallsBridgeForUpdateLogin) {
   const JobId kUpdateLoginJobId{13388};
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
   PasswordForm form = CreateEntry("tod", "qwerty", GURL(kTestUrl));
-  EXPECT_CALL(*bridge_helper(), UpdateLogin(form, std::string()))
+  EXPECT_CALL(*bridge_helper(), UpdateLogin(_, std::string()))
       .WillOnce(Return(kUpdateLoginJobId));
-  backend().UpdateLoginAsync(form, mock_reply.Get());
+  backend().UpdateLoginAsync(FromPasswordForm(form), mock_reply.Get());
 
   PasswordStoreChangeList expected_changes;
-  expected_changes.emplace_back(
-      PasswordStoreChange(PasswordStoreChange::UPDATE, form));
+  expected_changes.emplace_back(PasswordStoreChange::UPDATE,
+                                FromPasswordForm(std::move(form)));
   EXPECT_CALL(mock_reply,
               Run(VariantWith<PasswordChanges>(Optional(expected_changes))));
   consumer().OnLoginsChanged(kUpdateLoginJobId, expected_changes);
@@ -336,10 +348,13 @@ TEST_P(PasswordStoreAndroidLocalBackendRetriesTest,
     task_environment_.FastForwardUntilNoTasksRemain();
   }
 
-  EXPECT_CALL(
-      mock_reply,
-      Run(VariantWith<LoginsResult>(ElementsAreArray(CreateTestLogins()))));
-  consumer().OnCompleteWithLogins(kJobId, CreateTestLogins());
+  EXPECT_CALL(mock_reply, Run(VariantWith<LoginsResult>(testing::ResultOf(
+                              [](const std::vector<StoredCredential>& creds) {
+                                return ToPasswordForms(creds);
+                              },
+                              ElementsAreArray(CreateTestLogins())))));
+  consumer().OnCompleteWithLogins(kJobId,
+                                  FromPasswordForms(CreateTestLogins()));
 
   RunUntilIdle();
 }
@@ -369,10 +384,13 @@ TEST_P(PasswordStoreAndroidLocalBackendRetriesTest,
     task_environment_.FastForwardUntilNoTasksRemain();
   }
 
-  EXPECT_CALL(
-      mock_reply,
-      Run(VariantWith<LoginsResult>(ElementsAreArray(CreateTestLogins()))));
-  consumer().OnCompleteWithLogins(kJobId, CreateTestLogins());
+  EXPECT_CALL(mock_reply, Run(VariantWith<LoginsResult>(testing::ResultOf(
+                              [](const std::vector<StoredCredential>& creds) {
+                                return ToPasswordForms(creds);
+                              },
+                              ElementsAreArray(CreateTestLogins())))));
+  consumer().OnCompleteWithLogins(kJobId,
+                                  FromPasswordForms(CreateTestLogins()));
 
   RunUntilIdle();
 }

@@ -248,7 +248,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </variants>
 
 <histogram name="ChromeOS.AnomalousProcCount.AttemptedMemfdExec"
-    units="processes" expires_after="2026-08-09">
+    units="processes" expires_after="2026-10-11">
   <owner>enlightened@chromium.org</owner>
   <owner>chromeos-hardening@google.com</owner>
   <summary>
@@ -1216,7 +1216,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.CWP.JankinessTriggerStatus"
-    enum="ChromeOSJankinessTriggerStatus" expires_after="2026-05-10">
+    enum="ChromeOSJankinessTriggerStatus" expires_after="2027-05-10">
   <owner>gmx@chromium.org</owner>
   <owner>cwp-team@google.com</owner>
   <summary>
@@ -1229,7 +1229,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.CWP.ParseCPUFrequencies"
-    enum="ChromeOSParseCPUFrequencyStatus" expires_after="2026-08-16">
+    enum="ChromeOSParseCPUFrequencyStatus" expires_after="2026-10-18">
   <owner>gmx@chromium.org</owner>
   <owner>cwp-team@google.com</owner>
   <summary>
@@ -1336,7 +1336,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Debugd.Perf.{FunctionName}" units="ms"
-    expires_after="2026-08-02">
+    expires_after="2026-10-04">
   <owner>enlightened@google.com</owner>
   <owner>jorgelo@google.com</owner>
   <owner>chromeos-security-core@google.com</owner>
@@ -1485,7 +1485,6 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 <histogram name="ChromeOS.Display.Startup.AmbientLightSensorEnabled"
     enum="BooleanEnabled" expires_after="2026-12-31">
   <owner>longbowei@google.com</owner>
-  <owner>cambickel@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
     Record the status of the display ambient light sensor at startup. Fires when
@@ -1496,7 +1495,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 <histogram
     name="ChromeOS.Display.TimeUntilFirstBrightnessChange.{Time}.{BrightnessAction}Brightness.{PowerSource}Power"
     units="ms" expires_after="2026-09-27">
-  <owner>cambickel@google.com</owner>
+  <owner>longbowei@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
     When a user {BrightnessAction} the brightness of the internal display for
@@ -1549,7 +1548,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 <histogram
     name="ChromeOS.FirmwareUpdateUi.InstallFailedWithDurationAfterRequest.RequestId{DeviceRequestId}"
     units="ms" expires_after="2027-01-28">
-  <owner>cambickel@google.com</owner>
+  <owner>longbowei@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -1563,7 +1562,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 
 <histogram name="ChromeOS.FirmwareUpdateUi.InstallFailedWithStatus"
     enum="FirmwareUpdateFwupdStatus" expires_after="2027-01-28">
-  <owner>cambickel@google.com</owner>
+  <owner>longbowei@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -1574,7 +1573,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 
 <histogram name="ChromeOS.FirmwareUpdateUi.RequestReceived.Kind{Kind}"
     enum="FirmwareUpdateDeviceRequestID" expires_after="2027-01-28">
-  <owner>cambickel@google.com</owner>
+  <owner>longbowei@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -1593,7 +1592,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 <histogram
     name="ChromeOS.FirmwareUpdateUi.RequestSucceededWithDuration.RequestId{DeviceRequestId}"
     units="ms" expires_after="2027-01-28">
-  <owner>cambickel@google.com</owner>
+  <owner>longbowei@google.com</owner>
   <owner>jimmyxgong@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -1767,7 +1766,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 
 <histogram
     name="ChromeOS.Geolocation.CacheEviction.{ParameterizedEvictionStrategy}{SimilarityDegreeParameter}.{PredictionToken}"
-    units="meters" expires_after="2026-08-09">
+    units="meters" expires_after="2026-10-11">
   <owner>zauri@google.com</owner>
   <owner>chromeos-privacy-features-eng@google.com</owner>
   <summary>
@@ -2165,7 +2164,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
     name="ChromeOS.Inputs.InternalKeyboard.CustomTopRowLayout.NumberOfTopRowKeys"
     units="keys" expires_after="2026-10-28">
   <owner>jimmyxgong@chromium.org</owner>
-  <owner>cambickel@google.com</owner>
+  <owner>longbowei@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
     Records the number of top-row keys on a user's internal keyboard, if their
@@ -2177,7 +2176,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
     name="ChromeOS.Inputs.InternalKeyboard.CustomTopRowLayout.TopRowKeysPresent"
     enum="KeyboardTopRowActionKeys" expires_after="2026-10-28">
   <owner>jimmyxgong@chromium.org</owner>
-  <owner>cambickel@google.com</owner>
+  <owner>longbowei@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
     Records the specific keys present on a user's internal keyboard, if their
@@ -2515,7 +2514,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.K12UserAgeClassification.LogSegment"
-    enum="K12UserAgeClassificationMatrix" expires_after="2026-08-09">
+    enum="K12UserAgeClassificationMatrix" expires_after="2026-10-11">
   <owner>zifanzhang@google.com</owner>
   <owner>cros-client-wa@google.com</owner>
   <summary>Tracks the K12 user age classification.</summary>
@@ -2601,54 +2600,6 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
     migrations. Necessary migrations are the ones that work on migrating
     permissions for at least one key. Currently, some migration processes start
     when there are 0 keys saved in preferences.
-  </summary>
-</histogram>
-
-<histogram name="ChromeOS.Lacros.LoadTime" units="ms"
-    expires_after="2023-04-01">
-  <owner>erikchen@chromium.org</owner>
-  <owner>tvignatti@igalia.com</owner>
-  <owner>lacros-team@google.com</owner>
-  <summary>
-    Time to load Lacros binary. The bulk of load time may be spent in mounting
-    Lacros browser binary through squashfs in the component manager. If the user
-    has explicitly specified a path for the Lacros browser binary though, load
-    time will very likely be insignificant. Recorded by ash each time the lacros
-    binary is started.
-  </summary>
-</histogram>
-
-<histogram name="ChromeOS.Lacros.OSChannel" enum="ChromeOSChannel"
-    expires_after="2024-06-30">
-  <owner>erikchen@chromium.org</owner>
-  <owner>lacros-team@google.com</owner>
-  <summary>
-    The release channel of the Chrome OS system on which Lacros is running. May
-    be different than the Lacros browser release channel. Recorded by the lacros
-    binary shortly after startup.
-  </summary>
-</histogram>
-
-<histogram name="ChromeOS.Lacros.ResumeTime" units="ms"
-    expires_after="2024-11-03">
-  <owner>andreaorru@chromium.org</owner>
-  <owner>lacros-team@google.com</owner>
-  <summary>
-    Time to resume the lacros binary after being prelaunched at login screen,
-    specifically the time between when the process is resumed and the mojo
-    connection is established between ash and lacros. Recorded by ash each time
-    the lacros binary is resumed.
-  </summary>
-</histogram>
-
-<histogram name="ChromeOS.Lacros.StartTime" units="ms"
-    expires_after="2024-06-30">
-  <owner>erikchen@chromium.org</owner>
-  <owner>lacros-team@google.com</owner>
-  <summary>
-    Time to start the lacros binary, specifically the time between when the
-    process is launched and the mojo connection is established between ash and
-    lacros. Recorded by ash each time the lacros binary is started.
   </summary>
 </histogram>
 
@@ -2813,29 +2764,6 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
   </token>
 </histogram>
 
-<histogram name="ChromeOS.MachineIdRegen.Lock" enum="BooleanLockingSuccess"
-    expires_after="2022-02-02">
-  <owner>ahassani@chromium.org</owner>
-  <owner>chromeos-core-services@google.com</owner>
-  <summary>
-    Measures whether the MachineIdRegen script acquires the lock. Success / Fail
-    is recorded every time the script is invoked. This is to test if the locking
-    is working as expected.
-  </summary>
-</histogram>
-
-<histogram name="ChromeOS.MachineIdRegen.Reason" enum="ChromeOSMachineIdReason"
-    expires_after="2022-05-01">
-  <owner>ahassani@chromium.org</owner>
-  <owner>chromeos-core-services@google.com</owner>
-  <summary>
-    The reason why the Chrome OS machine-id was regenerated. This is reported
-    when the machine-id is re-generated.
-
-    NB: Data before M90 is incomplete.
-  </summary>
-</histogram>
-
 <histogram name="ChromeOS.MachineStatistic.{MachineStatistic}.LoadingTime"
     units="ms" expires_after="2026-09-06">
   <owner>asumaneev@google.com</owner>
@@ -2987,60 +2915,6 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
     user opens the message center and scrolls by mouse then by key, only the
     mouse event is recorded. If the user closes and reopens the message center
     before the second event, both events are recorded.
-  </summary>
-</histogram>
-
-<histogram name="ChromeOS.MlCoreCacher.MlCore.DlcBeginInstallDlcServiceError"
-    enum="DlcClientDlcErrorCode" expires_after="2025-02-15">
-  <owner>imranziad@chromium.org</owner>
-  <owner>chromeos-camera-eng@google.com</owner>
-  <summary>
-    The detailed error code received from DLC Service while trying to request to
-    install the ML Core DLC by ml-core-cacher.
-  </summary>
-</histogram>
-
-<histogram name="ChromeOS.MlCoreCacher.MlCore.DlcBeginInstallResult"
-    enum="DlcClientDlcBeginInstallResult" expires_after="2025-02-15">
-  <owner>imranziad@chromium.org</owner>
-  <owner>chromeos-camera-eng@google.com</owner>
-  <summary>
-    Result of an attempt to request DLC Service to begin installation of the ML
-    Core DLC by ml-core-cacher. See the related histogram
-    .DlcBeginInstallDlcServiceError for detailed error codes returned.
-  </summary>
-</histogram>
-
-<histogram name="ChromeOS.MlCoreCacher.MlCore.DlcFinalInstallDlcServiceError"
-    enum="DlcClientDlcErrorCode" expires_after="2025-02-15">
-  <owner>imranziad@chromium.org</owner>
-  <owner>chromeos-camera-eng@google.com</owner>
-  <summary>
-    The final detailed error code received from DLC Service after the completion
-    of a request to install the ML Core DLC by ml-core-cacher.
-  </summary>
-</histogram>
-
-<histogram name="ChromeOS.MlCoreCacher.MlCore.DlcFinalInstallResult"
-    enum="DlcClientDlcFinalInstallResult" expires_after="2025-02-15">
-  <owner>imranziad@chromium.org</owner>
-  <owner>chromeos-camera-eng@google.com</owner>
-  <summary>
-    Final result of an attempt to install the ML Core DLC by ml-core-cacher. See
-    the related histogram .DlcFinalInstallDlcServiceError for detailed error
-    codes returned from DLC Service.
-  </summary>
-</histogram>
-
-<histogram name="ChromeOS.MlCoreCacher.MlCore.DlcInstallAttemptCount"
-    units="attempts" expires_after="2025-02-15">
-  <owner>imranziad@chromium.org</owner>
-  <owner>chromeos-camera-eng@google.com</owner>
-  <summary>
-    Indicates at least n attempts were made to install the ML Core DLC by
-    ml-core-cacher. Note that the buckets are cumulative: If e.g. 3 attempts are
-    made, then the &quot;1&quot;, &quot;2&quot;, and &quot;3&quot; buckets will
-    all be incremented.
   </summary>
 </histogram>
 
@@ -3273,7 +3147,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.SAML.Provider" enum="ChromeOSSamlProvider"
-    expires_after="2026-08-02">
+    expires_after="2026-10-04">
   <owner>mslus@chromium.org</owner>
   <owner>cros-3pidp@google.com</owner>
   <summary>Records SAML provider when SAML login flow is used.</summary>
@@ -3953,7 +3827,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 
 <histogram
     name="ChromeOS.Settings.Device.Touchpad.{TouchpadType}.{TouchpadSetting}.Initial"
-    enum="Boolean" expires_after="2026-04-26">
+    enum="Boolean" expires_after="2026-10-26">
   <owner>jimmyxgong@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -4017,7 +3891,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 
 <histogram
     name="ChromeOS.Settings.Device.Touchpad.{TouchpadType}.{TouchpadSpeedSettings}.Initial"
-    enum="PointerSensitivity" expires_after="2026-08-23">
+    enum="PointerSensitivity" expires_after="2026-10-25">
   <owner>jimmyxgong@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -4630,16 +4504,6 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
   </summary>
 </histogram>
 
-<histogram name="ChromeOS.SystemTray.IsExpandedOnOpen" enum="Boolean"
-    expires_after="2023-05-10">
-  <owner>amehfooz@chromium.org</owner>
-  <owner>cros-status-area@google.com</owner>
-  <summary>
-    If the value is true, SystemTray is expanded when it's opened. Otherwise,
-    it's closed when it's opened.
-  </summary>
-</histogram>
-
 <histogram name="ChromeOS.SystemTray.NotificationsRemovedByClearAll"
     units="notifications" expires_after="2025-05-11">
   <owner>amehfooz@chromium.org</owner>
@@ -4674,16 +4538,6 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
   </summary>
 </histogram>
 
-<histogram name="ChromeOS.SystemTray.TimeToClick" units="ms"
-    expires_after="2021-08-22">
-  <owner>tengs@chromium.org</owner>
-  <owner>gzadina@google.com</owner>
-  <summary>
-    The amount of time a user took from clicking on the button in status area,
-    to clicking on an item in the system tray bubble. (Obsolete M90 onwards).
-  </summary>
-</histogram>
-
 <histogram name="ChromeOS.SystemTray.TimeToClick2" units="ms"
     expires_after="2023-04-01">
   <owner>amehfooz@chromium.org</owner>
@@ -4691,16 +4545,6 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
   <summary>
     The amount of time a user took after opening the system tray bubble, to
     clicking on an item in the system tray bubble.
-  </summary>
-</histogram>
-
-<histogram name="ChromeOS.SystemTray.ToggleExpanded"
-    enum="CrosSystemTrayToggleExpanded" expires_after="2023-09-10">
-  <owner>amehfooz@chromium.org</owner>
-  <owner>cros-status-area@google.com</owner>
-  <summary>
-    An enum value how system tray bubble is expanded or collapsed. It can be
-    toggled by the button and touch gesture.
   </summary>
 </histogram>
 
@@ -4733,19 +4577,6 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
   <summary>
     This value represents the speed of the USB Type-C cable which is connected
     to a device. It is recorded every time a new peripheral is connected.
-  </summary>
-</histogram>
-
-<histogram name="ChromeOS.TypeC.DpSuccess" enum="DpSuccessMetric"
-    expires_after="2024-02-11">
-  <owner>pmalani@chromium.org</owner>
-  <owner>chromeos-usb@google.com</owner>
-  <summary>
-    This value represents DisplayPort (DP) alternate mode entry success (or
-    failure) for USB Type-C peripherals that support this alternate mode. This
-    metric gets recorded by the Chrome OS Type-C system daemon (typecd) when a
-    peripheral that supports DP alternate mode is connected to the systems that
-    support this metric.
   </summary>
 </histogram>
 
@@ -5003,7 +4834,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.WXMountCount" units="count"
-    expires_after="2026-08-09">
+    expires_after="2026-10-11">
   <owner>jorgelo@chromium.org</owner>
   <owner>chromeos-hardening@google.com</owner>
   <summary>

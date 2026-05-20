@@ -14,8 +14,9 @@
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/ui/browser_content_setting_bubble_model_delegate.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/content_settings/content_setting_image_model_states.h"
 #include "chrome/browser/ui/layout_constants.h"
@@ -1058,6 +1059,14 @@ void PictureInPictureBrowserFrameView::SetFrameBounds(const gfx::Rect& bounds) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// views::FrameView implementations:
+gfx::Rect
+PictureInPictureBrowserFrameView::GetNonDecoratedClientAreaBoundsInScreen()
+    const {
+  return GetBoundsInScreen();
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // ChromeLocationBarModelDelegate implementations:
 
 content::WebContents* PictureInPictureBrowserFrameView::GetActiveWebContents()
@@ -1195,7 +1204,9 @@ PictureInPictureBrowserFrameView::GetContentSettingWebContents() {
 ContentSettingBubbleModelDelegate*
 PictureInPictureBrowserFrameView::GetContentSettingBubbleModelDelegate() {
   // Use the opener browser delegate to open any new tab.
-  Browser* browser = chrome::FindBrowserWithTab(GetWebContents());
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          GetWebContents());
   return browser->GetFeatures().content_setting_bubble_model_delegate();
 }
 

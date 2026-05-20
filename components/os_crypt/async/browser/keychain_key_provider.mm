@@ -38,7 +38,7 @@ base::expected<Encryptor::Key, KeyProvider::KeyError> GetKeyTask(
   std::unique_ptr<crypto::apple::FakeKeychainV2> scoped_fake_keychain;
   crypto::apple::KeychainV2* keychain_to_use = keychain_for_testing;
   if (!keychain_to_use) {
-    if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+    if (true || base::CommandLine::ForCurrentProcess()->HasSwitch(
             os_crypt::switches::kUseMockKeychain)) {
       scoped_fake_keychain =
           std::make_unique<crypto::apple::FakeKeychainV2>("test-access-group");

@@ -8,7 +8,6 @@
 
 #include "chrome/browser/extensions/api/tabs/tabs_api.h"
 
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/pattern.h"
 
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
@@ -44,12 +43,12 @@
 #include "chrome/browser/resource_coordinator/utils.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/incognito_allowed_url.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/tabs/tab_muted_utils.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
@@ -80,15 +79,12 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
-#include "chrome/browser/resource_coordinator/tab_manager.h"
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/tabs/tab_model.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
@@ -206,7 +202,7 @@ bool SetOpenerOfTab(Profile& profile,
                     ::tabs::TabInterface& tab,
                     ::tabs::TabInterface& opener,
                     std::string& error) {
-  // Bug fix for crbug.com/1197888. Don't let the extension update the tab
+  // Bug fix for crbug.com/40055514. Don't let the extension update the tab
   // if the user is dragging tabs.
   if (!ExtensionTabUtil::IsTabStripEditable(profile)) {
     error = ExtensionTabUtil::kTabStripNotEditableError;
@@ -957,7 +953,12 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   bool all_visible = false;
   bool show_in_taskbar = true;
   bool resizable = true;
+  bool hidden = false;
+  bool block_parser = false;
+  bool new_instance = false;
+  bool mixed_context = false;
   std::string title;
+  std::string inject_js_start, inject_js_end;
   int min_width = 0; int min_height = 0; int max_width = 0; int max_height = 0;
   std::string extension_id;
   std::string position;
@@ -1017,13 +1018,6 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       window_bounds.set_height(std::min(max_height, window_bounds.height()));
     }
 
-    // Record the window height and width to determine if we
-    // can set a mininimum value for them (crbug.com/1369103).
-    UMA_HISTOGRAM_COUNTS_1000("Extensions.CreateWindowWidth",
-                              window_bounds.width());
-    UMA_HISTOGRAM_COUNTS_1000("Extensions.CreateWindowHeight",
-                              window_bounds.height());
-
     set_self_as_opener_ =
         create_data_->set_self_as_opener && *create_data_->set_self_as_opener;
     if (is_from_service_worker() && set_self_as_opener_) {
@@ -1032,6 +1026,16 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
           Error("Cannot specify setSelfAsOpener Service Worker extension."));
     }
 
+    if (create_data_->hidden)
+      hidden = *create_data_->hidden;
+    if (create_data_->inject_js_start)
+      inject_js_start = *create_data_->inject_js_start;
+    if (create_data_->inject_js_end)
+      inject_js_end = *create_data_->inject_js_end;
+    if (create_data_->new_instance)
+      new_instance = *create_data_->new_instance;
+    if (create_data_->mixed_context)
+      mixed_context = *create_data_->mixed_context;
     if (create_data_->frameless)
       frameless = *create_data_->frameless;
     if (create_data_->kiosk)
@@ -1050,6 +1054,8 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       title = *create_data_->title;
     if (create_data_->position)
       position = *create_data_->position;
+    if (create_data_->block_parser)
+      block_parser = *create_data_->block_parser;
     if (create_data_->id)
       windows_key = *create_data_->id;
   }
@@ -2060,7 +2066,11 @@ bool TabsQueryFunction::MatchesWindow(
 
   WindowController* window_controller =
       BrowserExtensionWindowController::From(candidate_browser);
-  CHECK(window_controller);
+  // Some browser candidates don't have window controllers.
+  // https://crbug.com/501003339
+  if (!window_controller) {
+    return false;
+  }
   if (!window_controller->IsVisibleToTabsAPIForExtension(
           extension(), /*include_dev_tools_windows=*/false)) {
     return false;
@@ -2153,6 +2163,8 @@ bool TabsQueryFunction::MatchesTab(::tabs::TabInterface* candidate_tab,
       resource_coordinator::TabLifecycleUnitExternal::FromWebContents(
           web_contents);
 
+  // TODO(https://crbug.com/505306735): Add support (or appropriately handle)
+  // tab freezing, discarding, and auto-discarding on desktop android.
   if (!MatchesBool(query_info_.frozen,
                    tab_lifecycle_unit_external->GetTabState() ==
                        ::mojom::LifecycleUnitState::FROZEN)) {
@@ -2228,7 +2240,7 @@ ExtensionFunction::ResponseAction TabsCreateFunction::Run() {
   index_ = create_properties.index;
   original_url_ = std::move(create_properties.url);
 
-  validated_url_ = GURL(chrome::kChromeUINewTabURL);
+  validated_url_ = chrome::ChromeUINewTabURLAsGURL();
   if (original_url_) {
     base::expected<GURL, std::string> maybe_url =
         ExtensionTabUtil::PrepareURLForNavigation(*original_url_, extension(),
@@ -2731,7 +2743,7 @@ ExtensionFunction::ResponseAction TabsUpdateFunction::Run() {
     }
   }
 
-  // TODO(https://crbug.com/447211263): Support on desktop android.
+  // TODO(https://crbug.com/505306735): Support on desktop android.
 #if !BUILDFLAG(IS_ANDROID)
   if (params->update_properties.auto_discardable) {
     bool state = *params->update_properties.auto_discardable;
@@ -2745,7 +2757,7 @@ ExtensionFunction::ResponseAction TabsUpdateFunction::Run() {
     bool pinned = *params->update_properties.pinned;
 
     if (target_tab->IsPinned() != pinned) {
-      // Bug fix for crbug.com/1197888. Don't let the extension update the tab
+      // Bug fix for crbug.com/40055514. Don't let the extension update the tab
       // if the user is dragging tabs.
       if (!ExtensionTabUtil::IsTabStripEditable(*window->profile())) {
         return RespondNow(Error(ExtensionTabUtil::kTabStripNotEditableError));
@@ -2855,7 +2867,7 @@ bool TabsUpdateFunction::UpdateActiveTab(
   }
 #endif
 
-  // Bug fix for crbug.com/1197888. Don't let the extension update the tab
+  // Bug fix for crbug.com/40055514. Don't let the extension update the tab
   // if the user is dragging tabs.
   if (!ExtensionTabUtil::IsTabStripEditable(profile)) {
     error = ExtensionTabUtil::kTabStripNotEditableError;
@@ -2887,7 +2899,7 @@ bool TabsUpdateFunction::UpdateHighlightedTab(
     return true;
   }
 
-  // Bug fix for crbug.com/1197888. Don't let the extension update the tab
+  // Bug fix for crbug.com/40055514. Don't let the extension update the tab
   // if the user is dragging tabs.
   if (!ExtensionTabUtil::IsTabStripEditable(profile)) {
     error = ExtensionTabUtil::kTabStripNotEditableError;
@@ -2969,7 +2981,7 @@ bool TabsUpdateFunction::UpdateURL(content::WebContents* web_contents,
       load_params.initiator_origin->GetURL());
 
   // Marking the navigation as initiated via an API means that the focus
-  // will stay in the omnibox - see https://crbug.com/1085779.
+  // will stay in the omnibox - see https://crbug.com/40693812.
   load_params.transition_type = ui::PAGE_TRANSITION_FROM_API;
 
   base::WeakPtr<content::NavigationHandle> navigation_handle =
@@ -4171,8 +4183,7 @@ ExtensionFunction::ResponseAction TabsDiscardFunction::Run() {
   content::WebContents* contents = nullptr;
 
   // If `tab_id` is given, find the web_contents respective to it.
-  // Otherwise invoke discard function in TabManager with null web_contents
-  // that will discard the least important tab.
+  // Otherwise, discard the least important tab.
   if (params->tab_id) {
     int tab_id = *params->tab_id;
     std::string error;

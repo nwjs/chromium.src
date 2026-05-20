@@ -17,6 +17,7 @@
 #include "base/dcheck_is_on.h"
 #include "base/functional/callback.h"
 #include "base/location.h"
+#include "base/posix/eintr_wrapper.h"
 #include "base/sequence_checker.h"
 #include "base/strings/cstring_view.h"
 #include "base/task/current_thread.h"
@@ -47,6 +48,8 @@ net_handle_t MapNetworkHandle(handles::NetworkHandle network) {
   return static_cast<net_handle_t>(network);
 }
 
+constexpr int kInvalidFd = -1;
+
 }  // namespace
 
 DnsPlatformAndroidAttempt::DelegateImpl::DelegateImpl() = default;
@@ -68,6 +71,12 @@ int DnsPlatformAndroidAttempt::DelegateImpl::Result(
   return android_res_nresult(fd, rcode, answer.data(), answer.size());
 }
 
+void DnsPlatformAndroidAttempt::DelegateImpl::Close(int fd) {
+  if (IGNORE_EINTR(close(fd)) < 0) {
+    DPLOG(ERROR) << "close() failed";
+  }
+}
+
 DnsPlatformAndroidAttempt::DnsPlatformAndroidAttempt(
     size_t server_index,
     base::span<const uint8_t> hostname,
@@ -80,10 +89,11 @@ DnsPlatformAndroidAttempt::DnsPlatformAndroidAttempt(
       dns_query_type_(dns_query_type),
       target_network_(target_network),
       delegate_(delegate),
-      read_fd_watcher_(FROM_HERE),
       net_log_(NetLogWithSource::Make(
           NetLog::Get(),
-          NetLogSourceType::DNS_TRANSACTION_PLATFORM_ATTEMPT)) {
+          NetLogSourceType::DNS_TRANSACTION_PLATFORM_ATTEMPT)),
+      fd_(kInvalidFd),
+      read_fd_watcher_(FROM_HERE) {
   parent_net_log.AddEventReferencingSource(
       NetLogEventType::DNS_TRANSACTION_PLATFORM_ATTEMPT, net_log_.source());
   CHECK(delegate_);
@@ -91,6 +101,17 @@ DnsPlatformAndroidAttempt::DnsPlatformAndroidAttempt(
 
 DnsPlatformAndroidAttempt::~DnsPlatformAndroidAttempt() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (fd_ >= 0) {
+    // Destructing `read_fd_watcher_` stops it from watching the file descriptor
+    // it tracks (see MessagePumpEpoll::FdWatchController::~FdWatchController).
+    // This is done by stopping all epoll events, in the underlying
+    // MessagePumpEpoll, associated with the fd being watched.
+    // This means that, unless we stop watching the fd now, when it's still
+    // valid, the epoll_ctl call within MessagePumpEpoll::StopEpollEvent will
+    // crash due to EBADF (since we are about to close it).
+    read_fd_watcher_.StopWatchingFileDescriptor();
+    delegate_->Close(fd_);
+  }
 }
 
 int DnsPlatformAndroidAttempt::Start(CompletionOnceCallback callback) {
@@ -109,51 +130,55 @@ int DnsPlatformAndroidAttempt::Start(CompletionOnceCallback callback) {
 void DnsPlatformAndroidAttempt::StartInternal() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  int fd = delegate_->Query(MapNetworkHandle(target_network_), hostname_,
-                            dns_query_type_);
-  if (fd < 0) {
-    // TODO(https://crbug.com/451557941): Consider whether this should surface a
-    // lower-level system error.
-    OnLookupComplete(base::unexpected(ERR_NAME_NOT_RESOLVED));
+  fd_ = delegate_->Query(MapNetworkHandle(target_network_), hostname_,
+                         dns_query_type_);
+  if (fd_ < 0) {
+    OnLookupComplete(base::unexpected(MapSystemError(-fd_)));
     return;
   }
 
   if (!base::CurrentIOThread::Get()->WatchFileDescriptor(
-          fd, /*persistent=*/false, base::MessagePumpForIO::WATCH_READ,
+          fd_, /*persistent=*/false, base::MessagePumpForIO::WATCH_READ,
           &read_fd_watcher_, this)) {
-    // TODO(https://crbug.com/451557941): Consider whether this should surface a
-    // specific error.
-    OnLookupComplete(base::unexpected(ERR_NAME_NOT_RESOLVED));
+    OnLookupComplete(base::unexpected(ERR_FAILED));
     return;
   }
 }
 
 void DnsPlatformAndroidAttempt::OnFileCanReadWithoutBlocking(int fd) {
-  // TODO(https://crbug.com/450545129): Investigate why this happens.
-  // This line is important to keep to avoid internal `MessagePumpEpoll` crash.
+  CHECK_EQ(fd, fd_);
+  // Destructing `read_fd_watcher_` stops it from watching the file descriptor
+  // it tracks (see MessagePumpEpoll::FdWatchController::~FdWatchController).
+  // This is done by stopping all epoll events, in the underlying
+  // MessagePumpEpoll, associated with the fd being watched. This is usually
+  // fine. However, android_res_nresult always closes the fd it receives before
+  // returning
+  // (https://developer.android.com/ndk/reference/group/networking#android_res_nresult).
+  // This means that, unless we stop watching the fd now, when it's still valid,
+  // the epoll_ctl call within MessagePumpEpoll::StopEpollEvent will crash due
+  // to EBADF (since it has already been closed by android_res_nresult).
   read_fd_watcher_.StopWatchingFileDescriptor();
-
-  ReadResponse(fd);
+  ReadResponse();
 }
 
-void DnsPlatformAndroidAttempt::ReadResponse(int fd) {
-  int rcode = -1;
+void DnsPlatformAndroidAttempt::ReadResponse() {
+  // Note: we consciously do not use the rcode value from android_res_nresult.
+  // Instead, we rely on rcode within the DNS response itself. These two always
+  // match, except when android_res_nresult fails to populate the response
+  // buffer, in which case we simply do not have access to the DNS response. In
+  // this scenario, android_res_nresult will return a negative value, indicating
+  // an error, we should fail the lookup with that instead. See
+  // https://cs.android.com/android/platform/superproject/main/+/main:system/netd/client/NetdClient.cpp;l=563-579;drc=ed285b9c6b449b68321fd163d1444e62322fd9de)
+  int rcode = dns_protocol::kRcodeNOERROR;
   auto answer_buf = base::MakeRefCounted<GrowableIOBuffer>();
   answer_buf->SetCapacity(kResponseBufferSize);
-  int rv = delegate_->Result(fd, &rcode, answer_buf->span());
+  int rv = delegate_->Result(fd_, &rcode, answer_buf->span());
+  // android_res_nresult takes care of closing `fd_`. Invalidate `fd_` to
+  // prevent closing it twice.
+  fd_ = kInvalidFd;
 
   if (rv < 0) {
-    // TODO(https://crbug.com/451557941): Consider whether this should surface a
-    // lower-level system error.
-    OnLookupComplete(base::unexpected(ERR_NAME_NOT_RESOLVED));
-    return;
-  }
-
-  if (rcode != dns_protocol::kRcodeNOERROR) {
-    // TODO(https://crbug.com/451557941): Consider whether we should do this
-    // mapping here, based on `rcode`, or if we can just relying on the caller
-    // to retrieve `rcode` from the response.
-    OnLookupComplete(base::unexpected(ERR_NAME_NOT_RESOLVED));
+    OnLookupComplete(base::unexpected(MapSystemError(-rv)));
     return;
   }
 
@@ -182,7 +207,14 @@ void DnsPlatformAndroidAttempt::OnLookupComplete(
   }
 
   if (response_->flags() & dns_protocol::kFlagTC) {
-    std::move(callback_).Run(ERR_DNS_SERVER_REQUIRES_TCP);
+    // dns_protocol::kFlagTC is reported by a server when the response would
+    // have been larger than what the underlying transmission channel allows.
+    // This usually happens for DNS over UDP, where usually we fallback onto DNS
+    // over TCP. Having said that, the platform API we're using should be the
+    // one falling back onto TCP, it should never return a truncated response.
+    // Note: this is consistent with how dns_protocol::kFlagTC is handled by
+    // DnsTcpAttempt.
+    std::move(callback_).Run(ERR_UNEXPECTED);
     return;
   }
   if (response_->rcode() != dns_protocol::kRcodeNOERROR) {

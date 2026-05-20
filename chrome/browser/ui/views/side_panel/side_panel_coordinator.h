@@ -22,7 +22,6 @@
 class Browser;
 class BrowserView;
 class BrowserWindowInterface;
-class SidePanel;
 
 namespace views {
 class View;
@@ -55,8 +54,7 @@ class SidePanelCoordinator final : public SidePanelUIBase,
 
   // SidePanelUI:
   using SidePanelUI::Close;
-  void Close(SidePanelEntry::PanelType panel_type,
-             SidePanelEntryHideReason reason,
+  void Close(SidePanelEntryHideReason reason,
              bool suppress_animations) override;
   void Toggle(SidePanelEntryKey key,
               SidePanelOpenTrigger open_trigger) override;
@@ -74,8 +72,7 @@ class SidePanelCoordinator final : public SidePanelUIBase,
   content::WebContents* GetWebContentsForTest(SidePanelEntryId id) override;
   void DisableAnimationsForTesting() override;
 
-  SidePanelEntry* GetLoadingEntryForTesting(
-      SidePanelEntry::PanelType type) const;
+  SidePanelEntry* GetLoadingEntryForTesting() const;
 
  private:
   // Returns the corresponding entry for `entry_key` or a nullptr if this key is
@@ -94,9 +91,9 @@ class SidePanelCoordinator final : public SidePanelUIBase,
       SidePanelRegistry* old_contextual_registry,
       SidePanelRegistry* new_contextual_registry) override;
 
-  // Clear cached views with the corresponding panel type for registry entries
-  // for global and contextual registries.
-  void ClearCachedEntryViews(SidePanelEntry::PanelType type);
+  // Clear cached views for registry entries for global and contextual
+  // registries.
+  void ClearCachedEntryViews();
 
   // views::ViewObserver:
   void OnViewVisibilityChanged(views::View* observed_view,
@@ -108,9 +105,6 @@ class SidePanelCoordinator final : public SidePanelUIBase,
   void ClosePromoAndMaybeNotifyUsed(const base::Feature& promo_feature,
                                     SidePanelEntryId promo_id,
                                     SidePanelEntryId actual_id);
-
-  // Returns the corresponding side panel for the provided panel type.
-  SidePanel* GetSidePanelFor(SidePanelEntry::PanelType type);
 
   const raw_ptr<BrowserView, AcrossTasksDanglingUntriaged> browser_view_;
 

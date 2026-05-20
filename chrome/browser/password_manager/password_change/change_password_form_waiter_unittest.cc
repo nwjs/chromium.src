@@ -16,9 +16,9 @@
 #include "components/autofill/content/browser/test_content_autofill_client.h"
 #include "components/autofill/core/browser/ml_model/field_classification_model_handler.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/unique_ids.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/optimization_guide/core/delivery/test_optimization_guide_model_provider.h"
-#include "components/os_crypt/sync/os_crypt_mocker.h"
 #include "components/password_manager/core/browser/fake_form_fetcher.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/mock_password_form_cache.h"
@@ -114,7 +114,6 @@ class ChangePasswordFormWaiterTest : public ChromeRenderViewHostTestHarness {
 
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
-    OSCryptMocker::SetUp();
 
     model_provider_ = std::make_unique<
         optimization_guide::TestOptimizationGuideModelProvider>();
@@ -128,6 +127,7 @@ class ChangePasswordFormWaiterTest : public ChromeRenderViewHostTestHarness {
     ON_CALL(client_, GetPasswordManager).WillByDefault(Return(&mock_manager_));
     ON_CALL(mock_manager_, GetPasswordFormCache)
         .WillByDefault(Return(&mock_cache_));
+    model_handler()->SetModelAvailability(true);
   }
 
   std::unique_ptr<password_manager::PasswordFormManager> CreateFormManager(
@@ -413,9 +413,12 @@ TEST_F(ChangePasswordFormWaiterTest, IgnoredChangePasswordForm) {
       parsed_form->new_password_element_renderer_id;
   ASSERT_EQ(new_password_renderer_id, autofill::FieldRendererId(2));
 
+  autofill::FieldGlobalId field_global_id = {
+      parsed_form->form_data.host_frame(),
+      parsed_form->new_password_element_renderer_id};
   auto waiter = ChangePasswordFormWaiter::Builder(web_contents(), client(),
                                                   completion_callback.Get())
-                    .SetFieldsToIgnore({new_password_renderer_id})
+                    .SetFieldsToIgnore({field_global_id})
                     .SetTimeoutCallback(timeout_callback.Get())
                     .Build();
 

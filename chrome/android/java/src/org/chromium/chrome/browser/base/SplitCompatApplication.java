@@ -47,7 +47,6 @@ import org.chromium.components.crash.CustomAssertionHandler;
 import org.chromium.components.crash.PureJavaExceptionHandler;
 import org.chromium.components.crash.PureJavaExceptionHandler.JavaExceptionReporter;
 import org.chromium.components.crash.PureJavaExceptionHandler.JavaExceptionReporterFactory;
-import org.chromium.components.embedder_support.application.FontPreloadingWorkaround;
 import org.chromium.components.module_installer.util.ModuleUtil;
 import org.chromium.ui.base.ResourceBundle;
 
@@ -183,7 +182,7 @@ public class SplitCompatApplication extends Application {
                             throw new RuntimeException(
                                     "Starting in 64-bit mode requires the 64-bit native library. If"
                                             + " the device is 64-bit only, see alternatives here: "
-                                            + "https://crbug.com/1303857#c7.",
+                                            + "https://crbug.com/40217494#comment8.",
                                     unsatisfiedLinkError);
                         } else if (cannotLoadIn32Bit()) {
                             throw new RuntimeException(
@@ -305,7 +304,6 @@ public class SplitCompatApplication extends Application {
         super.onCreate();
         // These can't go in attachBaseContext because Context.getApplicationContext() (which
         // they use under-the-hood) does not work until after it returns.
-        FontPreloadingWorkaround.maybeInstallWorkaround(this);
         MemoryPressureMonitor.INSTANCE.registerComponentCallbacks();
         getImpl().onCreate();
     }
@@ -394,7 +392,7 @@ public class SplitCompatApplication extends Application {
     private static void checkAppBeingReplaced() {
         // During app update the old apk can still be triggered by broadcasts and spin up an
         // out-of-date application. Kill old applications in this bad state. See
-        // http://crbug.com/658130 for more context and http://b.android.com/56296 for the bug.
+        // http://crbug.com/41282225 for more context and http://b.android.com/56296 for the bug.
         if (ContextUtils.getApplicationContext().getAssets() == null) {
             throw new RuntimeException("App out of date, getResources() null, closing app.");
         }

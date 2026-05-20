@@ -115,6 +115,7 @@
 #include "chrome/browser/ash/login/login_screen_extensions_storage_cleaner.h"
 #include "chrome/browser/ash/login/login_wizard.h"
 #include "chrome/browser/ash/login/osauth/chrome_auth_parts.h"
+#include "chrome/browser/ash/login/quick_unlock/pin_backend.h"
 #include "chrome/browser/ash/login/session/chrome_session_manager.h"
 #include "chrome/browser/ash/login/session/user_session_manager.h"
 #include "chrome/browser/ash/login/signin/token_handle_store_factory.h"
@@ -944,6 +945,12 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
 
   g_browser_process->platform_part()->InitializeUserManager();
 
+  user_session_manager_ = std::make_unique<UserSessionManager>(
+      g_browser_process->local_state(),
+      g_browser_process->GetFeatures()->application_locale_storage(),
+      g_browser_process->shared_url_loader_factory(),
+      g_browser_process->platform_part()->browser_policy_connector_ash());
+
   bluetooth_log_controller_ = std::make_unique<ash::BluetoothLogController>(
       user_manager::UserManager::Get());
 
@@ -971,6 +978,8 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
   lock_to_single_user_manager_ =
       std::make_unique<policy::LockToSingleUserManager>();
 
+  // TODO(crbug.com/40203434): Remove this object once
+  // kDeviceI18nShortcutsEnabled policy is deprecated.
   shortcut_mapping_pref_service_ = std::make_unique<ShortcutMappingPrefService>(
       *g_browser_process->local_state());
 
@@ -1148,7 +1157,7 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
       // completely unavailable. Exit the session in that case, rather than
       // allowing it to continue without policy. Allow the initialization flow
       // to finish before exiting to avoid dead-lock issues on D-Bus, as
-      // encountered on crbug/836388.
+      // encountered on crbug.com/40091196.
       base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE, base::BindOnce([]() {
             session_manager::SessionManager::Get()->RequestSignOut();
@@ -1322,13 +1331,9 @@ void ChromeBrowserMainPartsAsh::PostProfileInit(Profile* profile,
     // Initialize input methods.
     input_method::InputMethodManager* manager =
         input_method::InputMethodManager::Get();
-    // TODO(crbug.com/40203434): Remove this object once
-    // kDeviceI18nShortcutsEnabled policy is deprecated.
-    UserSessionManager* session_manager = UserSessionManager::GetInstance();
-    DCHECK(manager);
-    DCHECK(session_manager);
-
-    manager->SetState(session_manager->GetDefaultIMEState(profile));
+    CHECK(manager);
+    CHECK(user_session_manager_);
+    manager->SetState(user_session_manager_->GetDefaultIMEState(profile));
 
     misconfigured_user_cleaner_ = std::make_unique<MisconfiguredUserCleaner>(
         g_browser_process->local_state(), ash::SessionController::Get());
@@ -1745,8 +1750,8 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   ambient_client_.reset();
 
   // Make sure that there is no pending URLRequests.
-  if (pre_profile_init_called_) {
-    UserSessionManager::GetInstance()->Shutdown();
+  if (user_session_manager_) {
+    user_session_manager_->Shutdown();
   }
 
   // Give BrowserPolicyConnectorAsh a chance to unregister any observers
@@ -1768,7 +1773,7 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
     auto* primary_user = user_manager::UserManager::Get()->GetPrimaryUser();
     if (primary_user) {
       // During a login restart-to-apply-flags the primary profile may not be
-      // loaded yet. See http://crbug.com/1432237
+      // loaded yet. See http://crbug.com/40263838
       auto* primary_profile = Profile::FromBrowserContext(
           BrowserContextHelper::Get()->GetBrowserContextByUser(primary_user));
       if (primary_profile) {
@@ -1851,6 +1856,8 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
 
   bluetooth_log_controller_.reset();
 
+  user_session_manager_.reset();
+
   g_browser_process->platform_part()->ShutdownSessionManager();
   // Ash needs to be closed before UserManager is destroyed.
   g_browser_process->platform_part()->DestroyUserManager();
@@ -1888,6 +1895,10 @@ void ChromeBrowserMainPartsAsh::PostDestroyThreads() {
   // Destroy the SystemTokenCertDbStorage global instance which should outlive
   // NetworkCertLoader and |system_token_certdb_initializer_|.
   SystemTokenCertDbStorage::Shutdown();
+
+  // TODO(crbug.com/498416395): Refactor PinBackend, destroy the singleton
+  // object, and remove the Shutdown() method.
+  quick_unlock::PinBackend::Shutdown();
 
   ChromeBrowserMainPartsLinux::PostDestroyThreads();
 

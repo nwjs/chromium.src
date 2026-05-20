@@ -4,6 +4,8 @@
 
 #include <jni.h>
 
+#include <cstdint>
+
 #include "base/android/callback_android.h"
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
@@ -12,6 +14,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/clipboard_types.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/web_contents.h"
 #include "ui/base/clipboard/clipboard_format_type.h"
 #include "ui/base/clipboard/clipboard_metadata.h"
 #include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
@@ -30,41 +33,6 @@ using content::RenderFrameHost;
 
 namespace {
 
-// TODO(crbug.com/410835513): Unify with other declarations of
-// CreateDataEndpoint
-std::unique_ptr<ui::DataTransferEndpoint> CreateDataEndpoint(
-    RenderFrameHost* render_frame_host) {
-  if (render_frame_host == nullptr ||
-      !render_frame_host->GetMainFrame()->GetLastCommittedURL().is_valid()) {
-    return nullptr;
-  }
-  return std::make_unique<ui::DataTransferEndpoint>(
-      render_frame_host->GetMainFrame()->GetLastCommittedURL(),
-      ui::DataTransferEndpointOptions{
-          .notify_if_restricted =
-              render_frame_host->HasTransientUserActivation(),
-          .off_the_record =
-              render_frame_host->GetBrowserContext()->IsOffTheRecord(),
-      });
-}
-
-// TODO(crbug.com/410835513): Unify with other declarations of
-// CreateClipboardEndpoint
-ClipboardEndpoint CreateClipboardEndpoint(RenderFrameHost* render_frame_host) {
-  return ClipboardEndpoint(
-      CreateDataEndpoint(render_frame_host).get(),
-      base::BindRepeating(
-          [](GlobalRenderFrameHostId rfh_id) -> BrowserContext* {
-            auto* rfh = RenderFrameHost::FromID(rfh_id);
-            if (!rfh) {
-              return nullptr;
-            }
-            return rfh->GetBrowserContext();
-          },
-          render_frame_host->GetGlobalId()),
-      *render_frame_host);
-}
-
 void VerifyCopyIsAllowedByPolicy(
     const base::android::JavaRef<jobject>& jrender_frame_host,
     base::OnceCallback<void(bool)> callback,
@@ -73,8 +41,13 @@ void VerifyCopyIsAllowedByPolicy(
   RenderFrameHost* render_frame_host =
       RenderFrameHost::FromJavaRenderFrameHost(jrender_frame_host);
 
+  if (!render_frame_host) {
+    std::move(callback).Run(true);
+    return;
+  }
+
   enterprise_data_protection::IsClipboardCopyAllowedByPolicy(
-      CreateClipboardEndpoint(render_frame_host), metadata, data,
+      content::CreateClipboardEndpoint(*render_frame_host), metadata, data,
       base::BindOnce(
           [](base::OnceCallback<void(bool)> callback,
              const ui::ClipboardFormatType& type,
@@ -93,8 +66,13 @@ void VerifyShareIsAllowedByPolicy(
   RenderFrameHost* render_frame_host =
       RenderFrameHost::FromJavaRenderFrameHost(jrender_frame_host);
 
+  if (!render_frame_host) {
+    std::move(callback).Run(true);
+    return;
+  }
+
   enterprise_data_protection::IsClipboardShareAllowedByPolicy(
-      CreateClipboardEndpoint(render_frame_host), metadata, data,
+      content::CreateClipboardEndpoint(*render_frame_host), metadata, data,
       base::BindOnce(
           [](base::OnceCallback<void(bool)> callback,
              const ui::ClipboardFormatType& type,
@@ -113,8 +91,13 @@ void VerifyGenericCopyActionIsAllowedByPolicy(
   RenderFrameHost* render_frame_host =
       RenderFrameHost::FromJavaRenderFrameHost(jrender_frame_host);
 
+  if (!render_frame_host) {
+    std::move(callback).Run(true);
+    return;
+  }
+
   enterprise_data_protection::IsClipboardGenericCopyActionAllowedByPolicy(
-      CreateClipboardEndpoint(render_frame_host), metadata, data,
+      content::CreateClipboardEndpoint(*render_frame_host), metadata, data,
       base::BindOnce(
           [](base::OnceCallback<void(bool)> callback,
              const ui::ClipboardFormatType& type,
@@ -272,6 +255,37 @@ JNI_DataProtectionBridge_VerifyGenericCopyImageActionIsAllowedByPolicy(
           .format_type = ui::ClipboardFormatType::BitmapType(),
       },
       data);
+}
+
+static bool JNI_DataProtectionBridge_IsSearchWithAllowed(
+    JNIEnv* env,
+    const base::android::JavaRef<jobject>& jweb_contents) {
+  content::WebContents* web_contents =
+      content::WebContents::FromJavaWebContents(jweb_contents);
+
+  if (!web_contents) {
+    return true;
+  }
+
+  return enterprise_data_protection::IsSearchWithAllowed(web_contents);
+}
+
+static void JNI_DataProtectionBridge_ShouldAllowSearchWith(
+    JNIEnv* env,
+    int32_t text_length,
+    const base::android::JavaRef<jobject>& jweb_contents,
+    base::OnceClosure callback) {
+  content::WebContents* web_contents =
+      content::WebContents::FromJavaWebContents(jweb_contents);
+
+  if (!web_contents) {
+    std::move(callback).Run();
+    return;
+  }
+
+  enterprise_data_protection::ShouldAllowSearchWith(
+      web_contents, text_length * sizeof(std::u16string::value_type),
+      std::move(callback));
 }
 
 DEFINE_JNI(DataProtectionBridge)

@@ -42,7 +42,6 @@ import org.chromium.components.crash.CrashKeyIndex;
 import org.chromium.components.crash.CrashKeys;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
-import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 
 /**
@@ -75,15 +74,22 @@ public abstract class FirstRunFlowSequencer {
             if (isChild) {
                 return !historySyncHelper.isHistorySyncDisabledByCustodian();
             }
-            if (historySyncHelper.isHistorySyncDisabledByPolicy()
-                    || historySyncHelper.didAlreadyOptIn()) {
+
+            boolean alreadyOptedIn = historySyncHelper.didAlreadyOptIn();
+            if (ChromeFeatureList.isEnabled(ChromeFeatureList.DEFAULT_BROWSER_PROMO_FRE)) {
+                // HistorySync is no longer the last page in the FRE flow, so users should be able
+                // to navigate back to the history sync page.
+                alreadyOptedIn = false;
+            }
+
+            if (historySyncHelper.isHistorySyncDisabledByPolicy() || alreadyOptedIn) {
                 return false;
             }
             // Show the page only to signed-in users.
             IdentityManager identityManager =
                     IdentityServicesProvider.get().getIdentityManager(profile);
             assumeNonNull(identityManager);
-            return identityManager.hasPrimaryAccount(ConsentLevel.SIGNIN);
+            return identityManager.hasPrimaryAccount();
         }
 
         /** @return true if the Search Engine promo page should be shown. */

@@ -6,68 +6,76 @@
 // `wpt/service-workers/service-worker/resources/test-helpers.sub.js`
 // and thus remains in the ServiceWorker WPT coding style.
 
-// Return true if |state_a| is more advanced than |state_b|.
-function is_state_advanced(state_a, state_b) {
-  if (state_b === 'installing') {
-    switch (state_a) {
+// Return true if |stateA| is more advanced than |stateB|.
+function isStateAdvanced(stateA, stateB) {
+  // Note: "No default" is used for eslint'ing. These don't have defaults
+  // because they intentionally fallthrough to the false case at the end of
+  // the function.
+
+  if (stateB === 'installing') {
+    switch (stateA) {
       case 'installed':
       case 'activating':
       case 'activated':
       case 'redundant':
         return true;
+        // No default
     }
   }
 
-  if (state_b === 'installed') {
-    switch (state_a) {
+  if (stateB === 'installed') {
+    switch (stateA) {
       case 'activating':
       case 'activated':
       case 'redundant':
         return true;
+        // No default
     }
   }
 
-  if (state_b === 'activating') {
-    switch (state_a) {
+  if (stateB === 'activating') {
+    switch (stateA) {
       case 'activated':
       case 'redundant':
         return true;
+        // No default
     }
   }
 
-  if (state_b === 'activated') {
-    switch (state_a) {
+  if (stateB === 'activated') {
+    switch (stateA) {
       case 'redundant':
         return true;
+        // No default
     }
   }
   return false;
 }
 
-function wait_for_state(worker, state) {
-  if (!worker || worker.state == undefined) {
-    return Promise.reject(new Error(
-      'wait_for_state needs a ServiceWorker object to be passed.'));
+function waitForState(worker, state) {
+  if (!worker || worker.state === undefined) {
+    return Promise.reject(
+        new Error('waitForState needs a ServiceWorker object to be passed.'));
   }
   if (worker.state === state) {
     return Promise.resolve(state);
   }
 
-  if (is_state_advanced(worker.state, state)) {
+  if (isStateAdvanced(worker.state, state)) {
     return Promise.reject(new Error(
-      `Waiting for ${state} but the worker is already ${worker.state}.`));
+        `Waiting for ${state} but the worker is already ${worker.state}.`));
   }
   return new Promise(function(resolve, reject) {
-      worker.addEventListener('statechange', function() {
-          if (worker.state === state) {
-            resolve(state);
-          }
+    worker.addEventListener('statechange', function() {
+      if (worker.state === state) {
+        resolve(state);
+      }
 
-          if (is_state_advanced(worker.state, state)) {
-            reject(new Error(
-              `The state of the worker becomes ${worker.state} while waiting` +
-                `for ${state}.`));
-          }
-        });
+      if (isStateAdvanced(worker.state, state)) {
+        reject(new Error(
+            `The state of the worker becomes ${worker.state} while waiting` +
+            `for ${state}.`));
+      }
     });
+  });
 }

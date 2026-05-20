@@ -33,6 +33,7 @@
 #include "base/numerics/byte_conversions.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/rand_util.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/sequenced_task_runner.h"
@@ -264,6 +265,10 @@ class DnsOverHttpsProbeRunner : public DnsProbeRunner {
     // approach to disabling is only intended to be used for a brief duration
     // experiment. It's important to check the feature flag last because of how
     // we plan to conduct an experiment enabling the functionality.
+    // TODO(crbug.com/490045356): Remove the `doh_fallback_upgrade_allowed()`
+    // check and the kForceSecureDnsDohFallback feature flag check once the
+    // experiment has concluded and kBundledSecuritySettingsSecureDnsV2 has been
+    // enabled by default.
     if (context_->IsDohConfigFromFallbackDohNameservers() &&
         (!context_->doh_fallback_upgrade_allowed() ||
          !base::FeatureList::IsEnabled(
@@ -471,6 +476,10 @@ class DnsTransactionImpl final : public DnsTransaction {
     request_priority_ = priority;
   }
 
+  std::optional<DohResolutionDetails> GetDohResolutionDetails() const override {
+    return doh_details_;
+  }
+
  private:
   // Wrapper for the result of a DnsUDPAttempt.
   struct AttemptResult {
@@ -526,7 +535,7 @@ class DnsTransactionImpl final : public DnsTransaction {
     for (const auto& suffix : config.search) {
       std::optional<std::vector<uint8_t>> qname =
           dns_names_util::DottedNameToNetwork(
-              hostname_ + "." + suffix,
+              base::StrCat({hostname_, ".", suffix}),
               /*require_valid_internet_hostname=*/true);
       // Ignore invalid (too long) combinations.
       if (!qname.has_value())
@@ -558,6 +567,10 @@ class DnsTransactionImpl final : public DnsTransaction {
     CHECK(result.rv != OK || response != nullptr);
 
     timer_.Stop();
+
+    if (result.rv == OK && result.attempt) {
+      doh_details_ = result.attempt->GetDohResolutionDetails();
+    }
 
     net_log_.EndEventWithNetErrorCode(NetLogEventType::DNS_TRANSACTION,
                                       result.rv);
@@ -1057,6 +1070,8 @@ class DnsTransactionImpl final : public DnsTransaction {
   RequestPriority request_priority_ = DEFAULT_PRIORITY;
 
   THREAD_CHECKER(thread_checker_);
+
+  std::optional<DohResolutionDetails> doh_details_;
 
   base::WeakPtrFactory<DnsTransactionImpl> weak_ptr_factory_{this};
 };

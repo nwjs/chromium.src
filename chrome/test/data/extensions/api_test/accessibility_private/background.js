@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-var availableTests = [
+const availableTests = [
 
   function testSendSyntheticKeyEvent() {
     let tabCount = 0;
     chrome.tabs.onCreated.addListener((tab) => {
       tabCount++;
-      if (tabCount == 2) {
+      if (tabCount === 2) {
         chrome.test.succeed();
       }
     });
@@ -23,8 +23,8 @@ var availableTests = [
         ctrl: true,
         alt: false,
         shift: false,
-        search: false
-      }
+        search: false,
+      },
     });
   },
 
@@ -80,9 +80,9 @@ var availableTests = [
   function testAcceptConfirmationDialog() {
     chrome.accessibilityPrivate.showConfirmationDialog(
         'Confirm me! 🐶', 'This dialog should be confirmed.', (confirmed) => {
-      chrome.test.assertTrue(confirmed);
-      chrome.test.succeed();
-    });
+          chrome.test.assertTrue(confirmed);
+          chrome.test.succeed();
+        });
 
     // Notify the C++ test that it can confirm the dialog box.
     chrome.test.notifyPass();
@@ -91,9 +91,9 @@ var availableTests = [
   function testCancelConfirmationDialog() {
     chrome.accessibilityPrivate.showConfirmationDialog(
         'Cancel me!', 'This dialog should be canceled', (confirmed) => {
-      chrome.test.assertFalse(confirmed);
-      chrome.test.succeed();
-    });
+          chrome.test.assertFalse(confirmed);
+          chrome.test.succeed();
+        });
 
     // Notify the C++ test that it can cancel the dialog box.
     chrome.test.notifyPass();
@@ -134,7 +134,7 @@ var availableTests = [
     update({
       visible: true,
       icon: IconType.STANDBY,
-      hints: [HintType.TRY_SAYING, HintType.TYPE, HintType.HELP]
+      hints: [HintType.TRY_SAYING, HintType.TYPE, HintType.HELP],
     });
     await chrome.test.sendMessage('Some hints');
     update({visible: true, icon: IconType.STANDBY});
@@ -331,14 +331,33 @@ var availableTests = [
     chrome.test.succeed();
   },
 
+  async function testInstallTenjiFail() {
+    await chrome.test.assertPromiseRejects(
+        chrome.accessibilityPrivate.installTenji(),
+        'Error: Could not install Tenji DLC');
+    chrome.test.succeed();
+  },
+
+  async function testInstallTenjiSuccess() {
+    const data = await chrome.accessibilityPrivate.installTenji();
+    chrome.test.assertTrue(Boolean(data));
+    chrome.test.assertTrue(Boolean(data.wasm));
+    chrome.test.assertTrue(Boolean(data.wrapperJs));
+    const wasmContents = new TextDecoder().decode(data.wasm);
+    const jsContents = new TextDecoder().decode(data.wrapperJs);
+    chrome.test.assertEq('Fake tenji wasm', wasmContents);
+    chrome.test.assertEq('Fake tenji wrapper js', jsContents);
+    chrome.test.succeed();
+  },
+
   async function testEnableLiveCaption() {
     await chrome.accessibilityPrivate.enableLiveCaption(true);
     chrome.test.notifyPass();
-  }
+  },
 ];
 
 chrome.test.getConfig((config) => {
   chrome.test.runTests(availableTests.filter((testFunc) => {
-    return testFunc.name == config.customArg;
+    return testFunc.name === config.customArg;
   }));
 });

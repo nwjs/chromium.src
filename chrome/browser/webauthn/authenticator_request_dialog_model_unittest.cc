@@ -32,6 +32,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/run_until.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "base/types/strong_alias.h"
@@ -853,7 +854,7 @@ TEST_F(AuthenticatorRequestDialogControllerTest, Mechanisms) {
        use_pk,
 #endif
       },
-      // Regression test for crbug.com/1484660.
+      // Regression test for crbug.com/40282332.
       // A platform authenticator that reports the availability of credentials
       // but does not enumerate them should be listed.
       {L,
@@ -1322,7 +1323,7 @@ TEST_F(AuthenticatorRequestDialogControllerTest, WinCancel) {
 // Simulate the user cancelling the Windows native UI after it was automatically
 // dispatched to because a matching credential for Windows Hello was found for
 // an allow-list request.
-// Regression test for crbug.com/1479142.
+// Regression test for crbug.com/40280770.
 TEST_F(AuthenticatorRequestDialogControllerTest,
        WinCancel_AfterMatchingLocalCred) {
   device::FakeWinWebAuthnApi fake_win_webauthn_api;
@@ -2008,7 +2009,7 @@ TEST_F(AuthenticatorRequestDialogControllerTest, ConditionalUIWindowsCancel) {
 #if BUILDFLAG(IS_MAC)
 // Tests that a transport = internal virtual authenticator can be dispatched to
 // on Mac.
-// Regression test for crbug.com/1520898.
+// Regression test for crbug.com/41493872.
 TEST_F(AuthenticatorRequestDialogControllerTest, PlatformVirtualAuthenticator) {
   auto model =
       base::MakeRefCounted<AuthenticatorRequestDialogModel>(main_rfh());
@@ -2105,8 +2106,51 @@ TEST_F(AuthenticatorRequestDialogControllerTest, PreSelect) {
   }
 }
 
+TEST_F(AuthenticatorRequestDialogControllerTest,
+       PreSelectWithMultipleTransportsOnCredential) {
+  auto cred = kCred2;
+  cred.transports = {device::FidoTransportProtocol::kInternal,
+                     device::FidoTransportProtocol::kHybrid};
+
+  auto model =
+      base::MakeRefCounted<AuthenticatorRequestDialogModel>(main_rfh());
+  AuthenticatorRequestDialogController controller(model.get(), main_rfh());
+  int preselect_num_called = 0;
+  controller.SetAccountPreselectedCallback(base::BindLambdaForTesting(
+      [&](device::DiscoverableCredentialMetadata selected_cred) {
+        EXPECT_EQ(selected_cred.cred_id, cred.cred_id);
+        EXPECT_THAT(selected_cred.transports,
+                    testing::UnorderedElementsAre(
+                        device::FidoTransportProtocol::kInternal,
+                        device::FidoTransportProtocol::kHybrid));
+        ++preselect_num_called;
+      }));
+  controller.SetRequestCallback(
+      base::BindLambdaForTesting([](const std::string& authenticator_id) {}));
+
+  controller.saved_authenticators().AddAuthenticator(AuthenticatorReference(
+      /*device_id=*/"internal-authenticator", AuthenticatorTransport::kInternal,
+      device::AuthenticatorType::kOther));
+
+  TransportAvailabilityInfo transports_info;
+  transports_info.request_type = device::FidoRequestType::kGetAssertion;
+  transports_info.available_transports = kAllTransports;
+  transports_info.has_empty_allow_list = true;
+  transports_info.user_verification_requirement =
+      device::UserVerificationRequirement::kPreferred;
+  transports_info.has_platform_authenticator_credential = device::
+      FidoRequestHandlerBase::RecognizedCredential::kHasRecognizedCredential;
+  transports_info.recognized_credentials = {cred};
+  UpdateModelBeforeStartFlow(model.get(), transports_info,
+                             /*is_off_the_record=*/false);
+  controller.StartFlow(std::move(transports_info), {});
+
+  controller.OnAccountPreselected(cred.cred_id);
+  ASSERT_TRUE(base::test::RunUntil([&] { return preselect_num_called == 1; }));
+}
+
 #if BUILDFLAG(IS_WIN)
-// Regression test for crbug.com/1476884.
+// Regression test for crbug.com/40280124.
 TEST_F(AuthenticatorRequestDialogControllerTest, JumpToWindowsWithNewUI) {
   auto model =
       base::MakeRefCounted<AuthenticatorRequestDialogModel>(main_rfh());
@@ -2231,7 +2275,7 @@ TEST_F(AuthenticatorRequestDialogControllerTest,
 }
 
 TEST_F(AuthenticatorRequestDialogControllerTest, Crbug1503187) {
-  // This test reproduces the crash from crbug.com/1503187.
+  // This test reproduces the crash from crbug.com/40943613.
   TransportAvailabilityInfo transports_info;
   transports_info.request_type = device::FidoRequestType::kGetAssertion;
   transports_info.available_transports = {

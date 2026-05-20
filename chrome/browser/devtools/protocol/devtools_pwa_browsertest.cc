@@ -21,9 +21,9 @@
 #include "chrome/browser/badging/badge_manager_factory.h"
 #include "chrome/browser/devtools/protocol/devtools_protocol_test_support.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_os_integration_state.pb.h"
@@ -197,8 +197,10 @@ class PWAProtocolTest : public PWAProtocolTestWithoutApp {
 
   void AssertActiveWebContentsBelongToApp(const GURL& url,
                                           const webapps::AppId& app_id) {
-    content::WebContents* contents =
-        chrome::FindLastActive()->tab_strip_model()->GetActiveWebContents();
+    content::WebContents* contents = GlobalBrowserCollection::GetInstance()
+                                         ->GetLastActiveBrowser()
+                                         ->GetTabStripModel()
+                                         ->GetActiveWebContents();
     EXPECT_TRUE(contents);
     EXPECT_TRUE(content::WaitForLoadStop(contents));
     EXPECT_EQ(contents->GetLastCommittedURL(), url);
@@ -210,7 +212,7 @@ class PWAProtocolTest : public PWAProtocolTestWithoutApp {
 
   void AssertActiveWebContentsBelongToApp(const ManifestId& manifest_id) {
     AssertActiveWebContentsBelongToApp(
-        manifest_id, web_app::GenerateAppIdFromManifestId(manifest_id));
+        manifest_id.value(), web_app::GenerateAppIdFromManifestId(manifest_id));
   }
 
   base::ListValue AbsolutePaths(std::initializer_list<std::string> paths) {
@@ -501,7 +503,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Install_FromManifest_InvalidStartUrl) {
       "PWA.install", base::DictValue{}.Set("manifestId", url.spec())));
   AssertErrorMessageContains({url.spec()});
   ASSERT_FALSE(AppExists(ManifestId(url)));
-  ASSERT_FALSE(AppExists(ManifestId{"http://different.origin/is-invalid"}));
+  ASSERT_FALSE(AppExists(ManifestId(GURL("http://different.origin/is-invalid"))));
 }
 
 IN_PROC_BROWSER_TEST_F(PWAProtocolTest,
@@ -568,7 +570,7 @@ IN_PROC_BROWSER_TEST_F(PWAProtocolTest, Install_FromUrl_UpperCase) {
       "PWA.install",
       base::DictValue{}
           .Set("manifestId",
-               UpperCaseScheme(InstallableWebAppManifestId()).spec())
+               UpperCaseScheme(InstallableWebAppManifestId().value()).spec())
           .Set("installUrlOrBundleUrl",
                UpperCaseScheme(InstallableWebAppUrl()).spec())));
   ASSERT_TRUE(AppExists(InstallableWebAppManifestId()));

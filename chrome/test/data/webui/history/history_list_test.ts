@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {HistoryAppElement, HistoryEntry, HistoryItemElement, HistoryListElement, HistoryToolbarElement} from 'chrome://history/history.js';
+import type {CrA11yAnnouncerMessagesSentEvent, HistoryAppElement, HistoryEntry, HistoryItemElement, HistoryListElement, HistoryToolbarElement} from 'chrome://history/history.js';
 import {BrowserServiceImpl, CrRouter} from 'chrome://history/history.js';
 import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
@@ -65,7 +65,7 @@ suite('HistoryListTest', function() {
    */
   function finishSetup(
       queryResults: HistoryEntry[], finished: boolean = true,
-      query?: string): Promise<any> {
+      query?: string): Promise<void> {
     testService.handler.setResultFor('queryHistory', Promise.resolve({
       results:
           {info: {finished: finished, term: query || ''}, value: queryResults},
@@ -77,15 +77,17 @@ suite('HistoryListTest', function() {
     const queryManager = app.shadowRoot.querySelector('history-query-manager');
     assertTrue(!!queryManager);
     queryManager.queryState = {...queryManager.queryState, incremental: true};
-    return Promise.all([
-      testService.handler.whenCalled('queryHistory'),
-      microtasksFinished(),
-      eventToPromise('viewport-filled', element.$.infiniteList),
-    ]);
+    return Promise
+        .all([
+          testService.handler.whenCalled('queryHistory'),
+          microtasksFinished(),
+          eventToPromise('viewport-filled', element.$.infiniteList),
+        ])
+        .then(() => {});
   }
 
   function getHistoryData(): HistoryEntry[] {
-    return element.$.infiniteList.items as HistoryEntry[];
+    return element.$.infiniteList.items;
   }
 
   test('IsEmpty', async () => {
@@ -214,7 +216,7 @@ suite('HistoryListTest', function() {
         getHistoryData().map(i => i.title));
   });
 
-  // See http://crbug.com/845802.
+  // See http://crbug.com/41390626.
   test('DisablingCtrlAOnSyncedTabsPage', async function() {
     await finishSetup(TEST_HISTORY_RESULTS);
     app.shadowRoot.querySelector('history-router')!.selectedPage = 'syncedTabs';
@@ -707,7 +709,8 @@ suite('HistoryListTest', function() {
     async function getMessagesForResults(
         term: string, results: HistoryEntry[]) {
       const a11yMessagesEventPromise =
-          eventToPromise('cr-a11y-announcer-messages-sent', document.body);
+          eventToPromise<CrA11yAnnouncerMessagesSentEvent>(
+              'cr-a11y-announcer-messages-sent', document.body);
       element.queryState.incremental = false;
       element.historyResult({finished: true, term}, results);
       return (await a11yMessagesEventPromise).detail.messages[0];

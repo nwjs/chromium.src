@@ -4,19 +4,31 @@
 
 function containsAll(obj, keys) {
   for (let i = 0; i < keys.length; ++i) {
-    if (!obj[keys[i]])
+    if (!obj[keys[i]]) {
       return false;
+    }
   }
   return true;
 }
 
 const contents = [
-  'download', 'search', 'pause', 'resume', 'cancel', 'getFileIcon', 'open',
-  'show', 'erase', 'acceptDanger', 'onCreated', 'onChanged', 'onErased',
-  'onDeterminingFilename'];
+  'download',
+  'search',
+  'pause',
+  'resume',
+  'cancel',
+  'getFileIcon',
+  'open',
+  'show',
+  'erase',
+  'acceptDanger',
+  'onCreated',
+  'onChanged',
+  'onErased',
+  'onDeterminingFilename',
+];
 
-if (!chrome.downloads ||
-    !containsAll(chrome.downloads, contents)) {
+if (!chrome.downloads || !containsAll(chrome.downloads, contents)) {
   chrome.test.fail();
 } else {
   chrome.test.succeed();

@@ -109,14 +109,6 @@ class CORE_EXPORT Event : public ScriptWrappable, public DOMOriginUtils {
     return MakeGarbageCollected<Event>(type, initializer);
   }
 
-  // Creates event objects for use with fenced frames. Because timestamps are
-  // a potential privacy leak from the frame to its embedder, clamp all of them
-  // to the epoch.
-  static Event* CreateFenced(const AtomicString& type) {
-    return MakeGarbageCollected<Event>(type, Bubbles::kYes, Cancelable::kYes,
-                                       base::TimeTicks::UnixEpoch());
-  }
-
   Event();
   Event(const AtomicString& type,
         Bubbles,
@@ -179,6 +171,11 @@ class CORE_EXPORT Event : public ScriptWrappable, public DOMOriginUtils {
   virtual void DoneDispatchingEventAtCurrentTarget() {}
 
   void SetRelatedTargetIfExists(EventTarget* related_target);
+
+  // This is the element that caused the event to be triggered, without
+  // any retargeting. For example, for a command event it's the element with the
+  // commandfor attribute.
+  virtual Element* SourceElement() const { return nullptr; }
 
   PhaseType eventPhase() const { return event_phase_; }
   void SetEventPhase(PhaseType event_phase) { event_phase_ = event_phase; }

@@ -126,6 +126,7 @@ class Tab : public gfx::AnimationDelegate,
                        const std::optional<std::string>& name);
 
   TabSlotController* controller() const { return controller_; }
+  const tabs::TabHandle& tab_handle() const { return tab_handle_; }
 
   // Used to set/check whether this Tab is being animated closed.
   void SetClosing(bool closing);
@@ -139,6 +140,7 @@ class Tab : public gfx::AnimationDelegate,
   // HoverCardAnchorTarget:
   bool NeedsToShowThumbnail() const override;
   bool IsValidHoverCardTarget() const override;
+  views::BubbleAnchor GetAnchor() override;
   views::BubbleBorder::Arrow GetAnchorPosition() const override;
 
   // Notifies the AlertIndicatorButton that the active state of this tab has

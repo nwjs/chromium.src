@@ -22,9 +22,9 @@
 #include "components/infobars/core/infobar.h"  // nogncheck
 #else
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 namespace autofill {
@@ -378,7 +378,9 @@ void VirtualCardEnrollBubbleControllerImpl::DoShowBubble() {
     return;
   }
 
-  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents());
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          web_contents());
 
   if (enrollment_status_ == EnrollmentStatus::kCompleted) {
     SetBubbleView(
@@ -449,7 +451,7 @@ VirtualCardEnrollBubbleControllerImpl::GetBubbleControllerBaseWeakPtr() {
 #if !BUILDFLAG(IS_ANDROID)
 bool VirtualCardEnrollBubbleControllerImpl::IsWebContentsActive() {
   BrowserWindowInterface* active_browser =
-      chrome::FindBrowserWithActiveWindow();
+      GlobalBrowserCollection::GetInstance()->GetActiveBrowser();
   if (!active_browser) {
     return false;
   }

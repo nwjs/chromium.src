@@ -162,8 +162,7 @@ class TestPrefetchServiceForInterceptor final : public PrefetchService {
   }
 
   void OnPrefetchCompletedOrFailed(
-      const PrefetchContainer& prefetch_container,
-      const network::URLLoaderCompletionStatus& completion_status) override {
+      const PrefetchContainer& prefetch_container) override {
     // Skip `active_prefetch_` check and related prefetch queue processing in
     // `PrefetchService`, because it's not set/used in
     // `TestPrefetchServiceForInterceptor`.
@@ -288,39 +287,7 @@ class PrefetchURLLoaderInterceptorTestBase : public PrefetchingMetricsTestBase {
         ->navigation_request();
   }
 
-  bool SetCookie(const GURL& url, const std::string& value) {
-    bool result = false;
-    base::RunLoop run_loop;
 
-    std::unique_ptr<net::CanonicalCookie> cookie(
-        net::CanonicalCookie::CreateForTesting(url, value, base::Time::Now(),
-                                               net::CookieSourceType::kOther));
-    EXPECT_TRUE(cookie.get());
-    EXPECT_TRUE(cookie->IsHostCookie());
-
-    net::CookieOptions options;
-    options.set_include_httponly();
-    options.set_same_site_cookie_context(
-        net::CookieOptions::SameSiteCookieContext::MakeInclusive());
-
-    cookie_manager()->SetCanonicalCookie(
-        *cookie.get(), url, options,
-        base::BindOnce(
-            [](bool* result, base::RunLoop* run_loop,
-               net::CookieAccessResult set_cookie_access_result) {
-              *result = set_cookie_access_result.status.IsInclude();
-              run_loop->Quit();
-            },
-            &result, &run_loop));
-
-    // This will run until the cookie is set.
-    run_loop.Run();
-
-    // This will run until the cookie listener gets the cookie change.
-    task_environment()->RunUntilIdle();
-
-    return result;
-  }
 
   void SetOnIsolatedCookieCopyStartForTesting(const GURL& prefetch_url,
                                               const GURL& redirect_url,
@@ -396,7 +363,7 @@ class PrefetchURLLoaderInterceptorTestBase : public PrefetchingMetricsTestBase {
       const std::optional<url::Origin> referring_origin = std::nullopt) {
     auto prefetch_request = PrefetchRequest::CreateBrowserInitiated(
         *web_contents(), prefetch_url, std::move(prefetch_type),
-        test::kPreloadingEmbedderHistgramSuffixForTesting,
+        test::kPreloadingEmbedderHistogramSuffixForTesting,
         blink::mojom::Referrer(), std::move(referring_origin),
         /*no_vary_search_hint=*/std::nullopt,
         /*priority=*/std::nullopt,

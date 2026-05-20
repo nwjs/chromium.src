@@ -1079,7 +1079,7 @@ TEST_F(AppListSyncableServiceTest,
 }
 
 // Simulates and verifies the fix of the single item folder issue of
-// crbug.com/1082530. Here is the repro of the bug.
+// crbug.com/40691980. Here is the repro of the bug.
 // When user signs in on a new device for the first time, a folder contains two
 // app items, one is installed before another. After the first app is installed,
 // user sees a single item folder with the first app. User moves the app out of
@@ -1245,7 +1245,7 @@ TEST_F(AppListSyncableServiceTest, PruneRedundantPageBreakItems) {
 // This test simulates that device 2 gets the sync changes from device 1, and
 // applies the changes in model updater and the apps should have the same layout
 // as the ones on the device 1. It verifies the fix for the repro issue
-// described in http://crbug.com/40616548#c15.
+// described in http://crbug.com/40616548#comment16.
 TEST_F(AppListSyncableServiceTest, PageBreakWithOverflowItem) {
   RemoveAllExistingItems();
 

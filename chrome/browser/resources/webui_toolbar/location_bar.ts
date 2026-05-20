@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import './readonly_omnibox.js';
+import './location_icon.js';
 
 import {TrackedElementManager} from '//resources/js/tracked_element/tracked_element_manager.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
@@ -10,11 +11,12 @@ import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {getCss} from './location_bar.css.js';
 import {getHtml} from './location_bar.html.js';
+import {type ReadonlyOmniboxElement} from './readonly_omnibox.js';
 import type {LocationBarState} from './toolbar_ui_api_data_model.mojom-webui.js';
 
 export interface LocationBarElement {
   $: {
-    omnibox: HTMLElement,
+    omnibox: ReadonlyOmniboxElement,
   };
 }
 
@@ -40,15 +42,26 @@ export class LocationBarElement extends CrLitElement {
   accessor locationBarState: LocationBarState = {
     omniboxViewState: {
       textPieces: [],
+      inlineAutocompletion: '',
       selection: null,
       textIsUrl: false,
     },
     locationBarFlags: {
       userInputInProgress: false,
-      renderFocused: false,
+      popupOpen: false,
     },
     contentSettingImageStates: [],
-  }
+    lhsChipsState: {
+      securityChip: {
+        icon: 0,
+        securityLevel: 0,
+        text: '',
+        isClickable: false,
+        isTextDangerous: false,
+      },
+      activityIndicators: [],
+    },
+  };
 
   private trackedElementManager_: TrackedElementManager;
 
@@ -68,17 +81,27 @@ export class LocationBarElement extends CrLitElement {
     this.trackedElementManager_.stopTracking(this.$.omnibox);
   }
 
-
   override updated(changedProperties: PropertyValues<this>): void {
     super.updated(changedProperties);
     if (changedProperties.has('locationBarState')) {
-      this.$.omnibox.classList.toggle(
-          'render-focused',
-          this.locationBarState.locationBarFlags.renderFocused);
+      this.classList.toggle(
+          'popup-open', this.locationBarState.locationBarFlags.popupOpen);
       this.classList.toggle(
           'input-in-progress',
           this.locationBarState.locationBarFlags.userInputInProgress);
     }
+  }
+
+  protected onChipPointerenter_() {
+    this.toggleAttribute('chip-hovered', true);
+  }
+
+  protected onChipPointerleave_() {
+    this.toggleAttribute('chip-hovered', false);
+  }
+
+  protected onChipPointercancel_() {
+    this.onChipPointerleave_();
   }
 }
 

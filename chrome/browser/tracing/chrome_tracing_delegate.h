@@ -15,8 +15,10 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/android/tab_model/tab_model_list_observer.h"
 #else
-#include "chrome/browser/ui/browser_list_observer.h"
+#include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"  // nogncheck crbug.com/40147906
 #endif
+
+class BrowserWindowInterface;
 
 namespace tracing {
 class BackgroundTracingStateManager;
@@ -41,7 +43,7 @@ class ChromeTracingDelegate : public content::TracingDelegate,
 #if BUILDFLAG(IS_ANDROID)
                               public TabModelListObserver
 #else
-                              public BrowserListObserver
+                              public BrowserCollectionObserver
 #endif
 {
  public:
@@ -61,6 +63,8 @@ class ChromeTracingDelegate : public content::TracingDelegate,
   std::string RecordSerializedSystemProfileMetrics() const override;
   tracing::MetadataDataSource::BundleRecorder
   CreateSystemProfileMetadataRecorder() const override;
+  tracing::MetadataDataSource::ChromeMetadataRecorder
+  CreateChromeMetadataPacketRecorder() const override;
 
 #if BUILDFLAG(IS_WIN)
   void GetSystemTracingState(
@@ -78,9 +82,9 @@ class ChromeTracingDelegate : public content::TracingDelegate,
   void OnTabModelAdded(TabModel* tab_model) override;
   void OnTabModelRemoved(TabModel* tab_model) override;
 #else
-  // BrowserListObserver implementation.
-  void OnBrowserAdded(Browser* browser) override;
-  void OnBrowserRemoved(Browser* browser) override;
+  // BrowserCollectionObserver:
+  void OnBrowserCreated(BrowserWindowInterface* browser) override;
+  void OnBrowserClosed(BrowserWindowInterface* browser) override;
 #endif
 
   // Track the most recent OffTheRecord browser creation time. It's ok to update

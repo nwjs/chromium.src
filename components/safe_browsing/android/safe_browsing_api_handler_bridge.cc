@@ -114,13 +114,6 @@ void ReportSafeBrowsingJavaResponse(
   ReportUmaHistogramSparseWithAndWithoutSuffix(
       "SafeBrowsing.GmsSafeBrowsingApi.ResponseStatus", suffix,
       static_cast<int>(response_status));
-
-  if (response_status ==
-      SafeBrowsingJavaResponseStatus::SUCCESS_WITH_REAL_TIME) {
-    base::UmaHistogramMicrosecondsTimes(
-        "SafeBrowsing.GmsSafeBrowsingApi.CheckDelta.SuccessWithRealTime",
-        base::Microseconds(check_delta_microseconds));
-  }
 }
 
 SafeBrowsingJavaValidationResult GetJavaValidationResult(
@@ -337,6 +330,7 @@ SafeBrowsingJavaThreatType SBThreatTypeToSafeBrowsingApiJavaThreatType(
     case SB_THREAT_TYPE_ENTERPRISE_PASSWORD_REUSE:
     case SB_THREAT_TYPE_APK_DOWNLOAD:
     case SB_THREAT_TYPE_HIGH_CONFIDENCE_ALLOWLIST:
+    case SB_THREAT_TYPE_CSD_DOWNLOAD_ALLOWLIST:
     case SB_THREAT_TYPE_MANAGED_POLICY_WARN:
     case SB_THREAT_TYPE_MANAGED_POLICY_BLOCK:
       NOTREACHED();

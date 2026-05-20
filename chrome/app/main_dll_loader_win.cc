@@ -60,6 +60,7 @@ typedef void (*RelaunchChromeBrowserWithNewCommandLineIfNeededFunc)();
 
 #define BUFSIZE MAX_PATH
 
+
 void RecordDidRun(const base::FilePath& dll_path) {
 #if BUILDFLAG(USE_LEGACY_ACTIVE_DEFINITION)
   installer::UpdateDidRunState();

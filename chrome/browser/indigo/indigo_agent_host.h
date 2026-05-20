@@ -16,9 +16,9 @@
 #include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 
-namespace indigo {
+class GURL;
 
-class IndigoScriptLoader;
+namespace indigo {
 
 // Browser-side host for the IndigoAgent in the renderer. This class is
 // page-scoped, meaning it is correctly managed and cleaned up when a navigation
@@ -50,14 +50,13 @@ class IndigoAgentHost : public content::PageUserData<IndigoAgentHost>,
   explicit IndigoAgentHost(content::Page& page);
   friend class content::PageUserData<IndigoAgentHost>;
 
-  void OnScriptLoaded(const std::string& script_path,
+  void OnScriptLoaded(const GURL& script_url,
                       std::optional<std::string> script_content);
 
   chrome::mojom::IndigoAgent& GetAgent();
 
   mojo::AssociatedReceiver<chrome::mojom::IndigoAgentHost> receiver_{this};
   mojo::AssociatedRemote<chrome::mojom::IndigoAgent> agent_;
-  std::unique_ptr<IndigoScriptLoader> script_loader_;
   InjectionState injection_state_ = InjectionState::kNotInjected;
 
   // Number of times Invoke() was called while injection was in progress.

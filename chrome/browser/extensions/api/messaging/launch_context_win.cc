@@ -121,8 +121,8 @@ base::Process LaunchNativeExeDirectly(const std::wstring& command,
     return base::Process();
   }
 
-  options.stdin_handle = stdin_file.Get();
-  options.stdout_handle = stdout_file.Get();
+  options.stdin_handle = stdin_file.get();
+  options.stdout_handle = stdout_file.get();
   options.stderr_handle = ::GetStdHandle(STD_ERROR_HANDLE);
   options.handles_to_inherit.push_back(options.stdin_handle);
   options.handles_to_inherit.push_back(options.stdout_handle);
@@ -167,7 +167,7 @@ base::FilePath LaunchContext::FindManifest(const std::string& host_name,
   std::wstring host_name_wide = base::UTF8ToWide(host_name);
 
   // If permitted, look in HKEY_CURRENT_USER first. If the manifest isn't found
-  // there, then try HKEY_LOCAL_MACHINE. https://crbug.com/1034919#c6
+  // there, then try HKEY_LOCAL_MACHINE. https://crbug.com/40111968#comment7
   std::wstring path_str;
   bool found = false;
   if (allow_user_level_hosts) {
@@ -250,7 +250,7 @@ std::optional<LaunchContext::ProcessState> LaunchContext::LaunchNativeProcess(
   base::Process launched_process;
   if (use_direct_launch) {
     // Compat: If the target is SUBSYSTEM_WINDOWS, then don't set |start_hidden|
-    // in order to mimic legacy behavior: https://crbug.com/1442359.
+    // in order to mimic legacy behavior: https://crbug.com/40266927.
     // A Windows executable will have LOWORD of 0x4550. A GUI executable will
     // have a non-Zero HIWORD while a console executable will have a 0 HIWORD.
     uintptr_t exe_type = ::SHGetFileInfoW(

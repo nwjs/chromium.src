@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.ui.side_panel_container;
 
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
@@ -18,6 +19,8 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.ui.side_panel.SidePanelCoordinatorAndroid;
+import org.chromium.chrome.browser.ui.side_panel.SidePanelType;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator;
 
 /** Unit tests for {@link SidePanelContainerCoordinatorImpl}. */
@@ -38,7 +41,7 @@ public class SidePanelContainerCoordinatorImplUnitTest {
     public void init_registerSelfAsSideUiContainer() {
         var sidePanelContainerCoordinator = createSidePanelContainerCoordinator();
 
-        sidePanelContainerCoordinator.init();
+        sidePanelContainerCoordinator.init(mock(SidePanelCoordinatorAndroid.class));
 
         verify(mMockSideUiCoordinator).registerSideUiContainer(sidePanelContainerCoordinator);
     }
@@ -53,6 +56,7 @@ public class SidePanelContainerCoordinatorImplUnitTest {
     }
 
     private SidePanelContainerCoordinatorImpl createSidePanelContainerCoordinator() {
-        return new SidePanelContainerCoordinatorImpl(mTestActivity, mMockSideUiCoordinator);
+        return new SidePanelContainerCoordinatorImpl(
+                mTestActivity, mMockSideUiCoordinator, SidePanelType.TOOLBAR);
     }
 }

@@ -130,6 +130,7 @@
 #include "content/browser/screen_orientation/screen_orientation_provider.h"
 #include "content/browser/shared_storage/shared_storage_budget_charger.h"
 #include "content/browser/site_instance_impl.h"
+#include "content/browser/surface_embed/surface_embed_connector_impl.h"
 #include "content/browser/wake_lock/wake_lock_context_host.h"
 #include "content/browser/web_contents/file_chooser_impl.h"
 #include "content/browser/web_contents/java_script_dialog_commit_deferring_condition.h"
@@ -163,7 +164,6 @@
 #include "content/public/browser/permission_descriptor_util.h"
 #include "content/public/browser/picture_in_picture_window_controller.h"
 #include "content/public/browser/preload_pipeline_info.h"
-#include "content/public/browser/preview_cancel_reason.h"
 #include "content/public/browser/render_widget_host_iterator.h"
 #include "content/public/browser/render_widget_host_observer.h"
 #include "content/public/browser/restore_type.h"
@@ -174,6 +174,8 @@
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_view_delegate.h"
 #include "content/public/browser/web_ui_controller.h"
+#include "content/public/browser/webid/federated_embedder_login_request.h"
+#include "content/public/browser/webid/identity_credential_source.h"
 #include "content/public/browser/webui_config.h"
 #include "content/public/browser/webui_config_map.h"
 #include "content/public/common/content_client.h"
@@ -280,10 +282,6 @@
 #if BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_IOS_TVOS)
 #include "content/browser/ios/nfc_host.h"
 #endif
-
-#if BUILDFLAG(ENABLE_SURFACE_EMBED)
-#include "content/browser/surface_embed/surface_embed_connector_impl.h"
-#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
 
 namespace content {
 
@@ -470,27 +468,6 @@ base::flat_set<raw_ptr<WebContentsImpl>> GetAllOpeningWebContents(
 
   return result;
 }
-
-#if BUILDFLAG(IS_ANDROID)
-float GetDeviceScaleAdjustment(int min_width) {
-  static const float kMinFSM = 1.05f;
-  static const int kWidthForMinFSM = 320;
-  static const float kMaxFSM = 1.3f;
-  static const int kWidthForMaxFSM = 800;
-
-  if (min_width <= kWidthForMinFSM) {
-    return kMinFSM;
-  }
-  if (min_width >= kWidthForMaxFSM) {
-    return kMaxFSM;
-  }
-
-  // The font scale multiplier varies linearly between kMinFSM and kMaxFSM.
-  float ratio = static_cast<float>(min_width - kWidthForMinFSM) /
-                (kWidthForMaxFSM - kWidthForMinFSM);
-  return ratio * (kMaxFSM - kMinFSM) + kMinFSM;
-}
-#endif
 
 // Store a set of fullscreen WebContents and metadata for the browser context.
 // Storing this information on the browser context is done for two reasons. One,
@@ -1145,6 +1122,14 @@ void WebContentsImpl::WebContentsTreeNode::OnFrameTreeNodeDestroyed(
   }
 }
 
+void WebContentsImpl::NotifySwappedRWHVChildFrameFromRenderManager(
+    RenderWidgetHostViewChildFrame* new_view,
+    bool allow_paint_holding) {
+  if (surface_embed_connector_) {
+    surface_embed_connector_->SetView(new_view, allow_paint_holding);
+  }
+}
+
 FrameTree* WebContentsImpl::WebContentsTreeNode::focused_frame_tree() {
   CHECK(focused_frame_tree_);
   return focused_frame_tree_;
@@ -1352,8 +1337,7 @@ WebContentsImpl::WebContentsImpl(BrowserContext* browser_context)
       showing_context_menu_(false),
       prerender_host_registry_(std::make_unique<PrerenderHostRegistry>(*this)),
       compositor_frame_sink_grouping_id_(base::UnguessableToken::Create()),
-      fenced_frame_viewport_observer_(
-          std::make_unique<FencedFrameViewportObserver>(this)) {
+      tracing_track_(content::GetWebContentsTracingTrack(web_contents_token_)) {
   TRACE_EVENT0("content", "WebContentsImpl::WebContentsImpl");
   WebContentsOfBrowserContext::Attach(*this);
   node_.SetFocusedFrameTree(&primary_frame_tree_);
@@ -1425,11 +1409,9 @@ WebContentsImpl::~WebContentsImpl() {
     GetOuterWebContents()->DetachUnownedInnerWebContents(this);
   }
 
-#if BUILDFLAG(ENABLE_SURFACE_EMBED)
   if (surface_embed_connector_) {
     ClearSurfaceEmbedConnector();
   }
-#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
 
   if (pointer_lock_widget_) {
     pointer_lock_widget_->RejectPointerLockOrUnlockIfNecessary(
@@ -1694,6 +1676,14 @@ BrowserContext* WebContentsImpl::GetBrowserContext() {
 
 base::WeakPtr<WebContents> WebContentsImpl::GetWeakPtr() {
   return weak_factory_.GetWeakPtr();
+}
+
+const WebContents::UniqueToken& WebContentsImpl::GetUniqueToken() const {
+  return web_contents_token_;
+}
+
+const perfetto::NamedTrack& WebContentsImpl::GetTracingTrack() const {
+  return *tracing_track_;
 }
 
 const GURL& WebContentsImpl::GetURL() {
@@ -2204,6 +2194,24 @@ void WebContentsImpl::DidCapturedSurfaceControl() {
   observers_.NotifyObservers(&WebContentsObserver::OnCapturedSurfaceControl);
 }
 
+void WebContentsImpl::OnFedCmFederatedLogin(
+    webid::FederatedLoginResult result) {
+  observers_.NotifyObservers(&WebContentsObserver::OnFedCmFederatedLogin,
+                             result == webid::FederatedLoginResult::kSuccess);
+
+  // OnFedCmFederatedLogin() may be invoked while the WebContents is being
+  // destroyed, so be careful when trying to access the Page.
+  if (IsBeingDestroyed()) {
+    return;
+  }
+
+  webid::FederatedEmbedderLoginRequest* embedder_login_request =
+      webid::FederatedEmbedderLoginRequest::Get(this);
+  if (embedder_login_request) {
+    embedder_login_request->OnFederatedResultReceived(result);
+  }
+}
+
 void WebContentsImpl::ResetAccessibility() {
   // Reset accessibility for all frames in this tree and inner trees, including
   // speculative frame hosts and those in the back-forward cache. See comment in
@@ -2701,12 +2709,6 @@ base::ScopedClosureRunner WebContentsImpl::IncrementCapturerCount(
   return base::ScopedClosureRunner(base::BindOnce(
       &WebContentsImpl::DecrementCapturerCount, weak_factory_.GetWeakPtr(),
       stay_hidden, stay_awake, is_activity));
-}
-
-const blink::mojom::CaptureHandleConfig&
-WebContentsImpl::GetCaptureHandleConfig() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  return capture_handle_config_;
 }
 
 bool WebContentsImpl::IsBeingCaptured() {
@@ -3465,7 +3467,6 @@ void WebContentsImpl::DetachUnownedInnerWebContents(
   inner_main_frame->UpdateAXTreeData();
 }
 
-#if BUILDFLAG(ENABLE_SURFACE_EMBED)
 SurfaceEmbedConnector* WebContentsImpl::GetSurfaceEmbedConnector() const {
   return surface_embed_connector_.get();
 }
@@ -3524,10 +3525,19 @@ void WebContentsImpl::SetSurfaceEmbedConnector(
   }
 
   RecursivelyRegisterRenderWidgetHostViews();
+
+  surface_embed_connector_->UpdateViewForCurrentRenderFrameHost();
 }
 
 void WebContentsImpl::ClearSurfaceEmbedConnector() {
   CHECK(surface_embed_connector_);
+
+  // Because there may be child frames, we need to unregister all RWHVs before
+  // destroying main frames views which could prevent child frames from finding
+  // the root view for unregistering observer from
+  // TouchSelectionControllerClient, and before clearing the connector, which
+  // will change the TextInputManager and InputEventRouter for this WebContents.
+  RecursivelyUnregisterRenderWidgetHostViews();
 
   // RenderWidgetHostView of main frames that are of type
   // RenderWidgetHostViewChildFrame should be re-created with appropriate
@@ -3550,11 +3560,6 @@ void WebContentsImpl::ClearSurfaceEmbedConnector() {
     view_ = nullptr;
   }
 
-  // Because there may be child frames, we need to unregister all RWHVs before
-  // clearing the connector, which will change the TextInputManager and
-  // InputEventRouter for this WebContents.
-  RecursivelyUnregisterRenderWidgetHostViews();
-
   surface_embed_connector_.reset();
 
   // Recreate and register RenderWidgetHostView.
@@ -3571,7 +3576,6 @@ void WebContentsImpl::ClearSurfaceEmbedConnector() {
     RecursivelyRegisterRenderWidgetHostViews();
   }
 }
-#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
 
 void WebContentsImpl::AttachGuestPage(
     std::unique_ptr<GuestPageHolder> guest_page,
@@ -3727,15 +3731,6 @@ void WebContentsImpl::ReattachToOuterWebContentsFrame() {
 
   RecursivelyRegisterRenderWidgetHostViews();
   GetPrimaryMainFrame()->UpdateAXTreeData();
-}
-
-void WebContentsImpl::DidActivatePreviewedPage(
-    base::TimeTicks activation_time) {
-  TRACE_EVENT1("content", "WebContentsImpl::DidActivatePreviewedPage",
-               "activation_time", activation_time);
-  observers_.NotifyObservers(&WebContentsObserver::DidActivatePreviewedPage,
-                             activation_time);
-  GetDelegate()->DidActivatePreviewedPage();
 }
 
 void WebContentsImpl::DidChangeVisibleSecurityState() {
@@ -3944,10 +3939,6 @@ const blink::web_pref::WebPreferences WebContentsImpl::ComputeWebPreferences(
     prefs.media_controls_enabled = false;
   }
 
-#if BUILDFLAG(IS_ANDROID)
-  prefs.device_scale_adjustment = GetDeviceScaleAdjustment(min_width_in_dp);
-#endif  // BUILDFLAG(IS_ANDROID)
-
   // GuestViews in the same StoragePartition need to find each other's frames.
   prefs.renderer_wide_named_frame_lookup =
       IsGuest() || main_frame->frame_tree()->is_guest();
@@ -4010,8 +4001,6 @@ const blink::web_pref::WebPreferences WebContentsImpl::ComputeWebPreferences(
 
       // Ensure no further viewport scaling
       prefs.shrinks_viewport_contents_to_fit = false;
-      // Not needed for larger form factors
-      prefs.text_autosizing_enabled = false;
     }
   }
 
@@ -4254,7 +4243,7 @@ void WebContentsImpl::Init(const WebContents::CreateParams& params,
       params.initially_use_platform_autofill;
 
   is_never_composited_ = params.is_never_composited;
-  is_in_preview_mode_ = params.preview_mode;
+
   creator_location_ = params.creator_location;
 #if BUILDFLAG(IS_ANDROID)
   java_creator_location_ = params.java_creator_location;
@@ -4700,11 +4689,9 @@ WebContentsImpl::GetInputEventRouter() {
       return GetOuterWebContents()->GetInputEventRouter();
     }
 
-#if BUILDFLAG(ENABLE_SURFACE_EMBED)
     if (surface_embed_connector_) {
       return surface_embed_connector_->GetInputEventRouter();
     }
-#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
 
     if (!rwh_input_event_router_.get()) {
       rwh_input_event_router_ =
@@ -4975,8 +4962,7 @@ ui::mojom::WindowShowState WebContentsImpl::GetWindowShowState() {
                        : ui::mojom::WindowShowState::kDefault;
 }
 
-blink::mojom::DevicePostureProvider*
-WebContentsImpl::GetDevicePostureProvider() {
+DevicePostureProviderImpl* WebContentsImpl::GetDevicePostureProvider() {
   return DevicePostureProviderImpl::GetOrCreate(this);
 }
 
@@ -5292,6 +5278,24 @@ void WebContentsImpl::LostPointerLock(
   }
 }
 
+bool WebContentsImpl::IsPointerLockSandboxedForWidget(
+    RenderWidgetHostImpl* render_widget_host) {
+  // Check the sandbox flags of the frame that owns the requesting widget.
+  // It is ok to only check the top-most frame of the widget, because any
+  // subframes within the widget will be at least as restrictive as it. Any
+  // additional restrictions imposed on subframes of the widget cannot be
+  // enforced by the browser process, because they share a renderer process
+  // with the top-most frame of the widget.
+  // Note: crbug.com/492211919
+  for (FrameTreeNode* node : GetPrimaryFrameTree().Nodes()) {
+    RenderFrameHostImpl* rfh = node->current_frame_host();
+    if (rfh && rfh->GetRenderWidgetHost() == render_widget_host) {
+      return rfh->IsSandboxed(network::mojom::WebSandboxFlags::kPointerLock);
+    }
+  }
+  return false;
+}
+
 bool WebContentsImpl::HasPointerLock(RenderWidgetHostImpl* render_widget_host) {
   // To verify if the mouse is locked, the mouse_lock_widget_ needs to be
   // assigned to the widget that requested the mouse lock, and the top-level
@@ -5407,6 +5411,15 @@ FrameTree* WebContentsImpl::CreateNewWindow(
   TRACE_EVENT2("browser,content,navigation", "WebContentsImpl::CreateNewWindow",
                "opener", opener, "params", params);
   DCHECK(opener);
+
+  // Block Document Picture-in-Picture window creation if the delegate reports
+  // that the OS currently prevents it (e.g., Android in app fullscreen).
+  // `NEW_PICTURE_IN_PICTURE` is specific to Document PiP and does not affect
+  // traditional video PiP or regular popups.
+  if (params.disposition == WindowOpenDisposition::NEW_PICTURE_IN_PICTURE &&
+      delegate_ && delegate_->IsDocumentPictureInPictureBlockedBySystem()) {
+    return nullptr;
+  }
 
   if (active_file_chooser_) {
     // Do not allow opening a new window or tab while a file select is active
@@ -6083,21 +6096,24 @@ bool WebContentsImpl::CheckMediaAccessPermission(
                           render_frame_host, security_origin, type);
 }
 
-void WebContentsImpl::SetCaptureHandleConfig(
-    blink::mojom::CaptureHandleConfigPtr config) {
+void WebContentsImpl::OnCaptureHandleConfigUpdate(Page& page) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-
-  if (capture_handle_config_ == *config) {
-    return;  // Avoid unnecessary notifications.
+  // Only broadcast to tab-level observers if the update comes from the primary
+  // page.
+  if (!page.IsPrimary()) {
+    return;
   }
 
-  capture_handle_config_ = std::move(*config);
-
-  // Propagates the capture-handle-config inside of the browser process.
-  // Only render processes which are eligible based on |permittedOrigins|
-  // will get this.
-  observers_.NotifyObservers(&WebContentsObserver::OnCaptureHandleConfigUpdate,
-                             capture_handle_config_);
+  const auto& config = page.GetCaptureHandleConfig();
+  const url::Origin& origin = page.GetMainDocument().GetLastCommittedOrigin();
+  if (config != last_notified_capture_handle_config_ ||
+      (origin != last_notified_capture_handle_origin_ &&
+       config.expose_origin)) {
+    last_notified_capture_handle_config_ = config;
+    last_notified_capture_handle_origin_ = origin;
+    observers_.NotifyObservers(
+        &WebContentsObserver::OnCaptureHandleConfigUpdate, config);
+  }
 }
 
 bool WebContentsImpl::IsJavaScriptDialogShowing() const {
@@ -6346,11 +6362,9 @@ TextInputManager* WebContentsImpl::GetTextInputManager() {
     return GetOuterWebContents()->GetTextInputManager();
   }
 
-#if BUILDFLAG(ENABLE_SURFACE_EMBED)
   if (surface_embed_connector_) {
     return surface_embed_connector_->GetTextInputManager();
   }
-#endif  // BUILDFLAG(ENABLE_SURFACE_EMBED)
 
   if (!text_input_manager_ && !browser_plugin_guest_) {
     text_input_manager_ = std::make_unique<TextInputManager>();
@@ -6439,7 +6453,9 @@ void WebContentsImpl::MoveCaret(const gfx::Point& extent) {
 
 base::UnguessableToken WebContentsImpl::GetCompositorFrameSinkGroupingId()
     const {
-  return compositor_frame_sink_grouping_id_;
+  const WebContentsImpl* root =
+      const_cast<WebContentsImpl*>(this)->GetOutermostWebContents();
+  return root->compositor_frame_sink_grouping_id_;
 }
 
 void WebContentsImpl::AdjustSelectionByCharacterOffset(
@@ -7603,13 +7619,6 @@ void WebContentsImpl::ReadyToCommitNavigation(
                "navigation_handle", navigation_handle);
   CHECK(!navigation_handle->IsSameDocument());
 
-  // Cross-document navigation of the top-level frame resets the capture
-  // handle config. Using IsInPrimaryMainFrame is valid here since the browser
-  // caches this state for the active main frame only.
-  if (navigation_handle->IsInPrimaryMainFrame()) {
-    SetCaptureHandleConfig(blink::mojom::CaptureHandleConfig::New());
-  }
-
   // Notify the OS that the workload is about to increase for main frame
   // navigations only. This a trade off between latency and power - we don't
   // want to do it for every navigation.
@@ -7702,6 +7711,10 @@ void WebContentsImpl::DidFinishNavigation(NavigationHandle* navigation_handle) {
     if (navigation_handle->IsInPrimaryMainFrame() &&
         !navigation_handle->IsSameDocument()) {
       was_ever_audible_ = false;
+    }
+
+    if (navigation_handle->IsInPrimaryMainFrame()) {
+      OnCaptureHandleConfigUpdate(GetPrimaryPage());
     }
 
     if (!navigation_handle->IsSameDocument()) {
@@ -10857,19 +10870,6 @@ bool WebContentsImpl::CreateRenderViewForRenderManager(
     return false;
   }
 
-  // Set the TextAutosizer state from the main frame's renderer on the new view,
-  // but only if it's not for the main frame. Main frame renderers should create
-  // this state themselves from up-to-date values, so we shouldn't override it
-  // with the cached values.
-  if (!rvh_impl->GetMainRenderFrameHost() && proxy_host) {
-    proxy_host->GetAssociatedRemoteMainFrame()->UpdateTextAutosizerPageInfo(
-        proxy_host->frame_tree_node()
-            ->current_frame_host()
-            ->GetPage()
-            .text_autosizer_page_info()
-            .Clone());
-  }
-
   // If `render_view_host` is for an inner WebContents, ensure that its
   // RenderWidgetHostView is properly reattached to the outer WebContents. Note
   // that this should only be done when `render_view_host` is already the
@@ -12183,17 +12183,7 @@ void WebContentsImpl::NotifyPageBecamePrimary(PageImpl& page) {
   observers_.NotifyObservers(&WebContentsObserver::PrimaryPageChanged, page);
 }
 
-bool WebContentsImpl::IsPageInPreviewMode() const {
-  return IsInPreviewMode();
-}
 
-void WebContentsImpl::CancelPreviewByMojoBinderPolicy(
-    const std::string& interface_name) {
-  if (delegate_) {
-    delegate_->CancelPreview(
-        PreviewCancelReason::BlockedByMojoBinderPolicy(interface_name));
-  }
-}
 
 FrameTreeNodeId WebContentsImpl::GetOuterDelegateFrameTreeNodeId() {
   return node_.outer_contents_frame_tree_node_id();
@@ -12323,39 +12313,13 @@ void WebContentsImpl::SetV8CompileHints(base::ReadOnlySharedMemoryRegion data) {
 }
 
 void WebContentsImpl::SetTabSwitchStartTime(base::TimeTicks start_time,
-                                            bool destination_is_loaded) {
+                                            bool destination_is_loaded,
+                                            bool had_saved_frame_at_start) {
   GetVisibleTimeRequestTrigger().UpdateRequest(blink::VisibleTimeEvent{
       .event_start_time = start_time,
-      .reason =
-          blink::VisibleTimeEvent::TabSwitchReason(destination_is_loaded)});
-}
-
-bool WebContentsImpl::IsInPreviewMode() const {
-  return is_in_preview_mode_;
-}
-
-void WebContentsImpl::WillActivatePreviewPage() {
-  CHECK(is_in_preview_mode_);
-  is_in_preview_mode_ = false;
-}
-
-void WebContentsImpl::ActivatePreviewPage() {
-  TRACE_EVENT0("content", "WebContentsImpl::ActivatePreviewPage");
-
-  // WillActivatePreviewPage() should be called to reset it beforehand.
-  CHECK(!is_in_preview_mode_);
-
-  PageImpl& preview_page = GetPrimaryPage();
-  preview_page.SetActivationStartTime(base::TimeTicks::Now());
-
-  // TODO(b:299240273): Gather all relevant RVHs.
-  StoredPage::RenderViewHostImplSafeRefSet render_view_hosts;
-  render_view_hosts.insert(GetRenderViewHost()->GetSafeRef());
-
-  preview_page.Activate(
-      PageImpl::ActivationType::kPreview, render_view_hosts, std::nullopt,
-      base::BindOnce(&WebContentsImpl::DidActivatePreviewedPage,
-                     weak_factory_.GetWeakPtr()));
+      .reason = blink::VisibleTimeEvent::TabSwitchReason{
+          .destination_is_loaded = destination_is_loaded,
+          .had_saved_frame_at_start = had_saved_frame_at_start}});
 }
 
 VisibleTimeRequestTrigger& WebContentsImpl::GetVisibleTimeRequestTrigger() {
@@ -12372,9 +12336,8 @@ gfx::mojom::DelegatedInkPointRenderer* WebContentsImpl::GetDelegatedInkRenderer(
       return nullptr;
     }
 
-    TRACE_EVENT_INSTANT0("delegated_ink_trails",
-                         "Binding mojo interface for delegated ink points.",
-                         TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT("delegated_ink_trails",
+                        "Binding mojo interface for delegated ink points.");
     compositor->SetDelegatedInkPointRenderer(
         delegated_ink_point_renderer_.BindNewPipeAndPassReceiver());
     delegated_ink_point_renderer_.reset_on_disconnect();

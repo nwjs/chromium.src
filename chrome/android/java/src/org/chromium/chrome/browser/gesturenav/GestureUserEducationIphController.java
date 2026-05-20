@@ -11,9 +11,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
 import android.view.Window;
+import android.widget.TextView;
 
 import com.airbnb.lottie.LottieAnimationView;
 
+import org.chromium.base.CancelableRunnable;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -21,6 +25,8 @@ import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityTabProvider.ActivityTabTabObserver;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
@@ -55,12 +61,14 @@ public class GestureUserEducationIphController {
                 }
             };
     private final ScrimManager mScrimManager;
+    private @Nullable CancelableRunnable mMaybeShowIphCancelableRunnable;
     private @Nullable PropertyModel mScrimPropertyModel;
     private @Nullable ActivityTabTabObserver mTabObserver;
     private @Nullable GestureDetector mDetector;
     private @Nullable View mGestureUserEducationIphLayout;
     private @Nullable LottieAnimationView mBackArrowAnimation;
     private @Nullable ViewPropertyAnimator mTextBubbleAnimation;
+    private @Nullable Profile mProfile;
     private boolean mIsIphShowing;
     private boolean mIsGestureNavModeForTesting;
 
@@ -82,12 +90,36 @@ public class GestureUserEducationIphController {
         mTabObserver =
                 new ActivityTabProvider.ActivityTabTabObserver(activityTabProvider) {
                     @Override
+                    public void onPageLoadStarted(Tab tab, GURL url) {
+                        if (mMaybeShowIphCancelableRunnable != null) {
+                            mMaybeShowIphCancelableRunnable.cancel();
+                        }
+
+                        if (mIsIphShowing) {
+                            hideIph();
+                        }
+                        super.onPageLoadStarted(tab, url);
+                    }
+
+                    @Override
                     public void onPageLoadFinished(Tab tab, GURL url) {
-                        maybeShowIph(tab);
+                        mMaybeShowIphCancelableRunnable =
+                                new CancelableRunnable(
+                                        () -> {
+                                            maybeShowIph(tab);
+                                        });
+                        PostTask.postDelayedTask(
+                                TaskTraits.UI_DEFAULT,
+                                mMaybeShowIphCancelableRunnable,
+                                ChromeFeatureList.sGestureUserEducationPageDelay.getValue());
                     }
 
                     @Override
                     protected void onObservingDifferentTab(@Nullable Tab tab) {
+                        if (mMaybeShowIphCancelableRunnable != null) {
+                            mMaybeShowIphCancelableRunnable.cancel();
+                        }
+
                         // Hide IPH if tab is switched.
                         if (mIsIphShowing) {
                             hideIph();
@@ -98,10 +130,15 @@ public class GestureUserEducationIphController {
         mScrimManager = scrimManager;
     }
 
-    public void unregisterTabObserver() {
+    public void destroy() {
         if (mTabObserver != null) {
             mTabObserver.destroy();
             mTabObserver = null;
+        }
+
+        if (mMaybeShowIphCancelableRunnable != null) {
+            mMaybeShowIphCancelableRunnable.cancel();
+            mMaybeShowIphCancelableRunnable = null;
         }
     }
 
@@ -130,6 +167,13 @@ public class GestureUserEducationIphController {
                             .build();
 
             mScrimManager.showScrim(mScrimPropertyModel);
+
+            TextView iphBubbleText =
+                    mGestureUserEducationIphLayout.findViewById(R.id.iph_bubble_text);
+            iphBubbleText.setText(
+                    LocalizationUtils.isLayoutRtl()
+                            ? R.string.iph_gesture_user_education_text_bubble_right
+                            : R.string.iph_gesture_user_education_text_bubble_left);
 
             // Adjust animation direction based on RTL.
             float rtlSign = LocalizationUtils.isLayoutRtl() ? -1.0f : 1.0f;
@@ -180,9 +224,13 @@ public class GestureUserEducationIphController {
         }
 
         mAnchorView.removeView(mGestureUserEducationIphLayout);
-        unregisterTabObserver();
         mIsIphShowing = false;
         mDetector = null;
+        if (mProfile != null) {
+            TrackerFactory.getTrackerForProfile(mProfile)
+                    .dismissed(FeatureConstants.GESTURE_USER_EDUCATION);
+        }
+        destroy();
     }
 
     private boolean shouldShowIph(Tab tab) {
@@ -191,9 +239,11 @@ public class GestureUserEducationIphController {
         Window window = windowAndroid == null ? null : windowAndroid.getWindow();
         if (!mIsGestureNavModeForTesting
                 && (window == null || !UiUtils.isGestureNavigationMode(window))) {
-            unregisterTabObserver();
+            destroy();
             return false;
         }
+
+        mProfile = tab.getProfile();
 
         // Ensure that the tab history has at least two web pages to navigate back to.
         boolean validPageHistory =
@@ -208,7 +258,7 @@ public class GestureUserEducationIphController {
                         BackPressHandler.Type.TAB_HISTORY);
         return validPageHistory
                 && backPressHandlerConsumingBackEvent
-                && TrackerFactory.getTrackerForProfile(tab.getProfile())
+                && TrackerFactory.getTrackerForProfile(mProfile)
                         .shouldTriggerHelpUi(FeatureConstants.GESTURE_USER_EDUCATION);
     }
 

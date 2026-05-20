@@ -52,11 +52,14 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
                                   kDefaultReportFrequency);
   registry->RegisterBooleanPref(kUserSecuritySignalsReporting, false);
   registry->RegisterBooleanPref(kUserSecurityAuthenticatedReporting, false);
+  registry->RegisterListPref(kSecuritySignalsClientCertificatesSelectors);
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-  registry->RegisterBooleanPref(prefs::kCloudExtensionRequestEnabled, false);
+  registry->RegisterBooleanPref(
+      enterprise_reporting::kCloudExtensionRequestEnabled, false);
+  registry->RegisterDictionaryPref(
+      enterprise_reporting::kCloudExtensionRequestIds);
   registry->RegisterBooleanPref(prefs::kExtensionDOMActivityLoggingEnabled,
                                 false);
-  registry->RegisterDictionaryPref(prefs::kCloudExtensionRequestIds);
   registry->RegisterDictionaryPref(kCloudExtensionRequestUploadedIds);
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 

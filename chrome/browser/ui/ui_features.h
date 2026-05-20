@@ -21,8 +21,6 @@ namespace features {
 
 BASE_DECLARE_FEATURE(kAllowEyeDropperWGCScreenCapture);
 
-BASE_DECLARE_FEATURE(kBrowserWidgetCacheThemeService);
-
 BASE_DECLARE_FEATURE(kCreateNewTabGroupAppMenuTopLevel);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -30,13 +28,17 @@ BASE_DECLARE_FEATURE(kDseIntegrity);
 BASE_DECLARE_FEATURE(kFewerUpdateConfirmations);
 #endif
 
-BASE_DECLARE_FEATURE(kTabStripDeclutter);
-BASE_DECLARE_FEATURE(kGlassToolbar);
+BASE_DECLARE_FEATURE(kEnableExtensionsMenuTeardownFix);
 
 BASE_DECLARE_FEATURE(kImportExportFlags);
 
+// All feature flags associated with Glow Up
+BASE_DECLARE_FEATURE(kTabStripDeclutter);
 BASE_DECLARE_FEATURE(kToolbarGlowUp);
-
+BASE_DECLARE_FEATURE(kRoundedIcons);
+BASE_DECLARE_FEATURE(kMenuSimplification);
+BASE_DECLARE_FEATURE(kTabGroupColorRefresh);
+BASE_DECLARE_FEATURE(kWebuiRefresh2026);
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 
@@ -50,13 +52,7 @@ BASE_DECLARE_FEATURE(kExtensionsCollapseMainMenu);
 // Controls whether the refreshed infobar is enabled.
 BASE_DECLARE_FEATURE(kInfobarRefresh);
 
-#if BUILDFLAG(IS_WIN)
-BASE_DECLARE_FEATURE(kOfferPinToTaskbarInFirstRunExperience);
-BASE_DECLARE_FEATURE(kOfferPinToTaskbarInSettings);
-#endif
-
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-BASE_DECLARE_FEATURE(kOfferPinToTaskbarInfoBar);
 BASE_DECLARE_FEATURE(kPdfInfoBar);
 BASE_DECLARE_FEATURE(kSeparateDefaultAndPinPrompt);
 BASE_DECLARE_FEATURE_PARAM(int, kSeparateDefaultAndPinPromptRandSeed);
@@ -225,12 +221,6 @@ BASE_DECLARE_FEATURE(kTearOffWebAppTabOpensWebAppWindow);
 BASE_DECLARE_FEATURE(kThreeButtonPasswordSaveDialog);
 #endif
 
-// Enables a side panel that occupies the vertical space from the top of the
-// toolbar to the bottom of the browser. This is taller than the default side
-// panel, which occupies the space from the top of the WebContents to the bottom
-// of the browser.
-BASE_DECLARE_FEATURE(kToolbarHeightSidePanel);
-
 // Feature which uses a flyover animation for animating side panels (and
 // expansion/contraction of the Vertical Tab Strip).
 //
@@ -239,18 +229,14 @@ BASE_DECLARE_FEATURE(kToolbarHeightSidePanel);
 BASE_DECLARE_FEATURE(kSidePanelFlyoverAnimation);
 bool UseSidePanelFlyoverAnimation();
 
+BASE_DECLARE_FEATURE_PARAM(int, kSidePanelFlyoverDurationMs);
+
 // TODO(crbug.com/460764864): Cleanup all the enterprise badging feature flags.
 BASE_DECLARE_FEATURE(kEnterpriseProfileBadgingForMenu);
 BASE_DECLARE_FEATURE(kNTPFooterBadgingPolicies);
 
 BASE_DECLARE_FEATURE(kEnterpriseManagementDisclaimerUsesCustomLabel);
 BASE_DECLARE_FEATURE(kManagedProfileRequiredInterstitial);
-
-BASE_DECLARE_FEATURE(kWebUITabStrip);
-
-// Controls whether the context menu is shown on a touch press or a touch
-// tap gesture on the WebUI Tab Strip.
-BASE_DECLARE_FEATURE(kWebUITabStripContextMenuAfterTap);
 
 // Cocoa to views migration.
 #if BUILDFLAG(IS_MAC)
@@ -284,7 +270,6 @@ BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationEnableAll);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationIntentPicker);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationZoom);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationFileSystemAccess);
-BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationManagePasswords);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationCookieControls);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationAutofillMandatoryReauth);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationSharingHub);
@@ -311,8 +296,9 @@ BASE_DECLARE_FEATURE(kByDateHistoryInSidePanel);
 // If enabled, the "Tabs from other devices" side panel will be available.
 BASE_DECLARE_FEATURE(kTabsFromOtherDevicesSidePanel);
 
-// Controls whether to use the TabStrip browser api's controller.
-BASE_DECLARE_FEATURE(kTabStripBrowserApi);
+// If enabled, the "Tabs from other devices" toolbar button will be pinned by
+// default.
+BASE_DECLARE_FEATURE(kTabsFromOtherDevicesSidePanelPinnedByDefault);
 
 #if !BUILDFLAG(IS_ANDROID)
 // Controls whether to add new tabs to active tab group or to the end of the
@@ -334,6 +320,8 @@ bool IsWebUISplitTabsButtonEnabled();
 // Controls whether the WebUI version of the Avatar Button is used.
 BASE_DECLARE_FEATURE(kWebUIAvatarButton);
 bool IsWebUIAvatarButtonEnabled();
+
+bool IsWebUIAppMenuButtonEnabled();
 
 bool IsWebUILocationBarEnabled();
 

@@ -14,12 +14,11 @@
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/media_router/ui_media_sink.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/media_router/cast_dialog_helper.h"
@@ -148,8 +147,8 @@ void CastDialogSinkButton::OnMouseReleased(const ui::MouseEvent& event) {
 
 void CastDialogSinkButton::OnEnabledChanged() {
   HoverButton::OnEnabledChanged();
-  // Prevent a DCHECK failure seen at https://crbug.com/912687 by not having an
-  // InkDrop if the button is disabled.
+  // Prevent a DCHECK failure seen at https://crbug.com/40605457 by not having
+  // an InkDrop if the button is disabled.
   views::InkDrop::Get(this)->SetMode(
       GetEnabled() ? views::InkDropHost::InkDropMode::ON
                    : views::InkDropHost::InkDropMode::OFF);

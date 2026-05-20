@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+assert(is_linux || is_mac)
+
 static_library("gapis") {
   sources = [
     "features.cc",
@@ -21,6 +23,7 @@ static_library("gapis") {
     "//components/signin/public/identity_manager",
     "//components/sync/base",
     "//components/version_info",
+    "//content/public/browser",
     "//google_apis",
     "//services/network/public/cpp",
     "//url",

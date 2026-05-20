@@ -10,25 +10,33 @@
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/web/web_script_tool_types.h"
 #include "third_party/blink/renderer/bindings/core/v8/capture_source_location.h"
+#include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_model_context_register_tool_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_model_context_tool.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_registered_tool.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_script_runner.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_tool_annotations.h"
 #include "third_party/blink/renderer/core/dom/abort_signal.h"
+#include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/scoped_abort_state.h"
 #include "third_party/blink/renderer/core/event_type_names.h"
 #include "third_party/blink/renderer/core/events/web_mcp_event.h"
+#include "third_party/blink/renderer/core/execution_context/agent.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/html/html_script_element.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/core/script_tools/script_tool_context.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/source_location.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/json/json_parser.h"
 #include "third_party/blink/renderer/platform/json/json_values.h"
+#include "third_party/blink/renderer/platform/scheduler/public/task_attribution_tracker.h"
+#include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
@@ -46,6 +54,9 @@ STATIC_ASSERT_ENUM(ScriptToolErrorCode::kToolCancelled,
                    WebScriptToolErrorCode::kToolCancelled);
 
 namespace {
+
+const char kPermissionPolicyNotEnabledError[] =
+    "Access to the feature \"tools\" is disallowed by permissions policy.";
 
 String ValidateAndStringifyObject(ScriptState* script_state,
                                   ExceptionState& exception_state,
@@ -164,10 +175,10 @@ class ModelContext::ToolFunctionFinishedCallback
  public:
   explicit ToolFunctionFinishedCallback(
       ModelContext* model_context,
-      const base::UnguessableToken& execution_id,
+      const base::UnguessableToken& invocation_id,
       bool success)
       : model_context_(model_context),
-        execution_id_(execution_id),
+        invocation_id_(invocation_id),
         success_(success) {}
   ~ToolFunctionFinishedCallback() override = default;
 
@@ -193,12 +204,13 @@ class ModelContext::ToolFunctionFinishedCallback
       if (!result || result->empty()) {
         result = "Operation succeeded";
       }
-      model_context_->OnToolExecuted(execution_id_, *result);
+      model_context_->OnToolExecuted(invocation_id_, *result);
     } else {
       V8ScriptRunner::ReportException(script_state->GetIsolate(),
                                       value.V8Value());
       model_context_->OnToolExecuted(
-          execution_id_, base::unexpected(std::make_pair(value, script_state)));
+          invocation_id_,
+          base::unexpected(std::make_pair(value, script_state)));
     }
   }
 
@@ -209,7 +221,7 @@ class ModelContext::ToolFunctionFinishedCallback
 
  private:
   Member<ModelContext> model_context_;
-  const base::UnguessableToken execution_id_;
+  const base::UnguessableToken invocation_id_;
   const bool success_;
 };
 
@@ -218,7 +230,14 @@ ModelContext::ModelContext(
     scoped_refptr<base::SingleThreadTaskRunner> task_runner)
     : document_(document),
       task_runner_(std::move(task_runner)),
-      script_tool_host_remote_(document.GetExecutionContext()) {}
+      script_tool_host_remote_(document.GetExecutionContext()),
+      model_context_host_remote_(document.GetExecutionContext()),
+      model_context_receiver_(this, document.GetExecutionContext()) {
+  document.GetExecutionContext()->GetBrowserInterfaceBroker().GetInterface(
+      model_context_host_remote_.BindNewPipeAndPassReceiver(task_runner_));
+  model_context_host_remote_->BindModelContext(
+      model_context_receiver_.BindNewPipeAndPassRemote(task_runner_));
+}
 
 void ModelContext::ForEachScriptTool(
     base::FunctionRef<void(const mojom::blink::ScriptTool&)> func) const {
@@ -231,6 +250,19 @@ void ModelContext::registerTool(ScriptState* script_state,
                                 ModelContextTool* tool,
                                 ModelContextRegisterToolOptions* options,
                                 ExceptionState& exception_state) {
+  if (!document_->IsActive()) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "The document is detached.");
+    return;
+  }
+
+  if (!ExecutionContext::From(script_state)
+           ->IsFeatureEnabled(
+               network::mojom::PermissionsPolicyFeature::kTools)) {
+    exception_state.ThrowSecurityError(kPermissionPolicyNotEnabledError);
+    return;
+  }
+
   if (tool_map_.find(tool->name()) != tool_map_.end()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "Duplicate tool name");
@@ -259,6 +291,7 @@ void ModelContext::registerTool(ScriptState* script_state,
     }
   }
 
+  AbortSignal::AlgorithmHandle* abort_handle = nullptr;
   if (options && options->hasSignal()) {
     AbortSignal* signal = options->signal();
     if (signal->aborted()) {
@@ -272,14 +305,9 @@ void ModelContext::registerTool(ScriptState* script_state,
       return;
     }
 
-    // We intentionally do not use `ScopedAbortState` or otherwise explicitly
-    // manage this algorithm handle. For imperative tools, the tool's
-    // registration lifecycle is exactly bound to the given abort signal. Since
-    // the signal automatically clears its internal algorithm list upon
-    // aborting, no explicit cleanup is required here. If there were a way to
-    // unregister an imperative tools otherwise, then during that process we
-    // would remove the unregistration algorithm from the given signal.
-    std::ignore = signal->AddAlgorithm(
+    // Grab the `AlgorithmHandle` and tie its lifetime to `ToolData` farther
+    // below.
+    abort_handle = signal->AddAlgorithm(
         MakeGarbageCollected<ToolUnregisterAbortAlgorithm>(this, tool->name()));
   }
 
@@ -288,21 +316,42 @@ void ModelContext::registerTool(ScriptState* script_state,
   script_tool->description = tool->description();
   script_tool->input_schema = input_schema;
 
+  Vector<scoped_refptr<const SecurityOrigin>> exposed_origins;
+  if (options && options->hasExposedTo()) {
+    for (const String& origin_str : options->exposedTo()) {
+      scoped_refptr<const SecurityOrigin> origin =
+          SecurityOrigin::CreateFromString(origin_str);
+      if (origin->Protocol() != "https") {
+        exception_state.ThrowSecurityError(
+            "Only HTTPS origins are allowed in exposedTo list.");
+        return;
+      }
+      exposed_origins.push_back(origin);
+    }
+  }
+  script_tool->exposed_origins = std::move(exposed_origins);
+
   if (tool->hasAnnotations()) {
     script_tool->annotations = mojom::blink::ScriptToolAnnotations::New();
     CHECK(tool->annotations()->hasReadOnlyHint());
     script_tool->annotations->read_only = tool->annotations()->readOnlyHint();
+    CHECK(tool->annotations()->hasUntrustedContentHint());
+    script_tool->annotations->untrusted_content =
+        tool->annotations()->untrustedContentHint();
   }
 
   auto* tool_data = MakeGarbageCollected<ToolData>(
       base::PassKey<ModelContext>(), std::move(script_tool),
       /*v8_tool_function=*/tool->execute(),
-      CaptureSourceLocation(ExecutionContext::From(script_state)));
+      CaptureSourceLocation(ExecutionContext::From(script_state)),
+      abort_handle);
 
   tool_map_.insert(tool->name(), tool_data);
+  model_context_host_remote_->RegisterScriptTool(
+      tool_data->ScriptTool().Clone());
   probe::WebMCPToolAdded(document_, *tool_data);
   MaybeRecordToolCount();
-  OnToolChange();
+  OnToolChange(/*force=*/true);
 }
 
 void ModelContext::UnregisterTool(const String& name) {
@@ -313,7 +362,8 @@ void ModelContext::UnregisterTool(const String& name) {
 
   probe::WebMCPToolRemoved(document_, *it->value);
   tool_map_.erase(it);
-  OnToolChange();
+  model_context_host_remote_->UnregisterScriptTool(name);
+  OnToolChange(/*force=*/true);
 }
 
 std::optional<ScriptToolDeclaration> ModelContext::GetScriptToolDeclaration(
@@ -328,45 +378,45 @@ std::optional<ScriptToolDeclaration> ModelContext::GetScriptToolDeclaration(
   declaration.input_schema = script_tool.input_schema;
   if (script_tool.annotations) {
     declaration.read_only = script_tool.annotations->read_only;
+    declaration.untrusted_content = script_tool.annotations->untrusted_content;
   }
   return declaration;
 }
 
 void ModelContext::OnToolFailed(ScriptToolExecutedCallback callback,
-                                const base::UnguessableToken& execution_id,
+                                const base::UnguessableToken& invocation_id,
                                 ScriptToolError&& error) {
-  probe::WebMCPToolFailed(document_, error, execution_id,
+  probe::WebMCPToolFailed(document_, error, invocation_id,
                           /*exception=*/std::nullopt);
   task_runner_->PostTask(
       FROM_HERE,
       blink::BindOnce(std::move(callback), base::unexpected(std::move(error))));
 }
 
-std::optional<base::UnguessableToken> ModelContext::ExecuteTool(
-    const String& name,
-    const String& input_arguments,
-    AbortSignal* signal,
-    ScriptToolExecutedCallback tool_executed_cb) {
-  base::UnguessableToken execution_id = base::UnguessableToken::Create();
-  probe::WebMCPToolExecuted(document_, name, input_arguments, execution_id);
+bool ModelContext::ExecuteTool(const base::UnguessableToken& invocation_id,
+                               const String& name,
+                               const String& input_arguments,
+                               AbortSignal* signal,
+                               ScriptToolExecutedCallback tool_executed_cb) {
+  probe::WebMCPToolExecuted(document_, name, input_arguments, invocation_id);
 
   auto it = tool_map_.find(name);
   if (it == tool_map_.end()) {
-    OnToolFailed(std::move(tool_executed_cb), execution_id,
+    OnToolFailed(std::move(tool_executed_cb), invocation_id,
                  ScriptToolError(ScriptToolErrorCode::kInvalidToolName,
                                  String("Tool not found: " + name)));
-    return std::nullopt;
+    return false;
   }
 
   bool success = true;
   if (V8ToolExecuteCallback* v8_tool_function =
           it->value->GetV8ToolExecuteCallback()) {
     success =
-        ExecuteV8Tool(v8_tool_function, execution_id, name, input_arguments,
+        ExecuteV8Tool(v8_tool_function, invocation_id, name, input_arguments,
                       signal, std::move(tool_executed_cb));
   } else {
     // TODO(481899636): Add signal support for declarative tools.
-    ExecuteDeclarativeTool(it->value->DeclarativeTool(), execution_id,
+    ExecuteDeclarativeTool(it->value->DeclarativeTool(), invocation_id,
                            input_arguments, std::move(tool_executed_cb));
   }
 
@@ -381,16 +431,13 @@ std::optional<base::UnguessableToken> ModelContext::ExecuteTool(
         *WebMCPEvent::Create(event_type_names::kToolactivated, name));
   }
 
-  if (success) {
-    return execution_id;
-  }
-  return std::nullopt;
+  return success;
 }
 
-void ModelContext::CancelTool(const base::UnguessableToken& execution_id) {
-  auto it = pending_executions_.find(String(execution_id.ToString()));
+bool ModelContext::CancelTool(const base::UnguessableToken& invocation_id) {
+  auto it = pending_executions_.find(String(invocation_id.ToString()));
   if (it == pending_executions_.end()) {
-    return;
+    return false;
   }
   String tool_name = it->value.tool_name;
 
@@ -403,13 +450,14 @@ void ModelContext::CancelTool(const base::UnguessableToken& execution_id) {
 
   // The pending_executions_ map might have been rehashed during DispatchEvent.
   auto pending_execution =
-      pending_executions_.find(String(execution_id.ToString()));
+      pending_executions_.find(String(invocation_id.ToString()));
   if (pending_execution == pending_executions_.end()) {
-    return;
+    return false;
   }
-  OnToolFailed(std::move(pending_execution->value.callback), execution_id,
+  OnToolFailed(std::move(pending_execution->value.callback), invocation_id,
                ScriptToolError(ScriptToolErrorCode::kToolCancelled));
   pending_executions_.erase(pending_execution);
+  return true;
 }
 
 void ModelContext::GetCrossDocumentScriptToolResult(
@@ -447,15 +495,23 @@ void ModelContext::DidFinishParsing() {
 //     but respondWith() isn't called, an error is reported back to the agent.)
 void ModelContext::ExecuteDeclarativeTool(
     DeclarativeWebMCPTool* tool,
-    const base::UnguessableToken& execution_id,
+    const base::UnguessableToken& invocation_id,
     const String& input_arguments,
     ScriptToolExecutedCallback tool_executed_cb) {
   // TODO(479598776): Add support for tracking execution of
   // declarative tools in pending_executions_, so that they can be cancelled.
+  std::optional<scheduler::TaskAttributionTracker::TaskScope> task_scope;
+  if (auto* tracker = document_->GetAgent().isolate()
+                          ? scheduler::TaskAttributionTracker::From(
+                                document_->GetAgent().isolate())
+                          : nullptr) {
+    task_scope = tracker->SetTaskStateVariable(
+        MakeGarbageCollected<ScriptToolContext>(invocation_id));
+  }
   tool->ExecuteTool(
-      input_arguments,
+      invocation_id, input_arguments,
       blink::BindOnce(
-          [](Document* document, base::UnguessableToken execution_id,
+          [](Document* document, base::UnguessableToken invocation_id,
              ScriptToolExecutedCallback tool_executed_cb,
              base::expected<String, ScriptToolError> result) {
             if (result.has_value()) {
@@ -463,15 +519,15 @@ void ModelContext::ExecuteDeclarativeTool(
               // case we don't want to emit a toolResponded event here. The
               // new document will handle the response.
               if (!result->IsNull()) {
-                probe::WebMCPToolResponded(document, *result, execution_id);
+                probe::WebMCPToolResponded(document, *result, invocation_id);
               }
             } else {
-              probe::WebMCPToolFailed(document, result.error(), execution_id,
+              probe::WebMCPToolFailed(document, result.error(), invocation_id,
                                       /*exception=*/std::nullopt);
             }
             std::move(tool_executed_cb).Run(result);
           },
-          WrapWeakPersistent(document_.Get()), execution_id,
+          WrapWeakPersistent(document_.Get()), invocation_id,
           std::move(tool_executed_cb)));
 }
 
@@ -480,7 +536,7 @@ void ModelContext::ExecuteDeclarativeTool(
 // waits for the promise to resolve, JSON-stringifies the result, and passes
 // it to OnToolExecuted().
 bool ModelContext::ExecuteV8Tool(V8ToolExecuteCallback* tool_function,
-                                 const base::UnguessableToken& execution_id,
+                                 const base::UnguessableToken& invocation_id,
                                  const String& name,
                                  const String& input_arguments,
                                  AbortSignal* signal,
@@ -494,7 +550,7 @@ bool ModelContext::ExecuteV8Tool(V8ToolExecuteCallback* tool_function,
   ScriptValue script_value = script_object;
 
   if (try_catch.HasCaught() || script_value.IsEmpty()) {
-    OnToolFailed(std::move(tool_executed_cb), execution_id,
+    OnToolFailed(std::move(tool_executed_cb), invocation_id,
                  ScriptToolError(ScriptToolErrorCode::kInvalidInputArguments,
                                  "Failed to parse input arguments"));
     return false;
@@ -505,6 +561,12 @@ bool ModelContext::ExecuteV8Tool(V8ToolExecuteCallback* tool_function,
     result = ScriptPromise<IDLAny>::Reject(script_state,
                                            signal->reason(script_state));
   } else {
+    std::optional<scheduler::TaskAttributionTracker::TaskScope> task_scope;
+    if (auto* tracker = scheduler::TaskAttributionTracker::From(
+            script_state->GetIsolate())) {
+      task_scope = tracker->SetTaskStateVariable(
+          MakeGarbageCollected<ScriptToolContext>(invocation_id));
+    }
     v8::Maybe<ScriptPromise<IDLAny>> maybe_result =
         tool_function->Invoke(nullptr, {std::move(script_object)});
 
@@ -524,8 +586,9 @@ bool ModelContext::ExecuteV8Tool(V8ToolExecuteCallback* tool_function,
   // to ensure the abort algorithm is unregistered when the tool finishes.
   std::unique_ptr<ScopedAbortState> scoped_abort_state;
   if (signal && !signal->aborted()) {
-    auto callback = blink::BindOnce(&ModelContext::CancelTool,
-                                    WrapWeakPersistent(this), execution_id);
+    auto callback =
+        blink::BindOnce(base::IgnoreResult(&ModelContext::CancelTool),
+                        WrapWeakPersistent(this), invocation_id);
     auto* handle = signal->AddAlgorithm(std::move(callback));
     scoped_abort_state = std::make_unique<ScopedAbortState>(signal, handle);
   }
@@ -539,15 +602,16 @@ bool ModelContext::ExecuteV8Tool(V8ToolExecuteCallback* tool_function,
       },
       std::move(tool_executed_cb), std::move(scoped_abort_state));
   pending_executions_.insert(
-      String(execution_id.ToString()),
+      String(invocation_id.ToString()),
       PendingExecution{.tool_name = name,
-                       .callback = std::move(callback_wrapper)});
+                       .callback = std::move(callback_wrapper),
+                       .invocation_id = invocation_id});
 
   result.Then(script_state,
               MakeGarbageCollected<ToolFunctionFinishedCallback>(
-                  this, execution_id, true),
+                  this, invocation_id, true),
               MakeGarbageCollected<ToolFunctionFinishedCallback>(
-                  this, execution_id, false));
+                  this, invocation_id, false));
   return true;
 }
 
@@ -555,6 +619,13 @@ void ModelContext::RegisterDeclarativeTool(
     String name,
     String description,
     DeclarativeWebMCPTool* declarative_tool) {
+  if (!document_->GetExecutionContext()->IsFeatureEnabled(
+          network::mojom::PermissionsPolicyFeature::kTools)) {
+    // TODO(crbug.com/507724727) Surface an error if the `tools` permission
+    // policy is not enabled
+    return;
+  }
+
   UseCounter::Count(document_,
                     WebFeature::kModelContextRegisterDeclarativeTool);
 
@@ -566,34 +637,66 @@ void ModelContext::RegisterDeclarativeTool(
   auto* tool_data = MakeGarbageCollected<ToolData>(
       base::PassKey<ModelContext>(), std::move(script_tool), declarative_tool);
   tool_map_.insert(name, tool_data);
+  model_context_host_remote_->RegisterScriptTool(
+      tool_data->ScriptTool().Clone());
   probe::WebMCPToolAdded(document_, *tool_data);
   MaybeRecordToolCount();
-  OnToolChange();
+  OnToolChange(/*force=*/true);
 }
 
 void ModelContext::OnToolExecuted(
-    const base::UnguessableToken& execution_id,
+    const base::UnguessableToken& invocation_id,
     base::expected<String, std::pair<ScriptValue, ScriptState*>> result) {
-  auto it = pending_executions_.find(String(execution_id.ToString()));
+  auto it = pending_executions_.find(String(invocation_id.ToString()));
   if (it == pending_executions_.end()) {
     return;
   }
 
   if (result.has_value()) {
-    probe::WebMCPToolResponded(document_, result.value(), execution_id);
+    probe::WebMCPToolResponded(document_, result.value(), invocation_id);
     std::move(it->value.callback).Run(result.value());
   } else {
     ScriptToolError error(ScriptToolErrorCode::kToolInvocationFailed);
-    probe::WebMCPToolFailed(document_, error, execution_id, result.error());
+    probe::WebMCPToolFailed(document_, error, invocation_id, result.error());
     std::move(it->value.callback).Run(base::unexpected(error));
   }
   pending_executions_.erase(it);
 }
 
-void ModelContext::OnToolChange() {
-  if (tool_change_closure_) {
-    task_runner_->PostTask(FROM_HERE, *tool_change_closure_);
+void ModelContext::MaybeNotifyToolChanged() {
+  OnToolChange(/*force=*/false);
+}
+
+void ModelContext::OnToolChange(bool force) {
+  if (!tool_change_task_pending_) {
+    tool_change_task_pending_ = true;
+    task_runner_->PostTask(
+        FROM_HERE, blink::BindOnce(&ModelContext::InvokeToolChangeClosure,
+                                   WrapWeakPersistent(this), force));
   }
+}
+
+void ModelContext::InvokeToolChangeClosure(bool force) {
+  tool_change_task_pending_ = false;
+
+  bool should_fire = force;
+  for (auto& it : tool_map_) {
+    if (it.value->RefreshDeclarativeInputSchema()) {
+      should_fire = true;
+      // Synthesize removed/added events so that DevTools picks up the new
+      // schema. Newly registered tools may emit added/removed/added initially,
+      // but this is necessary for dynamic schema updates to propagate.
+      probe::WebMCPToolRemoved(document_, *it.value);
+      probe::WebMCPToolAdded(document_, *it.value);
+    }
+  }
+  if (should_fire && tool_change_closure_) {
+    (*tool_change_closure_).Run();
+  }
+  // The above closure can run script (it fires the `toolchange` on the
+  // `ModelContextTesting` interface while it exists. But even if it detaches
+  // the document, it is still safe to dispatch the event on `this` as well.
+  DispatchEvent(*Event::Create(event_type_names::kToolchange));
 }
 
 void ModelContext::MaybeRecordToolCount() {
@@ -622,6 +725,10 @@ void ModelContext::PauseExecution() {
   script_tool_host_remote_->PauseExecution();
 }
 
+void ModelContext::NotifyToolChange() {
+  OnToolChange(/*force=*/true);
+}
+
 HeapVector<Member<const ToolData>> ModelContext::ListTools() const {
   HeapVector<Member<const ToolData>> tools;
   tools.ReserveInitialCapacity(tool_map_.size());
@@ -647,11 +754,66 @@ ExecutionContext* ModelContext::GetExecutionContext() const {
   return document_ ? document_->GetExecutionContext() : nullptr;
 }
 
+const AtomicString& ModelContext::InterfaceName() const {
+  DEFINE_STATIC_LOCAL(AtomicString, name, ("ModelContext"));
+  return name;
+}
+
+ScriptPromise<IDLSequence<RegisteredTool>> ModelContext::getTools(
+    ScriptState* script_state) {
+  if (!document_->IsActive()) {
+    return ScriptPromise<IDLSequence<RegisteredTool>>::RejectWithDOMException(
+        script_state,
+        MakeGarbageCollected<DOMException>(DOMExceptionCode::kInvalidStateError,
+                                           "The document is not active."));
+  }
+
+  auto* resolver =
+      MakeGarbageCollected<ScriptPromiseResolver<IDLSequence<RegisteredTool>>>(
+          script_state);
+  ScriptPromise promise = resolver->Promise();
+
+  if (!ExecutionContext::From(script_state)
+           ->IsFeatureEnabled(
+               network::mojom::PermissionsPolicyFeature::kTools)) {
+    resolver->RejectWithSecurityError(kPermissionPolicyNotEnabledError,
+                                      kPermissionPolicyNotEnabledError);
+    return promise;
+  }
+
+  model_context_host_remote_->GetScriptTools(
+      blink::BindOnce(&ModelContext::OnGetScriptToolsCompleted,
+                      WrapWeakPersistent(this), WrapPersistent(resolver)));
+
+  return promise;
+}
+
+void ModelContext::OnGetScriptToolsCompleted(
+    ScriptPromiseResolver<IDLSequence<RegisteredTool>>* resolver,
+    Vector<mojom::blink::ScriptToolPtr> tools) {
+  HeapVector<Member<RegisteredTool>> registered_tools;
+  registered_tools.ReserveInitialCapacity(tools.size());
+
+  for (const auto& t : tools) {
+    auto* result = RegisteredTool::Create();
+    result->setName(t->name);
+    result->setDescription(t->description);
+    if (!t->input_schema.IsNull()) {
+      result->setInputSchema(t->input_schema);
+    }
+    registered_tools.push_back(result);
+  }
+
+  resolver->Resolve(registered_tools);
+}
+
 void ModelContext::Trace(Visitor* visitor) const {
-  ScriptWrappable::Trace(visitor);
+  EventTarget::Trace(visitor);
   visitor->Trace(tool_map_);
   visitor->Trace(document_);
   visitor->Trace(script_tool_host_remote_);
+  visitor->Trace(model_context_host_remote_);
+  visitor->Trace(model_context_receiver_);
 }
 
 const String& ToolData::Name() const {
@@ -670,12 +832,18 @@ void ToolData::Trace(Visitor* visitor) const {
   visitor->Trace(v8_tool_function_);
   visitor->Trace(declarative_tool_);
   visitor->Trace(source_location_);
+  visitor->Trace(abort_algorithm_handle_);
 }
 
-void ToolData::RefreshDeclarativeInputSchema() {
+bool ToolData::RefreshDeclarativeInputSchema() {
   if (declarative_tool_) {
-    script_tool_->input_schema = declarative_tool_->ComputeInputSchema();
+    String new_schema = declarative_tool_->ComputeInputSchema();
+    if (new_schema != script_tool_->input_schema) {
+      script_tool_->input_schema = new_schema;
+      return true;
+    }
   }
+  return false;
 }
 
 }  // namespace blink

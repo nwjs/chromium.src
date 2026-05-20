@@ -108,14 +108,11 @@ class SingleClientDictionaryTransportModeSyncTest
 
 IN_PROC_BROWSER_TEST_P(SingleClientDictionaryTransportModeSyncTest,
                        ShouldStartDataTypeInTransportModeIfFeatureEnabled) {
-  ASSERT_TRUE(SetupClients());
-
   // Sign in the primary account.
-  ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
+  ASSERT_TRUE(SignIn());
   // Enable history to enable DICTIONARY.
   GetSyncService(0)->GetUserSettings()->SetSelectedType(
       syncer::UserSelectableType::kHistory, true);
-
   ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
 
   // Whether or not the type is enabled in transport mode depends on the

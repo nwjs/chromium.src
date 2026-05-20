@@ -6,6 +6,7 @@
 #define COMPONENTS_SYNC_SESSIONS_SESSION_SYNC_BRIDGE_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/functional/callback_forward.h"
@@ -53,11 +54,17 @@ class SessionSyncBridge : public syncer::DataTypeSyncBridge,
 
   bool IsLocalDataOutOfSyncForTest() const;
 
+  void AddTabScreenshot(SessionID tab_id,
+                        std::string&& screenshot_data,
+                        const GURL& url);
+  void ReadTabScreenshot(
+      const std::string& session_tag,
+      SessionID tab_id,
+      base::OnceCallback<void(std::optional<std::string>)> callback);
+
   // DataTypeSyncBridge implementation.
   void OnSyncStarting(
       const syncer::DataTypeActivationRequest& request) override;
-  std::unique_ptr<syncer::MetadataChangeList> CreateMetadataChangeList()
-      override;
   std::optional<syncer::ModelError> MergeFullSyncData(
       std::unique_ptr<syncer::MetadataChangeList> metadata_change_list,
       syncer::EntityChangeList entity_data) override;

@@ -8,6 +8,7 @@
 #include "chrome/browser/actor/tools/observation_delay_controller.h"
 #include "chrome/browser/actor/tools/tool_callbacks.h"
 #include "chrome/common/actor/action_result.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
@@ -102,7 +103,7 @@ MediaControlTool::GetObservationDelayer(
 
 void MediaControlTool::UpdateTaskBeforeInvoke(ActorTask& task,
                                               ToolCallback callback) const {
-  task.AddTab(tab_handle_, std::move(callback));
+  task.AddTab(tab_handle_, /*stop_task_on_detach=*/true, std::move(callback));
 }
 
 tabs::TabHandle MediaControlTool::GetTargetTab() const {

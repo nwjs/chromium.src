@@ -17,6 +17,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "build/buildflag.h"
@@ -78,9 +79,9 @@ class NET_EXPORT_PRIVATE HttpNetworkTransaction
            int buf_len,
            CompletionOnceCallback callback) override;
   void StopCaching() override;
-  int64_t GetTotalReceivedBytes() const override;
-  int64_t GetTotalSentBytes() const override;
-  int64_t GetReceivedBodyBytes() const override;
+  base::ByteSize GetTotalReceivedBytes() const override;
+  base::ByteSize GetTotalSentBytes() const override;
+  base::ByteSize GetReceivedBodyBytes() const override;
   void DoneReading() override;
   const HttpResponseInfo* GetResponseInfo() const override;
   LoadState GetLoadState() const override;
@@ -540,7 +541,9 @@ class NET_EXPORT_PRIVATE HttpNetworkTransaction
   base::TimeTicks connected_callback_end_time_;
 
   // The number of bytes of the body received from network.
-  int64_t received_body_bytes_ = 0;
+  base::ByteSize received_body_bytes_;
+
+  base::WeakPtrFactory<HttpNetworkTransaction> weak_ptr_factory_{this};
 };
 
 }  // namespace net

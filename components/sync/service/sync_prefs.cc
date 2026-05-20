@@ -754,10 +754,15 @@ bool SyncPrefs::IsTypeSupportedInTransportMode(UserSelectableType type) {
     case UserSelectableType::kSavedTabGroups:
       return IsReplaceSyncPromosWithSignInPromosEnabled();
     case UserSelectableType::kExtensions:
-      return switches::IsExtensionsExplicitBrowserSigninEnabled();
+#if BUILDFLAG(IS_CHROMEOS)
+      return base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos);
+#else
+      return true;
+#endif  // BUILDFLAG(IS_CHROMEOS)
     case UserSelectableType::kThemes:
 #if BUILDFLAG(IS_ANDROID)
-      return false;
+      return base::FeatureList::IsEnabled(
+          syncer::kNewTabPageCustomizationThemeSync);
 #elif BUILDFLAG(IS_IOS)
       // Allow 'Themes' toggle on iOS if the feature is enabled.
       return base::FeatureList::IsEnabled(syncer::kSyncThemesIos);
@@ -1115,41 +1120,6 @@ void SyncPrefs::MigrateGlobalDataTypePrefsToAccount(PrefService* pref_service,
   pref_service->SetInteger(prefs::internal::kSyncToSigninMigrationState,
                            kMigratedPart2AndFullyDone);
 }
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-// static
-void SyncPrefs::MaybeMigrateAutofillToPerAccountPref(
-    PrefService* pref_service) {
-  if (pref_service->GetBoolean(kAutofillPerAccountPrefMigrationDone)) {
-    return;
-  }
-  pref_service->SetBoolean(kAutofillPerAccountPrefMigrationDone, true);
-
-  const GaiaId last_syncing_gaia_id(
-      pref_service->GetString(::prefs::kGoogleServicesLastSyncingGaiaId));
-  if (last_syncing_gaia_id.empty()) {
-    return;
-  }
-
-  if (pref_service->GetBoolean(prefs::internal::kSyncKeepEverythingSynced)) {
-    return;
-  }
-
-  for (auto user_selectable_type :
-       {UserSelectableType::kPasswords, UserSelectableType::kAutofill}) {
-    const char* const pref_name_for_type =
-        GetPrefNameForType(user_selectable_type);
-    if (pref_service->GetBoolean(pref_name_for_type)) {
-      continue;
-    }
-
-    SetAccountKeyedPrefDictEntry(
-        pref_service, prefs::internal::kSelectedTypesPerAccount,
-        signin::GaiaIdHash::FromGaiaId(last_syncing_gaia_id),
-        pref_name_for_type, base::Value(false));
-  }
-}
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 void SyncPrefs::MarkPartialSyncToSigninMigrationFullyDone() {
   // If the first part of the migration has run, but the second part has not,

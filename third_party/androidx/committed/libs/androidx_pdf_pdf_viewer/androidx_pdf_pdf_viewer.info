@@ -2,18 +2,12 @@
 # To regenerate, use "update_android_aar_prebuilts = true" and run "gn gen".
 
 aidl = [
-  "aidl/androidx/pdf/models/LinkRects.aidl",
-  "aidl/androidx/pdf/models/MatchRects.aidl",
-  "aidl/androidx/pdf/models/Dimensions.aidl",
-  "aidl/androidx/pdf/models/GotoLinkDestination.aidl",
-  "aidl/androidx/pdf/models/SelectionBoundary.aidl",
-  "aidl/androidx/pdf/models/GotoLink.aidl",
-  "aidl/androidx/pdf/models/PageSelection.aidl"
+  "aidl/androidx/pdf/models/Dimensions.aidl"
 ]
 assets = []
 has_classes_jar = true
 has_native_libraries = false
-has_proguard_flags = true
+has_proguard_flags = false
 has_r_text_file = true
 is_manifest_empty = false
 manifest_package = "androidx.pdf"
@@ -83,10 +77,7 @@ resources = [
   "res/drawable/selection_drag_handle_left.xml",
   "res/drawable/page_indicator_background.xml",
   "res/drawable/fastscroll_background.xml",
-  "res/drawable/tooltip_bottom_center.xml",
-  "res/drawable/tooltip_bottom_right.xml",
   "res/drawable/keyboard_up.xml",
-  "res/drawable/tooltip_top_left.xml",
   "res/drawable/shape_textbox.xml",
   "res/drawable/shape_find_in_file.xml",
   "res/drawable/selection_drag_handle_right.xml",
@@ -94,27 +85,21 @@ resources = [
   "res/drawable/drag_indicator.xml",
   "res/drawable/close_button.xml",
   "res/drawable/shape_oval.xml",
-  "res/drawable/tooltip_bottom_left.xml",
-  "res/drawable/tooltip_top_center.xml",
-  "res/drawable/tooltip_top_right.xml",
   "res/drawable/keyboard_down.xml",
   "res/drawable/fast_scroll_thumb_drawable.xml",
   "res/values-gu/values-gu.xml",
   "res/values-te/values-te.xml",
   "res/values-tr/values-tr.xml",
+  "res/values-v31/values-v31.xml",
   "res/values-bs/values-bs.xml",
   "res/values-kn/values-kn.xml",
   "res/values-am/values-am.xml",
-  "res/layout/pdf_viewer_container.xml",
-  "res/layout/file_viewer_pdf.xml",
   "res/layout/find_in_file.xml",
   "res/layout/pdf_search_view.xml",
-  "res/layout/search.xml",
   "res/layout/tool_box_view.xml",
   "res/layout/pdf_content_layout.xml",
   "res/layout/dialog_password.xml",
   "res/layout/page_indicator.xml",
-  "res/layout/pdf_view_container.xml",
   "res/layout/loading_view.xml",
   "res/layout/loading_animation.xml",
   "res/layout/fastscroll_handle.xml",

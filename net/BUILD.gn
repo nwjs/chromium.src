@@ -28,16 +28,6 @@ if (is_android) {
   import("//build/config/ios/bundle_data_from_filelist.gni")
 }
 
-# Android:
-# The way the cache uses mmap() is inefficient on some Android devices. If
-# this flag is set, we hackily avoid using mmap() in the disk cache. We are
-# pretty confident that mmap-ing the index would not hurt any existing x86
-# android devices, but we cannot be so sure about the variety of ARM devices.
-# So enable it for x86 only for now.
-# Fuchsia:
-# Writable mmap isn't supported on Fuchsia, so it should be bypassed.
-posix_bypass_mmap = (is_android && current_cpu != "x86") || is_fuchsia
-
 enable_built_in_dns = use_blink
 
 # TODO(droger): Support client auth on iOS. See http://crbug.com/145954).
@@ -93,7 +83,6 @@ config("net_test_config") {
 buildflag_header("buildflags") {
   header = "net_buildflags.h"
   flags = [
-    "POSIX_BYPASS_MMAP=$posix_bypass_mmap",
     "DISABLE_FILE_SUPPORT=$disable_file_support",
     "ENABLE_MDNS=$enable_mdns",
     "ENABLE_REPORTING=$enable_reporting",
@@ -1129,6 +1118,8 @@ component("net") {
     "ssl/client_cert_store.h",
     "ssl/client_cert_store_empty.cc",
     "ssl/client_cert_store_empty.h",
+    "ssl/crypto_private_key.cc",
+    "ssl/crypto_private_key.h",
     "ssl/openssl_private_key.cc",
     "ssl/openssl_private_key.h",
     "ssl/openssl_ssl_util.cc",
@@ -1166,6 +1157,7 @@ component("net") {
     "storage_access_api/status.h",
     "url_request/clear_site_data.cc",
     "url_request/clear_site_data.h",
+    "url_request/device_bound_session_mode.h",
     "url_request/redirect_info.cc",
     "url_request/redirect_info.h",
     "url_request/redirect_util.cc",
@@ -1562,11 +1554,7 @@ component("net") {
     if (!is_ios) {
       sources += [ "disk_cache/blockfile/file_posix.cc" ]
     }
-    if (posix_bypass_mmap) {
-      sources += [ "disk_cache/blockfile/mapped_file_bypass_mmap_posix.cc" ]
-    } else {
-      sources += [ "disk_cache/blockfile/mapped_file_posix.cc" ]
-    }
+    sources += [ "disk_cache/blockfile/mapped_file_posix.cc" ]
   }
 
   if (is_android || is_chromeos || is_linux) {
@@ -1888,6 +1876,10 @@ component("net") {
       "disk_cache/sql/exclusive_operation_coordinator.cc",
       "disk_cache/sql/exclusive_operation_coordinator.h",
       "disk_cache/sql/indexed_pair_set.h",
+      "disk_cache/sql/sql_async_task_manager.cc",
+      "disk_cache/sql/sql_async_task_manager.h",
+      "disk_cache/sql/sql_async_task_token.cc",
+      "disk_cache/sql/sql_async_task_token.h",
       "disk_cache/sql/sql_backend_aliases.h",
       "disk_cache/sql/sql_backend_constants.h",
       "disk_cache/sql/sql_backend_impl.cc",
@@ -1905,6 +1897,10 @@ component("net") {
       "disk_cache/sql/sql_persistent_store_queries.h",
       "disk_cache/sql/sql_read_cache_memory_monitor.cc",
       "disk_cache/sql/sql_read_cache_memory_monitor.h",
+      "disk_cache/sql/sql_shared_cache_index_database.cc",
+      "disk_cache/sql/sql_shared_cache_index_database.h",
+      "disk_cache/sql/sql_shared_cache_index_database_queries.h",
+      "disk_cache/sql/sql_tracked_sequence_bound.h",
       "disk_cache/sql/sql_write_buffer_memory_monitor.cc",
       "disk_cache/sql/sql_write_buffer_memory_monitor.h",
     ]
@@ -2822,8 +2818,11 @@ target(_test_target_type, "net_unittests") {
     "base/does_url_match_filter_unittest.cc",
     "base/elements_upload_data_stream_unittest.cc",
     "base/expiring_cache_unittest.cc",
+    "base/fake_proxy_delegate.cc",
+    "base/fake_proxy_delegate.h",
     "base/file_stream_unittest.cc",
     "base/filename_util_unittest.cc",
+    "base/hash_value_unittest.cc",
     "base/host_mapping_rules_unittest.cc",
     "base/host_port_pair_unittest.cc",
     "base/interval_test.cc",
@@ -3028,6 +3027,7 @@ target(_test_target_type, "net_unittests") {
     "proxy_resolution/proxy_host_matching_rules_unittest.cc",
     "proxy_resolution/proxy_info_unittest.cc",
     "proxy_resolution/proxy_list_unittest.cc",
+    "proxy_resolution/system_proxy_resolution_service_unittest-inl.h",
     "quic/bidirectional_stream_quic_impl_unittest.cc",
     "quic/crypto/proof_test_chromium.cc",
     "quic/crypto/proof_verifier_chromium_test.cc",
@@ -3133,6 +3133,7 @@ target(_test_target_type, "net_unittests") {
     "spdy/spdy_write_queue_unittest.cc",
     "ssl/client_cert_identity_unittest.cc",
     "ssl/client_cert_store_unittest-inl.h",
+    "ssl/crypto_private_key_unittest.cc",
     "ssl/openssl_private_key_unittest.cc",
     "ssl/ssl_cipher_suite_names_unittest.cc",
     "ssl/ssl_client_auth_cache_unittest.cc",
@@ -3203,6 +3204,7 @@ target(_test_target_type, "net_unittests") {
   if (is_mac) {
     sources += [
       "cert/internal/trust_store_mac_unittest.cc",
+      "proxy_resolution/mac/mac_system_proxy_resolution_service_unittest.cc",
       "socket/ephemeral_port_randomizer_mac_unittest.cc",
       "ssl/client_cert_store_mac_unittest.cc",
       "ssl/ssl_platform_key_mac_unittest.cc",
@@ -3633,16 +3635,24 @@ target(_test_target_type, "net_unittests") {
       "disk_cache/sql/eviction_candidate_aggregator_unittest.cc",
       "disk_cache/sql/exclusive_operation_coordinator_unittest.cc",
       "disk_cache/sql/indexed_pair_set_unittest.cc",
+      "disk_cache/sql/sql_async_task_manager_unittest.cc",
       "disk_cache/sql/sql_backend_impl_unittest.cc",
       "disk_cache/sql/sql_persistent_store_in_memory_index_unittest.cc",
       "disk_cache/sql/sql_persistent_store_unittest.cc",
+      "disk_cache/sql/sql_shared_cache_index_database_unittest.cc",
+      "disk_cache/sql/sql_tracked_sequence_bound_unittest.cc",
+      "disk_cache/sql/test_util.cc",
+      "disk_cache/sql/test_util.h",
     ]
 
     deps += [ "//components/performance_manager/scenario_api:test_support" ]
 
     # Platforms where sqlite_dev_shell is defined.
     if (is_win || is_mac || is_linux || is_chromeos) {
-      sources += [ "disk_cache/sql/sql_persistent_store_queries_unittest.cc" ]
+      sources += [
+        "disk_cache/sql/sql_persistent_store_queries_unittest.cc",
+        "disk_cache/sql/sql_shared_cache_index_database_queries_unittest.cc",
+      ]
       data_deps += [ "//third_party/sqlite:sqlite_dev_shell" ]
     }
   }

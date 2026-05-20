@@ -39,6 +39,9 @@ namespace affiliations {
 // later used to fetch change password urls properly.
 BASE_DECLARE_FEATURE(kCachePSLExtensions);
 
+// Enables fetching patterns for change password URLs.
+BASE_DECLARE_FEATURE(kFetchChangePasswordPatterns);
+
 extern const char kGetChangePasswordURLMetricName[];
 
 // Change password info request requires branding_info enabled.
@@ -69,8 +72,16 @@ enum class GetChangePasswordUrlMetric {
 class AffiliationServiceImpl : public AffiliationService {
  public:
   struct ChangePasswordUrlMatch {
+    ChangePasswordUrlMatch();
+    ChangePasswordUrlMatch(const ChangePasswordUrlMatch& other);
+    ChangePasswordUrlMatch(ChangePasswordUrlMatch&& other);
+    ChangePasswordUrlMatch& operator=(const ChangePasswordUrlMatch& other);
+    ChangePasswordUrlMatch& operator=(ChangePasswordUrlMatch&& other);
+    ~ChangePasswordUrlMatch();
+
     GURL change_password_url;
-    bool main_domain_override;
+    bool main_domain_override = false;
+    std::vector<ChangePasswordPattern> patterns;
   };
 
   explicit AffiliationServiceImpl(
@@ -89,12 +100,10 @@ class AffiliationServiceImpl : public AffiliationService {
   // Shutdowns the service by deleting its backend.
   void Shutdown() override;
 
-  // Prefetches change password URLs and saves them to |change_password_urls_|
-  // map. Creates a unique fetcher and appends it to |pending_fetches_|
-  // along with |urls| and |callback|. When prefetch is finished or a fetcher
-  // gets destroyed as a result of Clear() a callback is run.
-  void PrefetchChangePasswordURL(const GURL& url,
-                                 base::OnceClosure callback) override;
+  // Fetches change password URLs and saves them to |change_password_urls_|
+  // map. Creates a unique fetcher. When fetch is finished a callback is run.
+  void FetchChangePasswordURL(const GURL& url,
+                              base::OnceCallback<void(GURL)> callback) override;
 
   // In case no valid URL was found, a method returns an empty URL.
   GURL GetChangePasswordURL(const GURL& url) const override;
@@ -149,7 +158,7 @@ class AffiliationServiceImpl : public AffiliationService {
                                   std::forward<Args>(args)...));
   }
 
-  void OnFetchFinished(const FetchInfo& fetch_info,
+  void OnFetchFinished(FetchInfo fetch_info,
                        AffiliationFetcherInterface::FetchResult fetch_result);
 
   void OnPSLExtensionsLoaded(

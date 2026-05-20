@@ -122,6 +122,7 @@ suite('AppContent', () => {
 
   test('new content updates padding for line focus', async () => {
     chrome.readingMode.isLineFocusEnabled = true;
+    app.connectedCallback();
     emitEvent(
         app, ToolbarEvent.LINE_FOCUS_MOVEMENT,
         {detail: {data: LineFocusMovement.STATIC}});
@@ -141,6 +142,7 @@ suite('AppContent', () => {
       'new content does not update padding for line focus with flag disabled',
       async () => {
         chrome.readingMode.isLineFocusEnabled = false;
+        app.connectedCallback();
         emitEvent(
             app, ToolbarEvent.LINE_FOCUS_MOVEMENT,
             {detail: {data: LineFocusMovement.CURSOR}});
@@ -160,6 +162,7 @@ suite('AppContent', () => {
       'new content does not update padding for line focus with line focus off',
       async () => {
         chrome.readingMode.isLineFocusEnabled = true;
+        app.connectedCallback();
         emitEvent(
             app, ToolbarEvent.LINE_FOCUS_MOVEMENT,
             {detail: {data: LineFocusMovement.STATIC}});
@@ -216,6 +219,22 @@ suite('AppContent', () => {
     keyDownOn(app, 0, undefined, 'l');
     await microtasksFinished();
     assertLT(0, getLineFocusPadding());
+  });
+
+  test('line focus only shows on content', async () => {
+    chrome.readingMode.isLineFocusEnabled = true;
+
+    contentController.setState(ContentType.NO_CONTENT);
+    await microtasksFinished();
+    assertTrue(app.$.lineFocus.hasAttribute('hidden'));
+
+    contentController.setState(ContentType.LOADING);
+    await microtasksFinished();
+    assertTrue(app.$.lineFocus.hasAttribute('hidden'));
+
+    contentController.setState(ContentType.HAS_CONTENT);
+    await microtasksFinished();
+    assertFalse(app.$.lineFocus.hasAttribute('hidden'));
   });
 
   test('showLoading shows spinner', async () => {
@@ -408,6 +427,20 @@ suite('AppContent', () => {
               1, callCount,
               'updateContentForReadability() should have been called');
         });
+
+    test('calls contentController to send rendered blocks', async () => {
+      chrome.readingMode.isReadabilitySelectTextEnabled = true;
+      let blocksCalled = false;
+      contentController.onRenderedTextBlocksAvailable = (container) => {
+        assertEquals(app.$.container, container);
+        blocksCalled = true;
+      };
+
+      app.updateContent();
+      await microtasksFinished();
+
+      assertTrue(blocksCalled);
+    });
   });
 
   suite('on links toggle', () => {

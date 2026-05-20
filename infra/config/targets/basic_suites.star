@@ -509,7 +509,7 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
-    name = "chromium_webkit_isolated_scripts",
+    name = "chromium_blink_isolated_scripts",
     tests = {
         "blink_web_tests": targets.legacy_test_config(
             swarming = targets.swarming(
@@ -559,7 +559,6 @@ targets.legacy_basic_suite(
         "content_browsertests": targets.legacy_test_config(),
         "content_unittests": targets.legacy_test_config(),
         "device_unittests": targets.legacy_test_config(),
-        "extensions_browsertests": targets.legacy_test_config(),
         "extensions_unittests": targets.legacy_test_config(),
         "gcm_unit_tests": targets.legacy_test_config(),
         "gin_unittests": targets.legacy_test_config(),
@@ -1217,7 +1216,6 @@ targets.legacy_basic_suite(
         ),
         "chrome_app_unittests": targets.legacy_test_config(),
         "chromedriver_unittests": targets.legacy_test_config(),
-        "extensions_browsertests": targets.legacy_test_config(),
         "extensions_unittests": targets.legacy_test_config(),
         "filesystem_service_unittests": targets.legacy_test_config(),  # https://crbug.com/862712
         "interactive_ui_tests": targets.legacy_test_config(

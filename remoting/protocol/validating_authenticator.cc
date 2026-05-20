@@ -15,7 +15,6 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "remoting/protocol/authenticator.h"
-#include "remoting/protocol/channel_authenticator.h"
 
 namespace remoting::protocol {
 
@@ -69,11 +68,6 @@ const SessionPolicies* ValidatingAuthenticator::GetSessionPolicies() const {
   return current_authenticator_->GetSessionPolicies();
 }
 
-std::unique_ptr<ChannelAuthenticator>
-ValidatingAuthenticator::CreateChannelAuthenticator() const {
-  return current_authenticator_->CreateChannelAuthenticator();
-}
-
 void ValidatingAuthenticator::ProcessMessage(
     const JingleAuthentication& message,
     base::OnceClosure resume_callback) {
@@ -95,7 +89,12 @@ JingleAuthentication ValidatingAuthenticator::GetNextMessage() {
     return result;
   }
 
+  auto self = weak_factory_.GetWeakPtr();
   JingleAuthentication result = current_authenticator_->GetNextMessage();
+  if (!self) {
+    return result;
+  }
+
   state_ = current_authenticator_->state();
   DCHECK(state_ == ACCEPTED || state_ == WAITING_MESSAGE);
 

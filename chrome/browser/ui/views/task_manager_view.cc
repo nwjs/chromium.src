@@ -22,9 +22,9 @@
 #include "chrome/browser/task_manager/task_manager_interface.h"
 #include "chrome/browser/task_manager/task_manager_observer.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/task_manager/task_manager_columns.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
@@ -189,7 +189,7 @@ bool TaskManagerView::IsColumnVisible(int column_id) const {
 bool TaskManagerView::SetColumnVisibility(int column_id, bool new_visibility) {
   // Check if there is at least 1 visible column before changing the visibility.
   // If this column would be the last column to be visible and its hiding, then
-  // prevent this column visibility change. see crbug.com/1320307 for details.
+  // prevent this column visibility change. see crbug.com/40836680 for details.
   if (!new_visibility && tab_table_->visible_columns().size() <= 1) {
     return false;
   }

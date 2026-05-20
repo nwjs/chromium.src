@@ -190,6 +190,10 @@ BASE_FEATURE_PARAM(int,
                    "timeout_ms",
                    kDefaultImmediateMediationTimeoutMs);
 
+// Enabled by default in M149. Remove in or after M152.
+BASE_FEATURE(kWebAuthnIWARemoteDesktopAllowedOriginsPolicy,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Deprecation flag. Disabled by default in M142. Remove in or after M145.
 BASE_FEATURE(kWebAuthnSendPinGeneration,
              "WebAuthenticationSendPinGeneration",
@@ -231,10 +235,10 @@ BASE_FEATURE(kWebAuthnHmacSecretMcExtension, base::FEATURE_ENABLED_BY_DEFAULT);
 // Not yet enabled by default.
 BASE_FEATURE(kFedCmInAuthenticator, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Not yet enabled by default.
+// Enabled by default in M149. Remove in or after M152.
 COMPONENT_EXPORT(FIDO_PUBLIC)
 BASE_FEATURE(kWebAuthnCreatePinWhenSystemUvDisabled,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)
 // Enabled by default in M147. Remove in or after M150.

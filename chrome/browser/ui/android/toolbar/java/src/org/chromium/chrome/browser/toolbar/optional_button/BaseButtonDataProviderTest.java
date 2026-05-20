@@ -4,17 +4,19 @@
 
 package org.chromium.chrome.browser.toolbar.optional_button;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
-import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.view.View;
 
 import androidx.annotation.Nullable;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -35,6 +37,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarFeatures;
+import org.chromium.chrome.browser.toolbar.optional_button.ButtonData.ButtonSpec;
 import org.chromium.chrome.browser.user_education.IphCommandBuilder;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -58,13 +61,10 @@ public class BaseButtonDataProviderTest {
             super(
                     activeTabSupplier,
                     modalDialogManager,
-                    buttonDrawable,
-                    contentDescription,
-                    actionChipLabelResId,
-                    supportsTinting,
-                    /* iphCommandBuilder= */ null,
-                    adaptiveButtonVariant,
-                    /* tooltipTextResId= */ Resources.ID_NULL);
+                    new ButtonSpec.Builder(buttonDrawable, contentDescription, supportsTinting)
+                            .setActionChipLabelResId(actionChipLabelResId)
+                            .setButtonVariant(adaptiveButtonVariant)
+                            .build());
         }
 
         @Override
@@ -115,7 +115,7 @@ public class BaseButtonDataProviderTest {
         ButtonData buttonData = testButtonDataProvider.get(mMockTab);
 
         // Quiet variation uses an IphCommandBuilder to highlight the action.
-        Assert.assertNotNull(buttonData.getButtonSpec().getIphCommandBuilder());
+        assertNotNull(buttonData.getButtonSpec().getIphCommandBuilder());
     }
 
     @Test
@@ -136,7 +136,7 @@ public class BaseButtonDataProviderTest {
         ButtonData buttonData = testButtonDataProvider.get(mMockTab);
 
         // Action chip variation should not set an IPH command builder.
-        Assert.assertNull(buttonData.getButtonSpec().getIphCommandBuilder());
+        assertNull(buttonData.getButtonSpec().getIphCommandBuilder());
     }
 
     @Test
@@ -155,7 +155,7 @@ public class BaseButtonDataProviderTest {
 
         ButtonData buttonDataIncognitoTab = testButtonDataProvider.get(mMockTab);
 
-        Assert.assertFalse(buttonDataIncognitoTab.canShow());
+        assertFalse(buttonDataIncognitoTab.canShow());
     }
 
     @Test
@@ -175,6 +175,6 @@ public class BaseButtonDataProviderTest {
 
         ButtonData buttonDataIncognitoTab = testButtonDataProvider.get(mMockTab);
 
-        Assert.assertTrue(buttonDataIncognitoTab.canShow());
+        assertTrue(buttonDataIncognitoTab.canShow());
     }
 }

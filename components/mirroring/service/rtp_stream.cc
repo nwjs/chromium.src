@@ -71,10 +71,9 @@ void VideoRtpStream::InsertVideoFrame(
   }
 
   // Used by chrome/browser/media/cast_mirroring_performance_browsertest.cc
-  TRACE_EVENT_INSTANT2("cast_perf_test", "ConsumeVideoFrame",
-                       TRACE_EVENT_SCOPE_THREAD, "timestamp",
-                       (reference_time - base::TimeTicks()).InMicroseconds(),
-                       "time_delta", video_frame->timestamp().InMicroseconds());
+  TRACE_EVENT_INSTANT("cast_perf_test", "ConsumeVideoFrame", "timestamp",
+                      (reference_time - base::TimeTicks()).InMicroseconds(),
+                      "time_delta", video_frame->timestamp().InMicroseconds());
 
   video_sender_->InsertRawVideoFrame(std::move(video_frame), reference_time);
 }
@@ -85,6 +84,19 @@ void VideoRtpStream::SetTargetPlayoutDelay(base::TimeDelta playout_delay) {
 
 base::TimeDelta VideoRtpStream::GetTargetPlayoutDelay() const {
   return video_sender_->GetTargetPlayoutDelay();
+}
+
+base::DictValue VideoRtpStream::GetStats() const {
+  base::DictValue stats;
+  // Convert bits per second to kilobits per second.
+  stats.Set("TARGET_BITRATE", video_sender_->GetEncoderBitrate() / 1000.0);
+  // Convert 0.0-1.0 to 0%-100%.
+  stats.Set("ENCODER_UTILIZATION",
+            video_sender_->GetEncoderUtilization() * 100.0);
+  stats.Set("LOSSINESS", video_sender_->GetLossiness() * 100.0);
+  stats.Set("FRAMES_INSERTED", video_sender_->GetFramesInserted());
+  stats.Set("FRAMES_DROPPED", video_sender_->GetFramesDropped());
+  return stats;
 }
 
 void VideoRtpStream::OnRefreshTimerFired() {
@@ -129,6 +141,13 @@ base::TimeDelta AudioRtpStream::GetTargetPlayoutDelay() const {
 
 int AudioRtpStream::GetEncoderBitrate() const {
   return audio_sender_->GetEncoderBitrate();
+}
+
+base::DictValue AudioRtpStream::GetStats() const {
+  base::DictValue stats;
+  stats.Set("FRAMES_INSERTED", audio_sender_->GetFramesInserted());
+  stats.Set("FRAMES_DROPPED", audio_sender_->GetFramesDropped());
+  return stats;
 }
 
 }  // namespace mirroring

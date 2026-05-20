@@ -935,6 +935,10 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker] interface GPUValidationError : GPUError
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
+[Worker] interface GeolocationPermissionStatus : PermissionStatus
+[Worker]     attribute @@toStringTag
+[Worker]     getter accuracyMode
+[Worker]     method constructor
 [Worker] interface Headers
 [Worker]     attribute @@toStringTag
 [Worker]     method @@iterator
@@ -3420,6 +3424,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker] interface WebTransport
 [Worker]     attribute @@toStringTag
 [Worker]     getter closed
+[Worker]     getter congestionControl
 [Worker]     getter datagrams
 [Worker]     getter incomingBidirectionalStreams
 [Worker]     getter incomingUnidirectionalStreams
@@ -3459,6 +3464,14 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
 [Worker]     method getStats
+[Worker] interface WebTransportSendStream : WritableStream
+[Worker]     attribute @@toStringTag
+[Worker]     getter sendGroup
+[Worker]     getter sendOrder
+[Worker]     method constructor
+[Worker]     method getStats
+[Worker]     setter sendGroup
+[Worker]     setter sendOrder
 [Worker] interface WorkerGlobalScope : EventTarget
 [Worker]     attribute @@toStringTag
 [Worker]     getter caches

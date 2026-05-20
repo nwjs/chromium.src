@@ -25,15 +25,15 @@ function createTestTab(domain, callback) {
   let createdTabId = -1;
   const done =
       listenForever(chrome.tabs.onUpdated, function(tabId, changeInfo, tab) {
-        if (tabId == createdTabId && changeInfo.status != 'loading') {
+        if (tabId === createdTabId && changeInfo.status !== 'loading') {
           callback(tab);
           done();
         }
       });
 
   chrome.tabs.create({url: testUrl(domain)}, pass(function(tab) {
-    createdTabId = tab.id;
-  }));
+                       createdTabId = tab.id;
+                     }));
 }
 
 chrome.test.getConfig(function(config) {
@@ -44,11 +44,11 @@ chrome.test.getConfig(function(config) {
     // inject content scripts.
     function noAccess() {
       createTestTab('a.com', pass(function(tab) {
-        testTabId = tab.id;
-        chrome.tabs.executeScript(
-            tab.id, {code: `document.title = 'success'`},
-            callbackFail(error('a.com')));
-      }));
+                      testTabId = tab.id;
+                      chrome.tabs.executeScript(
+                          tab.id, {code: `document.title = 'success'`},
+                          callbackFail(error('a.com')));
+                    }));
     },
 
     // Add the host permission and see if we can inject a content script into
@@ -105,6 +105,6 @@ chrome.test.getConfig(function(config) {
                                             }));
                           }));
                     }));
-    }
+    },
   ]);
 });

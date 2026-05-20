@@ -74,8 +74,8 @@ class ChromeLabsTestHelper {
     views::test::WaitForAnimatingLayoutManager(
         static_cast<PinnedToolbarActionsContainer*>(
             BrowserView::GetBrowserViewForBrowser(browser)
-                ->toolbar()
-                ->pinned_toolbar_actions()));
+                ->toolbar_button_provider()
+                ->GetPinnedToolbarActions()));
   }
 
   // Clicks the Chrome Labs button to show the bubble.
@@ -145,7 +145,7 @@ class ChromeLabsUiTest : public DialogBrowserTest {
   }
   void ShowUi(const std::string& name) override {
     // Bubble bounds may exceed display's work area.
-    // https://crbug.com/893292
+    // https://crbug.com/41419544
     set_should_verify_dialog_bounds(false);
     helper_->ShowChromeLabsBubble(browser());
   }
@@ -190,15 +190,13 @@ class ChromeLabsMultipleFeaturesUiTest : public DialogBrowserTest {
   }
   void ShowUi(const std::string& name) override {
     // Bubble bounds may exceed display's work area.
-    // https://crbug.com/893292
+    // https://crbug.com/41419544
     set_should_verify_dialog_bounds(false);
     helper_->ShowChromeLabsBubble(browser());
 
     // Scroll to a little after the dialog inset to ensure that scrolling does
     // not make the contents too close to the title.
-    browser()
-        ->GetFeatures()
-        .chrome_labs_coordinator()
+    ChromeLabsCoordinator::From(browser())
         ->GetChromeLabsBubbleView()
         ->GetScrollViewForTesting()
         ->ScrollByOffset(

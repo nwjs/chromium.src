@@ -14,8 +14,6 @@
 #include "partition_alloc/buildflags.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
 #include "partition_alloc/partition_alloc_base/component_export.h"
-#include "partition_alloc/partition_alloc_base/numerics/checked_math.h"
-#include "partition_alloc/partition_alloc_base/numerics/safe_conversions.h"
 
 namespace partition_alloc {
 
@@ -69,19 +67,14 @@ bool IsExtentOutOfBounds(const void* ptr,
                          size_t extent_bytes,
                          size_t type_size);
 
-// Suitable for external callers. Has the same caveats as
-// `IsExtentOutOfBounds()` (but inverted).
-//
-// Given a `T* elems` and a max `index`, call
-// ```
-// CHECK(IsExtentInBounds(elems, index));
-// ```
-template <typename T>
-bool IsExtentInBounds(const T* ptr,
-                      internal::base::StrictNumeric<size_t> index) {
-  internal::base::CheckedNumeric<size_t> size_bytes = index;
-  size_bytes *= sizeof(T);
-  return !IsExtentOutOfBounds(ptr, size_bytes.ValueOrDie(), sizeof(T));
+PA_ALWAYS_INLINE
+bool IsExtentOutOfBounds(const volatile void* ptr,
+                         size_t extent_bytes,
+                         size_t type_size) {
+  // This const cast is safe because we never actually dereference
+  // `ptr`. Therefore we don't care that it points to volatile.
+  return IsExtentOutOfBounds(const_cast<const void*>(ptr), extent_bytes,
+                             type_size);
 }
 
 }  // namespace partition_alloc

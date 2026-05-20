@@ -13,8 +13,9 @@
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/account_id/account_id.h"
@@ -55,7 +56,9 @@ void CreateAndStartUserSession(const AccountId& account_id) {
 
 // Give the underlying function a clearer name.
 Browser* GetLastActiveBrowser() {
-  return chrome::FindLastActive();
+  BrowserWindowInterface* bwi =
+      GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
+  return bwi ? bwi->GetBrowserForMigrationOnly() : nullptr;
 }
 
 }  // namespace
@@ -66,7 +69,7 @@ using ChromeNewWindowClientBrowserTest = InProcessBrowserTest;
 // current active window's profile to determine on which profile's desktop we
 // should open a new window.
 //
-// Test is flaky. See https://crbug.com/884118
+// Test is flaky. See https://crbug.com/41413832
 IN_PROC_BROWSER_TEST_F(ChromeNewWindowClientBrowserTest,
                        DISABLED_NewWindowForActiveWindowProfileTest) {
   CreateAndStartUserSession(
@@ -119,21 +122,21 @@ IN_PROC_BROWSER_TEST_F(ChromeNewWindowClientBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(ChromeNewWindowClientBrowserTest, IncognitoDisabled) {
   Profile* profile = ProfileManager::GetActiveUserProfile();
-  EXPECT_EQ(1u, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1u, GlobalBrowserCollection::GetInstance()->GetSize());
 
   // Disabling incognito mode disables creation of new incognito windows.
   IncognitoModePrefs::SetAvailability(
       profile->GetPrefs(), policy::IncognitoModeAvailability::kDisabled);
   ChromeNewWindowClient::Get()->NewWindow(
       /*incognito=*/true, /*should_trigger_session_restore=*/true);
-  EXPECT_EQ(1u, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(1u, GlobalBrowserCollection::GetInstance()->GetSize());
 
   // Enabling incognito mode enables creation of new incognito windows.
   IncognitoModePrefs::SetAvailability(
       profile->GetPrefs(), policy::IncognitoModeAvailability::kEnabled);
   ChromeNewWindowClient::Get()->NewWindow(
       /*incognito=*/true, /*should_trigger_session_restore=*/true);
-  EXPECT_EQ(2u, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_TRUE(GetLastActiveBrowser()->profile()->IsIncognitoProfile());
 }
 
@@ -150,7 +153,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNewWindowClientBrowserTest, IncognitoForced) {
 
   // NewTab should open a new browser window in Incognito
   ChromeNewWindowClient::Get()->NewTab();
-  EXPECT_EQ(2u, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
 
   Browser* incognito_browser = GetLastActiveBrowser();
   EXPECT_TRUE(incognito_browser->profile()->IsIncognitoProfile());
@@ -159,6 +162,6 @@ IN_PROC_BROWSER_TEST_F(ChromeNewWindowClientBrowserTest, IncognitoForced) {
   incognito_browser->window()->Deactivate();
   regular_browser->window()->Deactivate();
   ChromeNewWindowClient::Get()->NewTab();
-  EXPECT_EQ(2u, chrome::GetTotalBrowserCount());
+  EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_EQ(2, incognito_browser->tab_strip_model()->count());
 }

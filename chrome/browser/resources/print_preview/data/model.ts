@@ -10,9 +10,10 @@ import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import type {Policies} from '../native_layer.js';
 import {BackgroundGraphicsModeRestriction} from '../native_layer.js';
+import type {Range} from '../print_preview_utils.js';
 
 import type {CapabilityWithReset, Cdd, CddCapabilities, ColorOption, DpiOption, DuplexOption, MediaSizeOption} from './cdd.js';
-import {DuplexType} from './cdd.js';
+import {DuplexType, VendorCapabilityType} from './cdd.js';
 import type {Destination, RecentDestination} from './destination.js';
 import {DestinationOrigin, PrinterType} from './destination.js';
 import {createDocumentSettings} from './document_info.js';
@@ -20,6 +21,7 @@ import type {DocumentSettings} from './document_info.js';
 import type {Margins, MarginsSetting} from './margins.js';
 import {CustomMarginsOrientation, MarginsType} from './margins.js';
 import {Observable, setValueAtPath} from './observable.js';
+import type {Indexable} from './observable.js';
 import {ScalingType} from './scaling.js';
 import {Size} from './size.js';
 
@@ -28,9 +30,9 @@ import {Size} from './size.js';
  * setting, or an empty string if the setting should not be saved in the
  * serialized state.
  */
-export interface Setting {
-  value: any;
-  unavailableValue: any;
+export interface Setting<T> {
+  value: T;
+  unavailableValue: T;
   valid: boolean;
   available: boolean;
   // This property is set to true when this setting has a single value allowed
@@ -39,36 +41,41 @@ export interface Setting {
   // The property is set to false otherwise.
   setByGlobalPolicy: boolean;
   setFromUi: boolean;
-  key: string;
+  key: keyof SerializedSettings|'';
   updatesPreview: boolean;
-  policyDefaultValue?: any;
+  policyDefaultValue?: T;
 }
 
 export interface Settings {
-  pages: Setting;
-  copies: Setting;
-  collate: Setting;
-  layout: Setting;
-  color: Setting;
-  customMargins: Setting;
-  mediaSize: Setting;
-  margins: Setting;
-  dpi: Setting;
-  scaling: Setting;
-  scalingType: Setting;
-  scalingTypePdf: Setting;
-  duplex: Setting;
-  duplexShortEdge: Setting;
-  cssBackground: Setting;
-  selectionOnly: Setting;
-  headerFooter: Setting;
-  rasterize: Setting;
-  vendorItems: Setting;
-  otherOptions: Setting;
-  ranges: Setting;
-  pagesPerSheet: Setting;
-  recentDestinations: Setting;
+  pages: Setting<number[]>;
+  copies: Setting<number>;
+  collate: Setting<boolean>;
+  layout: Setting<boolean>;
+  color: Setting<boolean>;
+  // TODO(crbug.com/494464740) Change to Setting<MarginsSetting>.
+  customMargins: Setting<any>;
+  // TODO(crbug.com/494464740) Change to Setting<MediaSizeValue>.
+  mediaSize: Setting<any>;
+  margins: Setting<MarginsType>;
+  // TODO(crbug.com/494464740) Change to Setting<DpiOption>.
+  dpi: Setting<any>;
+  scaling: Setting<string>;
+  scalingType: Setting<ScalingType>;
+  scalingTypePdf: Setting<ScalingType>;
+  duplex: Setting<boolean>;
+  duplexShortEdge: Setting<boolean>;
+  cssBackground: Setting<boolean>;
+  selectionOnly: Setting<boolean>;
+  headerFooter: Setting<boolean>;
+  rasterize: Setting<boolean>;
+  vendorItems: Setting<Record<string, string>>;
+  otherOptions: Setting<null>;
+  ranges: Setting<Range[]>;
+  pagesPerSheet: Setting<number>;
+  recentDestinations: Setting<RecentDestination[]>;
 }
+
+type IndexableSettings = Indexable<Settings>;
 
 export interface SerializedSettings {
   version: number;
@@ -90,41 +97,47 @@ export interface SerializedSettings {
   vendorOptions?: object;
 }
 
-export interface PolicyEntry {
-  value: any;
+export interface PolicyEntry<T> {
+  value: T;
   managed: boolean;
   applyOnDestinationUpdate: boolean;
 }
 
 export interface PolicyObjectEntry {
-  defaultMode?: any;
-  allowedMode?: any;
+  defaultMode?: unknown;
+  allowedMode?: unknown;
   value?: number;
 }
 
 export interface PolicySettings {
-  headerFooter?: PolicyEntry;
-  cssBackground?: PolicyEntry;
-  mediaSize?: PolicyEntry;
-  color?: PolicyEntry;
-  duplex?: PolicyEntry;
-  pin?: PolicyEntry;
-  printPdfAsImageAvailability?: PolicyEntry;
-  printPdfAsImage?: PolicyEntry;
+  headerFooter?: PolicyEntry<boolean>;
+  cssBackground?: PolicyEntry<boolean>;
+  mediaSize?: PolicyEntry<{width: number, height: number}>;
+  color?: PolicyEntry<boolean>;
+  duplex?: PolicyEntry<boolean>;
+  printPdfAsImageAvailability?: PolicyEntry<boolean>;
+  printPdfAsImage?: PolicyEntry<boolean>;
 }
+
+type IndexablePolicySettings = Indexable<PolicySettings>;
 
 interface CloudJobTicketPrint {
-  page_orientation?: object;
-  dpi?: object;
-  vendor_ticket_item?: object[];
-  copies?: object;
-  media_size?: object;
-  duplex?: object;
+  page_orientation?: {type: string};
+  dpi?: {horizontal_dpi: number, vertical_dpi: number, vendor_id?: string};
+  vendor_ticket_item?: Array<{id: string, value: string}>;
+  copies?: {copies: number};
+  media_size?: {
+    width_microns: number,
+    height_microns: number,
+    is_continuous_feed?: boolean,
+    vendor_id?: string,
+  };
+  duplex?: {type: string};
   color?: {vendor_id?: string, type?: string};
-  collate?: object;
+  collate?: {collate: boolean};
 }
 
-interface CloudJobTicket {
+export interface CloudJobTicket {
   version: string;
   print: CloudJobTicketPrint;
 }
@@ -136,6 +149,8 @@ export interface MediaSizeValue {
   imageable_area_bottom_microns?: number;
   imageable_area_right_microns?: number;
   imageable_area_top_microns?: number;
+  is_continuous_feed?: boolean;
+  vendor_id?: string;
 }
 
 export interface Ticket {
@@ -472,7 +487,6 @@ function createSettings(): Settings {
   };
 }
 
-
 export class PrintPreviewModelElement extends CrLitElement {
   static get is() {
     return 'print-preview-model';
@@ -498,7 +512,7 @@ export class PrintPreviewModelElement extends CrLitElement {
   accessor margins: Margins|null = null;
   accessor pageSize: Size = new Size(612, 792);
 
-  observable: Observable<Settings>;
+  observable: Observable<IndexableSettings>;
   private initialized_: boolean = false;
   private stickySettings_: SerializedSettings|null = null;
   private policySettings_: PolicySettings|null = null;
@@ -514,7 +528,7 @@ export class PrintPreviewModelElement extends CrLitElement {
 
   constructor() {
     super();
-    this.observable = new Observable<Settings>(createSettings());
+    this.observable = new Observable<IndexableSettings>(createSettings());
     this.settings_ = this.observable.getProxy();
   }
 
@@ -560,7 +574,7 @@ export class PrintPreviewModelElement extends CrLitElement {
   // Returns a direct reference to the non-proxied Settings object. The returned
   // object should never be mutated manually by callers, since such mutation
   // will not generate any Observable notifications.
-  getSetting(settingName: keyof Settings): Setting {
+  getSetting<K extends keyof Settings>(settingName: K): Settings[K] {
     const setting = this.observable.getTarget()[settingName];
     assert(setting, 'Setting is missing: ' + settingName);
     return setting;
@@ -570,7 +584,8 @@ export class PrintPreviewModelElement extends CrLitElement {
    * @param settingName Name of the setting to get the value for.
    * @return The value of the setting, accounting for availability.
    */
-  getSettingValue(settingName: keyof Settings): any {
+  getSettingValue<K extends keyof Settings>(settingName: K):
+      Settings[K]['value'] {
     const setting = this.getSetting(settingName);
     return setting.available ? setting.value : setting.unavailableValue;
   }
@@ -580,13 +595,13 @@ export class PrintPreviewModelElement extends CrLitElement {
    * event if the modification results in a change to the value returned by
    * getSettingValue().
    */
-  private setSettingPath_(settingPath: string, value: any) {
+  private setSettingPath_(settingPath: string, value: unknown) {
     const parts = settingPath.split('.');
     assert(parts.length >= 2);
     const settingName = parts[0] as keyof Settings;
     const setting = this.getSetting(settingName);
     const oldValue = this.getSettingValue(settingName);
-    setValueAtPath(parts, this.settings_, value);
+    setValueAtPath(parts, this.settings_ as IndexableSettings, value);
     const newValue = this.getSettingValue(settingName);
     if (newValue !== oldValue && setting.updatesPreview) {
       this.fire('preview-setting-changed');
@@ -602,7 +617,8 @@ export class PrintPreviewModelElement extends CrLitElement {
    * @param value The value to set the setting to.
    * @param noSticky Whether to avoid stickying the setting. Defaults to false.
    */
-  setSetting(settingName: keyof Settings, value: any, noSticky?: boolean) {
+  setSetting<K extends keyof Settings>(
+      settingName: K, value: Settings[K]['value'], noSticky?: boolean) {
     const setting = this.getSetting(settingName);
     if (setting.setByGlobalPolicy) {
       return;
@@ -789,7 +805,7 @@ export class PrintPreviewModelElement extends CrLitElement {
     }
 
     // Otherwise, availability depends on the margins.
-    const marginsType = this.getSettingValue('margins') as MarginsType;
+    const marginsType = this.getSettingValue('margins');
     if (marginsType === MarginsType.NO_MARGINS) {
       return false;
     }
@@ -945,22 +961,18 @@ export class PrintPreviewModelElement extends CrLitElement {
     }
 
     if (this.settings_.vendorItems.available) {
-      const vendorSettings: {[key: string]: any} = {};
+      const vendorSettings: Record<string, string> = {};
       for (const item of caps.vendor_capability!) {
         let defaultValue = null;
-        if (item.type === 'SELECT' && item.select_cap &&
+        if (item.type === VendorCapabilityType.SELECT &&
             item.select_cap.option) {
           const defaultOption =
               item.select_cap.option.find(o => !!o.is_default);
           defaultValue = defaultOption ? defaultOption.value : null;
-        } else if (item.type === 'RANGE') {
-          if (item.range_cap) {
-            defaultValue = item.range_cap.default || null;
-          }
-        } else if (item.type === 'TYPED_VALUE') {
-          if (item.typed_value_cap) {
-            defaultValue = item.typed_value_cap.default || null;
-          }
+        } else if (item.type === VendorCapabilityType.RANGE) {
+          defaultValue = item.range_cap.default || null;
+        } else if (item.type === VendorCapabilityType.TYPED_VALUE) {
+          defaultValue = item.typed_value_cap.default || null;
         }
         if (defaultValue !== null) {
           vendorSettings[item.id] = defaultValue;
@@ -1058,31 +1070,31 @@ export class PrintPreviewModelElement extends CrLitElement {
    * @param applyOnDestinationUpdate Flag showing whether policy
    *     should be applied on every destination update.
    */
-  private setPolicySetting_(
-      settingName: string, value: any, managed: boolean,
-      applyOnDestinationUpdate: boolean) {
+  private setPolicySetting_<K extends keyof PolicySettings>(
+      settingName: K, value: NonNullable<PolicySettings[K]>['value'],
+      managed: boolean, applyOnDestinationUpdate: boolean) {
     if (!this.policySettings_) {
       this.policySettings_ = {};
     }
-    (this.policySettings_ as {[key: string]: PolicyEntry})[settingName] = {
+    (this.policySettings_ as IndexablePolicySettings)[settingName] = {
       value: value,
       managed: managed,
       applyOnDestinationUpdate: applyOnDestinationUpdate,
-    };
+    } as unknown as IndexablePolicySettings[K];
   }
 
   /**
    * Helper function for setPolicySettings(). Calculates value and managed flag
    * of the setting according to allowed and default modes.
    */
-  private configurePolicySetting_(
-      settingName: string, allowedMode: any, defaultMode: any) {
+  private configurePolicySetting_<K extends keyof PolicySettings>(
+      settingName: K, allowedMode: unknown, defaultMode: unknown) {
     switch (settingName) {
       case 'headerFooter': {
         const value = allowedMode !== undefined ? allowedMode : defaultMode;
         if (value !== undefined) {
           this.setPolicySetting_(
-              settingName, value, allowedMode !== undefined,
+              settingName, value as boolean, allowedMode !== undefined,
               /*applyOnDestinationUpdate=*/ false);
         }
         break;
@@ -1099,7 +1111,8 @@ export class PrintPreviewModelElement extends CrLitElement {
       case 'mediaSize': {
         if (defaultMode !== undefined) {
           this.setPolicySetting_(
-              settingName, defaultMode, /*managed=*/ false,
+              settingName, defaultMode as {width: number, height: number},
+              /*managed=*/ false,
               /*applyOnDestinationUpdate=*/ true);
         }
         break;
@@ -1109,7 +1122,7 @@ export class PrintPreviewModelElement extends CrLitElement {
         const value = allowedMode !== undefined ? allowedMode : defaultMode;
         if (value !== undefined) {
           this.setPolicySetting_(
-              settingName, value, /*managed=*/ false,
+              settingName, value as boolean, /*managed=*/ false,
               /*applyOnDestinationUpdate=*/ false);
         }
         break;
@@ -1118,7 +1131,7 @@ export class PrintPreviewModelElement extends CrLitElement {
       case 'printPdfAsImage': {
         if (defaultMode !== undefined) {
           this.setPolicySetting_(
-              settingName, defaultMode, /*managed=*/ false,
+              settingName, defaultMode as boolean, /*managed=*/ false,
               /*applyOnDestinationUpdate=*/ false);
         }
         break;
@@ -1137,7 +1150,9 @@ export class PrintPreviewModelElement extends CrLitElement {
       return;
     }
     const policiesObject = policies as {[key: string]: PolicyObjectEntry};
-    ['headerFooter', 'cssBackground', 'mediaSize'].forEach(settingName => {
+    const keys: Array<keyof PolicySettings> =
+        ['headerFooter', 'cssBackground', 'mediaSize'];
+    keys.forEach(settingName => {
       if (!policiesObject[settingName]) {
         return;
       }
@@ -1162,9 +1177,11 @@ export class PrintPreviewModelElement extends CrLitElement {
   applyStickySettings() {
     if (this.stickySettings_) {
       STICKY_SETTING_NAMES.forEach(settingName => {
-        const stickySettingsKey = this.getSetting(settingName).key;
+        const stickySettingsKey =
+            this.getSetting(settingName).key as keyof SerializedSettings;
         const value =
-            (this.stickySettings_ as {[key: string]: any})[stickySettingsKey];
+            (this.stickySettings_ as
+             Indexable<SerializedSettings>)[stickySettingsKey];
         if (value !== undefined) {
           if (settingName === 'scalingTypePdf') {
             // If the flag "alignPdfDefaultPrintSettingsWithHTML" is off,
@@ -1224,7 +1241,7 @@ export class PrintPreviewModelElement extends CrLitElement {
     if (this.policySettings_) {
       for (const [settingName, policy] of Object.entries(
                this.policySettings_)) {
-        const policyEntry = policy as PolicyEntry;
+        const policyEntry = policy as PolicyEntry<unknown>;
         // <if expr="is_win or is_macosx">
         if (settingName === 'printPdfAsImageAvailability') {
           this.updateRasterizeAvailable_();
@@ -1237,7 +1254,8 @@ export class PrintPreviewModelElement extends CrLitElement {
         // </if>
         if (settingName === 'printPdfAsImage') {
           if (policyEntry.value) {
-            this.setSetting('rasterize', policyEntry.value, true);
+            this.setSetting(
+                'rasterize', (policyEntry as PolicyEntry<boolean>).value, true);
           }
           continue;
         }
@@ -1363,7 +1381,7 @@ export class PrintPreviewModelElement extends CrLitElement {
   }
 
   private getStickySettings_(): string {
-    const serialization: {[key: string]: any} = {};
+    const serialization: {[key: string]: unknown} = {};
     serialization['version'] = 2;
 
     STICKY_SETTING_NAMES.forEach(settingName => {
@@ -1414,8 +1432,7 @@ export class PrintPreviewModelElement extends CrLitElement {
       mediaSize: this.getSettingValue('mediaSize') as MediaSizeValue,
       pageCount: this.getSettingValue('pages').length,
       landscape: this.getSettingValue('layout'),
-      color: destination.getNativeColorModel(
-          this.getSettingValue('color') as boolean),
+      color: destination.getNativeColorModel(this.getSettingValue('color')),
       headerFooterEnabled: false,  // only used in print preview
       marginsType: this.getSettingValue('margins'),
       duplex: this.getDuplexMode_(),
@@ -1480,8 +1497,7 @@ export class PrintPreviewModelElement extends CrLitElement {
       cjt.print.collate = {collate: this.settings_.collate.value};
     }
     if (this.settings_.color.available) {
-      const selectedOption =
-          destination.getColor(this.settings_.color.value as boolean);
+      const selectedOption = destination.getColor(this.settings_.color.value);
       if (!selectedOption) {
         console.warn('Could not find correct color option');
       } else {
@@ -1549,7 +1565,8 @@ export class PrintPreviewModelElement extends CrLitElement {
       cjt.print.vendor_ticket_item = [];
       for (const itemId in items) {
         if (items.hasOwnProperty(itemId)) {
-          cjt.print.vendor_ticket_item.push({id: itemId, value: items[itemId]});
+          cjt.print.vendor_ticket_item.push(
+              {id: itemId, value: items[itemId]!});
         }
       }
     }

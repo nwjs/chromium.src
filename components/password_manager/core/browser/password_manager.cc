@@ -458,7 +458,6 @@ void SignalFormSubmissionIfEligibleForSaving(PasswordFormManager* manager,
     return;
   }
 
-  manager->GetMetricsRecorder()->set_form_submission_reached(true);
 
   client->PotentialSaveFormSubmitted();
 }
@@ -722,7 +721,9 @@ void PasswordManager::OnPresaveGeneratedPassword(
     PasswordManagerDriver* driver,
     const FormData& form_data,
     const std::u16string& generated_password) {
-  DCHECK(client_->IsSavingAndFillingEnabled(form_data.url()));
+  if (!client_->IsSavingAndFillingEnabled(form_data.url())) {
+    return;
+  }
   PasswordFormManager* form_manager =
       GetMatchedManagerForForm(driver, form_data.renderer_id());
   UMA_HISTOGRAM_BOOLEAN("PasswordManager.GeneratedFormHasNoFormManager",
@@ -1095,6 +1096,10 @@ void PasswordManager::OnPasswordFormsParsed(
   }
   CreatePendingLoginManagers(driver, form_data);
 
+  for (Observer& observer : observers_) {
+    observer.OnPasswordFormsParsed(driver, form_data);
+  }
+
   PasswordGenerationFrameHelper* password_generation_manager =
       driver ? driver->GetPasswordGenerationHelper() : nullptr;
   if (password_generation_manager) {
@@ -1271,6 +1276,24 @@ void PasswordManager::LogFirstFillingResult(
 void PasswordManager::NotifyStorePasswordCalled() {
   store_password_called_ = true;
   DropFormManagers();
+}
+
+void PasswordManager::OnNonPasswordLoginDetected() {
+  if (base::FeatureList::IsEnabled(
+          features::kPreventPasswordManagerOnFederatedLogin)) {
+    base::UmaHistogramBoolean(
+        "PasswordManager.FederatedLogin.SavePromptPrevented",
+        GetSubmittedManager() != nullptr);
+    ResetSubmittedManager();
+    return;
+  }
+
+  if (base::FeatureList::IsEnabled(features::kPreventAPCOnFederatedLogin)) {
+    PasswordFormManager* manager = GetSubmittedManager();
+    if (manager) {
+      manager->SetNonPasswordLoginDetected(true);
+    }
+  }
 }
 
 #if BUILDFLAG(IS_IOS)
@@ -1574,6 +1597,10 @@ void PasswordManager::OnPasswordFormsRendered(
 }
 
 void PasswordManager::OnLoginSuccessful() {
+  // This method may be triggered even if `OnNonPasswordLoginDetected` was
+  // triggered for the same submission. Currently there is an experiment
+  // PreventPasswordManagerOnFederatedLogin running, which prevents
+  // `OnLoginSuccessful` from triggering if a non-password login was detected.
   std::unique_ptr<BrowserSavePasswordProgressLogger> logger =
       GetLoggerIfAvailable(client_);
   if (logger) {
@@ -1643,7 +1670,8 @@ void PasswordManager::OnLoginSuccessful() {
         client_->GetLeakDetectionInitiator(),
         CreateFormForLeakCheck(submitted_manager->GetPendingCredentials(),
                                *submitted_manager->GetSubmittedForm()),
-        submitted_manager->GetURL());
+        submitted_manager->GetURL(),
+        submitted_manager->IsNonPasswordLoginDetected());
   }
 
   // TODO(crbug.com/40570965): Implement checking whether to save with

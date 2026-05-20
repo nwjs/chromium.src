@@ -24,6 +24,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window_state.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
+#include "chrome/browser/ui/fullscreen/browser_window_fullscreen_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -32,6 +33,7 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/bookmarks/browser/bookmark_model.h"
+#include "components/bookmarks/test/bookmark_test_helpers.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/performance_manager/public/features.h"
 #include "components/policy/core/common/policy_pref_names.h"
@@ -290,14 +292,11 @@ class FullscreenTestBrowserWindow : public TestBrowserWindow,
   ~FullscreenTestBrowserWindow() override = default;
 
   // TestBrowserWindow overrides:
-  bool ShouldHideUIForFullscreen() const override { return fullscreen_; }
   bool IsFullscreen() const override { return fullscreen_; }
   void EnterFullscreen(const url::Origin& origin,
                        ExclusiveAccessBubbleType type,
-                       FullscreenTabParams fullscreen_tab_params) override {
-    fullscreen_ = true;
-  }
-  void ExitFullscreen() override { fullscreen_ = false; }
+                       FullscreenTabParams fullscreen_tab_params) override;
+  void ExitFullscreen() override;
   bool IsToolbarShowing() const override { return toolbar_showing_; }
   bool IsLocationBarVisible() const override { return true; }
 
@@ -343,6 +342,21 @@ class BrowserCommandControllerFullscreenTest
   }
 };
 
+void FullscreenTestBrowserWindow::EnterFullscreen(
+    const url::Origin& origin,
+    ExclusiveAccessBubbleType type,
+    FullscreenTabParams fullscreen_tab_params) {
+  BrowserWindowFullscreenController::From(test_browser_->GetBrowser())
+      ->set_should_hide_ui_for_fullscreen_for_testing(true);
+  fullscreen_ = true;
+}
+
+void FullscreenTestBrowserWindow::ExitFullscreen() {
+  BrowserWindowFullscreenController::From(test_browser_->GetBrowser())
+      ->set_should_hide_ui_for_fullscreen_for_testing(false);
+  fullscreen_ = false;
+}
+
 Profile* FullscreenTestBrowserWindow::GetProfile() {
   return test_browser_->GetBrowser()->profile();
 }
@@ -369,7 +383,7 @@ TEST_F(BrowserCommandControllerFullscreenTest,
       // 1. Most commands are disabled in fullscreen.
       // 2. In fullscreen, only the exit fullscreen commands are reserved. All
       // other shortcuts should be delivered to the web page. See
-      // http://crbug.com/680809.
+      // http://crbug.com/40501396.
 
       //         Command ID        |      tab mode      |      fullscreen     |
       //                           | enabled | reserved | enabled  | reserved |
@@ -481,7 +495,7 @@ TEST_F(BrowserCommandControllerFullscreenTest,
 
 // Ensure that the logic for enabling IDC_OPTIONS is consistent, regardless of
 // the order of entering fullscreen and forced incognito modes. See
-// http://crbug.com/694331.
+// http://crbug.com/40507396.
 TEST_F(BrowserWithTestWindowTest, OptionsConsistency) {
   TestingProfile* profile = browser()->profile()->AsTestingProfile();
   // Setup guest session.
@@ -570,9 +584,8 @@ class BrowserCommandControllerWithBookmarksTest
 // command.
 TEST_F(BrowserCommandControllerWithBookmarksTest,
        BookmarkAllTabsUpdatesOnTabStripChanges) {
-  ASSERT_TRUE(base::test::RunUntil([&]() {
-    return BookmarkModelFactory::GetForBrowserContext(profile())->loaded();
-  })) << "Timeout waiting for bookmarks to load";
+  bookmarks::test::WaitForBookmarkModelToLoad(
+      BookmarkModelFactory::GetForBrowserContext(profile()));
 
   chrome::BrowserCommandController command_controller(browser());
   EXPECT_FALSE(command_controller.IsCommandEnabled(IDC_BOOKMARK_ALL_TABS));
@@ -589,6 +602,27 @@ TEST_F(BrowserCommandControllerWithBookmarksTest,
   browser()->tab_strip_model()->CloseWebContentsAt(/*index=*/1,
                                                    TabCloseTypes::CLOSE_NONE);
   EXPECT_FALSE(command_controller.IsCommandEnabled(IDC_BOOKMARK_ALL_TABS));
+}
+
+TEST_F(BrowserCommandControllerWithBookmarksTest,
+       BookmarkTabEnabledWhenBookmarkModelIsAlreadyLoaded) {
+  bookmarks::test::WaitForBookmarkModelToLoad(
+      BookmarkModelFactory::GetForBrowserContext(profile()));
+
+  chrome::BrowserCommandController command_controller(browser());
+  EXPECT_TRUE(command_controller.IsCommandEnabled(IDC_BOOKMARK_THIS_TAB));
+}
+
+TEST_F(BrowserCommandControllerWithBookmarksTest,
+       BookmarkTabUpdateWhenBookmarkLoadingCompletes) {
+  // Create a command controller before the bookmark model is loaded.
+  chrome::BrowserCommandController command_controller(browser());
+  EXPECT_FALSE(command_controller.IsCommandEnabled(IDC_BOOKMARK_THIS_TAB));
+
+  bookmarks::test::WaitForBookmarkModelToLoad(
+      BookmarkModelFactory::GetForBrowserContext(profile()));
+  // Command should be enabled after the bookmark model is loaded.
+  EXPECT_TRUE(command_controller.IsCommandEnabled(IDC_BOOKMARK_THIS_TAB));
 }
 
 TEST_F(BrowserCommandControllerTest,

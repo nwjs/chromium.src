@@ -23,13 +23,14 @@ const allTests = [
     // If we get a focus event on the first text field, the test fails,
     // because that window is in the background. If we get a focus event on
     // the second text field, the test succeeds.
-    let input1, input2;
+    let input1;
+    let input2;
     chrome.automation.getDesktop(function(rootNode) {
       rootNode.addEventListener('loadComplete', function(event) {
-        if (event.target.url == url1) {
+        if (event.target.url === url1) {
           input1 = event.target.find({role: 'textField'});
         }
-        if (event.target.url == url2) {
+        if (event.target.url === url2) {
           // Focus the WebView that's the parent of the second document.
           event.target.parent.focus();
           input2 = event.target.find({role: 'textField'});

@@ -54,6 +54,14 @@ void OutputCb(scoped_refptr<VideoFrame>* output,
   *output = std::move(frame);
 }
 
+struct ColorSpaceHdrMetadataParams {
+  VideoColorSpace config_color_space;
+  gfx::HDRMetadata config_hdr_metadata;
+  MediaFormatColorSpace buffer_color_space;
+  gfx::ColorSpace expected_color_space;
+  gfx::HDRMetadata expected_hdr_metadata;
+};
+
 std::unique_ptr<AndroidOverlay> CreateAndroidOverlayCb(
     const base::UnguessableToken&,
     AndroidOverlayConfig) {
@@ -78,12 +86,14 @@ class MockVideoFrameFactory : public VideoFrameFactory {
  public:
   MOCK_METHOD2(Initialize, void(OverlayMode overlay_mode, InitCB init_cb));
   MOCK_METHOD1(MockSetSurfaceBundle, void(scoped_refptr<CodecSurfaceBundle>));
-  MOCK_METHOD5(
+  MOCK_METHOD7(
       MockCreateVideoFrame,
       void(CodecOutputBuffer* raw_output_buffer,
            scoped_refptr<gpu::TextureOwner> texture_owner,
            base::TimeDelta timestamp,
            gfx::Size natural_size,
+           const gfx::ColorSpace& color_space,
+           const gfx::HDRMetadata& hdr_metadata,
            PromotionHintAggregator::NotifyPromotionHintCB promotion_hint_cb));
   MOCK_METHOD1(MockRunAfterPendingVideoFrames,
                void(base::OnceClosure* closure));
@@ -107,10 +117,13 @@ class MockVideoFrameFactory : public VideoFrameFactory {
       std::unique_ptr<CodecOutputBuffer> output_buffer,
       base::TimeDelta timestamp,
       gfx::Size natural_size,
+      const gfx::ColorSpace& color_space,
+      const gfx::HDRMetadata& hdr_metadata,
       PromotionHintAggregator::NotifyPromotionHintCB promotion_hint_cb,
       VideoFrameFactory::OnceOutputCB output_cb) override {
     MockCreateVideoFrame(output_buffer.get(), texture_owner_, timestamp,
-                         natural_size, promotion_hint_cb);
+                         natural_size, color_space, hdr_metadata,
+                         promotion_hint_cb);
     last_output_buffer_ = std::move(output_buffer);
     std::move(output_cb).Run(VideoFrame::CreateBlackFrame(gfx::Size(10, 10)));
   }
@@ -295,6 +308,29 @@ class MediaCodecVideoDecoderTest : public testing::TestWithParam<VideoCodec> {
 
   void RequestOverlayInfoCb(ProvideOverlayInfoCB provide_overlay_info_cb) {
     provide_overlay_info_cb_ = std::move(provide_overlay_info_cb);
+  }
+
+  // Helper function for color space and HDR metadata parameters tests.
+  void RunColorSpaceCleanupTest(const ColorSpaceHdrMetadataParams& params) {
+    VideoDecoderConfig config = TestVideoConfig::NormalWithColorSpace(
+        codec_, params.config_color_space);
+    config.set_hdr_metadata(params.config_hdr_metadata);
+
+    auto* codec = InitializeFully_OneDecodePending(config);
+    ASSERT_TRUE(codec);
+
+    // This will be picked up by the kOutputFormatChanged iteration.
+    codec_allocator_->next_codec_color_space = params.buffer_color_space;
+
+    EXPECT_CALL(*codec, DequeueOutputBuffer(_, _, _, _, _, _, _))
+        .WillOnce(Return(MediaCodecResult::Codes::kOutputFormatChanged))
+        .WillOnce(Return(MediaCodecResult::Codes::kOk))
+        .WillRepeatedly(Return(MediaCodecResult::Codes::kTryAgainLater));
+
+    EXPECT_CALL(*video_frame_factory_,
+                MockCreateVideoFrame(_, _, _, _, params.expected_color_space,
+                                     params.expected_hdr_metadata, _));
+    PumpCodec();
   }
 
  protected:
@@ -897,7 +933,7 @@ TEST_P(MediaCodecVideoDecoderTest, VideoFramesArePowerEfficient) {
   // Produce one output.
   codec->AcceptOneInput();
   codec->ProduceOneOutput();
-  EXPECT_CALL(*video_frame_factory_, MockCreateVideoFrame(_, _, _, _, _));
+  EXPECT_CALL(*video_frame_factory_, MockCreateVideoFrame(_, _, _, _, _, _, _));
   PumpCodec();
   base::RunLoop().RunUntilIdle();
 
@@ -912,6 +948,51 @@ TEST_P(MediaCodecVideoDecoderTest, CanReadWithoutStalling) {
   EXPECT_FALSE(mcvd_->CanReadWithoutStalling());
   EXPECT_CALL(*video_frame_factory_, IsStalled()).WillOnce(Return(false));
   EXPECT_TRUE(mcvd_->CanReadWithoutStalling());
+}
+
+TEST_P(MediaCodecVideoDecoderTest, ColorSpaceHdrMetadata_UseConfig) {
+  ColorSpaceHdrMetadataParams p;
+  // The configuration is PQ with HDR metadata.
+  p.config_color_space = VideoColorSpace(
+      VideoColorSpace::PrimaryID::BT2020,
+      VideoColorSpace::TransferID::SMPTEST2084,
+      VideoColorSpace::MatrixID::BT2020_NCL, gfx::ColorSpace::RangeID::LIMITED);
+  p.config_hdr_metadata.SetCLLI(skhdr::ContentLightLevelInformation{1000, 400});
+  // Leave p.buffer_color_space invalid so we fall back to the configuration.
+  // Expect the configuration's color space and HDR metadata.
+  p.expected_color_space = p.config_color_space.ToGfxColorSpace();
+  p.expected_hdr_metadata = p.config_hdr_metadata;
+  RunColorSpaceCleanupTest(p);
+}
+
+TEST_P(MediaCodecVideoDecoderTest, ColorSpaceHdrMetadata_UseConfigExact) {
+  ColorSpaceHdrMetadataParams p;
+  // The configuration is gamma=2.2 transfer function, which MediaFormat cannot
+  // represent.
+  p.config_color_space = VideoColorSpace(
+      VideoColorSpace::PrimaryID::BT709, VideoColorSpace::TransferID::GAMMA22,
+      VideoColorSpace::MatrixID::BT709, gfx::ColorSpace::RangeID::LIMITED);
+  // This will conflate all SDR spaces (gamma=2.2, sRGB, Rec709).
+  p.buffer_color_space = MediaFormatColorSpace(p.config_color_space);
+  // But because the buffer's MediaFormatColorSpace matched the config's
+  // MediaFormatColorSpace, we will get back the original values.
+  p.expected_color_space = p.config_color_space.ToGfxColorSpace();
+  RunColorSpaceCleanupTest(p);
+}
+
+TEST_P(MediaCodecVideoDecoderTest, ColorSpaceHdrMetadata_TransferMismatch) {
+  ColorSpaceHdrMetadataParams p;
+  // The configuration is PQ with HDR metadata.
+  p.config_color_space = VideoColorSpace(
+      VideoColorSpace::PrimaryID::BT2020,
+      VideoColorSpace::TransferID::SMPTEST2084,
+      VideoColorSpace::MatrixID::BT2020_NCL, gfx::ColorSpace::RangeID::LIMITED);
+  p.config_hdr_metadata.SetCLLI(skhdr::ContentLightLevelInformation{1000, 400});
+  // The frame comes back as SDR.
+  p.buffer_color_space = MediaFormatColorSpace::MakeRec709();
+  // Expect to use the SDR color space, and expect empty HDR metadata.
+  p.expected_color_space = p.buffer_color_space.ToGfxColorSpace();
+  RunColorSpaceCleanupTest(p);
 }
 
 TEST_P(MediaCodecVideoDecoderH264Test, CsdIsIncludedInCodecConfig) {
@@ -951,7 +1032,7 @@ TEST_P(MediaCodecVideoDecoderVp9Test, ColorSpaceIsIncludedInCodecConfig) {
       TestVideoConfig::NormalWithColorSpace(VideoCodec::kVP9, color_space);
   EXPECT_TRUE(InitializeFully_OneDecodePending(config));
 
-  EXPECT_EQ(color_space,
+  EXPECT_EQ(MediaFormatColorSpace(color_space),
             codec_allocator_->most_recent_config->container_color_space);
 }
 

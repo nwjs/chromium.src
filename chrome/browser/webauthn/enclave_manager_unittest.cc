@@ -52,7 +52,6 @@
 #include "chrome/browser/webauthn/webauthn_metrics_util.h"
 #include "components/cbor/reader.h"
 #include "components/cbor/writer.h"
-#include "components/os_crypt/sync/os_crypt_mocker.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
@@ -111,7 +110,7 @@
 
 // These tests are also disabled under MSAN. The enclave subprocess is written
 // in Rust and FFI from Rust to C++ doesn't work in Chromium at this time
-// (crbug.com/1369167).
+// (crbug.com/40240570).
 #if !defined(MEMORY_SANITIZER)
 
 namespace enclave = device::enclave;
@@ -266,8 +265,6 @@ class EnclaveManagerTest : public testing::Test, EnclaveManager::Observer {
                        return network_context_.get();
                      }),
                  url_loader_factory_.GetSafeWeakWrapper()) {
-    OSCryptMocker::SetUp();
-
     identity_test_env_.MakePrimaryAccountAvailable(
         "test@gmail.com", signin::ConsentLevel::kSignin);
     gaia_id_ = identity_test_env_.identity_manager()
@@ -303,7 +300,6 @@ class EnclaveManagerTest : public testing::Test, EnclaveManager::Observer {
       task_env_.RunUntilQuit();
     }
     CHECK(process_and_port_.first.Terminate(/*exit_code=*/1, /*wait=*/true));
-    OSCryptMocker::TearDown();
   }
 
  protected:

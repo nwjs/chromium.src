@@ -125,7 +125,7 @@ bool SavedBoundsAreContentBounds(const Browser* browser) {
 #endif
 }
 
-void SaveWindowPlacement(const Browser* browser,
+void SaveWindowPlacement(Browser* browser,
                          const gfx::Rect& bounds,
                          ui::mojom::WindowShowState show_state) {
   // Save to the session storage service, used when reloading a past session.
@@ -138,14 +138,14 @@ void SaveWindowPlacement(const Browser* browser,
   }
 }
 
-void SaveWindowWorkspace(const Browser* browser, const std::string& workspace) {
+void SaveWindowWorkspace(Browser* browser, const std::string& workspace) {
   SessionServiceBase* service = GetAppropriateSessionServiceIfExisting(browser);
   if (service) {
     service->SetWindowWorkspace(browser->session_id(), workspace);
   }
 }
 
-void SaveWindowVisibleOnAllWorkspaces(const Browser* browser,
+void SaveWindowVisibleOnAllWorkspaces(Browser* browser,
                                       bool visible_on_all_workspaces) {
   SessionServiceBase* service = GetAppropriateSessionServiceIfExisting(browser);
   if (service) {

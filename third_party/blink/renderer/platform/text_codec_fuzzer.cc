@@ -15,13 +15,13 @@
 // this should move there as well.
 
 constexpr blink::FlushBehavior kFlushBehavior[] = {
-    blink::FlushBehavior::kDoNotFlush, blink::FlushBehavior::kFetchEOF,
-    blink::FlushBehavior::kDataEOF};
+    blink::FlushBehavior::kDoNotFlush, blink::FlushBehavior::kFetchEof,
+    blink::FlushBehavior::kDataEof};
 
 constexpr blink::UnencodableHandling kUnencodableHandlingOptions[] = {
-    blink::UnencodableHandling::kEntitiesForUnencodables,
-    blink::UnencodableHandling::kURLEncodedEntitiesForUnencodables,
-    blink::UnencodableHandling::kCSSEncodedEntitiesForUnencodables};
+    blink::UnencodableHandling::kXmlCharRef,
+    blink::UnencodableHandling::kUrlEncodedCharRef,
+    blink::UnencodableHandling::kCssEscape};
 
 class TextCodecFuzzHarness {};
 

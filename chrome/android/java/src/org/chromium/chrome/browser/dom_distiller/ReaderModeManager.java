@@ -805,8 +805,9 @@ public class ReaderModeManager extends EmptyTabObserver
         }
 
         // RenderWidgetHostViewAndroid hides the controls after transitioning to reader mode.
-        // See the long history of the issue in https://crbug.com/825765, https://crbug.com/853686,
-        // https://crbug.com/861618, https://crbug.com/922388.
+        // See the long history of the issue in https://crbug.com/41378906,
+        // https://crbug.com/41395138,
+        // https://crbug.com/40584047, https://crbug.com/41435871.
         // TODO(pshmakov): find a proper solution instead of this workaround.
         BrowserControlsVisibilityManager browserControlsVisibilityManager =
                 getBrowserControlsVisibilityManager();
@@ -1050,10 +1051,13 @@ public class ReaderModeManager extends EmptyTabObserver
 
     /**
      * Determine if Reader Mode created the intent for a tab being created.
+     *
      * @param intent The Intent creating a new tab.
      * @return True whether the intent was created by Reader Mode.
      */
     public static boolean isReaderModeCreatedIntent(Intent intent) {
+        // Ensure that the intent is from a trusted intent.
+        if (!IntentHandler.wasIntentSenderChrome(intent)) return false;
         int readerParentId =
                 IntentUtils.safeGetIntExtra(
                         intent, ReaderModeManager.EXTRA_READER_MODE_PARENT, Tab.INVALID_TAB_ID);

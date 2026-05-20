@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/core/dom/events/event_dispatcher.h"
 #include "third_party/blink/renderer/core/dom/events/event_path.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 
@@ -30,9 +31,7 @@ CommandEvent::CommandEvent(const AtomicString& type,
     : Event(type,
             Bubbles::kNo,
             Cancelable::kYes,
-            RuntimeEnabledFeatures::CommandEventNotComposedEnabled()
-                ? ComposedMode::kScoped
-                : ComposedMode::kComposed),
+            ComposedMode::kScoped),
       source_(source) {
   command_ = command;
 }

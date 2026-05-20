@@ -65,24 +65,17 @@ public abstract class TabWebContentsDelegateAndroid extends WebContentsDelegateA
     }
 
     /**
+     * @return true if the OS currently prevents the creation of a Document Picture-in-Picture
+     *     window.
+     */
+    protected boolean isDocumentPictureInPictureBlockedBySystem() {
+        return false;
+    }
+
+    /**
      * @return web preferences for enabling Picture-in-Picture.
      */
     protected boolean isPictureInPictureEnabled() {
-        return false;
-    }
-
-    /**
-     * @return Night mode enabled/disabled for this Tab. To be used to propagate
-     *         the preferred color scheme to the renderer.
-     */
-    protected boolean isNightModeEnabled() {
-        return false;
-    }
-
-    /**
-     * @return True if auto-darkening may be applied to web contents per Chrome browser settings.
-     */
-    protected boolean isForceDarkWebContentEnabled() {
         return false;
     }
 
@@ -146,10 +139,6 @@ public abstract class TabWebContentsDelegateAndroid extends WebContentsDelegateA
 
     /** Return if dynamically change safe area insets as browser controls scroll. */
     protected boolean isDynamicSafeAreaInsetsEnabled() {
-        return false;
-    }
-
-    protected boolean openInAppOrChromeFromCct(GURL gurl) {
         return false;
     }
 

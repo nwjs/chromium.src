@@ -48,6 +48,7 @@
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
+#include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
 #include "third_party/blink/renderer/core/layout/layout_html_canvas.h"
 #include "third_party/blink/renderer/core/layout/layout_iframe.h"
@@ -205,7 +206,7 @@ String ReplaceUnpairedSurrogates(const String& node_text) {
   // (UTF-8, etc).
   //
   // But Utf8() conversion returns a std::string, so we need to convert back
-  // to a WTF::String for Blink usage.
+  // to a blink::String for Blink usage.
   //
   // Strings that are already in 8 bit representation (like Latin1 encoding)
   // can't contain unpaired surrogates, so we can return those transparently.
@@ -447,6 +448,61 @@ gfx::Rect LocalToOuterBoundingBox(const LayoutObject& object,
   return outer_box;
 }
 
+// Return true if the LayoutObject is positioned offscreen in such a way that it
+// can never be scrolled to, effectively hiding it.
+bool IsAnchoredOffscreen(const LayoutObject& object,
+                         const mojom::blink::AIPageContentGeometry& geometry,
+                         bool is_in_fixed_to_view_subtree) {
+  // Any visible pixels mean the node is reachable right now.
+  if (!geometry.visible_bounding_box.IsEmpty()) {
+    return false;
+  }
+
+  // Without an outer box, APC does not know where the node would land after
+  // scrolling. That happens for fully clipped content, zero-size actionable
+  // nodes, and wrappers that keep interactive semantics but have no paint
+  // geometry of their own, so we cannot classify them as anchored offscreen.
+  if (geometry.outer_bounding_box.IsEmpty()) {
+    return false;
+  }
+
+  const LayoutView* layout_view = object.GetDocument().GetLayoutView();
+  if (!layout_view) {
+    return false;
+  }
+  const LocalFrameView* frame_view = object.GetDocument().View();
+  if (!frame_view) {
+    return false;
+  }
+
+  // Nodes in a viewport-fixed subtree must intersect the current viewport to
+  // be reachable. Other nodes only need to intersect the scrollable document
+  // bounds, because normal document scrolling can still bring them onscreen
+  // later.
+  //
+  // `outer_bounding_box` is viewport-relative, so the non-fixed path must use
+  // document bounds in the same coordinate space. A raw `DocumentRect()`
+  // starts at document-space origin (0, 0), which would wrongly classify
+  // nodes above or left of the current scroll position as anchored offscreen
+  // even though the user can scroll back to them.
+  //
+  // `DocumentToFrame()` removes layout-viewport scrolling, and
+  // `FrameToViewport()` then applies visual-viewport offset and scale. This
+  // keeps the document bounds aligned with `outer_bounding_box`, including
+  // cases like browser controls shifting the visible viewport.
+  const gfx::Rect document_bounds_in_viewport =
+      frame_view->FrameToViewport(frame_view->DocumentToFrame(
+          ToPixelSnappedRect(layout_view->DocumentRect())));
+  const gfx::Rect reachable_bounds =
+      is_in_fixed_to_view_subtree ? ComputeVisibleBoundingBox(*layout_view)
+                                  : document_bounds_in_viewport;
+  if (reachable_bounds.IsEmpty()) {
+    return false;
+  }
+
+  return !geometry.outer_bounding_box.Intersects(reachable_bounds);
+}
+
 // Processes fragment bounding boxes for layout objects that can be split.
 //
 // Uses QuadsInAncestor() to retrieve quads for each object, then converts them
@@ -525,7 +581,8 @@ void ComputeScrollerInfo(
   }
 
   const auto scrolling_bounds = scrollable_area->ContentsSize();
-  const auto visible_area = scrollable_area->VisibleContentRect();
+  const auto visible_area =
+      scrollable_area->VisibleContentRect(kExcludeScrollbars);
 
   // If the visible area covers the scrollable area, scrolling this node will be
   // a no-op. Allow 1px of slop due to differences in rounding.
@@ -1406,8 +1463,7 @@ void OffsetNodeGeometry(mojom::blink::AIPageContentNode& node,
   }
 }
 
-bool MayContainSensitvePayment(
-    mojom::blink::FormControlType form_control_type) {
+bool MayContainSensitiveData(mojom::blink::FormControlType form_control_type) {
   switch (form_control_type) {
     case mojom::blink::FormControlType::kInputEmail:
     case mojom::blink::FormControlType::kInputMonth:
@@ -1672,7 +1728,16 @@ mojom::blink::AIPageContentPtr AIPageContentAgent::GetAIPageContentInternal(
 
 AIPageContentAgent::ContentBuilder::ContentBuilder(
     const mojom::blink::AIPageContentOptions& options)
-    : options_(options) {}
+    : options_(options) {
+  // Build a typed O(1) membership set once so node-id policy checks do not
+  // rescan the allowlisted attribute types for every content node in the tree.
+  if (!options.node_id_allowlist) {
+    return;
+  }
+  for (const auto attribute_type : *options.node_id_allowlist) {
+    allowlisted_attribute_types_.Put(attribute_type);
+  }
+}
 
 AIPageContentAgent::ContentBuilder::~ContentBuilder() = default;
 
@@ -1852,15 +1917,15 @@ void AIPageContentAgent::ContentBuilder::AddMetaData(
   }
 }
 
-bool AIPageContentAgent::ContentBuilder::IsGenericContainer(
+bool AIPageContentAgent::ContentBuilder::ShouldSkipSingleNode(
     const LayoutObject& object,
     const mojom::blink::AIPageContentAttributes& attributes) const {
   if (object.StyleRef().GetPosition() == EPosition::kFixed) {
-    return true;
+    return false;
   }
 
   if (object.StyleRef().GetPosition() == EPosition::kSticky) {
-    return true;
+    return false;
   }
 
   // This has some duplication with the scrollability in InteractionInfo but is
@@ -1869,37 +1934,43 @@ bool AIPageContentAgent::ContentBuilder::IsGenericContainer(
   //    requested.
   // 2. The interaction info is meant to capture the current state (is the
   //    element scrollable given the current content). This is a heuristic to
-  //    decide whether a node is likely to be a "container" based on the author
-  //    making it scrollable.
+  //    decide whether this node should stay in APC as a generic container
+  //    based on the author making it scrollable.
   // TODO(khushalsagar): Consider removing this, no consumer relies on this
   // behaviour.
   if (object.StyleRef().ScrollsOverflow()) {
-    return true;
+    return false;
   }
 
   if (object.IsInTopOrViewTransitionLayer()) {
-    return true;
+    return false;
   }
 
   if (const auto* element = DynamicTo<HTMLElement>(object.GetNode())) {
     if (element->HasTagName(html_names::kFigureTag)) {
-      return true;
+      return false;
     }
   }
 
   if (!attributes.annotated_roles.empty()) {
-    return true;
+    return false;
   }
 
   if (attributes.node_interaction_info) {
-    return true;
+    return false;
   }
 
   if (attributes.label_for_dom_node_id) {
-    return true;
+    return false;
   }
 
-  return false;
+  // Do not skip nodes that are needed for their dom_node_id.
+  if (interactive_dom_node_ids_.Contains(
+          DOMNodeIds::ExistingIdForNode(object.GetNode()))) {
+    return false;
+  }
+
+  return true;
 }
 
 DOMNodeId AIPageContentAgent::ContentBuilder::AddInteractiveNode(Node& node) {
@@ -1951,6 +2022,10 @@ bool AIPageContentAgent::ContentBuilder::WalkChildren(
                                       html_names::kAriaDisabledAttr)) {
       child_recursion_data.is_aria_disabled = true;
     }
+    const auto* child_box = DynamicTo<LayoutBox>(child);
+    child_recursion_data.is_in_fixed_to_view_subtree =
+        recursion_data.is_in_fixed_to_view_subtree ||
+        (child_box && child_box->IsFixedToView());
 
     has_visible_content |= IsVisible(*child);
 
@@ -2180,20 +2255,15 @@ AIPageContentAgent::ContentBuilder::MaybeGenerateContentNodeImpl(
                          element->HasTagName(html_names::kDdTag))) {
     attributes.attribute_type =
         mojom::blink::AIPageContentAttributeType::kListItem;
-  } else if (IsGenericContainer(object, attributes)) {
-    // Be sure to set annotated roles before calling IsGenericContainer, as
-    // IsGenericContainer will check for annotated roles.
-    // Keep container at the bottom of the list as it is the least specific.
-    attributes.attribute_type =
-        mojom::blink::AIPageContentAttributeType::kContainer;
-  } else if (interactive_dom_node_ids_.Contains(
-                 DOMNodeIds::ExistingIdForNode(object.GetNode()))) {
-    // Fall back to a generic container when we need to emit this node for
-    // dom_node_id purposes but no more specific type matched.
+  } else if (!ShouldSkipSingleNode(object, attributes)) {
+    // We must keep the node and there is no more specific type -> kContainer.
+    // Be sure to set annotated roles before calling ShouldSkipSingleNode(), as
+    // it uses the populated annotation and interaction state to decide whether
+    // this otherwise-unspecialized node should stay in APC.
     attributes.attribute_type =
         mojom::blink::AIPageContentAttributeType::kContainer;
   } else {
-    // If no attribute type was set, do not generate a content node.
+    // No attribute type set and we should skip -> don't create a content node.
     return nullptr;
   }
 
@@ -2206,6 +2276,17 @@ AIPageContentAgent::ContentBuilder::MaybeGenerateContentNodeImpl(
 
   AddNodeGeometry(object, attributes,
                   recursion_data.accessibility_focused_node_id);
+  // Some popup patterns keep clickable content rendered but park it outside
+  // the area reachable by scrolling until another control changes state.
+  // We drop the actionable metadata so that downstream click generation does
+  // not chase nodes that scrolling can never reach.
+  if (RuntimeEnabledFeatures::
+          AIPageContentAnchoredOffscreenNonActionabilityEnabled() &&
+      attributes.node_interaction_info && attributes.geometry &&
+      IsAnchoredOffscreen(object, *attributes.geometry,
+                          recursion_data.is_in_fixed_to_view_subtree)) {
+    attributes.node_interaction_info.reset();
+  }
   AddLabel(object, attributes);
   attributes.is_ad_related = element && element->IsAdRelated();
 
@@ -2217,6 +2298,11 @@ bool AIPageContentAgent::ContentBuilder::ShouldEmitNodeIdForOutput(
     const mojom::blink::AIPageContentAttributes& attributes) const {
   // Preserve existing behavior when node-id options are not provided.
   if (!options_->node_id_allowlist) {
+    return true;
+  }
+
+  // The LayoutView-backed root must stay addressable in selective mode.
+  if (object.IsLayoutView()) {
     return true;
   }
 
@@ -2241,10 +2327,7 @@ bool AIPageContentAgent::ContentBuilder::IsNodeIdAttributeTypeAllowlisted(
   if (!options_->node_id_allowlist) {
     return false;
   }
-  // The policy allowlist is expected to be small. Prioritize direct readability
-  // over auxiliary data structures here.
-  return std::ranges::find(*options_->node_id_allowlist, attribute_type) !=
-         options_->node_id_allowlist->end();
+  return allowlisted_attribute_types_.Has(attribute_type);
 }
 
 void AIPageContentAgent::ContentBuilder::AddLabel(
@@ -2410,16 +2493,16 @@ bool AIPageContentAgent::ContentBuilder::ShouldAddNodeGeometry(
     return true;
   }
 
-  // When sensitive payment redaction is enabled,  the redaction decision is
-  // made in the browser using Autofill data. We must provide the geometry for
-  // form control elements that may contain sensitive payments here so the
-  // browser can record their bounding boxes for client-side screenshot
-  // redaction.
-  if (options_->include_sensitive_payments_for_redaction) {
+  // When sensitive payment or OTP redaction is enabled, the redaction decision
+  // is made in the browser using Autofill data. We must provide geometry for
+  // form controls that may contain sensitive values so the browser can record
+  // their bounding boxes for client-side screenshot redaction.
+  if (options_->include_sensitive_payments_for_redaction ||
+      options_->include_otps_for_redaction) {
     if (const auto* form_control_element =
             DynamicTo<HTMLFormControlElement>(object.GetNode());
         form_control_element &&
-        MayContainSensitvePayment(form_control_element->FormControlType())) {
+        MayContainSensitiveData(form_control_element->FormControlType())) {
       return true;
     }
   }

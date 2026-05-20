@@ -80,7 +80,6 @@ found in the LICENSE file.
     <!-- SelectableListLayout dimensions -->
     <dimen name="selectable_list_action_bar_end_padding">6dp</dimen>
     <dimen name="toolbar_wide_display_start_offset">13dp</dimen>
-    <dimen name="selectable_list_inline_search_bar_start_padding">24dp</dimen>
     <dimen name="search_toolbar_modern_bg_vertical_inset">8dp</dimen>
     <dimen name="search_toolbar_modern_bg_horizontal_inset">8dp</dimen>
     <dimen name="selectable_list_toolbar_nav_button_start_offset">4dp</dimen>
@@ -196,7 +195,6 @@ found in the LICENSE file.
     <dimen name="chip_view_start_padding">8dp</dimen>
     <dimen name="chip_view_extended_start_padding">16dp</dimen>
     <dimen name="chip_view_end_padding">16dp</dimen>
-    <dimen name="chip_view_reduced_end_padding">12dp</dimen>
     <dimen name="chip_bg_vertical_inset">8dp</dimen>
     <dimen name="chip_loading_view_size">12dp</dimen>
     <dimen name="chip_end_icon_margin_start">8dp</dimen>
@@ -205,7 +203,6 @@ found in the LICENSE file.
     <dimen name="chip_end_icon_extended_margin_end">16dp</dimen>
     <dimen name="chip_text_multiline_vertical_padding">12dp</dimen>
     <dimen name="chip_primary_text_start_padding">8dp</dimen>
-    <dimen name="chip_primary_text_reduced_start_padding">4dp</dimen>
     <!-- ( listPreferredItemHeightSmall(40dp) - text size(12sp) - top and bottom padding(8dp) ) / 2 -->
     <dimen name="menu_chip_vertical_inset">10dp</dimen>
 

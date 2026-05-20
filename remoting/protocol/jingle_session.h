@@ -19,12 +19,10 @@
 #include "base/timer/timer.h"
 #include "remoting/base/source_location.h"
 #include "remoting/protocol/authenticator.h"
-#include "remoting/protocol/datagram_channel_factory.h"
 #include "remoting/protocol/errors.h"
 #include "remoting/protocol/session.h"
 #include "remoting/signaling/iq_sender.h"
 #include "remoting/signaling/jingle_data_structures.h"
-#include "remoting/signaling/session_config.h"
 
 namespace remoting::protocol {
 
@@ -45,7 +43,6 @@ class JingleSession : public Session {
   void SetEventHandler(Session::EventHandler* event_handler) override;
   ErrorCode error() const override;
   const std::string& jid() override;
-  const SessionConfig& config() override;
   const Authenticator& authenticator() const override;
   void SetTransport(Transport* transport) override;
   void Close(protocol::ErrorCode error,
@@ -149,8 +146,6 @@ class JingleSession : public Session {
   std::string session_id_;
   State state_;
   ErrorCode error_;
-
-  std::unique_ptr<SessionConfig> config_;
 
   std::unique_ptr<Authenticator> authenticator_;
 

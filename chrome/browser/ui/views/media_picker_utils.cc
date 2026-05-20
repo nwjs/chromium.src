@@ -4,22 +4,32 @@
 
 #include "chrome/browser/ui/views/media_picker_utils.h"
 
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/extensions/extensions_container.h"
 #include "components/constrained_window/constrained_window_views.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/browser/view_type_utils.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/dialog_delegate.h"
+
+namespace {
+
+bool IsExtensionPopupWebContents(content::WebContents* web_contents) {
+  return extensions::GetViewType(web_contents) ==
+         extensions::mojom::ViewType::kExtensionPopup;
+}
+
+}  // namespace
 
 bool MediaPickerCanShowAsWebModal(content::WebContents* web_contents) {
   return web_contents && !web_contents->IsNeverComposited() &&
          web_modal::WebContentsModalDialogManager::FromWebContents(
-             web_contents);
+             web_contents) &&
+         !IsExtensionPopupWebContents(web_contents);
 }
 
-views::Widget* CreateMediaPickerDialogWidget(Browser* browser,
+views::Widget* CreateMediaPickerDialogWidget(BrowserWindowInterface* browser,
                                              content::WebContents* web_contents,
                                              views::DialogDelegate* delegate,
                                              gfx::NativeWindow context,

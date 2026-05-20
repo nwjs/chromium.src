@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.sync.settings;
 
-import static androidx.test.espresso.Espresso.onView;
-import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 
 import android.view.View;
@@ -26,13 +24,13 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
 import org.chromium.chrome.browser.sync.FakeSyncServiceImpl;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
@@ -257,16 +255,6 @@ public class IdentityErrorCardPreferenceTest {
         }
         mRenderTestRule.render(
                 getIdentityErrorCardView(), "identity_error_card_bookmark_limit_reached");
-    }
-
-    @Test
-    @LargeTest
-    public void testIdentityErrorCardNotShownForUnrecoverableErrors() throws Exception {
-        mFakeSyncServiceImpl.setHasUnrecoverableError(true);
-        mSigninTestRule.addTestAccountThenSignin();
-
-        mSettingsActivityTestRule.startSettingsActivity();
-        onView(withId(R.id.signin_settings_card)).check(doesNotExist());
     }
 
     private View getIdentityErrorCardView() {

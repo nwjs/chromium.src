@@ -11,12 +11,11 @@ import {ActionChipsApiProxyImpl, VoiceSearchAction} from 'chrome://new-tab-page/
 import type {Module} from 'chrome://new-tab-page/lazy_load.js';
 import {ActionChipsRetrievalState, ComposeboxProxyImpl, counterfactualLoad, ModuleDescriptor, ModuleRegistry} from 'chrome://new-tab-page/lazy_load.js';
 import {$$, BackgroundManager, BrowserCommandProxy, CONTEXTUAL_ENTRYPOINT_ELEMENT_ID, CUSTOMIZE_CHROME_BUTTON_ELEMENT_ID, CustomizeButtonsProxy, CustomizeDialogPage, GlifAnimationState, NewTabPageProxy, NtpCustomizeChromeEntryPoint, NtpElement, SearchboxBrowserProxy, VoiceAction, WindowProxy} from 'chrome://new-tab-page/new_tab_page.js';
-import type {AppElement, CustomizeButtonsElement} from 'chrome://new-tab-page/new_tab_page.js';
+import type {AppElement, CustomizeButtonsElement, NtpSearchboxElement} from 'chrome://new-tab-page/new_tab_page.js';
 import type {PageRemote} from 'chrome://new-tab-page/new_tab_page.mojom-webui.js';
 import {NtpBackgroundImageSource, PageCallbackRouter, PageHandlerRemote} from 'chrome://new-tab-page/new_tab_page.mojom-webui.js';
 import {PageCallbackRouter as ComposeboxPageCallbackRouter, PageHandlerRemote as ComposeboxPageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
 import {ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
-import type {SearchboxElement} from 'chrome://resources/cr_components/searchbox/searchbox.js';
 import type {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import type {CrToastElement} from 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 import {Command, CommandHandlerRemote} from 'chrome://resources/js/browser_command.mojom-webui.js';
@@ -119,7 +118,9 @@ suite('NewTabPageAppTest', () => {
         disabledInputTypes: [],
       },
     });
-
+    searchboxHandler.setResultFor(
+        'getPageClassification',
+        Promise.resolve({metricSource: 'NTP_REALBOX'}));
     app = document.createElement('ntp-app');
     document.body.appendChild(app);
     await microtasksFinished();
@@ -285,7 +286,7 @@ suite('NewTabPageAppTest', () => {
       const [_, {type, applyLightTheme}] =
           windowProxy.getArgs('postMessage')[0];
       assertEquals('updateAppearance', type);
-      assertTrue(applyLightTheme);
+      assertEquals(true, applyLightTheme);
       assertNotStyle($$(app, '#oneGoogleBarScrim')!, 'display', 'none');
     });
   });
@@ -492,7 +493,7 @@ suite('NewTabPageAppTest', () => {
             const [_, {type, applyLightTheme}] =
                 windowProxy.getArgs('postMessage')[0];
             assertEquals('updateAppearance', type);
-            assertTrue(applyLightTheme);
+            assertEquals(true, applyLightTheme);
           });
     });
 
@@ -1299,10 +1300,6 @@ suite('NewTabPageAppTest', () => {
     });
 
     test('Sequential ESC clears input then closes composebox', async () => {
-      // Arrange: Override the flag to FALSE for this specific test.
-      loadTimeData.overrideValues({composeboxCloseByEscape: false});
-      await microtasksFinished();
-
       // Arrange: Create and open the Composebox UI.
       const searchbox = $$(app, '#searchbox');
       assertTrue(!!searchbox);
@@ -2127,7 +2124,7 @@ suite('NewTabPageAppTest', () => {
 
     test('scrim is hidden after closing composebox', async () => {
       const scrim = getScrim()!;
-      const searchbox = $$<SearchboxElement>(app, '#searchbox')!;
+      const searchbox = $$<NtpSearchboxElement>(app, '#searchbox')!;
       const searchboxContainer =
           app.shadowRoot.getElementById('searchboxContainer')!;
 
@@ -2393,7 +2390,7 @@ suite('NewTabPageAppTest', () => {
       assertEquals(1, searchboxHandler.getCallCount('addTabContext'));
       const [tabId, delayUpload] = searchboxHandler.getArgs('addTabContext')[0];
       assertEquals(1, tabId);
-      assertTrue(delayUpload);
+      assertEquals(true, delayUpload);
     });
     test(
         'Deep dive chip click opens composebox with context and suggestion',
@@ -2441,7 +2438,7 @@ suite('NewTabPageAppTest', () => {
           const [tabId, delayUpload] =
               searchboxHandler.getArgs('addTabContext')[0];
           assertEquals(1, tabId);
-          assertTrue(delayUpload);
+          assertEquals(true, delayUpload);
           assertTrue(!!composebox.getInputElement().$.input);
           assertEquals(suggestion, composebox.getInputElement().$.input.value);
         });
@@ -2599,6 +2596,9 @@ suite('NewTabPageAppReducedMotionTest', () => {
         modelConfigs: [],
       },
     }));
+    searchboxHandler.setResultFor(
+        'getPageClassification',
+        Promise.resolve({metricSource: 'NTP_REALBOX'}));
     installMock(
         ActionChipsHandlerRemote, mock => ActionChipsApiProxyImpl.setInstance({
           getHandler: () => mock,

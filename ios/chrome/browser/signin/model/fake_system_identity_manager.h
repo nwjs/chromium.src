@@ -123,6 +123,8 @@ class FakeSystemIdentityManager final : public SystemIdentityManager {
   // account is requested.
   void SetGetAccessTokenCallback(const CoreAccountId& accountId,
                                  GetAccessTokenCallback callback);
+  void SetGetAccessTokenCallback(const CoreAccountId& accountId,
+                                 GetAccessTokenRequestCallback callback);
 
   // Simulates a failure next time the access token for `identity` would be
   // fetched and return the error that would be sent to the observers. The
@@ -135,15 +137,6 @@ class FakeSystemIdentityManager final : public SystemIdentityManager {
   id<RefreshAccessTokenError> CreateRefreshAccessTokenFailure(
       id<SystemIdentity> identity,
       HandleMDMNotificationCallback callback);
-
-  // Sets a callback that executes whenever BuildExternalPrivacyContext is
-  // triggered.
-  using OnBuildExternalPrivacyContextCallback =
-      base::RepeatingCallback<void(id<SystemIdentity>,
-                                   UIViewController*,
-                                   BuildExternalPrivacyContextCallback)>;
-  void SetBuildExternalPrivacyContextCallback(
-      OnBuildExternalPrivacyContextCallback callback);
 
   // SystemIdentityManager implementation.
   bool IsSigninSupported() final;
@@ -176,6 +169,13 @@ class FakeSystemIdentityManager final : public SystemIdentityManager {
                       const std::string& client_id,
                       const std::set<std::string>& scopes,
                       AccessTokenCallback callback) final;
+  void GetAccessToken(id<SystemIdentity> identity,
+                      const std::set<std::string>& scopes,
+                      AccessTokenRequestCallback callback) final;
+  void GetAccessToken(id<SystemIdentity> identity,
+                      const std::string& client_id,
+                      const std::set<std::string>& scopes,
+                      AccessTokenRequestCallback callback) final;
   void FetchAvatarForIdentity(id<SystemIdentity> identity) final;
   UIImage* GetCachedAvatarForIdentity(id<SystemIdentity> identity) final;
   void GetHostedDomain(id<SystemIdentity> identity,
@@ -184,10 +184,14 @@ class FakeSystemIdentityManager final : public SystemIdentityManager {
   void FetchCapabilities(id<SystemIdentity> identity,
                          const std::vector<std::string>& names,
                          FetchCapabilitiesCallback callback) final;
-  void BuildExternalPrivacyContext(
-      id<SystemIdentity> identity,
-      UIViewController* view_controller,
-      BuildExternalPrivacyContextCallback callback) final;
+
+  void RegisterExternalPrivacyContextProvider(
+      id<ExternalPrivacyContextUIProvider> provider) final;
+  void UnregisterExternalPrivacyContextProvider(
+      id<ExternalPrivacyContextUIProvider> provider) final;
+  void ExternalPrivacyContextProviderReady(
+      id<ExternalPrivacyContextUIProvider> provider) final;
+
   bool HandleMDMNotification(id<SystemIdentity> identity,
                              NSArray<id<SystemIdentity>>* active_identities,
                              id<RefreshAccessTokenError> error,
@@ -208,8 +212,10 @@ class FakeSystemIdentityManager final : public SystemIdentityManager {
                            bool removed_by_user);
 
   // Helper used to implement the asynchronous part of `GetAccessToken`.
+  void GetAccessTokenAsyncLegacy(id<SystemIdentity> identity,
+                                 AccessTokenCallback callback);
   void GetAccessTokenAsync(id<SystemIdentity> identity,
-                           AccessTokenCallback callback);
+                           AccessTokenRequestCallback callback);
 
   // Helper used to implement the asynchronous part of `FetchAvatarForIdentity`.
   void FetchAvatarForIdentityAsync(id<SystemIdentity> identity);
@@ -251,9 +257,6 @@ class FakeSystemIdentityManager final : public SystemIdentityManager {
 
   base::RepeatingCallback<id<SystemIdentityInteractionManager>()>
       interaction_manager_factory_;
-
-  OnBuildExternalPrivacyContextCallback
-      on_build_external_privacy_context_callback_;
 
   base::WeakPtrFactory<FakeSystemIdentityManager> weak_ptr_factory_{this};
 };

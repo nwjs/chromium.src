@@ -227,6 +227,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
     owner_delegate_ = owner_delegate;
   }
 
+  bool IsPinchToZoomEnabled() const;
+
   RenderWidgetHostOwnerDelegate* owner_delegate() { return owner_delegate_; }
 
   AgentSchedulingGroupHost& agent_scheduling_group() {
@@ -251,7 +253,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       const input::NativeWebKeyboardEvent& key_event) override;
   void ForwardGestureEvent(
       const blink::WebGestureEvent& gesture_event) override;
-  RenderProcessHost* GetProcess() override;
+  RenderProcessHost* GetProcess() const override;
   int GetRoutingID() final;
   RenderWidgetHostViewBase* GetView() override;
   const RenderWidgetHostViewBase* GetView() const override;
@@ -322,6 +324,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       const ui::mojom::MenuSourceType source_type) override;
   void InsertVisualStateCallback(VisualStateCallback callback) override;
   void SetHungRendererDelay(const base::TimeDelta& delay) override;
+  void SetReadyForInputCallbackForTesting(base::OnceClosure callback);
 
   // RenderProcessHostPriorityClient implementation.
   RenderProcessHostPriorityClient::Priority GetPriority() override;
@@ -400,6 +403,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   void OnInputEventAckTimeout(base::TimeTicks ack_timeout_ts) override;
   void RendererIsResponsive() override;
   void DidOverscroll(blink::mojom::DidOverscrollParamsPtr params) override;
+  void OnInputRouterActive() override;
+
+  // Called when the InputRouter in the Viz process becomes active.
+  void OnVizInputRouterActive();
 
   // Update the stored set of visual properties for the renderer. If 'propagate'
   // is true, the new properties will be sent to the renderer process.
@@ -1238,6 +1245,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   void SetupRenderInputRouter();
   void SetupInputRouter();
+  void MaybeNotifyReadyForInput();
 
   // Start intercepting system keyboard events.
   void LockKeyboard();
@@ -1611,6 +1619,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   bool view_is_frame_sink_id_owner_{false};
 
   std::unique_ptr<CompositorMetricRecorder> compositor_metric_recorder_;
+  base::OnceClosure ready_for_input_callback_for_testing_;
 
   base::WeakPtrFactory<RenderWidgetHostImpl> weak_factory_{this};
 };

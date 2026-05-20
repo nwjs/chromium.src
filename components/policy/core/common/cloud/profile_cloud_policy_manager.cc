@@ -55,9 +55,6 @@ ProfileCloudPolicyManager::ProfileCloudPolicyManager(
           std::move(extension_install_store),
           task_runner,
           std::move(network_connection_tracker_getter)),
-      profile_store_(static_cast<ProfileCloudPolicyStore*>(store())),
-      extension_install_store_(static_cast<ProfileCloudPolicyStore*>(
-          CloudPolicyManager::extension_install_store())),
       external_data_manager_(std::move(external_data_manager)),
       component_policy_cache_path_(component_policy_cache_path),
       is_dasherless_(is_dasherless) {
@@ -82,7 +79,7 @@ std::unique_ptr<ProfileCloudPolicyManager> ProfileCloudPolicyManager::Create(
           profile_path, background_task_runner, is_dasherless);
   std::unique_ptr<policy::ProfileCloudPolicyStore> extension_install_store =
       nullptr;
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // This is not supported before M146.
   if (IsExtensionInstallPolicySupportedOnThisVersion() &&
       base::FeatureList::IsEnabled(
@@ -91,7 +88,7 @@ std::unique_ptr<ProfileCloudPolicyManager> ProfileCloudPolicyManager::Create(
         policy::ProfileCloudPolicyStore::CreateForExtensionInstall(
             profile_path, background_task_runner, is_dasherless);
   }
-#endif  // !BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   if (force_immediate_load) {
     store->LoadImmediately();
     if (extension_install_store) {
@@ -146,20 +143,27 @@ void ProfileCloudPolicyManager::DisconnectAndRemovePolicy() {
     external_data_manager_->Disconnect();
   }
 
-  core()->Disconnect();
-
   // store_->Clear() will publish the updated, empty policy. The component
   // policy service must be cleared before OnStoreLoaded() is issued, so that
   // component policies are also empty at CheckAndPublishPolicy().
-  ClearAndDestroyComponentCloudPolicyService();
+  CloudPolicyManager::DisconnectAndRemovePolicy();
 
   // When the |profile_store_| is cleared, it informs the
   // |external_data_manager_| that all external data references have been
   // removed, causing the |external_data_manager_| to clear its cache as well.
-  profile_store_->Clear();
-  if (extension_install_store_) {
-    extension_install_store_->Clear();
+  store()->Clear();
+  if (extension_install_store()) {
+    extension_install_store()->Clear();
   }
+}
+
+ProfileCloudPolicyStore* ProfileCloudPolicyManager::store() {
+  return static_cast<ProfileCloudPolicyStore*>(CloudPolicyManager::store());
+}
+
+ProfileCloudPolicyStore* ProfileCloudPolicyManager::extension_install_store() {
+  return static_cast<ProfileCloudPolicyStore*>(
+      CloudPolicyManager::extension_install_store());
 }
 
 void ProfileCloudPolicyManager::Shutdown() {

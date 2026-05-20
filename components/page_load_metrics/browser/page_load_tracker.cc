@@ -239,9 +239,7 @@ internal::PageLoadTrackerPageType CalculatePageType(
              content::FrameType::kFencedFrameRoot) {
     return internal::PageLoadTrackerPageType::kFencedFramesPage;
   }
-  return navigation_handle->GetWebContents()->IsInPreviewMode()
-             ? internal::PageLoadTrackerPageType::kPreviewPrimaryPage
-             : internal::PageLoadTrackerPageType::kPrimaryPage;
+  return internal::PageLoadTrackerPageType::kPrimaryPage;
 }
 
 bool CalculateIsOriginVisit(bool is_first_navigation,
@@ -264,9 +262,7 @@ void RegisterObservers(PageLoadTracker* tracker,
   // orders fail.
   //
   // TODO(b:302999778): Reenable it.
-  if (!tracker->GetWebContents()->IsInPreviewMode()) {
-    tracker->AddObserver(std::make_unique<AssertPageLoadMetricsObserver>());
-  }
+  tracker->AddObserver(std::make_unique<AssertPageLoadMetricsObserver>());
 #endif
   embedder->RegisterObservers(tracker, navigation_handle);
 }
@@ -482,7 +478,14 @@ void PageLoadTracker::PageShown() {
         prerendering_state_ == PrerenderingState::kInPreview) {
       DCHECK_EQ(started_in_foreground_, first_background_time_.has_value());
     } else {
-      DCHECK(first_background_time_.has_value());
+      // When a prerendered page is activated in a background tab (e.g.
+      // ctrl+click), PageHidden() is never called because there was no
+      // visible-to-hidden transition. In that case first_background_time_
+      // won't be set. Metrics observers handle this via
+      // GetNonPrerenderingBackgroundStartTiming() which uses activation_start
+      // for background-activated prerenders.
+      DCHECK(first_background_time_.has_value() ||
+             visibility_at_activation_ == PageVisibility::kBackground);
     }
 
     base::TimeTicks foreground_time = base::TimeTicks::Now();
@@ -1162,12 +1165,9 @@ void PageLoadTracker::UpdateFrameCpuTiming(content::RenderFrameHost* rfh,
   }
 }
 
-void PageLoadTracker::OnMainFrameIntersectionRectChanged(
-    content::RenderFrameHost* rfh,
-    const gfx::Rect& main_frame_intersection_rect) {
+void PageLoadTracker::OnMainFrameRectChanged(const gfx::Rect& main_frame_rect) {
   for (const auto& observer : observers_) {
-    observer->OnMainFrameIntersectionRectChanged(rfh,
-                                                 main_frame_intersection_rect);
+    observer->OnMainFrameRectChanged(main_frame_rect);
   }
 }
 

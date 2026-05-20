@@ -7,6 +7,9 @@
 #include <variant>
 
 #include "base/memory/weak_ptr.h"
+#include "content/browser/preloading/prefetch/prefetch_container_async_observer.h"
+#include "content/browser/preloading/prefetch/prefetch_container_observer_for_prefetch_request_status_listener.h"
+#include "content/browser/preloading/prefetch/prefetch_features.h"
 #include "content/browser/preloading/prefetch/prefetch_params.h"
 #include "content/browser/preloading/prefetch/prefetch_type.h"
 #include "content/browser/preloading/preload_pipeline_info_impl.h"
@@ -14,7 +17,6 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/global_routing_id.h"
-#include "content/public/browser/prefetch_request_status_listener.h"
 
 namespace content {
 namespace {
@@ -24,6 +26,18 @@ ukm::SourceId GetUkmSourceId(RenderFrameHostImpl& rfhi) {
   CHECK(
       !rfhi.IsInLifecycleState(RenderFrameHost::LifecycleState::kPrerendering));
   return rfhi.GetPageUkmSourceId();
+}
+
+std::unique_ptr<PrefetchContainerObserver> CreateStatusListenerObserver(
+    std::unique_ptr<PrefetchRequestStatusListener> request_status_listener) {
+  auto observer =
+      PrefetchContainerObserverForPrefetchRequestStatusListener::Create(
+          std::move(request_status_listener));
+  if (base::FeatureList::IsEnabled(
+          features::kPrefetchRequestStatusListenerAsync)) {
+    return PrefetchContainerAsyncObserver::Create(std::move(observer));
+  }
+  return observer;
 }
 
 }  // namespace
@@ -50,11 +64,12 @@ PrefetchBrowserInitiatorInfo::PrefetchBrowserInitiatorInfo(
     PrefetchBrowserInitiatorInfo&&) = default;
 
 PrefetchBrowserInitiatorInfo::PrefetchBrowserInitiatorInfo(
-    const std::string& embedder_histogram_suffix,
+    const std::string& histogram_suffix,
     std::unique_ptr<PrefetchRequestStatusListener> request_status_listener)
-    : embedder_histogram_suffix_(embedder_histogram_suffix),
-      request_status_listener_(std::move(request_status_listener)) {
-  CHECK(!embedder_histogram_suffix_.empty());
+    : histogram_suffix_(histogram_suffix),
+      request_status_listener_observer_(
+          CreateStatusListenerObserver(std::move(request_status_listener))) {
+  CHECK(!histogram_suffix_.empty());
 }
 
 PrefetchRequest::PrefetchRequest(
@@ -163,7 +178,7 @@ std::unique_ptr<const PrefetchRequest> PrefetchRequest::CreateBrowserInitiated(
     WebContents& referring_web_contents,
     const GURL& url,
     const PrefetchType& prefetch_type,
-    const std::string& embedder_histogram_suffix,
+    const std::string& histogram_suffix,
     const blink::mojom::Referrer& referrer,
     const std::optional<url::Origin>& referring_origin,
     std::optional<net::HttpNoVarySearchData> no_vary_search_hint,
@@ -190,7 +205,7 @@ std::unique_ptr<const PrefetchRequest> PrefetchRequest::CreateBrowserInitiated(
       /*should_append_variations_header=*/true,
       /*should_disable_block_until_head_timeout=*/false,
       /*should_bypass_http_cache=*/false,
-      PrefetchBrowserInitiatorInfo(embedder_histogram_suffix,
+      PrefetchBrowserInitiatorInfo(histogram_suffix,
                                    /*request_status_listener=*/nullptr));
 }
 
@@ -200,7 +215,7 @@ PrefetchRequest::CreateBrowserInitiatedWithoutWebContents(
     BrowserContext* browser_context,
     const GURL& url,
     const PrefetchType& prefetch_type,
-    const std::string& embedder_histogram_suffix,
+    const std::string& histogram_suffix,
     const blink::mojom::Referrer& referrer,
     bool javascript_enabled,
     const std::optional<url::Origin>& referring_origin,
@@ -227,7 +242,7 @@ PrefetchRequest::CreateBrowserInitiatedWithoutWebContents(
       /*holdback_status_override=*/PreloadingHoldbackStatus::kUnspecified,
       should_append_variations_header, should_disable_block_until_head_timeout,
       should_bypass_http_cache,
-      PrefetchBrowserInitiatorInfo(embedder_histogram_suffix,
+      PrefetchBrowserInitiatorInfo(histogram_suffix,
                                    std::move(request_status_listener)));
 }
 
@@ -237,7 +252,7 @@ PrefetchRequest::CreateBrowserInitiatedWithoutWebContentsOffTheMainThread(
     base::WeakPtr<BrowserContext> browser_context,
     const GURL& url,
     const PrefetchType& prefetch_type,
-    const std::string& embedder_histogram_suffix,
+    const std::string& histogram_suffix,
     const blink::mojom::Referrer& referrer,
     bool javascript_enabled,
     const std::optional<url::Origin>& referring_origin,
@@ -266,7 +281,7 @@ PrefetchRequest::CreateBrowserInitiatedWithoutWebContentsOffTheMainThread(
       /*holdback_status_override=*/PreloadingHoldbackStatus::kUnspecified,
       should_append_variations_header, should_disable_block_until_head_timeout,
       should_bypass_http_cache,
-      PrefetchBrowserInitiatorInfo(embedder_histogram_suffix,
+      PrefetchBrowserInitiatorInfo(histogram_suffix,
                                    std::move(request_status_listener)));
 }
 

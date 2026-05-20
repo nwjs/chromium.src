@@ -40,6 +40,8 @@ std::string MaybeGetUnscannedReason(ScanRequestUploadResult result) {
     case ScanRequestUploadResult::kFailedToGetToken:
     case ScanRequestUploadResult::kIncompleteResponse:
       return kServiceUnavailableUnscannedReason;
+    case ScanRequestUploadResult::kUserCancelled:
+      return kUserCancelledUnscannedReason;
   }
 }
 
@@ -368,6 +370,7 @@ bool ResultIsFailClosed(ScanRequestUploadResult result) {
     case ScanRequestUploadResult::kFileTooLarge:
     case ScanRequestUploadResult::kUnauthorized:
     case ScanRequestUploadResult::kFileEncrypted:
+    case ScanRequestUploadResult::kUserCancelled:
       return false;
   }
 }
@@ -405,6 +408,8 @@ bool ResultShouldAllowDataUse(const AnalysisSettings& settings,
 
     case ScanRequestUploadResult::kFileEncrypted:
       return !settings.block_password_protected_files;
+    case ScanRequestUploadResult::kUserCancelled:
+      return false;
   }
 }
 
@@ -444,6 +449,8 @@ RequestHandlerResult CalculateRequestHandlerResult(
     result.final_result = FinalContentAnalysisResult::LARGE_FILES;
   } else if (upload_result == ScanRequestUploadResult::kFileEncrypted) {
     result.final_result = FinalContentAnalysisResult::ENCRYPTED_FILES;
+  } else if (upload_result == ScanRequestUploadResult::kUserCancelled) {
+    result.final_result = FinalContentAnalysisResult::CANCELLED;
   } else {
     result.final_result = FinalContentAnalysisResult::FAILURE;
   }
@@ -560,6 +567,8 @@ std::string BinaryUploadServiceResultToString(
       return "TooManyRequests";
     case ScanRequestUploadResult::kIncompleteResponse:
       return "IncompleteResponse";
+    case ScanRequestUploadResult::kUserCancelled:
+      return "UserCancelled";
   }
 }
 
@@ -571,6 +580,31 @@ void IncrementCrashKey(ScanningCrashKey key, int delta) {
 void DecrementCrashKey(ScanningCrashKey key, int delta) {
   DCHECK_GE(delta, 0);
   ModifyKey(key, -delta);
+}
+
+DeepScanAccessPoint AccessPointFromRequest(
+    AnalysisConnector connector,
+    ContentAnalysisRequest::Reason reason) {
+  switch (connector) {
+    case FILE_DOWNLOADED:
+      return DeepScanAccessPoint::DOWNLOAD;
+    case FILE_ATTACHED:
+      if (reason == ContentAnalysisRequest::DRAG_AND_DROP) {
+        return DeepScanAccessPoint::DRAG_AND_DROP;
+      }
+      if (reason == ContentAnalysisRequest::CLIPBOARD_PASTE) {
+        return DeepScanAccessPoint::PASTE;
+      }
+      return DeepScanAccessPoint::UPLOAD;
+    case BULK_DATA_ENTRY:
+      return DeepScanAccessPoint::PASTE;
+    case PRINT:
+      return DeepScanAccessPoint::PRINT;
+    case FILE_TRANSFER:
+      return DeepScanAccessPoint::FILE_TRANSFER;
+    case ANALYSIS_CONNECTOR_UNSPECIFIED:
+      return DeepScanAccessPoint::UPLOAD;
+  }
 }
 
 }  // namespace enterprise_connectors

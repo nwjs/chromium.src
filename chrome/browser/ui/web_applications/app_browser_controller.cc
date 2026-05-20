@@ -21,7 +21,6 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -30,10 +29,10 @@
 #include "chrome/browser/ui/browser_window_theme_observer.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/color/chrome_color_provider_utils.h"
+#include "chrome/browser/ui/page_actions/action_ids.h"
 #include "chrome/browser/ui/tabs/tab_menu_model_factory.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/page_action/action_ids.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
@@ -447,6 +446,10 @@ AppBrowserController::GetTitleBarPageActionTypes() const {
 }
 
 bool AppBrowserController::IsInstalled() const {
+  return true;
+}
+
+bool AppBrowserController::IsFirstLaunchAfterInstall() const {
   return false;
 }
 
@@ -552,6 +555,10 @@ WebAppBrowserController* AppBrowserController::AsWebAppBrowserController() {
 }
 
 bool AppBrowserController::CanUserUninstall() const {
+  return false;
+}
+
+bool AppBrowserController::IsPreinstalledOnly() const {
   return false;
 }
 

@@ -25,7 +25,7 @@ async function perform2SecondsOfWebSocketActivity() {
   // and invalidate the test.
   const expectedMessage = 'ping';
   const start = performance.now();
-  const waitForMs = 2 * 1000; // wait for 2 seconds.
+  const waitForMs = 2 * 1000;  // wait for 2 seconds.
 
   let reachedEnd = false;
 
@@ -34,7 +34,7 @@ async function perform2SecondsOfWebSocketActivity() {
   // connection, it should be considered an error (and the message is checked
   // on the C++ side).
   socket.onclose = () => {
-    let endMessage = reachedEnd ? 'closed' : 'port unexpectedly closed';
+    const endMessage = reachedEnd ? 'closed' : 'port unexpectedly closed';
     chrome.test.sendScriptResult(endMessage);
   };
 
@@ -43,7 +43,7 @@ async function perform2SecondsOfWebSocketActivity() {
   // seconds (quite possibly more, depending on the speed of the bot).
   let receivedMessages = 0;
   socket.onmessage = ({data}) => {
-    if (data != expectedMessage) {
+    if (data !== expectedMessage) {
       chrome.test.sendScriptResult(`unexpected message: ${data}`);
     }
 
@@ -51,7 +51,7 @@ async function perform2SecondsOfWebSocketActivity() {
 
     // Close the port if we've received at least three messages *and* two
     // seconds have passed; otherwise, keep waiting.
-    if (receivedMessages == 9) {
+    if (receivedMessages === 9) {
       const millis = performance.now() - start;
       if (millis > waitForMs) {
         reachedEnd = true;

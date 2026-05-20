@@ -531,7 +531,7 @@ class BookmarkManagerMediator
 
         updateShoppingFilterVisible();
 
-        // TODO(https://crbug.com/1413463): This logic is here to keep the same execution order
+        // TODO(https://crbug.com/40255666): This logic is here to keep the same execution order
         // from when it was in the original adapter. It doesn't conceptually make sense to be here,
         // and should happen earlier.
         addUiObserver(mBookmarkUiObserver);
@@ -1500,13 +1500,11 @@ class BookmarkManagerMediator
         boolean canMove = BookmarkUtils.isMovable(mBookmarkModel, bookmarkItem);
 
         if (bookmarkId.getType() == BookmarkType.READING_LIST) {
-            if (bookmarkItem != null) {
-                listItems.add(
-                        buildSimpleMenuItem(
-                                bookmarkItem.isRead()
-                                        ? R.string.reading_list_mark_as_unread
-                                        : R.string.reading_list_mark_as_read));
-            }
+            listItems.add(
+                    buildSimpleMenuItem(
+                            bookmarkItem.isRead()
+                                    ? R.string.reading_list_mark_as_unread
+                                    : R.string.reading_list_mark_as_read));
         }
 
         listItems.add(buildSimpleMenuItem(R.string.bookmark_item_select));

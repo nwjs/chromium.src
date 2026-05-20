@@ -52,6 +52,7 @@ import org.chromium.build.annotations.CheckDiscard;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.toolbar.ToolbarVariationUtils;
 import org.chromium.components.browser_ui.share.ShareHelper;
 import org.chromium.components.browser_ui.util.FirstDrawDetector;
 import org.chromium.components.omnibox.OmniboxFeatures;
@@ -134,6 +135,7 @@ public class UrlBar extends AutocompleteEditText {
     // guarantee that the text does contain the span currently as newly set text may have cleared
     // this (and it the value will only be recalculated after the text has been changed).
     private boolean mDidEllipsizeTextHint;
+    private boolean mBoundsEllipsisEnabled;
 
     /**
      * The character index in the displayed text where the origin ends. This is required to ensure
@@ -228,6 +230,7 @@ public class UrlBar extends AutocompleteEditText {
             // - dlig=0 - disable decorative ligatures (sp, Th, ...)
             setFontFeatureSettings("liga=0, clig=0, calt=0, dlig=0");
         }
+
         // Use a global draw instead of View#onDraw in case this View is not visible.
         FirstDrawDetector.waitForFirstDraw(
                 this,
@@ -335,6 +338,14 @@ public class UrlBar extends AutocompleteEditText {
             mPendingScroll = false;
         }
         fixupTextDirection();
+
+        if (shouldApplyBoundsEllipsis()) {
+            // While focused for editing, clear all ellipsis overrides so the raw URL stream remains
+            // fully legible. When unfocused, append trailing ellipsis mapping against viewport
+            // limits.
+            setEllipsize(focused ? null : TextUtils.TruncateAt.END);
+            if (focused) clearBoundsEllipsisSpans(getText());
+        }
     }
 
     @Override
@@ -366,6 +377,17 @@ public class UrlBar extends AutocompleteEditText {
         if (mAllowMultilineInput == allowMultilineInput) return;
         mAllowMultilineInput = allowMultilineInput;
         updateUrlBarForMultilineInput();
+    }
+
+    /** Sets whether this {@link UrlBar} should enable bounds ellipsis. */
+    public void setBoundsEllipsisEnabled(boolean enabled) {
+        mBoundsEllipsisEnabled = enabled;
+        setEllipsize(shouldApplyBoundsEllipsis() ? TextUtils.TruncateAt.END : null);
+    }
+
+    private boolean shouldApplyBoundsEllipsis() {
+        return mBoundsEllipsisEnabled
+                && ToolbarVariationUtils.isToolbarUiRefactorEnabled(getContext());
     }
 
     private void updateUrlBarForMultilineInput() {
@@ -456,7 +478,7 @@ public class UrlBar extends AutocompleteEditText {
         // See crbug.com/410642190
         super.onTextChanged(text, start, lengthBefore, lengthAfter);
 
-        // Due to crbug.com/1103555, Autofill had to be disabled on the UrlBar to work around
+        // Due to crbug.com/40139311, Autofill had to be disabled on the UrlBar to work around
         // an issue on Android Q+. With Autofill disabled, the Autofill compat mode no longer
         // learns of changes to the UrlBar, which prevents it from cancelling the session if
         // the domain changes. We restore this behavior by mimicking the relevant part of
@@ -873,6 +895,8 @@ public class UrlBar extends AutocompleteEditText {
 
         int measuredWidth = getVisibleMeasuredViewportWidth();
 
+        applyBoundsEllipsis(text, measuredWidth);
+
         // If the origin changes, we should avoid applying this optimization, which could cause us
         // to fail to emphasize the tld in cases where we navigate from, e.g. domain.com to
         // domain.com.sub
@@ -911,6 +935,48 @@ public class UrlBar extends AutocompleteEditText {
         mPreviousScrollResultXPosition = getScrollX();
         mPreviousScrollWasRtl = currentIsRtl;
         mPreviousScrollOriginEndIndex = mOriginEndIndex;
+    }
+
+    private void clearBoundsEllipsisSpans(Editable text) {
+        int textLength = text.length();
+        BoundsEllipsisSpan[] spans = text.getSpans(0, textLength, BoundsEllipsisSpan.class);
+        if (spans != null && spans.length > 0) {
+            for (BoundsEllipsisSpan span : spans) {
+                text.removeSpan(span);
+            }
+        }
+    }
+
+    /**
+     * Evaluates visible constraints dynamically for long URLs. If character width exceeds available
+     * viewport limits, a BoundsEllipsisSpan overrides trailing overflowing text.
+     */
+    private void applyBoundsEllipsis(Editable text, int measuredWidth) {
+        if (!shouldApplyBoundsEllipsis()) return;
+
+        int textLength = text.length();
+        if (textLength == 0) return;
+
+        clearBoundsEllipsisSpans(text);
+
+        Layout textLayout = getLayout();
+        if (textLayout != null) {
+            int ellipsisWidth = (int) textLayout.getPaint().measureText(EllipsisSpan.ELLIPSIS);
+            int cutoffWidth = Math.max(0, measuredWidth - ellipsisWidth);
+            int finalVisibleCharIndex =
+                    textLayout
+                            .getPaint()
+                            .getOffsetForAdvance(
+                                    text, 0, textLength, 0, textLength, false, cutoffWidth);
+
+            if (finalVisibleCharIndex < textLength) {
+                text.setSpan(
+                        BoundsEllipsisSpan.INSTANCE,
+                        finalVisibleCharIndex,
+                        textLength,
+                        Editable.SPAN_INCLUSIVE_EXCLUSIVE);
+            }
+        }
     }
 
     /** Scrolls the omnibox text to show the very beginning of the text entered. */
@@ -1002,8 +1068,8 @@ public class UrlBar extends AutocompleteEditText {
                     assert MathUtils.areFloatsEqual(horizontal, width) || horizontal > width
                             : "finalVisibleCharIndex is too small: "
                                     + String.valueOf(finalVisibleCharIndexExclusive)
-                                    + ". If discovered locally please update crbug.com/1465967 with"
-                                    + " the url.";
+                                    + ". If discovered locally please update crbug.com/40067648"
+                                    + " with the url.";
                 }
 
                 // To avoid issues where a small portion of the character following
@@ -1031,7 +1097,7 @@ public class UrlBar extends AutocompleteEditText {
 
         final int originEndIndex = Math.min(mOriginEndIndex, urlTextLength);
         if (mOriginEndIndex > urlTextLength) {
-            // If discovered locally, please update crbug.com/859219 with the steps to reproduce.
+            // If discovered locally, please update crbug.com/41398885 with the steps to reproduce.
             assert false
                     : "Attempting to scroll past the end of the URL: "
                             + url
@@ -1210,9 +1276,10 @@ public class UrlBar extends AutocompleteEditText {
     }
 
     private void limitDisplayableLength() {
-        // To limit displayable length we replace middle portion of the string with ellipsis.
-        // That affects only presentation of the text, and doesn't affect other aspects like
-        // copying to the clipboard, getting text with getText(), etc.
+        // To limit displayable length we replace the middle portion of the string with an ellipsis
+        // (or the end of the string when the toolbar variation is enabled). That affects only
+        // presentation of the text, and doesn't affect other aspects like copying to the clipboard,
+        // getting text with getText(), etc.
         final int maxLength =
                 SysUtils.isLowEndDevice() ? MAX_DISPLAYABLE_LENGTH_LOW_END : MAX_DISPLAYABLE_LENGTH;
 
@@ -1237,18 +1304,29 @@ public class UrlBar extends AutocompleteEditText {
         int spanLeft = text.nextSpanTransition(0, textLength, EllipsisSpan.class);
         if (spanLeft != textLength) return;
 
-        spanLeft = maxLength / 2;
-        text.setSpan(
-                EllipsisSpan.INSTANCE,
-                spanLeft,
-                textLength - spanLeft,
-                Editable.SPAN_INCLUSIVE_EXCLUSIVE);
+        if (shouldApplyBoundsEllipsis() && !mFocused) {
+            // If the toolbar variation is active, append trailing ellipsis at the very end for
+            // unfocused
+            // sessions. Preserves middle-chunk masking for standard focused editing behavior.
+            text.setSpan(
+                    EllipsisSpan.INSTANCE,
+                    maxLength,
+                    textLength,
+                    Editable.SPAN_INCLUSIVE_EXCLUSIVE);
+        } else {
+            spanLeft = maxLength / 2;
+            text.setSpan(
+                    EllipsisSpan.INSTANCE,
+                    spanLeft,
+                    textLength - spanLeft,
+                    Editable.SPAN_INCLUSIVE_EXCLUSIVE);
+        }
     }
 
     @Override
     public Editable getText() {
         if (mRequestingAutofillStructure) {
-            // crbug.com/1109186: mTextForAutofillServices must not be null here, but Autofill
+            // crbug.com/40141623: mTextForAutofillServices must not be null here, but Autofill
             // requests can be triggered before it is initialized.
             return new SpannableStringBuilder(
                     mTextForAutofillServices != null ? mTextForAutofillServices : "");
@@ -1260,7 +1338,7 @@ public class UrlBar extends AutocompleteEditText {
     @Override
     public CharSequence getAccessibilityClassName() {
         // When UrlBar is used as a read-only TextView, force Talkback to pronounce it like
-        // TextView. Otherwise Talkback will say "Edit box, http://...". crbug.com/636988
+        // TextView. Otherwise Talkback will say "Edit box, http://...". crbug.com/40480292
         if (isEnabled()) {
             return super.getAccessibilityClassName();
         } else {
@@ -1327,8 +1405,8 @@ public class UrlBar extends AutocompleteEditText {
      * Span that displays ellipsis instead of the text. Used to hide portion of very large string to
      * get decent performance from TextView.
      */
-    private static class EllipsisSpan extends ReplacementSpan {
-        private static final String ELLIPSIS = "...";
+    /* package */ static class EllipsisSpan extends ReplacementSpan {
+        static final String ELLIPSIS = "...";
 
         public static final EllipsisSpan INSTANCE = new EllipsisSpan();
 
@@ -1355,6 +1433,10 @@ public class UrlBar extends AutocompleteEditText {
                 Paint paint) {
             canvas.drawText(ELLIPSIS, x, y, paint);
         }
+    }
+
+    /* package */ static class BoundsEllipsisSpan extends EllipsisSpan {
+        public static final BoundsEllipsisSpan INSTANCE = new BoundsEllipsisSpan();
     }
 
     /* package */ boolean hasPendingDisplayTextScrollForTesting() {

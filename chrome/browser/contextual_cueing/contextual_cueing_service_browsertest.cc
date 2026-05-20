@@ -6,6 +6,7 @@
 
 #include "chrome/browser/contextual_cueing/contextual_cueing_service_factory.h"
 #include "chrome/browser/contextual_cueing/features.h"
+#include "chrome/browser/contextual_cueing/test_cue_target.h"
 #include "chrome/browser/extensions/keyed_services/browser_context_keyed_service_factories.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -15,16 +16,6 @@
 #include "content/public/test/browser_test.h"
 
 namespace contextual_cueing {
-
-class TestCueTarget : public CueTarget {
- public:
-  bool eligible = true;
-  CueActionData click_data = std::monostate();
-
-  ~TestCueTarget() override = default;
-  bool IsEligible() const override { return eligible; }
-  void OnClick(CueActionData data) override { click_data = std::move(data); }
-};
 
 class ContextualCueingServiceV2BrowserTest : public InProcessBrowserTest {
  public:
@@ -49,22 +40,6 @@ IN_PROC_BROWSER_TEST_F(ContextualCueingServiceV2BrowserTestCCFlag,
                        ServiceSpawnsWithCCFlag) {
   EXPECT_NE(nullptr, ContextualCueingServiceFactory::GetForProfile(
                          browser()->profile()));
-}
-
-IN_PROC_BROWSER_TEST_F(ContextualCueingServiceV2BrowserTestCCFlag, OnClick) {
-  auto* service =
-      ContextualCueingServiceFactory::GetForProfile(browser()->profile());
-
-  auto target = std::make_unique<TestCueTarget>();
-  TestCueTarget* target_raw = target.get();
-  service->RegisterCueTarget(CueTargetType::kGlic, std::move(target));
-
-  ASSERT_TRUE(std::holds_alternative<std::monostate>(target_raw->click_data));
-
-  service->OnClick(CueTargetType::kGlic, GlicCueActionData{.prompt = "asdf"});
-  ASSERT_TRUE(
-      std::holds_alternative<GlicCueActionData>(target_raw->click_data));
-  EXPECT_EQ("asdf", std::get<GlicCueActionData>(target_raw->click_data).prompt);
 }
 
 class ContextualCueingServiceV2BrowserTestDisabledFeatures

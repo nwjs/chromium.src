@@ -37,7 +37,8 @@ class MockCookieSettings : public content_settings::CookieSettingsBase {
   }
   bool ShouldIgnoreSameSiteRestrictions(
       const GURL& url,
-      const net::SiteForCookies& site_for_cookies) const override {
+      const net::SiteForCookies& site_for_cookies,
+      const url::Origin& top_level_origin) const override {
     return false;
   }
   bool ShouldAlwaysAllowCookies(const GURL& url,
@@ -49,7 +50,6 @@ class MockCookieSettings : public content_settings::CookieSettingsBase {
       net::CookieSettingOverrides overrides) const override {
     return true;
   }
-  bool MitigationsEnabledFor3pcd() const override { return false; }
   bool IsThirdPartyCookiesAllowedScheme(
       std::string_view scheme) const override {
     return true;

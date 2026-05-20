@@ -5,7 +5,11 @@
 #ifndef CHROME_BROWSER_UI_SEND_TAB_TO_SELF_SEND_TAB_TO_SELF_TOOLBAR_ICON_CONTROLLER_H_
 #define CHROME_BROWSER_UI_SEND_TAB_TO_SELF_SEND_TAB_TO_SELF_TOOLBAR_ICON_CONTROLLER_H_
 
+#include <memory>
+#include <vector>
+
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/send_tab_to_self/receiving_ui_handler.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
@@ -14,6 +18,10 @@
 class BrowserWindowInterface;
 class Profile;
 class ProfileBrowserCollection;
+
+namespace tabs {
+class TabInterface;
+}
 
 namespace send_tab_to_self {
 
@@ -30,8 +38,23 @@ class SendTabToSelfToolbarIconController
       const SendTabToSelfToolbarIconController&) = delete;
   ~SendTabToSelfToolbarIconController() override;
 
+  // Casts the ReceivingUiHandler to a SendTabToSelfToolbarIconController.
+  // This is safe because on Desktop only SentTabToSelfToolbarIconController
+  // implements ReceivingUiHandler.
+  // NOTE: It is the caller's responsibility to make sure that the instance
+  // actually is a SendTabToSelfToolbarIconController before calling this
+  // function.
+  static SendTabToSelfToolbarIconController* FromReceivingUiHandlerInstance(
+      send_tab_to_self::ReceivingUiHandler* ptr);
+
   // Returns true if the toolbar button can be shown for the provided browser.
   static bool CanShowOnBrowser(BrowserWindowInterface* bwi);
+
+  // Bypasses the browser activation check in DisplayNewEntries.
+  // Needed because browser activation is flaky in tests, especially on Wayland.
+  void set_ignore_active_for_testing(bool ignore) {
+    ignore_active_for_testing_ = ignore;
+  }
 
   // ReceivingUiHandler implementation.
   void DisplayNewEntries(
@@ -42,9 +65,19 @@ class SendTabToSelfToolbarIconController
   // BrowserCollectionObserver implementation
   void OnBrowserActivated(BrowserWindowInterface* browser) override;
 
+  // Switches to the latest tabs received from the remote and opened in
+  // background. This opens the first tab in the list of latest tabs opened in
+  // background. This is used by the toast action button to switch to the latest
+  // tabs opened.
+  void SwitchToLatestTabsOpenedInBackground(BrowserWindowInterface* browser);
+
+  // Called when the receiving notification toast is closed, either by timeout
+  // or by the user.
+  void OnToastClosed();
+
  private:
-  void StorePendingEntry(
-      const SendTabToSelfEntry* new_entry_pending_notification);
+  void StorePendingEntries(const std::vector<const SendTabToSelfEntry*>&
+                               new_entries_pending_notification);
 
   void ShowToolbarButton(const SendTabToSelfEntry& entry,
                          BrowserWindowInterface* browser = nullptr);
@@ -54,10 +87,19 @@ class SendTabToSelfToolbarIconController
   // In the case that we cannot immediately display a new entry
   // (e.g. the active browser is incognito or a different profile), we store it
   // here and wait until an appropriate browser becomes active to display it.
-  std::unique_ptr<SendTabToSelfEntry> pending_entry_;
+  std::vector<std::unique_ptr<SendTabToSelfEntry>> pending_entries_;
+
+  std::vector<base::WeakPtr<tabs::TabInterface>>
+      latest_tabs_opened_in_background_;
 
   base::ScopedObservation<ProfileBrowserCollection, BrowserCollectionObserver>
       browser_collection_observer_{this};
+
+  // If true, bypasses the browser activation check in DisplayNewEntries.
+  bool ignore_active_for_testing_ = false;
+
+  base::WeakPtrFactory<SendTabToSelfToolbarIconController> weak_ptr_factory_{
+      this};
 };
 
 }  // namespace send_tab_to_self

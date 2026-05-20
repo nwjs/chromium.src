@@ -18,6 +18,7 @@ import android.view.View;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.JniRepeatingCallback;
@@ -35,7 +36,7 @@ import java.util.ArrayList;
 @NullMarked
 public class ModalDialogWrapper implements ModalDialogProperties.Controller {
     /** The native-side counterpart of this class */
-    private final long mNativeDelegatePtr;
+    private long mNativeDelegatePtr;
 
     private final @Nullable ModalDialogManager mModalDialogManager;
 
@@ -48,6 +49,12 @@ public class ModalDialogWrapper implements ModalDialogProperties.Controller {
     @CalledByNative
     private static ModalDialogWrapper create(long nativeDelegatePtr, WindowAndroid window) {
         return new ModalDialogWrapper(nativeDelegatePtr, window);
+    }
+
+    @CalledByNative
+    private void clearNativePtr() {
+        assert mNativeDelegatePtr != 0;
+        mNativeDelegatePtr = 0;
     }
 
     private ModalDialogWrapper(long nativeDelegatePtr, WindowAndroid window) {
@@ -65,7 +72,10 @@ public class ModalDialogWrapper implements ModalDialogProperties.Controller {
 
     @CalledByNative
     private void withTitleAndButtons(
-            String title, String positiveButton, String negativeButton, int buttonStyles) {
+            @JniType("std::u16string") String title,
+            String positiveButton,
+            String negativeButton,
+            int buttonStyles) {
         mPropertyModelBuilder
                 .with(ModalDialogProperties.TITLE, title)
                 .with(ModalDialogProperties.POSITIVE_BUTTON_TEXT, positiveButton)
@@ -74,7 +84,7 @@ public class ModalDialogWrapper implements ModalDialogProperties.Controller {
     }
 
     @CalledByNative
-    private void withTitleIcon(Bitmap iconBitmap) {
+    private void withTitleIcon(@JniType("SkBitmap") Bitmap iconBitmap) {
         if (mContext == null) return;
         Drawable iconDrawable = new BitmapDrawable(mContext.getResources(), iconBitmap);
         mPropertyModelBuilder.with(ModalDialogProperties.TITLE_ICON, iconDrawable);
@@ -132,7 +142,9 @@ public class ModalDialogWrapper implements ModalDialogProperties.Controller {
     }
 
     @CalledByNative
-    private void withMenuItems(Bitmap[] icons, String[] texts) {
+    private void withMenuItems(
+            @JniType("std::vector<SkBitmap>") Bitmap[] icons,
+            @JniType("std::vector<std::u16string>") String[] texts) {
         if (mContext == null) return;
         assert icons.length == texts.length
                 : "Menu item icons and texts must have the same length.";
@@ -153,7 +165,7 @@ public class ModalDialogWrapper implements ModalDialogProperties.Controller {
     }
 
     @CalledByNative
-    private void withCheckbox(String text, boolean isChecked) {
+    private void withCheckbox(@JniType("std::u16string") String text, boolean isChecked) {
         mPropertyModelBuilder.with(ModalDialogProperties.CHECKBOX_TEXT, text);
         mPropertyModelBuilder.with(ModalDialogProperties.CHECKBOX_CHECKED, isChecked);
     }
@@ -175,6 +187,8 @@ public class ModalDialogWrapper implements ModalDialogProperties.Controller {
 
     @Override
     public void onDismiss(PropertyModel model, @DialogDismissalCause int dismissalCause) {
+        if (mNativeDelegatePtr == 0) return;
+
         switch (dismissalCause) {
             case DialogDismissalCause.POSITIVE_BUTTON_CLICKED:
                 ModalDialogWrapperJni.get().positiveButtonClicked(mNativeDelegatePtr);
@@ -183,7 +197,7 @@ public class ModalDialogWrapper implements ModalDialogProperties.Controller {
                 ModalDialogWrapperJni.get().negativeButtonClicked(mNativeDelegatePtr);
                 break;
             default:
-                ModalDialogWrapperJni.get().dismissed(mNativeDelegatePtr);
+                ModalDialogWrapperJni.get().dismissed(mNativeDelegatePtr, dismissalCause);
                 break;
         }
         for (JniRepeatingCallback callback : mLinkCallbacks) {
@@ -203,7 +217,7 @@ public class ModalDialogWrapper implements ModalDialogProperties.Controller {
 
         void menuItemClicked(long nativeModalDialogWrapper, int index);
 
-        void dismissed(long nativeModalDialogWrapper);
+        void dismissed(long nativeModalDialogWrapper, @DialogDismissalCause int dismissalCause);
 
         void destroy(long nativeModalDialogWrapper);
     }

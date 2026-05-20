@@ -32,6 +32,7 @@ import org.chromium.payments.mojom.PaymentComplete;
 import org.chromium.payments.mojom.PaymentDetails;
 import org.chromium.payments.mojom.PaymentDetailsModifier;
 import org.chromium.payments.mojom.PaymentErrorReason;
+import org.chromium.payments.mojom.PaymentEventResponseType;
 import org.chromium.payments.mojom.PaymentItem;
 import org.chromium.payments.mojom.PaymentMethodData;
 import org.chromium.payments.mojom.PaymentOptions;
@@ -658,7 +659,8 @@ public class PaymentRequestService
      * @param debugMessage The debug message shown for web developers.
      * @param reason The reason of the disconnection defined in {@link PaymentErrorReason}.
      */
-    public void disconnectFromClientWithDebugMessage(String debugMessage, int reason) {
+    public void disconnectFromClientWithDebugMessage(
+            String debugMessage, @PaymentErrorReason.EnumType int reason) {
         Log.d(TAG, debugMessage);
         if (mClient != null) {
             // Secure Payment Confirmation must make it indistinguishable to the merchant page as to
@@ -1903,9 +1905,10 @@ public class PaymentRequestService
         }
     }
 
-    // Implements PaymentApp.AbortCallback:
+    // Implements PaymentApp.InstrumentDetailsCallback:
     @Override
-    public void onInstrumentDetailsError(String errorMessage) {
+    public void onInstrumentDetailsError(
+            @PaymentEventResponseType.EnumType int error, String errorMessage) {
         mInvokedPaymentApp = null;
         BrowserGlobalPaymentFlowManager.onInvokedPaymentAppStopped(this);
         if (sNativeObserverForTest != null) sNativeObserverForTest.onErrorDisplayed();
@@ -1913,7 +1916,48 @@ public class PaymentRequestService
         if (mBrowserPaymentRequest.hasSkippedAppSelector()) {
             assert !TextUtils.isEmpty(errorMessage);
             mJourneyLogger.setAborted(AbortReason.ABORTED_BY_USER);
-            disconnectFromClientWithDebugMessage(errorMessage, PaymentErrorReason.USER_CANCEL);
+            int reason = PaymentErrorReason.USER_CANCEL;
+            if (PaymentFeatureList.isEnabled(
+                    PaymentFeatureList.PAYMENT_REQUEST_SUPPORT_REPORTING_APP_ERROR)) {
+                // LINT.IfChange(PaymentEventResponseTypeToErrorReason)
+                switch (error) {
+                    // User cancel
+                    case PaymentEventResponseType.PAYMENT_EVENT_REJECT:
+                    case PaymentEventResponseType.PAYMENT_HANDLER_WINDOW_CLOSING:
+                        reason = PaymentErrorReason.USER_CANCEL;
+                        break;
+                    // App failures
+                    case PaymentEventResponseType.PAYMENT_EVENT_INTERNAL_ERROR:
+                    case PaymentEventResponseType.PAYMENT_EVENT_BROWSER_ERROR:
+                    case PaymentEventResponseType.PAYMENT_EVENT_NO_RESPONSE:
+                    case PaymentEventResponseType.PAYMENT_EVENT_SERVICE_WORKER_ERROR:
+                    case PaymentEventResponseType.PAYMENT_EVENT_TIMEOUT:
+                    case PaymentEventResponseType.PAYMENT_HANDLER_ACTIVITY_DIED:
+                    case PaymentEventResponseType.PAYMENT_HANDLER_FAIL_TO_LOAD_MAIN_FRAME:
+                    case PaymentEventResponseType.PAYMENT_HANDLER_INSTALL_FAILED:
+                    // User data validation failures
+                    case PaymentEventResponseType.PAYER_NAME_EMPTY:
+                    case PaymentEventResponseType.PAYER_EMAIL_EMPTY:
+                    case PaymentEventResponseType.PAYER_PHONE_EMPTY:
+                    case PaymentEventResponseType.SHIPPING_ADDRESS_INVALID:
+                    case PaymentEventResponseType.SHIPPING_OPTION_EMPTY:
+                    case PaymentEventResponseType.PAYMENT_DETAILS_ABSENT:
+                    case PaymentEventResponseType.PAYMENT_DETAILS_NOT_OBJECT:
+                    case PaymentEventResponseType.PAYMENT_DETAILS_STRINGIFY_ERROR:
+                    case PaymentEventResponseType.PAYMENT_METHOD_NAME_EMPTY:
+                        reason = PaymentErrorReason.PAYMENT_APP_ERROR;
+                        break;
+                    // Violations
+                    case PaymentEventResponseType.PAYMENT_HANDLER_INSECURE_NAVIGATION:
+                        reason = PaymentErrorReason.NOT_ALLOWED_ERROR;
+                        break;
+                    default:
+                        reason = PaymentErrorReason.UNKNOWN;
+                        break;
+                }
+                // LINT.ThenChange(//components/payments/content/payment_event_response_util.cc:PaymentEventResponseTypeToErrorReason)
+            }
+            disconnectFromClientWithDebugMessage(errorMessage, reason);
         } else {
             mBrowserPaymentRequest.showAppSelectorAfterPaymentAppInvokeFailed();
         }

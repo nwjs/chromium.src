@@ -91,6 +91,7 @@ import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.PayloadCallbackHelper;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UserActionTester;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.FederatedIdentityTestUtils;
 import org.chromium.chrome.browser.browsing_data.BrowsingDataBridge;
 import org.chromium.chrome.browser.browsing_data.BrowsingDataType;
@@ -107,7 +108,6 @@ import org.chromium.chrome.browser.settings.SettingsActivity;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.batch.BlankCTATabInitialStateRule;
 import org.chromium.chrome.test.pagecontroller.utils.UiAutomatorUtils;
 import org.chromium.chrome.test.util.AdvancedProtectionTestRule;
@@ -823,7 +823,7 @@ public class SiteSettingsTest {
     @Test
     @SmallTest
     @Feature({"Preferences"})
-    @DisabledTest(message = "https://crbug.com/1395173")
+    @DisabledTest(message = "https://crbug.com/40881976")
     public void testSiteExceptionSiteDataBlocked() throws Exception {
         setGlobalToggleForCategory(SiteSettingsCategory.Type.SITE_DATA, true);
 
@@ -856,7 +856,7 @@ public class SiteSettingsTest {
     @Test
     @SmallTest
     @Feature({"Preferences"})
-    @DisabledTest(message = "https://crbug.com/1112409")
+    @DisabledTest(message = "https://crbug.com/40709705")
     public void testClearCookies() throws Exception {
         final String url = mPermissionRule.getURL("/chrome/test/data/android/cookie.html");
 
@@ -941,7 +941,7 @@ public class SiteSettingsTest {
     @Test
     @SmallTest
     @Feature({"Preferences"})
-    @DisabledTest(message = "https://crbug.com/1329450")
+    @DisabledTest(message = "https://crbug.com/40842614")
     public void testClearDomainCookies() throws Exception {
         final String url =
                 mPermissionRule.getURLWithHostName(
@@ -1209,7 +1209,7 @@ public class SiteSettingsTest {
         Assert.assertEquals(2, getTabCount());
     }
 
-    /** Test that showing the Site Settings menu doesn't crash (crbug.com/610576). */
+    /** Test that showing the Site Settings menu doesn't crash (crbug.com/40468610). */
     @Test
     @SmallTest
     @Feature({"Preferences"})
@@ -1737,6 +1737,42 @@ public class SiteSettingsTest {
         onView(withText(R.string.privacy_sandbox_snackbar_message)).check(matches(isDisplayed()));
         onView(withText(R.string.more)).perform(click());
         waitForView(withText(R.string.ad_privacy_page_title));
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @EnableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
+    public void testBlockAllThirdPartyCookiesSnackbarHiddenWhenDeprecationEnabled() {
+        var userActionTester = new UserActionTester();
+        // Enable Topics API.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    PrefService prefService = UserPrefs.get(getBrowserContextHandle());
+                    prefService.setBoolean(Pref.PRIVACY_SANDBOX_M1_TOPICS_ENABLED, true);
+                });
+        SettingsActivity settingsActivity =
+                SiteSettingsTestUtils.startSiteSettingsCategory(
+                        SiteSettingsCategory.Type.THIRD_PARTY_COOKIES);
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    CookieSettingsPreference pref = getCookieToggle(settingsActivity);
+                    return pref != null
+                            && pref.getButton(CookieControlsMode.BLOCK_THIRD_PARTY) != null;
+                },
+                "Cookie toggle button was never bound to the view.");
+        // Select the block all 3PC option.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    clickButtonAndVerifyItsChecked(
+                            getCookieToggle(settingsActivity),
+                            CookieControlsMode.BLOCK_THIRD_PARTY);
+                });
+        // The snackbar should not be displayed, but user action is still recorded.
+        onView(withText(R.string.privacy_sandbox_snackbar_message)).check(doesNotExist());
+        Assert.assertTrue(
+                "User action should have been recorded",
+                userActionTester.getActions().contains("Settings.PrivacySandbox.Block3PCookies"));
     }
 
     private CookieSettingsPreference getCookieToggle(SettingsActivity settingsActivity) {
@@ -2279,12 +2315,8 @@ public class SiteSettingsTest {
     GeolocationSetting getGeolocationSetting(String url) {
         return ThreadUtils.runOnUiThreadBlocking(
                 () ->
-                        WebsitePreferenceBridgeJni.get()
-                                .getGeolocationSettingForOrigin(
-                                        getBrowserContextHandle(),
-                                        ContentSettingsType.GEOLOCATION_WITH_OPTIONS,
-                                        url,
-                                        "https://example.com"));
+                        WebsitePreferenceBridge.getGeolocationSettingForOrigin(
+                                getBrowserContextHandle(), url, "https://example.com"));
     }
 
     @Test
@@ -3213,7 +3245,7 @@ public class SiteSettingsTest {
     @Test
     @SmallTest
     @Feature({"Preferences"})
-    @DisabledTest(message = "https://crbug.com/1094934")
+    @DisabledTest(message = "https://crbug.com/40699792")
     public void testEmbargoedNotificationCategorySiteSettings() throws Exception {
         final String urlToEmbargo =
                 mPermissionRule.getURLWithHostName(
@@ -3392,7 +3424,8 @@ public class SiteSettingsTest {
     @Test
     @MediumTest
     @Feature({"Preferences"})
-    @DisabledTest(message = "https://crbug.com/1269556,https://crbug.com/1414569,crbug.com/1234530")
+    @DisabledTest(
+            message = "https://crbug.com/40804306,https://crbug.com/40256198,crbug.com/40781540")
     public void testProtectedContentAllowThenBlock() throws Exception {
         initializeUpdateWaiter(/* expectGranted= */ true);
         mPermissionRule.runNoPromptTest(
@@ -3689,6 +3722,7 @@ public class SiteSettingsTest {
         testCookiesSettingsManagedForUrl(SingleCategorySettings.BLOCKED_GROUP);
     }
 
+    @SuppressWarnings("unchecked") // hamcrest allOf varargs
     public void testCookiesSettingsManagedForUrl(String setting) throws Exception {
         final SettingsActivity settingsActivity =
                 SiteSettingsTestUtils.startSiteSettingsCategory(
@@ -3946,7 +3980,7 @@ public class SiteSettingsTest {
     }
 
     private static String getChannelId(String url) {
-        PayloadCallbackHelper<String> helper = new PayloadCallbackHelper();
+        PayloadCallbackHelper<String> helper = new PayloadCallbackHelper<>();
         SiteChannelsManager.getInstance()
                 .getChannelIdForOriginAsync(
                         Origin.createOrThrow(url).toString(), helper::notifyCalled);

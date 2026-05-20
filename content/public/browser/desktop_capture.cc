@@ -50,7 +50,7 @@ namespace content::desktop_capture {
 // (e.g., PowerPoint) when the user shares the slideshow window.
 // TODO(crbug.com/409473386): Remove this feature once it has been in stable for
 // at least one milestone.
-BASE_FEATURE(kUseHeuristicForFindingEditor, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kUseHeuristicForFindingEditor, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 webrtc::DesktopCaptureOptions CreateDesktopCaptureOptions() {
@@ -144,11 +144,9 @@ void OpenNativeScreenCapturePicker(
     base::OnceCallback<void(webrtc::DesktopCapturer::Source)> picker_callback,
     base::OnceCallback<void()> cancel_callback,
     base::OnceCallback<void()> error_callback) {
-  content::MediaStreamManager::GetInstance()
-      ->video_capture_manager()
-      ->OpenNativeScreenCapturePicker(
-          type, std::move(created_callback), std::move(picker_callback),
-          std::move(cancel_callback), std::move(error_callback));
+  content::MediaStreamManager::GetInstance()->OpenNativeScreenCapturePicker(
+      type, std::move(created_callback), std::move(picker_callback),
+      std::move(cancel_callback), std::move(error_callback));
 }
 
 void CloseNativeScreenCapturePicker(DesktopMediaID source_id) {

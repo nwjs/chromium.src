@@ -112,11 +112,13 @@
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #else
+#include "chrome/browser/devtools/devtools_ui_controller.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck crbug.com/40147906
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"  // nogncheck crbug.com/40147906
+#include "chrome/browser/ui/web_modal/browser_window_modal_dialog_delegate.h"  // nogncheck crbug.com/40147906
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
 #endif
@@ -248,7 +250,7 @@ bool DevToolsToolboxDelegate::HandleKeyboardEvent(
   return false;
 #else
   if (event.windows_key_code == 0x08) {
-    // Do not navigate back in history on Windows (http://crbug.com/74156).
+    // Do not navigate back in history on Windows (http://crbug.com/40529649).
     return false;
   }
   BrowserWindow* window = GetInspectedBrowserWindow();
@@ -266,7 +268,8 @@ BrowserWindow* DevToolsToolboxDelegate::GetInspectedBrowserWindow() {
     return nullptr;
   }
   BrowserWindowInterface* browser =
-      chrome::FindBrowserWithTab(inspected_web_contents_.get());
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          inspected_web_contents_.get());
   return browser ? browser->GetBrowserForMigrationOnly()->window() : nullptr;
 }
 #endif
@@ -531,7 +534,8 @@ DevToolsWindow::~DevToolsWindow() {
   // returns to the window that opened DevTools (e.g., a PWA window).
   if (!is_docked_ && inspected_browser_session_id_.is_valid()) {
     BrowserWindowInterface* const browser =
-        chrome::FindBrowserWithID(inspected_browser_session_id_);
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithID(
+            inspected_browser_session_id_);
     if (browser && browser->GetWindow()) {
       browser->GetWindow()->Activate();
     }
@@ -1066,7 +1070,8 @@ void DevToolsWindow::Show(const DevToolsToggleAction& action) {
     content::WebContents* inspected_web_contents = GetInspectedWebContents();
     DCHECK(inspected_web_contents);
     BrowserWindowInterface* inspected_browser =
-        chrome::FindBrowserWithTab(inspected_web_contents);
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+            inspected_web_contents);
     DCHECK(inspected_browser);
 
     RegisterModalDialogManager(inspected_browser);
@@ -1084,7 +1089,10 @@ void DevToolsWindow::Show(const DevToolsToggleAction& action) {
         FROM_HERE, base::BindOnce(&DevToolsWindow::ActivateInspectedTab,
                                   weak_factory_.GetWeakPtr()));
 
-    inspected_window->UpdateDevTools(inspected_web_contents);
+    if (auto* devtools_ui_controller =
+            DevtoolsUIController::From(inspected_browser)) {
+      devtools_ui_controller->UpdateDevtools(inspected_web_contents);
+    }
     main_web_contents_->SetInitialFocus();
     inspected_window->Show();
     // On Aura, focusing once is not enough. Do it again.
@@ -1139,7 +1147,8 @@ void DevToolsWindow::ActivateInspectedTab() {
   }
 
   BrowserWindowInterface* inspected_browser =
-      chrome::FindBrowserWithTab(inspected_web_contents);
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          inspected_web_contents);
   if (!inspected_browser) {
     return;
   }
@@ -1392,14 +1401,16 @@ DevToolsWindow* DevToolsWindow::Create(
   if (inspected_web_contents) {
     // Check for a place to dock.
     BrowserWindowInterface* browser =
-        chrome::FindBrowserWithTab(inspected_web_contents);
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+            inspected_web_contents);
 #if BUILDFLAG(IS_MAC)
     if (browser) {
       inspected_browser_session_id = browser->GetSessionID();
     }
 #endif  // BUILDFLAG(IS_MAC)
-    if (!browser ||
-        !browser->GetBrowserForMigrationOnly()->window()->CanDockDevTools()) {
+    DevtoolsUIController* devtools_ui_controller =
+        browser ? DevtoolsUIController::From(browser) : nullptr;
+    if (!devtools_ui_controller || !devtools_ui_controller->CanDockDevtools()) {
       can_dock = false;
     }
   }
@@ -1990,7 +2001,8 @@ void DevToolsWindow::ShowCertificateViewer(const std::string& cert_chain) {
   NOTIMPLEMENTED();
 #else
   BrowserWindowInterface* browser =
-      chrome::FindBrowserWithTab(inspected_contents);
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          inspected_contents);
   if (!browser) {
     return;
   }
@@ -2002,9 +2014,11 @@ void DevToolsWindow::ShowCertificateViewer(const std::string& cert_chain) {
 void DevToolsWindow::Close() {
   WebContents* inspected_web_contents = GetInspectedWebContents();
   if (inspected_web_contents) {
-    Browser* browser = chrome::FindBrowserWithTab(inspected_web_contents);
+    BrowserWindowInterface* browser =
+        GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+            inspected_web_contents);
     if (browser) {
-      browser->window()->Close();
+      browser->GetBrowserForMigrationOnly()->window()->Close();
     }
   }
 }
@@ -2249,8 +2263,8 @@ void DevToolsWindow::OnBrowserClosed(BrowserWindowInterface* browser) {
   web_modal::WebContentsModalDialogManager* dialog_manager =
       web_modal::WebContentsModalDialogManager::FromWebContents(
           main_web_contents_);
-  if (dialog_manager &&
-      dialog_manager->delegate() == browser->GetBrowserForMigrationOnly()) {
+  if (dialog_manager && dialog_manager->delegate() ==
+                            BrowserWindowModalDialogDelegate::From(browser)) {
     dialog_manager->SetDelegate(nullptr);
   }
 }

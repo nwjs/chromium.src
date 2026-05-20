@@ -217,7 +217,7 @@ IN_PROC_BROWSER_TEST_F(MetricsServiceBrowserTest, MAYBE_CrashRenderers) {
 
 // Test is disabled on Windows AMR64 because
 // TerminateWithHeapCorruption() isn't expected to work there.
-// See: https://crbug.com/1054423
+// See: https://crbug.com/40119520
 #if BUILDFLAG(IS_WIN)
 // TODO(crbug.com/380550755): Unfortuntely, it's flaky on non-arm64.
 // Previously, this was turned off only if defined(ARCH_CPU_ARM64).
@@ -261,11 +261,13 @@ IN_PROC_BROWSER_TEST_F(MetricsServiceBrowserTest, MAYBE_CheckCrashRenderers) {
 #elif BUILDFLAG(IS_MAC)
   VerifyRendererExitCodeIsSignal(histogram_tester, SIGTRAP);
 #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-#if defined(OFFICIAL_BUILD)
+#if defined(ARCH_CPU_ARM64)
+  VerifyRendererExitCodeIsSignal(histogram_tester, SIGTRAP);
+#elif defined(OFFICIAL_BUILD)
   VerifyRendererExitCodeIsSignal(histogram_tester, SIGILL);
 #else
   VerifyRendererExitCodeIsSignal(histogram_tester, SIGSEGV);
-#endif  // defined(OFFICIAL_BUILD)
+#endif  // defined(ARCH_CPU_ARM64)
 #endif
 }
 

@@ -59,7 +59,13 @@
 
 namespace contextual_tasks {
 
-ContextualTasksContextService::QueryState::QueryState() = default;
+ContextualTasksContextService::QueryState::QueryState(
+    std::string query,
+    passage_embeddings::Embedding query_embedding,
+    int query_word_count)
+    : query(std::move(query)),
+      query_embedding(std::move(query_embedding)),
+      query_word_count(query_word_count) {}
 ContextualTasksContextService::QueryState::~QueryState() = default;
 ContextualTasksContextService::QueryState::QueryState(const QueryState&) =
     default;
@@ -619,10 +625,7 @@ ContextualTasksContextService::QueryState
 ContextualTasksContextService::CreateQueryState(
     const std::string& query,
     const passage_embeddings::Embedding& query_embedding) {
-  QueryState query_state;
-  query_state.query = query;
-  query_state.query_embedding = query_embedding;
-  query_state.query_word_count = GetWordCount(query);
+  QueryState query_state(query, query_embedding, GetWordCount(query));
 
   content::WebContents* active_tab_contents = GetActiveTabWebContents();
   SiteExclusionDetail site_exclusion_detail;
@@ -788,7 +791,8 @@ void ContextualTasksContextService::OnAllTabsScored(
         on_tab_selection_complete,
     scoped_refptr<ScoringState> scoring_state,
     optimization_guide::proto::ContextualTasksContextQuality* quality_log) {
-  std::vector<base::WeakPtr<content::WebContents>> relevant_tabs;
+  std::vector<std::pair<double, base::WeakPtr<content::WebContents>>>
+      scored_relevant_tabs;
 
   for (size_t i = 0; i < all_tabs.size(); ++i) {
     const auto& web_contents = all_tabs[i];
@@ -801,7 +805,7 @@ void ContextualTasksContextService::OnAllTabsScored(
 
     if (score >=
         options.min_model_score.value_or(kTabSelectionScoreThreshold.Get())) {
-      relevant_tabs.push_back(web_contents);
+      scored_relevant_tabs.emplace_back(score, web_contents);
     }
 
     // Recording signals and scores for analysis.
@@ -841,6 +845,20 @@ void ContextualTasksContextService::OnAllTabsScored(
             ? tab_signals.duration_of_last_visit->InSecondsF()
             : -1.0));
   }
+
+  std::sort(scored_relevant_tabs.begin(), scored_relevant_tabs.end(),
+            [](const auto& a, const auto& b) { return a.first > b.first; });
+
+  std::vector<base::WeakPtr<content::WebContents>> relevant_tabs;
+  base::flat_set<GURL> seen_urls;
+  std::ranges::for_each(
+      scored_relevant_tabs, [&](const auto& score_and_contents) {
+        if (score_and_contents.second &&
+            seen_urls.insert(score_and_contents.second->GetLastCommittedURL())
+                .second) {
+          relevant_tabs.push_back(score_and_contents.second);
+        }
+      });
 
   std::move(on_tab_selection_complete).Run(std::move(relevant_tabs));
 }

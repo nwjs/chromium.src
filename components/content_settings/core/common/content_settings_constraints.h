@@ -22,7 +22,6 @@ class ContentSettingConstraints {
   explicit ContentSettingConstraints(base::Time now);
 
   ContentSettingConstraints(ContentSettingConstraints&& other);
-  ContentSettingConstraints(const ContentSettingConstraints& other) = delete;
   ContentSettingConstraints& operator=(ContentSettingConstraints&& other);
   ContentSettingConstraints& operator=(const ContentSettingConstraints& other) =
       delete;
@@ -67,11 +66,17 @@ class ContentSettingConstraints {
     decided_by_related_website_sets_ = granted_by_related_website_sets;
   }
 
-  void set_options(base::Value options) { options_ = std::move(options); }
-
-  const base::Value& options() const { return options_; }
+  void set_ephemeral_clears_persistent_grant(
+      bool ephemeral_clears_persistent_grant) {
+    ephemeral_clears_persistent_grant_ = ephemeral_clears_persistent_grant;
+  }
+  bool ephemeral_clears_persistent_grant() const {
+    return ephemeral_clears_persistent_grant_;
+  }
 
  private:
+  ContentSettingConstraints(const ContentSettingConstraints& other) = default;
+
   // Tracks the base::Time that this instance was constructed. Copies and moves
   // reuse this time.
   base::Time created_at_;
@@ -93,7 +98,12 @@ class ContentSettingConstraints {
   // Set to true if the storage access was decided by a Related Website Set.
   bool decided_by_related_website_sets_ = false;
 
-  base::Value options_;
+  // Set to true if by setting an ephemeral grant we should not clear the
+  // corresponding persistent grant. This only makes sense if `session_model_ ==
+  // mojom::SessionModel::ONE_TIME`. Note that if this is set to false, setting
+  // an ephemeral grant will anyway remove blocked persistent permissions using
+  // PermissionSettingsInfo::RemoveBlockedPermissionsForEphemeralGrant.
+  bool ephemeral_clears_persistent_grant_ = false;
 };
 
 }  // namespace content_settings

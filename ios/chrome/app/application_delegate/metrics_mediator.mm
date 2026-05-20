@@ -21,6 +21,7 @@
 #import "build/branding_buildflags.h"
 #import "components/crash/core/common/crash_keys.h"
 #import "components/metrics/metrics_pref_names.h"
+#import "components/metrics/metrics_reporting_choice_service.h"
 #import "components/metrics/metrics_service.h"
 #import "components/metrics/metrics_switches.h"
 #import "components/prefs/pref_service.h"
@@ -429,12 +430,11 @@ BOOL _credentialExtensionWasUsed = NO;
       continue;
     }
 
-    const WebStateList* webStateList =
-        scene.browserProviderInterface.mainBrowserProvider.browser
-            ->GetWebStateList();
+    Browser* const mainbrowser =
+        scene.browserProviderInterface.mainBrowserProvider.browser;
+    const WebStateList* webStateList = mainbrowser->GetWebStateList();
     const WebStateList* inactiveWebStateList =
-        scene.browserProviderInterface.mainBrowserProvider.inactiveBrowser
-            ->GetWebStateList();
+        mainbrowser->GetInactiveBrowser()->GetWebStateList();
     const int webStateListCount = webStateList->count();
     const int inactiveWebStateListCount = inactiveWebStateList->count();
 
@@ -636,8 +636,9 @@ BOOL _credentialExtensionWasUsed = NO;
 // If this if-def changes, it needs to be changed in
 // IOSChromeMainParts::IsMetricsReportingEnabled and settings_egtest.mm.
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  BOOL optIn = GetApplicationContext()->GetLocalState()->GetBoolean(
-      metrics::prefs::kMetricsReportingEnabled);
+  BOOL optIn =
+      metrics::MetricsReportingChoiceService::IsBasicMetricsReportingEnabled(
+          GetApplicationContext()->GetLocalState());
 #else
   // If a startup crash has been requested, then pretend that metrics have been
   // enabled, so that the app will go into recovery mode.

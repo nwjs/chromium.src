@@ -35,6 +35,7 @@
 #include "third_party/blink/public/mojom/input/stylus_writing_gesture.mojom.h"
 #include "third_party/blink/public/platform/web_text_input_type.h"
 #include "ui/base/ime/ime_text_span.h"
+#include "ui/base/ime/mojom/ime_types_mojom_traits.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "content/public/android/content_jni_headers/ImeAdapterImpl_jni.h"
@@ -130,7 +131,7 @@ static void JNI_ImeAdapterImpl_AppendSuggestionSpan(
     int64_t ime_text_spans_ptr,
     int32_t start,
     int32_t end,
-    bool is_misspelling,
+    int32_t type,
     bool remove_on_finish_composing,
     int32_t underline_color,
     int32_t suggestion_highlight_color,
@@ -139,16 +140,16 @@ static void JNI_ImeAdapterImpl_AppendSuggestionSpan(
   DCHECK_GE(start, 0);
   DCHECK_GE(end, 0);
 
-  ui::ImeTextSpan::Type type =
-      is_misspelling ? ui::ImeTextSpan::Type::kMisspellingSuggestion
-                     : ui::ImeTextSpan::Type::kSuggestion;
+  ui::ImeTextSpan::Type ui_type =
+      mojo::EnumTraits<ui::mojom::ImeTextSpanType, ui::ImeTextSpan::Type>::
+          FromMojom(static_cast<ui::mojom::ImeTextSpanType>(type));
 
   std::vector<ui::ImeTextSpan>* ime_text_spans =
       reinterpret_cast<std::vector<ui::ImeTextSpan>*>(ime_text_spans_ptr);
   std::vector<std::string> suggestions_vec;
   AppendJavaStringArrayToStringVector(env, suggestions, &suggestions_vec);
   ui::ImeTextSpan ime_text_span = ui::ImeTextSpan(
-      type, static_cast<unsigned>(start), static_cast<unsigned>(end),
+      ui_type, static_cast<unsigned>(start), static_cast<unsigned>(end),
       ui::ImeTextSpan::Thickness::kThick,
       ui::ImeTextSpan::UnderlineStyle::kSolid, SK_ColorTRANSPARENT,
       static_cast<unsigned>(suggestion_highlight_color), suggestions_vec,
@@ -381,6 +382,7 @@ void ImeAdapterAndroid::ReplaceText(
     const base::android::JavaRef<jobject>& obj,
     int start,
     int end,
+    const base::android::JavaRef<jobject>& text,
     const base::android::JavaRef<jstring>& text_str,
     int relative_cursor_pos) {
   RenderWidgetHostImpl* rwhi = GetFocusedWidget();
@@ -391,7 +393,7 @@ void ImeAdapterAndroid::ReplaceText(
   std::u16string text16 = ConvertJavaStringToUTF16(env, text_str);
 
   std::vector<ui::ImeTextSpan> ime_text_spans =
-      GetImeTextSpansFromJava(env, obj, text_str, text16);
+      GetImeTextSpansFromJava(env, obj, text, text16);
 
   // relative_cursor_pos is as described in the Android API for
   // InputConnection#commitText, whereas the parameters for
@@ -438,9 +440,7 @@ bool ImeAdapterAndroid::InsertMediaFromBytes(
 
   input_handler->PasteFromImageBytes(
       std::move(big_buffer),
-      base::android::ConvertJavaStringToUTF8(env, extension),
-      base::BindOnce(&ImeAdapterAndroid::OnPasteFromImageBytesCompleted,
-                     weak_factory_.GetWeakPtr()));
+      base::android::ConvertJavaStringToUTF8(env, extension));
   return true;
 }
 
@@ -688,7 +688,9 @@ void ImeAdapterAndroid::PerformSpellCheck(JNIEnv* env) {
 void ImeAdapterAndroid::AppendAutocorrectUnderlineSpan(JNIEnv* env,
                                                        int32_t start,
                                                        int32_t end) {
-  if (!base::FeatureList::IsEnabled(features::kAndroidPkAutocorrectUnderline)) {
+  if (!base::FeatureList::IsEnabled(features::kAndroidPkAutocorrectUnderline) &&
+      !base::FeatureList::IsEnabled(
+          features::kAndroidPkAutocorrectUnderlineV2)) {
     return;
   }
   blink::mojom::FrameWidgetInputHandler* input_handler =
@@ -709,7 +711,9 @@ void ImeAdapterAndroid::AppendAutocorrectUnderlineSpan(JNIEnv* env,
 }
 
 void ImeAdapterAndroid::ClearAllAutocorrectUnderlineSpans(JNIEnv* env) {
-  if (!base::FeatureList::IsEnabled(features::kAndroidPkAutocorrectUnderline)) {
+  if (!base::FeatureList::IsEnabled(features::kAndroidPkAutocorrectUnderline) &&
+      !base::FeatureList::IsEnabled(
+          features::kAndroidPkAutocorrectUnderlineV2)) {
     return;
   }
   blink::mojom::FrameWidgetInputHandler* input_handler =
@@ -720,14 +724,6 @@ void ImeAdapterAndroid::ClearAllAutocorrectUnderlineSpans(JNIEnv* env) {
   input_handler->ClearImeTextSpansByType(0,
                                          std::numeric_limits<uint32_t>::max(),
                                          ui::ImeTextSpan::Type::kAutocorrect);
-}
-
-void ImeAdapterAndroid::OnPasteFromImageBytesCompleted(bool success) {
-  JNIEnv* env = AttachCurrentThread();
-  base::android::ScopedJavaLocalRef<jobject> obj = GetJavaObject(env);
-  if (!obj.is_null()) {
-    Java_ImeAdapterImpl_onCommitContentResult(env, obj, success);
-  }
 }
 
 }  // namespace content

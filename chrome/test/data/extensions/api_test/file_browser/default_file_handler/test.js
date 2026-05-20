@@ -38,8 +38,9 @@ function run() {
    * @param {string} errorMessage The error message to be send.
    */
   function onError(errorMessage) {
-    if (done)
+    if (done) {
       return;
+    }
 
     chrome.test.notifyFail(errorMessage);
     // there should be at most one notifyFail call.
@@ -62,7 +63,7 @@ function run() {
     }
     const tasks = resultingTasks.tasks;
 
-    if (tasks.length != 1) {
+    if (tasks.length !== 1) {
       onError(`Got invalid number of tasks for '${entry.fullPath}': ${
           tasks.length}`);
     }
@@ -74,23 +75,22 @@ function run() {
     // for a path ending in '.tiff'
     const tiffex = /.*\.tiff/;
     if (tiffex.test(entry.fullPath)) {
-      if (encodedTaskId != 'pkplfbidichfdicaijlchgnapepdginl|app|image') {
+      if (encodedTaskId !== 'pkplfbidichfdicaijlchgnapepdginl|app|image') {
         onError(`Got invalid task ${encodedTaskId} for '${entry.fullPath}'`);
       }
       if (!tasks[0].isDefault) {
         onError(`Task '${encodedTaskId}' should be default for '${
             entry.fullPath}'`);
       }
-    }
-    else {  // Matched file extension that's not '.tiff'
-      if (encodedTaskId != 'pkplfbidichfdicaijlchgnapepdginl|app|any') {
+    } else {  // Matched file extension that's not '.tiff'
+      if (encodedTaskId !== 'pkplfbidichfdicaijlchgnapepdginl|app|any') {
         onError(`Got invalid task ${encodedTaskId} for '${entry.fullPath}'`);
       }
       if (tasks[0].isDefault) {
         onError(`Task '${encodedTaskId}' is default for '${entry.fullPath}'`);
       }
     }
-    if (resolvedEntries.length == TEST_PATHS.length) {
+    if (resolvedEntries.length === TEST_PATHS.length) {
       chrome.test.succeed();
     }
   }
@@ -104,10 +104,9 @@ function run() {
    */
   function onGotEntry(isolatedEntry) {
     chrome.fileManagerPrivate.resolveIsolatedEntries(
-        [isolatedEntry],
-        function(externalEntries) {
+        [isolatedEntry], function(externalEntries) {
           resolvedEntries.push(externalEntries[0]);
-          if (resolvedEntries.length == TEST_PATHS.length) {
+          if (resolvedEntries.length === TEST_PATHS.length) {
             resolvedEntries.forEach(function(entry) {
               chrome.fileManagerPrivate.getFileTasks(
                   [entry], [''], onGotTasks.bind(null, entry));
@@ -124,7 +123,7 @@ function run() {
    * @param {string} volumeType Type of the volume.
    */
   function onGotFileSystem(fileSystem, volumeType) {
-    const isOnDrive = volumeType == 'drive';
+    const isOnDrive = volumeType === 'drive';
     TEST_PATHS.forEach(function(filePath) {
       fileSystem.root.getFile(
           `${isOnDrive ? 'root/' : ''}${filePath}`, {}, onGotEntry.bind(null),
@@ -134,14 +133,14 @@ function run() {
 
   chrome.fileManagerPrivate.getVolumeMetadataList(function(volumeMetadataList) {
     const volume = volumeMetadataList.find((volume) => {
-                   return volume.volumeType == 'testing'; });
+      return volume.volumeType === 'testing';
+    });
     if (!volume) {
       onError('No volumes available, which could be used for testing.');
       return;
     }
     chrome.fileSystem.requestFileSystem(
-        {volumeId: volume.volumeId},
-        function(fileSystem) {
+        {volumeId: volume.volumeId}, function(fileSystem) {
           if (!fileSystem) {
             onError('Failed to acquire the testing volume.');
             return;

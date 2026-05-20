@@ -45,6 +45,7 @@ import utils.telemetry as telemetry
 
 from utils.command_error import AutotestError, CommandError
 from utils.options import AutotestConfig, Formatter, autotest_options
+from utils.builders import display_utr_help, run_utr_tests
 
 sys.path.append(str(const.SRC_DIR / 'build' / 'android'))
 from pylib import constants
@@ -81,6 +82,11 @@ def main(ctx, **kwargs) -> int:
   kwargs['extras'] = extras
 
   config: AutotestConfig = AutotestConfig(**kwargs)
+
+  if config.builder and not (config.run_changed or config.run_related
+                             or config.files or config.name or config.target):
+    display_utr_help()
+    return 0
 
   if config.out_dir:
     constants.SetOutputDirectory(config.out_dir)
@@ -164,7 +170,7 @@ def main(ctx, **kwargs) -> int:
     if filenames:
       targets, used_cache = target_finder.FindTestTargets(
           target_cache, out_dir, filenames, config.run_all, config.run_changed
-          or config.run_related, config.target_index)
+          or config.run_related, config.target_index, config.files)
 
   # Add any direct suites
   for suite in direct_suites:
@@ -212,6 +218,9 @@ def main(ctx, **kwargs) -> int:
   if not build_ok:
     return 1
 
+  if config.builder:
+    return run_utr_tests(config, out_dir, targets)
+
   return test_executor.RunTestTargets(out_dir,
                                       targets,
                                       current_gtest_filter,
@@ -221,7 +230,8 @@ def main(ctx, **kwargs) -> int:
                                       config.no_try_android_wrappers,
                                       config.no_fast_local_dev,
                                       config.no_single_variant,
-                                      is_suite=config.suite)
+                                      is_suite=config.suite,
+                                      gemini=config.gemini)
 
 if __name__ == '__main__':
   telemetry.telemetry.initialize('chromium.tools.autotest')

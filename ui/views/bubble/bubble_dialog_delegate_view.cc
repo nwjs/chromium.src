@@ -498,6 +498,13 @@ BubbleDialogDelegate::BubbleDialogDelegate(BubbleAnchor anchor,
       base::Unretained(this), *bubble_created_time_));
 }
 
+BubbleDialogDelegate::BubbleDialogDelegate(View* anchor_view,
+                                           BubbleBorder::Arrow arrow,
+                                           BubbleBorder::Shadow shadow,
+                                           bool autosize)
+    : BubbleDialogDelegate(BubbleAnchor(anchor_view), arrow, shadow, autosize) {
+}
+
 BubbleDialogDelegate::~BubbleDialogDelegate() {
   SetAnchorView(nullptr);
 }
@@ -708,23 +715,6 @@ BubbleDialogDelegate::PreventCloseOnDeactivate() {
       new CloseOnDeactivatePin(close_on_deactivate_pins_->GetWeakPtr()));
 }
 
-void BubbleDialogDelegate::SetHighlightedButton(Button* highlighted_button) {
-  // Destroy old highlights after creating the new one, so if it didn't
-  // change, this has no effect.
-  auto old_button_highlight = std::move(button_anchor_highlight_);
-  auto old_element_highlight = std::move(element_anchor_highlight_);
-
-  bool visible = GetWidget() && GetWidget()->IsVisible();
-
-  highlighted_button_tracker_.SetView(highlighted_button);
-  highlighted_element_tracker_ = nullptr;
-  highlighted_element_shown_subscription_ = std::nullopt;
-
-  if (visible) {
-    UpdateHighlightedButton(true);
-  }
-}
-
 void BubbleDialogDelegate::SetHighlightedElement(ui::ElementIdentifier id) {
   auto* element_tracker = ui::ElementTracker::GetElementTracker();
 
@@ -734,8 +724,8 @@ void BubbleDialogDelegate::SetHighlightedElement(ui::ElementIdentifier id) {
   auto context = views::ElementTrackerViews::GetContextForWidget(parent_widget);
 
   // `highlighted_button_tracker_` will deal with the hiding part.
-  // Unretained is safe because `highlighted_element_shown_` owns the
-  // callback subscription.
+  // Unretained is safe because `highlighted_element_shown_subscription_` owns
+  // the callback subscription.
   highlighted_element_shown_subscription_ =
       element_tracker->AddElementShownCallback(
           id, context,
@@ -747,14 +737,7 @@ void BubbleDialogDelegate::SetHighlightedElement(ui::ElementIdentifier id) {
 
 void BubbleDialogDelegate::SetResolvedHighlightedElement(
     ui::TrackedElement* highlighted_element) {
-  // Destroy old highlights after creating the new one, so if it didn't
-  // change, this has no effect.
-  auto old_button_highlight = std::move(button_anchor_highlight_);
-  auto old_element_highlight = std::move(element_anchor_highlight_);
-
   bool visible = GetWidget() && GetWidget()->IsVisible();
-
-  highlighted_button_tracker_.SetView(nullptr);
   highlighted_element_tracker_ = highlighted_element;
 
   if (visible) {
@@ -864,10 +847,12 @@ gfx::Size BubbleDialogDelegate::GetMaxAvailableScreenSpaceToPlaceBubble(
 #endif
 
   gfx::Rect anchor_rect;
-  if (std::holds_alternative<View*>(anchor)) {
-    anchor_rect = std::get<View*>(anchor)->GetAnchorBoundsInScreen();
+  if (View* view = anchor.GetIfView()) {
+    anchor_rect = view->GetAnchorBoundsInScreen();
   } else {
-    anchor_rect = std::get<ui::TrackedElement*>(anchor)->GetScreenBounds();
+    ui::TrackedElement* element = anchor.GetIfElement();
+    CHECK(element);
+    anchor_rect = element->GetScreenBounds();
   }
   gfx::Rect screen_rect =
       display::Screen::Get()
@@ -1105,19 +1090,12 @@ void BubbleDialogDelegate::SetAnchorView(View* anchor_view) {
   // change as well.
   if (!anchor_view || anchor_widget() != anchor_view->GetWidget()) {
     if (anchor_widget()) {
-      if (GetWidget() && GetWidget()->IsVisible()) {
-        UpdateHighlightedButton(false);
-      }
       anchor_widget_ = nullptr;
     }
     if (anchor_view) {
       anchor_widget_ = anchor_view->GetProperty(kWidgetForAnchoringKey);
       if (!anchor_widget_) {
         anchor_widget_ = anchor_view->GetWidget();
-      }
-      if (anchor_widget_) {
-        const bool visible = GetWidget() && GetWidget()->IsVisible();
-        UpdateHighlightedButton(visible);
       }
     }
   }
@@ -1134,6 +1112,9 @@ void BubbleDialogDelegate::SetAnchorView(View* anchor_view) {
 
     SetAnchoredDialogKey();
   }
+
+  const bool visible = GetWidget() && GetWidget()->IsVisible();
+  UpdateHighlightedButton(visible);
 }
 
 void BubbleDialogDelegate::SetAnchorRect(const gfx::Rect& rect) {
@@ -1144,11 +1125,9 @@ void BubbleDialogDelegate::SetAnchorRect(const gfx::Rect& rect) {
 }
 
 void BubbleDialogDelegate::SetAnchor(BubbleAnchor anchor) {
-  if (std::holds_alternative<View*>(anchor)) {
-    SetAnchorView(std::get<View*>(anchor));
-  } else if (std::holds_alternative<ui::TrackedElement*>(anchor)) {
-    auto* tracked_element = std::get<ui::TrackedElement*>(anchor);
-    CHECK(tracked_element);
+  if (View* view = anchor.GetIfView()) {
+    SetAnchorView(view);
+  } else if (ui::TrackedElement* tracked_element = anchor.GetIfElement()) {
     if (auto* element_views = tracked_element->AsA<TrackedElementViews>()) {
       SetAnchorView(element_views->view());
     } else {
@@ -1163,7 +1142,7 @@ void BubbleDialogDelegate::SetAnchor(BubbleAnchor anchor) {
       SetAnchorWidget(widget);
     }
   } else {
-    CHECK(std::holds_alternative<std::nullptr_t>(anchor));
+    CHECK(anchor.IsNull());
     SetAnchorView(nullptr);
     SetAnchorRect(gfx::Rect());
   }
@@ -1171,12 +1150,32 @@ void BubbleDialogDelegate::SetAnchor(BubbleAnchor anchor) {
 
 BubbleAnchor BubbleDialogDelegate::GetAnchor() const {
   if (GetAnchorView()) {
-    return GetAnchorView();
+    return BubbleAnchor(GetAnchorView());
   }
   if (anchor_tracked_element_) {
-    return anchor_tracked_element_;
+    return BubbleAnchor(anchor_tracked_element_);
   }
-  return nullptr;
+  return BubbleAnchor();
+}
+
+bool BubbleDialogDelegate::IsSameAnchor(BubbleAnchor anchor) const {
+  // Normalize `anchor` similar to how SetAnchor would.
+  if (ui::TrackedElement* tracked_element = anchor.GetIfElement()) {
+    if (auto* element_views = tracked_element->AsA<TrackedElementViews>()) {
+      anchor = BubbleAnchor(element_views->view());
+    }
+  }
+
+  BubbleAnchor lhs = GetAnchor();
+
+  if (ui::TrackedElement* rhs_element = anchor.GetIfElement()) {
+    return rhs_element == lhs.GetIfElement();
+  } else if (views::View* rhs_view = anchor.GetIfView()) {
+    return rhs_view == lhs.GetIfView();
+  } else {
+    DCHECK(anchor.IsNull());
+    return lhs.IsNull();
+  }
 }
 
 void BubbleDialogDelegate::SizeToContents() {
@@ -1315,20 +1314,20 @@ void BubbleDialogDelegate::SetAnchoredDialogKey() {
 }
 
 void BubbleDialogDelegate::UpdateHighlightedButton(bool highlighted) {
-  Button* button = Button::AsButton(highlighted_button_tracker_.view());
+  Button* button = nullptr;
   ui::TrackedElement* element = highlighted_element_tracker_.get();
   // Prioritize explicitly set highlights.
-  if (!button && !element) {
+  if (!element) {
     button = Button::AsButton(GetAnchorView());
     element = anchor_tracked_element_.get();
   }
 
   if (highlight_button_when_shown_) {
-    if (highlighted) {
+    if (highlighted && (button || element)) {
       if (button) {
         button_anchor_highlight_ = button->AddAnchorHighlight();
         element_anchor_highlight_.reset();
-      } else if (element) {
+      } else {
         element_anchor_highlight_ =
             ui::ElementHighlighter::GetElementHighlighter()->AddHighlight(
                 element);

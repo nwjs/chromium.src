@@ -53,6 +53,8 @@ public abstract class VideoCapture {
     // individual implementations.
     protected boolean mInvertDeviceOrientationReadings;
 
+    protected boolean mIsExternalCamera;
+
     protected @Nullable VideoCaptureFormat mCaptureFormat;
 
     protected final int mId;
@@ -76,7 +78,8 @@ public abstract class VideoCapture {
             int height,
             int frameRate,
             boolean enableFaceDetection,
-            boolean useHardwareBuffers);
+            boolean useHardwareBuffers,
+            boolean enableBackgroundMediaCapturing);
 
     // Success is indicated by returning true and a callback to
     // VideoCaptureJni.get().onStarted(,  VideoCapture.this), which may occur synchronously or
@@ -190,6 +193,10 @@ public abstract class VideoCapture {
     }
 
     protected final int getCameraRotation() {
+        // For external camera, we should not rotate the frame.
+        if (mIsExternalCamera) {
+            return 0;
+        }
         int rotation =
                 mInvertDeviceOrientationReadings
                         ? (360 - getDeviceRotation())
@@ -398,6 +405,15 @@ public abstract class VideoCapture {
         }
     }
 
+    protected void onInteractiveStateChanged(boolean isInteractive) {
+        synchronized (mNativeVideoCaptureLock) {
+            if (mNativeVideoCaptureDeviceAndroid != 0) {
+                VideoCaptureJni.get()
+                        .onInteractiveStateChanged(mNativeVideoCaptureDeviceAndroid, isInteractive);
+            }
+        }
+    }
+
     protected void dCheckCurrentlyOnIncomingTaskRunner() {
         synchronized (mNativeVideoCaptureLock) {
             if (mNativeVideoCaptureDeviceAndroid != 0) {
@@ -451,6 +467,9 @@ public abstract class VideoCapture {
 
         // Method for VideoCapture implementations to report device started event.
         void onStarted(long nativeVideoCaptureDeviceAndroid);
+
+        // Method for VideoCapture implementations to report screen state change.
+        void onInteractiveStateChanged(long nativeVideoCaptureDeviceAndroid, boolean isInteractive);
 
         void dCheckCurrentlyOnIncomingTaskRunner(long nativeVideoCaptureDeviceAndroid);
     }

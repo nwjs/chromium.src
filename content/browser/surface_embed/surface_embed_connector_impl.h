@@ -30,8 +30,7 @@ class RenderWidgetHostInputEventRouter;
 
 namespace content {
 
-class DummySurfaceProvider;
-
+class RenderFrameHostImpl;
 class RenderViewHostDelegateView;
 class RenderWidgetHostViewChildFrame;
 class TextInputManager;
@@ -62,6 +61,8 @@ class CONTENT_EXPORT SurfaceEmbedConnectorImpl
   void OnSynchronizeVisualProperties(
       const blink::FrameVisualProperties& visual_properties) override;
   const viz::FrameSinkId& GetFrameSinkId() const override;
+  double GetCssZoomFactorForTesting() override;
+  const gfx::Size& GetLocalFrameSizeInPixelsForTesting() override;
 
   // FrameConnector:
   void SetView(RenderWidgetHostViewChildFrame* view,
@@ -116,7 +117,15 @@ class CONTENT_EXPORT SurfaceEmbedConnectorImpl
   input::RenderWidgetHostViewInput* GetParentViewInput() override;
   input::RenderWidgetHostViewInput* GetRootViewInput() override;
 
+  void OnRenderFrameCreated();
+
+  // Updates the `view_` member to track the current RenderWidgetHostView
+  // associated with the child WebContents.
+  void UpdateViewForCurrentRenderFrameHost();
+
  private:
+  class WCObserver;
+
   friend class SurfaceEmbedConnector;
   friend class SurfaceEmbedConnectorImplBrowserTest;
   friend class SurfaceEmbedConnectorWebContentsBrowserTest;
@@ -132,13 +141,14 @@ class CONTENT_EXPORT SurfaceEmbedConnectorImpl
     return child_web_contents_.get();
   }
 
-  // Updates the `view_` member to track the current RenderWidgetHostView
-  // associated with the child WebContents.
-  void UpdateViewForCurrentRenderFrameHost();
-
   // Resets the rect and the viz::LocalSurfaceId of the connector to ensure the
   // unguessable surface ID is not reused after a navigation.
   void ResetRectInParentView();
+
+  RenderFrameHostImpl* current_child_frame_host() const;
+
+  // Observes the child web contents to send notifications to the connector.
+  std::unique_ptr<WCObserver> wc_observer_;
 
   raw_ptr<SurfaceEmbedConnector::Delegate> delegate_ = nullptr;
 
@@ -146,7 +156,8 @@ class CONTENT_EXPORT SurfaceEmbedConnectorImpl
   base::WeakPtr<WebContents> parent_web_contents_;
   raw_ptr<RenderWidgetHostViewChildFrame> view_ = nullptr;
 
-  std::unique_ptr<DummySurfaceProvider> dummy_surface_provider_;
+  // The last received FrameSinkId from the guest WebContents's view.
+  viz::FrameSinkId frame_sink_id_;
 
   // The last received LocalSurfaceId from the SurfaceEmbed.
   viz::LocalSurfaceId local_surface_id_;
@@ -166,6 +177,16 @@ class CONTENT_EXPORT SurfaceEmbedConnectorImpl
 
   gfx::Size last_received_local_frame_size_;
   double last_received_css_zoom_factor_ = 1;
+  double last_received_zoom_level_ = 0.0;
+  bool has_size_ = false;
+
+  // TODO(crbug.com/493315755): Update the properties as appropriate. (Currently
+  // they are not updated after initialization.)
+  bool is_inert_ = false;
+  cc::TouchAction inherited_effective_touch_action_ = cc::TouchAction::kAuto;
+  bool is_throttled_ = false;
+  bool subtree_throttled_ = false;
+  bool display_locked_ = false;
 };
 
 }  // namespace content

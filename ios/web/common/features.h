@@ -113,14 +113,12 @@ bool IsWebInspectorSupportEnabled();
 BASE_DECLARE_FEATURE(kUpdateSSLStatusOnNavigationItemLazyCreation);
 
 // Feature flag to enable BEContextMenuConfiguration.
+// This is used as a kill switch and should not be removed.
 BASE_DECLARE_FEATURE(kEnableBEContextMenuConfiguration);
 
 // Feature flag to enable a fix for a crash in
 // DownloadTaskImpl::GenerateFileName.
 BASE_DECLARE_FEATURE(kIOSDownloadSanitizeFilename);
-
-// Feature flag to enable the timeout in the context menu run loop.
-BASE_DECLARE_FEATURE(kEnableContextMenuTimeout);
 
 // TODO(crbug.com/487947859): Clean up the kill switch once confirmed this is
 // not causing regressions.
@@ -145,6 +143,10 @@ bool IsCobaltDeveloperModeEnabled();
 // TODO(crbug.com/485184282): Remove this flag once it's confirmed that the
 // workaround is working as intended.
 BASE_DECLARE_FEATURE(kCertVerificationWorkaroundKillSwitch);
+
+// Feature flag to enable logging the time it takes to convert a WKScriptMessage
+// object into a web::ScriptMessage object.
+BASE_DECLARE_FEATURE(kIOSScriptMessageConversionDurationLogging);
 
 }  // namespace web::features
 

@@ -2934,7 +2934,7 @@ TEST_F(StyleEngineTest, ColorSchemeBaseBackgroundChange) {
   Color system_background_color = LayoutTheme::GetTheme().SystemColor(
       CSSValueID::kCanvas, color_scheme,
       GetDocument().GetColorProviderForPainting(color_scheme),
-      GetDocument().IsInWebAppScope());
+      GetDocument().IsInWebAppScope() && GetDocument().IsInitialProfile());
 
   EXPECT_EQ(system_background_color,
             GetDocument().View()->BaseBackgroundColor());
@@ -4671,6 +4671,51 @@ TEST_F(StyleEngineContainerQueryTest,
 
   // Three direct span.affected children, and the two display:none elements.
   EXPECT_EQ(6u, GetStyleEngine().StyleForElementCount() - start_count);
+}
+
+TEST_F(StyleEngineContainerQueryTest,
+       UpdateStyleAndLayoutTreeForContainerNameChange) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <style>
+      #container {
+        container-type: size;
+        width: 100px;
+        height: 100px;
+      }
+      @container --foo (width = 100px) {
+        .affected { background-color: green; }
+      }
+      .foo { container-name: --foo; }
+    </style>
+    <div id="container">
+      <span class="affected"></span>
+      <div>
+        <span class="affected"></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span class="affected"></span>
+        <span>
+          <span></span>
+          <span class="affected"></span></span>
+          <span></span>
+        </span>
+      </div>
+    </div>
+  )HTML");
+
+  UpdateAllLifecyclePhases();
+
+  Element* container = GetDocument().getElementById(AtomicString("container"));
+  ASSERT_TRUE(container);
+  unsigned start_count = GetStyleEngine().StyleForElementCount();
+
+  container->setAttribute(html_names::kClassAttr, AtomicString("foo"));
+  UpdateAllLifecyclePhases();
+
+  // Recalc the four  .affected elements + #container
+  EXPECT_EQ(5u, GetStyleEngine().StyleForElementCount() - start_count);
 }
 
 TEST_F(StyleEngineContainerQueryTest, ContainerQueriesContainmentNotApplying) {
@@ -7665,13 +7710,14 @@ TEST_F(StyleEngineTest, TestRandomValueCacheCleanedWhenElementIsGone) {
 
   Element* element = GetDocument().getElementById(AtomicString("test"));
 
-  RandomValueSharing* random_value_sharing =
-      MakeGarbageCollected<RandomValueSharing>(
-          AtomicString("--ident"), RandomValueSharing::ElementShared(false));
+  RandomCacheKey* random_value_sharing = MakeGarbageCollected<RandomCacheKey>(
+      AtomicString("--ident"), RandomCacheKey::ElementScoped(false),
+      g_null_atom);
   GetStyleEngine().GetCachedRandomBaseValue(*random_value_sharing, element);
-  RandomValueSharing* random_value_sharing_element_shared =
-      MakeGarbageCollected<RandomValueSharing>(
-          AtomicString("--ident"), RandomValueSharing::ElementShared(true));
+  RandomCacheKey* random_value_sharing_element_shared =
+      MakeGarbageCollected<RandomCacheKey>(AtomicString("--ident"),
+                                           RandomCacheKey::ElementScoped(true),
+                                           g_null_atom);
   GetStyleEngine().GetCachedRandomBaseValue(
       *random_value_sharing_element_shared, element);
 
@@ -7682,6 +7728,67 @@ TEST_F(StyleEngineTest, TestRandomValueCacheCleanedWhenElementIsGone) {
       ThreadState::StackState::kNoHeapPointers);
 
   EXPECT_EQ(GetRandomBaseValueCacheSize(), 1);
+}
+
+// Regression test for crbug.com/406525485: SetActive() on a display:contents
+// element without :active rules should not trigger unnecessary style recalc.
+TEST_F(StyleEngineTest, DisplayContentsSetActiveNoUnnecessaryRecalc) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      ::highlight(test-highlight) { background-color: yellow; }
+    </style>
+    <div id="container" style="display: contents">
+      <span id="child">Highlighted text</span>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  Element* container = GetDocument().getElementById(AtomicString("container"));
+  Element* child = GetDocument().getElementById(AtomicString("child"));
+  ASSERT_TRUE(container);
+  ASSERT_TRUE(child);
+  ASSERT_FALSE(container->GetLayoutObject());
+  ASSERT_TRUE(child->GetLayoutObject());
+
+  unsigned start_count = GetStyleEngine().StyleForElementCount();
+  container->SetActive(true);
+  UpdateAllLifecyclePhasesForTest();
+  unsigned element_count =
+      GetStyleEngine().StyleForElementCount() - start_count;
+  // No :active rules match the container, so no style resolutions should occur.
+  EXPECT_EQ(0U, element_count);
+
+  start_count = GetStyleEngine().StyleForElementCount();
+  container->SetActive(false);
+  UpdateAllLifecyclePhasesForTest();
+  element_count = GetStyleEngine().StyleForElementCount() - start_count;
+  EXPECT_EQ(0U, element_count);
+}
+
+// Verify that SetActive() still works correctly for display:contents elements
+// when :active rules DO match.
+TEST_F(StyleEngineTest, DisplayContentsSetActiveWithActiveRules) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #container:active { color: red; }
+    </style>
+    <div id="container" style="display: contents">
+      <span id="child">Text</span>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  Element* container = GetDocument().getElementById(AtomicString("container"));
+  ASSERT_TRUE(container);
+  ASSERT_FALSE(container->GetLayoutObject());
+
+  unsigned start_count = GetStyleEngine().StyleForElementCount();
+  container->SetActive(true);
+  UpdateAllLifecyclePhasesForTest();
+  unsigned element_count =
+      GetStyleEngine().StyleForElementCount() - start_count;
+  // :active rule matches container, so style resolution should happen.
+  EXPECT_GT(element_count, 0U);
 }
 
 }  // namespace blink

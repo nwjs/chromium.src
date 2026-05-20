@@ -144,12 +144,11 @@ const char* GetDefaultExtensionPagesCSP(Extension* extension) {
 const std::string* GetMinimumMV3CSPForExtension(const Extension& extension) {
   DCHECK_GE(extension.manifest_version(), 3);
 
-  if (extension.id() == extension_misc::kChromeVoxExtensionId &&
+  if (csp_validator::IsExtensionAllowedToUseChromeResources(extension.id()) &&
       extension.location() == mojom::ManifestLocation::kComponent) {
-    // The minimum CSP for ChromeVox should include access to
-    // chrome://resources, which is necessary for the ChromeVox tutorial.
-    // This is okay because it's built into the browser as a component
-    // extension.
+    // The minimum CSP for these extensions should include access to
+    // chrome://resources. This is okay because they are built into the browser
+    // as component extensions.
     static const base::NoDestructor<std::string> csp_with_resources(
         kMinimumMV3CSPWithChromeResources);
     return csp_with_resources.get();
@@ -173,15 +172,16 @@ CSPInfo::~CSPInfo() = default;
 
 // static
 const std::string& CSPInfo::GetExtensionPagesCSP(const Extension* extension) {
-  CSPInfo* csp_info = static_cast<CSPInfo*>(
-          extension->GetManifestData(keys::kContentSecurityPolicy));
+  const CSPInfo* csp_info = static_cast<const CSPInfo*>(
+      extension->GetManifestData(keys::kContentSecurityPolicy));
   return csp_info ? csp_info->extension_pages_csp : base::EmptyString();
 }
 
 // static
 const std::string* CSPInfo::GetMinimumCSPToAppend(
     const Extension& extension,
-    const std::string& relative_path) {
+    const std::string& relative_path,
+    bool is_service_worker) {
   if (!extension.is_extension()) {
     return nullptr;
   }
@@ -189,7 +189,10 @@ const std::string* CSPInfo::GetMinimumCSPToAppend(
   // For sandboxed pages and manifest V2 extensions, append the parsed CSP. This
   // helps ensure that extension's can't get around our parsing rules by CSP
   // modifications through, say service workers.
-  if (SandboxedPageInfo::IsSandboxedPage(&extension, relative_path)) {
+  // We ignore the sandboxed page CSP for service workers, since they should
+  // always be subject to the stricter extension CSP.
+  if (!is_service_worker &&
+      SandboxedPageInfo::IsSandboxedPage(&extension, relative_path)) {
     return &GetSandboxContentSecurityPolicy(&extension);
   }
 
@@ -241,7 +244,7 @@ std::optional<std::string> CSPInfo::GetIsolatedWorldCSP(
 // static
 const std::string& CSPInfo::GetSandboxContentSecurityPolicy(
     const Extension* extension) {
-  CSPInfo* csp_info = static_cast<CSPInfo*>(
+  const CSPInfo* csp_info = static_cast<const CSPInfo*>(
       extension->GetManifestData(keys::kContentSecurityPolicy));
   return csp_info ? csp_info->sandbox_csp : base::EmptyString();
 }

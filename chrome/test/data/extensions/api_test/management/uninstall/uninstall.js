@@ -20,7 +20,7 @@ function uninstall(name) {
             chrome.management.getAll(callback(function(items2) {
               assertEq(oldCount - 1, items2.length);
               for (let i = 0; i < items2.length; i++) {
-                assertFalse(items2[i].name == name);
+                assertFalse(items2[i].name === name);
               }
             }));
           }));
@@ -61,11 +61,11 @@ const tests = [
 
   function uninstallDisabledExtension() {
     uninstall('disabled_extension');
-  }
+  },
 ];
 
-const scriptUrl = '_test_resources/api_test/management/common.js';
-const loadScript = chrome.test.loadScript(scriptUrl);
+const SCRIPT_URL = '_test_resources/api_test/management/common.js';
+const loadScript = chrome.test.loadScript(SCRIPT_URL);
 
 loadScript.then(async function() {
   chrome.test.runTests(tests);

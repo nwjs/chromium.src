@@ -25,6 +25,7 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.supplier.NonNullObservableSupplier;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.EnsuresNonNull;
@@ -394,7 +395,7 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
         assert tabContentManager != null;
 
         Context context = ContextUtils.getApplicationContext();
-        mWindow = new WindowAndroid(context, /* trackOcclusion= */ false);
+        mWindow = new WindowAndroid(context, /* occlusionTrackingAllowed= */ false);
         mArchivedTabCreator = new ArchivedTabCreator(mWindow);
         mCipherFactory = cipherFactory;
 
@@ -411,7 +412,8 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
                         TabMetadataFileManager.getMetadataFileName(ARCHIVED_WINDOW_TAG),
                         /* otherWindowTag= */ null,
                         /* mergeTabsOnStartup= */ false,
-                        /* tabMergingEnabled= */ false) {
+                        /* tabMergingEnabled= */ false,
+                        ObservableSuppliers.createNonNull(false)) {
 
                     @Override
                     public void notifyStateLoaded(int tabCountAtStartup) {
@@ -430,7 +432,8 @@ public class ArchivedTabModelOrchestrator extends TabModelOrchestrator implement
                         mTabWindowManager,
                         ARCHIVED_WINDOW_TAG,
                         cipherFactory,
-                        /* recordLegacyTabCountMetrics= */ false);
+                        /* recordLegacyTabCountMetrics= */ false,
+                        /* isFromRecreating= */ false);
 
         wireSelectorAndStore();
         markTabModelsInitialized();

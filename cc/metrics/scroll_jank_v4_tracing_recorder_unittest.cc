@@ -8,11 +8,10 @@
 #include <string>
 #include <vector>
 
-#include "base/test/test_trace_processor.h"
+#include "base/test/tracing/test_trace_processor.h"
 #include "base/time/time.h"
 #include "cc/metrics/event_metrics.h"
 #include "cc/metrics/scroll_jank_v4_frame.h"
-#include "cc/metrics/scroll_jank_v4_frame_stage.h"
 #include "cc/metrics/scroll_jank_v4_result.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -23,7 +22,7 @@ namespace {
 using ScrollDamage = ScrollJankV4Frame::ScrollDamage;
 using DamagingFrame = ScrollJankV4Frame::DamagingFrame;
 using NonDamagingFrame = ScrollJankV4Frame::NonDamagingFrame;
-using ScrollUpdates = ScrollJankV4FrameStage::ScrollUpdates;
+using ScrollUpdates = ScrollJankV4Frame::Stage::ScrollUpdates;
 using Real = ScrollUpdates::Real;
 using Synthetic = ScrollUpdates::Synthetic;
 using BeginFrameArgsForScrollJank =
@@ -580,6 +579,7 @@ TEST_F(ScrollJankV4RecorderTest,
           {"scroll_jank_v4.updates.first_scroll_update_type",
            "SYNTHETIC_WITH_EXTRAPOLATED_INPUT_GENERATION_TIMESTAMP"},
           {"scroll_jank_v4.updates.synthetic.first_event_latency_id", "99"},
+          {"scroll_jank_v4.updates.synthetic.has_inertial_input", "false"},
           {"scroll_jank_v4.vsync_interval_us", "16000000"},
           {"scroll_jank_v4.vsyncs_since_previous_frame", "9"},
       }));
@@ -684,18 +684,19 @@ TEST_F(ScrollJankV4RecorderTest,
                    "20000000", "0", "123"},
                   {kSliceIdMatcher, "Begin frame", "30000000", "0", "123"},
               }));
-  EXPECT_THAT(QueryTraceProcessor(kScrollJankV4ArgsQuery),
-              QueryResultIs({
-                  {"key", "display_value"},
-                  {"scroll_jank_v4.damage_type",
-                   "NON_DAMAGING_WITHOUT_EXTRAPOLATED_PRESENTATION_TIMESTAMP"},
-                  {"scroll_jank_v4.is_janky", "false"},
-                  {"scroll_jank_v4.result_id", "123"},
-                  {"scroll_jank_v4.updates.first_scroll_update_type",
-                   "SYNTHETIC_WITHOUT_EXTRAPOLATED_INPUT_GENERATION_TIMESTAMP"},
-                  {"scroll_jank_v4.updates.synthetic", "[NULL]"},
-                  {"scroll_jank_v4.vsync_interval_us", "16000000"},
-              }));
+  EXPECT_THAT(
+      QueryTraceProcessor(kScrollJankV4ArgsQuery),
+      QueryResultIs({
+          {"key", "display_value"},
+          {"scroll_jank_v4.damage_type",
+           "NON_DAMAGING_WITHOUT_EXTRAPOLATED_PRESENTATION_TIMESTAMP"},
+          {"scroll_jank_v4.is_janky", "false"},
+          {"scroll_jank_v4.result_id", "123"},
+          {"scroll_jank_v4.updates.first_scroll_update_type",
+           "SYNTHETIC_WITHOUT_EXTRAPOLATED_INPUT_GENERATION_TIMESTAMP"},
+          {"scroll_jank_v4.updates.synthetic.has_inertial_input", "false"},
+          {"scroll_jank_v4.vsync_interval_us", "16000000"},
+      }));
   EXPECT_THAT(QueryTraceProcessor(kScrollJankV4ResultsQuery),
               QueryResultIs(
                   {{"id",

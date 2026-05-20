@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry.h"
+#include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
@@ -91,7 +92,6 @@ void ContextualTasksPanelHostDesktop::Close(
            ContextualTasksPanelHost::AnimationStyle::kTransitionFromTab);
 
   side_panel_ui_->Close(
-      SidePanelEntry::PanelType::kToolbar,
       SidePanelEntryHideReason::kSidePanelClosed,
       /*suppress_animations=*/animation ==
           ContextualTasksPanelHost::AnimationStyle::kNoAnimation);
@@ -180,7 +180,7 @@ void ContextualTasksPanelHostDesktop::CreateAndRegisterEntry() {
   }
 
   auto entry = std::make_unique<SidePanelEntry>(
-      SidePanelEntry::PanelType::kToolbar,
+      SidePanelType::kToolbar,
       SidePanelEntry::Key(SidePanelEntry::Id::kContextualTasks),
       base::BindRepeating(
           [](base::WeakPtr<ContextualTasksPanelHostDesktop> host,
@@ -191,7 +191,6 @@ void ContextualTasksPanelHostDesktop::CreateAndRegisterEntry() {
       base::BindRepeating([]() { return kSidePanelPreferredDefaultWidth; }));
   entry->set_should_show_ephemerally_in_toolbar(false);
   entry->set_should_show_header(false);
-  entry->set_should_show_outline(false);
   global_registry->Register(std::move(entry));
 
   // Observe the side panel entry.

@@ -45,7 +45,6 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.ui.hierarchicalmenu.HierarchicalMenuController.AccessibilityListObserver;
 import org.chromium.ui.hierarchicalmenu.HierarchicalMenuController.SubmenuHeaderFactory;
 import org.chromium.ui.modelutil.ListObservable;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
@@ -81,7 +80,7 @@ public class HierarchicalMenuControllerUnitTest {
     private ListItem mSubmenu0Child1;
     private ListItem mSubmenuLevel0;
     private ListItem mListItemWithoutModelClickCallback;
-    private HierarchicalMenuController mController;
+    private HierarchicalMenuController<Object> mController;
 
     @Before
     public void setUp() {
@@ -97,7 +96,7 @@ public class HierarchicalMenuControllerUnitTest {
                     return new ListItem(MENU_ITEM_SUBMENU_HEADER, builder.build());
                 };
 
-        mController = new HierarchicalMenuController(context, keyProvider, headerFactory);
+        mController = new HierarchicalMenuController<>(context, keyProvider, headerFactory);
 
         mListItemWithModelClickCallback =
                 new ListItem(
@@ -338,7 +337,7 @@ public class HierarchicalMenuControllerUnitTest {
 
     @Test
     public void submenuNavigation_a11y_withHeader() {
-        AccessibilityListObserver observer =
+        HierarchicalMenuController<Object>.AccessibilityListObserver observer =
                 mController
                 .new AccessibilityListObserver(
                         mParentView, mHeaderListView, mListView, mHeaderModelList, mModelList);
@@ -360,7 +359,7 @@ public class HierarchicalMenuControllerUnitTest {
 
     @Test
     public void submenuNavigation_a11y_noHeader() {
-        AccessibilityListObserver observer =
+        HierarchicalMenuController<Object>.AccessibilityListObserver observer =
                 mController
                 .new AccessibilityListObserver(
                         mParentView,

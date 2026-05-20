@@ -12,6 +12,7 @@
 #include "cc/trees/target_property.h"
 #include "components/viz/service/layers/layer_context_impl.h"
 #include "components/viz/service/layers/layer_context_impl_base_unittest.h"
+#include "components/viz/service/layers/viz_layer_tree_host_impl.h"
 #include "services/viz/public/mojom/compositing/layer_context.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -96,7 +97,8 @@ class LayerContextImplAnimationTest : public LayerContextImplTest {
     model->playback_rate = kDefaultPlaybackRate;
     model->iterations = kDefaultIterations;
     model->iteration_start = kDefaultIterationStart;
-    model->time_offset = base::TimeDelta();
+    model->start_delay = base::TimeDelta();
+    model->hold_time = std::nullopt;
     model->element_id = kDefaultElementId;
     // Add default keyframes for opacity as a common case.
     if (target_property_type == cc::TargetProperty::OPACITY) {
@@ -296,7 +298,8 @@ TEST_F(LayerContextImplAnimationTest, AddNewAnimationTimelineAndAnimation) {
   EXPECT_EQ(gfx_keyframe_model->fill_mode(),
             gfx::KeyframeModel::FillMode::FORWARDS);
   EXPECT_EQ(gfx_keyframe_model->playback_rate(), kDefaultPlaybackRate);
-  EXPECT_EQ(gfx_keyframe_model->time_offset(), base::TimeDelta());
+  EXPECT_EQ(gfx_keyframe_model->start_delay(), base::TimeDelta());
+  EXPECT_FALSE(gfx_keyframe_model->hold_time().has_value());
 
   // Verify cc::KeyframeModel specific properties
   EXPECT_EQ(cc_keyframe_model->group(), kGroupId);
@@ -897,6 +900,35 @@ TEST_F(LayerContextImplAnimationTest,
   ASSERT_NE(nullptr, second_keyframe_timing_fn);
   EXPECT_EQ(second_keyframe_timing_fn->GetType(),
             gfx::TimingFunction::Type::CUBIC_BEZIER);
+}
+
+TEST_F(LayerContextImplAnimationTest,
+       DeserializeWithInvalidLinearTimingFunctionFails) {
+  constexpr int kTimelineId = 27;
+  constexpr int kAnimationId = 270;
+  constexpr int kKeyframeModelId = 2700;
+  constexpr int kGroupId = 27;
+
+  auto update = CreateDefaultUpdate();
+  update->animation_timelines = std::vector<mojom::AnimationTimelinePtr>();
+
+  auto timeline_mojom = CreateDefaultMojomTimeline(kTimelineId);
+  auto animation_mojom =
+      CreateDefaultMojomAnimation(kAnimationId, kKeyframeModelId, kGroupId);
+
+  // Set up a linear timing function with only one point.
+  std::vector<mojom::LinearEasingPointPtr> linear_timing;
+  linear_timing.push_back(mojom::LinearEasingPoint::New(0.5, 0.5));
+  animation_mojom->keyframe_models[0]->timing_function =
+      mojom::TimingFunction::NewLinear(std::move(linear_timing));
+
+  timeline_mojom->new_animations.push_back(std::move(animation_mojom));
+  update->animation_timelines->push_back(std::move(timeline_mojom));
+
+  auto result = layer_context_impl_->DoUpdateDisplayTree(std::move(update));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(),
+            "Invalid number of points: must be at least 2 for LinearTiming");
 }
 
 TEST_F(LayerContextImplAnimationTest, DeserializeWithStepsTimingFunction) {

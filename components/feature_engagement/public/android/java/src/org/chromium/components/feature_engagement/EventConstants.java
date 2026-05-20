@@ -110,6 +110,10 @@ public final class EventConstants {
     /** The user clicked on the extensions menu button in the toolbar. */
     public static final String EXTENSIONS_MENU_BUTTON_CLICKED = "extensions_menu_button_clicked";
 
+    /** The user clicked on the extensions row in the Chrome app menu button. */
+    public static final String EXTENSIONS_ROW_IN_APP_MENU_CLICKED =
+            "extensions_row_in_app_menu_clicked";
+
     /** The feed swipe refresh event. */
     public static final String FEED_SWIPE_REFRESHED = "feed_swipe_refresh_shown";
 
@@ -147,6 +151,9 @@ public final class EventConstants {
     /** The keyboard accessory was used to fill address data into a form. */
     public static final String KEYBOARD_ACCESSORY_ADDRESS_AUTOFILLED =
             "keyboard_accessory_address_suggestion_accepted";
+
+    /** The keyboard accessory At Memory feature was used. */
+    public static final String KEYBOARD_ACCESSORY_AT_MEMORY_USED = "autofill_at_memory_iph_used";
 
     /** The keyboard accessory was used to fill autofill valuables data into a form. */
     public static final String KEYBOARD_ACCESSORY_AUTOFILL_AI_VALUABLES_AUTOFILLED =

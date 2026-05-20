@@ -12,9 +12,15 @@
 #include "components/permissions/permission_prompt_decision.h"
 #include "components/permissions/permission_request_data.h"
 #include "components/permissions/permission_request_id.h"
+#include "components/permissions/request_type.h"
 #include "components/permissions/resolvers/content_setting_permission_resolver.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/blink/public/mojom/permissions/permission.mojom.h"
+
+#if BUILDFLAG(IS_MAC)
+#include "base/mac/mac_util.h"
+#endif
 
 namespace {
 
@@ -69,6 +75,13 @@ class IdleDetectionPermissionContextTest
 
 // Tests auto-denial after a time delay in incognito.
 TEST_F(IdleDetectionPermissionContextTest, TestDenyInIncognitoAfterDelay) {
+#if BUILDFLAG(IS_MAC)
+  // TODO(crbug.com/434660312): Re-enable on macOS 26 once issues with
+  // unexpected test timeout failures are resolved.
+  if (base::mac::MacOSMajorVersion() == 26) {
+    GTEST_SKIP() << "Disabled on macOS Tahoe.";
+  }
+#endif
   TestIdleDetectionPermissionContext permission_context(
       profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true));
   GURL url("https://www.example.com");
@@ -84,8 +97,9 @@ TEST_F(IdleDetectionPermissionContextTest, TestDenyInIncognitoAfterDelay) {
 
   permission_context.RequestPermission(
       std::make_unique<permissions::PermissionRequestData>(
-          std::make_unique<permissions::ContentSettingPermissionResolver>(
-              ContentSettingsType::IDLE_DETECTION),
+          blink::mojom::PermissionDescriptor::New(
+              blink::mojom::PermissionName::IDLE_DETECTION,
+              /*extension=*/nullptr),
           id,
           /*user_gesture=*/true, url),
       base::DoNothing());
@@ -157,14 +171,16 @@ TEST_F(IdleDetectionPermissionContextTest, TestParallelDenyInIncognito) {
 
   permission_context.RequestPermission(
       std::make_unique<permissions::PermissionRequestData>(
-          std::make_unique<permissions::ContentSettingPermissionResolver>(
-              ContentSettingsType::IDLE_DETECTION),
+          blink::mojom::PermissionDescriptor::New(
+              blink::mojom::PermissionName::IDLE_DETECTION,
+              /*extension=*/nullptr),
           id1, /*user_gesture=*/true, url),
       base::DoNothing());
   permission_context.RequestPermission(
       std::make_unique<permissions::PermissionRequestData>(
-          std::make_unique<permissions::ContentSettingPermissionResolver>(
-              ContentSettingsType::IDLE_DETECTION),
+          blink::mojom::PermissionDescriptor::New(
+              blink::mojom::PermissionName::IDLE_DETECTION,
+              /*extension=*/nullptr),
           id2, /*user_gesture=*/true, url),
       base::DoNothing());
 

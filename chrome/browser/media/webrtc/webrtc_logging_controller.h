@@ -60,13 +60,13 @@ class WebRtcLoggingController
   // Argument #1: Indicate success/failure.
   // Argument #2: If success, the log's ID. Otherwise, empty.
   // Argument #3: If failure, the error message. Otherwise, empty.
-  typedef base::RepeatingCallback<
-      void(bool, const std::string&, const std::string&)>
+  typedef base::OnceCallback<void(bool, const std::string&, const std::string&)>
       StartEventLoggingCallback;
 
   struct WebApiSettings {
     bool should_upload_on_stop = false;
     url::Origin origin;
+    std::string uuid;
   };
 
   static void AttachToRenderProcessHost(content::RenderProcessHost* host);
@@ -82,21 +82,21 @@ class WebRtcLoggingController
   void SetMetaData(std::unique_ptr<WebRtcLogMetaDataMap> meta_data,
                    GenericDoneCallback callback);
 
-  // Opens a log and starts logging. Must be called on the IO thread.
+  // Opens a log and starts logging. Must be called on the UI thread.
   void StartLogging(
       GenericDoneCallback callback,
       std::optional<WebApiSettings> web_api_settings = std::nullopt);
 
   // Stops logging. Log will remain open until UploadLog or DiscardLog is
-  // called. Must be called on the IO thread.
+  // called. Must be called on the UI thread.
   void StopLogging(GenericDoneCallback callback);
 
   // Uploads the text log and the RTP dumps. Discards the local copy. May only
-  // be called after text logging has stopped. Must be called on the IO thread.
+  // be called after text logging has stopped. Must be called on the UI thread.
   void UploadLog(UploadDoneCallback callback);
 
   // Discards the log and the RTP dumps. May only be called after logging has
-  // stopped. Must be called on the IO thread.
+  // stopped. Must be called on the UI thread.
   void DiscardLog(GenericDoneCallback callback);
 
   // Stores the log locally using a hash of log_id + security origin.
@@ -139,11 +139,12 @@ class WebRtcLoggingController
   // arguments will be set to the log-ID. Otherwise, the second of the string
   // arguments will contain the error message.
   // This function must be called on the UI thread.
-  void StartEventLogging(const std::string& session_id,
+  void StartEventLogging(webrtc_logging::ApiType api_type,
+                         const std::string& session_id,
                          size_t max_log_size_bytes,
                          int output_period_ms,
                          size_t web_app_id,
-                         const StartEventLoggingCallback& callback);
+                         StartEventLoggingCallback callback);
 
   base::RepeatingCallback<void(const std::string&)> GetLogMessageCallback();
 
@@ -218,6 +219,7 @@ class WebRtcLoggingController
   content::BrowserContext* GetBrowserContext() const;
 
   webrtc_logging::ApiType GetApiType() const;
+  bool IsWebApiDiagnosticLoggingStarted() const;
   std::string GetContentName() const;
   bool CanOperationProceedInWebApiMode() const;
 

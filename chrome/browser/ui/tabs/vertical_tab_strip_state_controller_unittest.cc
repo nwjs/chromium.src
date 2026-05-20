@@ -107,6 +107,7 @@ TEST_F(VerticalTabStripStateControllerTest, VerticalTabsEnabled) {
   EXPECT_FALSE(pref_service()->GetBoolean(prefs::kVerticalTabsEnabled));
 }
 
+#if BUILDFLAG(IS_CHROMEOS)
 TEST_F(VerticalTabStripStateControllerTest, FeatureDisabled) {
   base::test::ScopedFeatureList local_feature_list;
   local_feature_list.InitAndDisableFeature(tabs::kVerticalTabs);
@@ -117,6 +118,7 @@ TEST_F(VerticalTabStripStateControllerTest, FeatureDisabled) {
   // is disabled.
   EXPECT_FALSE(controller()->ShouldDisplayVerticalTabs());
 }
+#endif
 
 TEST_F(VerticalTabStripStateControllerTest, VerticalTabsEnabledFirstTime) {
   base::UserActionTester user_action_tester;
@@ -195,6 +197,32 @@ TEST_F(VerticalTabStripStateControllerTest, ExpandOnHover) {
   EXPECT_FALSE(controller()->IsExpandOnHoverEnabled());
   EXPECT_FALSE(
       pref_service()->GetBoolean(prefs::kVerticalTabsExpandOnHoverEnabled));
+}
+
+TEST_F(VerticalTabStripStateControllerTest, ExpandOnHoverEnabledChanged) {
+  int call_count = 0;
+  bool last_enabled = false;
+  auto subscription =
+      controller()->RegisterOnExpandOnHoverEnabledChanged(base::BindRepeating(
+          [](int* call_count, bool* last_enabled, bool enabled) {
+            (*call_count)++;
+            *last_enabled = enabled;
+          },
+          &call_count, &last_enabled));
+
+  controller()->SetExpandOnHoverEnabled(true);
+  EXPECT_TRUE(last_enabled);
+  EXPECT_EQ(1, call_count);
+
+  controller()->SetExpandOnHoverEnabled(false);
+  EXPECT_FALSE(last_enabled);
+  EXPECT_EQ(2, call_count);
+
+  // Setting to same value via pref service should also trigger notification
+  // because the controller observes the pref change.
+  pref_service()->SetBoolean(prefs::kVerticalTabsExpandOnHoverEnabled, true);
+  EXPECT_TRUE(last_enabled);
+  EXPECT_EQ(3, call_count);
 }
 
 TEST_F(VerticalTabStripStateControllerTest, ImmersiveModeLock) {

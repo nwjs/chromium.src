@@ -18,8 +18,8 @@
 #include "base/containers/flat_set.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/memory/singleton.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation_traits.h"
@@ -43,10 +43,19 @@
 #include "ui/base/ime/ash/input_method_manager.h"
 
 class AccountId;
+class ApplicationLocaleStorage;
 class GURL;
 class PrefRegistrySimple;
 class PrefService;
 class Profile;
+
+namespace network {
+class SharedURLLoaderFactory;
+}  // namespace network
+
+namespace policy {
+class BrowserPolicyConnectorAsh;
+}  // namespace policy
 
 namespace user_manager {
 class User;
@@ -150,8 +159,17 @@ class UserSessionManager
   // Returns UserSessionManager instance.
   static UserSessionManager* GetInstance();
 
+  // `local_state`, `application_locale_storage` and
+  // `browser_policy_connector_ash` must be non-null and must outlive `this`.
+  // `shared_url_loader_factory` must be non-null.
+  UserSessionManager(
+      PrefService* local_state,
+      ApplicationLocaleStorage* application_locale_storage,
+      scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory,
+      policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash);
   UserSessionManager(const UserSessionManager&) = delete;
   UserSessionManager& operator=(const UserSessionManager&) = delete;
+  ~UserSessionManager() override;
 
   // Registers session related preferences.
   static void RegisterPrefs(PrefRegistrySimple* registry);
@@ -339,16 +357,10 @@ class UserSessionManager
 
   base::WeakPtr<UserSessionManager> GetUserSessionManagerAsWeakPtr();
 
- protected:
-  // Protected for testability reasons.
-  UserSessionManager();
-  ~UserSessionManager() override;
-
  private:
   // Observes the Device Account's LST and informs UserSessionManager about it.
   class DeviceAccountGaiaTokenObserver;
   friend class test::UserSessionManagerTestApi;
-  friend struct base::DefaultSingletonTraits<UserSessionManager>;
 
   using SigninSessionRestoreStateSet = std::set<AccountId>;
 
@@ -530,6 +542,13 @@ class UserSessionManager
 
   void FetchTokenHandleLegacy(Profile* profile, const user_manager::User* user);
   void FetchTokenHandle(Profile* profile, const user_manager::User* user);
+
+  const raw_ref<PrefService> local_state_;
+  const raw_ref<ApplicationLocaleStorage> application_locale_storage_;
+  const scoped_refptr<network::SharedURLLoaderFactory>
+      shared_url_loader_factory_;
+  const raw_ref<policy::BrowserPolicyConnectorAsh>
+      browser_policy_connector_ash_;
 
   base::WeakPtr<UserSessionManagerDelegate> delegate_;
 

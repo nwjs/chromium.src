@@ -481,8 +481,7 @@ void FrameFetchContext::FillInitiatorInfo(FetchInitiatorInfo& initiator_info) {
     return;
   }
 
-  v8::Isolate* isolate =
-      ResourceInitiatorHelper::GetIsolateIfRunningScriptOnMainThread();
+  v8::Isolate* isolate = ResourceInitiatorHelper::GetIsolateIfRunningScript();
   if (isolate) {
     // It is the currently executing JavaScript that is fetching the resource.
     // The initiator is the JavaScript that originally dispatched currently
@@ -933,9 +932,8 @@ void FrameFetchContext::AddReducedAcceptLanguageIfNecessary(
   const String& reduced_accept_language = GetReducedAcceptLanguage();
   if (!reduced_accept_language.empty() &&
       request.HttpHeaderField(http_names::kAcceptLanguage).empty()) {
-    request.SetHttpHeaderField(
-        http_names::kAcceptLanguage,
-        AtomicString(reduced_accept_language.Ascii().c_str()));
+    request.SetHttpHeaderField(http_names::kAcceptLanguage,
+                               AtomicString(reduced_accept_language));
   }
 }
 
@@ -1048,10 +1046,9 @@ bool FrameFetchContext::StartSpeculativeImageDecode(Resource* resource) {
             image_resource->GetContent()->MaxInterpolationQuality()),
         matrix, PaintImage::kDefaultFrameIndex);
     auto paint_image_id = image->paint_image_id();
-    TRACE_EVENT_INSTANT2(
+    TRACE_EVENT_INSTANT(
         TRACE_DISABLED_BY_DEFAULT("loading"), "SpeculativeImageDecodeStarted",
-        TRACE_EVENT_SCOPE_THREAD, "url", resource->Url().GetString().Utf8(),
-        "image_id", paint_image_id);
+        "url", resource->Url().GetString().Utf8(), "image_id", paint_image_id);
     document_->GetFrame()->GetChromeClient().RequestDecode(
         document_->GetFrame(), draw_image, base::DoNothingAs<void(bool)>(),
         /*speculative*/ true);

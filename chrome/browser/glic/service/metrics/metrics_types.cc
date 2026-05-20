@@ -20,6 +20,8 @@ std::string GetDaisyChainSourceString(DaisyChainSource source) {
       return "WebHandoff";
     case DaisyChainSource::kAutoOpenPdf:
       return "AutoOpenPdf";
+    case DaisyChainSource::kLastActiveInstance:
+      return "LastActiveInstance";
     case DaisyChainSource::kUnknown:
       return "Unknown";
   }
@@ -98,6 +100,10 @@ std::string GetInvocationSourceString(mojom::InvocationSource source) {
       return "ThreeDotsMenu";
     case mojom::InvocationSource::kTopChromeButton:
       return "TopChromeButton";
+    case mojom::InvocationSource::kUniversalCart:
+      return "UniversalCart";
+    case mojom::InvocationSource::kExperimentalTriggering:
+      return "ExperimentalTriggering";
     case mojom::InvocationSource::kUnsupported:
       return "Unsupported";
     case mojom::InvocationSource::kWebContentsContextMenu:

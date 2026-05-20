@@ -72,7 +72,6 @@ public class ActivityLifecycleDispatcherImpl implements ActivityLifecycleDispatc
 
     @Override
     public void register(LifecycleObserver observer) {
-        assert mActivity != null;
         if (mActivity == null) {
             return;
         }
@@ -253,16 +252,18 @@ public class ActivityLifecycleDispatcherImpl implements ActivityLifecycleDispatc
 
         // Drain observers to prevent possible memory leaks.
         mInflationObservers.clear();
+        mNativeInitObservers.clear();
         mPauseResumeObservers.clear();
         mStartStopObservers.clear();
-        mNativeInitObservers.clear();
+        mDestroyables.clear();
         mSaveInstanceStateObservers.clear();
         mWindowFocusChangesObservers.clear();
         mActivityResultWithNativeObservers.clear();
         mConfigurationChangedListeners.clear();
-        mDestroyables.clear();
         mRecreateObservers.clear();
+        mOnUserLeaveHintObservers.clear();
         mTopResumedActivityChangedObservers.clear();
+        mTopResumedActivityChangedWithNativeObservers.clear();
     }
 
     void dispatchOnSaveInstanceState(Bundle outBundle) {

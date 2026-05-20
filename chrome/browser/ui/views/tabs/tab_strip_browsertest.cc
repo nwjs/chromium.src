@@ -124,7 +124,7 @@ class TabStripBrowsertest : public InProcessBrowserTest {
   base::test::ScopedFeatureList feature_list_;
 };
 
-// Regression test for crbug.com/983961.
+// Regression test for crbug.com/40636026.
 IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, MoveTabAndDeleteGroup) {
   ASSERT_TRUE(tab_strip_model()->SupportsTabGroups());
 
@@ -991,7 +991,8 @@ IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, AccessibleName) {
 
   // AccessibleName should update when tab group is changed
   tab_groups::TabGroupId group = AddTabToNewGroup(1);
-  std::u16string tab_title = browser()->GetTitleForTab(1);
+  std::u16string tab_title = browser()->GetTitleForTab(
+      browser()->tab_strip_model()->GetTabAtIndex(1)->GetHandle());
   std::u16string group_title = tab_strip()->GetGroupTitle(group);
   std::u16string title =
       group_title.empty()
@@ -1431,7 +1432,7 @@ IN_PROC_BROWSER_TEST_F(TabStripBrowsertest,
   EXPECT_FALSE(tab1->IsSelected());
   EXPECT_FALSE(
       ax_node_data_1.GetBoolAttribute(ax::mojom::BoolAttribute::kSelected));
-  EXPECT_EQ(counter.GetCount(ax::mojom::Event::kSelection), 1);
+  EXPECT_EQ(counter.GetCount(ax::mojom::Event::kSelection), 2);
 
   tab_strip()->SelectTab(tab_strip()->tab_at(1), GetDummyEvent());
   ax_node_data_0 = ui::AXNodeData();
@@ -1444,7 +1445,7 @@ IN_PROC_BROWSER_TEST_F(TabStripBrowsertest,
   EXPECT_TRUE(tab1->IsSelected());
   EXPECT_TRUE(
       ax_node_data_1.GetBoolAttribute(ax::mojom::BoolAttribute::kSelected));
-  EXPECT_EQ(counter.GetCount(ax::mojom::Event::kSelection), 2);
+  EXPECT_EQ(counter.GetCount(ax::mojom::Event::kSelection), 4);
 }
 
 IN_PROC_BROWSER_TEST_F(TabStripBrowsertest, TabGroupHeaderAccessibleState) {

@@ -5,7 +5,6 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 
 #include <optional>
-#include <string_view>
 
 #include "base/containers/adapters.h"
 #include "base/feature_list.h"
@@ -13,6 +12,8 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
+#include "base/no_destructor.h"
+#include "base/strings/escape.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -36,10 +37,10 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/sessions/session_tab_helper_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/webui_url_constants.h"
@@ -64,6 +65,7 @@
 #include "components/signin/public/identity_manager/primary_account_access_token_fetcher.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/tabs/public/tab_interface.h"
+#include "components/url_formatter/url_formatter.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
@@ -143,22 +145,6 @@ bool IsSignInDomain(const GURL& url) {
     }
   }
   return false;
-}
-
-// Returns whether the chrome-native scheme should be used for contextual tasks.
-// On Android we wrap the WebUI and fusebox inside a native page.
-bool ShouldUseChromeNativeScheme() {
-  return BUILDFLAG(IS_ANDROID);
-}
-
-// Returns the host name for the native contextual tasks page only used on
-// Android.
-std::string_view GetNativeContextualTasksHost() {
-#if BUILDFLAG(IS_ANDROID)
-  return chrome::kChromeUINativeContextualTasksHost;
-#else
-  return "";
-#endif
 }
 
 // LINT.IfChange(EntrypointSource)
@@ -943,9 +929,66 @@ bool ContextualTasksUiService::HandleNavigationImpl(
 
     url_params.url = url_params.url.ReplaceComponents(replacements);
   }
-
-  // Allow any navigation to the contextual tasks host.
   if (IsContextualTasksUrl(url_params.url)) {
+    if (is_from_embedded_page) {
+      DCHECK(false) << "Unexpected URL from embedded page " << url_params.url;
+      return true;
+    }
+
+#if !BUILDFLAG(IS_ANDROID)
+    // If the navigation is a back/forward navigation, the resulting URL is a
+    // contextual tasks URL, and the panel is open, this indicates that the user
+    // is navigating back to the full tab contextual tasks page. Instead of
+    // allowing the navigation, move contextual tasks from the panel to a full
+    // tab and close the current tab.
+    bool is_forward_back_navigation =
+        url_params.transition & ui::PAGE_TRANSITION_FORWARD_BACK;
+    if (base::FeatureList::IsEnabled(
+            kContextualTasksBackButtonExpandsSidePanel) &&
+        !url_params.is_renderer_initiated && is_forward_back_navigation &&
+        tab) {
+      auto* controller = contextual_tasks::ContextualTasksPanelController::From(
+          tab->GetBrowserWindowInterface());
+      if (controller->IsPanelOpenForContextualTask()) {
+        base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+            FROM_HERE,
+            base::BindOnce(
+                [](base::WeakPtr<tabs::TabInterface> weak_tab) {
+                  if (!weak_tab) {
+                    return;
+                  }
+                  auto* browser = weak_tab->GetBrowserWindowInterface();
+                  if (!browser) {
+                    return;
+                  }
+                  auto* controller =
+                      contextual_tasks::ContextualTasksPanelController::From(
+                          browser);
+                  if (controller &&
+                      controller->IsPanelOpenForContextualTask()) {
+                    controller->MoveTaskUiToNewTab();
+                    // TODO(crbug.com/497899043): Restore history stack.
+                    auto* tab_strip_model = browser->GetTabStripModel();
+                    if (tab_strip_model) {
+                      int index =
+                          tab_strip_model->GetIndexOfTab(weak_tab.get());
+                      if (index != TabStripModel::kNoTab) {
+                        tab_strip_model->CloseWebContentsAt(
+                            index, TabCloseTypes::CLOSE_EXPAND_SIDE_PANEL);
+                      }
+                    }
+                  }
+                },
+                tab->GetWeakPtr()));
+        OMNIBOX_LOG("nav_trace")
+            << "ContextualTasks navigation trace: HandleNavigationImpl "
+               "closing tab and expanding side panel";
+        return true;
+      }
+    }
+#endif
+
+    // Else, allow any navigation to the contextual tasks host.
     OMNIBOX_LOG("nav_trace")
         << "ContextualTasks navigation trace: HandleNavigationImpl "
            "returning early, navigating to contextual tasks host";
@@ -1222,27 +1265,78 @@ ContextualTasksUiService::GetInitialEntryPointForTask(
 }
 void ContextualTasksUiService::OpenFeedbackUi(BrowserWindowInterface* browser,
                                               const GURL& page_url) {
-  delegate_->OpenFeedbackUi(browser, page_url);
+  if (delegate_) {
+    delegate_->OpenFeedbackUi(browser, page_url);
+  }
 }
+
+void ContextualTasksUiService::ShowUndoSnackbar(
+    BrowserWindowInterface* browser_window_interface) {
+  if (delegate_) {
+    delegate_->ShowUndoSnackbar(browser_window_interface);
+  }
+}
+
 GURL ContextualTasksUiService::GetContextualTaskUrlForTask(
     const base::Uuid& task_id) {
-  GURL url;
-  if (ShouldUseChromeNativeScheme()) {
-    // Final URL format:
-    // chrome-native://contextual-tasks-page?chrome_task_id=<task_id>
-    url = GURL(base::StrCat({content::kChromeNativeScheme,
-                             url::kStandardSchemeSeparator,
-                             GetNativeContextualTasksHost(), "/"}));
-    url = net::AppendQueryParameter(url, kTaskQueryParam,
-                                    task_id.AsLowercaseString());
-  } else {
-    url = GURL(chrome::kChromeUIContextualTasksURL);
-    url = net::AppendQueryParameter(url, kTaskQueryParam,
-                                    task_id.AsLowercaseString());
+  GURL url(chrome::kChromeUIContextualTasksURL);
+
+  std::string host = GetHostForTask(task_id);
+  if (!host.empty()) {
+    url = net::AppendQueryParameter(url, kChromeHostParam, host);
   }
+
+  url = net::AppendQueryParameter(url, kTaskQueryParam,
+                                  task_id.AsLowercaseString());
+
   omnibox::ChromeAimEntryPoint entry_point =
       GetInitialEntryPointForTask(task_id);
   return AppendAimEntryPointParams(url, entry_point);
+}
+
+std::string ContextualTasksUiService::GetHostForTask(
+    const base::Uuid& task_id) {
+  auto it = task_id_to_creation_url_.find(task_id);
+  if (it != task_id_to_creation_url_.end()) {
+    std::string host;
+    if (net::GetValueForKeyInQuery(it->second, kChromeHostParam, &host)) {
+      return host;
+    }
+
+    std::string_view creation_host = it->second.host();
+    GURL default_ai_url(kAiPageHost);
+    std::string_view default_host = default_ai_url.host();
+
+    std::string stripped_host =
+        url_formatter::StripWWW(std::string(creation_host));
+    std::string stripped_default_host =
+        url_formatter::StripWWW(std::string(default_host));
+
+    if (!stripped_host.empty() && stripped_host != stripped_default_host) {
+      return std::string(creation_host);
+    }
+  }
+
+  std::string forced_host = GetForcedEmbeddedPageHost();
+  if (!forced_host.empty()) {
+    return forced_host;
+  }
+
+  return "";
+}
+
+bool ContextualTasksUiService::IsTrustedHost(const std::string& host) {
+  if (base::EndsWith(host, ".corp.google.com") ||
+      base::EndsWith(host, ".c.googlers.com") ||
+      base::EndsWith(host, ".proxy.googlers.com")) {
+    return true;
+  }
+
+  if (host == "localhost" || host == "127.0.0.1" || host == "[::1]") {
+    return true;
+  }
+
+  return false;
 }
 
 void ContextualTasksUiService::SetInitialEntryPointForTask(
@@ -1311,6 +1405,7 @@ GURL ContextualTasksUiService::GetDefaultAiPageUrl() {
 GURL ContextualTasksUiService::GetDefaultAiPageUrlForTask(
     const base::Uuid& task_id) {
   GURL url = GetDefaultAiPageUrl();
+
   omnibox::ChromeAimEntryPoint entry_point =
       GetInitialEntryPointForTask(task_id);
   return AppendAimEntryPointParams(url, entry_point);
@@ -1319,10 +1414,16 @@ GURL ContextualTasksUiService::GetDefaultAiPageUrlForTask(
 void ContextualTasksUiService::OnTaskChanged(
     BrowserWindowInterface* browser_window_interface,
     content::WebContents* web_contents,
-    const base::Uuid& task_id,
+    const std::optional<base::Uuid>& old_task_id,
+    const std::optional<base::Uuid>& new_task_id,
     bool is_shown_in_tab) {
   if (!browser_window_interface) {
     return;
+  }
+
+  if (delegate_) {
+    delegate_->OnTaskChanged(browser_window_interface, old_task_id,
+                             new_task_id);
   }
 
   ContextualTasksPanelController* controller =
@@ -1333,7 +1434,8 @@ void ContextualTasksUiService::OnTaskChanged(
         ContextualSearchServiceFactory::GetForProfile(profile_.get());
     UpdateContextualSearchWebContentsHelperForTask(
         contextual_search_service, browser_window_interface,
-        contextual_tasks_service_, controller, web_contents, task_id);
+        contextual_tasks_service_, controller, web_contents,
+        new_task_id.value_or(base::Uuid()));
 
     auto* active_task_context_provider =
         ActiveTaskContextProvider::From(browser_window_interface);
@@ -1343,11 +1445,11 @@ void ContextualTasksUiService::OnTaskChanged(
   } else {  // !is_shown_in_tab
     // If a new thread is started in the panel, affiliated tabs should change
     // their thread to the new one.
-    base::Uuid new_task_id = task_id;
-    if (!task_id.is_valid()) {
+    base::Uuid final_task_id = new_task_id.value_or(base::Uuid());
+    if (!final_task_id.is_valid()) {
       // If the panel is in zero state, create an empty task.
       ContextualTask task = contextual_tasks_service_->CreateTask();
-      new_task_id = task.GetTaskId();
+      final_task_id = task.GetTaskId();
     }
 
     TabListInterface* tab_list =
@@ -1365,11 +1467,27 @@ void ContextualTasksUiService::OnTaskChanged(
           contextual_tasks_service_->GetTabsAssociatedWithTask(
               current_task->GetTaskId());
       for (const auto& id : tab_ids) {
-        contextual_tasks_service_->AssociateTabWithTask(new_task_id, id);
+        contextual_tasks_service_->AssociateTabWithTask(final_task_id, id);
       }
     }
 
-    controller->OnTaskChanged(web_contents, new_task_id);
+    controller->OnTaskChanged(web_contents, final_task_id);
+  }
+}
+
+void ContextualTasksUiService::OnWebUIReady(
+    const base::Uuid& task_id,
+    content::WebContents* web_contents) {
+  if (delegate_) {
+    delegate_->OnWebUIReady(task_id, web_contents);
+  }
+}
+
+void ContextualTasksUiService::OnWebUIDestroyed(
+    BrowserWindowInterface* browser_window_interface,
+    const std::optional<base::Uuid>& task_id) {
+  if (delegate_) {
+    delegate_->OnWebUIDestroyed(browser_window_interface, task_id);
   }
 }
 
@@ -1552,12 +1670,6 @@ bool ContextualTasksUiService::IsPendingErrorPage(const base::Uuid& task_id) {
 }
 
 bool ContextualTasksUiService::IsContextualTasksUrl(const GURL& url) {
-  if (ShouldUseChromeNativeScheme()) {
-    if (url.scheme() == content::kChromeNativeScheme &&
-        url.host() == GetNativeContextualTasksHost()) {
-      return true;
-    }
-  }
   return url.scheme() == content::kChromeUIScheme &&
          url.host() == chrome::kChromeUIContextualTasksHost;
 }
@@ -1612,16 +1724,41 @@ bool ContextualTasksUiService::IsValidSearchResultsPage(const GURL& url) {
 
 GURL ContextualTasksUiService::CopyParamsFromWebUIUrl(const GURL& base_url,
                                                       const GURL& webui_url) {
-  // Get all of the params off of the original URL.
-  net::QueryIterator it(webui_url);
+  std::string host_value;
   GURL aim_url(base_url);
+
+  // Extract host if present in WebUI URL and prepend it to make it
+  // first.
+  if (net::GetValueForKeyInQuery(webui_url, kChromeHostParam, &host_value)) {
+    if (IsTrustedHost(host_value)) {
+      GURL::Replacements replacements;
+      std::string new_query = base::StrCat({kChromeHostParam, "=", host_value});
+      replacements.SetQueryStr(new_query);
+      aim_url = base_url.ReplaceComponents(replacements);
+
+      // The QueryIterator correctly iterates over duplicate keys, and
+      // GetUnescapedValue preserves their values. This ensures that duplicate
+      // parameters on base_url are not lost during the transfer.
+      net::QueryIterator base_it(base_url);
+      while (!base_it.IsAtEnd()) {
+        std::string key(base_it.GetKey());
+        if (key != kChromeHostParam) {
+          aim_url = net::AppendQueryParameter(aim_url, key,
+                                              base_it.GetUnescapedValue());
+        }
+        base_it.Advance();
+      }
+    }
+  }
+
+  // Now add all other params from the WebUI URL.
+  net::QueryIterator it(webui_url);
   while (!it.IsAtEnd()) {
-    if (it.GetKey() != kTaskQueryParam) {
-      // The QueryIterator does not decode the URL params, use the net util to
-      // extract the value for transfer to the result URL.
+    std::string key(it.GetKey());
+    if (key != kTaskQueryParam && key != kChromeHostParam) {
       std::string value;
-      net::GetValueForKeyInQuery(webui_url, it.GetKey(), &value);
-      aim_url = net::AppendOrReplaceQueryParameter(aim_url, it.GetKey(), value);
+      net::GetValueForKeyInQuery(webui_url, key, &value);
+      aim_url = net::AppendOrReplaceQueryParameter(aim_url, key, value);
     }
     it.Advance();
   }

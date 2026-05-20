@@ -29,6 +29,7 @@
 #include "ui/color/color_variant.h"
 #include "ui/compositor/layer_type.h"
 #include "ui/gfx/geometry/insets.h"
+#include "ui/views/bubble/bubble_anchor.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/metadata/view_factory.h"
@@ -218,27 +219,17 @@ FORWARD_DECLARE_TEST(InteractionTestUtilViewsTest, ActivateSurface);
 FORWARD_DECLARE_TEST(InteractionTestUtilViewsTest, Confirm);
 }  // namespace test
 
-// A bubble can be anchored to a view, a tracked element, or nothing.
-// BubbleAnchor is a variant type that can hold any of these.
-//
-// A tracked element is useful when the element could be either a View or a HTML
-// element in a WebUI. The element can be retrieved using its ElementIdentifier,
-// example:
-//
-//   #include "ui/base/interaction/element_tracker.h"
-//   ui::TrackedElement* element = ui::ElementTracker::GetElementTracker()
-//       ->GetElementInAnyContext(kElementId);
-//   auto bubble_delegate = std::make_unique<BubbleDialogDelegate>(
-//       element, BubbleBorder::Arrow::TOP_LEFT);
-//   views::BubbleDialogDelegate::CreateBubble(std::move(bubble_delegate));
-//   ...
-//
-using BubbleAnchor = std::variant<std::nullptr_t, View*, ui::TrackedElement*>;
-
 class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
  public:
   BubbleDialogDelegate(
       BubbleAnchor anchor,
+      BubbleBorder::Arrow arrow,
+      BubbleBorder::Shadow shadow = BubbleBorder::DIALOG_SHADOW,
+      bool autosize = false);
+
+  // Compatibility alias for old type.
+  BubbleDialogDelegate(
+      View* anchor_view,
       BubbleBorder::Arrow arrow,
       BubbleBorder::Shadow shadow = BubbleBorder::DIALOG_SHADOW,
       bool autosize = false);
@@ -253,19 +244,18 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   ax::mojom::Role GetAccessibleWindowRole() final;
 
   // Create and initialize the bubble Widget with proper bounds.
-  // The default ownership for now is NATIVE_WIDGET_OWNS_WIDGET. If any other
-  // ownership mode is used, the returned Widget's lifetime must be managed by
-  // the caller. This is usually done by wrapping the pointer as a unique_ptr
-  // using base::WrapUnique().
+  // It's preferred to used `CLIENT_OWNS_WIDGET` as ownership. With
+  // `CLIENT_OWNS_WIDGET` as ownership, the returned Widget's lifetime must be
+  // managed by the caller. This is usually done by wrapping the pointer as a
+  // unique_ptr using base::WrapUnique().
+  //
+  //  If you encounter problems with this ownership mode, please file a bug.
   static Widget* CreateBubble(
       std::unique_ptr<BubbleDialogDelegate> bubble_delegate,
-      Widget::InitParams::Ownership ownership =
-          Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
+      Widget::InitParams::Ownership ownership);
 
-  static Widget* CreateBubble(
-      BubbleDialogDelegate* bubble_delegate,
-      Widget::InitParams::Ownership ownership =
-          Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
+  static Widget* CreateBubble(BubbleDialogDelegate* bubble_delegate,
+                              Widget::InitParams::Ownership ownership);
 
   //////////////////////////////////////////////////////////////////////////////
   // The anchor view and rectangle:
@@ -307,6 +297,11 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // anchor view can easily migrate to accept a WebUI anchor.
   void SetAnchor(BubbleAnchor anchor);
   BubbleAnchor GetAnchor() const;
+
+  // Returns true when this is anchored on the same thing in `anchor`; this is
+  // needed since GetAnchor() can return different representations than what
+  // was initially passed in.
+  bool IsSameAnchor(BubbleAnchor anchor) const;
 
   //////////////////////////////////////////////////////////////////////////////
   // The anchor widget:
@@ -423,17 +418,10 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // that is returned. The pin does nothing after the widget is closed.
   std::unique_ptr<CloseOnDeactivatePin> PreventCloseOnDeactivate();
 
-  // Explicitly set the button to automatically highlight when the bubble is
-  // shown. By default the anchor is highlighted, if it is a button.
-  //
-  // TODO(ellyjones): Is there ever a situation where this is the right thing to
-  // do UX-wise? It seems very odd to highlight something other than the anchor
-  // view.
-  // DEPRECATED: Please use SetHighlightedElement instead.
-  void SetHighlightedButton(Button* highlighted_button);
-
-  // Like SetHighlightedButton, but using a TrackedElement that's looked up
-  // by id, in the context based on the anchor widget.
+  // Explicitly set the element to automatically highlight when the bubble is
+  // shown. By default the anchor is highlighted, if it is highlightable
+  // (e.g. a button). The element is looked up by `id`, in the context based on
+  // the anchor widget.
   void SetHighlightedElement(ui::ElementIdentifier id);
 
   // The bubble's parent window - this can only be usefully set before creating
@@ -616,6 +604,8 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   FRIEND_TEST_ALL_PREFIXES(BubbleDialogDelegateViewTest,
                            DelayedHighlightByElement);
   FRIEND_TEST_ALL_PREFIXES(BubbleDialogDelegateViewTest,
+                           AnchorChangeChangesHighlight);
+  FRIEND_TEST_ALL_PREFIXES(BubbleDialogDelegateViewTest,
                            MultipleBubbleAnchorHighlightTestInOrder);
   FRIEND_TEST_ALL_PREFIXES(BubbleDialogDelegateViewTest,
                            MultipleBubbleAnchorHighlightTestOutOfOrder);
@@ -667,7 +657,6 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   std::unique_ptr<BubbleWidgetObserver> bubble_widget_observer_;
   bool adjust_if_offscreen_ = true;
   bool focus_traversable_from_anchor_view_ = true;
-  ViewTracker highlighted_button_tracker_;
   std::optional<ui::ElementTracker::Subscription>
       highlighted_element_shown_subscription_;
   ui::SafeElementReference highlighted_element_tracker_;
@@ -684,7 +673,7 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   bool close_on_deactivate_ = true;
   std::unique_ptr<CloseOnDeactivatePin::Pins> close_on_deactivate_pins_;
 
-  // Whether the |anchor_widget_| (or the |highlighted_button_tracker_|, when
+  // Whether the anchor (or the `highlighted_element_tracker_`, when
   // provided) should be highlighted when this bubble is shown.
   bool highlight_button_when_shown_ = true;
 
@@ -703,7 +692,7 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   std::unique_ptr<ui::BubbleCloser> mac_bubble_closer_;
 #endif
 
-  // Used to ensure the button remains anchored while this dialog is open.
+  // Used to ensure the button remains highlighted while this dialog is open.
   std::optional<Button::ScopedAnchorHighlight> button_anchor_highlight_;
   // Same if going via TrackedElement.
   std::unique_ptr<ui::ElementHighlighter::Highlight> element_anchor_highlight_;
@@ -769,7 +758,10 @@ class VIEWS_EXPORT BubbleDialogDelegateView : public View,
       BubbleBorder::Arrow arrow = views::BubbleBorder::TOP_LEFT,
       BubbleBorder::Shadow shadow = BubbleBorder::DIALOG_SHADOW,
       bool autosize = false)
-      : BubbleDialogDelegateView(anchor_view, arrow, shadow, autosize) {}
+      : BubbleDialogDelegateView(BubbleAnchor(anchor_view),
+                                 arrow,
+                                 shadow,
+                                 autosize) {}
 
   BubbleDialogDelegateView(const BubbleDialogDelegateView&) = delete;
   BubbleDialogDelegateView& operator=(const BubbleDialogDelegateView&) = delete;
@@ -924,10 +916,21 @@ class VIEWS_EXPORT BubbleDialogDelegateView : public View,
   // argument. Unless on Mac when the bubble needs to use Views base shadow,
   // override it with suitable bubble border type.
   explicit BubbleDialogDelegateView(
-      BubbleAnchor anchor = nullptr,
+      BubbleAnchor anchor = {},
       BubbleBorder::Arrow arrow = views::BubbleBorder::TOP_LEFT,
       BubbleBorder::Shadow shadow = BubbleBorder::DIALOG_SHADOW,
       bool autosize = false);
+
+  // Compat alias for old type.
+  explicit BubbleDialogDelegateView(
+      views::View* anchor_view,
+      BubbleBorder::Arrow arrow = views::BubbleBorder::TOP_LEFT,
+      BubbleBorder::Shadow shadow = BubbleBorder::DIALOG_SHADOW,
+      bool autosize = false)
+      : BubbleDialogDelegateView(BubbleAnchor(anchor_view),
+                                 arrow,
+                                 shadow,
+                                 autosize) {}
 
   static BddvPassKey CreatePassKey() { return BddvPassKey(); }
 };

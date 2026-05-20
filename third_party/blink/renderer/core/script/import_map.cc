@@ -20,7 +20,6 @@
 #include "third_party/blink/renderer/platform/json/json_values.h"
 #include "third_party/blink/renderer/platform/loader/fetch/console_logger.h"
 #include "third_party/blink/renderer/platform/loader/subresource_integrity.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
@@ -602,7 +601,7 @@ KURL ImportMap::ResolveImportsMatchInternal(const String& key,
                                             String* debug_message) const {
   // <spec step="1.2.3">Let afterPrefix be the portion of normalizedSpecifier
   // after the initial specifierKey prefix.</spec>
-  const String after_prefix = key.Substring(matched->key.length());
+  const StringView after_prefix = key.subview(matched->key.length());
 
   // <spec step="1.1.1">If resolutionResult is null, then throw a TypeError
   // indicating that resolution of specifierKey was blocked by a null

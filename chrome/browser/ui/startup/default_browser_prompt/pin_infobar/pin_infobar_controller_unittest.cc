@@ -7,7 +7,6 @@
 #include <memory>
 
 #include "base/test/bind.h"
-#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
@@ -75,7 +74,6 @@ class PinInfoBarControllerTest : public testing::Test {
             std::make_unique<TabStripModel>(delegate_.get(), profile())),
         browser_window_interface_(
             std::make_unique<MockBrowserWindowInterface>()) {
-    feature_list_.InitAndEnableFeature(features::kOfferPinToTaskbarInfoBar);
 
     ON_CALL(*browser_window_interface_, GetTabStripModel())
         .WillByDefault(::testing::Return(tab_strip_model()));
@@ -124,8 +122,6 @@ class PinInfoBarControllerTest : public testing::Test {
   content::BrowserTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
 
-  base::test::ScopedFeatureList feature_list_;
-
   // `ChromeLayoutProvider::Get()` is called when an infobar is created.
   ChromeLayoutProvider layout_provider_;
 
@@ -140,9 +136,13 @@ class PinInfoBarControllerTest : public testing::Test {
 
 // Don't show the infobar if another infobar was already shown.
 TEST_F(PinInfoBarControllerTest, DontShowIfAnotherInfoBarShown) {
-  EXPECT_FALSE(MaybeShowInfoBarForBrowserAndWait(
+  // `MaybeShowInfoBar` should pass along the value of `another_infobar_shown`
+  // (i.e., true) to the callback to indicate that an infobar was shown.
+  EXPECT_TRUE(MaybeShowInfoBarForBrowserAndWait(
       browser_window_interface()->GetWeakPtr(),
       /*another_infobar_shown=*/true));
+  // The pin infobar should not be shown.
+  EXPECT_TRUE(infobar_manager()->infobars().empty());
 }
 
 // `MaybeShowInfoBarForBrowser()` should handle a null browser.
@@ -158,6 +158,7 @@ TEST_F(PinInfoBarControllerTest, DontShowIfBrowserNotNormal) {
   PinInfoBarController controller(browser_window_interface());
   EXPECT_FALSE(OnShouldOfferToPinResultAndWait(controller,
                                                /*should_offer_to_pin=*/true));
+  EXPECT_TRUE(infobar_manager()->infobars().empty());
 }
 
 // Don't show the infobar if the browser is incognito.
@@ -169,6 +170,7 @@ TEST_F(PinInfoBarControllerTest, DontShowIfIncognito) {
   PinInfoBarController controller(browser_window_interface());
   EXPECT_FALSE(OnShouldOfferToPinResultAndWait(controller,
                                                /*should_offer_to_pin=*/true));
+  EXPECT_TRUE(infobar_manager()->infobars().empty());
 }
 
 // Don't show the infobar if this session shouldn't offer to pin to taskbar.
@@ -177,6 +179,7 @@ TEST_F(PinInfoBarControllerTest, DontShowIfCantPin) {
   PinInfoBarController controller(browser_window_interface());
   EXPECT_FALSE(OnShouldOfferToPinResultAndWait(controller,
                                                /*should_offer_to_pin=*/false));
+  EXPECT_TRUE(infobar_manager()->infobars().empty());
 }
 
 // Don't show the infobar if it was shown recently.

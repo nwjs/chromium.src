@@ -145,6 +145,9 @@ NET_EXPORT BASE_DECLARE_FEATURE(kEnableTLS13EarlyData);
 // quality estimator (NQE).
 NET_EXPORT BASE_DECLARE_FEATURE(kNetworkQualityEstimator);
 
+// Enables caching of IsPrivateHost() results in NetworkQualityEstimator.
+NET_EXPORT BASE_DECLARE_FEATURE(kNetworkQualityEstimatorIsPrivateHostCache);
+
 // The maximum age in seconds of observations to be used for calculating the
 // HTTP RTT from the historical data.
 // Negative value means infinite. i.e. all data are used.
@@ -306,13 +309,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kCookieDomainRejectNonASCII);
 
 NET_EXPORT BASE_DECLARE_FEATURE(kThirdPartyStoragePartitioning);
 
-// Whether to enable the use of 3PC based on 3PCD metadata grants delivered via
-// component updater.
-NET_EXPORT BASE_DECLARE_FEATURE(kTpcdMetadataGrants);
-
-// Whether to enable staged rollback of the TPCD Metadata Entries.
-NET_EXPORT BASE_DECLARE_FEATURE(kTpcdMetadataStageControl);
-
 // Whether ALPS parsing is on for any type of frame.
 NET_EXPORT BASE_DECLARE_FEATURE(kAlpsParsing);
 
@@ -345,6 +341,12 @@ NET_EXPORT BASE_DECLARE_FEATURE(kTcpPortReuseMetricsWin);
 // Whether to use a TCP socket implementation which uses an IO completion
 // handler to be notified of completed reads and writes, instead of an event.
 NET_EXPORT BASE_DECLARE_FEATURE(kTcpSocketIoCompletionPortWin);
+
+// Whether to defer the initial connection type computation from the
+// NetworkChangeNotifierWin constructor to an async call in
+// WatchForAddressChange(), avoiding a synchronous cross-process call that can
+// block the UI thread for ~50ms during startup.
+NET_EXPORT BASE_DECLARE_FEATURE(kDeferConnectionTypeAtStartup);
 #endif
 
 #if BUILDFLAG(IS_MAC)
@@ -441,6 +443,11 @@ NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessions);
 // across restarts. This feature is only valid if `kDeviceBoundSessions` is
 // enabled.
 NET_EXPORT BASE_DECLARE_FEATURE(kPersistDeviceBoundSessions);
+// This feature prevents deadlocks from recursive DBSC token refresh requests
+// by setting `device_bound_session_mode` to `kBypassDeferral` on DBSC refresh
+// requests.
+NET_EXPORT BASE_DECLARE_FEATURE(
+    kDeviceBoundSessionsBypassDeferralsForRefreshRequests);
 // This feature enables the Device Bound Session Credentials refresh quota.
 // This behavior is expected by default; disabling it should only be for
 // testing purposes.
@@ -623,11 +630,6 @@ NET_EXPORT BASE_DECLARE_FEATURE_PARAM(size_t,
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(bool,
                                       kHttpCacheNoVarySearchPersistenceEnabled);
 
-// If true, don't erase the NoVarySearchCache entry when simple cache in-memory
-// hints indicate that the disk cache entry is not usable.
-NET_EXPORT BASE_DECLARE_FEATURE_PARAM(bool,
-                                      kHttpCacheNoVarySearchKeepNotSuitable);
-
 // Whether to use the new implementation of
 // HttpNoVarySearchData::AreEquivalent().
 NET_EXPORT BASE_DECLARE_FEATURE(kHttpNoVarySearchDataUseNewAreEquivalent);
@@ -682,6 +684,9 @@ NET_EXPORT BASE_DECLARE_FEATURE(kRestrictAbusePortsOnLocalhost);
 // trust.
 NET_EXPORT BASE_DECLARE_FEATURE(kTLSTrustAnchorIDs);
 
+// Enables ML-DSA signature support in TLS (draft-ietf-tls-mldsa-02).
+NET_EXPORT BASE_DECLARE_FEATURE(kTlsMldsaSignatures);
+
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
 // Enables support for Merkle Tree Certificates. `kTLSTrustAnchorIDs` must also
 // be enabled for this to be useful.
@@ -697,9 +702,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kTcpSocketPoolLimitRandomization);
 // The base of an exponent when calculating the probability.
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(double,
                                       kTcpSocketPoolLimitRandomizationBase);
-// The maximum amount of additional sockets to allow use of.
-NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int,
-                                      kTcpSocketPoolLimitRandomizationCapacity);
 // The minimum probability allowed to be returned.
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(double,
                                       kTcpSocketPoolLimitRandomizationMinimum);
@@ -856,14 +858,23 @@ NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kTcpSocketPoolProxyLimitNormal);
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kTcpSocketPoolProxyLimitWebSocket);
 
 // If enabled, QuicCryptoClientConfigOwner will ignore memory pressure events
+// for all network isolation partitions.
+NET_EXPORT BASE_DECLARE_FEATURE(kIgnoreQuicCryptoConfigMemoryPressure);
+
+// If enabled, QuicCryptoClientConfigOwner will ignore memory pressure events
 // for the kDnsOverHttps partition.
 NET_EXPORT BASE_DECLARE_FEATURE(kIgnoreQuicCryptoConfigMemoryPressureForDoh);
+
+// If enabled, SSLClientSessionCache will ignore memory pressure events.
+NET_EXPORT BASE_DECLARE_FEATURE(kIgnoreMemoryPressureForSslClientSessionCache);
 
 // If enabled, cookie parsing will reject a cookie line whose first
 // semicolon-separated substring looks like "=Foo=Bar", i.e. starts with an
 // equals sign and has another equals sign. Such cookies have an ambiguous
 // serialization.
 NET_EXPORT BASE_DECLARE_FEATURE(kCookieParseRejectEmptyNameAmbiguous);
+
+NET_EXPORT BASE_DECLARE_FEATURE(kEnablePrivateVerificationTokens);
 
 }  // namespace net::features
 

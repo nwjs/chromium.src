@@ -36,6 +36,7 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/wtf/linked_hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+#include "ui/gfx/geometry/skia_conversions.h"
 
 namespace blink {
 
@@ -108,8 +109,6 @@ OffscreenCanvasRenderingContext2D::OffscreenCanvasRenderingContext2D(
                              attrs,
                              canvas->GetTopExecutionContext()->GetTaskRunner(
                                  TaskType::kInternalDefault)) {
-  is_valid_size_ = Host()->IsValidImageSize();
-
   ExecutionContext* execution_context = canvas->GetTopExecutionContext();
   if (auto* window = DynamicTo<LocalDOMWindow>(execution_context)) {
     if (window->GetFrame() && window->GetFrame()->GetSettings() &&
@@ -292,8 +291,6 @@ void OffscreenCanvasRenderingContext2D::Reset() {
   resource_provider_ = nullptr;
   Host()->DiscardResources();
   BaseRenderingContext2D::ResetInternal();
-  // Because the host may have changed to a zero size
-  is_valid_size_ = Host()->IsValidImageSize();
 }
 
 scoped_refptr<CanvasResource>
@@ -387,8 +384,7 @@ Color OffscreenCanvasRenderingContext2D::GetCurrentColor() const {
 
 MemoryManagedPaintCanvas*
 OffscreenCanvasRenderingContext2D::GetOrCreatePaintCanvas() {
-  if (!is_valid_size_ || isContextLost() || !GetOrCreateResourceProvider())
-      [[unlikely]] {
+  if (isContextLost() || !GetOrCreateResourceProvider()) [[unlikely]] {
     return nullptr;
   }
   return GetPaintCanvas();
@@ -396,7 +392,7 @@ OffscreenCanvasRenderingContext2D::GetOrCreatePaintCanvas() {
 
 const MemoryManagedPaintCanvas*
 OffscreenCanvasRenderingContext2D::GetPaintCanvas() const {
-  if (!is_valid_size_ || isContextLost()) [[unlikely]] {
+  if (isContextLost()) [[unlikely]] {
     return nullptr;
   }
   auto* recorder = Recorder();
@@ -410,14 +406,11 @@ const MemoryManagedPaintRecorder* OffscreenCanvasRenderingContext2D::Recorder()
 }
 
 void OffscreenCanvasRenderingContext2D::WillDraw(
-    const SkIRect& dirty_rect,
+    const gfx::Rect& dirty_rect,
     CanvasPerformanceMonitor::DrawType draw_type) {
-  SkIRect adjusted_dirty_rect = dirty_rect;
+  gfx::Rect adjusted_dirty_rect = dirty_rect;
   if (GetState().ShouldAntialias()) {
-    adjusted_dirty_rect = adjusted_dirty_rect.makeOutset(1, 1);
-
-    // We might expanded rect beyond canvas's bounds. Clamp it back.
-    adjusted_dirty_rect.intersect(SkIRect::MakeWH(Width(), Height()));
+    adjusted_dirty_rect.Outset(1);
   }
 
   GetCanvasPerformanceMonitor().DidDraw(draw_type);

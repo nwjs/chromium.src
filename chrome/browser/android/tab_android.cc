@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/android/callback_android.h"
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "base/android/token_android.h"
@@ -28,6 +29,7 @@
 #include "chrome/browser/android/selection/chrome_selection_dropdown_menu_delegate.h"
 #include "chrome/browser/android/tab_features.h"
 #include "chrome/browser/android/tab_web_contents_delegate_android.h"
+#include "chrome/browser/android/web_contents_theme_client.h"
 #include "chrome/browser/browser_about_handler.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
@@ -43,9 +45,9 @@
 #include "chrome/browser/ui/android/context_menu_helper.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/startup/bad_flags_prompt.h"
 #include "chrome/browser/ui/tab_helpers.h"
 #include "components/android_autofill/browser/android_autofill_client.h"
@@ -56,6 +58,9 @@
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
+#include "components/performance_manager/public/resource_attribution/page_context.h"
+#include "components/performance_manager/public/resource_attribution/queries.h"
+#include "components/performance_manager/public/resource_attribution/resource_types.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/supports_handles.h"
@@ -69,6 +74,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
@@ -184,6 +190,7 @@ std::unique_ptr<TabAndroid> TabAndroid::CreateForTesting(
     Profile* profile,
     int tab_id,
     std::unique_ptr<content::WebContents> web_contents) {
+  night_mode::WebContentsThemeClient::CreateForWebContents(web_contents.get());
   std::unique_ptr<TabAndroid> tab(new TabAndroid(profile, tab_id));
   tab->web_contents_ = std::move(web_contents);
   return tab;
@@ -254,6 +261,11 @@ GURL TabAndroid::GetURL() const {
 bool TabAndroid::IsUserInteractable() const {
   JNIEnv* env = AttachCurrentThread();
   return Java_TabImpl_isUserInteractable(env, GetJavaObject(env));
+}
+
+bool TabAndroid::IsOffscreenRendering() const {
+  JNIEnv* env = AttachCurrentThread();
+  return Java_TabImpl_isOffscreenRendering(env, GetJavaObject(env));
 }
 
 sync_sessions::SyncedTabDelegate* TabAndroid::GetSyncedTabDelegate() const {
@@ -348,6 +360,12 @@ void TabAndroid::Destroy() {
   delete this;
 }
 
+void TabAndroid::AttachWebContentsToContentLayer(
+    JNIEnv* env,
+    content::WebContents* web_contents) {
+  GetContentLayer()->InsertChild(web_contents->GetNativeView()->GetLayer(), 0);
+}
+
 bool TabAndroid::HasParentCollection() {
   return parent_collection_ != nullptr;
 }
@@ -361,6 +379,8 @@ void TabAndroid::InitWebContents(
     const JavaRef<jobject>& jcontext_menu_populator_factory) {
   web_contents_.reset(content::WebContents::FromJavaWebContents(jweb_contents));
   DCHECK(web_contents_.get());
+
+  night_mode::WebContentsThemeClient::CreateForWebContents(web_contents_.get());
 
   renderer_preferences_util::UpdateFromSystemSettings(
       web_contents_->GetMutableRendererPrefs(),
@@ -383,11 +403,16 @@ void TabAndroid::InitWebContents(
   // Renderer. We need to start tracking the content-to-visible time now. On
   // Android the tab controller does not send a visibility change until later
   // on, at which point it is too late to attempt to track tab changes for
-  // unloaded frames.
-  web_contents_->SetTabSwitchStartTime(
-      base::TimeTicks::Now(),
-      resource_coordinator::ResourceCoordinatorTabHelper::IsLoaded(
-          web_contents_.get()));
+  // unloaded frames. If the tab is created in the background, its visibility
+  // will be HIDDEN and the tab switch start time will be recorded when it's
+  // made visible in OnShow.
+  if (web_contents_->GetVisibility() != content::Visibility::HIDDEN) {
+    web_contents_->SetTabSwitchStartTime(
+        base::TimeTicks::Now(),
+        resource_coordinator::ResourceCoordinatorTabHelper::IsLoaded(
+            web_contents_.get()),
+        /*had_saved_frame_at_start=*/false);
+  }
 
   const SessionID session_id =
       sessions::SessionTabHelper::IdForTab(web_contents_.get());
@@ -419,6 +444,43 @@ void TabAndroid::InitWebContents(
   for (Observer& observer : observers_) {
     observer.OnInitWebContents(this);
   }
+}
+
+void TabAndroid::GetMemoryUsageBytes(
+    JNIEnv* env,
+    const base::android::JavaRef<jobject>& j_callback) {
+  if (!web_contents_) {
+    base::android::RunLongCallbackAndroid(j_callback, 0);
+    return;
+  }
+
+  std::optional<resource_attribution::PageContext> page_context =
+      resource_attribution::PageContext::FromWebContents(web_contents_.get());
+
+  if (!page_context.has_value()) {
+    base::android::RunLongCallbackAndroid(j_callback, 0);
+    return;
+  }
+
+  base::android::ScopedJavaGlobalRef<jobject> global_callback(env, j_callback);
+
+  resource_attribution::QueryBuilder()
+      .AddResourceType(resource_attribution::ResourceType::kMemorySummary)
+      .AddResourceContext(page_context.value())
+      .QueryOnce(base::BindOnce(
+          [](base::android::ScopedJavaGlobalRef<jobject> callback,
+             const resource_attribution::QueryResultMap& results) {
+            int64_t bytes_used = 0;
+            for (const auto& [context, result] : results) {
+              if (result.memory_summary_result.has_value()) {
+                bytes_used =
+                    result.memory_summary_result->private_footprint.InBytes();
+                break;
+              }
+            }
+            base::android::RunLongCallbackAndroid(callback, bytes_used);
+          },
+          global_callback));
 }
 
 void TabAndroid::InitializeAutofillIfNecessary() {
@@ -604,7 +666,10 @@ void TabAndroid::OnShow() {
       resource_coordinator::TabLoadTracker::Get()->GetLoadingState(
           web_contents_.get()) != mojom::LifecycleUnitLoadingState::UNLOADED &&
       !web_contents_->IsLoading();
-  web_contents_->SetTabSwitchStartTime(base::TimeTicks::Now(), loaded);
+  const content::RenderWidgetHostView* view =
+      web_contents_->GetRenderWidgetHostView();
+  web_contents_->SetTabSwitchStartTime(base::TimeTicks::Now(), loaded,
+                                       view && view->HasSavedCompositorFrame());
 }
 
 void TabAndroid::NotifyPinnedStateChanged(bool is_pinned) {
@@ -663,6 +728,10 @@ base::WeakPtr<tabs::TabInterface> TabAndroid::GetWeakPtr() {
 
 content::WebContents* TabAndroid::GetContents() const {
   return web_contents_.get();
+}
+
+Profile* TabAndroid::GetProfile() const {
+  return profile();
 }
 
 void TabAndroid::Close() {

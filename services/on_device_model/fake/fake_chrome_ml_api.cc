@@ -448,7 +448,9 @@ void SetConstraintFns(const ChromeMLConstraintFns* fns) {
 }
 
 bool GetTokenizerParams(ChromeMLModel model,
-                        const ChromeMLGetTokenizerParamsFn& fn) {
+                        ChromeMLSession session,
+                        const ChromeMLGetTokenizerParamsFn& fn,
+                        bool use_optimization) {
   // Create a simple tokenizer mapping each byte to itself.
   std::string tokens;
   std::vector<uint32_t> token_lens;
@@ -472,7 +474,7 @@ bool GetTokenizerParams(ChromeMLModel model,
 bool GetTokenizerParamsV2(ChromeMLModel model,
                           ChromeMLSession session,
                           const ChromeMLGetTokenizerParamsFn& fn) {
-  return GetTokenizerParams(model, fn);
+  return GetTokenizerParams(session, model, fn, /*use_optimization=*/true);
 }
 
 ChromeMLTSModel CreateTSModel(const ChromeMLTSModelDescriptor* descriptor) {
@@ -503,6 +505,29 @@ ChromeMLSafetyResult TSModelClassifyTextSafety(ChromeMLTSModel model,
   return ChromeMLSafetyResult::kOk;
 }
 
+TfLiteDelegate* CreateGpuDelegate() {
+  return nullptr;
+}
+
+TfLiteDelegate* CreateGpuDelegateWithPrecision(GpuDelegatePrecision precision) {
+  return nullptr;
+}
+
+void DestroyGpuDelegate(TfLiteDelegate* delegate) {}
+
+ChromeMLASRStream ASRCreateStream(ChromeMLSession session,
+                                  const ChromeMLASRStreamOptions* options) {
+  if (options->sample_rate_hz == 0) {
+    return 0;
+  }
+  return 1;
+}
+
+void ASRAddAudioChunk(ChromeMLASRStream stream, ml::AudioBuffer* audio_buffer) {
+}
+
+void ASRDestroyStream(ChromeMLASRStream stream) {}
+
 const ChromeMLAPI g_api = {
     .InitDawnProcs = &InitDawnProcs,
     .SetMetricsFns = &SetMetricsFns,
@@ -529,11 +554,20 @@ const ChromeMLAPI g_api = {
     .SetConstraintFns = &SetConstraintFns,
     .GetTokenizerParams = &GetTokenizerParams,
     .GetTokenizerParamsV2 = &GetTokenizerParamsV2,
+    .CreateGpuDelegate = &CreateGpuDelegate,
+    .CreateGpuDelegateWithPrecision = &CreateGpuDelegateWithPrecision,
+    .DestroyGpuDelegate = &DestroyGpuDelegate,
     .ts_api =
         {
             .CreateModel = &CreateTSModel,
             .DestroyModel = &DestroyTSModel,
             .ClassifyTextSafety = &TSModelClassifyTextSafety,
+        },
+    .asr_api =
+        {
+            .CreateStream = &ASRCreateStream,
+            .AddAudioChunk = &ASRAddAudioChunk,
+            .DestroyStream = &ASRDestroyStream,
         },
 };
 

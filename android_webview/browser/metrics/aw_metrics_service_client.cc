@@ -75,6 +75,44 @@ using InstallerPackageType = AwMetricsServiceClient::InstallerPackageType;
 
 namespace {
 
+// Note: This feature and params parallel the ones in metrics_service_client.cc
+// to provide AW-specific limits for the thresholds.
+BASE_FEATURE(kAwMetricsLogTrimming, base::FEATURE_ENABLED_BY_DEFAULT);
+
+const base::FeatureParam<size_t> kInitialLogCountTrimThreshold{
+    &kAwMetricsLogTrimming, "initial_log_count_trim_threshold", 20};
+const base::FeatureParam<size_t> kOngoingLogCountTrimThreshold{
+    &kAwMetricsLogTrimming, "ongoing_log_count_trim_threshold", 8};
+const base::FeatureParam<size_t> kLogBytesTrimThreshold{
+    &kAwMetricsLogTrimming, "log_bytes_trim_threshold",
+    300 * 1024  // 300 KiB
+};
+const base::FeatureParam<size_t> kMaxInitialLogSizeBytes{
+    &kAwMetricsLogTrimming, "max_initial_log_size_bytes",
+    0  // Initial logs can be of any size.
+};
+const base::FeatureParam<size_t> kMaxOngoingLogSizeBytes{
+    &kAwMetricsLogTrimming, "max_ongoing_log_size_bytes",
+    100 * 1024  // 100 KiB
+};
+
+metrics::MetricsLogStore::StorageLimits GetStorageLimitsImpl() {
+  return {
+      .initial_log_queue_limits =
+          metrics::UnsentLogStore::UnsentLogStoreLimits{
+              .min_log_count = kInitialLogCountTrimThreshold.Get(),
+              .min_queue_size_bytes = kLogBytesTrimThreshold.Get(),
+              .max_log_size_bytes = kMaxInitialLogSizeBytes.Get(),
+          },
+      .ongoing_log_queue_limits =
+          metrics::UnsentLogStore::UnsentLogStoreLimits{
+              .min_log_count = kOngoingLogCountTrimThreshold.Get(),
+              .min_queue_size_bytes = kLogBytesTrimThreshold.Get(),
+              .max_log_size_bytes = kMaxOngoingLogSizeBytes.Get(),
+          },
+  };
+}
+
 // This specifies the amount of time to wait for all renderers to send their
 // data.
 const int kMaxHistogramGatheringWaitDuration = 60000;  // 60 seconds.
@@ -590,6 +628,11 @@ bool AwMetricsServiceClient::ShouldStartUpFast() const {
   return fast_startup_for_testing_;
 }
 
+metrics::MetricsLogStore::StorageLimits
+AwMetricsServiceClient::GetStorageLimits() const {
+  return GetStorageLimitsImpl();
+}
+
 void AwMetricsServiceClient::OnRenderProcessHostCreated(
     content::RenderProcessHost* host) {
   if (!host_observation_.IsObservingSource(host)) {
@@ -801,17 +844,19 @@ void AwMetricsServiceClient::OnAppStateChanged(
 
   bool foreground = state == WebViewAppStateObserver::State::kForeground;
 
-  if (foreground == app_in_foreground_)
+  if (foreground == app_in_foreground_) {
     return;
+  }
 
   app_in_foreground_ = foreground;
   if (app_in_foreground_) {
-    GetMetricsService()->OnAppEnterForeground();
+    GetMetricsService()->OnAppEnterForeground(
+        /*force_open_new_log=*/false, /*emit_uma_action=*/false);
   } else {
     // TODO(crbug.com/40118864): Turn on the background recording.
     // Not recording in background, this matches Chrome's behavior.
     GetMetricsService()->OnAppEnterBackground(
-        /* keep_recording_in_background = false */);
+        /*keep_recording_in_background=*/false, /*emit_uma_action=*/false);
   }
 }
 

@@ -118,6 +118,7 @@ class MockContextualTasksUI : public ContextualTasksUI {
  public:
   explicit MockContextualTasksUI(content::WebUI* web_ui)
       : ContextualTasksUI(web_ui) {}
+  ~MockContextualTasksUI() override = default;
   MOCK_METHOD(void,
               PostMessageToWebview,
               (const lens::ClientToAimMessage& message),
@@ -129,6 +130,11 @@ class MockContextualTasksUI : public ContextualTasksUI {
   MOCK_METHOD(const GURL&, GetInnerFrameUrl, (), (const, override));
   MOCK_METHOD(std::unique_ptr<contextual_search::InputStateModel>,
               TakeInputStateModel,
+              (),
+              (override));
+  MOCK_METHOD(bool, IsActiveTabContextSuggestionShowing, (), (const, override));
+  MOCK_METHOD(contextual_tasks::ContextualTasksAutoSuggestionManager*,
+              GetAutoSuggestionManager,
               (),
               (override));
 };
@@ -256,7 +262,8 @@ class ContextualTasksComposeboxHandlerTest
   CreateMockInputStateModel() {
     omnibox::SearchboxConfig config;
     auto model = std::make_unique<contextual_search::InputStateModel>(
-        *session_handle_, config, GURL(), false);
+        *session_handle_, config, GURL(), /*is_off_the_record=*/false,
+        /*is_signed_in=*/false);
     model->setActiveModel(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
     return model;
   }
@@ -334,6 +341,12 @@ class ContextualTasksComposeboxHandlerTest
     ON_CALL(*mock_ui_, GetBrowser()).WillByDefault(testing::Return(browser()));
     ON_CALL(*mock_ui_, GetInnerFrameUrl())
         .WillByDefault(testing::ReturnRefOfCopy(GURL()));
+    ON_CALL(*mock_ui_, GetAutoSuggestionManager())
+        .WillByDefault(testing::Return(&auto_suggestion_manager_));
+    ON_CALL(*mock_ui_, IsActiveTabContextSuggestionShowing())
+        .WillByDefault([this]() {
+          return auto_suggestion_manager_.GetCurrentSuggestion() != nullptr;
+        });
 
     // Create mock controller directly.
     mock_contextual_tasks_service_owner_ = std::make_unique<
@@ -420,6 +433,8 @@ class ContextualTasksComposeboxHandlerTest
  protected:
   content::TestWebUI web_ui_;
   std::unique_ptr<testing::NiceMock<MockContextualTasksUI>> mock_ui_;
+  contextual_tasks::ContextualTasksAutoSuggestionManager
+      auto_suggestion_manager_;
   std::unique_ptr<TestContextualTasksComposeboxHandler> handler_;
 
   // For session management.
@@ -959,7 +974,8 @@ TEST_F(ContextualTasksComposeboxHandlerTest, AegcParameterDisablesTools) {
   auto session_handle =
       std::make_unique<contextual_search::MockContextualSearchSessionHandle>();
   auto input_state_model = std::make_unique<contextual_search::InputStateModel>(
-      *session_handle, config, GURL(), /*is_off_the_record=*/false);
+      *session_handle, config, GURL(), /*is_off_the_record=*/false,
+      /*is_signed_in=*/false);
 
   EXPECT_CALL(*mock_ui_, TakeInputStateModel())
       .WillOnce(testing::Return(testing::ByMove(std::move(input_state_model))));
@@ -2768,16 +2784,18 @@ TEST_F(ContextualTasksComposeboxHandlerTest,
             << "Expected a non-null pointer for received_info.";
       });
 
-  handler_->UpdateSuggestedTabContext(create_tab_info());
+  auto_suggestion_manager_.SetCurrentSuggestion(create_tab_info());
+  handler_->UpdateSuggestedTabContext(
+      auto_suggestion_manager_.GetCurrentSuggestion());
 
   searchbox_page_receiver_.FlushForTesting();
-  EXPECT_TRUE(handler_->has_suggested_tab_context());
+  EXPECT_TRUE(mock_ui_->IsActiveTabContextSuggestionShowing());
 
   // 2. Blocklist the URL by clearing the files.
   handler_->ClearFiles(/*should_block_auto_suggested_tabs=*/true);
 
   searchbox_page_receiver_.FlushForTesting();
-  EXPECT_FALSE(handler_->has_suggested_tab_context());
+  EXPECT_FALSE(mock_ui_->IsActiveTabContextSuggestionShowing());
 
   // 3. Simulate a title change - tab context should still be filtered out.
   EXPECT_CALL(mock_searchbox_page_, UpdateAutoSuggestedTabContext(testing::_))
@@ -2785,10 +2803,12 @@ TEST_F(ContextualTasksComposeboxHandlerTest,
         EXPECT_TRUE(received_info.is_null())
             << "Expected a null pointer for received_info.";
       });
-  handler_->UpdateSuggestedTabContext(create_tab_info());
+  auto_suggestion_manager_.SetCurrentSuggestion(create_tab_info());
+  handler_->UpdateSuggestedTabContext(
+      auto_suggestion_manager_.GetCurrentSuggestion());
 
   searchbox_page_receiver_.FlushForTesting();
-  EXPECT_FALSE(handler_->has_suggested_tab_context());
+  EXPECT_FALSE(mock_ui_->IsActiveTabContextSuggestionShowing());
 }
 
 TEST_F(ContextualTasksComposeboxHandlerTest, UpdateSuggestedTabContext) {
@@ -2807,10 +2827,12 @@ TEST_F(ContextualTasksComposeboxHandlerTest, UpdateSuggestedTabContext) {
             << "Expected a non-null pointer for received_info.";
       });
 
-  handler_->UpdateSuggestedTabContext(create_tab_info());
+  auto_suggestion_manager_.SetCurrentSuggestion(create_tab_info());
+  handler_->UpdateSuggestedTabContext(
+      auto_suggestion_manager_.GetCurrentSuggestion());
 
   searchbox_page_receiver_.FlushForTesting();
-  EXPECT_TRUE(handler_->has_suggested_tab_context());
+  EXPECT_TRUE(mock_ui_->IsActiveTabContextSuggestionShowing());
   // 2. Blocklist the URL by dismissing an automatic chip.
   // We need to navigate the active tab to the URL being blocklisted.
   AddTab(browser(), url);
@@ -2824,10 +2846,12 @@ TEST_F(ContextualTasksComposeboxHandlerTest, UpdateSuggestedTabContext) {
             << "Expected a null pointer for received_info.";
       });
 
-  handler_->UpdateSuggestedTabContext(create_tab_info());
+  auto_suggestion_manager_.SetCurrentSuggestion(create_tab_info());
+  handler_->UpdateSuggestedTabContext(
+      auto_suggestion_manager_.GetCurrentSuggestion());
 
   searchbox_page_receiver_.FlushForTesting();
-  EXPECT_FALSE(handler_->has_suggested_tab_context());
+  EXPECT_FALSE(mock_ui_->IsActiveTabContextSuggestionShowing());
   // 4. Explicitly adding the tab should remove it from the blocklist.
   {
     base::HistogramTester histogram_tester;
@@ -2854,47 +2878,12 @@ TEST_F(ContextualTasksComposeboxHandlerTest, UpdateSuggestedTabContext) {
             << "Expected a non-null pointer for received_info.";
         EXPECT_EQ(received_info->url, url);
       });
-  handler_->UpdateSuggestedTabContext(create_tab_info());
+  auto_suggestion_manager_.SetCurrentSuggestion(create_tab_info());
+  handler_->UpdateSuggestedTabContext(
+      auto_suggestion_manager_.GetCurrentSuggestion());
 
   searchbox_page_receiver_.FlushForTesting();
-  EXPECT_TRUE(handler_->has_suggested_tab_context());
-}
-
-TEST_F(ContextualTasksComposeboxHandlerTest, ResetBlocklistedSuggestions) {
-  GURL url("https://example.com");
-  auto create_tab_info = [&]() {
-    auto info = std::make_unique<contextual_tasks::SuggestedTabInfo>();
-    info->url = url;
-    return info;
-  };
-
-  // 1. Blocklist the URL.
-  AddTab(browser(), url);
-  handler_->DeleteContext(base::UnguessableToken::Create(),
-                          /*from_automatic_chip=*/true);
-  // 2. Verify it's filtered out.
-  EXPECT_CALL(mock_searchbox_page_, UpdateAutoSuggestedTabContext(testing::_))
-      .WillOnce([&](const searchbox::mojom::TabInfoPtr& received_info) {
-        EXPECT_TRUE(received_info.is_null())
-            << "Expected a null pointer for received_info.";
-      });
-  handler_->UpdateSuggestedTabContext(create_tab_info());
-
-  searchbox_page_receiver_.FlushForTesting();
-  // 3. Reset the blocklist.
-  handler_->ResetBlocklistedSuggestions();
-
-  // 4. Verify the suggestion is allowed again.
-  EXPECT_CALL(mock_searchbox_page_, UpdateAutoSuggestedTabContext(testing::_))
-      .WillOnce([&](const searchbox::mojom::TabInfoPtr& received_info) {
-        EXPECT_TRUE(!received_info.is_null())
-            << "Expected a non-null pointer for received_info.";
-        EXPECT_EQ(received_info->url, url);
-      });
-
-  handler_->UpdateSuggestedTabContext(create_tab_info());
-
-  searchbox_page_receiver_.FlushForTesting();
+  EXPECT_TRUE(mock_ui_->IsActiveTabContextSuggestionShowing());
 }
 
 TEST_F(ContextualTasksComposeboxHandlerTest, AddFileContext_NullSessionHandle) {

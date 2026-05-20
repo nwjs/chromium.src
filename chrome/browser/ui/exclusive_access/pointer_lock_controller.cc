@@ -19,14 +19,6 @@
 using content::RenderViewHost;
 using content::WebContents;
 
-namespace {
-
-// The amount of time to disallow repeated pointer lock calls after the user
-// successfully escapes from one lock request.
-constexpr base::TimeDelta kEffectiveUserEscapeDuration =
-    base::Milliseconds(1250);
-
-}  // namespace
 
 PointerLockController::PointerLockController(ExclusiveAccessManager* manager)
     : ExclusiveAccessControllerBase(manager),
@@ -49,25 +41,13 @@ void PointerLockController::RequestToLockPointer(WebContents* web_contents,
                                                  bool last_unlocked_by_target) {
   DCHECK(!IsPointerLocked());
 
-  // To prevent misbehaving sites from constantly re-locking the pointer, the
-  // lock-requesting page must have transient user activation and it must not
-  // request for a lock within |kEffectiveUserEscapeDuration| time since the
-  // user successfully escaped from a previous lock.  Exceptions are when the
-  // page has unlocked (i.e. not the user), or if we're in tab fullscreen (which
-  // requires its own transient user activation).
+  // The lock-requesting page must have transient user activation, except
+  // when the page has unlocked itself (i.e. not the user), or if we're in
+  // tab fullscreen (which requires its own transient user activation).
   if (!last_unlocked_by_target && !web_contents->IsFullscreen()) {
     if (!user_gesture) {
       web_contents->GotResponseToPointerLockRequest(
           blink::mojom::PointerLockResult::kRequiresUserGesture);
-      if (lock_state_callback_for_test_) {
-        std::move(lock_state_callback_for_test_).Run();
-      }
-      return;
-    }
-    if (base::TimeTicks::Now() <
-        last_user_escape_time_ + kEffectiveUserEscapeDuration) {
-      web_contents->GotResponseToPointerLockRequest(
-          blink::mojom::PointerLockResult::kUserEscapeCooldown);
       if (lock_state_callback_for_test_) {
         std::move(lock_state_callback_for_test_).Run();
       }
@@ -101,17 +81,17 @@ void PointerLockController::NotifyTabExclusiveAccessLost() {
 }
 
 bool PointerLockController::HandleUserPressedEscape() {
-  if (IsPointerLocked()) {
-    ExitExclusiveAccessIfNecessary();
-    last_user_escape_time_ = base::TimeTicks::Now();
-    return true;
-  }
-
+  // Don't break the pointer lock here.  Let the ESC key event reach the
+  // renderer so the page has a chance to call preventDefault().  If the
+  // page does not consume the event, the lock will be broken in the
+  // post-ACK HandleKeyboardEvent path.
   return false;
 }
 
 void PointerLockController::HandleUserHeldEscape() {
-  HandleUserPressedEscape();
+  if (IsPointerLocked()) {
+    ExitExclusiveAccessIfNecessary();
+  }
 }
 
 void PointerLockController::HandleUserReleasedEscapeEarly() {}

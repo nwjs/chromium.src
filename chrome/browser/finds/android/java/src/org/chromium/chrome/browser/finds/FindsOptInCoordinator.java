@@ -11,6 +11,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -18,7 +19,6 @@ import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.finds.FindsUtils.FindsOptInState;
 import org.chromium.chrome.browser.notifications.channels.ChromeChannelDefinitions;
 import org.chromium.chrome.browser.notifications.channels.ChromeChannelDefinitions.ChannelId;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -30,14 +30,28 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.Stat
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.browser_ui.notifications.BaseNotificationManagerProxyFactory;
-import org.chromium.components.browser_ui.notifications.NotificationProxyUtils;
 import org.chromium.components.browser_ui.notifications.channels.ChannelsInitializer;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.widget.ButtonCompat;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
 /** Coordinator for the Finds opt-in bottom sheet. */
 @NullMarked
 public class FindsOptInCoordinator {
+    @IntDef({
+        FindsOptInUserInteraction.DISMISSED,
+        FindsOptInUserInteraction.ACCEPTED,
+        FindsOptInUserInteraction.DECLINED
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    @interface FindsOptInUserInteraction {
+        int DISMISSED = 0;
+        int ACCEPTED = 1;
+        int DECLINED = 2;
+    }
+
     @VisibleForTesting public static final float LOTTIE_MAX_HEIGHT_RATIO = 0.30f;
 
     @VisibleForTesting
@@ -55,9 +69,8 @@ public class FindsOptInCoordinator {
     private final View mAnimationView;
     private final SettableNonNullObservableSupplier<Boolean> mBackPressStateChangedSupplier =
             ObservableSuppliers.createNonNull(false);
-    // Tracks whether the user explicitly accepted or declined the opt-in promo, so we can correctly
-    // handle dismissals.
-    private boolean mUserInteractedWithOptIn;
+    // Tracks the user interaction with the opt-in promo, default value will be dismissal.
+    private @FindsOptInUserInteraction int mUserInteractionType;
 
     /**
      * @param context The Android {@link Context}.
@@ -74,11 +87,11 @@ public class FindsOptInCoordinator {
         mProfile = profile;
         mBottomSheetController = bottomSheetController;
         mSnackbarManager = snackbarManager;
-        mUserInteractedWithOptIn = false;
+        mUserInteractionType = FindsOptInUserInteraction.DISMISSED;
 
         mContentView =
                 LayoutInflater.from(mContext)
-                        .inflate(R.layout.chrome_finds_opt_in_bottom_sheet, /* root= */ null);
+                        .inflate(R.layout.finds_opt_in_bottom_sheet, /* root= */ null);
         mAnimationView = mContentView.findViewById(R.id.finds_opt_in_lottie_animation);
 
         mComponentCallbacks =
@@ -107,14 +120,12 @@ public class FindsOptInCoordinator {
         positiveButtonView.setOnClickListener(
                 (view) -> {
                     onOptInAccepted();
-                    dismiss();
                 });
 
         ButtonCompat negativeButtonView = mContentView.findViewById(R.id.opt_in_negative_button);
         negativeButtonView.setOnClickListener(
                 (view) -> {
                     onOptInDeclined();
-                    dismiss();
                 });
 
         mBottomSheetObserver =
@@ -135,9 +146,19 @@ public class FindsOptInCoordinator {
                         }
                         super.onSheetClosed(reason);
                         mBackPressStateChangedSupplier.set(false);
-                        if (!mUserInteractedWithOptIn) {
+
+                        if (mUserInteractionType == FindsOptInUserInteraction.DISMISSED) {
                             FindsMetrics.recordOptInDismissed();
+                        } else if (mUserInteractionType == FindsOptInUserInteraction.ACCEPTED) {
+                            // Only show the snackbar if both app-level notifications and finds
+                            // channel are activated.
+                            FindsUtils.areFindsNotificationsEnabled(
+                                    isEnabled -> {
+                                        if (isEnabled) showOptInSnackbar();
+                                    });
                         }
+                        // Reset mUserInteractionType.
+                        mUserInteractionType = FindsOptInUserInteraction.DISMISSED;
                     }
                 };
         mBottomSheetController.addObserver(mBottomSheetObserver);
@@ -145,40 +166,32 @@ public class FindsOptInCoordinator {
 
     @VisibleForTesting
     void onOptInAccepted() {
-        mUserInteractedWithOptIn = true;
-        FindsUtils.getOptInState(
-                (state) -> {
-                    if (state == FindsOptInState.FIRST_TIME) {
+        mUserInteractionType = FindsOptInUserInteraction.ACCEPTED;
+        FindsUtils.isFindsChannelCreated(
+                (channelExists) -> {
+                    boolean firstTime = !channelExists;
+                    if (firstTime) {
                         // For first time opt-in, initialize the notification channel as enabled.
                         new ChannelsInitializer(
                                         BaseNotificationManagerProxyFactory.create(),
                                         ChromeChannelDefinitions.getInstance(),
                                         mContext.getResources())
                                 .ensureInitialized(ChannelId.CHROME_FINDS);
-
-                        // If app-level notifications are disabled, we must direct the user to
-                        // settings to enable them. Otherwise, we show the confirmation snackbar.
-                        if (NotificationProxyUtils.areNotificationsEnabled()) {
-                            showOptInSnackbar();
-                        } else {
-                            FindsUtils.launchFindsNotificationSettings(mContext);
-                        }
-                        FindsMetrics.recordOptInAccepted(/* firstTime= */ true);
-                    } else if (state == FindsOptInState.MANUALLY_DISABLED) {
-                        // Launch the notifications settings to direct the user to manually enable
-                        // since once the channel has already been created, we cannot
-                        // programmatically enable it.
-                        FindsUtils.launchFindsNotificationSettings(mContext);
-                        FindsMetrics.recordOptInAccepted(/* firstTime= */ false);
-                    } else {
-                        // The only other remaining state is ENABLED, which in theory should never
-                        // occur but will be possible with always show opt-in enabled since the
-                        // opt-in bottom sheet should not be shown otherwise.
-                        showOptInSnackbar();
-                        FindsMetrics.recordOptInAccepted(/* firstTime= */ false);
                     }
 
-                    FindsUtils.setOptInPromoInteracted(mProfile);
+                    // Verify if notifications are fully enabled (both app-level and channel).
+                    // If not, redirect to settings so the user can finalize their opt-in.
+                    // This handles first-time users with app-level disabled and testing
+                    // configuration flow where app-level/channel notifications aren't enabled.
+                    FindsUtils.areFindsNotificationsEnabled(
+                            (enabled) -> {
+                                if (!enabled) {
+                                    FindsUtils.launchFindsNotificationSettings(mContext);
+                                }
+                                FindsMetrics.recordOptInAccepted(firstTime);
+                                FindsUtils.setOptInPromoInteracted(mProfile);
+                                dismiss();
+                            });
                 });
     }
 
@@ -203,7 +216,7 @@ public class FindsOptInCoordinator {
 
     @VisibleForTesting
     void onOptInDeclined() {
-        mUserInteractedWithOptIn = true;
+        mUserInteractionType = FindsOptInUserInteraction.DECLINED;
         // Initialize the Chrome Finds notification channel as disabled.
         new ChannelsInitializer(
                         BaseNotificationManagerProxyFactory.create(),
@@ -212,6 +225,7 @@ public class FindsOptInCoordinator {
                 .ensureInitializedAndDisabled(ChannelId.CHROME_FINDS);
         FindsUtils.setOptInPromoInteracted(mProfile);
         FindsMetrics.recordOptOutClicked();
+        dismiss();
     }
 
     public void destroy() {
@@ -221,6 +235,8 @@ public class FindsOptInCoordinator {
 
     /** Shows the Chrome Finds opt-in bottom sheet. */
     public void showBottomSheet() {
+        // Reset in case of stale mUserInteractionType value.
+        mUserInteractionType = FindsOptInUserInteraction.DISMISSED;
         mBottomSheetController.requestShowContent(mSheetContent, /* animate= */ true);
         FindsUtils.setOptInPromoSeen(mProfile);
         FindsMetrics.recordOptInShown();
@@ -232,6 +248,10 @@ public class FindsOptInCoordinator {
 
     FindsOptInBottomSheetContent getSheetContentForTesting() {
         return mSheetContent;
+    }
+
+    int getUserInteractionTypeForTesting() {
+        return mUserInteractionType;
     }
 
     private void onBackPressed() {
@@ -254,13 +274,17 @@ public class FindsOptInCoordinator {
         // Lottie animation's intrinsic aspect ratio.
         int targetWidth = Math.round(maxHeight * LOTTIE_INTRINSIC_ASPECT_RATIO);
 
-        // Ensure the animation doesn't exceed the screen width minus horizontal margins.
+        // Ensure the animation doesn't exceed the bottom sheet max width/screen width minus
+        // horizontal margins.
         int screenWidthPixels = ViewUtils.dpToPx(mContext, configuration.screenWidthDp);
         int horizontalMargin =
                 mContext.getResources()
-                        .getDimensionPixelSize(
-                                R.dimen.chrome_finds_opt_in_bottom_sheet_horizontal_margin);
+                        .getDimensionPixelSize(R.dimen.finds_opt_in_bottom_sheet_horizontal_margin);
         int maxWidth = screenWidthPixels - (horizontalMargin * 2);
+        int maxSheetWidth = mBottomSheetController.getMaxSheetWidth();
+        if (maxSheetWidth > 0) {
+            maxWidth = Math.min(maxWidth, maxSheetWidth - (horizontalMargin * 2));
+        }
 
         layoutParams.width = Math.min(targetWidth, maxWidth);
         mAnimationView.setLayoutParams(layoutParams);

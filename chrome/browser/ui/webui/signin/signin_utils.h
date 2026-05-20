@@ -16,6 +16,7 @@
 
 struct AccountInfo;
 class Browser;
+class BrowserWindowInterface;
 class Profile;
 struct AccountInfo;
 
@@ -113,9 +114,9 @@ extensions::WebViewGuest* GetAuthWebViewGuest(
     content::WebContents* web_contents,
     const std::string& parent_frame_name);
 
-// Gets the browser containing the web UI; if none is found, returns the last
-// active browser for web UI's profile.
-Browser* GetDesktopBrowser(content::WebUI* web_ui);
+// Gets the browser window containing the web UI; if none is found, returns the
+// last active browser window for the web UI's profile.
+BrowserWindowInterface* GetDesktopBrowser(content::WebUI* web_ui);
 
 // After this time delta, user must see a screen. If it was impossible to get
 // the CanShowHistorySyncOptInsWithoutMinorModeRestrictions capability before
@@ -123,7 +124,7 @@ Browser* GetDesktopBrowser(content::WebUI* web_ui);
 base::TimeDelta GetMinorModeRestrictionsDeadline();
 
 // Sets the height of the WebUI modal dialog after its initialization. This is
-// needed to better accomodate different locales' text heights.
+// needed to better accommodate different locales' text heights.
 void SetInitializedModalHeight(Browser* browser,
                                content::WebUI* web_ui,
                                const base::ListValue& args);

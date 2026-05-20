@@ -17,9 +17,8 @@
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/service_worker_context.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/result_codes.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -35,6 +34,7 @@
 #include "extensions/browser/service_worker/service_worker_task_queue.h"
 #include "extensions/browser/service_worker/service_worker_test_utils.h"
 #include "extensions/browser/service_worker/worker_id_set.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/mojom/service_worker_host.mojom-test-utils.h"
@@ -46,6 +46,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
 #include "url/gurl.h"
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 // Tests for validating the logic for keeping track of extension service
 // workers. This is intentionally broad to include things like:
@@ -315,8 +317,8 @@ class ServiceWorkerIdTrackingBrowserTest
 
     // Navigate somewhere to trigger the start of the worker to handle the
     // webNavigation.onBeforeRequest event.
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(
-        browser(),
+    ASSERT_TRUE(NavigateToURL(
+        GetActiveWebContents(),
         embedded_test_server()->GetURL("example.com", "/simple.html")));
 
     // Wait for the new worker instance to be added to `WorkerIdSet` (registered
@@ -835,8 +837,9 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerRendererTrackingBrowserTest,
 
   // To indirectly confirm that the extension without a worker loaded in the
   // renderer we navigate to a page and wait for the content script to run.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), embedded_test_server()->GetURL("/extensions/test_file.html")));
+  ASSERT_TRUE(NavigateToURL(
+      GetActiveWebContents(),
+      embedded_test_server()->GetURL("/extensions/test_file.html")));
   {
     SCOPED_TRACE("waiting for extension without worker to load");
     ASSERT_TRUE(extension_without_worker_loaded.WaitUntilSatisfied());
@@ -1085,6 +1088,80 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTrackingBrowserTest,
             ServiceWorkerState::RendererState::kNotActive);
   EXPECT_EQ(worker_state->browser_state(),
             ServiceWorkerState::BrowserState::kNotActive);
+}
+
+IN_PROC_BROWSER_TEST_F(ServiceWorkerTrackingBrowserTest,
+                       StaleInitializeArrivesLate) {
+  // Prevent both renderer initialize and start notifications from firing.
+  auto sw_host_factory_callback = base::BindRepeating(
+      [](content::RenderProcessHost* render_process_host,
+         mojo::PendingAssociatedReceiver<mojom::ServiceWorkerHost> receiver)
+          -> std::unique_ptr<ServiceWorkerHost> {
+        return std::make_unique<
+            ServiceWorkerHostNoInitializeAndStartNotification>(
+            render_process_host, std::move(receiver));
+      });
+  base::AutoReset<ServiceWorkerHost::FactoryCallback*> sw_host_factory =
+      ServiceWorkerHost::SetFactoryForTesting(&sw_host_factory_callback);
+
+  ServiceWorkerTaskQueue* task_queue = ServiceWorkerTaskQueue::Get(profile());
+  service_worker_test_utils::TestServiceWorkerContextObserver sw_observer(
+      profile());
+
+  // Load the extension.
+  auto test_dir = std::make_unique<TestExtensionDir>();
+  test_dir->WriteManifest(R"({
+      "name": "Test Extension",
+      "manifest_version": 3,
+      "version": "0.1",
+      "background": {
+        "service_worker" : "background.js"
+      }
+  })");
+  test_dir->WriteFile(FILE_PATH_LITERAL("background.js"), "");
+  test_dir->WriteFile(FILE_PATH_LITERAL("extension_page_tab.html"),
+                      GetExtensionPageContent());
+  const Extension* extension = LoadExtension(
+      test_dir->UnpackedPath(),
+      {.wait_for_renderers = false, .wait_for_registration_stored = true});
+  ASSERT_TRUE(extension);
+  extension_ = extension;
+
+  // Wait for the worker to start (via `OnVersionStartedRunning`).
+  int64_t version_id = sw_observer.WaitForWorkerStarted();
+
+  // The worker has started in the browser but renderer IPCs have not arrived.
+  ServiceWorkerState* worker_state = GetWorkerState();
+  ASSERT_TRUE(worker_state);
+  EXPECT_TRUE(worker_state->worker_id());
+  WorkerId worker_id = *worker_state->worker_id();
+  EXPECT_EQ(worker_id.version_id, version_id);
+  EXPECT_EQ(worker_state->browser_state(),
+            ServiceWorkerState::BrowserState::kActive);
+  EXPECT_EQ(worker_state->renderer_state(),
+            ServiceWorkerState::RendererState::kNotActive);
+
+  // Wait for the worker to begin stopping.
+  content::ServiceWorkerContext* sw_context = GetServiceWorkerContext();
+  content::StopServiceWorkerForScope(sw_context, extension->url(),
+                                     base::DoNothing());
+  sw_observer.WaitForWorkerStopping();
+
+  // Simulate a delayed `RendererDidInitializeServiceWorkerContext` IPC.
+  // It should be dropped, because the worker is already stopping
+  // (and `IsLiveServiceWorkerWithToken` returns false).
+  SequencedContextId context_id{
+      extension->id(), profile()->UniqueId(),
+      *task_queue->GetCurrentActivationToken(extension->id())};
+  task_queue->RendererDidInitializeServiceWorkerContext(
+      worker_id.render_process_id, extension_->id(), context_id.token,
+      worker_id.version_id, worker_id.thread_id, *worker_id.start_token);
+
+  // Confirm the stale worker is not tracked in ProcessManager.
+  std::vector<WorkerId> workers_for_extension =
+      ProcessManager::Get(profile())->GetServiceWorkersForExtension(
+          extension_->id());
+  EXPECT_EQ(workers_for_extension.size(), 0ul);
 }
 
 // Test that if a stop notification arrives before the asynchronous initialize

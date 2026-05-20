@@ -147,7 +147,11 @@ class AutoSignOutTest : public testing::Test {
             /*fcm_registration_token=*/"token",
             /*interested_data_types=*/syncer::DataTypeSet(),
             /*auto_sign_out_last_signin_timestamp=*/signin_timestamp,
-            /*desktop_to_ios_promo_receiving_enabled=*/false);
+            /*desktop_to_ios_promo_receiving_enabled=*/false,
+            /*desktop_to_ios_promo_receiving_types=*/
+            MobilePromoOnDesktopPromoTypeSet{},
+            /*glic_experimental_triggering_state=*/
+            syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable);
     fake_device_info_tracker()->Add(std::move(device_info));
   }
 

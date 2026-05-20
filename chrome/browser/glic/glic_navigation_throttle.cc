@@ -23,8 +23,8 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #endif
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/common/chrome_features.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_handle.h"
@@ -226,12 +226,13 @@ GlicNavigationThrottle::WillStartRequest() {
     tabs::TabInterface* tab =
         tabs::TabInterface::MaybeGetFromContents(web_contents);
     if (tab && tab->GetBrowserWindowInterface()) {
-      GlicInvokeOptions options(
-          glic::mojom::InvocationSource::kNavigationCapture);
+      glic::Target target(tab);
       if (cid) {
-        options.conversation = glic::ConversationId(*cid, turn_id);
+        target.conversation = glic::ConversationId(*cid, turn_id);
       }
-      glic_service->Invoke(tab, std::move(options));
+      GlicInvokeOptions options(
+          std::move(target), glic::mojom::InvocationSource::kNavigationCapture);
+      glic_service->Invoke(std::move(options));
     }
   }
 

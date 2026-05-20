@@ -18,8 +18,6 @@
 
 #pragma mark - Public
 
-@synthesize inactiveBrowser = _inactiveBrowser;
-
 - (instancetype)initWithCoordinator:(BrowserCoordinator*)coordinator {
   if ((self = [super init])) {
     DCHECK(coordinator.browser);
@@ -29,6 +27,10 @@
 }
 
 - (UIViewController*)viewController {
+  return self.coordinator.viewController;
+}
+
+- (UIViewController*)viewController:(BrowserProviderPassKey)key {
   return self.coordinator.viewController;
 }
 

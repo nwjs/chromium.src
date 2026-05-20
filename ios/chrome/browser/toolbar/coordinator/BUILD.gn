@@ -4,8 +4,10 @@
 
 source_set("coordinator") {
   sources = [
-    "toolbar_coordinator.h",
-    "toolbar_coordinator.mm",
+    "main_toolbar_coordinator.h",
+    "main_toolbar_coordinator.mm",
+    "main_toolbar_mediator.h",
+    "main_toolbar_mediator.mm",
     "toolbar_mediator.h",
     "toolbar_mediator.mm",
   ]
@@ -13,9 +15,13 @@ source_set("coordinator") {
     "//base",
     "//components/omnibox/common",
     "//components/prefs",
+    "//ios/chrome/app/profile",
+    "//ios/chrome/browser/banner_promo/model",
     "//ios/chrome/browser/composebox/public:animation",
+    "//ios/chrome/browser/default_browser/model",
+    "//ios/chrome/browser/fullscreen/model",
+    "//ios/chrome/browser/fullscreen/public:metrics",
     "//ios/chrome/browser/fullscreen/ui_bundled",
-    "//ios/chrome/browser/fullscreen/ui_bundled:metrics",
     "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/location_bar/ui_bundled",
     "//ios/chrome/browser/menu/ui_bundled",
@@ -35,6 +41,7 @@ source_set("coordinator") {
     "//ios/chrome/browser/shared/model/prefs",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/url",
+    "//ios/chrome/browser/shared/model/utils",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/public/features",
@@ -45,6 +52,8 @@ source_set("coordinator") {
     "//ios/chrome/browser/toolbar/legacy/ui_bundled:ui",
     "//ios/chrome/browser/toolbar/legacy/ui_bundled/public",
     "//ios/chrome/browser/toolbar/legacy/ui_bundled/public:constants",
+    "//ios/chrome/browser/toolbar/tab_group/coordinator",
+    "//ios/chrome/browser/toolbar/tab_group/ui:constants",
     "//ios/chrome/browser/toolbar/ui",
     "//ios/chrome/browser/toolbar/ui:constants",
     "//ios/chrome/browser/toolbar/ui:height_delegate",
@@ -61,7 +70,8 @@ source_set("coordinator") {
 source_set("unit_tests") {
   testonly = true
   sources = [
-    "toolbar_coordinator_unittest.mm",
+    "main_toolbar_coordinator_unittest.mm",
+    "main_toolbar_mediator_unittest.mm",
     "toolbar_mediator_unittest.mm",
   ]
   deps = [
@@ -71,6 +81,9 @@ source_set("unit_tests") {
     "//components/omnibox/browser:pref_names",
     "//components/prefs:test_support",
     "//ios/chrome/browser/autocomplete/model",
+    "//ios/chrome/browser/banner_promo/model",
+    "//ios/chrome/browser/banner_promo/model:test_support",
+    "//ios/chrome/browser/default_browser/model",
     "//ios/chrome/browser/fullscreen/ui_bundled",
     "//ios/chrome/browser/fullscreen/ui_bundled/test",
     "//ios/chrome/browser/infobars/model",

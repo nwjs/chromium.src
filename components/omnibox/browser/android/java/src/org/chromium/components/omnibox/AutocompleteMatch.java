@@ -86,6 +86,7 @@ public class AutocompleteMatch {
     private final @Nullable String mImageDominantColor;
     private final int mTransition;
     private final boolean mIsDeletable;
+    private final int mStarterPackId;
     private final Map<String, String> mExtraHeaders;
     private byte @Nullable [] mPostData;
     private final int mGroupId;
@@ -118,6 +119,7 @@ public class AutocompleteMatch {
             GURL imageUrl,
             @Nullable String imageDominantColor,
             boolean isDeletable,
+            int starterPackId,
             @Nullable String postContentType,
             byte @Nullable [] postData,
             int groupId,
@@ -157,6 +159,7 @@ public class AutocompleteMatch {
         mImageUrl = imageUrl;
         mImageDominantColor = imageDominantColor;
         mIsDeletable = isDeletable;
+        mStarterPackId = starterPackId;
         mExtraHeaders = new ArrayMap<>();
         mPostData = postData;
         mGroupId = groupId;
@@ -216,6 +219,7 @@ public class AutocompleteMatch {
             @JniType("GURL") GURL imageUrl,
             @JniType("std::string") String imageDominantColor,
             boolean isDeletable,
+            int starterPackId,
             @JniType("std::string") String postContentType,
             byte[] postData,
             int groupId,
@@ -236,7 +240,7 @@ public class AutocompleteMatch {
                             contentClassificationOffsets[i], contentClassificationStyles[i]));
         }
 
-        Set<Integer> subtypes = new ArraySet(nativeSubtypes.length);
+        Set<Integer> subtypes = new ArraySet<>(nativeSubtypes.length);
         for (int i = 0; i < nativeSubtypes.length; i++) {
             subtypes.add(nativeSubtypes[i]);
         }
@@ -259,6 +263,7 @@ public class AutocompleteMatch {
                         imageUrl,
                         imageDominantColor,
                         isDeletable,
+                        starterPackId,
                         postContentType,
                         postData,
                         groupId,
@@ -540,6 +545,13 @@ public class AutocompleteMatch {
         return mAssociatedKeyword;
     }
 
+    /**
+     * @return The starter pack engine id, or 0 if not a starter pack match.
+     */
+    public int getStarterPackId() {
+        return mStarterPackId;
+    }
+
     public boolean isRefineable() {
         return mIsRefineable;
     }
@@ -571,7 +583,8 @@ public class AutocompleteMatch {
                 .setGroupId(mGroupId)
                 .setIsSearchType(mIsSearchType)
                 .setAllowedToBeDefaultMatch(mAllowedToBeDefaultMatch)
-                .setIconType(mIconType);
+                .setIconType(mIconType)
+                .setStarterPackId(mStarterPackId);
 
         if (!TextUtils.isEmpty(mFillIntoEdit)) {
             builder.setFillIntoEdit(mFillIntoEdit);
@@ -628,7 +641,7 @@ public class AutocompleteMatch {
 
         return new AutocompleteMatch(
                 input.getType(),
-                new ArraySet(input.getSubtypeList()),
+                new ArraySet<>(input.getSubtypeList()),
                 input.getIsSearchType(),
                 input.getIconType(),
                 input.getTransition(),
@@ -643,6 +656,7 @@ public class AutocompleteMatch {
                 new GURL(input.getImageUrl()),
                 /* imageDominantColor= */ null,
                 /* isDeletable= */ false,
+                input.getStarterPackId(),
                 /* postContentType= */ null,
                 /* postData= */ null,
                 input.getGroupId(),

@@ -22,13 +22,14 @@ import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ObserverList;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.build.annotations.EnsuresNonNullIf;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.ChromeAutocompleteSchemeClassifier;
+import org.chromium.chrome.browser.omnibox.FuseboxSessionState;
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.NewTabPageDelegate;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
@@ -40,6 +41,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TrustedCdn;
 import org.chromium.chrome.browser.theme.ThemeUtils;
+import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
@@ -262,8 +264,9 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
     /**
      * @return The currently active WebContents being used by the Toolbar.
      */
+    @Override
     @CalledByNative
-    private @Nullable WebContents getActiveWebContents() {
+    public @Nullable WebContents getWebContents() {
         if (!hasTab()) return null;
         return mTab.getWebContents();
     }
@@ -323,9 +326,16 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
     }
 
     @Override
-    public @Nullable UserDataHost getUserDataHost() {
-        if (!hasTab()) return null;
-        return assumeNonNull(getTab()).getUserDataHost();
+    public @Nullable FuseboxSessionState getFuseboxSessionState() {
+        Tab tab = getTab();
+        if (tab == null) return null;
+        var userDataHost = tab.getUserDataHost();
+        FuseboxSessionState state = userDataHost.getUserData(FuseboxSessionState.class);
+        if (state == null) {
+            state = new FuseboxSessionState();
+            userDataHost.setUserData(FuseboxSessionState.class, state);
+        }
+        return state;
     }
 
     @Override
@@ -419,7 +429,7 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
 
     @Override
     public UrlBarData getUrlBarData() {
-        // Part of scroll jank investigation http://crbug.com/905461. Will remove TraceEvent after
+        // Part of scroll jank investigation http://crbug.com/41426407. Will remove TraceEvent after
         // the investigation is complete.
         try (TraceEvent te = TraceEvent.scoped("LocationBarModel.getUrlBarData")) {
             if (!hasTab()) {
@@ -429,13 +439,16 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
             GURL gurl = getCurrentGurl();
             if (!UrlBarData.shouldShowUrl(gurl, isOffTheRecord())) {
                 if (isNonMultiDisplayContextOnTablet()
-                        && gurl.getScheme().equals(UrlConstants.CHROME_NATIVE_SCHEME)
+                        && NativePage.isChromePageUrl(gurl, isOffTheRecord())
                         && !UrlUtilities.isNtpUrl(gurl)) {
                     String url = gurl.getSpec();
-                    String displayUrl =
-                            url.replaceFirst(
-                                    UrlConstants.CHROME_NATIVE_URL_PREFIX,
-                                    UrlConstants.CHROME_URL_PREFIX);
+                    String displayUrl = url;
+                    if (url.startsWith(UrlConstants.CHROME_NATIVE_URL_PREFIX)) {
+                        displayUrl =
+                                url.replaceFirst(
+                                        UrlConstants.CHROME_NATIVE_URL_PREFIX,
+                                        UrlConstants.CHROME_URL_PREFIX);
+                    }
                     return UrlBarData.create(
                             gurl, displayUrl, 0, displayUrl.length(), /* editingText= */ null);
                 }
@@ -778,13 +791,18 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
         }
 
         boolean skipIconForNeutralState = mNtpDelegate.isCurrentlyVisible();
+        boolean isShowingHttpsFirstWarning =
+                ChromeFeatureList.isEnabled(ChromeFeatureList.HTTPS_FIRST_DIALOG_UI)
+                        && SecurityStateModel.isHttpsOnlyModeUpgradedForWebContents(
+                                getWebContents());
 
         return SecurityStatusIcon.getSecurityIconResource(
                 securityLevel,
                 maliciousContentStatus,
                 isSmallDevice,
                 skipIconForNeutralState,
-                /* useLockIconForSecureState= */ false);
+                /* useLockIconForSecureState= */ false,
+                isShowingHttpsFirstWarning);
     }
 
     @Override

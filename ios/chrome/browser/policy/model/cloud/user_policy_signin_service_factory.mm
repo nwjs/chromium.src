@@ -5,11 +5,13 @@
 #import "ios/chrome/browser/policy/model/cloud/user_policy_signin_service_factory.h"
 
 #import "base/memory/ref_counted.h"
+#import "base/no_destructor.h"
 #import "components/policy/core/browser/browser_policy_connector.h"
 #import "components/policy/core/common/policy_pref_names.h"
 #import "components/pref_registry/pref_registry_syncable.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/signin_pref_names.h"
+#import "ios/chrome/browser/enterprise/groups/model/enterprise_groups_profile_handler_factory.h"
 #import "ios/chrome/browser/enterprise/identifiers/profile_id_service_factory_ios.h"
 #import "ios/chrome/browser/policy/model/browser_policy_connector_ios.h"
 #import "ios/chrome/browser/policy/model/cloud/user_policy_signin_service.h"
@@ -26,6 +28,8 @@ UserPolicySigninServiceFactory::UserPolicySigninServiceFactory()
                                     TestingCreation::kNoServiceForTests) {
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(enterprise::ProfileIdServiceFactoryIOS::GetInstance());
+  DependsOn(
+      enterprise_groups::EnterpriseGroupsProfileHandlerFactory::GetInstance());
 }
 
 UserPolicySigninServiceFactory::~UserPolicySigninServiceFactory() = default;
@@ -39,7 +43,8 @@ UserPolicySigninService* UserPolicySigninServiceFactory::GetForProfile(
 
 // static
 UserPolicySigninServiceFactory* UserPolicySigninServiceFactory::GetInstance() {
-  return base::Singleton<UserPolicySigninServiceFactory>::get();
+  static base::NoDestructor<UserPolicySigninServiceFactory> instance;
+  return instance.get();
 }
 
 std::unique_ptr<KeyedService>
@@ -62,6 +67,8 @@ UserPolicySigninServiceFactory::BuildServiceInstanceFor(
       enterprise::ProfileIdServiceFactoryIOS::GetForProfile(profile),
       device_management_service, profile->GetUserCloudPolicyManager(),
       IdentityManagerFactory::GetForProfile(profile),
+      enterprise_groups::EnterpriseGroupsProfileHandlerFactory::GetForProfile(
+          profile),
       profile->GetSharedURLLoaderFactory());
 }
 

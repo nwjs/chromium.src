@@ -90,7 +90,7 @@ std::string ExtractTag() {
 base::ScopedClosureRunner CreateSplashScreen() {
   HWND splash_hwnd = nullptr;
   if (GetCommandLineLegacyCompatible().HasSwitch(kSilentSwitch)) {
-    return base::ScopedClosureRunner(base::BindOnce([] {}));
+    return base::ScopedClosureRunner(base::DoNothing());
   }
 
   base::WaitableEvent ui_initialized_event;
@@ -104,6 +104,7 @@ base::ScopedClosureRunner CreateSplashScreen() {
                        ui::SplashWnd splash;
                        splash.Create(nullptr);
                        splash.ShowWindow(SW_SHOW);
+                       splash.UpdateWindow();
                        splash_hwnd = splash.m_hWnd;
                        event.Signal();
 

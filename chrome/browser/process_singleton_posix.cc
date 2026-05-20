@@ -309,7 +309,9 @@ void SetupSocket(const std::string& path,
                  SockaddrUn* addr,
                  socklen_t* socklen) {
   *sock = SetupSocketOnly();
-  CHECK(SetupSockAddr(path, addr, socklen)) << "Socket path too long: " << path;
+  if (!SetupSockAddr(path, addr, socklen)) {
+    LOG(FATAL) << "Socket path too long: " << path << ".";
+  }
 }
 
 // Read a symbolic link, return empty string if given path is not a symbol link.
@@ -951,10 +953,6 @@ ProcessSingleton::NotifyOtherProcessWithTimeoutOrCreate(
       DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
           "Chrome.ProcessSingleton.TimeToNotify",
           base::TimeTicks::Now() - begin_ticks);
-    } else {
-      DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
-          "Chrome.ProcessSingleton.TimeToFailure",
-          base::TimeTicks::Now() - begin_ticks);
     }
     return result;
   }
@@ -977,10 +975,6 @@ ProcessSingleton::NotifyOtherProcessWithTimeoutOrCreate(
   if (result == PROCESS_NOTIFIED) {
     DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
         "Chrome.ProcessSingleton.TimeToNotify",
-        base::TimeTicks::Now() - begin_ticks);
-  } else {
-    DEPRECATED_UMA_HISTOGRAM_MEDIUM_TIMES(
-        "Chrome.ProcessSingleton.TimeToFailure",
         base::TimeTicks::Now() - begin_ticks);
   }
 

@@ -12,6 +12,7 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/singleton.h"
 #include "base/metrics/histogram_functions.h"
 #include "chromeos/ash/components/dbus/patchpanel/patchpanel_client.h"
 #include "chromeos/ash/components/dbus/vm_concierge/concierge_service.pb.h"
@@ -382,7 +383,8 @@ void ArcPowerBridge::NotifyAndroidIdleState(ArcBridgeService* bridge,
   ash::PatchPanelClient::Get()->NotifyAndroidInteractiveState(
       state == IdleState::ACTIVE);
 
-  for (auto& observer : observer_list_) {
+  // A state can be updated upon other observer events.
+  for (auto& observer : observer_list_.GetReentrantRange()) {
     observer.OnAndroidIdleStateChange(state);
   }
 }

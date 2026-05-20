@@ -14,6 +14,8 @@
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/login/session/user_session_manager_test_api.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
+#include "chrome/browser/ash/settings/scoped_testing_cros_settings.h"
+#include "chrome/browser/global_features.h"
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -21,6 +23,7 @@
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chromeos/ash/components/dbus/session_manager/fake_session_manager_client.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
+#include "chromeos/ash/components/install_attributes/stub_install_attributes.h"
 #include "chromeos/ash/components/login/auth/public/key.h"
 #include "chromeos/ash/components/login/auth/public/user_context.h"
 #include "components/language/core/browser/pref_names.h"
@@ -32,6 +35,8 @@
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/test/browser_task_environment.h"
 #include "google_apis/gaia/gaia_id.h"
+#include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
+#include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -44,38 +49,45 @@ namespace {
 
 constexpr char kFakePassword[] = "p4zzw0r(|";
 
-// Publicly exposes lifetime methods. Note that the singleton instance
-// UserSessionManager::GetInstance() can't be used since it would be reused
-// between tests.
-class TestUserSessionManager : public UserSessionManager {
- public:
-  TestUserSessionManager() = default;
-  ~TestUserSessionManager() override = default;
-};
+static_assert(
+    static_cast<int>(UserSessionManager::PasswordConsumingService::kCount) == 2,
+    "Update PasswordConsumerService_* tests");
 
 class UserSessionManagerTest : public testing::Test {
  public:
-  UserSessionManagerTest()
-      : fake_user_manager_(std::make_unique<FakeChromeUserManager>()),
-        profile_manager_(std::make_unique<TestingProfileManager>(
-            TestingBrowserProcess::GetGlobal())) {
-    static_assert(
-        static_cast<int>(
-            UserSessionManager::PasswordConsumingService::kCount) == 2,
-        "Update PasswordConsumerService_* tests");
-
-    SessionManagerClient::InitializeFake();
-    user_session_manager_ = std::make_unique<TestUserSessionManager>();
-  }
-
-  void SetUp() override { ASSERT_TRUE(profile_manager_->SetUp()); }
-
+  UserSessionManagerTest() = default;
   UserSessionManagerTest(const UserSessionManagerTest&) = delete;
   UserSessionManagerTest& operator=(const UserSessionManagerTest&) = delete;
+  ~UserSessionManagerTest() override = default;
 
-  ~UserSessionManagerTest() override {
-    profile_manager_->DeleteAllTestingProfiles();
+  void SetUp() override {
+    SessionManagerClient::InitializeFake();
+
+    TestingBrowserProcess::GetGlobal()->SetSharedURLLoaderFactory(
+        test_url_loader_factory_.GetSafeWeakWrapper());
+
+    fake_user_manager_.Reset(std::make_unique<FakeChromeUserManager>());
+    user_session_manager_ = std::make_unique<UserSessionManager>(
+        TestingBrowserProcess::GetGlobal()->local_state(),
+        TestingBrowserProcess::GetGlobal()
+            ->GetFeatures()
+            ->application_locale_storage(),
+        TestingBrowserProcess::GetGlobal()->shared_url_loader_factory(),
+        TestingBrowserProcess::GetGlobal()
+            ->platform_part()
+            ->browser_policy_connector_ash());
+
+    profile_manager_ = std::make_unique<TestingProfileManager>(
+        TestingBrowserProcess::GetGlobal());
+    ASSERT_TRUE(profile_manager_->SetUp());
+  }
+
+  void TearDown() override {
+    profile_manager_.reset();
+    test_user_ = nullptr;
     user_session_manager_.reset();
+    fake_user_manager_.Reset();
+    TestingBrowserProcess::GetGlobal()->SetSharedURLLoaderFactory(nullptr);
     SessionManagerClient::Shutdown();
   }
 
@@ -115,17 +127,23 @@ class UserSessionManagerTest : public testing::Test {
     return profile;
   }
 
-  std::unique_ptr<TestUserSessionManager> user_session_manager_;
+  // NOTE: InstallAttributes is required to construct BrowserPolicyConnectorAsh.
+  // CrosSettings is needed because otherwise TestingProfile automatically
+  // creates ScopedCrosSettingsTestHelper, which conflicts with
+  // ScopedStubInstallAttributes.
+  ScopedTestingCrosSettings scoped_testing_cros_settings_;
+  ScopedStubInstallAttributes scoped_stub_install_attributes_;
 
   // Allows UserSessionManager to request the NetworkConnectionTracker in its
   // constructor.
   content::BrowserTaskEnvironment task_environment_;
+  network::TestURLLoaderFactory test_url_loader_factory_;
 
   user_manager::TypedScopedUserManager<FakeChromeUserManager>
       fake_user_manager_;
-
+  std::unique_ptr<UserSessionManager> user_session_manager_;
   std::unique_ptr<TestingProfileManager> profile_manager_;
-  raw_ptr<user_manager::User> test_user_;
+  raw_ptr<user_manager::User> test_user_ = nullptr;
 };
 
 // Calling VoteForSavingLoginPassword() with `save_password` set to false for
@@ -242,7 +260,7 @@ TEST_F(UserSessionManagerTest, RespectLocale_WithoutProfileLocale) {
 TEST_F(UserSessionManagerTest, RespectLocale_Demo_WithProfileLocale) {
   TestingProfile* profile = LoginTestUser();
   // Enable Demo Mode.
-  profile->ScopedCrosSettingsTestHelper()->InstallAttributes()->SetDemoMode();
+  scoped_stub_install_attributes_.Get()->SetDemoMode();
   DemoSession::SetDemoConfigForTesting(DemoSession::DemoModeConfig::kOnline);
 
   profile->GetPrefs()->SetString(language::prefs::kApplicationLocale, "fr-CA");
@@ -262,7 +280,7 @@ TEST_F(UserSessionManagerTest, RespectLocale_Demo_WithProfileLocale) {
 TEST_F(UserSessionManagerTest, RespectLocale_Demo_WithoutProfileLocale) {
   TestingProfile* profile = LoginTestUser();
   // Enable Demo Mode.
-  profile->ScopedCrosSettingsTestHelper()->InstallAttributes()->SetDemoMode();
+  scoped_stub_install_attributes_.Get()->SetDemoMode();
   DemoSession::SetDemoConfigForTesting(DemoSession::DemoModeConfig::kOnline);
 
   g_browser_process->SetApplicationLocale("fr");

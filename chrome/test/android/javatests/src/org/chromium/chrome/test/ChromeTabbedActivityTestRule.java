@@ -7,6 +7,7 @@ package org.chromium.chrome.test;
 import android.app.ActivityOptions;
 import android.content.Intent;
 import android.os.Bundle;
+import android.provider.Browser;
 import android.text.TextUtils;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -58,10 +59,24 @@ public class ChromeTabbedActivityTestRule extends ChromeActivityTestRule<ChromeT
 
     public void resumeMainActivityFromLauncher() throws Exception {
         Assert.assertNotNull(getActivity());
+        int state = ApplicationStatus.getStateForActivity(getActivity());
         Assert.assertTrue(
-                ApplicationStatus.getStateForActivity(getActivity()) == ActivityState.STOPPED
-                        || ApplicationStatus.getStateForActivity(getActivity())
-                                == ActivityState.PAUSED);
+                "Activity should be STOPPED or PAUSED before resuming, but state is " + state,
+                state == ActivityState.STOPPED || state == ActivityState.PAUSED);
+
+        launchMainActivityFromLauncher();
+    }
+
+    /**
+     * Simulates launching the main activity from the Android launcher by firing its launch intent.
+     *
+     * <p>This brings the activity to the foreground and waits for it to reach the RESUMED state.
+     * Because it does not assert the prior lifecycle state, it is particularly useful for scenarios
+     * where the activity is already in the foreground but needs to be expanded (e.g., expanding
+     * from a Picture-in-Picture window).
+     */
+    public void launchMainActivityFromLauncher() throws Exception {
+        Assert.assertNotNull(getActivity());
 
         Intent launchIntent =
                 getActivity()
@@ -105,7 +120,7 @@ public class ChromeTabbedActivityTestRule extends ChromeActivityTestRule<ChromeT
         intent.putExtra(IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_TAB, true);
         prepareUrlIntent(intent, "about:blank");
         intent.putExtra(
-                android.provider.Browser.EXTRA_APPLICATION_ID,
+                Browser.EXTRA_APPLICATION_ID,
                 ApplicationProvider.getApplicationContext().getPackageName());
         IntentUtils.addTrustedIntentExtras(intent);
         startMainActivityFromIntent(intent, "about:blank");

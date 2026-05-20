@@ -4,17 +4,14 @@
 
 package org.chromium.chrome.browser.feed;
 
-import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
-import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewGroup.MarginLayoutParams;
 import android.view.ViewParent;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
@@ -24,13 +21,14 @@ import androidx.annotation.VisibleForTesting;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.LayoutManager;
 
+import com.google.protobuf.InvalidProtocolBufferException;
+
 import org.chromium.base.ApplicationState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Callback;
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.task.PostTask;
@@ -39,11 +37,6 @@ import org.chromium.build.annotations.EnsuresNonNullIf;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.feed.v2.FeedUserActionType;
-import org.chromium.chrome.browser.feed.webfeed.WebFeedAvailabilityStatus;
-import org.chromium.chrome.browser.feed.webfeed.WebFeedBridge;
-import org.chromium.chrome.browser.feed.webfeed.WebFeedRecommendationFollowAcceleratorController;
-import org.chromium.chrome.browser.feed.webfeed.WebFeedSnackbarController;
-import org.chromium.chrome.browser.feed.webfeed.WebFeedSubscriptionRequestStatus;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -75,7 +68,6 @@ import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.ui.mojom.WindowOpenDisposition;
 import org.chromium.url.GURL;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -238,73 +230,12 @@ public class FeedStream implements Stream {
             mBridge.updateUserProfileOnLinkClick(new GURL(url), entityArray);
         }
 
-        @Override
-        public void updateWebFeedFollowState(WebFeedFollowUpdate update) {
-            byte[] webFeedId = update.webFeedName().getBytes(StandardCharsets.UTF_8);
-            WebFeedFollowUpdate.Callback updateCallback = update.callback();
-            if (update.isFollow()) {
-                Callback<WebFeedBridge.FollowResults> followCallback =
-                        results -> {
-                            boolean successfulFollow =
-                                    results.requestStatus
-                                            == WebFeedSubscriptionRequestStatus.SUCCESS;
-                            if (updateCallback != null) {
-                                updateCallback.requestComplete(successfulFollow);
-                            }
-                            if (successfulFollow && results.metadata != null) {
-                                mWebFeedSnackbarController.showPostSuccessfulFollowHelp(
-                                        results.metadata.title,
-                                        results.metadata.availabilityStatus
-                                                == WebFeedAvailabilityStatus.ACTIVE,
-                                        mStreamKind,
-                                        /* tab= */ null,
-                                        /* url= */ null);
-                            }
-                        };
-                WebFeedBridge.followFromId(
-                        webFeedId,
-                        update.isDurable(),
-                        update.webFeedChangeReason(),
-                        followCallback);
-            } else {
-                WebFeedBridge.unfollow(
-                        webFeedId,
-                        update.isDurable(),
-                        update.webFeedChangeReason(),
-                        results -> {
-                            if (updateCallback != null) {
-                                updateCallback.requestComplete(
-                                        results.requestStatus
-                                                == WebFeedSubscriptionRequestStatus.SUCCESS);
-                            }
-                        });
-            }
-        }
-
-        @Override
-        public void openWebFeed(String webFeedName, @OpenWebFeedEntryPoint int entryPoint) {
-            @SingleWebFeedEntryPoint int singleWebFeedEntryPoint;
-
-            switch (entryPoint) {
-                case OpenWebFeedEntryPoint.ATTRIBUTION:
-                    singleWebFeedEntryPoint = SingleWebFeedEntryPoint.ATTRIBUTION;
-                    break;
-                case OpenWebFeedEntryPoint.RECOMMENDATION:
-                    singleWebFeedEntryPoint = SingleWebFeedEntryPoint.RECOMMENDATION;
-                    break;
-                case OpenWebFeedEntryPoint.GROUP_HEADER:
-                    singleWebFeedEntryPoint = SingleWebFeedEntryPoint.GROUP_HEADER;
-                    break;
-
-                default:
-                    singleWebFeedEntryPoint = SingleWebFeedEntryPoint.OTHER;
-            }
-
-            mActionDelegate.openWebFeed(webFeedName, singleWebFeedEntryPoint);
-        }
-
+        // TODO(crbug.com/407797637): Remove the unused parameter openOptions.
         private void openSuggestionUrl(
-                String url, int disposition, boolean inGroup, OpenUrlOptions openOptions) {
+                String url,
+                int disposition,
+                boolean inGroup,
+                @SuppressWarnings("unused") OpenUrlOptions openOptions) {
             int pageId = sPageId.incrementAndGet();
             if (disposition != WindowOpenDisposition.NEW_BACKGROUND_TAB
                     && mReliabilityLogger != null) {
@@ -314,11 +245,6 @@ public class FeedStream implements Stream {
             }
 
             LoadUrlParams params = new LoadUrlParams(url, PageTransition.AUTO_BOOKMARK);
-            if (openOptions.shouldShowWebFeedAccelerator()) {
-                WebFeedRecommendationFollowAcceleratorController
-                        .updateUrlParamsForRecommendedWebFeed(
-                                params, openOptions.webFeedName().getBytes(StandardCharsets.UTF_8));
-            }
 
             // This postTask is necessary so that other click-handlers have a chance
             // to run before we begin navigating. On start surface, navigation immediately
@@ -602,8 +528,6 @@ public class FeedStream implements Stream {
             switch (fid) {
                 case FeedIdentifier.MAIN_FEED:
                     return StreamKind.FOR_YOU;
-                case FeedIdentifier.FOLLOWING_FEED:
-                    return StreamKind.FOLLOWING;
             }
             return StreamKind.UNKNOWN;
         }
@@ -651,12 +575,8 @@ public class FeedStream implements Stream {
     private ShareHelperWrapper mShareHelper;
     private final SnackbarManager mSnackManager;
     private final WindowAndroid mWindowAndroid;
-    private @Nullable UnreadContentObserver mUnreadContentObserver;
     @Nullable FeedContentFirstLoadWatcher mFeedContentFirstLoadWatcher;
     private final Stream.StreamsMediator mStreamsMediator;
-    // Snackbar (and post-Follow dialog) controller used exclusively for handling in-feed
-    // post-Follow and post-Unfollow UX.
-    WebFeedSnackbarController mWebFeedSnackbarController;
     InProgressWorkTracker mInProgressWorkTracker = new InProgressWorkTracker();
 
     // For loading more content.
@@ -709,7 +629,6 @@ public class FeedStream implements Stream {
      * @param actionDelegate Implements some Feed actions.
      * @param feedContentFirstLoadWatcher a listener for events about feed loading.
      * @param streamsMediator the mediator for multiple streams.
-     * @param singleWebFeedParameters the parameters needed to create a single web feed.
      */
     public FeedStream(
             Activity activity,
@@ -722,16 +641,11 @@ public class FeedStream implements Stream {
             FeedActionDelegate actionDelegate,
             FeedContentFirstLoadWatcher feedContentFirstLoadWatcher,
             StreamsMediator streamsMediator,
-            @Nullable SingleWebFeedParameters singleWebFeedParameters,
             FeedSurfaceRendererBridge.Factory feedSurfaceRendererBridgeFactory) {
         mReliabilityLoggingBridge = new FeedReliabilityLoggingBridge();
         mBridge =
                 feedSurfaceRendererBridgeFactory.create(
-                        profile,
-                        new Renderer(),
-                        mReliabilityLoggingBridge,
-                        streamKind,
-                        singleWebFeedParameters);
+                        profile, new Renderer(), mReliabilityLoggingBridge, streamKind);
         mActivity = activity;
         mProfile = profile;
         mStreamKind = streamKind;
@@ -742,24 +656,6 @@ public class FeedStream implements Stream {
         mRotationObserver = new RotationObserver();
         mFeedContentFirstLoadWatcher = feedContentFirstLoadWatcher;
         mStreamsMediator = streamsMediator;
-        WebFeedSnackbarController.FeedLauncher snackbarAction;
-        if (mStreamKind == StreamKind.FOLLOWING) {
-            snackbarAction =
-                    () -> {
-                        mStreamsMediator.refreshStream();
-                    };
-        } else {
-            snackbarAction =
-                    () -> {
-                        mStreamsMediator.switchToStreamKind(StreamKind.FOLLOWING);
-                    };
-        }
-        mWebFeedSnackbarController =
-                new WebFeedSnackbarController(
-                        activity,
-                        snackbarAction,
-                        assertNonNull(windowAndroid.getModalDialogManager()),
-                        snackbarManager);
 
         mHandlersMap = new HashMap<>();
         mHandlersMap.put(SurfaceActionsHandler.KEY, new FeedSurfaceActionsHandler(actionDelegate));
@@ -796,27 +692,10 @@ public class FeedStream implements Stream {
                     @Override
                     public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept) {}
                 };
-
-        // Only watch for unread content on the web feed, not for-you feed.
-        // Sort options only available for web feed right now.
-        if (streamKind == StreamKind.FOLLOWING) {
-            mUnreadContentObserver = new UnreadContentObserver(/* isWebFeed= */ true);
-        }
-    }
-
-    @Override
-    public boolean supportsOptions() {
-        return ChromeFeatureList.isEnabled(ChromeFeatureList.WEB_FEED_SORT)
-                && mStreamKind == StreamKind.FOLLOWING;
     }
 
     @Override
     public void destroy() {
-        // Cleans up observers first.
-        if (mUnreadContentObserver != null) {
-            mUnreadContentObserver.destroy();
-            mUnreadContentObserver = null;
-        }
         mContentChangedListeners.clear();
 
         // Performs unbinding (UI cleanup).
@@ -950,7 +829,6 @@ public class FeedStream implements Stream {
 
         dismissSnackbars();
         mSnackbarControllers.clear();
-        mWebFeedSnackbarController.dismissSnackbars();
 
         mSliceViewTracker.destroy();
         mSliceViewTracker = null;
@@ -1044,13 +922,6 @@ public class FeedStream implements Stream {
     }
 
     @Override
-    public NonNullObservableSupplier<Boolean> hasUnreadContent() {
-        return mUnreadContentObserver != null
-                ? mUnreadContentObserver.mHasUnreadContent
-                : Stream.super.hasUnreadContent();
-    }
-
-    @Override
     public long getLastFetchTimeMs() {
         return mBridge.getLastFetchTimeMs();
     }
@@ -1129,9 +1000,9 @@ public class FeedStream implements Stream {
 
     /**
      * Adds a spacer into the recycler view at the current position. If there is no spacer, we can't
-     * scroll to the top, the scrolling  code won't go past the end of the content.
+     * scroll to the top, the scrolling code won't go past the end of the content.
      */
-    void addSpacer(List list) {
+    void addSpacer(List<FeedListContentManager.FeedContent> list) {
         if (mSpacerViewContent == null) {
             DisplayMetrics displayMetrics = new DisplayMetrics();
             mActivity.getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
@@ -1166,7 +1037,7 @@ public class FeedStream implements Stream {
             FeedUiProto.StreamUpdate streamUpdate;
             try {
                 streamUpdate = FeedUiProto.StreamUpdate.parseFrom(data);
-            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            } catch (InvalidProtocolBufferException e) {
                 Log.wtf(TAG, "Unable to parse StreamUpdate proto data", e);
                 mReliabilityLoggingBridge.onStreamUpdateError();
                 return;
@@ -1285,43 +1156,6 @@ public class FeedStream implements Stream {
                     getLateralPaddingsPx(), LOADING_SPINNER_KEY, R.layout.feed_spinner);
         }
         assert slice.hasZeroStateSlice();
-        if (mStreamKind == StreamKind.FOLLOWING) {
-            return new FeedListContentManager.NativeViewContent(
-                    getLateralPaddingsPx(), sliceId, R.layout.following_empty_state);
-        }
-        if (mStreamKind == StreamKind.SINGLE_WEB_FEED) {
-            View creatorErrorCard;
-            // TODO(crbug.com/40882611): Add offline error scenario.
-            if (slice.getZeroStateSlice().getType()
-                    == FeedUiProto.ZeroStateSlice.Type.NO_CARDS_AVAILABLE) {
-                creatorErrorCard =
-                        LayoutInflater.from(mActivity)
-                                .inflate(
-                                        R.layout.creator_content_unavailable_error,
-                                        mRecyclerView,
-                                        false);
-            } else {
-                mStreamsMediator.disableFollowButton();
-                creatorErrorCard =
-                        LayoutInflater.from(mActivity)
-                                .inflate(R.layout.creator_general_error, mRecyclerView, false);
-            }
-            // TODO(crbug.com/40879463): Replace display height dependency with setting the
-            // RecyclerView height to match_parent.
-            DisplayMetrics displayMetrics = new DisplayMetrics();
-            mActivity.getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-            MarginLayoutParams marginParams =
-                    (MarginLayoutParams) creatorErrorCard.getLayoutParams();
-            marginParams.setMargins(
-                    0,
-                    displayMetrics.heightPixels / 4,
-                    0,
-                    mActivity
-                            .getResources()
-                            .getDimensionPixelSize(R.dimen.creator_error_margin_bottom));
-            return new FeedListContentManager.NativeViewContent(
-                    getLateralPaddingsPx(), sliceId, creatorErrorCard);
-        }
         if (slice.getZeroStateSlice().getType() == FeedUiProto.ZeroStateSlice.Type.CANT_REFRESH) {
             return new FeedListContentManager.NativeViewContent(
                     getLateralPaddingsPx(), sliceId, R.layout.no_connection);
@@ -1348,10 +1182,6 @@ public class FeedStream implements Stream {
         switch (mStreamKind) {
             case StreamKind.FOR_YOU:
                 return StreamType.FOR_YOU;
-            case StreamKind.FOLLOWING:
-                return StreamType.WEB_FEED;
-            case StreamKind.SINGLE_WEB_FEED:
-                return StreamType.SINGLE_WEB_FEED;
             default:
                 return StreamType.UNSPECIFIED;
         }
@@ -1443,10 +1273,6 @@ public class FeedStream implements Stream {
 
     RecyclerView.OnScrollListener getScrollListenerForTest() {
         return mMainScrollListener;
-    }
-
-    @Nullable UnreadContentObserver getUnreadContentObserverForTest() {
-        return mUnreadContentObserver;
     }
 
     InProgressWorkTracker getInProgressWorkTrackerForTesting() {
@@ -1552,8 +1378,8 @@ public class FeedStream implements Stream {
         SettableNonNullObservableSupplier<Boolean> mHasUnreadContent =
                 ObservableSuppliers.createNonNull(false);
 
-        UnreadContentObserver(boolean isWebFeed) {
-            super(isWebFeed);
+        UnreadContentObserver(@StreamKind int streamKind) {
+            super(streamKind);
         }
 
         @Override

@@ -277,6 +277,7 @@
 
           **Foreslå spørgsmål:** Generér en opstilling med punkttegn med 3-5 tankevækkende spørgsmål, som en bruger kan stille for bedre at forstå screenshottet. Disse spørgsmål skal omfatte mindst ét spørgsmål, der specifikt handler om et visuelt objekt, dets design eller dets placering.</translation>
 <translation id="386202838227397562">Luk alle Google Chrome-vinduer, og prøv igen.</translation>
+<translation id="3869083394918739976">Du kan fortsætte med at chatte med AI-tilstand uden at skifte faner. Log ind i Chrome for at komme i gang. Du kan også se dine adgangskoder m.m. på alle dine enheder.</translation>
 <translation id="3873044882194371212">Åbn linket i et inko&amp;gnitovindue i Chrome</translation>
 <translation id="3885770153807205175">Sprogvælger</translation>
 <translation id="3889417619312448367">Afinstaller Google Chrome</translation>
@@ -416,6 +417,7 @@
 <translation id="547202872422499512">Chrome åbnes nu, når Windows starter, så du kan begynde at browse med det samme. Du kan deaktivere dette i indstillingerne.</translation>
 <translation id="5486346529181556467">Vær med til at forbedre onlinesikkerheden for alle ved at rapportere et website, du mener er skadeligt. Få flere oplysninger om <ph name="BEGIN_LINK" />Googles politik vedrørende usikre websites<ph name="END_LINK" />.</translation>
 <translation id="5524890928877629608">øverste venstre hjørne af søgeområdet: venstre <ph name="LEFT" /> %, øverste <ph name="TOP" /> %</translation>
+<translation id="5529390769101499214">Administrer dine udvidelser ved at klikke på Udvidelser i Chrome-hovedmenuen.</translation>
 <translation id="5550137307985173298">Klik på knappen Tilpas Chrome på siden Ny fane for at give Chrome et nyt udseende</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="5579324208890605088">Opstartsfejl: Kør installationsprogrammet som almindelig bruger, ikke som administrator.</translation>
@@ -776,7 +778,6 @@ Nye bogmærker kan ikke gemmes på din konto, før du sletter nogle. Hvis du log
 <translation id="8862326446509486874">Du har ikke de nødvendige rettigheder til en installation på systemniveau. Prøv at køre installationsprogrammet igen som administrator.</translation>
 <translation id="8865415417596392024">Chrome-data på din konto</translation>
 <translation id="8883862939660515976">Stil Google Lens spørgsmål om dette billede</translation>
-<translation id="8892956691293410744">Hvis du vil spørge AI-tilstand om din fane uden at forlade siden, skal du logge ind i Chrome. Du kan også se dine adgangskoder m.m. på alle dine enheder.</translation>
 <translation id="8914504000324227558">Genstart Chrome</translation>
 <translation id="8922193594870374009">Hvis du vil sende et nummer fra <ph name="ORIGIN" /> til din Android-telefon, skal du logge ind på Chrome på begge enheder.</translation>
 <translation id="8922998289262614701">Fjern denne apps data fra Chrome</translation>

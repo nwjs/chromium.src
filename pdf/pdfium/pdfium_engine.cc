@@ -12,6 +12,7 @@
 #include <limits>
 #include <memory>
 #include <set>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -53,6 +54,7 @@
 #include "pdf/pdf_accessibility_constants.h"
 #include "pdf/pdf_caret.h"
 #include "pdf/pdf_features.h"
+#include "pdf/pdf_ink_constants.h"
 #include "pdf/pdf_transform.h"
 #include "pdf/pdf_utils/text_util.h"
 #include "pdf/pdfium/pdfium_api_string_buffer_adapter.h"
@@ -78,6 +80,7 @@
 #include "third_party/pdfium/public/fpdf_annot.h"
 #include "third_party/pdfium/public/fpdf_attachment.h"
 #include "third_party/pdfium/public/fpdf_catalog.h"
+#include "third_party/pdfium/public/fpdf_edit.h"
 #include "third_party/pdfium/public/fpdf_ext.h"
 #include "third_party/pdfium/public/fpdf_fwlevent.h"
 #include "third_party/pdfium/public/fpdf_ppo.h"
@@ -107,10 +110,17 @@
 
 #if BUILDFLAG(ENABLE_PDF_INK2)
 #include "pdf/pdf_ink_metrics_handler.h"
+#include "pdf/pdf_ink_transform.h"
 #include "pdf/pdfium/pdfium_ink_reader.h"
 #include "pdf/pdfium/pdfium_ink_transform.h"
 #include "pdf/pdfium/pdfium_ink_writer.h"
+#include "skia/ext/font_utils.h"
 #include "third_party/ink/src/ink/strokes/stroke.h"
+#include "third_party/skia/include/core/SkFontMgr.h"
+#include "third_party/skia/include/core/SkFontTypes.h"
+#include "third_party/skia/include/core/SkStream.h"
+#include "third_party/skia/include/core/SkTypeface.h"
+#include "ui/gfx/skia_span_util.h"
 #endif
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
@@ -147,6 +157,37 @@ constexpr int32_t kFormHighlightAlpha = 100;
 constexpr int kMaxPasswordTries = 3;
 
 constexpr base::TimeDelta kTouchLongPressTimeout = base::Milliseconds(300);
+
+// Saves the provided `attributes` as parameters on the `mark` of the
+// `text_object`. Used to reload text objects in future PDF sessions.
+void AddMetadataToTextObject(FPDF_DOCUMENT doc,
+                             FPDF_PAGEOBJECT text_object,
+                             FPDF_PAGEOBJECTMARK mark,
+                             const InkTextBoxAttributes& attributes) {
+  CHECK(FPDFPageObjMark_SetIntParam(doc, text_object, mark, "Version",
+                                    kInkTextAnnotationVersion));
+
+  CHECK(FPDFPageObjMark_SetFloatParam(doc, text_object, mark, "BoundsX",
+                                      attributes.rect.x()));
+  CHECK(FPDFPageObjMark_SetFloatParam(doc, text_object, mark, "BoundsY",
+                                      attributes.rect.y()));
+  CHECK(FPDFPageObjMark_SetFloatParam(doc, text_object, mark, "BoundsWidth",
+                                      attributes.rect.width()));
+  CHECK(FPDFPageObjMark_SetFloatParam(doc, text_object, mark, "BoundsHeight",
+                                      attributes.rect.height()));
+
+  CHECK(FPDFPageObjMark_SetIntParam(doc, text_object, mark, "Typeface",
+                                    static_cast<int>(attributes.typeface)));
+  CHECK(FPDFPageObjMark_SetIntParam(doc, text_object, mark, "Alignment",
+                                    static_cast<int>(attributes.alignment)));
+  CHECK(FPDFPageObjMark_SetIntParam(doc, text_object, mark, "Orientation",
+                                    attributes.orientation));
+
+  CHECK(FPDFPageObjMark_SetIntParam(doc, text_object, mark, "IsBold",
+                                    attributes.is_bold));
+  CHECK(FPDFPageObjMark_SetIntParam(doc, text_object, mark, "IsItalic",
+                                    attributes.is_italic));
+}
 
 // Windows has native panning capabilities. No need to use our own.
 #if BUILDFLAG(IS_WIN)
@@ -606,7 +647,22 @@ class ScopedPageObjectDeactivator {
   std::vector<FPDF_PAGEOBJECT> page_objects_;
 };
 
-#endif
+// TODO(crbug.com/482060888): Remove this once SkData::MakeFromStream() is able
+// to do this itself.
+sk_sp<const SkData> MakeDataAvoidingCopy(SkStreamAsset* stream) {
+  if (!stream) {
+    return SkData::MakeEmpty();
+  }
+  if (stream->getData()) {
+    return stream->getData();
+  }
+  if (stream->getMemoryBase() && stream->getLength()) {
+    return SkData::MakeWithoutCopy(stream->getMemoryBase(),
+                                   stream->getLength());
+  }
+  return SkData::MakeFromStream(stream, stream->getLength());
+}
+#endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
 void CheckBitmapProperties(const SkBitmap& sk_bitmap, FPDF_BITMAP fpdf_bitmap) {
   CHECK_EQ(sk_bitmap.colorType(), SkColorType::kBGRA_8888_SkColorType);
@@ -713,7 +769,7 @@ PDFiumEngine::~PDFiumEngine() {
   selection_.clear();
 #if BUILDFLAG(ENABLE_PDF_INK2)
   ink_stroke_data_.clear();
-  stroked_pages_unload_preventers_.clear();
+  edited_pages_unload_preventers_.clear();
 #endif
 
   for (auto& page : pages_) {
@@ -1291,7 +1347,6 @@ void PDFiumEngine::SearchForFragment(
 }
 
 void PDFiumEngine::SetCaretBrowsingEnabled(bool enabled) {
-  CHECK(features::kPdfInk2TextHighlighting.Get());
   CHECK(!client_->IsPrintPreview());
 
   if (pages_.empty() || (caret_ && caret_->enabled() == enabled)) {
@@ -5025,6 +5080,101 @@ std::optional<AccessibilityTextRunInfo> PDFiumEngine::GetFirstVisibleTextRun(
 }
 
 #if BUILDFLAG(ENABLE_PDF_INK2)
+void PDFiumEngine::AddFont(FontId font_id,
+                           base::span<const uint8_t> serialized_typeface) {
+  SkMemoryStream serialized_typeface_stream(
+      gfx::MakeSkDataFromSpanWithoutCopy(serialized_typeface));
+  sk_sp<SkTypeface> typeface = SkTypeface::MakeDeserialize(
+      &serialized_typeface_stream, skia::DefaultFontMgr());
+  CHECK(typeface);
+
+  std::unique_ptr<SkStreamAsset> font_stream = typeface->openStream(nullptr);
+  sk_sp<const SkData> font_data = MakeDataAvoidingCopy(font_stream.get());
+  base::span<const uint8_t> font_data_span = gfx::SkDataToSpan(font_data);
+  CHECK(!font_data->empty());
+
+  constexpr SkFontTableTag kHeadTag = SkSetFourByteTag('h', 'e', 'a', 'd');
+  const bool is_sfnt = typeface->getTableSize(kHeadTag) > 0;
+
+  // TODO(crbug.com/506133432): Avoid hardcoding the cid parameter?
+  int font_type = is_sfnt ? FPDF_FONT_TRUETYPE : FPDF_FONT_TYPE1;
+  ScopedFPDFFont font(FPDFText_LoadFont(doc(), font_data_span.data(),
+                                        font_data_span.size(),
+                                        /*font_type=*/font_type,
+                                        /*cid=*/true));
+  CHECK(font);
+
+  bool inserted = font_map_.insert({font_id, std::move(font)}).second;
+  CHECK(inserted);
+}
+
+FPDF_FONT PDFiumEngine::GetAddedFont(FontId font_id) {
+  auto it = font_map_.find(font_id);
+  CHECK(it != font_map_.end());
+  return it->second.get();
+}
+
+void PDFiumEngine::DrawText(int page_index,
+                            InkTextId id,
+                            base::span<const InkTextInfo> text_info,
+                            double pdf_zoom,
+                            const InkTextBoxAttributes& attributes) {
+  CHECK(PageIndexInBounds(page_index));
+  FPDF_PAGE page = GetPage(page_index)->GetPage();
+  const gfx::Transform transform = GetCanonicalToPdfTransformForPage(page);
+  const SkColor color = attributes.color;
+  const float pdf_font_size =
+      CSSFontSizeToPdfFontSize(attributes.css_font_size);
+  const int textbox_id = next_textbox_id_++;
+
+  for (const InkTextInfo& item : text_info) {
+    FPDF_FONT font = GetAddedFont(item.font_id);
+    CHECK(font);
+
+    // TODO(crbug.com/502083480): This baseline alignment isn't exactly right.
+    // Blink actually uses the primary font ascent for alignment. Also Blink
+    // uses a special platform-specific rounded number.
+    float ascent;
+    CHECK(FPDFFont_GetAscent(font, attributes.css_font_size, &ascent));
+
+    gfx::RectF run_rect = item.location;
+    run_rect.Scale(1.0 / pdf_zoom);
+    run_rect.set_height(ascent);
+    run_rect = transform.MapRect(run_rect + attributes.rect.OffsetFromOrigin());
+
+    ScopedFPDFPageObject text_object(
+        FPDFPageObj_CreateTextObj(doc(), font, pdf_font_size));
+    CHECK(text_object);
+    CHECK(FPDFPageObj_SetFillColor(text_object.get(), /*R=*/SkColorGetR(color),
+                                   /*G=*/SkColorGetG(color),
+                                   /*B=*/SkColorGetB(color),
+                                   /*A=*/255));
+    CHECK(FPDFText_SetCharcodes(text_object.get(), item.glyphs.data(),
+                                item.glyphs.size()));
+    FS_MATRIX matrix{1, 0, 0, 1, run_rect.x(), run_rect.y()};
+    CHECK(FPDFPageObj_TransformF(text_object.get(), &matrix));
+
+    FPDF_PAGEOBJECTMARK mark =
+        FPDFPageObj_AddMark(text_object.get(), kInkTextAnnotationIdentifierKey);
+    CHECK(mark);
+    CHECK(FPDFPageObjMark_SetIntParam(doc(), text_object.get(), mark,
+                                      "TextboxId", textbox_id));
+
+    if (&item == &text_info.front()) {
+      // Only apply metadata to the first text object in the textbox. Other
+      // text objects in the textbox can be identified by the TextboxId.
+      AddMetadataToTextObject(doc(), text_object.get(), mark, attributes);
+    }
+
+    CHECK(FPDFPage_InsertObject(page, text_object.release()));
+  }
+
+  CHECK(FPDFPage_GenerateContent(page));
+  // TODO(crbug.com/504689665): Avoid crashing if the page has other edits.
+  GetPage(page_index)->ReloadTextPage();
+  client_->Invalidate(GetPageScreenRect(page_index));
+}
+
 gfx::Size PDFiumEngine::GetThumbnailSize(int page_index,
                                          float device_pixel_ratio) {
   CHECK(PageIndexInBounds(page_index));
@@ -5054,8 +5204,8 @@ void PDFiumEngine::ApplyStroke(int page_index,
   // Since there are now page references in `ink_stroke_data_`, ensure that this
   // page has a ScopedUnloadPreventer so that the references do not become stale
   // if PDFiumPage::Unload() gets called.
-  if (!stroked_pages_unload_preventers_.contains(page_index)) {
-    stroked_pages_unload_preventers_.insert(
+  if (!edited_pages_unload_preventers_.contains(page_index)) {
+    edited_pages_unload_preventers_.insert(
         {page_index, PDFiumPage::ScopedUnloadPreventer(pdfium_page)});
   }
 }
@@ -5094,7 +5244,7 @@ void PDFiumEngine::DiscardStroke(int page_index, InkStrokeId id) {
         return it.second.page_index == page_index;
       });
   if (!page_still_has_shapes_or_strokes) {
-    stroked_pages_unload_preventers_.erase(page_index);
+    edited_pages_unload_preventers_.erase(page_index);
   }
 }
 
@@ -5136,16 +5286,16 @@ PDFiumEngine::LoadV2InkPathsForPage(int page_index) {
 
   // Should be unique due to the caller's responsibility to call
   // `LoadV2InkPathsForPage()` at most once per page.
-  CHECK(!stroked_pages_unload_preventers_.contains(page_index));
+  CHECK(!edited_pages_unload_preventers_.contains(page_index));
 
   // Prevent pages with existing Ink paths from unloading. Otherwise, if the
   // page unloads and reloads, then the loaded V2 Ink path will no longer match
   // the PDF object, and any updates to the Ink path will not be visible in the
   // PDF.
   // Also remember the associated page has loaded shapes, so DiscardStroke()
-  // will know not to erase the `stroked_pages_unload_preventers_` entry.
+  // will know not to erase the `edited_pages_unload_preventers_` entry.
   if (!page_shape_map.empty()) {
-    stroked_pages_unload_preventers_.insert(
+    edited_pages_unload_preventers_.insert(
         {page_index, PDFiumPage::ScopedUnloadPreventer(page)});
     pages_with_loaded_v2_ink_shapes_.insert(page_index);
   }

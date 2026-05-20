@@ -16,8 +16,8 @@ function getCompletionURL() {
 }
 
 function expectNormalTabNavigationEvents(url) {
-  var scriptUrl = new URL(url);
-  var frontendHost = scriptUrl.hostname;
+  let scriptUrl = new URL(url);
+  const frontendHost = scriptUrl.hostname;
   scriptUrl.search = scriptUrl.hash = '';
   scriptUrl.pathname = scriptUrl.pathname.replace(/\.html$/, '.js');
   scriptUrl = scriptUrl.href;
@@ -31,8 +31,8 @@ function expectNormalTabNavigationEvents(url) {
             type: 'main_frame',
             url,
             frameUrl: url,
-            initiator: getServerDomain(initiators.BROWSER_INITIATED)
-          }
+            initiator: getServerDomain(initiators.BROWSER_INITIATED),
+          },
         },
         {
           label: 'onBeforeSendHeaders-1',
@@ -40,8 +40,8 @@ function expectNormalTabNavigationEvents(url) {
           details: {
             type: 'main_frame',
             url,
-            initiator: getServerDomain(initiators.BROWSER_INITIATED)
-          }
+            initiator: getServerDomain(initiators.BROWSER_INITIATED),
+          },
         },
         {
           label: 'onSendHeaders-1',
@@ -49,8 +49,8 @@ function expectNormalTabNavigationEvents(url) {
           details: {
             type: 'main_frame',
             url,
-            initiator: getServerDomain(initiators.BROWSER_INITIATED)
-          }
+            initiator: getServerDomain(initiators.BROWSER_INITIATED),
+          },
         },
         {
           label: 'onHeadersReceived-1',
@@ -60,8 +60,8 @@ function expectNormalTabNavigationEvents(url) {
             url,
             statusLine: 'HTTP/1.1 200 OK',
             statusCode: 200,
-            initiator: getServerDomain(initiators.BROWSER_INITIATED)
-          }
+            initiator: getServerDomain(initiators.BROWSER_INITIATED),
+          },
         },
         {
           label: 'onResponseStarted-1',
@@ -73,8 +73,8 @@ function expectNormalTabNavigationEvents(url) {
             ip: '127.0.0.1',
             fromCache: false,
             statusLine: 'HTTP/1.1 200 OK',
-            initiator: getServerDomain(initiators.BROWSER_INITIATED)
-          }
+            initiator: getServerDomain(initiators.BROWSER_INITIATED),
+          },
         },
         {
           label: 'onCompleted-1',
@@ -86,8 +86,8 @@ function expectNormalTabNavigationEvents(url) {
             ip: '127.0.0.1',
             fromCache: false,
             statusLine: 'HTTP/1.1 200 OK',
-            initiator: getServerDomain(initiators.BROWSER_INITIATED)
-          }
+            initiator: getServerDomain(initiators.BROWSER_INITIATED),
+          },
         },
         {
           label: 'onBeforeRequest-2',
@@ -97,8 +97,8 @@ function expectNormalTabNavigationEvents(url) {
             url: scriptUrl,
             frameUrl: url,
             initiator: getServerDomain(initiators.WEB_INITIATED, frontendHost),
-            documentId: 1
-          }
+            documentId: 1,
+          },
         },
         {
           label: 'onBeforeSendHeaders-2',
@@ -107,8 +107,8 @@ function expectNormalTabNavigationEvents(url) {
             type: 'script',
             url: scriptUrl,
             initiator: getServerDomain(initiators.WEB_INITIATED, frontendHost),
-            documentId: 1
-          }
+            documentId: 1,
+          },
         },
         {
           label: 'onSendHeaders-2',
@@ -117,8 +117,8 @@ function expectNormalTabNavigationEvents(url) {
             type: 'script',
             url: scriptUrl,
             initiator: getServerDomain(initiators.WEB_INITIATED, frontendHost),
-            documentId: 1
-          }
+            documentId: 1,
+          },
         },
         {
           label: 'onHeadersReceived-2',
@@ -129,8 +129,8 @@ function expectNormalTabNavigationEvents(url) {
             statusLine: 'HTTP/1.1 200 OK',
             statusCode: 200,
             initiator: getServerDomain(initiators.WEB_INITIATED, frontendHost),
-            documentId: 1
-          }
+            documentId: 1,
+          },
         },
         {
           label: 'onResponseStarted-2',
@@ -143,8 +143,8 @@ function expectNormalTabNavigationEvents(url) {
             fromCache: false,
             statusLine: 'HTTP/1.1 200 OK',
             initiator: getServerDomain(initiators.WEB_INITIATED, frontendHost),
-            documentId: 1
-          }
+            documentId: 1,
+          },
         },
         {
           label: 'onCompleted-2',
@@ -157,15 +157,23 @@ function expectNormalTabNavigationEvents(url) {
             fromCache: false,
             statusLine: 'HTTP/1.1 200 OK',
             initiator: getServerDomain(initiators.WEB_INITIATED, frontendHost),
-            documentId: 1
-          }
+            documentId: 1,
+          },
         },
       ],
       [[
-        'onBeforeRequest-1', 'onBeforeSendHeaders-1', 'onSendHeaders-1',
-        'onHeadersReceived-1', 'onResponseStarted-1', 'onCompleted-1',
-        'onBeforeRequest-2', 'onBeforeSendHeaders-2', 'onSendHeaders-2',
-        'onHeadersReceived-2', 'onResponseStarted-2', 'onCompleted-2'
+        'onBeforeRequest-1',
+        'onBeforeSendHeaders-1',
+        'onSendHeaders-1',
+        'onHeadersReceived-1',
+        'onResponseStarted-1',
+        'onCompleted-1',
+        'onBeforeRequest-2',
+        'onBeforeSendHeaders-2',
+        'onSendHeaders-2',
+        'onHeadersReceived-2',
+        'onResponseStarted-2',
+        'onCompleted-2',
       ]]);
 }
 
@@ -175,8 +183,8 @@ function expectNormalTabNavigationEvents(url) {
 // This difference is not a problem, since we are primarily interested in
 // determining whether a request was observed or not.
 function expectMockedTabNavigationEvents(url) {
-  var scriptUrl = new URL(url);
-  var frontendOrigin = scriptUrl.origin;
+  let scriptUrl = new URL(url);
+  const frontendOrigin = scriptUrl.origin;
   scriptUrl.search = scriptUrl.hash = '';
   scriptUrl.pathname = scriptUrl.pathname.replace(/\.html$/, '.js');
   scriptUrl = scriptUrl.href;
@@ -190,8 +198,8 @@ function expectMockedTabNavigationEvents(url) {
             type: 'main_frame',
             url,
             frameUrl: url,
-            initiator: getServerDomain(initiators.BROWSER_INITIATED)
-          }
+            initiator: getServerDomain(initiators.BROWSER_INITIATED),
+          },
         },
         {
           label: 'onBeforeSendHeaders-1',
@@ -199,8 +207,8 @@ function expectMockedTabNavigationEvents(url) {
           details: {
             type: 'main_frame',
             url,
-            initiator: getServerDomain(initiators.BROWSER_INITIATED)
-          }
+            initiator: getServerDomain(initiators.BROWSER_INITIATED),
+          },
         },
         {
           label: 'onSendHeaders-1',
@@ -208,8 +216,8 @@ function expectMockedTabNavigationEvents(url) {
           details: {
             type: 'main_frame',
             url,
-            initiator: getServerDomain(initiators.BROWSER_INITIATED)
-          }
+            initiator: getServerDomain(initiators.BROWSER_INITIATED),
+          },
         },
         {
           label: 'onHeadersReceived-1',
@@ -219,8 +227,8 @@ function expectMockedTabNavigationEvents(url) {
             url,
             statusCode: 200,
             statusLine: 'HTTP/1.0 200 OK',
-            initiator: getServerDomain(initiators.BROWSER_INITIATED)
-          }
+            initiator: getServerDomain(initiators.BROWSER_INITIATED),
+          },
         },
         {
           label: 'onResponseStarted-1',
@@ -231,8 +239,8 @@ function expectMockedTabNavigationEvents(url) {
             statusCode: 200,
             fromCache: false,
             statusLine: 'HTTP/1.0 200 OK',
-            initiator: getServerDomain(initiators.BROWSER_INITIATED)
-          }
+            initiator: getServerDomain(initiators.BROWSER_INITIATED),
+          },
         },
         {
           label: 'onCompleted-1',
@@ -243,8 +251,8 @@ function expectMockedTabNavigationEvents(url) {
             statusCode: 200,
             fromCache: false,
             statusLine: 'HTTP/1.0 200 OK',
-            initiator: getServerDomain(initiators.BROWSER_INITIATED)
-          }
+            initiator: getServerDomain(initiators.BROWSER_INITIATED),
+          },
         },
         {
           label: 'onBeforeRequest-2',
@@ -256,8 +264,8 @@ function expectMockedTabNavigationEvents(url) {
             // Cannot use getServerDomain(initiators.WEB_INITIATED) because it
             // always adds a port, while this request does not have any ports.
             initiator: frontendOrigin,
-            documentId: 1
-          }
+            documentId: 1,
+          },
         },
         {
           label: 'onBeforeSendHeaders-2',
@@ -266,8 +274,8 @@ function expectMockedTabNavigationEvents(url) {
             type: 'script',
             url: scriptUrl,
             initiator: frontendOrigin,
-            documentId: 1
-          }
+            documentId: 1,
+          },
         },
         {
           label: 'onSendHeaders-2',
@@ -276,8 +284,8 @@ function expectMockedTabNavigationEvents(url) {
             type: 'script',
             url: scriptUrl,
             initiator: frontendOrigin,
-            documentId: 1
-          }
+            documentId: 1,
+          },
         },
         {
           label: 'onHeadersReceived-2',
@@ -288,8 +296,8 @@ function expectMockedTabNavigationEvents(url) {
             statusCode: 200,
             statusLine: 'HTTP/1.0 200 OK',
             initiator: frontendOrigin,
-            documentId: 1
-          }
+            documentId: 1,
+          },
         },
         {
           label: 'onResponseStarted-2',
@@ -301,8 +309,8 @@ function expectMockedTabNavigationEvents(url) {
             fromCache: false,
             statusLine: 'HTTP/1.0 200 OK',
             initiator: frontendOrigin,
-            documentId: 1
-          }
+            documentId: 1,
+          },
         },
         {
           label: 'onCompleted-2',
@@ -314,18 +322,22 @@ function expectMockedTabNavigationEvents(url) {
             fromCache: false,
             statusLine: 'HTTP/1.0 200 OK',
             initiator: frontendOrigin,
-            documentId: 1
-          }
+            documentId: 1,
+          },
         },
       ],
       [[
-        'onBeforeRequest-1', 'onResponseStarted-1', 'onCompleted-1',
-        'onBeforeRequest-2', 'onResponseStarted-2', 'onCompleted-2'
+        'onBeforeRequest-1',
+        'onResponseStarted-1',
+        'onCompleted-1',
+        'onBeforeRequest-2',
+        'onResponseStarted-2',
+        'onCompleted-2',
       ]]);
 }
 
-var requestsIntercepted = [];
-var onBeforeRequest = function(details) {
+let requestsIntercepted = [];
+const onBeforeRequest = function(details) {
   // Ignore favicon requests.
   if (details.url.match(/\/favicon.ico$/)) {
     return;
@@ -337,19 +349,19 @@ var onBeforeRequest = function(details) {
 function addRequestListener() {
   chrome.webRequest.onBeforeRequest.addListener(
       onBeforeRequest, {urls: ['*://*/*']}, []);
-};
+}
 
 function removeRequestListener() {
   chrome.webRequest.onBeforeRequest.removeListener(onBeforeRequest);
-};
+}
 
 function verifyInterceptedRequests(expectedRequests) {
   chrome.test.assertEq(
       expectedRequests, requestsIntercepted,
-      'Expected: ' + JSON.stringify(expectedRequests) +
-          ' Actual: ' + JSON.stringify(requestsIntercepted));
+      `Expected: ${JSON.stringify(expectedRequests)}` +
+          ` Actual: ${JSON.stringify(requestsIntercepted)}`);
   requestsIntercepted = [];
-};
+}
 
 runTests([
   // Tests that devtools://devtools/custom/ is hidden from webRequest.
@@ -358,7 +370,7 @@ runTests([
     // resources. It should also not be able to intercept the request to the
     // completion url, since it doesn't have access to the initiator
     // devtools://devtools/.
-    var expectedRequests = [];
+    const expectedRequests = [];
 
     addRequestListener();
 
@@ -366,8 +378,7 @@ runTests([
     // switch to the customfrontend/ subdirectory, so we do not include the path
     // name in the URL again.
     navigateAndWait(
-        'devtools://devtools/custom/fakedevtools.html#' +
-            getCompletionURL(),
+        'devtools://devtools/custom/fakedevtools.html#' + getCompletionURL(),
         chrome.test.callbackPass(() => {
           verifyInterceptedRequests(expectedRequests);
           removeRequestListener();
@@ -377,7 +388,7 @@ runTests([
   // Tests that the custom front-end URL is visible in non-DevTools requests.
   function testNonDevToolsCustomFrontendRequest() {
     // The URL that would be loaded by devtools://devtools/custom/...
-    var customFrontendUrl = getServerURL(
+    const customFrontendUrl = getServerURL(
         'devtoolsfrontend/fakedevtools.html', 'customfrontend.example.com');
     expectNormalTabNavigationEvents(customFrontendUrl);
     navigateAndWait(customFrontendUrl);
@@ -389,11 +400,11 @@ runTests([
     // resources. It should also not be able to intercept the request to the
     // completion url, since it doesn't have access to the initiator
     // devtools://devtools/.
-    var expectedRequests = [];
+    const expectedRequests = [];
     addRequestListener();
     navigateAndWait(
         'devtools://devtools/remote/devtoolsfrontend/fakedevtools.html' +
-            '#' + getCompletionURL(),
+            `#${getCompletionURL()}`,
         chrome.test.callbackPass(() => {
           verifyInterceptedRequests(expectedRequests);
           removeRequestListener();
@@ -403,7 +414,7 @@ runTests([
   // Tests that the custom front-end URL is visible in non-DevTools requests.
   function testNonDevToolsRemoteFrontendRequest() {
     // The URL that would be loaded by devtools://devtools/remote/...
-    var remoteFrontendUrl = 'https://chrome-devtools-frontend.appspot.com/' +
+    const remoteFrontendUrl = 'https://chrome-devtools-frontend.appspot.com/' +
         'devtoolsfrontend/fakedevtools.html';
     expectMockedTabNavigationEvents(remoteFrontendUrl);
     navigateAndWait(remoteFrontendUrl);

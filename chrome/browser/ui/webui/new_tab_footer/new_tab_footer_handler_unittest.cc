@@ -35,7 +35,7 @@
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/webui/webui_util_desktop.h"
+#include "chrome/browser/ui/webui/util/webui_util_desktop.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
@@ -226,7 +226,7 @@ TEST_F(NewTabFooterHandlerExtensionTest, AttachedTabStateUpdated) {
   document_.FlushForTesting();
   EXPECT_EQ(ntp_type, new_tab_footer::mojom::NewTabPageType::kExtension);
 
-  handler().AttachedTabStateUpdated(GURL(chrome::kChromeUINewTabPageURL));
+  handler().AttachedTabStateUpdated(chrome::ChromeUINewTabPageURLAsGURL());
   document_.FlushForTesting();
   EXPECT_EQ(ntp_type, new_tab_footer::mojom::NewTabPageType::kFirstPartyWebUI);
 

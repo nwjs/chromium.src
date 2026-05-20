@@ -15,6 +15,7 @@
 #include "base/strings/utf_string_conversion_utils.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/bind_post_task.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/third_party/icu/icu_utf.h"
 #include "chrome/browser/compose/compose_enabling.h"
@@ -29,8 +30,8 @@
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
@@ -127,7 +128,16 @@ void ChromeComposeClient::FieldChangeObserver::OnAfterTextFieldValueChanged(
   ++text_field_value_change_event_count_;
   if (text_field_value_change_event_count_ >=
       compose::GetComposeConfig().nudge_field_change_event_max) {
-    HideComposeNudges();
+    if (base::FeatureList::IsEnabled(
+            compose::features::kComposeHideComposeNudgesAsynchronously)) {
+      // This asynchronous call is to avoid reentrant AutofillManager::Observer
+      // calls. See crbug.com/501120730 for details.
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::BindOnce(&FieldChangeObserver::HideComposeNudges,
+                                    weak_ptr_factory_.GetWeakPtr()));
+    } else {
+      HideComposeNudges();
+    }
     text_field_value_change_event_count_ = 0;
   }
 }
@@ -366,7 +376,8 @@ void ChromeComposeClient::CompleteFirstRun() {
 
 void ChromeComposeClient::OpenComposeSettings() {
   BrowserWindowInterface* browser =
-      chrome::FindBrowserWithTab(&GetWebContents());
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          &GetWebContents());
   // `browser` should never be null here. This can only be triggered when there
   // is an active ComposeSession, which  is indirectly owned by the same
   // WebContents that holds the field that the Compose dialog is triggered from.
@@ -785,7 +796,8 @@ void ChromeComposeClient::DisableProactiveNudge() {
 
 void ChromeComposeClient::OpenProactiveNudgeSettings() {
   BrowserWindowInterface* browser =
-      chrome::FindBrowserWithTab(&GetWebContents());
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          &GetWebContents());
   // `browser` should never be null here. This can only be triggered when there
   // is an active ComposeSession, which  is indirectly owned by the same
   // WebContents that holds the field that the Compose dialog is triggered from.

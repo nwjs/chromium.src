@@ -9,9 +9,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/views/data_sharing/data_sharing_utils.h"
 #include "chrome/browser/ui/webui/data_sharing/data_sharing_ui.h"
@@ -106,8 +105,9 @@ void DataSharingPageHandler::GetTabGroupPreview(
 }
 
 void DataSharingPageHandler::OpenTabGroup(const std::string& group_id) {
-  Browser* browser =
-      chrome::FindBrowserWithTab(webui_controller_->web_ui()->GetWebContents());
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          webui_controller_->web_ui()->GetWebContents());
   if (!browser) {
     return;
   }
@@ -158,7 +158,7 @@ void DataSharingPageHandler::RequestAccessToken() {
       base::BindOnce(
           &DataSharingPageHandler::OnAccessTokenFetched,
           weak_ptr_factory_.GetWeakPtr(),
-          GoogleServiceAuthError(GoogleServiceAuthError::NONE),
+          GoogleServiceAuthError::AuthErrorNone(),
           signin::AccessTokenInfo(
               "", base::Time::Now() + kDummyTokenExpirationDuration, "")));
 #endif

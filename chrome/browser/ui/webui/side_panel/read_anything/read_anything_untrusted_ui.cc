@@ -7,7 +7,10 @@
 #include <string>
 #include <utility>
 
+#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/accelerator_table.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_untrusted_page_handler.h"
 #include "chrome/browser/ui/webui/theme_source.h"
@@ -17,12 +20,17 @@
 #include "chrome/grit/side_panel_read_anything_resources_map.h"
 #include "chrome/grit/side_panel_shared_resources.h"
 #include "chrome/grit/side_panel_shared_resources_map.h"
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/global_keyboard_shortcuts_mac.h"
+#endif
 #include "components/strings/grit/components_strings.h"
+#include "components/user_education/webui/help_bubble_handler.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "ui/accessibility/accessibility_features.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/views/style/platform_style.h"
 #include "ui/webui/resources/grit/webui_resources.h"
@@ -71,19 +79,33 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       {"lineFocusWindowHeading", IDS_READING_MODE_LINE_FOCUS_WINDOW_HEADING},
       {"lineFocusStyleHeading", IDS_READING_MODE_LINE_FOCUS_STYLE_HEADING},
       {"lineFocusOneLineTitle", IDS_READING_MODE_LINE_FOCUS_SMALL_FOCUS_LABEL},
+      {"lineFocusOneLineAriaLabel",
+       IDS_READING_MODE_LINE_FOCUS_SMALL_FOCUS_LABEL_SCREENREADER},
       {"lineFocusThreeLineTitle",
        IDS_READING_MODE_LINE_FOCUS_MEDIUM_FOCUS_LABEL},
+      {"lineFocusThreeLineAriaLabel",
+       IDS_READING_MODE_LINE_FOCUS_MEDIUM_FOCUS_LABEL_SCREENREADER},
       {"lineFocusFiveLineTitle", IDS_READING_MODE_LINE_FOCUS_LARGE_FOCUS_LABEL},
+      {"lineFocusFiveLineAriaLabel",
+       IDS_READING_MODE_LINE_FOCUS_LARGE_FOCUS_LABEL_SCREENREADER},
       {"lineFocusUnderlineTitle", IDS_READING_MODE_LINE_FOCUS_UNDERLINE_LABEL},
+      {"lineFocusUnderlineAriaLabel",
+       IDS_READING_MODE_LINE_FOCUS_UNDERLINE_LABEL_SCREENREADER},
       {"lineFocusLineHeading", IDS_READING_MODE_LINE_FOCUS_LINE_HEADING},
       {"lineFocusMovementHeading",
        IDS_READING_MODE_LINE_FOCUS_MOVEMENT_HEADING},
       {"lineFocusStaticLineTitle",
        IDS_READING_MODE_LINE_FOCUS_STATIC_LINE_LABEL},
       {"lineFocusStaticTitle", IDS_READING_MODE_LINE_FOCUS_STATIC_LABEL},
+      {"lineFocusStaticAriaLabel",
+       IDS_READING_MODE_LINE_FOCUS_STATIC_LABEL_SCREENREADER},
       {"lineFocusCursorLineTitle",
        IDS_READING_MODE_LINE_FOCUS_CURSOR_LINE_LABEL},
+      {"lineFocusCursorLineAriaLabel",
+       IDS_READING_MODE_LINE_FOCUS_CURSOR_LINE_LABEL_SCREENREADER},
       {"lineFocusOffTitle", IDS_READING_MODE_LINE_FOCUS_OFF_LABEL},
+      {"lineFocusOffAriaLabel",
+       IDS_READING_MODE_LINE_FOCUS_OFF_LABEL_SCREENREADER},
       {"turnHighlightOff", IDS_READING_MODE_TURN_HIGHLIGHT_OFF},
       {"turnHighlightOn", IDS_READING_MODE_TURN_HIGHLIGHT_ON},
       {"lineSpacingStandardTitle", IDS_READING_MODE_SPACING_COMBOBOX_STANDARD},
@@ -137,7 +159,6 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       {"readingModeLanguageMenu", IDS_READING_MODE_LANGUAGE_MENU},
       {"readingModeLanguageMenuTitle", IDS_READING_MODE_LANGUAGE_MENU_TITLE},
       {"readingModeLanguageMenuClose", IDS_READING_MODE_LANGUAGE_MENU_CLOSE},
-      {"readingModeClose", IDS_READING_MODE_CLOSE},
       {"readingModeLanguageMenuSearchLabel",
        IDS_READING_MODE_LANGUAGE_MENU_SEARCH_LABEL},
       {"readingModeLanguageMenuSearchClear",
@@ -183,6 +204,16 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
   for (const auto& str : kLocalizedStrings) {
     webui::AddLocalizedString(source, str.name, str.id);
   }
+  ui::Accelerator reading_mode_accelerator;
+  std::u16string reading_mode_shortcut;
+  if (GetAcceleratorForCommandId(IDC_SHOW_READING_MODE_KEYBOARD,
+                                 &reading_mode_accelerator)) {
+    reading_mode_shortcut = reading_mode_accelerator.GetShortcutText();
+  }
+
+  source->AddString("readingModeClose",
+                    l10n_util::GetStringFUTF16(IDS_READING_MODE_CLOSE,
+                                               reading_mode_shortcut));
 
   // Rather than call `webui::SetupWebUIDataSource`, manually set up source
   // here. This ensures that if CSPs change in a way that is safe for chrome://
@@ -240,6 +271,21 @@ void ReadAnythingUntrustedUI::BindInterface(
   read_anything_page_factory_receiver_.Bind(std::move(receiver));
 }
 
+void ReadAnythingUntrustedUI::BindInterface(
+    mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandlerFactory>
+        receiver) {
+  help_bubble_handler_factory_receiver_.reset();
+  help_bubble_handler_factory_receiver_.Bind(std::move(receiver));
+}
+
+void ReadAnythingUntrustedUI::CreateHelpBubbleHandler(
+    mojo::PendingRemote<help_bubble::mojom::HelpBubbleClient> client,
+    mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandler> handler) {
+  help_bubble_handler_ = std::make_unique<user_education::HelpBubbleHandler>(
+      std::move(handler), std::move(client), this,
+      std::vector<ui::ElementIdentifier>{kReadAnythingViewModeElementId});
+}
+
 void ReadAnythingUntrustedUI::CreateUntrustedPageHandler(
     mojo::PendingRemote<read_anything::mojom::UntrustedPage> page,
     mojo::PendingReceiver<read_anything::mojom::UntrustedPageHandler>
@@ -249,16 +295,6 @@ void ReadAnythingUntrustedUI::CreateUntrustedPageHandler(
       std::make_unique<ReadAnythingUntrustedPageHandler>(
           std::move(page), std::move(receiver), web_ui(),
           /*use_screen_ai_service=*/true);
-
-  // This code is called as part of a screen2x data generation workflow, where
-  // the browser is opened by a CLI and the read-anything side panel is
-  // automatically opened. Therefore we force the UI to show right away rather
-  // than waiting for all UI artifacts to load, as in the general case.
-  if (features::IsDataCollectionModeForScreen2xEnabled()) {
-    if (embedder()) {
-      embedder()->ShowUI();
-    }
-  }
 }
 
 void ReadAnythingUntrustedUI::ShouldShowUI() {

@@ -17,9 +17,8 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
-import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
-import {isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
+import {isVisible, microtasksFinished, whenCheck} from 'chrome://webui-test/test_util.js';
 
 import {TestBookmarksApiProxy} from '../test_bookmarks_api_proxy.js';
 
@@ -63,13 +62,14 @@ suite('SidePanelShoppingListTest', () => {
     },
   ];
 
-  function getProductElements(shoppingList: HTMLElement): HTMLElement[] {
+  function getProductElements(shoppingList: ShoppingListElement):
+      HTMLElement[] {
     return Array.from(
-        shoppingList.shadowRoot!.querySelectorAll('.product-item'));
+        shoppingList.shadowRoot.querySelectorAll('.product-item'));
   }
 
-  function checkProductElementRender(
-      element: HTMLElement, product: BookmarkProductInfo): void {
+  async function checkProductElementRender(
+      element: HTMLElement, product: BookmarkProductInfo): Promise<void> {
     assertEquals(
         product.info.title,
         element.querySelector('.product-title')!.textContent);
@@ -78,16 +78,17 @@ suite('SidePanelShoppingListTest', () => {
         element.querySelector('.product-domain')!.textContent);
 
     const imageElement =
-        element.querySelector<HTMLElement>('.product-image-container');
-    const faviconElement = element.querySelector<HTMLElement>('.favicon-image');
+        element.querySelector<HTMLElement>('.product-image-container')!;
+    const faviconElement = element.querySelector<HTMLElement>('.favicon-image')!;
     if (!product.info.imageUrl) {
       assertFalse(isVisible(imageElement));
       assertTrue(isVisible(faviconElement));
     } else {
+      await whenCheck(element, () => !isVisible(faviconElement));
       assertFalse(isVisible(faviconElement));
       assertTrue(isVisible(imageElement));
       const productImage =
-          imageElement!.querySelector<HTMLElement>(
+          imageElement.querySelector<HTMLElement>(
                            '.product-image')!.getAttribute('auto-src');
       assertEquals(productImage, product.info.imageUrl);
     }
@@ -144,33 +145,36 @@ suite('SidePanelShoppingListTest', () => {
     shoppingList.productInfos = products.slice();
     document.body.appendChild(shoppingList);
 
-    await flushTasks();
+    await microtasksFinished();
   });
 
-  teardown(() => {
+  teardown(async () => {
     window.localStorage[LOCAL_STORAGE_EXPAND_STATUS_KEY] = undefined;
+    if (shoppingList) {
+      await shoppingList.updateComplete;
+    }
   });
 
-  test('RenderShoppingList', () => {
+  test('RenderShoppingList', async () => {
     const productElements = getProductElements(shoppingList);
     assertEquals(2, products.length);
 
     for (let i = 0; i < products.length; i++) {
-      checkProductElementRender(productElements[i]!, products[i]!);
+      await checkProductElementRender(productElements[i]!, products[i]!);
     }
   });
 
   test('OpensAndClosesShoppingList', async () => {
     let productElements = getProductElements(shoppingList);
     const arrowIcon =
-        shoppingList.shadowRoot!.querySelector<HTMLElement>('#arrowIcon')!;
+        shoppingList.shadowRoot.querySelector<HTMLElement>('#arrowIcon')!;
     assertTrue(arrowIcon.hasAttribute('open'));
     for (let i = 0; i < productElements.length; i++) {
       assertTrue(isVisible(productElements[i]!));
     }
 
-    shoppingList.shadowRoot!.querySelector<HTMLElement>('.row')!.click();
-    await flushTasks();
+    shoppingList.shadowRoot.querySelector<HTMLElement>('.row')!.click();
+    await microtasksFinished();
     assertFalse(arrowIcon.hasAttribute('open'));
     for (let i = 0; i < productElements.length; i++) {
       assertFalse(isVisible(productElements[i]!));
@@ -186,8 +190,8 @@ suite('SidePanelShoppingListTest', () => {
         metrics.count(
             'Commerce.PriceTracking.SidePanel.TrackedProductsCollapsed'));
 
-    shoppingList.shadowRoot!.querySelector<HTMLElement>('.row')!.click();
-    await flushTasks();
+    shoppingList.shadowRoot.querySelector<HTMLElement>('.row')!.click();
+    await microtasksFinished();
     assertTrue(arrowIcon.hasAttribute('open'));
     productElements = getProductElements(shoppingList);
     for (let i = 0; i < productElements.length; i++) {
@@ -258,7 +262,7 @@ suite('SidePanelShoppingListTest', () => {
     const shoppingListClosed = document.createElement('shopping-list');
     shoppingListClosed.productInfos = products;
     document.body.appendChild(shoppingListClosed);
-    await flushTasks();
+    await microtasksFinished();
 
     const productElements = getProductElements(shoppingListClosed);
     assertEquals(2, products.length);
@@ -266,8 +270,8 @@ suite('SidePanelShoppingListTest', () => {
       assertFalse(isVisible(productElements[i]!));
     }
     assertFalse(
-        shoppingListClosed.shadowRoot!.getElementById(
-                                          'arrowIcon')!.hasAttribute('open'));
+        shoppingListClosed.shadowRoot.getElementById('arrowIcon')!.hasAttribute(
+            'open'));
   });
 
   test('TracksAndUntracksPrice', async () => {
@@ -314,13 +318,13 @@ suite('SidePanelShoppingListTest', () => {
     };
 
     callbackRouterRemote.priceTrackedForBookmark(newProduct);
-    await flushTasks();
+    await microtasksFinished();
     const productElements = getProductElements(shoppingList);
     assertEquals(3, productElements.length);
-    checkProductElementRender(productElements[2]!, newProduct);
+    await checkProductElementRender(productElements[2]!, newProduct);
 
     const actionButtons =
-        Array.from(shoppingList.shadowRoot!.querySelectorAll<HTMLElement>(
+        Array.from(shoppingList.shadowRoot.querySelectorAll<HTMLElement>(
             '.action-button'));
     assertEquals(3, actionButtons.length);
     for (let i = 0; i < 3; i++) {
@@ -328,7 +332,7 @@ suite('SidePanelShoppingListTest', () => {
     }
 
     callbackRouterRemote.priceUntrackedForBookmark(newProduct);
-    await flushTasks();
+    await microtasksFinished();
     checkActionButtonStatus(actionButtons[0]!, true);
     checkActionButtonStatus(actionButtons[1]!, true);
     checkActionButtonStatus(actionButtons[2]!, false);
@@ -348,15 +352,15 @@ suite('SidePanelShoppingListTest', () => {
     checkActionButtonStatus(actionButtonA, false);
 
     callbackRouterRemote.priceTrackedForBookmark(product);
-    await flushTasks();
+    await microtasksFinished();
     checkActionButtonStatus(actionButtonA, true);
 
     callbackRouterRemote.priceUntrackedForBookmark(product);
-    await flushTasks();
+    await microtasksFinished();
     checkActionButtonStatus(actionButtonA, false);
 
     callbackRouterRemote.priceTrackedForBookmark(product);
-    await flushTasks();
+    await microtasksFinished();
     checkActionButtonStatus(actionButtonA, true);
   });
 
@@ -365,7 +369,7 @@ suite('SidePanelShoppingListTest', () => {
     assertEquals(2, products.length);
 
     for (let i = 0; i < products.length; i++) {
-      checkProductElementRender(productElements[i]!, products[i]!);
+      await checkProductElementRender(productElements[i]!, products[i]!);
     }
 
     const updatedProduct = {
@@ -384,13 +388,13 @@ suite('SidePanelShoppingListTest', () => {
       },
     };
     callbackRouterRemote.priceTrackedForBookmark(updatedProduct);
-    await flushTasks();
+    await microtasksFinished();
 
     productElements = getProductElements(shoppingList);
     assertEquals(2, products.length);
 
-    checkProductElementRender(productElements[0]!, updatedProduct);
-    checkProductElementRender(productElements[1]!, products[1]!);
+    await checkProductElementRender(productElements[0]!, updatedProduct);
+    await checkProductElementRender(productElements[1]!, products[1]!);
   });
 
   test('UntrackedItemsResetsWithProductInfos', async () => {
@@ -405,6 +409,7 @@ suite('SidePanelShoppingListTest', () => {
     // Reset shoppingList.productInfos to empty and then re-initialize it, the
     // untracked items list should be reset to empty.
     shoppingList.productInfos = [];
+    await microtasksFinished();
     shoppingList.productInfos = products.slice();
     await microtasksFinished();
 
@@ -416,7 +421,7 @@ suite('SidePanelShoppingListTest', () => {
 
   test('ShowErrorToastWhenTrackAndUntrackFailed', async () => {
     callbackRouterRemote.operationFailedForBookmark(products[0]!, true);
-    await flushTasks();
+    await microtasksFinished();
 
     assertTrue(shoppingList.$.errorToast.open);
     shoppingList.$.errorToast.querySelector('cr-button')!.click();
@@ -425,7 +430,7 @@ suite('SidePanelShoppingListTest', () => {
     assertFalse(shoppingList.$.errorToast.open);
 
     callbackRouterRemote.operationFailedForBookmark(products[1]!, false);
-    await flushTasks();
+    await microtasksFinished();
 
     assertTrue(shoppingList.$.errorToast.open);
     shoppingList.$.errorToast.querySelector('cr-button')!.click();

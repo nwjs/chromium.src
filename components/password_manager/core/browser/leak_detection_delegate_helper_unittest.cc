@@ -18,6 +18,7 @@
 #include "components/password_manager/core/browser/leak_detection_dialog_utils.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_store/mock_password_store_interface.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -118,7 +119,7 @@ class LeakDetectionDelegateHelperTest
             [password_forms, store = store_.get()](
                 base::WeakPtr<PasswordStoreConsumer> consumer) {
               consumer->OnGetPasswordStoreResultsOrErrorFrom(
-                  store, std::move(password_forms));
+                  store, FromPasswordForms(std::move(password_forms)));
             }));
   }
 
@@ -337,11 +338,11 @@ TEST_F(LeakDetectionDelegateHelperWithTwoStoreTest, SavedLeakedCredentials) {
 
   InitiateGetCredentialLeakType();
 
-  EXPECT_FALSE(profile_store_->stored_passwords()
+  EXPECT_FALSE(GetAllLoginsSync(profile_store_.get())
                    .at(profile_store_form.signon_realm)
                    .at(0)
                    .password_issues.empty());
-  EXPECT_FALSE(account_store_->stored_passwords()
+  EXPECT_FALSE(GetAllLoginsSync(account_store_.get())
                    .at(account_store_form.signon_realm)
                    .at(0)
                    .password_issues.empty());
@@ -362,11 +363,11 @@ TEST_F(LeakDetectionDelegateHelperWithTwoStoreTest,
 
   InitiateGetCredentialLeakType();
 
-  EXPECT_FALSE(profile_store_->stored_passwords()
+  EXPECT_FALSE(GetAllLoginsSync(profile_store_.get())
                    .at(profile_store_form.signon_realm)
                    .at(0)
                    .password_issues.empty());
-  EXPECT_FALSE(account_store_->stored_passwords()
+  EXPECT_FALSE(GetAllLoginsSync(account_store_.get())
                    .at(account_store_form.signon_realm)
                    .at(0)
                    .password_issues.empty());

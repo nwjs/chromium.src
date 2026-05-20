@@ -6,8 +6,8 @@
 // browser_tests.exe --gtest_filter=HistoryExtensionApiTest.MiscSearch
 
 
-const scriptUrl = '_test_resources/api_test/history/regular/common.js';
-const loadScript = chrome.test.loadScript(scriptUrl);
+const SCRIPT_URL = '_test_resources/api_test/history/regular/common.js';
+const loadScript = chrome.test.loadScript(SCRIPT_URL);
 
 loadScript.then(async function() {
   chrome.test.runTests([
@@ -23,7 +23,7 @@ loadScript.then(async function() {
           // The test has succeeded.
           chrome.test.succeed();
         });
-      };
+      }
 
       // basicSearch entry point.
       chrome.history.deleteAll(function() {
@@ -39,8 +39,9 @@ loadScript.then(async function() {
       function lengthScopedSearchTestVerification() {
         // Ensure all urls have been added.
         urlsAdded += 1;
-        if (urlsAdded < urls.length)
+        if (urlsAdded < urls.length) {
           return;
+        }
 
         removeItemVisitedListener();
 
@@ -52,7 +53,7 @@ loadScript.then(async function() {
           // The test has succeeded.
           chrome.test.succeed();
         });
-      };
+      }
 
       // lengthScopedSearch entry point.
       chrome.history.deleteAll(function() {
@@ -60,5 +61,5 @@ loadScript.then(async function() {
         populateHistory(urls, function() {});
       });
     },
-  ])
+  ]);
 });

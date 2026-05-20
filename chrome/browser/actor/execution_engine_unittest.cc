@@ -16,16 +16,13 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
-#include "chrome/browser/actor/actor_features.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_keyed_service_factory.h"
 #include "chrome/browser/actor/actor_tab_data.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/autofill_selection_dialog_event_handler.h"
-#include "chrome/browser/actor/enterprise_policy_url_checker.h"
-#include "chrome/browser/actor/safety_list_manager.h"
-#include "chrome/browser/actor/shared_types.h"
+#include "chrome/browser/actor/enterprise_policy_checker.h"
 #include "chrome/browser/actor/tool_request_variant.h"
 #include "chrome/browser/actor/tools/click_tool_request.h"
 #include "chrome/browser/actor/tools/fake_tool.h"
@@ -41,8 +38,13 @@
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
+#include "components/actor/core/actor_features.h"
+#include "components/actor/core/safety_list_manager.h"
+#include "components/actor/core/shared_types.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
+#include "components/page_content_annotations/content/mojom/page_stability.mojom.h"
 #include "components/tabs/public/mock_tab_interface.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/test/mock_navigation_handle.h"
@@ -176,7 +178,8 @@ class FakeChromeRenderFrame : public chrome::mojom::ChromeRenderFrame {
       mojo::PendingAssociatedRemote<actor::mojom::JournalClient> client)
       override {}
   void CreatePageStabilityMonitor(
-      mojo::PendingReceiver<actor::mojom::PageStabilityMonitor> monitor,
+      mojo::PendingReceiver<
+          page_content_annotations::mojom::PageStabilityMonitor> monitor,
       const TaskId& task_id,
       bool supports_paint_stability) override {}
   void CancelTool(const TaskId& task_id) override {}
@@ -374,7 +377,7 @@ class ExecutionEngineTest : public ChromeRenderViewHostTestHarness {
   std::optional<TestTabState> tab_state_;
 
   MockPolicyChecker no_enterprise_checker_{
-      EnterprisePolicyBlockReason::kNotBlocked};
+      EnterprisePolicyChecker::UrlBlockReason::kNotBlocked};
 };
 
 // TODO(crbug.com/480230075): Crashing on Android.
@@ -893,7 +896,8 @@ TEST_F(ExecutionEngineTest,
        MAYBE_VisibleNotVisibleActuationCompletedHistogram) {
   content::NavigationSimulator::NavigateAndCommitFromBrowser(
       web_contents(), GURL("http://localhost/"));
-  task_->AddTab(GetTab()->GetHandle(), base::DoNothing());
+  task_->AddTab(GetTab()->GetHandle(), /*stop_task_on_detach=*/true,
+                base::DoNothing());
   web_contents()->WasShown();
 
   // Simulate visible actuation.
@@ -928,7 +932,8 @@ TEST_P(ExecutionEngineStopReasonParamTest,
        MAYBE_VisibleNotVisibleActuationStoppedHistogram) {
   content::NavigationSimulator::NavigateAndCommitFromBrowser(
       web_contents(), GURL("http://localhost/"));
-  task_->AddTab(GetTab()->GetHandle(), base::DoNothing());
+  task_->AddTab(GetTab()->GetHandle(), /*stop_task_on_detach=*/true,
+                base::DoNothing());
   web_contents()->WasShown();
 
   // Simulate visible actuation.
@@ -965,7 +970,8 @@ TEST_F(ExecutionEngineTest,
        MAYBE_VisibleNotVisibleActuationWithPauseHistogram) {
   content::NavigationSimulator::NavigateAndCommitFromBrowser(
       web_contents(), GURL("http://localhost/"));
-  task_->AddTab(GetTab()->GetHandle(), base::DoNothing());
+  task_->AddTab(GetTab()->GetHandle(), /*stop_task_on_detach=*/true,
+                base::DoNothing());
   web_contents()->WasShown();
 
   // Simulate visible actuation.
@@ -1005,7 +1011,8 @@ TEST_F(ExecutionEngineTest,
        MAYBE_VisibleNotVisibleActuationWithWaitingHistogram) {
   content::NavigationSimulator::NavigateAndCommitFromBrowser(
       web_contents(), GURL("http://localhost/"));
-  task_->AddTab(GetTab()->GetHandle(), base::DoNothing());
+  task_->AddTab(GetTab()->GetHandle(), /*stop_task_on_detach=*/true,
+                base::DoNothing());
   web_contents()->WasShown();
   task_->SetState(ActorTask::State::kReflecting);
 

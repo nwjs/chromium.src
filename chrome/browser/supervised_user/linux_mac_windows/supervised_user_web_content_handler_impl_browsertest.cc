@@ -51,6 +51,7 @@
 
 namespace {
 constexpr char kPacpHost[] = "families.google.com";
+constexpr char kMockPacpTargetUrl[] = "https://families.google/families/";
 
 enum class ResponseBehaviour : int {
   kHttpOk = 0,
@@ -141,8 +142,7 @@ class SupervisedUserWebContentHandlerImplTest
       case ResponseBehaviour::kHttpRedirection:
         //  Mimics the last url in a seriers of PACP re-directions.
         response->set_code(net::HTTP_MOVED_PERMANENTLY);
-        response->AddCustomHeader("Location",
-                                  supervised_user::kFamilyManagementUrl);
+        response->AddCustomHeader("Location", kMockPacpTargetUrl);
         break;
       case ResponseBehaviour::kHttpOk:
         response->set_code(net::HTTP_OK);
@@ -190,7 +190,7 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserWebContentHandlerImplTest,
   // that contains the PACP response.
   // The request handler `HandleRedirection` mocks the re-direction to the
   // `pacp_end_url` reached by PACP, in order to complete the approval flow.
-  GURL pacp_end_url = GURL(supervised_user::kFamilyManagementUrl);
+  GURL pacp_end_url = GURL(kMockPacpTargetUrl);
   auto observer =
       std::make_unique<content::TestNavigationObserver>(pacp_end_url);
 
@@ -249,7 +249,7 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserWebContentHandlerImplTest,
   // that contains the PACP response.
   // The request handler `HandleRedirection` mocks the re-direction to the
   // `pacp_end_url` reached by PACP, in order to complete the approval flow.
-  GURL pacp_end_url = GURL(supervised_user::kFamilyManagementUrl);
+  GURL pacp_end_url = GURL(kMockPacpTargetUrl);
   auto observer =
       std::make_unique<content::TestNavigationObserver>(pacp_end_url);
 
@@ -277,22 +277,14 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserWebContentHandlerImplTest,
   histogram_tester.ExpectTotalCount(
       supervised_user::kLocalWebApprovalErrorTypeHistogramName, 1);
 
-  if (base::FeatureList::IsEnabled(
-          supervised_user::kEnableLocalWebApprovalErrorDialog)) {
-    // Check that the dialog content was replaced with the error message
-    // content.
-    EXPECT_TRUE(base::test::RunUntil([&]() {
-      return handler->GetWeakParentAccessViewForTesting()
-                     ->GetErrorViewForTesting() != nullptr &&
-             handler->GetWeakParentAccessViewForTesting()
-                     ->GetWebViewForTesting() == nullptr;
-    }));
-  } else {
-    // Check that the PACP dialog is destructed.
-    ASSERT_TRUE(base::test::RunUntil([&]() {
-      return handler->GetWeakParentAccessViewForTesting() == nullptr;
-    }));
-  }
+  // Check that the dialog content was replaced with the error message
+  // content.
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return handler->GetWeakParentAccessViewForTesting()
+                   ->GetErrorViewForTesting() != nullptr &&
+           handler->GetWeakParentAccessViewForTesting()
+                   ->GetWebViewForTesting() == nullptr;
+  }));
 }
 
 IN_PROC_BROWSER_TEST_F(SupervisedUserWebContentHandlerImplTest,
@@ -492,25 +484,14 @@ IN_PROC_BROWSER_TEST_F(SupervisedUserWebContentHandlerImplTest,
                 ->GetVisible();
   }));
 
-  if (base::FeatureList::IsEnabled(
-          supervised_user::kEnableLocalWebApprovalErrorDialog)) {
-    // Check that the PACP dialog content is replaced by the error message
-    // content.
-    ASSERT_TRUE(base::test::RunUntil([&]() {
-      return handler->GetWeakParentAccessViewForTesting()
-                     ->GetWebViewForTesting() == nullptr &&
-             (base::FeatureList::IsEnabled(
-                  supervised_user::kEnableLocalWebApprovalErrorDialog)
-                  ? handler->GetWeakParentAccessViewForTesting()
-                            ->GetErrorViewForTesting() != nullptr
-                  : true);
-    }));
-  } else {
-    // Check that the PACP dialog is destructed.
-    ASSERT_TRUE(base::test::RunUntil([&]() {
-      return handler->GetWeakParentAccessViewForTesting() == nullptr;
-    }));
-  }
+  // Check that the PACP dialog content is replaced by the error message
+  // content.
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return handler->GetWeakParentAccessViewForTesting()
+                   ->GetWebViewForTesting() == nullptr &&
+           handler->GetWeakParentAccessViewForTesting()
+                   ->GetErrorViewForTesting() != nullptr;
+  }));
 
   histogram_tester.ExpectBucketCount(
       supervised_user::kLocalWebApprovalResultHistogramName,
@@ -534,8 +515,7 @@ class SupervisedUserParentAccessViewErrorScreenUiTest
     // Override PACP timeout to 0 ms.
     int timeout_ms = 0;
     scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{supervised_user::kEnableLocalWebApprovalErrorDialog, {}},
-         {supervised_user::kLocalWebApprovals,
+        {{supervised_user::kLocalWebApprovals,
           {{supervised_user::kLocalWebApprovalBottomSheetLoadTimeoutMs.name,
             base::NumberToString(timeout_ms)}}}},
         {});

@@ -155,6 +155,7 @@
 #include "content/public/browser/prefetch_service_delegate.h"
 #include "content/public/browser/ssl_host_state_delegate.h"
 #include "content/public/browser/storage_partition.h"
+#include "device/fido/platform_credential_store.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "media/base/media_switches.h"
 #include "media/mojo/services/video_decode_perf_history.h"
@@ -174,9 +175,10 @@
 #include "chrome/browser/feed/feed_service_factory.h"
 #include "chrome/browser/offline_pages/offline_page_model_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/settings/jni_headers/RecentSearchQueue_jni.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
-#include "components/cdm/browser/media_drm_storage_impl.h"  // nogncheck crbug.com/1125897
+#include "components/cdm/browser/media_drm_storage_impl.h"  // nogncheck crbug.com/40147906
 #include "components/feed/core/v2/public/feed_service.h"    // nogncheck
 #include "components/feed/feed_feature_list.h"
 #include "components/installedapp/android/jni_headers/PackageHash_jni.h"
@@ -688,7 +690,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
 
       profile_->GetDefaultStoragePartition()->ClearDataForOrigin(
           content::StoragePartition::REMOVE_DATA_MASK_LOCAL_STORAGE,
-          GURL(chrome::kChromeUINewTabPageURL), base::DoNothing());
+          chrome::ChromeUINewTabPageURLAsGURL(), base::DoNothing());
     }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -915,8 +917,6 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
         profile_, ServiceAccessType::EXPLICIT_ACCESS);
 
     if (password_store) {
-      // No sync completion callback is needed for profile passwords, since the
-      // login token is persisted and can be used after cookie deletion.
       password_store->RemoveLoginsCreatedBetween(
           FROM_HERE, delete_begin_, delete_end_,
           CreateTaskCompletionCallback(
@@ -970,23 +970,10 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
         profile_, ServiceAccessType::EXPLICIT_ACCESS);
 
     if (account_store) {
-      // Desktop must wait for DATA_TYPE_ACCOUNT_PASSWORDS deletions to be
-      // uploaded to the sync server before deleting any other types (because
-      // deleting DATA_TYPE_COOKIES first would revoke the account storage
-      // opt-in and prevent the upload).
-      // On Android, the account storage doesn't depend on cookies, so there's
-      // no need to wait.
-      base::OnceCallback<void(bool)> sync_completion;
-#if !BUILDFLAG(IS_ANDROID)
-      sync_completion =
-          CreateTaskCompletionCallback(TracingDataType::kAccountPasswordsSynced,
-                                       constants::DATA_TYPE_ACCOUNT_PASSWORDS);
-#endif
       account_store->RemoveLoginsCreatedBetween(
           FROM_HERE, delete_begin_, delete_end_,
           CreateTaskCompletionCallback(TracingDataType::kAccountPasswords,
-                                       constants::DATA_TYPE_ACCOUNT_PASSWORDS),
-          std::move(sync_completion));
+                                       constants::DATA_TYPE_ACCOUNT_PASSWORDS));
     }
 
     // Record that a password removal action happened for the account store.
@@ -1138,6 +1125,10 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
             filter,
             base::IgnoreArgs<offline_pages::OfflinePageModel::DeletePageResult>(
                 CreateTaskCompletionClosure(TracingDataType::kOfflinePages)));
+
+      // Deletes the recent search entries for Android Settings.
+      Java_RecentSearchQueue_deleteDiskData(
+          base::android::AttachCurrentThread());
     }
 #endif
 
@@ -1565,6 +1556,7 @@ void ChromeBrowsingDataRemoverDelegate::OnTaskComplete(
   std::move(callback_).Run(failed_data_types_);
 }
 
+// LINT.IfChange(TracingDataTypeHistogramSuffix)
 const char* ChromeBrowsingDataRemoverDelegate::GetHistogramSuffix(
     TracingDataType task) {
   switch (task) {
@@ -1612,8 +1604,6 @@ const char* ChromeBrowsingDataRemoverDelegate::GetHistogramSuffix(
       return "UserDataSnapshot";
     case TracingDataType::kAccountPasswords:
       return "AccountPasswords";
-    case TracingDataType::kAccountPasswordsSynced:
-      return "AccountPasswordsSynced";
     case TracingDataType::kFaviconCacheExpiration:
       return "FaviconCacheExpiration";
     case TracingDataType::kSecurePaymentConfirmationCredentials:
@@ -1628,6 +1618,7 @@ const char* ChromeBrowsingDataRemoverDelegate::GetHistogramSuffix(
       return "MediaDeviceSalts";
   }
 }
+// LINT.ThenChange(//tools/metrics/histograms/metadata/history/histograms.xml:History.ClearBrowsingData.Duration.ChromeTask.Task)
 
 void ChromeBrowsingDataRemoverDelegate::OnStartRemoving() {
   profile_keep_alive_ = std::make_unique<ScopedProfileKeepAlive>(
@@ -1750,4 +1741,5 @@ void ChromeBrowsingDataRemoverDelegate::DisablePasswordsAutoSignin(
 
 #if BUILDFLAG(IS_ANDROID)
 DEFINE_JNI(PackageHash)
+DEFINE_JNI(RecentSearchQueue)
 #endif

@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/search/ntp_test_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_switches.h"
@@ -97,7 +98,7 @@ class RestoreOnStartupPolicyTest : public UrlBlockingPolicyTest,
                  POLICY_SCOPE_USER, POLICY_SOURCE_CLOUD,
                  base::Value(SessionStartupPref::kPrefValueNewTab), nullptr);
     provider_.UpdateChromePolicy(policies);
-    expected_urls_.push_back(GURL(chrome::kChromeUINewTabURL));
+    expected_urls_.push_back(chrome::ChromeUINewTabURLAsGURL());
   }
 
   void Last() {
@@ -206,7 +207,7 @@ IN_PROC_BROWSER_TEST_P(RestoreOnStartupPolicyTest, RunTest) {
       content::WebContents* web_contents = model->GetWebContentsAt(i);
       if (blocked_) {
         CheckURLIsBlockedInWebContents(web_contents, expected_urls_[i]);
-      } else if (expected_urls_[i] == GURL(chrome::kChromeUINewTabURL)) {
+      } else if (expected_urls_[i] == chrome::ChromeUINewTabURLAsGURL()) {
         EXPECT_EQ(ntp_test_utils::GetFinalNtpUrl(browser()->profile()),
                   web_contents->GetLastCommittedURL());
       } else {
@@ -217,9 +218,11 @@ IN_PROC_BROWSER_TEST_P(RestoreOnStartupPolicyTest, RunTest) {
   // Policy urls should be opened on a new window if the startup policy is set
   // as kPrefValueLastAndURLs.
   if (!expected_urls_in_new_window_.empty()) {
-    ASSERT_EQ(2u, chrome::GetBrowserCount(browser()->profile()));
+    ASSERT_EQ(2u, ProfileBrowserCollection::GetForProfile(browser()->profile())
+                      ->GetSize());
     BrowserWindowInterface* const pref_urls_opened_browser =
-        chrome::FindLastActiveWithProfile(browser()->profile());
+        ProfileBrowserCollection::GetForProfile(browser()->profile())
+            ->GetLastActiveBrowser();
     ASSERT_TRUE(pref_urls_opened_browser);
     TabStripModel* model = pref_urls_opened_browser->GetTabStripModel();
     int size = static_cast<int>(expected_urls_in_new_window_.size());

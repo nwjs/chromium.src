@@ -37,16 +37,17 @@ FakeLayerTreeHostImpl::FakeLayerTreeHostImpl(
     TaskRunnerProvider* task_runner_provider,
     TaskGraphRunner* task_graph_runner,
     scoped_refptr<base::SequencedTaskRunner> image_worker_task_runner)
-    : LayerTreeHostImpl(settings,
-                        &client_,
-                        task_runner_provider,
-                        &stats_instrumentation_,
-                        task_graph_runner,
-                        AnimationHost::CreateForTesting(ThreadInstance::kImpl),
-                        nullptr,
-                        0,
-                        std::move(image_worker_task_runner),
-                        /*scheduling_client=*/nullptr),
+    : ClientLayerTreeHostImpl(
+          settings,
+          &client_,
+          task_runner_provider,
+          &stats_instrumentation_,
+          task_graph_runner,
+          AnimationHost::CreateForTesting(ThreadInstance::kImpl),
+          nullptr,
+          0,
+          std::move(image_worker_task_runner),
+          /*scheduling_client=*/nullptr),
       notify_tile_state_changed_called_(false) {
   // Explicitly clear all debug settings.
   SetDebugState(LayerTreeDebugState());
@@ -63,7 +64,7 @@ FakeLayerTreeHostImpl::~FakeLayerTreeHostImpl() {
 }
 
 void FakeLayerTreeHostImpl::CreatePendingTree() {
-  LayerTreeHostImpl::CreatePendingTree();
+  ClientLayerTreeHostImpl::CreatePendingTree();
   float arbitrary_large_page_scale = 100000.f;
   pending_tree()->PushPageScaleFromMainThread(
       1.f, 1.f / arbitrary_large_page_scale, arbitrary_large_page_scale);

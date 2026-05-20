@@ -40,7 +40,8 @@ enum class GlicPinTrigger {
   kAtMention,
   kActuation,
   kWebClientUnknown,
-  kMaxValue = kWebClientUnknown
+  kContextualCue,
+  kMaxValue = kContextualCue
 };
 
 enum class GlicUnpinTrigger {
@@ -164,8 +165,6 @@ class GlicSharingManager {
       FocusedBrowserChangedCallback callback) = 0;
   virtual BrowserWindowInterface* GetFocusedBrowser() const = 0;
 
-  // TODO(b:444463509): remove direct access to underlying manager.
-  virtual GlicFocusedBrowserManager& focused_browser_manager() = 0;
 
   // Registers a callback to be invoked when the pinned status of a tab changes.
   using TabPinningStatusChangedCallback =

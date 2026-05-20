@@ -214,23 +214,11 @@ void KeyframeEffect::UpdateTickingState() {
   }
 }
 
-void KeyframeEffect::Pause(base::TimeTicks timeline_time,
-                           PauseCondition pause_condition) {
+void KeyframeEffect::Pause(base::TimeDelta hold_time,
+                           gfx::KeyframeModel::RunState pause_run_state) {
   bool did_pause = false;
   for (auto& keyframe_model : keyframe_models()) {
-    // TODO(crbug.com/40688021): KeyframeEffect is paused with local time for
-    // scroll-linked animations. To make sure the start event of a keyframe
-    // model is sent to blink, we should not set its run state to PAUSED until
-    // such event is sent. This should be revisited once KeyframeEffect is able
-    // to tick scroll-linked keyframe models directly.
-    if (pause_condition == PauseCondition::kAfterStart &&
-        (keyframe_model->run_state() ==
-             gfx::KeyframeModel::WAITING_FOR_TARGET_AVAILABILITY ||
-         keyframe_model->run_state() == gfx::KeyframeModel::STARTING))
-      continue;
-    // Convert the timeline_time to the effective local time for each
-    // KeyframeModel's start time.
-    keyframe_model->Pause(timeline_time - keyframe_model->start_time());
+    keyframe_model->Pause(hold_time, pause_run_state);
     did_pause = true;
   }
 
@@ -292,23 +280,12 @@ void KeyframeEffect::AddKeyframeModel(
   }
 }
 
-void KeyframeEffect::PauseKeyframeModel(int keyframe_model_id,
-                                        base::TimeDelta time_offset) {
+void KeyframeEffect::PauseKeyframeModelForTesting(int keyframe_model_id,
+                                                  base::TimeDelta hold_time) {
   for (auto& keyframe_model : keyframe_models()) {
     if (keyframe_model->id() == keyframe_model_id) {
-      keyframe_model->Pause(time_offset);
+      keyframe_model->Pause(hold_time);
     }
-  }
-
-  if (has_bound_element_animations()) {
-    animation_->SetNeedsCommit();
-    SetNeedsPushProperties();
-  }
-}
-
-void KeyframeEffect::PauseKeyframeModels(base::TimeDelta time_offset) {
-  for (auto& keyframe_model : keyframe_models()) {
-    keyframe_model->Pause(time_offset);
   }
 
   if (has_bound_element_animations()) {
@@ -429,8 +406,13 @@ bool KeyframeEffect::DispatchAnimationEventToKeyframeModel(
       }
       if (keyframe_model && keyframe_model->needs_synchronized_start_time()) {
         keyframe_model->set_needs_synchronized_start_time(false);
-        if (!keyframe_model->has_set_start_time())
-          keyframe_model->set_start_time(event.monotonic_time);
+        if (!keyframe_model->has_set_start_time()) {
+          keyframe_model->set_start_time(
+              event.monotonic_time -
+              keyframe_model->hold_time().value_or(base::TimeDelta()) /
+                  keyframe_model->playback_rate());
+        }
+        keyframe_model->set_hold_time(std::nullopt);
         dispatched = true;
       }
       break;
@@ -774,6 +756,10 @@ void KeyframeEffect::PushPropertiesTo(
   if (replaced_start_time) {
     for (auto& km : keyframe_models()) {
       km->set_start_time(*replaced_start_time);
+      // We are picking up the start time from the impl animation (which would
+      // have cleared any existing hold time). Ensure we do not set the hold
+      // time again.
+      km->set_hold_time(std::nullopt);
     }
   }
 
@@ -961,16 +947,29 @@ void KeyframeEffect::PromoteStartedKeyframeModels(AnimationEvents* events) {
       cc_keyframe_model->SetRunState(
           gfx::KeyframeModel::RUNNING,
           last_tick_time_.value_or(base::TimeTicks()));
+      bool adjusted_for_hold_time = false;
       if (!cc_keyframe_model->has_set_start_time() &&
-          !cc_keyframe_model->needs_synchronized_start_time())
+          !cc_keyframe_model->needs_synchronized_start_time()) {
+        adjusted_for_hold_time = cc_keyframe_model->hold_time().has_value();
         cc_keyframe_model->set_start_time(
-            last_tick_time_.value_or(base::TimeTicks()));
+            last_tick_time_.value_or(base::TimeTicks()) -
+            cc_keyframe_model->hold_time().value_or(base::TimeDelta()) /
+                cc_keyframe_model->playback_rate());
+        cc_keyframe_model->set_hold_time(std::nullopt);
+      }
 
       base::TimeTicks start_time;
-      if (cc_keyframe_model->has_set_start_time())
+      // NOTE(crbug.com/497867796): Consumers of kStarted events need to also
+      // adjust for hold time.
+      // TODO(crbug.com/497867796): Instead of simply hiding the adjustment,
+      // perhaps the event should include the adjustment. Blink already accounts
+      // for the hold time but including the adjustment would be a more general
+      // way to synchronize the start time on consumers of these events.
+      if (cc_keyframe_model->has_set_start_time() && !adjusted_for_hold_time) {
         start_time = cc_keyframe_model->start_time();
-      else
+      } else {
         start_time = last_tick_time_.value_or(base::TimeTicks());
+      }
 
       GenerateEvent(events, *cc_keyframe_model,
                     AnimationPlaybackEvent::Type::kStarted, start_time);
@@ -1097,6 +1096,7 @@ void KeyframeEffect::MarkFinishedKeyframeModels(
         case gfx::KeyframeModel::STARTING:
         case gfx::KeyframeModel::RUNNING:
         case gfx::KeyframeModel::PAUSED:
+        case gfx::KeyframeModel::PAUSED_EXCLUSIVE:
           keyframe_model->SetRunState(gfx::KeyframeModel::FINISHED,
                                       monotonic_time);
           keyframe_model_finished = true;

@@ -20,7 +20,7 @@
 #include "base/types/optional_ref.h"
 #include "base/types/pass_key.h"
 #include "chrome/browser/actor/aggregated_journal.h"
-#include "chrome/browser/actor/origin_checker.h"
+#include "chrome/browser/actor/enterprise_policy_checker.h"
 #include "chrome/browser/actor/site_policy.h"
 #include "chrome/browser/actor/tools/tool_controller.h"
 #include "chrome/browser/actor/tools/tool_delegate.h"
@@ -28,6 +28,8 @@
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/task_id.h"
 #include "chrome/common/buildflags.h"
+#include "components/actor/core/origin_checker.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
 #include "components/password_manager/core/browser/actor_login/actor_login_types.h"
 #include "components/tabs/public/tab_interface.h"
@@ -162,6 +164,9 @@ class ExecutionEngine : public ToolDelegate,
   // Cancels any ongoing actions.
   void CancelOngoingActions(mojom::ActionResultCode reason);
 
+  // Notifies ongoing actions that they have been paused.
+  void PauseOngoingActions();
+
   // If there is an ongoing tool request, treat it as having failed with the
   // given reason.
   void FailCurrentTool(mojom::ActionResultCode reason) override;
@@ -181,6 +186,7 @@ class ExecutionEngine : public ToolDelegate,
   Profile& GetProfile() override;
   AggregatedJournal& GetJournal() override;
   favicon::FaviconService* GetFaviconService() override;
+  const EnterprisePolicyChecker& GetEnterprisePolicyChecker() const override;
   void IsAcceptableNavigationDestination(
       const GURL& url,
       DecisionCallbackWithReason callback) override;
@@ -202,6 +208,12 @@ class ExecutionEngine : public ToolDelegate,
   void InterruptFromTool() override;
   void UninterruptFromTool() override;
   void EnqueueFollowupAction(std::unique_ptr<ToolRequest> action) override;
+  void AddTab(
+      tabs::TabHandle tab_handle,
+      bool stop_task_on_detach,
+      base::OnceCallback<void(mojom::ActionResultPtr)> callback) override;
+  bool HasTab(tabs::TabHandle tab_handle) override;
+  void RemoveTab(tabs::TabHandle tab_handle) override;
   base::WeakPtr<actor_login::ActionSequenceDelegate> GetActionSequenceDelegate()
       override;
 

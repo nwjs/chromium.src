@@ -11,9 +11,15 @@
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation_traits.h"
+#include "components/sessions/core/session_id.h"
+#include "ui/gfx/native_ui_types.h"
 
 class BrowserCollectionObserver;
 class BrowserWindowInterface;
+
+namespace content {
+class WebContents;
+}
 
 // A common base class for collections of BrowserWindowInterface objects.
 class BrowserCollection {
@@ -58,6 +64,20 @@ class BrowserCollection {
   // Gets the last active browser for this collection.
   BrowserWindowInterface* GetLastActiveBrowser();
 
+  // Returns the browser represented by `window`. Returns nullptr if no such
+  // browser currently exists in this collection.
+  BrowserWindowInterface* FindBrowserWithWindow(gfx::NativeWindow window);
+
+  // Finds a browser by its session ID. Returns nullptr if no browser with the
+  // given ID exists in this collection.
+  BrowserWindowInterface* FindBrowserWithID(SessionID desired_id);
+
+  // Returns the browser containing the specified `web_contents` as a tab.
+  // Returns nullptr if no such browser exists in this collection.
+  // `web_contents` must not be nullptr.
+  BrowserWindowInterface* FindBrowserWithTab(
+      const content::WebContents* web_contents);
+
  protected:
   BrowserCollection();
   virtual ~BrowserCollection();
@@ -80,6 +100,9 @@ class BrowserCollection {
   virtual BrowserVector GetBrowsers(Order order) = 0;
 
  private:
+  // TODO(crbug.com/c/500850766): Remove this once ChromeTracingDelegate
+  // supports being a global feature.
+  friend class ChromeTracingDelegate;
   friend base::ScopedObservationTraits<BrowserCollection,
                                        BrowserCollectionObserver>;
 

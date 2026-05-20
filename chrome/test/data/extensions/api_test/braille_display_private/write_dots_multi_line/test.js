@@ -3,21 +3,21 @@
 // found in the LICENSE file.
 
 // Test for brailleDisplayPrivate.writeDotsMultiLine.
-// browser_tests.exe --gtest_filter="BrailleDisplayPrivateApiTest.*"
+// browser_tests.exe --gtest_filter='BrailleDisplayPrivateApiTest.*'
 
-var pass = chrome.test.callbackPass;
+const pass = chrome.test.callbackPass;
 
 function createBuffer(size, element) {
-  var buf = new Uint8Array(size);
-  for (var i = 0; i < size; ++i) {
+  const buf = new Uint8Array(size);
+  for (let i = 0; i < size; ++i) {
     buf[i] = element;
   }
   return buf.buffer;
 }
 
 function waitForDisplay(callback) {
-  var callbackCompleted = chrome.test.callbackAdded();
-  var displayStateHandler = function(state) {
+  let callbackCompleted = chrome.test.callbackAdded();
+  const displayStateHandler = function(state) {
     if (!callbackCompleted) {
       return;
     }
@@ -38,7 +38,7 @@ function waitForDisplay(callback) {
     if (state.available) {
       displayStateHandler(state);
     } else {
-      console.log('Display not ready yet');
+      console.info('Display not ready yet');
     }
   }));
 }
@@ -66,5 +66,5 @@ chrome.test.runTests([
       chrome.brailleDisplayPrivate.writeDots(createBuffer(100, 3), 10, 2);
       chrome.brailleDisplayPrivate.getDisplayState(pass());
     }));
-  }
+  },
 ]);

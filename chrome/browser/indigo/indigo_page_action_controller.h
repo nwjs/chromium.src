@@ -16,6 +16,7 @@
 #include "components/optimization_guide/core/hints/optimization_guide_decision.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
+#include "ui/gfx/geometry/rect.h"
 
 namespace optimization_guide {
 class OptimizationGuideDecider;
@@ -33,6 +34,7 @@ class TabInterface;
 namespace indigo {
 
 class IndigoOnboardingDialog;
+struct OnboardingResult;
 class IndigoService;
 
 // Manages the Indigo page action and its various entry points, ensuring they
@@ -53,6 +55,9 @@ class IndigoPageActionController : public tabs::ContentsObservingTabFeature,
 
   void InvokeAction();
 
+  // Shows the toolbar at the specified rectangle in the web contents view.
+  void ShowToolbarInside(const gfx::Rect& rect);
+
   // content::WebContentsObserver:
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
@@ -68,7 +73,7 @@ class IndigoPageActionController : public tabs::ContentsObservingTabFeature,
   void UpdateEntryPointsState();
 
   // Called when the onboarding dialog is closed.
-  void OnOnboardingDialogClosed();
+  void OnOnboardingDialogClosed(const OnboardingResult& result);
 
   // Called when the profile state has changed in a way that might affect
   // whether this feature should be offered.

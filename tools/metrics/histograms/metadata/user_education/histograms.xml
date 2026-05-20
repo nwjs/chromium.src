@@ -115,8 +115,6 @@ chromium-metrics-reviews@google.com.
   <variant name="GenerativeThemes" summary="the module for Generative Themes"/>
   <variant name="GenerativeTheming"
       summary="the module for Generative Theming"/>
-  <variant name="GlicIntro" summary="the module for Glic Intro"/>
-  <variant name="GlicLearnMore" summary="the module for Glic Learn More"/>
   <variant name="GlitterAIFeaturesVideo"
       summary="the module for Glitter AI Features Video"/>
   <variant name="GlitterAIMode" summary="the module for Glitter AI Mode"/>
@@ -260,7 +258,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="UserEducation.DesktopToIOSPromo.{PromoType}.{BubbleType}.Action"
-    enum="DesktopToIOSPromoActionType" expires_after="2026-06-04">
+    enum="DesktopToIOSPromoActionType" expires_after="2026-10-23">
   <owner>hiramahmood@google.com</owner>
   <owner>bling-pandamonium@google.com</owner>
   <summary>
@@ -305,7 +303,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UserEducation.MessageNotShown.TimeInQueue" units="ms"
-    expires_after="2026-08-02">
+    expires_after="2026-10-04">
   <owner>dfried@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>
@@ -435,7 +433,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UserEducation.Session.ActivePeriodDuration.Min.Under24Hours"
-    units="minutes" expires_after="2026-07-26">
+    units="minutes" expires_after="2026-10-25">
   <owner>mickeyburks@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>

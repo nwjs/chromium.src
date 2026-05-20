@@ -4,17 +4,17 @@
 
 #include "third_party/blink/renderer/core/html/forms/html_submit_button_behavior.h"
 
-#include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
 #include "third_party/blink/renderer/core/html/forms/labels_node_list.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "ui/accessibility/ax_enums.mojom-blink.h"
 
 namespace blink {
 
-HTMLSubmitButtonBehavior* HTMLSubmitButtonBehavior::Create(
-    ExecutionContext* execution_context) {
+HTMLSubmitButtonBehavior* HTMLSubmitButtonBehavior::Create() {
   return MakeGarbageCollected<HTMLSubmitButtonBehavior>();
 }
 
@@ -22,40 +22,62 @@ HTMLSubmitButtonBehavior::HTMLSubmitButtonBehavior() = default;
 
 HTMLSubmitButtonBehavior::~HTMLSubmitButtonBehavior() = default;
 
-const AtomicString& HTMLSubmitButtonBehavior::DefaultAriaRole() const {
-  DEFINE_STATIC_LOCAL(const AtomicString, button_role, ("button"));
-  return button_role;
+ax::mojom::blink::Role HTMLSubmitButtonBehavior::DefaultAriaRole() const {
+  return ax::mojom::blink::Role::kButton;
 }
 
 const char* HTMLSubmitButtonBehavior::BehaviorName() const {
   return "HTMLSubmitButtonBehavior";
 }
 
-HTMLFormElement* HTMLSubmitButtonBehavior::form(
+bool HTMLSubmitButtonBehavior::HandleActivation(Event& event) {
+  if (IsEffectivelyDisabled()) {
+    return false;
+  }
+
+  ElementInternals* internals = GetElementInternals();
+  CHECK(internals);
+
+  HTMLFormElement* form = internals->Form();
+  if (!form) {
+    // If it is not associated with a form, it results in no submission.
+    return false;
+  }
+
+  form->PrepareForSubmission(&event, &internals->Target());
+  event.SetDefaultHandled();
+  return true;
+}
+
+bool HTMLSubmitButtonBehavior::IsEffectivelyDisabled() const {
+  ElementInternals* internals = GetElementInternals();
+  return disabled_ || (internals && internals->IsActuallyDisabled());
+}
+
+ElementInternals* HTMLSubmitButtonBehavior::GetInternalsOrThrow(
     ExceptionState& exception_state) const {
   ElementInternals* internals = GetElementInternals();
   if (!internals) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
         "The behavior is not attached to an element.");
-    return nullptr;
   }
+  return internals;
+}
+
+HTMLFormElement* HTMLSubmitButtonBehavior::form(
+    ExceptionState& exception_state) const {
+  ElementInternals* internals = GetInternalsOrThrow(exception_state);
   // Use ListedElement::Form() from the internals.
-  return internals->Form();
+  return internals ? internals->Form() : nullptr;
 }
 
 LabelsNodeList* HTMLSubmitButtonBehavior::labels(
     ExceptionState& exception_state) const {
-  ElementInternals* internals = GetElementInternals();
-  if (!internals) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidStateError,
-        "The behavior is not attached to an element.");
-    return nullptr;
-  }
+  ElementInternals* internals = GetInternalsOrThrow(exception_state);
   // Delegate to ElementInternals::labels() which handles form-associated
   // custom element labels.
-  return internals->labels(exception_state);
+  return internals ? internals->labels(exception_state) : nullptr;
 }
 
 void HTMLSubmitButtonBehavior::Trace(Visitor* visitor) const {

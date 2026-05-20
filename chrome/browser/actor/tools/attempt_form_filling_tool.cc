@@ -11,7 +11,6 @@
 #include "base/functional/callback.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
-#include "chrome/browser/actor/actor_switches.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/tools/attempt_form_filling_tool_metrics.h"
 #include "chrome/browser/actor/tools/attempt_form_filling_tool_request.h"
@@ -22,6 +21,8 @@
 #include "chrome/common/actor/actor_logging.h"
 #include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/actor_webui.mojom.h"
+#include "components/actor/core/actor_switches.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/optimization_guide/content/browser/page_content_proto_util.h"
@@ -192,7 +193,7 @@ tabs::TabHandle AttemptFormFillingTool::GetTargetTab() const {
 void AttemptFormFillingTool::UpdateTaskBeforeInvoke(
     ActorTask& task,
     ToolCallback callback) const {
-  task.AddTab(tab_handle_, std::move(callback));
+  task.AddTab(tab_handle_, /*stop_task_on_detach=*/true, std::move(callback));
 }
 
 void AttemptFormFillingTool::OnSuggestionsRetrieved(

@@ -35,6 +35,10 @@ export interface GlicBrowserProxy {
   getGlicSelectionShortcut(): Promise<string>;
   setGlicSelectionShortcut(shortcut: string): Promise<void>;
   getWebActuationToggleVisibility(): Promise<boolean>;
+  getWebActuationEnabled(): Promise<boolean>;
+  setWebActuationEnabled(enabled: boolean): void;
+  getExperimentalTriggeringEnabled(): Promise<boolean>;
+  setExperimentalTriggeringEnabled(enabled: boolean): void;
 }
 
 export class GlicBrowserProxyImpl implements GlicBrowserProxy {
@@ -85,6 +89,22 @@ export class GlicBrowserProxyImpl implements GlicBrowserProxy {
 
   getWebActuationToggleVisibility() {
     return sendWithPromise<boolean>('getWebActuationToggleVisibility');
+  }
+
+  getWebActuationEnabled() {
+    return sendWithPromise<boolean>('getWebActuationEnabled');
+  }
+
+  setWebActuationEnabled(enabled: boolean) {
+    chrome.send('setWebActuationEnabled', [enabled]);
+  }
+
+  getExperimentalTriggeringEnabled() {
+    return sendWithPromise<boolean>('getExperimentalTriggeringEnabled');
+  }
+
+  setExperimentalTriggeringEnabled(enabled: boolean) {
+    chrome.send('setExperimentalTriggeringEnabled', [enabled]);
   }
 
   static getInstance(): GlicBrowserProxy {

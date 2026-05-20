@@ -189,11 +189,9 @@ FormData CreateAutofillFormData(blink::WebLocalFrame* main_frame) {
 
   WebDocument document = main_frame->GetDocument();
   WebFormControlElement fname_element =
-      document.GetElementById(WebString::FromUTF8("fname"))
-          .To<WebFormControlElement>();
+      document.GetElementById(WebString("fname")).To<WebFormControlElement>();
   WebFormControlElement lname_element =
-      document.GetElementById(WebString::FromUTF8("lname"))
-          .To<WebFormControlElement>();
+      document.GetElementById(WebString("lname")).To<WebFormControlElement>();
 
   FormFieldData field_data;
   field_data.set_name(u"fname");
@@ -268,8 +266,7 @@ class FormAutocompleteTest : public ChromeRenderViewTest {
   void SimulateFillForm(const FormData& form_data) {
     WebDocument document = GetMainFrame()->GetDocument();
     WebFormControlElement fname_element =
-        document.GetElementById(WebString::FromUTF8("fname"))
-            .To<WebFormControlElement>();
+        document.GetElementById(WebString("fname")).To<WebFormControlElement>();
 
     ASSERT_TRUE(fname_element);
     // This call is necessary to setup the autofill agent appropriate for the
@@ -475,7 +472,7 @@ TEST_F(FormAutocompleteTest, AcceptDataListSuggestion) {
   };
 
   for (const auto& c : cases) {
-    WebElement element = document.GetElementById(WebString::FromUTF8(c.id));
+    WebElement element = document.GetElementById(WebString::FromUtf8(c.id));
     ASSERT_TRUE(element);
     WebInputElement input_element = element.To<WebInputElement>();
     SimulateElementClick(input_element);
@@ -869,7 +866,7 @@ TEST_P(FormAutocompleteSubmissionTest, AutoCompleteOffInputSubmit) {
 
 // Tests that submitting a form that has been dynamically set as autocomplete
 // off generates WillSubmitForm and FormSubmitted messages.
-// Note: We previously did the opposite, for bug http://crbug.com/36520
+// Note: We previously did the opposite, for bug http://crbug.com/40361743
 TEST_P(FormAutocompleteSubmissionTest, DynamicAutoCompleteOffFormSubmit) {
   LoadHTML(
       "<html><form id='myForm' action='about:blank'>"

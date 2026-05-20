@@ -129,9 +129,17 @@ void MojoDemuxerStreamAdapter::OnBufferRead(
   if (!buffer) {
     DVLOG(1) << __func__ << ": null buffer";
     buffer_queue_.clear();
-    std::move(read_cb_).Run(kAborted, {});
+    std::move(read_cb_).Run(kError, {});
     return;
   }
+
+  if (!DecoderBuffer::DoSubsamplesMatch(*buffer)) {
+    DVLOG(1) << __func__ << ": Subsamples do not match buffer size";
+    buffer_queue_.clear();
+    std::move(read_cb_).Run(kError, {});
+    return;
+  }
+
   buffer_queue_.push_back(buffer);
 
   if (buffer_queue_.size() < actual_read_count_) {
@@ -167,19 +175,19 @@ void MojoDemuxerStreamAdapter::UpdateConfig(
       DCHECK(audio_config && !video_config);
       old_decoder_config_str = audio_config_.AsHumanReadableString();
       audio_config_ = audio_config.value();
-      TRACE_EVENT_INSTANT2(
-          "media", "MojoDemuxerStreamAdapter.UpdateConfig.Audio",
-          TRACE_EVENT_SCOPE_THREAD, "CurrentConfig", old_decoder_config_str,
-          "NewConfig", audio_config_.AsHumanReadableString());
+      TRACE_EVENT_INSTANT("media",
+                          "MojoDemuxerStreamAdapter.UpdateConfig.Audio",
+                          "CurrentConfig", old_decoder_config_str, "NewConfig",
+                          audio_config_.AsHumanReadableString());
       break;
     case VIDEO:
       DCHECK(video_config && !audio_config);
       old_decoder_config_str = video_config_.AsHumanReadableString();
       video_config_ = video_config.value();
-      TRACE_EVENT_INSTANT2(
-          "media", "MojoDemuxerStreamAdapter.UpdateConfig.Video",
-          TRACE_EVENT_SCOPE_THREAD, "CurrentConfig", old_decoder_config_str,
-          "NewConfig", video_config_.AsHumanReadableString());
+      TRACE_EVENT_INSTANT("media",
+                          "MojoDemuxerStreamAdapter.UpdateConfig.Video",
+                          "CurrentConfig", old_decoder_config_str, "NewConfig",
+                          video_config_.AsHumanReadableString());
       break;
     default:
       NOTREACHED();

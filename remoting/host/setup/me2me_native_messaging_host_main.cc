@@ -43,6 +43,8 @@
 
 #if BUILDFLAG(IS_LINUX)
 #include "remoting/base/crash/crash_reporting_crashpad.h"
+#include "remoting/base/file_path_util_linux.h"
+#include "remoting/host/pairing_registry_delegate_linux.h"
 #endif  // BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_WIN)
@@ -155,14 +157,9 @@ int Me2MeNativeMessagingHostMain(int argc, char** argv) {
 
   base::File read_file;
   base::File write_file;
-  bool needs_elevation = false;
 
 #if BUILDFLAG(IS_WIN)
-  needs_elevation = !base::IsCurrentProcessElevated();
-
   if (command_line->HasSwitch(kElevateSwitchName)) {
-    DCHECK(!needs_elevation);
-
     // The "elevate" switch is always accompanied by the "input" and "output"
     // switches whose values name named pipes that should be used in place of
     // stdin and stdout.
@@ -239,8 +236,9 @@ int Me2MeNativeMessagingHostMain(int argc, char** argv) {
   }
 
   base::win::RegKey unprivileged;
-  result = unprivileged.Open(root.Handle(), kPairingRegistryClientsKeyName,
-                             needs_elevation ? KEY_READ : KEY_READ | KEY_WRITE);
+  result = unprivileged.Open(
+      root.Handle(), kPairingRegistryClientsKeyName,
+      daemon_controller->is_privileged() ? KEY_READ | KEY_WRITE : KEY_READ);
   if (result != ERROR_SUCCESS) {
     SetLastError(result);
     PLOG(ERROR) << "Failed to open HKLM\\" << kPairingRegistryKeyName << "\\"
@@ -250,7 +248,7 @@ int Me2MeNativeMessagingHostMain(int argc, char** argv) {
 
   // Only try to open the privileged key if the current process is elevated.
   base::win::RegKey privileged;
-  if (!needs_elevation) {
+  if (daemon_controller->is_privileged()) {
     result = privileged.Open(root.Handle(), kPairingRegistrySecretsKeyName,
                              KEY_READ | KEY_WRITE);
     if (result != ERROR_SUCCESS) {
@@ -270,9 +268,20 @@ int Me2MeNativeMessagingHostMain(int argc, char** argv) {
 
   pairing_registry =
       new PairingRegistry(io_thread.task_runner(), std::move(delegate));
-#else   // BUILDFLAG(IS_WIN)
+#elif BUILDFLAG(IS_LINUX)
+  if (daemon_controller->is_multi_process()) {
+    pairing_registry = base::MakeRefCounted<PairingRegistry>(
+        io_thread.task_runner(),
+        std::make_unique<PairingRegistryDelegateLinux>(
+            GetMultiProcessHostGlobalConfigDir().Append(
+                PairingRegistryDelegateLinux::kRegistryDirectory),
+            /*use_unprivileged_file=*/true));
+  } else {
+    pairing_registry = CreatePairingRegistry(io_thread.task_runner());
+  }
+#else  // !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_LINUX)
   pairing_registry = CreatePairingRegistry(io_thread.task_runner());
-#endif  // !BUILDFLAG(IS_WIN)
+#endif
 
   std::unique_ptr<NativeMessagingPipe> native_messaging_pipe(
       new NativeMessagingPipe());
@@ -292,8 +301,7 @@ int Me2MeNativeMessagingHostMain(int argc, char** argv) {
 
   // Create the native messaging host.
   std::unique_ptr<extensions::NativeMessageHost> host(
-      new Me2MeNativeMessagingHost(needs_elevation,
-                                   static_cast<intptr_t>(native_view_handle),
+      new Me2MeNativeMessagingHost(static_cast<intptr_t>(native_view_handle),
                                    std::move(context), daemon_controller,
                                    pairing_registry, std::move(oauth_client)));
 

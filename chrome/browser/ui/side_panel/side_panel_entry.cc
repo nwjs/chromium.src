@@ -20,7 +20,7 @@ SidePanelEntry::SidePanelEntry(
     base::RepeatingCallback<std::unique_ptr<ui::MenuModel>()>
         more_info_callback,
     base::RepeatingCallback<int()> default_content_width_callback)
-    : type_(PanelType::kContent),
+    : type_(SidePanelType::kContent),
       key_(key),
       create_content_callback_(std::move(create_content_callback)),
       open_in_new_tab_url_callback_(std::move(open_in_new_tab_url_callback)),
@@ -30,7 +30,7 @@ SidePanelEntry::SidePanelEntry(
 }
 
 SidePanelEntry::SidePanelEntry(
-    PanelType type,
+    SidePanelType type,
     Key key,
     CreateContentCallback create_content_callback,
     base::RepeatingCallback<int()> default_content_width_callback)
@@ -47,7 +47,7 @@ SidePanelEntry::SidePanelEntry(
     Key key,
     CreateContentCallback create_content_callback,
     base::RepeatingCallback<int()> default_content_width_callback)
-    : SidePanelEntry(PanelType::kContent,
+    : SidePanelEntry(SidePanelType::kContent,
                      key,
                      std::move(create_content_callback),
                      default_content_width_callback) {}
@@ -68,16 +68,12 @@ void SidePanelEntry::CacheView(SidePanelNativeView view) {
 }
 
 void SidePanelEntry::ClearCachedView() {
-#if !BUILDFLAG(IS_ANDROID)
-  content_view_.reset(nullptr);
-#else
-  content_view_->Reset();
-#endif
+  content_view_.reset();
 }
 
 void SidePanelEntry::OnEntryShown() {
   entry_shown_timestamp_ = base::TimeTicks::Now();
-  SidePanelMetrics::RecordEntryShownMetrics(type(), key_.id(),
+  SidePanelMetrics::RecordEntryShownMetrics(key_.id(),
                                             entry_show_triggered_timestamp_);
   // After the initial load time is recorded, we need to reset the triggered
   // timestamp so we don't keep recording this entry after its selected from the
@@ -95,8 +91,7 @@ void SidePanelEntry::OnEntryHideCancelled() {
 }
 
 void SidePanelEntry::OnEntryHidden() {
-  SidePanelMetrics::RecordEntryHiddenMetrics(type(), key_.id(),
-                                             entry_shown_timestamp_);
+  SidePanelMetrics::RecordEntryHiddenMetrics(key_.id(), entry_shown_timestamp_);
   observers_.Notify(&SidePanelEntryObserver::OnEntryHidden, this);
 }
 

@@ -8,8 +8,9 @@ function test(subresourceUrl) {
   }
 
   return fetch(subresourceUrl)
-    .then(() => self.location.href,
-          () => 'Error: failed to fetch ' + subresourceUrl);
+      .then(
+          () => self.location.href,
+          () => `Error: failed to fetch ${subresourceUrl}`);
 }
 
 if ('DedicatedWorkerGlobalScope' in self &&

@@ -30,8 +30,10 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/webui_browser/webui_browser.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
 #include "chrome/browser/web_applications/web_app.h"
@@ -68,6 +70,9 @@
 #include "chromeos/constants/chromeos_features.h"
 #endif
 
+static_assert(!BUILDFLAG(IS_ANDROID),
+              "This file should not be included in Android build");
+
 using content::DevToolsAgentHost;
 
 const char ChromeDevToolsManagerDelegate::kTypeApp[] = "app";
@@ -77,12 +82,14 @@ const char ChromeDevToolsManagerDelegate::kTypePage[] = "page";
 
 namespace {
 
+// LINT.IfChange(DevToolsRemoteDebuggingConnectionPermission)
 // This enum is used for UMA histograms and should not be renumbered.
 enum class DevToolsRemoteDebuggingConnectionPermission {
   kAllowed = 0,
   kDenied = 1,
   kMaxValue = kDenied,
 };
+// LINT.ThenChange(//tools/metrics/histograms/metadata/dev/enums.xml:DevToolsRemoteDebuggingConnectionPermission)
 
 std::optional<std::string> GetIsolatedWebAppNameAndVersion(
     content::WebContents* web_contents) {
@@ -181,7 +188,7 @@ ChromeDevToolsManagerDelegate::ChromeDevToolsManagerDelegate() {
   // Only create and hold keep alive for automation test for non ChromeOS.
   // ChromeOS automation test (aka tast) manages chrome instance via session
   // manager daemon. The extra keep alive is not needed and makes ChromeOS
-  // not able to shutdown chrome properly. See https://crbug.com/1174627.
+  // not able to shutdown chrome properly. See https://crbug.com/40167603.
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if ((command_line->HasSwitch(switches::kNoStartupWindow) ||
        command_line->HasSwitch(switches::kHeadless)) &&
@@ -358,6 +365,18 @@ bool ChromeDevToolsManagerDelegate::AllowInspectingRenderFrameHost(
                              content::WebContents::FromRenderFrameHost(rfh));
 }
 
+bool ChromeDevToolsManagerDelegate::AllowInspectingTarget(
+    content::DevToolsAgentHost* agent_host) {
+  // For Android, we have the same implementation
+  // in DevToolsManagerDelegateAndroid.
+  Profile* profile =
+      Profile::FromBrowserContext(agent_host->GetBrowserContext());
+  if (!profile) {
+    return true;
+  }
+  return IsInspectionAllowed(profile, agent_host);
+}
+
 void ChromeDevToolsManagerDelegate::ClientAttached(
     content::DevToolsAgentHostClientChannel* channel) {
   DCHECK(sessions_.find(channel) == sessions_.end());
@@ -471,8 +490,11 @@ void ChromeDevToolsManagerDelegate::AcceptDebugging(AcceptCallback callback) {
         std::move(inner_callback).Run(result);
       },
       std::move(callback));
-  DevToolsConnectionDialog::Show(chrome::FindLastActive(),
-                                 std::move(wrapped_callback));
+  BrowserWindowInterface* last_active =
+      GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
+  DevToolsConnectionDialog::Show(
+      last_active ? last_active->GetBrowserForMigrationOnly() : nullptr,
+      std::move(wrapped_callback));
 }
 
 void ChromeDevToolsManagerDelegate::SetActiveWebSocketConnections(
@@ -484,8 +506,10 @@ void ChromeDevToolsManagerDelegate::SetActiveWebSocketConnections(
     infobar_ = nullptr;
     infobar->Close();
   } else if (count > 0 && !infobar_) {
+    BrowserWindowInterface* active =
+        GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
     auto delegate = std::make_unique<DevToolsRemoteServerInfobarDelegate>(
-        chrome::FindLastActive());
+        active ? active->GetBrowserForMigrationOnly() : nullptr);
     delegate->AddObserver(this);
     infobar_ = GlobalConfirmInfoBar::Show(std::move(delegate));
   }

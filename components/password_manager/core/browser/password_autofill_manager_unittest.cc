@@ -146,7 +146,7 @@ const Suggestion::Text kSeparatorEntry(u"", Suggestion::Text::IsPrimary(false));
 constexpr autofill::FieldRendererId kElementId;
 
 const autofill::TriggeringField kTriggeringField(
-    kElementId,
+    {.frame_token = autofill::LocalFrameToken(), .renderer_id = kElementId},
     kDefaultTriggerSource,
     base::i18n::RIGHT_TO_LEFT,
     std::u16string(),
@@ -2332,6 +2332,25 @@ TEST_F(PasswordAutofillManagerTest,
 
   EXPECT_EQ(client.GetUndoPasswordChangeController()->GetState(test_username_),
             PasswordRecoveryState::kRegularFlow);
+}
+
+TEST_F(
+    PasswordAutofillManagerTest,
+    PasswordRecoveryFlow_AuthBeforeFillingEnabled_NoPreviewBackupSuggestion) {
+  TestPasswordManagerClient client;
+  ON_CALL(*client.GetPasswordFeatureManager(),
+          IsBiometricAuthenticationBeforeFillingEnabled)
+      .WillByDefault(Return(true));
+
+  InitializePasswordAutofillManager(&client, nullptr);
+  const Suggestion::PasswordSuggestionDetails payload(
+      test_username_, test_password_, backup_password_);
+  const Suggestion suggestion = autofill::test::CreateAutofillSuggestion(
+      autofill::SuggestionType::kBackupPasswordEntry, test_username_, payload);
+
+  EXPECT_CALL(*client.mock_driver(), PreviewSuggestion).Times(0);
+  password_autofill_manager_->DidSelectSuggestion(suggestion);
+  testing::Mock::VerifyAndClearExpectations(client.mock_driver());
 }
 
 TEST_F(PasswordAutofillManagerTest,

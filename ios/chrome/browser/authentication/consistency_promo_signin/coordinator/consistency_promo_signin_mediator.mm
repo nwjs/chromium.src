@@ -12,6 +12,7 @@
 #import "base/task/single_thread_task_runner.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/core/browser/account_reconcilor.h"
+#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/base/signin_switches.h"
 #import "components/signin/public/browser/web_signin_tracker.h"
@@ -244,16 +245,29 @@ constexpr base::TimeDelta kSigninTimeout = base::Seconds(10);
     return;
   }
   _authenticationFlow = nil;
-  if (cancelationReason != signin_ui::CancelationReason::kNotCanceled) {
-    RecordConsistencyPromoUserAction(
-        signin_metrics::AccountConsistencyPromoAction::
-            IOS_AUTH_FLOW_CANCELLED_OR_FAILED,
-        _accessPoint);
-
-    // The error handling and sign-out should be already done in the
-    // authentication flow.
-    [self.delegate consistencyPromoSigninMediatorSignInCancelled:self];
-    return;
+  switch (cancelationReason) {
+    case signin_ui::CancelationReason::kNotCanceled:
+      break;
+    case signin_ui::CancelationReason::kAgeMismatchCanceledStaySignedOut:
+      RecordConsistencyPromoUserAction(
+          signin_metrics::AccountConsistencyPromoAction::
+              IOS_AUTH_FLOW_CANCELLED_OR_FAILED,
+          _accessPoint);
+      [self.delegate consistencyPromoSigninMediatorSignInCancelled:self];
+      // User wants to skip signin from the Age Mismatch prompt. Dismiss the
+      // consistency promo.
+      [self.delegate
+          consistencyPromoSigninMediatorDidCancelToStaySignedOut:self];
+      return;
+    case signin_ui::CancelationReason::kUserCanceled:
+    case signin_ui::CancelationReason::kFailed:
+    case signin_ui::CancelationReason::kAgeMismatchCanceled:
+      RecordConsistencyPromoUserAction(
+          signin_metrics::AccountConsistencyPromoAction::
+              IOS_AUTH_FLOW_CANCELLED_OR_FAILED,
+          _accessPoint);
+      [self.delegate consistencyPromoSigninMediatorSignInCancelled:self];
+      return;
   }
   if (_accessPoint != signin_metrics::AccessPoint::kWebSignin) {
     [self.delegate consistencyPromoSigninMediatorSignInDone:self

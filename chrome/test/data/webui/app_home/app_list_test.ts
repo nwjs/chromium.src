@@ -747,7 +747,7 @@ suite('AppListTest', () => {
   });
 
   test('context menu not closed on checkbox click', async () => {
-    // Test for crbug.com/1435592: Clicking the checkbox options on
+    // Test for crbug.com/40265204: Clicking the checkbox options on
     // the context menu does not close it.
     const appItem = appListElement.shadowRoot.querySelector('app-item');
     assertTrue(!!appItem);
@@ -811,6 +811,6 @@ suite('AppListTest', () => {
     const openInWindow =
         contextMenu.querySelector<CrCheckboxElement>('#openInWindow');
     assertTrue(!!openInWindow);
-    assertEquals(openInWindow.hidden, true);
+    assertTrue(openInWindow.hidden);
   });
 });

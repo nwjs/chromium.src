@@ -15,13 +15,13 @@ import org.junit.runner.RunWith;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.autofill.AutofillTestHelper;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.payments.PaymentRequestTestRule.AppPresence;
 import org.chromium.chrome.browser.payments.PaymentRequestTestRule.FactorySpeed;
 import org.chromium.chrome.browser.payments.ui.PaymentRequestSection;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.components.autofill.AutofillProfile;
 
 import java.util.concurrent.TimeoutException;
@@ -218,11 +218,7 @@ public class PaymentRequestDynamicShippingSingleAddressTest {
                 new String[] {"User closed the Payment Request UI."});
     }
 
-    /**
-     * Add a valid address and complete the
-     * transaction. @MediumTest @Restriction(RESTRICTION_TYPE_NON_LOW_END_DEVICE) //
-     * crbug.com/626289
-     */
+    /** Add a valid address and complete the transaction. */
     @Test
     @MediumTest
     @Feature({"Payments"})

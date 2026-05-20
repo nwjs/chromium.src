@@ -19,7 +19,7 @@
 #include "chrome/common/buildflags.h"
 #include "components/performance_manager/public/freezing/freezing.h"
 #include "components/tabs/public/tab_interface.h"
-#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
+#include "third_party/skia/include/core/SkScalar.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/gfx/canvas.h"
 #include "ui/views/context_menu_controller.h"
@@ -80,8 +80,8 @@ class VerticalTabView : public views::View,
   // HoverCardAnchorTarget:
   bool NeedsToShowThumbnail() const override;
   bool IsValidHoverCardTarget() const override;
+  views::BubbleAnchor GetAnchor() override;
   views::BubbleBorder::Arrow GetAnchorPosition() const override;
-  const views::View* GetAnchorView() const override;
 
  private:
   // views::View
@@ -102,17 +102,17 @@ class VerticalTabView : public views::View,
   void OnBlur() override;
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   void OnThemeChanged() override;
+  void UpdateParentLayer() override;
 
   // Tab Painting Helpers
-  void PaintTabBackgroundWithImages(
-      gfx::Canvas* canvas,
-      std::optional<int> active_tab_fill_id,
-      std::optional<int> inactive_tab_fill_id) const;
+  void PaintTabBackgroundWithImages(gfx::Canvas* canvas,
+                                    std::optional<int> active_tab_fill_id,
+                                    std::optional<int> inactive_tab_fill_id);
   float GetCurrentActiveOpacity() const;
   void PaintTabBackgroundFill(gfx::Canvas* canvas,
                               TabStyle::TabSelectionState selection_state,
                               bool hovered,
-                              std::optional<int> fill_id) const;
+                              std::optional<int> fill_id);
   bool ShouldPaintTabBackgroundColor(
       TabStyle::TabSelectionState selection_state,
       bool has_custom_background,
@@ -193,6 +193,11 @@ class VerticalTabView : public views::View,
   bool IsInExpandOnHover(int width) const;
 
   const tabs::TabInterface* GetTabInterface() const;
+
+  SkScalar GetCornerRadius() const;
+
+  // Applies rounded corners to the view's layer.
+  void UpdateLayerRoundedCorners();
 
   raw_ptr<TabCollectionNode> collection_node_ = nullptr;
 

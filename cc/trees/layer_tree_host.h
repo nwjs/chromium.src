@@ -52,7 +52,7 @@
 #include "cc/trees/commit_state.h"
 #include "cc/trees/compositor_mode.h"
 #include "cc/trees/layer_tree_frame_sink.h"
-#include "cc/trees/layer_tree_host_client.h"
+#include "cc/trees/layer_tree_host_delegate.h"
 #include "cc/trees/layer_tree_settings.h"
 #include "cc/trees/mutator_host.h"
 #include "cc/trees/paint_holding_reason.h"
@@ -75,6 +75,7 @@ class ViewTransitionRequest;
 class HeadsUpDisplayLayer;
 class PropertyTreeDelegate;
 class LayerTreeHostImpl;
+class ClientLayerTreeHostImpl;
 class LayerTreeHostImplClient;
 class LayerTreeHostSingleThreadClient;
 class LayerTreeMutator;
@@ -110,8 +111,13 @@ class CC_EXPORT ScopedPauseRendering {
   explicit ScopedPauseRendering(LayerTreeHost* host);
   ~ScopedPauseRendering();
 
+  void SetDelayUntilVisibilityChange() {
+    delay_until_visibility_change_ = true;
+  }
+
  private:
   base::WeakPtr<LayerTreeHost> host_;
+  bool delay_until_visibility_change_ = false;
 };
 
 class CC_EXPORT ScopedRequestHighFramerate {
@@ -146,7 +152,7 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
     InitParams(InitParams&&);
     InitParams& operator=(InitParams&&);
 
-    raw_ptr<LayerTreeHostClient> client = nullptr;
+    raw_ptr<LayerTreeHostDelegate> client = nullptr;
     raw_ptr<LayerTreeHostSchedulingClient> scheduling_client = nullptr;
     raw_ptr<TaskGraphRunner> task_graph_runner = nullptr;
     raw_ptr<const LayerTreeSettings> settings = nullptr;
@@ -282,7 +288,7 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   bool ShouldWarmUp() const;
 
   // Called in response to a LayerTreeFrameSink request made to the client
-  // using LayerTreeHostClient::RequestNewLayerTreeFrameSink. The client will
+  // using LayerTreeHostDelegate::RequestNewLayerTreeFrameSink. The client will
   // be informed of the LayerTreeFrameSink initialization status using
   // DidInitializeLayerTreeFrameSink or DidFailToInitializeLayerTreeFrameSink.
   // The request is completed when the host successfully initializes an
@@ -803,7 +809,7 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   void RequestNewLayerTreeFrameSink();
   void DidInitializeLayerTreeFrameSink();
   void DidFailToInitializeLayerTreeFrameSink();
-  std::unique_ptr<LayerTreeHostImpl> CreateLayerTreeHostImpl(
+  std::unique_ptr<ClientLayerTreeHostImpl> CreateLayerTreeHostImpl(
       LayerTreeHostImplClient* client);
   void DidLoseLayerTreeFrameSink();
   void DidCommitAndDrawFrame(int source_frame_number) {
@@ -836,7 +842,7 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
       const uint32_t sequence_id,
       const viz::ViewTransitionElementResourceRects& rects);
 
-  LayerTreeHostClient* client() {
+  LayerTreeHostDelegate* client() {
     DCHECK(IsMainThread());
     return client_;
   }
@@ -1033,7 +1039,8 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // free of slow-paths before toggling the flag.
   enum { kNumFramesToConsiderBeforeRemovingSlowPathFlag = 60 };
 
-  virtual std::unique_ptr<LayerTreeHostImpl> CreateLayerTreeHostImplInternal(
+  virtual std::unique_ptr<ClientLayerTreeHostImpl>
+  CreateLayerTreeHostImplInternal(
       LayerTreeHostImplClient* client,
       MutatorHost* mutator_host,
       const LayerTreeSettings& settings,
@@ -1071,7 +1078,7 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
 
   std::unique_ptr<UIResourceManager> ui_resource_manager_;
 
-  raw_ptr<LayerTreeHostClient> client_;
+  raw_ptr<LayerTreeHostDelegate> client_;
   raw_ptr<LayerTreeHostSchedulingClient> scheduling_client_;
   std::unique_ptr<Proxy> proxy_;
   std::unique_ptr<TaskRunnerProvider> task_runner_provider_;

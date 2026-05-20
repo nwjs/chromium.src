@@ -5,6 +5,8 @@
 package org.chromium.ui.listmenu;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +18,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -49,6 +52,7 @@ public class ListMenuItemViewBinderUnitTest {
     @Mock private ImageView mEndIcon;
     @Mock private ImageView mSubmenuArrow;
     @Mock private TextView mSubtitleView;
+    @Mock private LayoutParams mLayoutParams;
 
     private Context mContext;
 
@@ -62,6 +66,7 @@ public class ListMenuItemViewBinderUnitTest {
         when(mListItemView.findViewById(R.id.submenu_arrow)).thenReturn(mSubmenuArrow);
         when(mListItemView.findViewById(R.id.menu_item_end_icon)).thenReturn(mEndIcon);
         when(mListItemView.findViewById(R.id.menu_item_subtitle)).thenReturn(mSubtitleView);
+        when(mStartIcon.getLayoutParams()).thenReturn(mLayoutParams);
 
         // Required for ListMenuUtils.applyTintToAllIcons recursion to find icons.
         // Hierarchy from list_menu_item.xml:
@@ -208,7 +213,7 @@ public class ListMenuItemViewBinderUnitTest {
                 propertyModel, mListItemView, ListMenuItemProperties.START_ICON_ID);
         verify(mStartIcon).setImageDrawable(any(Drawable.class));
         verify(mStartIcon).setVisibility(View.VISIBLE);
-        verify(mEndIcon).setVisibility(View.GONE);
+        verify(mEndIcon, never()).setVisibility(anyInt());
     }
 
     @Test
@@ -222,7 +227,7 @@ public class ListMenuItemViewBinderUnitTest {
                 propertyModel, mListItemView, ListMenuItemProperties.END_ICON_ID);
         verify(mEndIcon).setImageDrawable(any(Drawable.class));
         verify(mEndIcon).setVisibility(View.VISIBLE);
-        verify(mStartIcon).setVisibility(View.GONE);
+        verify(mStartIcon, never()).setVisibility(anyInt());
     }
 
     @Test
@@ -249,5 +254,47 @@ public class ListMenuItemViewBinderUnitTest {
         verify(mStartIcon).setImageTintList(null);
         verify(mEndIcon).setImageTintList(null);
         verify(mSubmenuArrow).setImageTintList(null);
+    }
+
+    @Test
+    @SmallTest
+    public void testStartIconWidth() {
+        int width = 12;
+        PropertyModel propertyModel =
+                new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
+                        .with(ListMenuItemProperties.START_ICON_WIDTH, width)
+                        .build();
+
+        ListMenuItemViewBinder.binder(
+                propertyModel, mListItemView, ListMenuItemProperties.START_ICON_WIDTH);
+
+        verify(mStartIcon).getLayoutParams();
+        verify(mStartIcon).setLayoutParams(mLayoutParams);
+        assert (mLayoutParams.width == width);
+    }
+
+    @Test
+    @SmallTest
+    public void testBothIcons() {
+        PropertyModel propertyModel =
+                new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
+                        .with(ListMenuItemProperties.START_ICON_ID, R.drawable.ic_delete_fill_24dp)
+                        .with(ListMenuItemProperties.END_ICON_ID, R.drawable.ic_delete_fill_24dp)
+                        .build();
+
+        // Bind START_ICON_ID. It should show start icon and NOT hide end icon.
+        ListMenuItemViewBinder.binder(
+                propertyModel, mListItemView, ListMenuItemProperties.START_ICON_ID);
+        verify(mStartIcon).setImageDrawable(any(Drawable.class));
+        verify(mStartIcon).setVisibility(View.VISIBLE);
+        verify(mEndIcon, never()).setVisibility(anyInt());
+
+        // Bind END_ICON_ID. It should show end icon and NOT hide start icon.
+        ListMenuItemViewBinder.binder(
+                propertyModel, mListItemView, ListMenuItemProperties.END_ICON_ID);
+        verify(mEndIcon).setImageDrawable(any(Drawable.class));
+        verify(mEndIcon).setVisibility(View.VISIBLE);
+        // Verify start icon wasn't touched again (total count remains 1).
+        verify(mStartIcon).setVisibility(anyInt());
     }
 }

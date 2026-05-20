@@ -21,7 +21,6 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.view.LayoutInflater;
-import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.FrameLayout;
 
@@ -42,10 +41,10 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.Feature;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupFaviconCluster.ClusterData;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupRowView.TabGroupRowViewTitleData;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupTimeAgo.TimestampEvent;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -73,7 +72,7 @@ public class TabGroupRowViewRenderTest {
     public ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
                     .setBugComponent(Component.UI_BROWSER_MOBILE_TAB_GROUPS)
-                    .setRevision(4)
+                    .setRevision(5)
                     .build();
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -105,9 +104,8 @@ public class TabGroupRowViewRenderTest {
         doAnswer(
                         (Answer<Void>)
                                 invocation -> {
-                                    GURL url = (GURL) invocation.getArguments()[0];
-                                    Callback<Drawable> callback =
-                                            (Callback<Drawable>) invocation.getArguments()[1];
+                                    GURL url = invocation.getArgument(0);
+                                    Callback<Drawable> callback = invocation.getArgument(1);
                                     callback.onResult(new ColorDrawable(urlToColor.get(url)));
                                     return null;
                                 })
@@ -119,7 +117,7 @@ public class TabGroupRowViewRenderTest {
         mTabGroupRowView = inflateAndAttach(mActivity, R.layout.tab_group_row);
     }
 
-    private <T extends View> T inflateAndAttach(Context context, @LayoutRes int layoutRes) {
+    private TabGroupRowView inflateAndAttach(Context context, @LayoutRes int layoutRes) {
         FrameLayout contentView = new FrameLayout(mActivity);
         contentView.setLayoutParams(
                 new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
@@ -128,7 +126,7 @@ public class TabGroupRowViewRenderTest {
         LayoutInflater inflater = LayoutInflater.from(context);
         inflater.inflate(layoutRes, contentView);
         assertThat(contentView.getChildCount()).isEqualTo(1);
-        return (T) contentView.getChildAt(0);
+        return (TabGroupRowView) contentView.getChildAt(0);
     }
 
     private ClusterData makeCornerData(GURL... urls) {

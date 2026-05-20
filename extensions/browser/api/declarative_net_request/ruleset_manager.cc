@@ -30,6 +30,7 @@
 #include "extensions/browser/api/web_request/web_request_permissions.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_util.h"
+#include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/install_prefs_helper.h"
 #include "extensions/common/api/declarative_net_request.h"
 #include "extensions/common/constants.h"
@@ -45,6 +46,11 @@ using PageAccess = PermissionsData::PageAccess;
 
 constexpr char kAllowWebViewDeclarativeNetRequest[] =
     "allow-webview-declarative-net-request";
+
+bool IsRedirectToFileUrl(const std::optional<RequestAction>& action) {
+  return action && action->IsRedirectOrUpgrade() && action->redirect_url &&
+         action->redirect_url->SchemeIsFile();
+}
 
 void NotifyRequestWithheld(const ExtensionId& extension_id,
                            const WebRequestInfo& request) {
@@ -65,6 +71,21 @@ class ScopedEvaluateRequestTimer {
 
  private:
   base::ElapsedTimer timer_;
+};
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class RedirectActionType {
+  // DNR redirects that are not for the main frame.
+  kNonMainFrameRedirects = 0,
+  // DNR redirects that are for the main frame and are for the default search
+  // engine page.
+  kMainFrameDSERedirects = 1,
+  // DNR redirects that are for the main frame and are not for the default
+  // search engine page.
+  kOtherMainFrameRedirects = 2,
+  // The maximum value of the RedirectActionType enum.
+  kMaxValue = kOtherMainFrameRedirects,
 };
 
 }  // namespace
@@ -309,8 +330,9 @@ RulesetManager::ExtensionRulesetData::ExtensionRulesetData(
 RulesetManager::ExtensionRulesetData::~ExtensionRulesetData() = default;
 RulesetManager::ExtensionRulesetData::ExtensionRulesetData(
     ExtensionRulesetData&& other) = default;
-RulesetManager::ExtensionRulesetData& RulesetManager::ExtensionRulesetData::
-operator=(ExtensionRulesetData&& other) = default;
+RulesetManager::ExtensionRulesetData&
+RulesetManager::ExtensionRulesetData::operator=(ExtensionRulesetData&& other) =
+    default;
 
 bool RulesetManager::ExtensionRulesetData::operator<(
     const ExtensionRulesetData& other) const {
@@ -361,6 +383,15 @@ std::optional<RequestAction> RulesetManager::GetAction(
 
     CompositeMatcher::ActionInfo action_info =
         ruleset->matcher->GetAction(params, stage, ruleset_and_access.second);
+
+    // Extensions may not redirect to a file:// URL without explicit local file
+    // access. Drop the action if it does not have file access. Like matched
+    // redirect rules that do not have host access to the request's URL, It will
+    // still mask lower priority rules from the same ruleset.
+    if (IsRedirectToFileUrl(action_info.action) &&
+        !util::AllowFileAccess(ruleset->extension_id, browser_context_)) {
+      action_info.action.reset();
+    }
 
     DCHECK(!(action_info.action && action_info.notify_request_withheld));
     if (action_info.notify_request_withheld) {
@@ -482,6 +513,28 @@ std::vector<RequestAction> RulesetManager::EvaluateRequestInternal(
 
   if (action) {
     bool is_request_modifying_action = !action->IsAllowOrAllowAllRequests();
+
+    if (action->type == RequestAction::Type::REDIRECT) {
+      if (request.web_request_type != WebRequestResourceType::MAIN_FRAME) {
+        base::UmaHistogramEnumeration(
+            "Extensions.DeclarativeNetRequest.RedirectAction",
+            RedirectActionType::kNonMainFrameRedirects);
+      } else {
+        bool is_dse_redirect =
+            ExtensionsBrowserClient::Get()->IsDefaultSearchEngineRedirect(
+                browser_context_, request.url, action->redirect_url.value());
+        if (is_dse_redirect) {
+          base::UmaHistogramEnumeration(
+              "Extensions.DeclarativeNetRequest.RedirectAction",
+              RedirectActionType::kMainFrameDSERedirects);
+        } else {
+          base::UmaHistogramEnumeration(
+              "Extensions.DeclarativeNetRequest.RedirectAction",
+              RedirectActionType::kOtherMainFrameRedirects);
+        }
+      }
+    }
+
     actions.push_back(std::move(*action));
 
     // If the request is blocked/redirected, no further modifications can
@@ -496,8 +549,8 @@ std::vector<RequestAction> RulesetManager::EvaluateRequestInternal(
   std::vector<RequestAction> modify_headers_actions =
       GetModifyHeadersActions(rulesets_to_evaluate, request, params, stage);
 
-  // Pass the allow rule priority cache to `request` so its current value can be
-  // reused in later rule matching stages.
+  // Pass the allow rule priority cache to `request` so its current value can
+  // be reused in later rule matching stages.
   request.max_priority_allow_action =
       std::move(params.max_priority_allow_action);
 
@@ -542,8 +595,9 @@ bool RulesetManager::ShouldEvaluateRulesetForRequest(
   // Extensions should not generally have access to non-main-frame requests
   // initiated by other extensions, though the --extensions-on-chrome-urls
   // switch overrides that restriction.
-  // Note: For discussions regarding handling of extension initiated navigations
-  //       see https://crbug.com/41433450 and https://crbug.com/382670035.
+  // Note: For discussions regarding handling of extension initiated
+  // navigations
+  //       see crbug.com/41433450 and crbug.com/382670035.
   if (!switches::AreExtensionsOnExtensionURLsAllowed() && request.initiator &&
       request.web_request_type != WebRequestResourceType::MAIN_FRAME) {
     // Checking the precursor is necessary here since requests initiated by
@@ -561,6 +615,13 @@ bool RulesetManager::ShouldEvaluateRulesetForRequest(
   // incognito context.
   if (is_incognito_context &&
       !util::IsIncognitoEnabled(ruleset.extension_id, browser_context_)) {
+    return false;
+  }
+
+  // Extensions may not intercept file:// URLs without explicit local file
+  // access.
+  if (request.url.SchemeIsFile() &&
+      !util::AllowFileAccess(ruleset.extension_id, browser_context_)) {
     return false;
   }
 
@@ -588,11 +649,10 @@ bool RulesetManager::ShouldEvaluateRulesetForRequest(
     }
 
     case HostPermissionsAlwaysRequired::kFalse: {
-      // Some requests should not be visible to extensions even if the extension
-      // doesn't require host permissions for them. Note: we are not checking
-      // for host permissions here.
-      // DO_NOT_CHECK_HOST is strictly less restrictive than
-      // REQUIRE_HOST_PERMISSION_FOR_URL_AND_INITIATOR.
+      // Some requests should not be visible to extensions even if the
+      // extension doesn't require host permissions for them. Note: we are not
+      // checking for host permissions here. DO_NOT_CHECK_HOST is strictly
+      // less restrictive than REQUIRE_HOST_PERMISSION_FOR_URL_AND_INITIATOR.
       PageAccess do_not_check_host_access =
           WebRequestPermissions::CanExtensionAccessURL(
               permission_helper_, ruleset.extension_id, request.url, tab_id,

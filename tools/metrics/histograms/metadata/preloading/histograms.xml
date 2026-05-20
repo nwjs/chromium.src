@@ -266,13 +266,37 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Preloading.Prefetch.PrefetchStatus"
-    enum="PrefetchProxyPrefetchStatus" expires_after="2026-08-16">
+    enum="PrefetchProxyPrefetchStatus" expires_after="2026-10-18">
   <owner>adithyas@chromium.org</owner>
   <owner>portals-team@google.com</owner>
   <summary>
     Records the final PrefetchStatus value for a PrefetchContainer. The value is
     recorded when a prefetch fails (in the failure case), or when the
     PrefetchContainer is destroyed (in all other cases).
+  </summary>
+</histogram>
+
+<histogram
+    name="Preloading.Prefetch.PrePrefetch.PrePrefetchServiceThreadBlockTime"
+    units="ms" expires_after="2026-10-18">
+  <owner>taiyo@chromium.org</owner>
+  <owner>chrome-prerendering@google.com</owner>
+  <summary>
+    Records the time spent blocking the thread on
+    `PrePrefetchServiceImpl::StartPrePrefetchRequestInternal()` waiting for
+    `PrePrefetchServiceCore::StartPrePrefetchRequest` to complete execution on
+    its core sequence task runner.
+  </summary>
+</histogram>
+
+<histogram name="Preloading.Prefetch.PrePrefetch.StartResult"
+    enum="PrePrefetchStartResult" expires_after="2026-10-18">
+  <owner>taiyo@chromium.org</owner>
+  <owner>chrome-prerendering@google.com</owner>
+  <summary>
+    Records the outcome of starting a PrePrefetch request (i.e. whether
+    `PrePrefetchContainer` is started or failed and the reason why). Recorded
+    during `PrePrefetchServiceCore::StartPrePrefetchRequest()`.
   </summary>
 </histogram>
 
@@ -402,7 +426,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="{PreloadServingMetricsPrefix}.PrefetchMatchMetrics.ExistsPaop"
-    units="bool" expires_after="2026-08-02">
+    units="bool" expires_after="2026-10-04">
   <owner>kenoss@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
@@ -435,7 +459,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="{PreloadServingMetricsPrefix}.PrefetchMatchMetrics.ExistsPaopThen.PotentialCandidateServingResultAndServableStateAndMatcherAction"
-    units="code" expires_after="2026-08-02">
+    units="code" expires_after="2026-10-04">
   <owner>kenoss@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
@@ -451,7 +475,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="{PreloadServingMetricsPrefix}.PrefetchMatchMetrics.ExistsPaopThen.PrefetchStatus"
-    enum="PrefetchStatus" expires_after="2026-08-02">
+    enum="PrefetchStatus" expires_after="2026-10-04">
   <owner>kenoss@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
@@ -466,7 +490,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="{PreloadServingMetricsPrefix}.PrefetchMatchMetrics.ExistsPaopThen.QueueIndexPlus1"
-    units="count" expires_after="2026-08-02">
+    units="count" expires_after="2026-10-04">
   <owner>kenoss@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
@@ -482,7 +506,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="{PreloadServingMetricsPrefix}.PrefetchMatchMetrics.ExistsPaopThen.QueueSize"
-    units="count" expires_after="2026-08-02">
+    units="count" expires_after="2026-10-04">
   <owner>kenoss@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>
@@ -497,7 +521,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="{PreloadServingMetricsPrefix}.PrefetchMatchMetrics.ExistsPaopThen.ServableStateAndMatcherAction"
-    units="code" expires_after="2026-08-02">
+    units="code" expires_after="2026-10-04">
   <owner>kenoss@chromium.org</owner>
   <owner>chrome-prerendering@google.com</owner>
   <summary>

@@ -50,10 +50,7 @@ import java.util.concurrent.TimeoutException;
     ContentSwitches.USE_FAKE_DEVICE_FOR_MEDIA_STREAM,
     MediaSwitches.AUTOPLAY_NO_GESTURE_REQUIRED_POLICY
 })
-@Restriction({
-    DeviceRestriction.RESTRICTION_TYPE_NON_AUTO,
-    Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE
-})
+@Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
 // PictureInPicture#isEnabled() is true on Android 11+.
 @DisableIf.Build(sdk_is_less_than = VERSION_CODES.R)
 public class PictureInPictureActivityBrowserTest {
@@ -117,6 +114,48 @@ public class PictureInPictureActivityBrowserTest {
         assertFalse(
                 "Conference video should still be playing after closing PiP",
                 DOMUtils.isMediaPaused(webContents, VIDEO_ID));
+    }
+
+    @Test
+    @MediumTest
+    public void testReplayAtEndOfVideo() throws TimeoutException {
+        WebContents webContents = loadUrlAndInitializeForTest(VIDEO_PAGE);
+        DOMUtils.playMedia(webContents, VIDEO_ID);
+        DOMUtils.waitForMediaPlay(webContents, VIDEO_ID);
+
+        PictureInPictureActivity pipActivity = enterPip(webContents);
+        waitForRemoteActions(pipActivity);
+
+        // The test video has a 'loop' attribute. Remove it so the video can actually end.
+        JavaScriptUtils.executeJavaScriptAndWaitForResult(
+                webContents,
+                "document.getElementById('" + VIDEO_ID + "').removeAttribute('loop');");
+
+        // Seek the video to the end to trigger the end of video state.
+        DOMUtils.seekMediaToEnd(webContents, VIDEO_ID);
+
+        // Wait until the video actually ends.
+        CriteriaHelper.pollInstrumentationThread(
+                () -> DOMUtils.isMediaEnded(webContents, VIDEO_ID), "Video did not reach the end");
+
+        // Simulate clicking the replay button which will be mapped to MediaSessionAction.PLAY.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    try {
+                        pipActivity.mMediaActionsButtonsManager.mReplay.getActionIntent().send();
+                    } catch (android.app.PendingIntent.CanceledException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // Wait until the video starts playing again.
+        CriteriaHelper.pollInstrumentationThread(
+                () ->
+                        !DOMUtils.isMediaEnded(webContents, VIDEO_ID)
+                                && !DOMUtils.isMediaPaused(webContents, VIDEO_ID),
+                "Video did not start playing after replay");
+
+        closePip(pipActivity);
     }
 
     private PictureInPictureActivity enterPip(WebContents webContents) {

@@ -56,7 +56,9 @@ proto::BaseModelRecipe BaseModelRecipe(proto::FileReference weights_file,
 proto::AdaptationRecipe AdaptationRecipe(const std::string& base_model_id,
                                          proto::FileReference weights_file);
 
-proto::SafetyModelRecipe SafetyModelRecipe(proto::FileReference weights_file);
+proto::SafetyModelRecipe SafetyModelRecipe(
+    proto::FileReference weights_file,
+    proto::FileReference language_detection_model_file);
 
 proto::SolutionRecipe SolutionRecipe(const std::string& model_recipe_id,
                                      const std::string& safety_model_recipe_id,
@@ -98,6 +100,13 @@ class ManifestBuilder {
   ManifestBuilder& Add(const DeviceUseCase& use_case,
                        proto::SolutionRecipe recipe);
 
+  ManifestBuilder& SetFeatureConfig(DeviceCategory device,
+                                    const std::string& name,
+                                    proto::Any config);
+
+  ManifestBuilder& SetValidationTask(DeviceCategory device,
+                                     proto::ValidationTask task);
+
   proto::Manifest Build();
 
  private:
@@ -110,8 +119,11 @@ class ManifestComponentDirectory {
   explicit ManifestComponentDirectory(const proto::Manifest& manifest);
   ~ManifestComponentDirectory();
 
+  // Replaces the manifest in the directory.
+  ManifestComponentDirectory& Add(const proto::Manifest& manifest);
+  // Adds a new solution config to the directory, overwriting existing ones.
   ManifestComponentDirectory& Add(const std::string& filename,
-                                  proto::SolutionConfig& config);
+                                  const proto::SolutionConfig& config);
 
   base::FilePath path() const { return temp_dir_.GetPath(); }
 

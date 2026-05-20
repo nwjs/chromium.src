@@ -7,7 +7,8 @@
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/grit/generated_resources.h"
@@ -53,11 +54,12 @@ void EnableEsbAndShowSettings(content::WebContents* web_contents) {
   SetSafeBrowsingState(profile->GetPrefs(),
                        SafeBrowsingState::ENHANCED_PROTECTION,
                        /*is_esb_enabled_by_account_integration=*/false);
-  if (!chrome::FindBrowserWithTab(web_contents)) {
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents);
+  if (!browser) {
     return;
   }
-  chrome::ShowSafeBrowsingEnhancedProtection(
-      chrome::FindBrowserWithTab(web_contents));
+  chrome::ShowSafeBrowsingEnhancedProtection(browser);
 }
 
 class SuperimposedOffsetImageSource : public gfx::CanvasImageSource {

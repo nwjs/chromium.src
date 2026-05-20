@@ -64,7 +64,6 @@
 #include "remoting/protocol/transport.h"
 #include "remoting/protocol/transport_context.h"
 #include "remoting/protocol/validating_authenticator.h"
-#include "remoting/signaling/session_config.h"
 #include "remoting/signaling/signaling_address.h"
 #include "remoting/signaling/signaling_id_util.h"
 
@@ -379,14 +378,6 @@ void It2MeHost::ConnectOnNetworkThread(
   std::unique_ptr<protocol::SessionManager> session_manager(
       new protocol::JingleSessionManager(signal_strategy_.get()));
 
-  std::unique_ptr<CandidateSessionConfig> protocol_config =
-      CandidateSessionConfig::CreateDefault();
-  // Disable audio by default.
-  // TODO(sergeyu): Add UI to enable it.
-  protocol_config->DisableAudioChannel();
-  protocol_config->set_webrtc_supported(true);
-  session_manager->set_protocol_config(std::move(protocol_config));
-
   if (use_corp_session_authz_) {
     corp_host_status_logger_ = CorpHostStatusLogger::CreateForRemoteSupport(
         host_context_->url_loader_factory(),
@@ -434,8 +425,7 @@ void It2MeHost::ConnectOnNetworkThread(
   host_ = std::make_unique<ChromotingHost>(
       desktop_environment_factory_.get(), std::move(session_manager),
       /* secondary_session_manager */ nullptr, transport_context,
-      host_context_->audio_task_runner(),
-      host_context_->video_encode_task_runner(), options,
+      host_context_->audio_task_runner(), options,
       base::BindRepeating(&It2MeHost::OnEffectiveSessionPoliciesReceived,
                           base::Unretained(this)),
       local_session_policies_provider_.get());

@@ -1,6 +1,7 @@
 // Copyright 2025 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+import {isDistilledByReadability} from '../shared/common.js';
 import {getTextNodeOffsets} from '../shared/dom_queries.js';
 
 import {NodeStore} from './node_store.js';
@@ -111,6 +112,13 @@ export class SelectionController {
       return;
     }
 
+    // Only notify about selection changes if the side panel has focus. This
+    // ensures the change originates from direct user interaction within the
+    // side panel.
+    if (!document.hasFocus()) {
+      return;
+    }
+
     if ((selection === null) || !selection.anchorNode || !selection.focusNode) {
       // The selection was collapsed by clicking inside the selection.
       chrome.readingMode.onCollapseSelection();
@@ -122,6 +130,10 @@ export class SelectionController {
             selection.anchorNode, selection.anchorOffset, selection.focusNode,
             selection.focusOffset);
     if (!anchorNodeId || !focusNodeId) {
+      // The selection is on a node that doesn't map to the article text (e.g.
+      // the background or UI elements). Collapse the main panel selection to
+      // match the resulting collapsed state in the side panel.
+      chrome.readingMode.onCollapseSelection();
       return;
     }
 
@@ -181,7 +193,7 @@ export class SelectionController {
     }
     const {startNodeId, endNodeId, hasValidSelection} = chrome.readingMode;
     if (!startNodeId || !endNodeId || !hasValidSelection) {
-      // The selection is the main panel collapsed, so clear the selection here.
+      // The selection in the main panel collapsed, so clear the selection here.
       selectionToUpdate.removeAllRanges();
       return;
     }
@@ -229,7 +241,7 @@ export class SelectionController {
       focusOffset: chrome.readingMode.endOffset,
     };
 
-    return chrome.readingMode.isReadabilityEnabled ?
+    return isDistilledByReadability() ?
         this.getNewSelectionWithoutAxIds_(container, selectionIds) :
         this.getNewSelectionWithAxIds_(selectionIds);
   }

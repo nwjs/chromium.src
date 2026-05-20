@@ -8,22 +8,16 @@
 #import <UIKit/UIKit.h>
 
 @class GradientView;
-@class TabGroupIndicatorView;
+@class NewTabPageColorPalette;
 @protocol NewTabPageShortcutsHandler;
 @class OmniboxContainerView;
-@class NewTabPageColorPalette;
 enum class SearchEngineLogoState;
+@class TabGroupIndicatorView;
 
 // Header view for the NTP. The header view contains all views that are
 // displayed above the list of most visited sites, which includes the
 // primary toolbar, doodle, and fake omnibox.
 @interface NewTabPageHeaderView : UIView
-
-// Initializes the view with the Lens button new badge status.
-- (instancetype)initWithUseNewBadgeForLensButton:(BOOL)useNewBadgeForLensButton
-    NS_DESIGNATED_INITIALIZER;
-- (instancetype)initWithFrame:(CGRect)frame NS_UNAVAILABLE;
-- (instancetype)initWithCoder:(NSCoder*)coder NS_UNAVAILABLE;
 
 // Returns the toolbar view.
 @property(nonatomic, readonly) UIView* toolBarView;
@@ -43,9 +37,6 @@ enum class SearchEngineLogoState;
 
 // The button that opens Lens. May be nil if Lens is not enabled.
 @property(nonatomic, strong, readonly) UIButton* lensButton;
-
-// The button that opens MIA. May be nil if MIA is not enabled.
-@property(nonatomic, strong, readonly) UIButton* miaButton;
 
 // Fake cancel button, used for animations. Hidden by default.
 @property(nonatomic, strong) UIView* cancelButton;
@@ -77,6 +68,13 @@ enum class SearchEngineLogoState;
 
 // The logo state.
 @property(nonatomic, assign) SearchEngineLogoState logoState;
+
+// Initializes the view with the Lens button new badge status.
+- (instancetype)initWithUseNewBadgeForLensButton:(BOOL)useNewBadgeForLensButton
+    NS_DESIGNATED_INITIALIZER;
+
+- (instancetype)initWithFrame:(CGRect)frame NS_UNAVAILABLE;
+- (instancetype)initWithCoder:(NSCoder*)coder NS_UNAVAILABLE;
 
 // Adds the separator to the searchField. Must be called after the searchField
 // is added as a subview.
@@ -135,6 +133,15 @@ enum class SearchEngineLogoState;
 
 // Whether AIM is allowed.
 - (void)setAIMAllowed:(BOOL)allowed;
+
+// Whether the current session is eligible for fusebox.
+- (void)setFuseboxEligible:(BOOL)eligible;
+
+// Sets whether the omnibox is pinned to the bottom position.
+- (void)setOmniboxPositionIsBottom:(BOOL)isBottomOmnibox;
+
+// Whether to show the plus button.
+- (BOOL)shouldShowPlusButton;
 
 @end
 

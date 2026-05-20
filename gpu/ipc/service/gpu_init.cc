@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 
+#include "base/android/android_info.h"
 #include "base/base_paths.h"
 #include "base/command_line.h"
 #include "base/debug/dump_without_crashing.h"
@@ -444,7 +445,8 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   if (gpu_sandbox_start_early) {
     // The sandbox will be started earlier than usual (i.e. before GL) so
     // execute the pre-sandbox steps now.
-    sandbox_helper_->PreSandboxStartup(gpu_preferences, workarounds);
+    sandbox_helper_->PreSandboxStartup(gpu_preferences, workarounds,
+                                       &gpu_info_);
   }
 
   // watchdog_init will call watchdog OnInitComplete() at the end of this
@@ -569,7 +571,8 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   // restarting the GPU process will not help.
   if (!attempted_startsandbox) {
     // The sandbox is not started yet.
-    sandbox_helper_->PreSandboxStartup(gpu_preferences, workarounds);
+    sandbox_helper_->PreSandboxStartup(gpu_preferences, workarounds,
+                                       &gpu_info_);
   }
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
@@ -715,16 +718,6 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
       }
 #endif  // defined(DAWN_USE_BUILT_DXC)
 
-      // Preload a redistributable DirectML.dll that allows testing WebNN
-      // against newer release of DirectML before it is integrated into
-      // Windows OS. Don't handle errors as failure here is non-fatal. The
-      // DirectML.dll within system folder will be loaded at a later point if
-      // the redistributable one fails to be loaded.
-      if (command_line->HasSwitch(switches::kUseRedistributableDirectML)) {
-        TRACE_EVENT("gpu,startup", "Load directml.dll");
-        base::LoadNativeLibrary(module_path.Append(L"directml.dll"), nullptr);
-      }
-
 #if BUILDFLAG(ENABLE_ML_INTERNAL)
       if (base::FeatureList::IsEnabled(
               webnn::mojom::features::kWebMachineLearningNeuralNetwork)) {
@@ -741,6 +734,24 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
     ResumeGpuWatchdog(watchdog_thread_.get());
   }
 #endif  // BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_ANDROID)
+  if (gpu_preferences_.gr_context_type == GrContextType::kGraphiteDawn &&
+      gpu_feature_info_.status_values[GPU_FEATURE_TYPE_SKIA_GRAPHITE] ==
+          kGpuFeatureStatusBlocklisted &&
+      base::android::android_info::brand() == "google") {
+    // On Pixel hardware we want to always use Vulkan. If the SkiaGraphite
+    // feature is enabled but then blocklisted it would normally fall back to
+    // Ganesh/GL. This isn't desirable so force it to fall back to
+    // Ganesh/Vulkan.
+    // TODO(crbug.com/496616828): Once Graphite works on Imagination GPUs remove
+    // this workaround.
+    gpu_feature_info_.status_values[GPU_FEATURE_TYPE_VULKAN] =
+        kGpuFeatureStatusEnabled;
+    gpu_preferences_.gr_context_type = GrContextType::kVulkan;
+    gpu_preferences_.use_vulkan = VulkanImplementationName::kNative;
+  }
+#endif
 
 #if BUILDFLAG(USE_WEBGPU_ON_VULKAN_VIA_GL_INTEROP)
 #if BUILDFLAG(IS_OZONE)
@@ -958,12 +969,15 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
 #if BUILDFLAG(IS_WIN)
   {
     Microsoft::WRL::ComPtr<ID3D11Device> d3d11_device;
+    Microsoft::WRL::ComPtr<ID3D12CommandQueue> d3d12_command_queue;
     if (dawn_context_provider_) {
       d3d11_device = dawn_context_provider_->GetD3D11Device();
+      d3d12_command_queue = dawn_context_provider_->GetD3D12CommandQueue();
     } else {
       d3d11_device = gl::QueryD3D11DeviceObjectFromANGLE();
     }
-    gl::InitializeDirectComposition(std::move(d3d11_device));
+    gl::InitializeDirectComposition(std::move(d3d11_device),
+                                    std::move(d3d12_command_queue));
   }
 #endif  // BUILDFLAG(IS_WIN)
 

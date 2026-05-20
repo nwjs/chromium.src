@@ -68,9 +68,6 @@ struct ThreadTurn {
 
   // User query for this turn.
   std::string query;
-
-  // Titles of shared (attached as context) tabs for this turn.
-  std::vector<std::string> shared_tab_titles;
 };
 
 // Represents a conversation thread, including current and previous turns.
@@ -86,6 +83,10 @@ struct ConversationThread {
   // Previous turns in the thread, in chronological order (oldest first).
   // The first element in this vector is the first turn in the thread.
   std::vector<ThreadTurn> previous_turns;
+
+  // Titles of shared (attached as context) tabs, coming from context library.
+  // These are union of tabs shared across all previous turns.
+  std::vector<std::string> shared_tab_titles;
 };
 
 enum class ContextDeterminationStatus {
@@ -104,7 +105,7 @@ enum class ContextDeterminationStatus {
 // Options to regulate tab selection behavior.
 struct TabSelectionOptions {
   mojom::TabSelectionMode tab_selection_mode =
-      mojom::TabSelectionMode::kMultiSignalScoring;
+      mojom::TabSelectionMode::kStaticSignalsMlModel;
 
   // If set, only tabs with a model score of at least `min_model_score` will be
   // selected.
@@ -171,7 +172,9 @@ class ContextualTasksContextService
   friend class ContextualTasksContextServiceTest;
 
   struct QueryState {
-    QueryState();
+    QueryState(std::string query,
+               passage_embeddings::Embedding query_embedding,
+               int query_word_count);
     ~QueryState();
     QueryState(const QueryState&);
     QueryState& operator=(const QueryState&);

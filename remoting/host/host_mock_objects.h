@@ -20,6 +20,7 @@
 #include "remoting/host/action_executor.h"
 #include "remoting/host/active_display_monitor.h"
 #include "remoting/host/audio_capturer.h"
+#include "remoting/host/audio_injector.h"
 #include "remoting/host/base/desktop_environment_options.h"
 #include "remoting/host/base/screen_controls.h"
 #include "remoting/host/chromoting_host_services_provider.h"
@@ -106,9 +107,12 @@ class MockDesktopEnvironment : public DesktopEnvironment {
               CreateRemoteWebAuthnStateChangeNotifier,
               (),
               (override));
+  MOCK_METHOD(std::unique_ptr<AudioInjector>,
+              CreateAudioInjector,
+              (),
+              (override));
   MOCK_METHOD(std::string, GetCapabilities, (), (const, override));
   MOCK_METHOD(void, SetCapabilities, (const std::string&), (override));
-  MOCK_METHOD(std::uint32_t, GetDesktopSessionId, (), (const, override));
 };
 
 class MockClientSessionControl : public ClientSessionControl {
@@ -137,6 +141,10 @@ class MockClientSessionControl : public ClientSessionControl {
               OnDesktopDisplayChanged,
               (std::unique_ptr<protocol::VideoLayout>),
               (override));
+  MOCK_METHOD(void,
+              OnMicrophoneControl,
+              (const protocol::MicrophoneControl&),
+              (override));
 };
 
 class MockClientSessionDetails : public ClientSessionDetails {
@@ -149,7 +157,6 @@ class MockClientSessionDetails : public ClientSessionDetails {
   ~MockClientSessionDetails() override;
 
   MOCK_METHOD(ClientSessionControl*, session_control, (), (override));
-  MOCK_METHOD(std::uint32_t, desktop_session_id, (), (const, override));
 };
 
 class MockClientSessionEvents : public ClientSessionEvents {
@@ -157,7 +164,7 @@ class MockClientSessionEvents : public ClientSessionEvents {
   MockClientSessionEvents();
   ~MockClientSessionEvents() override;
 
-  MOCK_METHOD(void, OnDesktopAttached, (std::uint32_t session_id), (override));
+  MOCK_METHOD(void, OnDesktopAttached, (), (override));
   MOCK_METHOD(void, OnDesktopDetached, (), (override));
   MOCK_METHOD(void,
               OnSecurityKeyConnection,

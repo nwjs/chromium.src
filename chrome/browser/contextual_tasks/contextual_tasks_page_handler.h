@@ -30,6 +30,7 @@ class InputPlateParametersRequest;
 namespace contextual_tasks {
 class ContextualTasksService;
 class ContextualTasksUiService;
+class ContextualTasksPanelController;
 mojom::ComposeboxPositionPtr InputPlateConfigToMojo(
     const lens::InputPlateParametersRequest& update_msg);
 }  // namespace contextual_tasks
@@ -42,7 +43,8 @@ class ContextualTasksPageHandler
       mojo::PendingReceiver<contextual_tasks::mojom::PageHandler> receiver,
       contextual_tasks::ContextualTasksUIInterface* web_ui_controller,
       contextual_tasks::ContextualTasksUiService* ui_service,
-      contextual_tasks::ContextualTasksService* contextual_tasks_service);
+      contextual_tasks::ContextualTasksService* contextual_tasks_service,
+      contextual_tasks::ContextualTasksPanelController* panel_controller);
   ~ContextualTasksPageHandler() override;
 
   // contextual_tasks::mojom::PageHandler:
@@ -94,7 +96,7 @@ class ContextualTasksPageHandler
   void UpdateContextForTask(const base::Uuid& task_id);
   void OnReceivedUpdatedThreadContextLibrary(
       const lens::UpdateThreadContextLibrary& message);
-  void OnReceivedInjectInput(std::unique_ptr<lens::ModalityChipProps> modality);
+  void OnReceivedInjectInput(const lens::InjectInput& inject_input);
   void OnReceivedRemoveInjectedInput(const std::string& id);
   void OnPinStateChanged(bool is_pinned);
   void OnPrefChanged();
@@ -104,6 +106,7 @@ class ContextualTasksPageHandler
   PrefChangeRegistrar pref_change_registrar_;
   raw_ptr<contextual_tasks::ContextualTasksUiService> ui_service_;
   raw_ptr<contextual_tasks::ContextualTasksService> contextual_tasks_service_;
+  raw_ptr<contextual_tasks::ContextualTasksPanelController> panel_controller_;
 
   bool skip_feedback_ui_for_testing_ = false;
 

@@ -12,7 +12,6 @@
 #include "base/test/values_test_util.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
-#include "chrome/browser/ui/browser.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -20,6 +19,7 @@
 #include "extensions/browser/extension_api_frame_id_map.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/mojom/css_origin.mojom-shared.h"
 #include "extensions/common/mojom/host_id.mojom.h"
@@ -29,6 +29,8 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 namespace extensions {
 
@@ -140,7 +142,7 @@ IN_PROC_BROWSER_TEST_F(ScriptExecutorBrowserTest, MainWorldExecution) {
           blink::mojom::PromiseResultOption::kAwait)),
       ScriptExecutor::SPECIFIED_FRAMES, {ExtensionApiFrameIdMap::kTopFrameId},
       mojom::MatchOriginAsFallbackBehavior::kNever,
-      mojom::RunLocation::kDocumentIdle, ScriptExecutor::DEFAULT_PROCESS,
+      mojom::RunLocation::kDocumentIdle, ScriptExecutor::ISOLATED_WORLD, ScriptExecutor::DEFAULT_PROCESS,
       GURL() /* webview_src */, helper.GetCallback());
   helper.Wait();
 
@@ -189,7 +191,7 @@ IN_PROC_BROWSER_TEST_F(ScriptExecutorBrowserTest, MainFrameExecution) {
           blink::mojom::PromiseResultOption::kAwait)),
       ScriptExecutor::SPECIFIED_FRAMES, {ExtensionApiFrameIdMap::kTopFrameId},
       mojom::MatchOriginAsFallbackBehavior::kNever,
-      mojom::RunLocation::kDocumentIdle, ScriptExecutor::DEFAULT_PROCESS,
+      mojom::RunLocation::kDocumentIdle, ScriptExecutor::ISOLATED_WORLD, ScriptExecutor::DEFAULT_PROCESS,
       GURL() /* webview_src */, helper.GetCallback());
   helper.Wait();
   EXPECT_EQ("New Title", base::UTF16ToUTF8(web_contents->GetTitle()));
@@ -245,7 +247,7 @@ IN_PROC_BROWSER_TEST_F(ScriptExecutorBrowserTest, MultipleSourceExecution) {
           blink::mojom::PromiseResultOption::kAwait)),
       ScriptExecutor::SPECIFIED_FRAMES, {ExtensionApiFrameIdMap::kTopFrameId},
       mojom::MatchOriginAsFallbackBehavior::kNever,
-      mojom::RunLocation::kDocumentIdle, ScriptExecutor::DEFAULT_PROCESS,
+      mojom::RunLocation::kDocumentIdle, ScriptExecutor::ISOLATED_WORLD, ScriptExecutor::DEFAULT_PROCESS,
       GURL() /* webview_src */, helper.GetCallback());
   helper.Wait();
   EXPECT_EQ("New Title", base::UTF16ToUTF8(web_contents->GetTitle()));
@@ -311,7 +313,7 @@ IN_PROC_BROWSER_TEST_F(ScriptExecutorBrowserTest, PromisesResolve) {
             blink::mojom::PromiseResultOption::kAwait)),
         ScriptExecutor::SPECIFIED_FRAMES, {ExtensionApiFrameIdMap::kTopFrameId},
         mojom::MatchOriginAsFallbackBehavior::kNever,
-        mojom::RunLocation::kDocumentIdle, ScriptExecutor::DEFAULT_PROCESS,
+        mojom::RunLocation::kDocumentIdle, ScriptExecutor::ISOLATED_WORLD, ScriptExecutor::DEFAULT_PROCESS,
         GURL() /* webview_src */, helper.GetCallback());
     helper.Wait();
 
@@ -342,7 +344,7 @@ IN_PROC_BROWSER_TEST_F(ScriptExecutorBrowserTest, PromisesResolve) {
             blink::mojom::PromiseResultOption::kDoNotWait)),
         ScriptExecutor::SPECIFIED_FRAMES, {ExtensionApiFrameIdMap::kTopFrameId},
         mojom::MatchOriginAsFallbackBehavior::kNever,
-        mojom::RunLocation::kDocumentIdle, ScriptExecutor::DEFAULT_PROCESS,
+        mojom::RunLocation::kDocumentIdle, ScriptExecutor::ISOLATED_WORLD, ScriptExecutor::DEFAULT_PROCESS,
         GURL() /* webview_src */, helper.GetCallback());
     helper.Wait();
 
@@ -428,7 +430,7 @@ IN_PROC_BROWSER_TEST_F(ScriptExecutorBrowserTest, SpecifiedFrames) {
             blink::mojom::PromiseResultOption::kAwait)),
         ScriptExecutor::SPECIFIED_FRAMES, {frame1_id, frame2_id},
         mojom::MatchOriginAsFallbackBehavior::kNever,
-        mojom::RunLocation::kDocumentIdle, ScriptExecutor::DEFAULT_PROCESS,
+        mojom::RunLocation::kDocumentIdle, ScriptExecutor::ISOLATED_WORLD, ScriptExecutor::DEFAULT_PROCESS,
         GURL() /* webview_src */, helper.GetCallback());
     helper.Wait();
 
@@ -454,7 +456,7 @@ IN_PROC_BROWSER_TEST_F(ScriptExecutorBrowserTest, SpecifiedFrames) {
             blink::mojom::PromiseResultOption::kAwait)),
         ScriptExecutor::INCLUDE_SUB_FRAMES, {frame1_id, frame2_id},
         mojom::MatchOriginAsFallbackBehavior::kNever,
-        mojom::RunLocation::kDocumentIdle, ScriptExecutor::DEFAULT_PROCESS,
+        mojom::RunLocation::kDocumentIdle, ScriptExecutor::ISOLATED_WORLD, ScriptExecutor::DEFAULT_PROCESS,
         GURL() /* webview_src */, helper.GetCallback());
     helper.Wait();
 
@@ -490,7 +492,7 @@ IN_PROC_BROWSER_TEST_F(ScriptExecutorBrowserTest, SpecifiedFrames) {
         ScriptExecutor::SPECIFIED_FRAMES,
         {frame1_id, frame2_id, kNonExistentFrameId},
         mojom::MatchOriginAsFallbackBehavior::kNever,
-        mojom::RunLocation::kDocumentIdle, ScriptExecutor::DEFAULT_PROCESS,
+        mojom::RunLocation::kDocumentIdle, ScriptExecutor::ISOLATED_WORLD, ScriptExecutor::DEFAULT_PROCESS,
         GURL() /* webview_src */, helper.GetCallback());
     helper.Wait();
 
@@ -517,7 +519,7 @@ IN_PROC_BROWSER_TEST_F(ScriptExecutorBrowserTest, SpecifiedFrames) {
             blink::mojom::PromiseResultOption::kAwait)),
         ScriptExecutor::SPECIFIED_FRAMES, {kNonExistentFrameId},
         mojom::MatchOriginAsFallbackBehavior::kNever,
-        mojom::RunLocation::kDocumentIdle, ScriptExecutor::DEFAULT_PROCESS,
+        mojom::RunLocation::kDocumentIdle, ScriptExecutor::ISOLATED_WORLD, ScriptExecutor::DEFAULT_PROCESS,
         GURL() /* webview_src */, helper.GetCallback());
     helper.Wait();
 

@@ -74,7 +74,6 @@ import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.TabCardThemeUtil;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabThumbnailView;
-import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.tab_ui.R;
@@ -428,10 +427,8 @@ public class TabUiTestHelper {
                         tabGroup.add(tab);
                     }
                     createTabGroup(cta, isIncognito, tabGroup);
-                    TabGroupModelFilter filter =
-                            cta.getTabModelSelector().getTabGroupModelFilter(isIncognito);
-                    assertEquals(1, filter.getTabGroupCount());
-                    assertEquals(1, filter.getIndividualTabAndGroupCount());
+                    assertEquals(1, tabModel.getTabGroupCount());
+                    assertEquals(1, tabModel.getIndividualTabAndGroupCount());
                 });
     }
 
@@ -475,7 +472,7 @@ public class TabUiTestHelper {
      * @return View ID of the a nearby ancestor view.
      */
     public static int getTabSwitcherAncestorId(Context context) {
-        return org.chromium.chrome.browser.hub.R.id.hub_pane_host;
+        return R.id.hub_pane_host;
     }
 
     /**
@@ -503,13 +500,13 @@ public class TabUiTestHelper {
     public static void createTabGroup(
             ChromeTabbedActivity cta, boolean isIncognito, List<Tab> tabs) {
         if (tabs.size() == 0) return;
-        TabGroupModelFilter filter = cta.getTabModelSelector().getTabGroupModelFilter(isIncognito);
+        TabModel tabModel = cta.getTabModelSelector().getModel(isIncognito);
         Tab rootTab = tabs.get(0);
         for (int i = 1; i < tabs.size(); i++) {
             Tab tab = tabs.get(i);
             assertEquals(isIncognito, tab.isIncognito());
             ThreadUtils.runOnUiThreadBlocking(
-                    () -> filter.mergeTabsToGroup(tab.getId(), rootTab.getId()));
+                    () -> tabModel.mergeTabsToGroup(tab.getId(), rootTab.getId()));
         }
     }
 
@@ -774,8 +771,7 @@ public class TabUiTestHelper {
                         : "standard tab";
         onView(
                         allOf(
-                                isDescendantOfA(
-                                        withId(org.chromium.chrome.browser.hub.R.id.hub_toolbar)),
+                                isDescendantOfA(withId(R.id.hub_toolbar)),
                                 withContentDescription(containsString(contentDescription))))
                 .perform(click());
 

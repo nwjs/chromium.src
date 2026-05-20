@@ -11,6 +11,7 @@
 
 #include "base/functional/callback.h"
 #include "base/location.h"
+#include "base/memory/weak_ptr.h"
 #include "remoting/base/session_policies.h"
 #include "remoting/protocol/credentials_type.h"
 #include "remoting/signaling/jingle_data_structures.h"
@@ -18,7 +19,6 @@
 namespace remoting::protocol {
 
 class Authenticator;
-class ChannelAuthenticator;
 
 // Authenticator is an abstract interface for authentication protocol
 // implementations. Different implementations of this interface may be used on
@@ -199,11 +199,6 @@ class Authenticator {
   // specified. Must be called in the ACCEPTED state.
   virtual const SessionPolicies* GetSessionPolicies() const = 0;
 
-  // Creates new authenticator for a channel. Can be called only in
-  // the ACCEPTED state.
-  virtual std::unique_ptr<ChannelAuthenticator> CreateChannelAuthenticator()
-      const = 0;
-
   // Sets a callback that will be called if `state()` has changed from
   // `ACCEPTED` from something else, likely because the authenticator has some
   // reauthn/reauthz mechanism that needs extra inputs, or rejects after the
@@ -224,6 +219,8 @@ class Authenticator {
 
  private:
   base::RepeatingClosure on_state_change_after_accepted_;
+
+  base::WeakPtrFactory<Authenticator> weak_factory_{this};
 };
 
 // Factory for Authenticator instances.

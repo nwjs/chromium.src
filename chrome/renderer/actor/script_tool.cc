@@ -8,11 +8,13 @@
 #include <optional>
 
 #include "base/notimplemented.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/to_string.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor/actor_constants.h"
 #include "chrome/common/actor/actor_logging.h"
 #include "chrome/renderer/actor/tool_utils.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "content/public/renderer/render_frame.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "third_party/blink/public/mojom/content_extraction/script_tools.mojom.h"
@@ -59,11 +61,17 @@ mojom::ActionResultPtr OnToolExecuted(
   script_tool_response->tool->name = name;
   script_tool_response->tool->description = tool->description.Utf8();
   script_tool_response->tool->input_schema = tool->input_schema.Utf8();
-  if (tool->read_only.has_value()) {
+  if (tool->read_only.has_value() || tool->untrusted_content.has_value()) {
     script_tool_response->tool->annotations =
         blink::mojom::ScriptToolAnnotations::New();
-    script_tool_response->tool->annotations->read_only =
-        tool->read_only.value();
+    if (tool->read_only.has_value()) {
+      script_tool_response->tool->annotations->read_only =
+          tool->read_only.value();
+    }
+    if (tool->untrusted_content.has_value()) {
+      script_tool_response->tool->annotations->untrusted_content =
+          tool->untrusted_content.value();
+    }
   }
   if (!response->IsEmpty()) {
     script_tool_response->result = response->Utf8();
@@ -77,6 +85,7 @@ mojom::ActionResultPtr OnToolExecuted(
 
 ScriptTool::ScriptTool(content::RenderFrame& frame,
                        TaskId task_id,
+                       base::UnguessableToken execution_id,
                        Journal& journal,
                        mojom::ToolTargetPtr target,
                        mojom::ObservedToolTargetPtr observed_target,
@@ -86,25 +95,17 @@ ScriptTool::ScriptTool(content::RenderFrame& frame,
                journal,
                std::move(target),
                std::move(observed_target)),
-      action_(std::move(action)) {}
+      action_(std::move(action)),
+      execution_id_(execution_id) {}
 
 ScriptTool::~ScriptTool() = default;
 
 void ScriptTool::Execute(ToolFinishedCallback callback) {
-  auto weak_this = weak_ptr_factory_.GetWeakPtr();
-  std::optional<base::UnguessableToken> execution_id =
-      frame_->GetWebFrame()->GetDocument().ExecuteScriptTool(
-          blink::WebString::FromUTF8(action_->name),
-          blink::WebString::FromUTF8(action_->input_arguments),
-          base::BindOnce(&OnToolExecuted, action_->name,
-                         action_->input_arguments)
-              .Then(std::move(callback)));
-  // If the tool completed synchronously, `this` is now destroyed
-  // via a tool_.reset() call in ToolExecutor::ToolFinished().
-  // We can only write to execution_id_ if this object is still alive.
-  if (weak_this) {
-    execution_id_ = execution_id;
-  }
+  frame_->GetWebFrame()->GetDocument().ExecuteScriptTool(
+      execution_id_.value(), blink::WebString::FromUtf8(action_->name),
+      blink::WebString::FromUtf8(action_->input_arguments),
+      base::BindOnce(&OnToolExecuted, action_->name, action_->input_arguments)
+          .Then(std::move(callback)));
 }
 
 void ScriptTool::Cancel() {

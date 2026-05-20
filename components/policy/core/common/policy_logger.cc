@@ -18,7 +18,9 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/sequenced_task_runner.h"
+#include "build/build_config.h"
 #include "components/policy/core/common/features.h"
+#include "components/policy/resources/webui/mojom/policy.mojom.h"
 #include "components/version_info/version_info.h"
 
 namespace policy {
@@ -173,8 +175,10 @@ PolicyLogger::LogHelper::LogHelper(
       line_(line) {}
 
 PolicyLogger::LogHelper::~LogHelper() {
-  policy::PolicyLogger::GetInstance()->AddLog(PolicyLogger::Log(
-      log_severity_, log_source_, message_buffer_.str(), file_, line_));
+  if (PolicyLogger::GetInstance()->IsPolicyLoggingEnabled()) {
+    PolicyLogger::GetInstance()->AddLog(PolicyLogger::Log(
+        log_severity_, log_source_, message_buffer_.str(), file_, line_));
+  }
   StreamLog();
 }
 
@@ -216,25 +220,32 @@ base::DictValue PolicyLogger::Log::GetAsDict() const {
       .Set("timestamp", base::TimeFormatHTTP(timestamp_));
 }
 
+policy::mojom::LogPtr PolicyLogger::Log::GetAsMojoLog() const {
+  return policy::mojom::Log::New(
+      message_, GetLogSeverity(log_severity_), GetLogSourceValue(log_source_),
+      GetFileAndLine(file_, line_), GetLineURL(file_, line_),
+      base::TimeFormatHTTP(timestamp_));
+}
+
 PolicyLogger::PolicyLogger() = default;
 PolicyLogger::~PolicyLogger() = default;
 
 void PolicyLogger::AddLog(PolicyLogger::Log&& new_log) {
-    {
-      base::AutoLock lock(lock_);
+  {
+    base::AutoLock lock(lock_);
 
-      // The logs deque size should not exceed `kMaxLogsSize`. Remove the first
-      // log if the size is reached before adding the new log.
-      if (logs_.size() == kMaxLogsSize) {
-        logs_.pop_front();
-      }
-
-      logs_.emplace_back(std::move(new_log));
+    // The logs deque size should not exceed `kMaxLogsSize`. Remove the first
+    // log if the size is reached before adding the new log.
+    if (logs_.size() == kMaxLogsSize) {
+      logs_.pop_front();
     }
 
-    if (!is_log_deletion_scheduled_ && is_log_deletion_enabled_) {
-      ScheduleOldLogsDeletion();
-    }
+    logs_.emplace_back(std::move(new_log));
+  }
+
+  if (!is_log_deletion_scheduled_ && is_log_deletion_enabled_) {
+    ScheduleOldLogsDeletion();
+  }
 }
 
 void PolicyLogger::DeleteOldLogs() {
@@ -251,7 +262,8 @@ void PolicyLogger::DeleteOldLogs() {
 }
 
 void PolicyLogger::ScheduleOldLogsDeletion() {
-  if (!base::SequencedTaskRunner::HasCurrentDefault()) {
+  if (!base::SequencedTaskRunner::HasCurrentDefault() ||
+      !is_log_deletion_enabled_) {
     return;
   }
   base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
@@ -270,6 +282,23 @@ base::ListValue PolicyLogger::GetAsList() {
   return all_logs_list;
 }
 
+std::vector<policy::mojom::LogPtr> PolicyLogger::GetAsMojoList() {
+  std::vector<policy::mojom::LogPtr> all_logs_list;
+  base::AutoLock lock(lock_);
+  all_logs_list.reserve(logs_.size());
+  std::ranges::transform(logs_, std::back_inserter(all_logs_list),
+                         &PolicyLogger::Log::GetAsMojoLog);
+  return all_logs_list;
+}
+
+bool PolicyLogger::IsPolicyLoggingEnabled() const {
+#if BUILDFLAG(IS_CHROMEOS)
+  return false;
+#else
+  return true;
+#endif
+}
+
 void PolicyLogger::EnableLogDeletion() {
   is_log_deletion_enabled_ = true;
 }
@@ -286,6 +315,11 @@ void PolicyLogger::ResetLoggerForTesting() {
   logs_.erase(logs_.begin(), logs_.end());
   is_log_deletion_scheduled_ = false;
   is_log_deletion_enabled_ = false;
+}
+
+void PolicyLogger::ScheduleOldLogsDeletionForTesting() {
+  CHECK_IS_TEST();
+  ScheduleOldLogsDeletion();
 }
 
 }  // namespace policy

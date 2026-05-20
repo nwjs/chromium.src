@@ -25,7 +25,6 @@ import androidx.core.view.ViewCompat;
 import org.chromium.base.CallbackController;
 import org.chromium.base.CallbackUtils;
 import org.chromium.base.Log;
-import org.chromium.base.ObserverList;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
@@ -59,6 +58,7 @@ import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
 import org.chromium.chrome.browser.metrics.StartupMetricsTracker;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager.HomepageStateListener;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundType;
 import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo;
@@ -145,7 +145,6 @@ public class NewTabPage
     protected final TileGroup.Delegate mTileGroupDelegate;
     private final boolean mIsTablet;
     private final BrowserControlsStateProvider mBrowserControlsStateProvider;
-    private final ObserverList<MostVisitedTileClickObserver> mMostVisitedTileClickObservers;
     private final BottomSheetController mBottomSheetController;
     private final NewTabPageLayout mNewTabPageLayout;
     private final NewTabPageCoordinator mNewTabPageCoordinator;
@@ -184,9 +183,7 @@ public class NewTabPage
     private TopInsetProvider.@Nullable Observer mTopInsetChangeObserver;
     private boolean mIsUseEdgeToEdgeForCustomizedTheme;
 
-    private NtpCustomizationConfigManager.@org.chromium.build.annotations.Nullable
-            HomepageStateListener
-            mHomepageStateListener;
+    private @Nullable HomepageStateListener mHomepageStateListener;
 
     // A flag to use light tint on toolbar and status bar icons. The light tint isn't applied on
     // tablet mode.
@@ -268,6 +265,7 @@ public class NewTabPage
         public void focusSearchBox(
                 boolean beginVoiceSearch,
                 @AutocompleteRequestType int requestType,
+                boolean showFuseboxPopup,
                 @Nullable String pastedText) {
             if (mIsDestroyed) return;
             FeedReliabilityLogger feedReliabilityLogger =
@@ -292,6 +290,8 @@ public class NewTabPage
                                 : OmniboxFocusReason.FAKE_BOX_LONG_PRESS;
                 if (requestType == AutocompleteRequestType.AI_MODE) {
                     focusReason = OmniboxFocusReason.NTP_AI_MODE;
+                } else if (showFuseboxPopup) {
+                    focusReason = OmniboxFocusReason.FAKE_BOX_PLUS_BUTTON_TAP;
                 }
 
                 mOmniboxStub.beginInput(
@@ -356,9 +356,6 @@ public class NewTabPage
             if (mIsDestroyed) return;
 
             super.openMostVisitedItem(windowDisposition, tile);
-            for (MostVisitedTileClickObserver observer : mMostVisitedTileClickObservers) {
-                observer.onMostVisitedTileClicked(tile, mTab);
-            }
         }
     }
 
@@ -423,7 +420,6 @@ public class NewTabPage
         mActivityLifecycleDispatcher = lifecycleDispatcher;
         mTab = tab;
         mToolbarSupplier = toolbarSupplier;
-        mMostVisitedTileClickObservers = new ObserverList<>();
         mBrowserControlsStateProvider = browserControlsStateProvider;
         mBottomSheetController = bottomSheetController;
         mIsInNightMode = isInNightMode;
@@ -619,7 +615,6 @@ public class NewTabPage
                                 modalDialogManager,
                                 mNewTabPageManager.getNavigationDelegate(),
                                 BookmarkModel.getForProfile(profile),
-                                tabModelSelector,
                                 profile,
                                 mBottomSheetController) {
                             @Override
@@ -649,7 +644,6 @@ public class NewTabPage
                         mConstructedTimeNs,
                         FeedSwipeRefreshLayout.create(activity, R.id.toolbar_container),
                         /* overScrollDisabled= */ false,
-                        /* viewportView= */ null,
                         createActionDelegate,
                         mTabStripHeightSupplier,
                         edgeToEdgeControllerSupplier,
@@ -667,7 +661,7 @@ public class NewTabPage
     // HomepageStateListener.
     private void initHomepageStateListener() {
         mHomepageStateListener =
-                new NtpCustomizationConfigManager.HomepageStateListener() {
+                new HomepageStateListener() {
                     @Override
                     public void onBackgroundImageChanged(
                             Bitmap originalBitmap,
@@ -962,16 +956,6 @@ public class NewTabPage
     @Override
     public SnackbarManager getSnackbarManager() {
         return mNewTabPageManager.getSnackbarManager();
-    }
-
-    /** Adds an observer to be notified on most visited tile clicks. */
-    public void addMostVisitedTileClickObserver(MostVisitedTileClickObserver observer) {
-        mMostVisitedTileClickObservers.addObserver(observer);
-    }
-
-    /** Removes the observer. */
-    public void removeMostVisitedTileClickObserver(MostVisitedTileClickObserver observer) {
-        mMostVisitedTileClickObservers.removeObserver(observer);
     }
 
     /**

@@ -20,7 +20,7 @@ StructTraits<viz::mojom::PaintFilterDataView, sk_sp<cc::PaintFilter>>::data(
   // constraints explicitly disable serializing images using the transfer cache
   // and serialization of PaintRecords.
   cc::PaintOp::SerializeOptions options;
-  cc::PaintOpWriter writer(memory.data(), memory.size(), options,
+  cc::PaintOpWriter writer(memory, options,
                            true /* enable_security_constraints */);
   writer.Write(filter.get(), SkM44());
 
@@ -50,7 +50,7 @@ bool StructTraits<viz::mojom::PaintFilterDataView, sk_sp<cc::PaintFilter>>::
   // cache/gpu::Mailbox and serialization of PaintRecords.
   std::vector<uint8_t> scratch_buffer;
   cc::PaintOp::DeserializeOptions options{.scratch_buffer = scratch_buffer};
-  cc::PaintOpReader reader(buffer->data(), buffer->size(), options,
+  cc::PaintOpReader reader(buffer.value(), options,
                            /*enable_security_constraints=*/true);
   sk_sp<cc::PaintFilter> filter;
   reader.Read(&filter);

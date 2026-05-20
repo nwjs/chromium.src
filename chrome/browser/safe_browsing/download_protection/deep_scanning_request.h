@@ -238,10 +238,13 @@ class DeepScanningRequest : public download::DownloadItem::Observer,
   // Shows the force save to cloud dialog. `file_count` should be 1 for single
   // file scans. For save package scans, it should be the number of files in
   // the package.
-  void ShowForceSaveToCloudDialog(base::OnceClosure keep_closure,
-                                  base::OnceClosure discard_closure,
-                                  content::WebContents* web_contents,
-                                  size_t file_count);
+  void ShowForceSaveToCloudDialog(
+      base::OnceClosure keep_closure,
+      base::OnceClosure discard_closure,
+      content::WebContents* web_contents,
+      const enterprise_connectors::ContentAnalysisResponse::Result::
+          TriggeredRule::CustomRuleMessage& custom_message,
+      size_t file_count);
 #endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 
   // Metadata for the item being scanned. This is owned by `DeepScanningRequest`
@@ -328,6 +331,9 @@ class DeepScanningRequest : public download::DownloadItem::Observer,
   // give more context on what user action lead to a scan.
   enterprise_connectors::ContentAnalysisRequest::Reason reason_ =
       enterprise_connectors::ContentAnalysisRequest::UNKNOWN;
+
+  // User action id for the scanning.
+  std::string user_action_id_;
 
   base::WeakPtrFactory<DeepScanningRequest> weak_ptr_factory_;
 };

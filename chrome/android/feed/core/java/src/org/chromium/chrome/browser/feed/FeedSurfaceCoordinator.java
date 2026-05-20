@@ -31,6 +31,8 @@ import androidx.annotation.Px;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView.ItemDecoration;
+import androidx.recyclerview.widget.RecyclerView.OnScrollListener;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CommandLine;
@@ -51,6 +53,7 @@ import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
 import org.chromium.chrome.browser.ntp.NewTabPageLaunchOrigin;
 import org.chromium.chrome.browser.ntp.NewTabPageLayout;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager.HomepageStateListener;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinatorFactory;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationMetricsUtils;
@@ -140,7 +143,6 @@ public class FeedSurfaceCoordinator
     private final Profile mProfile;
     private @Nullable FeedSurfaceLifecycleManager mFeedSurfaceLifecycleManager;
     private @Nullable View mSigninPromoView;
-    private final @Nullable ViewGroup mViewportView;
     // Feed RecyclerView/xSurface fields.
     private FeedListContentManager mContentManager;
     private final RecyclerView mRecyclerView;
@@ -171,9 +173,9 @@ public class FeedSurfaceCoordinator
     private @Nullable ImageButton mNtpCustomizationButton;
     private @Nullable NtpCustomizationConfigManager mNtpCustomizationConfigManager;
     private @Nullable NtpBackgroundImageCoordinator mNtpBackgroundImageCoordinator;
-    private NtpCustomizationConfigManager.@Nullable HomepageStateListener mHomepageStateListener;
-    private RecyclerView.@Nullable ItemDecoration mItemDecoration;
-    private RecyclerView.@Nullable OnScrollListener mOnScrollListener;
+    private @Nullable HomepageStateListener mHomepageStateListener;
+    private @Nullable ItemDecoration mItemDecoration;
+    private @Nullable OnScrollListener mOnScrollListener;
 
     /** Provides the additional capabilities needed for the container view. */
     private class RootView extends FrameLayout {
@@ -239,7 +241,7 @@ public class FeedSurfaceCoordinator
         }
 
         @Override
-        public void onDraw(android.graphics.Canvas canvas) {
+        public void onDraw(Canvas canvas) {
             try (TraceEvent e = TraceEvent.scoped("Feed.RootView.onDraw")) {
                 super.onDraw(canvas);
             }
@@ -282,7 +284,7 @@ public class FeedSurfaceCoordinator
     // TracingAndPerfScrollListener is explicitly not a ScrollListener due to the fact that the
     // ScrollableContainerDelegate could be null if we are tracking scrolling. However for looking
     // at performance metrics of scrolling we always want to know when feed is scrolling.
-    static class TracingAndPerfScrollListener extends RecyclerView.OnScrollListener {
+    static class TracingAndPerfScrollListener extends OnScrollListener {
         @Override
         public void onScrollStateChanged(RecyclerView view, int newState) {
             switch (mPrevState) {
@@ -388,8 +390,6 @@ public class FeedSurfaceCoordinator
      * @param embeddingSurfaceCreatedTimeNs Timestamp of creation of the UI surface.
      * @param swipeRefreshLayout The layout to support pull-to-refresh.
      * @param overScrollDisabled Whether the overscroll effect is disabled.
-     * @param viewportView The view that should be used as a container for viewport measurement
-     *     purposes, or |null| if the view returned by HybridListRenderer is to be used.
      * @param createActionDelegate Factory for creating the implementation of Feed actions.
      * @param tabStripHeightSupplier Supplier for the tab strip height.
      * @param edgeToEdgeControllerSupplier Supplier for the {@link EdgeToEdgeController} instance.
@@ -414,7 +414,6 @@ public class FeedSurfaceCoordinator
             long embeddingSurfaceCreatedTimeNs,
             FeedSwipeRefreshLayout swipeRefreshLayout,
             boolean overScrollDisabled,
-            @Nullable ViewGroup viewportView,
             ActionDelegateFactory createActionDelegate,
             NonNullObservableSupplier<Integer> tabStripHeightSupplier,
             MonotonicObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
@@ -433,7 +432,6 @@ public class FeedSurfaceCoordinator
         mToolbarSupplier = toolbarSupplier;
         mSwipeRefreshLayout = swipeRefreshLayout;
         mOverScrollDisabled = overScrollDisabled;
-        mViewportView = viewportView;
         mActionDelegate = createActionDelegate.createActionDelegate();
         mEmbeddingSurfaceCreatedTimeNs = embeddingSurfaceCreatedTimeNs;
         mHeaderIndex = 0;
@@ -503,7 +501,7 @@ public class FeedSurfaceCoordinator
         if (mIsNtpCustomizationV2Enabled) {
             mNtpCustomizationConfigManager = NtpCustomizationConfigManager.getInstance();
             mHomepageStateListener =
-                    new NtpCustomizationConfigManager.HomepageStateListener() {
+                    new HomepageStateListener() {
                         @Override
                         public void onBackgroundImageChanged(
                                 Bitmap originalBitmap,
@@ -546,7 +544,7 @@ public class FeedSurfaceCoordinator
 
         if (mNtpHeader != null && ChromeFeatureList.isEnabled(ChromeFeatureList.FEED_CONTAINMENT)) {
             int bottomPadding =
-                    mActivity.getResources().getDimensionPixelSize(R.dimen.feed_header_top_margin);
+                    mActivity.getResources().getDimensionPixelSize(R.dimen.ntp_section_top_margin);
             mNtpHeader.setPadding(
                     mNtpHeader.getPaddingLeft(),
                     mNtpHeader.getPaddingTop(),
@@ -782,8 +780,11 @@ public class FeedSurfaceCoordinator
         }
 
         mFeedStreamViewResizer.destroy();
+        mContentManager.destroy();
         mUiConfig.destroy();
         mActionDelegate.destroy();
+
+        mObservers.clear();
 
         // Null remaining objects.
         mReliabilityLogger = null;
@@ -986,7 +987,8 @@ public class FeedSurfaceCoordinator
         // XSurface returns a View, but it should be a RecyclerView.
         RecyclerView view =
                 (RecyclerView)
-                        mHybridListRenderer.bind(mContentManager, mViewportView, gutterPadding);
+                        mHybridListRenderer.bind(
+                                mContentManager, /* viewport= */ null, gutterPadding);
         assumeNonNull(view);
         view.setId(R.id.feed_stream_recycler_view);
         view.setClipToPadding(false);
@@ -1011,7 +1013,7 @@ public class FeedSurfaceCoordinator
             view.addItemDecoration(mItemDecoration);
         }
 
-        // Work around https://crbug.com/943873 where default focus highlight shows up after
+        // Work around https://crbug.com/41447943 where default focus highlight shows up after
         // toggling dark mode.
         view.setDefaultFocusHighlightEnabled(false);
         if (mOverScrollDisabled) {
@@ -1105,7 +1107,6 @@ public class FeedSurfaceCoordinator
                 mActionDelegate,
                 /* feedContentFirstLoadWatcher= */ this,
                 streamsMediator,
-                /* singleWebFeedParameters= */ null,
                 new FeedSurfaceRendererBridge.Factory() {});
     }
 
@@ -1144,7 +1145,7 @@ public class FeedSurfaceCoordinator
                 int topPadding =
                         mActivity
                                 .getResources()
-                                .getDimensionPixelSize(R.dimen.feed_header_top_margin);
+                                .getDimensionPixelSize(R.dimen.feed_header_top_padding);
                 mSigninPromoView.setPadding(
                         mSigninPromoView.getPaddingLeft(),
                         topPadding,

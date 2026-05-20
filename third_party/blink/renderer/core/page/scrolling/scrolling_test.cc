@@ -30,6 +30,7 @@
 #include "cc/base/features.h"
 #include "cc/input/main_thread_scrolling_reason.h"
 #include "cc/layers/scrollbar_layer_base.h"
+#include "cc/trees/client_layer_tree_host_impl.h"
 #include "cc/trees/compositor_commit_data.h"
 #include "cc/trees/layer_tree_impl.h"
 #include "cc/trees/property_tree.h"
@@ -137,16 +138,16 @@ class ScrollingTest : public testing::Test, public PaintTestConfigurations {
     // TODO(crbug.com/751425): We should use the mock functionality
     // via |helper_|.
     url_test_helpers::RegisterMockedURLLoadFromBase(
-        WebString::FromUTF8(kHttpBaseUrl), test::CoreTestDataPath(),
-        WebString::FromUTF8(file_name));
+        WebString::FromUtf8(kHttpBaseUrl), test::CoreTestDataPath(),
+        WebString::FromUtf8(file_name));
   }
 
   void RegisterMockedHttpsURLLoad(const std::string& file_name) {
     // TODO(crbug.com/751425): We should use the mock functionality
     // via |helper_|.
     url_test_helpers::RegisterMockedURLLoadFromBase(
-        WebString::FromUTF8(kHttpsBaseUrl), test::CoreTestDataPath(),
-        WebString::FromUTF8(file_name));
+        WebString::FromUtf8(kHttpsBaseUrl), test::CoreTestDataPath(),
+        WebString::FromUtf8(file_name));
   }
 
   void SetupHttpTestURL(const std::string& url_fragment) {
@@ -3772,6 +3773,7 @@ TEST_F(ScrollingSimTest, ScrollTimelineActiveAtBoundary) {
   // Activate the timeline (see ScrollTimeline::IsActive), so that it will be
   // ticked during the next LTHI::Animate.
   impl_host->PromoteScrollTimelinesPendingToActive();
+  cc_animation->animation_host()->PromoteScrollTimelinesPendingToActive();
 
   // Second frame: LTHI::Animate transitions to RunState::STARTING. Pass
   // raster=true to also reach LTHI::UpdateAnimationState, which transitions

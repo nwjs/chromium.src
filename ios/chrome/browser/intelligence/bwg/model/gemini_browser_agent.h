@@ -16,9 +16,12 @@
 #import "base/types/expected.h"
 #import "components/prefs/pref_change_registrar.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
+#import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
+#import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent_observer.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller_observer.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper_observer.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_view_state_change_handler.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/shared/model/browser/browser_observer.h"
 #import "ios/chrome/browser/shared/model/browser/browser_user_data.h"
@@ -26,6 +29,7 @@
 #import "ios/public/provider/chrome/browser/bwg/bwg_api.h"
 
 class Browser;
+class FullscreenController;
 
 enum class PageContextWrapperError;
 
@@ -38,25 +42,29 @@ class PageContext;
 }  // namespace optimization_guide::proto
 
 class ScopedFullscreenDisabler;
-@class BWGLinkOpeningHandler;
+@class GeminiLinkOpeningHandler;
 @class GeminiPageStateChangeHandler;
-@class BWGSessionHandler;
+@class GeminiSessionHandler;
 @class GeminiCameraHandler;
 @class GeminiPageContext;
 @class GeminiViewStateChangeHandler;
 @class GeminiScrollObserver;
 @class GeminiSuggestionHandler;
+@class GeminiActuationHandler;
 
 @protocol BWGGatewayProtocol;
+@protocol FullscreenCommands;
 
 // A browser agent responsible for presenting the floaty and managing
 // its protocol handlers.
 class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
                            public GeminiTabHelperObserver,
                            public FullscreenControllerObserver,
+                           public FullscreenBrowserAgentObserver,
                            public TabsDependencyInstaller,
                            public BrowserObserver,
-                           public signin::IdentityManager::Observer {
+                           public signin::IdentityManager::Observer,
+                           public GeminiViewStateChangeHandlerTarget {
  public:
   GeminiBrowserAgent(const GeminiBrowserAgent&) = delete;
   GeminiBrowserAgent& operator=(const GeminiBrowserAgent&) = delete;
@@ -88,15 +96,6 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   void StartGeminiFlow(UIViewController* base_view_controller,
                        GeminiStartupState* startup_state);
 
-  // Presents the floaty on a given view controller in a pending state
-  // with a partial PageContext.
-  // TODO(crbug.com/465535924): Deprecated, new callers should use
-  // `StartGeminiFlow` instead.
-  void PresentFloatyWithPendingContext(
-      UIViewController* base_view_controller,
-      std::unique_ptr<optimization_guide::proto::PageContext> page_context,
-      GeminiStartupState* startup_state);
-
   // Updates the page context for the floaty.
   // TODO(crbug.com/465535924): Deprecated, new callers should use
   // `StartGeminiFlow` instead (and let this be handled internally within the
@@ -113,9 +112,6 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
       base::expected<std::unique_ptr<optimization_guide::proto::PageContext>,
                      PageContextWrapperError> expected_page_context);
 
-  // Called when the Gemini view state expands.
-  void OnGeminiViewStateExpanded();
-
   // Dismisses the floaty and resets the Gemini flow.
   void DismissFloaty();
 
@@ -131,11 +127,11 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   // floaty to be shown.
   void ShowFloatyIfInvoked(bool animated, gemini::FloatyUpdateSource source);
 
-  // Collapses floaty if invoked.
-  void CollapseFloatyIfInvoked();
-
-  // Setter for `last_shown_view_state_`.
-  void SetLastShownViewState(ios::provider::GeminiViewState view_state);
+  // GeminiViewStateChangeHandlerTarget:
+  void OnGeminiViewStateExpanded() override;
+  void CollapseFloatyIfInvoked() override;
+  void SetLastShownViewState(
+      ios::provider::GeminiViewState view_state) override;
 
   // Called when trait collection is updated.
   void UpdateForTraitCollection(UITraitCollection* traitCollection);
@@ -205,12 +201,22 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
       UIEdgeInsets min_viewport_insets,
       UIEdgeInsets max_viewport_insets) override;
 
+  // FullscreenBrowserAgentObserver:
+  void WillUpdateState(FullscreenBrowserAgent* agent) override;
+  void DidUpdateObscuredInsetRange(FullscreenBrowserAgent* agent) override;
+  void WillShutDown(FullscreenBrowserAgent* agent) override;
+
   // Returns true if the user has completed the FRE.
   bool HasCompletedFirstRun();
 
-  // Returns the floaty offset from a FullscreenController.
-  CGFloat GetFloatyOffsetFromFullscreenController(
-      FullscreenController* controller);
+  // Shows a snackbar message informing the user that sign-in is required.
+  void ShowSignInRequiredSnackbar(gemini::EntryPoint entry_point);
+
+  // Returns the floaty offset based on current fullscreen progress.
+  CGFloat GetFloatyOffset();
+
+  // Returns the floaty progress based on current fullscreen state.
+  CGFloat GetFloatyProgress();
 
   // Invokes the floaty.
   void InvokeFloaty(GeminiConfiguration* config);
@@ -232,6 +238,9 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   // animation. Not called every time the floaty is shown since there are
   // instances where scrolling should be allowed when a floaty is shown.
   void PrepareFloatyToBeShown();
+
+  // Returns true if the active fullscreen implementation is initialized.
+  bool IsFullscreenInitialized();
 
   // Resets the fullscreen disabler. Needs to be called each time
   // PrepareFloatyToBeShown() is called or the floaty may permanently disable
@@ -277,15 +286,15 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
 
   /// TODO(crbug.com/491093929): Rename the below classes to move away from the
   /// `-Handler` naming scheme used by Chromium Objective-C command protocols.
-  // Handler for opening links from BWG.
-  __strong BWGLinkOpeningHandler* bwg_link_opening_handler_ = nullptr;
+  // Handler for opening links from Gemini.
+  __strong GeminiLinkOpeningHandler* gemini_link_opening_handler_ = nullptr;
 
   // Handler for PageState changes.
   __strong GeminiPageStateChangeHandler* gemini_page_state_change_handler_ =
       nullptr;
 
-  // Handler for the BWG sessions.
-  __strong BWGSessionHandler* bwg_session_handler_ = nullptr;
+  // Handler for the Gemini sessions.
+  __strong GeminiSessionHandler* bwg_session_handler_ = nullptr;
 
   // Handler for Gemini camera.
   __strong GeminiCameraHandler* gemini_camera_handler_ = nullptr;
@@ -293,11 +302,15 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   // Handler for Gemini suggestion chips.
   __strong GeminiSuggestionHandler* gemini_suggestion_handler_ = nullptr;
 
+  // Handler for Gemini actor.
+  __strong GeminiActuationHandler* gemini_actuation_handler_ = nullptr;
+
   // Delegate implementation for BWGSessionHandler.
   __strong GeminiViewStateChangeHandler* gemini_view_state_handler_ = nullptr;
 
   // Reference to fullscreen controller. Used to observe fullscreen progress
-  // updates related to the Gemini overlay.
+  // updates related to the Gemini overlay for the legacy fullscreen
+  // implementation.
   raw_ptr<FullscreenController> fullscreen_controller_ = nullptr;
 
   // IdentityManager associated with the Browser's profile.
@@ -347,6 +360,11 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
 
   // Scoped fullscreen disabler.
   std::unique_ptr<ScopedFullscreenDisabler> fullscreen_disabler_;
+
+  // Scoped fullscreen observervation.
+  base::ScopedObservation<FullscreenBrowserAgent,
+                          FullscreenBrowserAgentObserver>
+      fullscreen_observation_{this};
 
   // Timer to reset the fullscreen disabler. Re-enabling fullscreen should be
   // handled in floaty interaction logic such as the floaty being collapsed or

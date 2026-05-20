@@ -7,11 +7,15 @@
 #include "base/strings/stringprintf.h"
 #include "base/task/current_thread.h"
 #include "base/test/bind.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/test/with_feature_override.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/browsing_data/chrome_browsing_data_remover_constants.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/signin/chrome_signin_client.h"
+#include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/dice_tab_helper.h"
 #include "chrome/browser/signin/dice_web_signin_interceptor.h"
 #include "chrome/browser/signin/dice_web_signin_interceptor_factory.h"
@@ -22,7 +26,7 @@
 #include "chrome/browser/signin/e2e_tests/signin_util.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/profiles/profile_picker.h"
 #include "chrome/browser/ui/profiles/profile_ui_test_utils.h"
 #include "chrome/browser/ui/views/profiles/dice_web_signin_interception_bubble_view.h"
@@ -44,17 +48,36 @@
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/signin/public/identity_manager/test_accounts.h"
 #include "components/signin/public/identity_manager/tribool.h"
+#include "components/sync/base/features.h"
 #include "components/sync/service/sync_service.h"
+#include "components/unexportable_keys/features.h"
+#include "content/public/browser/browsing_data_filter_builder.h"
+#include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/browsing_data_remover_test_util.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_urls.h"
+#include "mojo/public/cpp/bindings/receiver.h"
+#include "net/base/features.h"
+#include "net/base/schemeful_site.h"
+#include "net/cookies/canonical_cookie.h"
+#include "net/cookies/cookie_options.h"
+#include "net/device_bound_sessions/session_event.h"
+#include "net/device_bound_sessions/session_key.h"
+#include "net/dns/mock_host_resolver.h"
+#include "services/network/public/cpp/features.h"
+#include "services/network/public/mojom/cookie_manager.mojom.h"
+#include "services/network/public/mojom/device_bound_sessions.mojom.h"
+#include "testing/gmock/include/gmock/gmock.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/views/controls/webview/webview.h"
+#include "url/gurl.h"
 
 #if !BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/sync/sync_ui_util.h"
@@ -63,13 +86,20 @@
 namespace signin::test {
 namespace {
 
+using ::testing::AllOf;
+using ::testing::Contains;
+using ::testing::ExplainMatchResult;
+using ::testing::Field;
+using ::testing::HasSubstr;
+using ::testing::Not;
+
 // Live tests for SignIn.
 // These tests can be run with:
-// browser_tests --gtest_filter=LiveSignInTest.* --run-live-tests --run-manual
-class LiveSignInTest : public signin::test::LiveTest {
+// browser_tests --gtest_filter=LiveSignInTest*.* --run-live-tests --run-manual
+class LiveSignInTestBase : public LiveTest {
  public:
-  LiveSignInTest() = default;
-  ~LiveSignInTest() override = default;
+  LiveSignInTestBase() = default;
+  ~LiveSignInTestBase() override = default;
 
   void SetUp() override {
     LiveTest::SetUp();
@@ -98,12 +128,34 @@ class LiveSignInTest : public signin::test::LiveTest {
       }));
 };
 
+class LiveSignInTest : public base::test::WithFeatureOverride,
+                       public LiveSignInTestBase {
+ public:
+  LiveSignInTest()
+      : base::test::WithFeatureOverride(
+            syncer::kReplaceSyncPromosWithSignInPromos) {}
+};
+
+// TODO(crbug.com/40066949): Simplify once kSync becomes unreachable or is
+// deleted from the codebase. See ConsentLevel::kSync documentation for
+// details.
+class LiveSignInTestFullSync : public LiveSignInTestBase {
+ public:
+  LiveSignInTestFullSync() {
+    feature_list_.InitAndDisableFeature(
+        syncer::kReplaceSyncPromosWithSignInPromos);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
 // This test can pass. Marked as manual because it TIMED_OUT on Win7.
-// See crbug.com/1025335.
+// See crbug.com/40107825.
 // Sings in an account through the settings page and checks that the account is
 // added to Chrome. Sync should be disabled because the test doesn't pass
 // through the Sync confirmation dialog.
-IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_SimpleSignInFlow) {
+IN_PROC_BROWSER_TEST_P(LiveSignInTest, MANUAL_SimpleSignInFlow) {
   std::optional<TestAccountSigninCredentials> test_account =
       GetTestAccounts()->GetAccount("TEST_ACCOUNT_1");
   CHECK(test_account.has_value());
@@ -124,12 +176,12 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_SimpleSignInFlow) {
 }
 
 // This test can pass. Marked as manual because it TIMED_OUT on Win7.
-// See crbug.com/1025335.
+// See crbug.com/40107825.
 // Signs in an account through the settings page and enables Sync. Checks that
 // Sync is enabled.
 // Then, signs out on the web and checks that the account is removed from
 // cookies and Sync paused error is displayed.
-IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_WebSignOut) {
+IN_PROC_BROWSER_TEST_F(LiveSignInTestFullSync, MANUAL_WebSignOut) {
   std::optional<TestAccountSigninCredentials> test_account =
       GetTestAccounts()->GetAccount("TEST_ACCOUNT_1");
   CHECK(test_account.has_value());
@@ -162,11 +214,11 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_WebSignOut) {
 }
 
 // This test can pass. Marked as manual because it TIMED_OUT on Win7.
-// See crbug.com/1025335.
+// See crbug.com/40107825.
 // Sings in two accounts on the web and checks that cookies and refresh tokens
 // are added to Chrome. Sync should be disabled.
 // Then, signs out on the web and checks that accounts are removed from Chrome.
-IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_WebSignInAndSignOut) {
+IN_PROC_BROWSER_TEST_P(LiveSignInTest, MANUAL_WebSignInAndSignOut) {
   std::optional<TestAccountSigninCredentials> test_account =
       GetTestAccounts()->GetAccount("TEST_ACCOUNT_1");
   CHECK(test_account.has_value());
@@ -221,12 +273,12 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_WebSignInAndSignOut) {
 }
 
 // This test can pass. Marked as manual because it TIMED_OUT on Win7.
-// See crbug.com/1025335.
+// See crbug.com/40107825.
 // Signs in an account through the settings page and enables Sync. Checks that
 // Sync is enabled. Signs in a second account on the web.
 // Then, turns Sync off from the settings page and checks that both accounts are
 // removed from Chrome and from cookies.
-IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_TurnOffSync) {
+IN_PROC_BROWSER_TEST_F(LiveSignInTestFullSync, MANUAL_TurnOffSync) {
   std::optional<TestAccountSigninCredentials> test_account_1 =
       GetTestAccounts()->GetAccount("TEST_ACCOUNT_1");
   CHECK(test_account_1.has_value());
@@ -257,8 +309,8 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_TurnOffSync) {
 
 // In "Sync paused" state, when the primary account is invalid, turns off sync
 // from settings. Checks that the account is removed from Chrome.
-// Regression test for https://crbug.com/1114646
-IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_TurnOffSyncWhenPaused) {
+// Regression test for https://crbug.com/40710922
+IN_PROC_BROWSER_TEST_F(LiveSignInTestFullSync, MANUAL_TurnOffSyncWhenPaused) {
   std::optional<TestAccountSigninCredentials> test_account =
       GetTestAccounts()->GetAccount("TEST_ACCOUNT_1");
   CHECK(test_account.has_value());
@@ -287,11 +339,12 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_TurnOffSyncWhenPaused) {
 }
 
 // This test can pass. Marked as manual because it TIMED_OUT on Win7.
-// See crbug.com/1025335.
+// See crbug.com/40107825.
 // Signs in an account on the web. Goes to the Chrome settings to enable Sync
 // but cancels the sync confirmation dialog. Checks that the account is still
 // signed in on the web but Sync is disabled.
-IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_CancelSyncWithWebAccount) {
+IN_PROC_BROWSER_TEST_F(LiveSignInTestFullSync,
+                       MANUAL_CancelSyncWithWebAccount) {
   std::optional<TestAccountSigninCredentials> test_account =
       GetTestAccounts()->GetAccount("TEST_ACCOUNT_1");
   CHECK(test_account.has_value());
@@ -328,18 +381,23 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_CancelSyncWithWebAccount) {
 }
 
 // This test can pass. Marked as manual because it TIMED_OUT on Win7.
-// See crbug.com/1025335.
+// See crbug.com/40107825.
 // Starts the sign in flow from the settings page, enters credentials on the
 // login page but cancels the Sync confirmation dialog. Checks that Sync is
 // disabled but the account is still signed in to Chrome.
-IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_CancelSync) {
+IN_PROC_BROWSER_TEST_P(LiveSignInTest, MANUAL_CancelSync) {
   std::optional<TestAccountSigninCredentials> test_account =
       GetTestAccounts()->GetAccount("TEST_ACCOUNT_1");
   CHECK(test_account.has_value());
   sign_in_functions.SignInFromSettings(*test_account, 0);
 
-  EXPECT_TRUE(login_ui_test_utils::CancelSyncConfirmationDialog(
-      browser(), kDialogTimeout));
+  if (IsParamFeatureEnabled()) {
+    EXPECT_TRUE(login_ui_test_utils::RejectHistorySyncOptinDialog(
+        browser(), kDialogTimeout));
+  } else {
+    EXPECT_TRUE(login_ui_test_utils::CancelSyncConfirmationDialog(
+        browser(), kDialogTimeout));
+  }
   // The account is still signed in, but not syncing.
   EXPECT_FALSE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSync));
@@ -361,12 +419,12 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_CancelSync) {
 }
 
 // This test can pass. Marked as manual because it TIMED_OUT on Win7.
-// See crbug.com/1025335.
+// See crbug.com/40107825.
 // Enables and disables sync to account 1. Enables sync to account 2 and clicks
 // on "This wasn't me" in the email confirmation dialog. Checks that the new
 // profile is created. Checks that Sync to account 2 is enabled in the new
 // profile. Checks that account 2 was removed from the original profile.
-IN_PROC_BROWSER_TEST_F(LiveSignInTest,
+IN_PROC_BROWSER_TEST_F(LiveSignInTestFullSync,
                        MANUAL_SyncSecondAccount_CreateNewProfile) {
   // Enable and disable sync for the first account.
   std::optional<TestAccountSigninCredentials> test_account_1 =
@@ -389,7 +447,7 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest,
   // Check there is only one profile.
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   EXPECT_EQ(profile_manager->GetNumberOfProfiles(), 1U);
-  EXPECT_EQ(chrome::GetTotalBrowserCount(), 1U);
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1U);
 
   // Click "This wasn't me" on the email confirmation dialog and wait for a new
   // browser and profile created.
@@ -398,7 +456,7 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest,
       SigninEmailConfirmationDialog::CREATE_NEW_USER));
   Browser* new_browser = ui_test_utils::WaitForBrowserToOpen();
   EXPECT_EQ(profile_manager->GetNumberOfProfiles(), 2U);
-  EXPECT_EQ(chrome::GetTotalBrowserCount(), 2U);
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 2U);
   EXPECT_NE(browser()->profile(), new_browser->profile());
 
   // Confirm sync in the new browser window.
@@ -445,11 +503,11 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest,
 }
 
 // This test can pass. Marked as manual because it TIMED_OUT on Win7.
-// See crbug.com/1025335.
+// See crbug.com/40107825.
 // Enables and disables sync to account 1. Enables sync to account 2 and clicks
 // on "This was me" in the email confirmation dialog. Checks that Sync to
 // account 2 is enabled in the current profile.
-IN_PROC_BROWSER_TEST_F(LiveSignInTest,
+IN_PROC_BROWSER_TEST_F(LiveSignInTestFullSync,
                        MANUAL_SyncSecondAccount_InExistingProfile) {
   // Enable and disable sync for the first account.
   std::optional<TestAccountSigninCredentials> test_account_1 =
@@ -467,7 +525,7 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest,
   // Check there is only one profile.
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   EXPECT_EQ(profile_manager->GetNumberOfProfiles(), 1U);
-  EXPECT_EQ(chrome::GetTotalBrowserCount(), 1U);
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1U);
 
   // Click "This was me" on the email confirmation dialog, confirm sync and wait
   // for a primary account to be set.
@@ -480,7 +538,7 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest,
 
   // Check no profile was created.
   EXPECT_EQ(profile_manager->GetNumberOfProfiles(), 1U);
-  EXPECT_EQ(chrome::GetTotalBrowserCount(), 1U);
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1U);
 
   // Check accounts in cookies.
   const AccountsInCookieJarInfo& accounts_in_cookie_jar =
@@ -504,11 +562,11 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest,
 }
 
 // This test can pass. Marked as manual because it TIMED_OUT on Win7.
-// See crbug.com/1025335.
+// See crbug.com/40107825.
 // Enables and disables sync to account 1. Enables sync to account 2 and clicks
 // on "Cancel" in the email confirmation dialog. Checks that the account is left
 // signed in without syncing.
-IN_PROC_BROWSER_TEST_F(LiveSignInTest,
+IN_PROC_BROWSER_TEST_F(LiveSignInTestFullSync,
                        MANUAL_SyncSecondAccount_CancelOnEmailConfirmation) {
   // Enable and disable sync for the first account.
   std::optional<TestAccountSigninCredentials> test_account_1 =
@@ -526,7 +584,7 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest,
   // Check there is only one profile.
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   EXPECT_EQ(profile_manager->GetNumberOfProfiles(), 1U);
-  EXPECT_EQ(chrome::GetTotalBrowserCount(), 1U);
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1U);
 
   // Click "Cancel" on the email confirmation dialog.
   EXPECT_TRUE(login_ui_test_utils::CompleteSigninEmailConfirmationDialog(
@@ -534,7 +592,7 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest,
 
   // Check no profile was created.
   EXPECT_EQ(profile_manager->GetNumberOfProfiles(), 1U);
-  EXPECT_EQ(chrome::GetTotalBrowserCount(), 1U);
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1U);
 
   // The account is still signed in, but not syncing.
   EXPECT_FALSE(
@@ -559,7 +617,7 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest,
   EXPECT_FALSE(sync_service()->IsSyncFeatureEnabled());
 }
 
-IN_PROC_BROWSER_TEST_F(LiveSignInTest,
+IN_PROC_BROWSER_TEST_P(LiveSignInTest,
                        MANUAL_AccountCapabilities_FetchedOnSignIn) {
   // Test primary adult account.
   {
@@ -613,7 +671,7 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest,
 }
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_CreateSignedInProfile) {
+IN_PROC_BROWSER_TEST_F(LiveSignInTestFullSync, MANUAL_CreateSignedInProfile) {
   base::HistogramTester histogram_tester;
   std::optional<TestAccountSigninCredentials> test_account =
       GetTestAccounts()->GetAccount("TEST_ACCOUNT_1");
@@ -622,7 +680,7 @@ IN_PROC_BROWSER_TEST_F(LiveSignInTest, MANUAL_CreateSignedInProfile) {
   // Check there is only one profile.
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   EXPECT_EQ(profile_manager->GetNumberOfProfiles(), 1U);
-  EXPECT_EQ(chrome::GetTotalBrowserCount(), 1U);
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1U);
 
   // Open the profile picker.
   ProfilePicker::Show(ProfilePicker::Params::FromEntryPoint(
@@ -680,16 +738,17 @@ class LiveSignInGaiaIntegrationTest : public LiveSignInTest {};
 // Regression test for crbug.com/420635510.
 // Tests that a doing a web signin from a tab that was previously opened for
 // a browser signin, does not sign in the user in the browser.
-// TODO(crbug.com/467170772): Remove the logging once flakiness reason is identified.
-IN_PROC_BROWSER_TEST_F(LiveSignInGaiaIntegrationTest,
+// TODO(crbug.com/467170772): Remove the logging once flakiness reason is
+// identified.
+IN_PROC_BROWSER_TEST_P(LiveSignInGaiaIntegrationTest,
                        MANUAL_WebSignInFromExistingChromeSignInTab) {
   base::HistogramTester histogram_tester;
   std::optional<TestAccountSigninCredentials> test_account =
       GetTestAccounts()->GetAccount("TEST_ACCOUNT_1");
   CHECK(test_account.has_value());
 
-  sign_in_functions.SignInFromSettings(
-    test_account.value(), 0, /*complete_signin_operation=*/false);
+  sign_in_functions.SignInFromSettings(test_account.value(), 0,
+                                       /*complete_signin_operation=*/false);
   int current_tab_count = browser()->tab_strip_model()->count();
   auto* signin_tab = browser()->tab_strip_model()->GetActiveWebContents();
   DiceTabHelper* dice_tab_helper = DiceTabHelper::FromWebContents(signin_tab);
@@ -737,6 +796,268 @@ IN_PROC_BROWSER_TEST_F(LiveSignInGaiaIntegrationTest,
   EXPECT_FALSE(identity_manager()->HasPrimaryAccount(ConsentLevel::kSignin));
 }
 
+MATCHER_P2(HasBoundSession, session_id, site_url, "") {
+  return ExplainMatchResult(
+      Contains(
+          AllOf(Field(&net::device_bound_sessions::SessionKey::id,
+                      net::device_bound_sessions::SessionKey::Id(session_id)),
+                Field(&net::device_bound_sessions::SessionKey::site,
+                      net::SchemefulSite(site_url)))),
+      arg, result_listener);
+}
+
+class TestDeviceBoundSessionObserver
+    : public network::mojom::DeviceBoundSessionEventObserver {
+ public:
+  TestDeviceBoundSessionObserver(
+      network::mojom::DeviceBoundSessionManager* manager,
+      std::string target_session_id)
+      : target_session_id_(std::move(target_session_id)) {
+    manager->AddEventObserver(receiver_.BindNewPipeAndPassRemote());
+  }
+  ~TestDeviceBoundSessionObserver() override = default;
+
+  void WaitForRegistration() {
+    registration_run_loop_->Run();
+    registration_run_loop_.emplace();
+  }
+
+  void WaitForTermination() {
+    termination_run_loop_->Run();
+    termination_run_loop_.emplace();
+  }
+
+  void WaitForRefresh() {
+    refresh_run_loop_->Run();
+    refresh_run_loop_.emplace();
+  }
+
+  // network::mojom::DeviceBoundSessionEventObserver:
+  void OnDeviceBoundSessionEventReceived(
+      const net::device_bound_sessions::SessionEvent& event) override {
+    if (event.session_id != target_session_id_) {
+      return;
+    }
+
+    if (std::holds_alternative<
+            net::device_bound_sessions::CreationEventDetails>(
+            event.event_type_details)) {
+      registration_run_loop_->Quit();
+    } else if (std::holds_alternative<
+                   net::device_bound_sessions::TerminationEventDetails>(
+                   event.event_type_details)) {
+      termination_run_loop_->Quit();
+    } else if (std::holds_alternative<
+                   net::device_bound_sessions::RefreshEventDetails>(
+                   event.event_type_details)) {
+      refresh_run_loop_->Quit();
+    }
+  }
+
+  void AddDeviceBoundSessionDisplays(
+      const std::vector<net::device_bound_sessions::SessionDisplay>&
+          session_displays) override {}
+
+ private:
+  const std::string target_session_id_;
+  mojo::Receiver<network::mojom::DeviceBoundSessionEventObserver> receiver_{
+      this};
+
+  std::optional<base::RunLoop> registration_run_loop_{std::in_place};
+  std::optional<base::RunLoop> termination_run_loop_{std::in_place};
+  std::optional<base::RunLoop> refresh_run_loop_{std::in_place};
+};
+
+class DeviceBoundSessionsLiveSignInTest : public LiveSignInTestBase {
+ public:
+  DeviceBoundSessionsLiveSignInTest() {
+    feature_list_.InitWithFeatures(
+        {net::features::kDeviceBoundSessions,
+         net::features::kDeviceBoundSessionsForRestrictedSites,
+         switches::kEnableChromeRefreshTokenBinding,
+         switches::kEnableOAuthMultiloginStandardCookiesBinding,
+         net::features::kPersistDeviceBoundSessions,
+         network::features::kUseUnexportableKeyServiceInBrowserProcess,
+         unexportable_keys::
+             kEnableBoundSessionCredentialsSoftwareKeysForManualTesting,
+         syncer::kReplaceSyncPromosWithSignInPromos},
+        {});
+  }
+
+  void SetUpInProcessBrowserTestFixture() override {
+    LiveSignInTestBase::SetUpInProcessBrowserTestFixture();
+    // google.com is needed to fetch .well-known/device-bound-sessions to
+    // verify that accounts.google.com is allowed to create a session.
+    host_resolver()->AllowDirectLookup("google.com");
+  }
+
+  void SetUpOnMainThread() override {
+    LiveSignInTestBase::SetUpOnMainThread();
+    session_manager_ =
+        ChromeSigninClientFactory::GetForProfile(browser()->profile())
+            ->GetDeviceBoundSessionManager();
+    ASSERT_TRUE(session_manager_);
+    observer_.emplace(session_manager_, "sidts_session");
+  }
+
+  void TearDownOnMainThread() override {
+    observer_.reset();
+    session_manager_ = nullptr;
+    LiveSignInTestBase::TearDownOnMainThread();
+  }
+
+  network::mojom::DeviceBoundSessionManager* session_manager() {
+    return session_manager_;
+  }
+
+  TestDeviceBoundSessionObserver& observer() { return *observer_; }
+
+  std::string GetCookies(const GURL& url) {
+    network::mojom::CookieManager* cookie_manager =
+        browser()
+            ->profile()
+            ->GetDefaultStoragePartition()
+            ->GetCookieManagerForBrowserProcess();
+    net::CookieOptions options;
+    options.set_include_httponly();
+    options.set_same_site_cookie_context(
+        net::CookieOptions::SameSiteCookieContext::MakeInclusive());
+    base::test::TestFuture<const net::CookieAccessResultList&,
+                           const net::CookieAccessResultList&>
+        future;
+    cookie_manager->GetCookieList(
+        url, options, net::CookiePartitionKeyCollection::ContainsAll(),
+        future.GetCallback());
+    return net::CanonicalCookie::BuildCookieLine(std::get<0>(future.Get()));
+  }
+
+  void DeleteCookie(const std::string& cookie_name, const std::string& domain) {
+    network::mojom::CookieManager* cookie_manager =
+        browser()
+            ->profile()
+            ->GetDefaultStoragePartition()
+            ->GetCookieManagerForBrowserProcess();
+
+    auto filter = network::mojom::CookieDeletionFilter::New();
+    filter->cookie_name = cookie_name;
+    filter->including_domains = std::vector<std::string>{domain};
+
+    base::test::TestFuture<uint32_t> delete_future;
+    cookie_manager->DeleteCookies(std::move(filter),
+                                  delete_future.GetCallback());
+    EXPECT_GT(delete_future.Get(), 0u);
+  }
+
+  std::vector<net::device_bound_sessions::SessionKey> GetAllSessions() {
+    base::test::TestFuture<
+        const std::vector<net::device_bound_sessions::SessionKey>&>
+        sessions_future;
+    session_manager()->GetAllSessions(sessions_future.GetCallback());
+    return sessions_future.Get();
+  }
+
+  testing::AssertionResult SignInAndVerifyBoundSession() {
+    std::optional<TestAccountSigninCredentials> test_account =
+        GetTestAccounts()->GetAccount("TEST_ACCOUNT_1");
+    CHECK(test_account.has_value());
+
+    SignInTestObserver token_observer(identity_manager(), account_reconcilor(),
+                                      ConsentLevel::kSignin);
+
+    sign_in_functions.SignInFromSettings(*test_account, 0);
+
+    // Wait for the bound session to be created.
+    observer().WaitForRegistration();
+    // Verify the bound session exists.
+    EXPECT_THAT(GetAllSessions(),
+                HasBoundSession("sidts_session", GURL("https://google.com")));
+
+    // Wait for the refresh token to be updated.
+    token_observer.WaitForAccountChanges(1, PrimaryAccountWait::kWaitForAdded);
+    CoreAccountId account_id =
+        identity_manager()->GetPrimaryAccountId(ConsentLevel::kSignin);
+    EXPECT_TRUE(
+        identity_manager()->HasAccountWithBoundRefreshToken(account_id));
+
+    if (HasFailure()) {
+      return testing::AssertionFailure()
+             << "SignInAndVerifyBoundSession failed";
+    }
+    return testing::AssertionSuccess();
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+  raw_ptr<network::mojom::DeviceBoundSessionManager> session_manager_ = nullptr;
+  std::optional<TestDeviceBoundSessionObserver> observer_;
+};
+
+// Signs in an account and checks that both the refresh token and cookies are
+// bound to device.
+IN_PROC_BROWSER_TEST_F(DeviceBoundSessionsLiveSignInTest,
+                       MANUAL_SessionsAreBoundAfterSignIn) {
+  ASSERT_TRUE(SignInAndVerifyBoundSession());
+
+  // Delete the bound __Secure-1PSIDRTS cookie.
+  DeleteCookie("__Secure-1PSIDRTS", "google.com");
+
+  std::string cookies_after_delete = GetCookies(GURL("https://google.com"));
+  EXPECT_THAT(cookies_after_delete, Not(HasSubstr("__Secure-1PSIDRTS")));
+
+  // Navigate to google.com to trigger cookie refresh.
+  ASSERT_TRUE(
+      ui_test_utils::NavigateToURL(browser(), GURL("https://google.com")));
+
+  // Wait for the bound session to be refreshed.
+  observer().WaitForRefresh();
+
+  std::string cookies_after_refresh = GetCookies(GURL("https://google.com"));
+  EXPECT_THAT(cookies_after_refresh, HasSubstr("__Secure-1PSIDRTS"));
+}
+
+// Checks that OAuthMultilogin rebuilds bound session after site data deletion.
+IN_PROC_BROWSER_TEST_F(DeviceBoundSessionsLiveSignInTest,
+                       MANUAL_OAuthMultiloginRebuildsBoundSession) {
+  ASSERT_TRUE(SignInAndVerifyBoundSession());
+
+  // Delete all browsing data on google.com.
+  content::BrowsingDataRemover* remover =
+      browser()->profile()->GetBrowsingDataRemover();
+  content::BrowsingDataRemoverCompletionObserver completion_observer(remover);
+
+  auto filter_builder = content::BrowsingDataFilterBuilder::Create(
+      content::BrowsingDataFilterBuilder::Mode::kDelete);
+  filter_builder->AddRegisterableDomain("google.com");
+
+  remover->RemoveWithFilterAndReply(
+      base::Time(), base::Time::Max(),
+      chrome_browsing_data_remover::DATA_TYPE_SITE_DATA,
+      content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB,
+      std::move(filter_builder), &completion_observer);
+  completion_observer.BlockUntilCompletion();
+
+  // Wait for the bound session to be deleted.
+  observer().WaitForTermination();
+
+  // Verify that bound session is gone.
+  EXPECT_THAT(
+      GetAllSessions(),
+      Not(HasBoundSession("sidts_session", GURL("https://google.com"))));
+
+  // Wait until the new cookies are created via OAML.
+  observer().WaitForRegistration();
+
+  // Verify that a new bound session is created.
+  EXPECT_THAT(GetAllSessions(),
+              HasBoundSession("sidts_session", GURL("https://google.com")));
+}
+
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
+INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(LiveSignInTest);
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(LiveSignInGaiaIntegrationTest);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 }  // namespace

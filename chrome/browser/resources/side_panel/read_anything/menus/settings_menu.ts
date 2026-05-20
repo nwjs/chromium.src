@@ -159,6 +159,7 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
         state: true,
         type: String,
       },
+      options_: {type: Array},
     };
   }
 
@@ -167,7 +168,7 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
   accessor isSpeechActive: boolean = false;
   accessor settingsPrefs: SettingsPrefs = DEFAULT_SETTINGS;
 
-  protected options_: SettingsItem[] = [];
+  protected accessor options_: SettingsItem[] = [];
   protected accessor currentOpenId_: string|null = null;
 
   private interceptedEvents_: string[] =
@@ -209,7 +210,7 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
   }
 
   private initializeMenuOptions_() {
-    let optionIDs = [
+    const optionIDs = [
       SettingsOption.COLOR,
       SettingsOption.FONT,
       SettingsOption.LINE_SPACING,
@@ -223,13 +224,7 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
     }
 
     optionIDs.push(SettingsOption.PRESENTATION);
-
-    // If Readability is enabled but ReadabilityWithLinks is not enabled,
-    // don't show the links toggle.
-    if (!chrome.readingMode.isReadabilityEnabled ||
-        chrome.readingMode.isReadabilityWithLinksEnabled) {
-      optionIDs = optionIDs.concat([SettingsOption.LINKS]);
-    }
+    optionIDs.push(SettingsOption.LINKS);
 
     if (chrome.readingMode.imagesFeatureEnabled) {
       optionIDs.push(SettingsOption.IMAGES);
@@ -252,11 +247,12 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
         ariaLabel = this.getImageItemLabels();
       }
 
-      // TODO: crbug.com/494316323- Consider disabling the links toggle when
-      // read aloud is speaking, similar to what is done with the images toggle.
       if (id === SettingsOption.LINKS) {
         checked = chrome.readingMode.linksEnabled;
         ariaLabel = this.getLinkItemLabels();
+        // Since links are disabled when read aloud is playing, the links
+        // toggle should also be disabled.
+        disabled = this.isSpeechActive;
       }
 
       if (id === SettingsOption.PINNED_TO_TOOLBAR) {

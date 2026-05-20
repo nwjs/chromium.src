@@ -68,6 +68,7 @@ source_set("ui") {
     "//ios/chrome/app/strings:ios_strings",
     "//ios/chrome/browser/content_suggestions/ui:ui_util",
     "//ios/chrome/browser/home_customization/utils",
+    "//ios/chrome/browser/keyboard/ui_bundled",
     "//ios/chrome/browser/ntp/search_engine_logo/mediator",
     "//ios/chrome/browser/ntp/search_engine_logo/ui",
     "//ios/chrome/browser/ntp/ui_bundled:theme",
@@ -110,6 +111,8 @@ source_set("unit_tests") {
   sources = [
     "home_customization_background_cell_unittest.mm",
     "home_customization_image_view_unittest.mm",
+    "rainbow_slider+testing.h",
+    "rainbow_slider_unittest.mm",
   ]
   deps = [
     ":ui",

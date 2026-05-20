@@ -44,6 +44,8 @@ source_set("app_service") {
   deps = [
     "//base",
     "//chrome/browser/apps/app_service/app_icon:util",
+    "//chrome/browser/component_updater",
+    "//chrome/browser/metrics",
     "//chrome/browser/notifications",
     "//chrome/browser/ui/extensions",
     "//chrome/browser/web_applications:features",
@@ -53,7 +55,7 @@ source_set("app_service") {
 
   # TODO(crbug.com/40251079): Remove circular dependencies. Possibly flip
   # dependency direction so AppService doesn't depend on extensions
-  # (crbug.com/1402146).
+  # (crbug.com/40251080).
   allow_circular_includes_from = []
 
   if (enable_extensions) {
@@ -388,4 +390,25 @@ source_set("app_registry_cache_waiter") {
     ":app_service",
     "//url",
   ]
+}
+
+if (is_chromeos) {
+  source_set("browser_tests") {
+    testonly = true
+    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+    sources = [ "metrics/app_platform_metrics_service_browsertest.cc" ]
+
+    deps = [
+      ":app_service",
+      ":test_support",
+      "//chrome/browser",
+      "//chrome/browser/sync",
+      "//chrome/test:test_support",
+      "//components/app_constants",
+      "//content/test:test_support",
+      "//testing/gmock",
+      "//testing/gtest",
+    ]
+  }
 }

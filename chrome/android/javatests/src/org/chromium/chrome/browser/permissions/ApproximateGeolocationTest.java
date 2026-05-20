@@ -26,16 +26,17 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Features;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.permissions.RuntimePermissionTestUtils.RuntimePromptResponse;
 import org.chromium.chrome.browser.permissions.RuntimePermissionTestUtils.TestAndroidPermissionDelegate;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.components.browser_ui.site_settings.GeolocationSetting;
+import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridgeJni;
 import org.chromium.components.browser_ui.widget.RichRadioButtonList;
 import org.chromium.components.content_settings.ContentSetting;
@@ -141,12 +142,10 @@ public class ApproximateGeolocationTest {
         GeolocationSetting actualSetting =
                 ThreadUtils.runOnUiThreadBlocking(
                         () ->
-                                WebsitePreferenceBridgeJni.get()
-                                        .getGeolocationSettingForOrigin(
-                                                ProfileManager.getLastUsedRegularProfile(),
-                                                ContentSettingsType.GEOLOCATION_WITH_OPTIONS,
-                                                origin,
-                                                origin));
+                                WebsitePreferenceBridge.getGeolocationSettingForOrigin(
+                                        ProfileManager.getLastUsedRegularProfile(),
+                                        origin,
+                                        origin));
         GeolocationSetting expectedSetting =
                 precise
                         ? new GeolocationSetting(

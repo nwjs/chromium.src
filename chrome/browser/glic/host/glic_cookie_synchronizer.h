@@ -11,6 +11,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/identity_manager/accounts_cookie_mutator.h"
@@ -41,11 +42,8 @@ class GlicCookieSynchronizer
   // underlying multilogin operation hangs.
   static constexpr base::TimeDelta kCookieSyncDefaultTimeout = base::Seconds(7);
 
-  // If `use_for_fre` the storage partition is configured for use by the glic
-  // FRE webview. Otherwise, it is configured for use by the main glic webview.
   GlicCookieSynchronizer(content::BrowserContext* context,
-                         signin::IdentityManager* identity_manager,
-                         bool use_for_fre);
+                         signin::IdentityManager* identity_manager);
   GlicCookieSynchronizer(const GlicCookieSynchronizer&) = delete;
   GlicCookieSynchronizer& operator=(const GlicCookieSynchronizer&) = delete;
   ~GlicCookieSynchronizer() override;
@@ -71,6 +69,15 @@ class GlicCookieSynchronizer
  private:
   class SyncCookiesForDevelopmentTask;
   class ClearCookiesTask;
+  class Metrics {
+   public:
+    void BeginSync();
+    void EndSync(bool success);
+
+   private:
+    base::TimeTicks sync_start_time_;
+  };
+
   base::WeakPtr<GlicCookieSynchronizer> GetWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
   }
@@ -84,6 +91,7 @@ class GlicCookieSynchronizer
       GaiaAuthConsumer* consumer,
       const gaia::GaiaSource& source) override;
   network::mojom::CookieManager* GetCookieManagerForPartition() override;
+  signin::PartitionSuffix GetPartitionSuffix() const override;
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   network::mojom::DeviceBoundSessionManager*
   GetDeviceBoundSessionManagerForPartition() override;
@@ -101,9 +109,6 @@ class GlicCookieSynchronizer
                           signin::IdentityManager::Observer>
       observation_{this};
 
-  // Whether to configure the storage partition for use by the glic FRE webview.
-  bool use_for_fre_ = false;
-
   std::vector<base::OnceCallback<void(bool)>> callbacks_;
   base::OneShotTimer timeout_;
   std::unique_ptr<signin::AccountsCookieMutator::SetAccountsInCookieTask>
@@ -111,6 +116,7 @@ class GlicCookieSynchronizer
   std::unique_ptr<ClearCookiesTask> clear_cookies_task_;
   std::unique_ptr<SyncCookiesForDevelopmentTask>
       sync_cookies_for_development_task_;
+  Metrics metrics_;
   base::WeakPtrFactory<GlicCookieSynchronizer> weak_ptr_factory_{this};
 };
 

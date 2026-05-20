@@ -43,6 +43,8 @@ public class ListItemBuilder {
     private boolean mIsIncognito;
     private boolean mShouldTintIcon;
     private @ColorRes int mIconTintColorStateList;
+    private int mStartIconWidth;
+    private int mEndIconWidth;
     private @Nullable List<ListItem> mSubmenuItems;
     private @StyleRes int mTextAppearanceStyle;
     private @Nullable String mTitle;
@@ -180,6 +182,22 @@ public class ListItemBuilder {
     }
 
     /**
+     * @param startIconWidth The width for the start icon.
+     */
+    public ListItemBuilder withStartIconWidth(int startIconWidth) {
+        mStartIconWidth = startIconWidth;
+        return this;
+    }
+
+    /**
+     * @param endIconWidth The width for the end icon.
+     */
+    public ListItemBuilder withEndIconWidth(int endIconWidth) {
+        mEndIconWidth = endIconWidth;
+        return this;
+    }
+
+    /**
      * @param submenuItems The submenu items that are children of this item.
      */
     public ListItemBuilder withSubmenuItems(List<ListItem> submenuItems) {
@@ -239,6 +257,14 @@ public class ListItemBuilder {
 
         if (mStartIconDrawable != null) {
             builder.with(ListMenuItemProperties.START_ICON_DRAWABLE, mStartIconDrawable);
+        }
+
+        if (mStartIconWidth != 0) {
+            builder.with(ListMenuItemProperties.START_ICON_WIDTH, mStartIconWidth);
+        }
+
+        if (mEndIconWidth != 0) {
+            builder.with(ListMenuItemProperties.END_ICON_WIDTH, mEndIconWidth);
         }
 
         if (mClickListener != null) {

@@ -188,10 +188,6 @@ bool SyncServiceAndroidBridge::IsSyncFeatureEnabled() {
   return native_sync_service_->IsSyncFeatureEnabled();
 }
 
-bool SyncServiceAndroidBridge::IsSyncFeatureActive() {
-  return native_sync_service_->IsSyncFeatureActive();
-}
-
 bool SyncServiceAndroidBridge::IsSyncDisabledByEnterprisePolicy() {
   return native_sync_service_->HasDisableReason(
       SyncService::DISABLE_REASON_ENTERPRISE_POLICY);
@@ -199,27 +195,6 @@ bool SyncServiceAndroidBridge::IsSyncDisabledByEnterprisePolicy() {
 
 bool SyncServiceAndroidBridge::IsEngineInitialized() {
   return native_sync_service_->IsEngineInitialized();
-}
-
-void SyncServiceAndroidBridge::SetSetupInProgress(bool in_progress) {
-  if (!in_progress) {
-    sync_blocker_.reset();
-    return;
-  }
-
-  if (!sync_blocker_) {
-    sync_blocker_ = native_sync_service_->GetSetupInProgressHandle();
-  }
-}
-
-bool SyncServiceAndroidBridge::IsInitialSyncFeatureSetupComplete() {
-  return native_sync_service_->GetUserSettings()
-      ->IsInitialSyncFeatureSetupComplete();
-}
-
-void SyncServiceAndroidBridge::SetInitialSyncFeatureSetupComplete(
-    int32_t source) {
-  native_sync_service_->GetUserSettings()->SetInitialSyncFeatureSetupComplete();
 }
 
 std::vector<int32_t> SyncServiceAndroidBridge::GetActiveDataTypes() {
@@ -272,32 +247,10 @@ bool SyncServiceAndroidBridge::IsTypeManagedByCustodian(int32_t type) {
       IntToUserSelectableTypeChecked(type));
 }
 
-void SyncServiceAndroidBridge::SetSelectedTypes(
-    bool sync_everything,
-    const std::vector<int32_t>& user_selectable_types_vector) {
-  if (native_sync_service_->GetAccountInfo().account_id.empty()) {
-    // This function shouldn't be called while signed out, but evidence suggests
-    // it sometimes does get called.
-    // TODO(crbug.com/369301153): Remove workaround and adopt CHECK/NOTREACHED
-    // once crashes are no longer reported. This could also be cleaned up once
-    // crbug.com/40066949 is tackled.
-    DUMP_WILL_BE_NOTREACHED();
-    return;
-  }
-
-  UserSelectableTypeSet user_selectable_types;
-  for (int32_t type : user_selectable_types_vector) {
-    user_selectable_types.Put(IntToUserSelectableTypeChecked(type));
-  }
-
-  native_sync_service_->GetUserSettings()->SetSelectedTypes(
-      sync_everything, user_selectable_types);
-}
-
 void SyncServiceAndroidBridge::SetSelectedType(int32_t type, bool is_type_on) {
   if (native_sync_service_->GetAccountInfo().account_id.empty()) {
-    // This function shouldn't be called while signed out, but evidence suggests
-    // it sometimes does get called.
+    // This function shouldn't be called while signed out, but evidence
+    // suggests it sometimes does get called.
     // TODO(crbug.com/369301153): Remove workaround and adopt CHECK/NOTREACHED
     // once crashes are no longer reported. This could also be cleaned up once
     // crbug.com/40066949 is tackled.
@@ -342,9 +295,9 @@ bool SyncServiceAndroidBridge::IsUsingExplicitPassphrase() {
 }
 
 int32_t SyncServiceAndroidBridge::GetPassphraseType() {
-  // TODO(crbug.com/40923935): Mapping nullopt -> kImplicitPassphrase preserves
-  // the historic behavior, but ideally we should propagate the nullopt state to
-  // Java.
+  // TODO(crbug.com/40923935): Mapping nullopt -> kImplicitPassphrase
+  // preserves the historic behavior, but ideally we should propagate the
+  // nullopt state to Java.
   return static_cast<int32_t>(
       native_sync_service_->GetUserSettings()->GetPassphraseType().value_or(
           PassphraseType::kImplicitPassphrase));
@@ -395,10 +348,6 @@ SyncServiceAndroidBridge::GetAccountInfo(JNIEnv* env) {
              : ConvertToJavaCoreAccountInfo(env, account_info);
 }
 
-bool SyncServiceAndroidBridge::HasSyncConsent() {
-  return native_sync_service_->HasSyncConsent();
-}
-
 bool SyncServiceAndroidBridge::
     IsPassphrasePromptMutedForCurrentProductVersion() {
   return native_sync_service_->GetUserSettings()
@@ -409,10 +358,6 @@ void SyncServiceAndroidBridge::
     MarkPassphrasePromptMutedForCurrentProductVersion() {
   native_sync_service_->GetUserSettings()
       ->MarkPassphrasePromptMutedForCurrentProductVersion();
-}
-
-bool SyncServiceAndroidBridge::HasKeepEverythingSynced() {
-  return native_sync_service_->GetUserSettings()->IsSyncEverythingEnabled();
 }
 
 bool SyncServiceAndroidBridge::ShouldOfferTrustedVaultOptIn() {

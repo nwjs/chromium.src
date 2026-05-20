@@ -9,9 +9,9 @@
 #include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/new_tab_page/ntp_pref_names.h"
 #include "chrome/browser/search_engines/template_url_service_factory_test_util.h"
 #include "chrome/browser/ui/search/ntp_user_data_types.h"
-#include "chrome/browser/ui/webui/new_tab_page/ntp_pref_names.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/ntp_tiles/most_visited_sites.h"
 #include "components/prefs/pref_service.h"
@@ -113,6 +113,54 @@ TEST_P(MostVisitedAutoRemovalTest, AddMostVisitedTile) {
                                base::DoNothing());
   EXPECT_TRUE(profile_.GetPrefs()->GetBoolean(
       ntp_prefs::kNtpShortcutsAutoRemovalDisabled));
+}
+
+TEST_P(MostVisitedAutoRemovalTest, OnMostVisitedTileHoverMetrics) {
+  auto tile = most_visited::mojom::MostVisitedTile::New();
+  tile->url = GURL("https://foo.com");
+
+  EXPECT_EQ(0, profile_.GetPrefs()->GetInt64(
+                   ntp_prefs::kNtpMostVisitedTileHoverCount));
+
+  handler_->PreconnectMostVisitedTile(std::move(tile));
+
+  EXPECT_EQ(1, profile_.GetPrefs()->GetInt64(
+                   ntp_prefs::kNtpMostVisitedTileHoverCount));
+}
+
+TEST_P(MostVisitedAutoRemovalTest, OnMostVisitedTileNavigationMetrics) {
+  auto tile = most_visited::mojom::MostVisitedTile::New();
+  tile->url = GURL("https://foo.com");
+
+  EXPECT_EQ(0, profile_.GetPrefs()->GetInt64(
+                   ntp_prefs::kNtpMostVisitedTileNavigationCount));
+
+  // Valid navigation (left click).
+  handler_->OnMostVisitedTileNavigation(
+      std::move(tile), /*index=*/0, /*mouse_button=*/0, /*alt_key=*/false,
+      /*ctrl_key=*/false, /*meta_key=*/false, /*shift_key=*/false);
+
+  EXPECT_EQ(1, profile_.GetPrefs()->GetInt64(
+                   ntp_prefs::kNtpMostVisitedTileNavigationCount));
+
+  // Invalid URL should not increment.
+  auto invalid_tile = most_visited::mojom::MostVisitedTile::New();
+  invalid_tile->url = GURL();
+  handler_->OnMostVisitedTileNavigation(std::move(invalid_tile), /*index=*/0,
+                                        /*mouse_button=*/0, /*alt_key=*/false,
+                                        /*ctrl_key=*/false, /*meta_key=*/false,
+                                        /*shift_key=*/false);
+  EXPECT_EQ(1, profile_.GetPrefs()->GetInt64(
+                   ntp_prefs::kNtpMostVisitedTileNavigationCount));
+
+  // SAVE_TO_DISK (alt+click) should not increment.
+  auto alt_tile = most_visited::mojom::MostVisitedTile::New();
+  alt_tile->url = GURL("https://foo.com");
+  handler_->OnMostVisitedTileNavigation(
+      std::move(alt_tile), /*index=*/0, /*mouse_button=*/0, /*alt_key=*/true,
+      /*ctrl_key=*/false, /*meta_key=*/false, /*shift_key=*/false);
+  EXPECT_EQ(1, profile_.GetPrefs()->GetInt64(
+                   ntp_prefs::kNtpMostVisitedTileNavigationCount));
 }
 
 TEST_P(MostVisitedAutoRemovalTest, DeleteMostVisitedTile) {

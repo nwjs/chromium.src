@@ -60,6 +60,8 @@ void AddStringResources(content::WebUIDataSource* source,
        IDS_REPORT_UNSAFE_SITE_DIALOG_INCLUDE_SCREENSHOT_CHECKBOX_LABEL},
       {"reportUnsafeSiteDialogSendButtonLabel",
        IDS_REPORT_UNSAFE_SITE_DIALOG_SEND_BUTTON_LABEL},
+      {"reportUnsafeSiteDialogSendingButtonLabel",
+       IDS_REPORT_UNSAFE_SITE_DIALOG_SENDING_BUTTON_LABEL},
       {"reportUnsafeSiteDialogTitle", IDS_REPORT_UNSAFE_SITE_DIALOG_TITLE},
       {"reportUnsafeSiteDialogUrlLabel",
        IDS_REPORT_UNSAFE_SITE_DIALOG_URL_LABEL},
@@ -121,7 +123,7 @@ void FeedbackUI::BindInterface(
 void FeedbackUI::CreatePageHandler(
     mojo::PendingReceiver<feedback_mojom::PageHandler> handler) {
   report_unsafe_site_page_handler_ =
-      std::make_unique<ReportUnsafeSitePageHandler>(
+      std::make_unique<ReportUnsafeSitePageHandler>(embedder_,
           triggering_web_contents_, dialog_, std::move(screenshot_taker_),
           std::move(handler));
 }

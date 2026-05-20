@@ -169,6 +169,10 @@ class COMPONENT_EXPORT(AX_PLATFORM) BrowserAccessibilityManager
   // Return whether or not we are currently able to fire events.
   bool CanFireEvents() const override;
 
+  // Returns false for generated events that should not be exposed for this
+  // accessibility tree source.
+  bool ShouldFireGeneratedEvent(AXEventGenerator::Event event_type) const;
+
   // Return a pointer to the root of the tree.
   BrowserAccessibility* GetBrowserAccessibilityRoot() const;
 
@@ -266,6 +270,9 @@ class COMPONENT_EXPORT(AX_PLATFORM) BrowserAccessibilityManager
   void SetValue(const BrowserAccessibility& node, const std::string& value);
   void SetSelection(const AXActionData& action_data);
   void SetSelection(const BrowserAccessibility::AXRange& range);
+  void ReplaceRanges(const BrowserAccessibility& node,
+                     const std::vector<BrowserAccessibility::AXRange>& ranges,
+                     const std::vector<std::string>& replacement_strings);
   void ShowContextMenu(const BrowserAccessibility& node);
   void SignalEndOfTest();
   void StitchChildTree(const BrowserAccessibility& node,

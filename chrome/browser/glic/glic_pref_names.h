@@ -32,7 +32,6 @@ inline constexpr char kGlicSelectionHotkey[] = "glic.selection_hotkey";
 // hotkey for toggling focus between Glic and the browser window.
 inline constexpr char kGlicFocusToggleHotkey[] = "glic.focus_toggle_hotkey";
 
-
 // String prefs that keep track of user-configured Glic guest URL presets for
 // different environments.
 inline constexpr char kGlicGuestUrlPresetAutopush[] =
@@ -100,9 +99,6 @@ inline constexpr char kGlicTabContextEnabled[] = "glic.tab_context_enabled";
 inline constexpr char kGlicDefaultTabContextEnabled[] =
     "glic.default_tab_context_enabled";
 
-// Boolean pref that enables or disables experimental triggering.
-inline constexpr char kGlicExperimentalTriggeringEnabled[] =
-    "glic.experimental_triggering_enabled";
 
 // Boolean pref that determines the rollout eligibility for the user profile.
 inline constexpr char kGlicRolloutEligibility[] =
@@ -111,9 +107,11 @@ inline constexpr char kGlicRolloutEligibility[] =
 // Dict pref that records user status.
 inline constexpr char kGlicUserStatus[] = "glic.user_status";
 
-// Integer pref that determines the FRE status for the user profile. Values are
-// from the FreStatus enum.
-inline constexpr char kGlicCompletedFre[] = "glic.completed_fre";
+// Integer pref that records the zoom level for the Glic webview as a
+// percentage (e.g. 100 indicates 100%). Note that zoom level is already
+// persisted in the glic webview partition - this pref is only used for
+// recording usage metrics.
+inline constexpr char kGlicZoomLevel[] = "glic.zoom_level";
 
 // Time pref that records the last time a user dismissed the Glic window.
 inline constexpr char kGlicWindowLastDismissedTime[] =
@@ -126,6 +124,14 @@ inline constexpr char kGlicPreviousPositionY[] = "glic.previous_bounds.y";
 // Bool pref for the closed captioning setting.
 inline constexpr char kGlicClosedCaptioningEnabled[] =
     "glic.closed_captioning_enabled";
+
+// Integer pref that tracks the total number of times the user dismissed the
+// selection widget.
+inline constexpr char kGlicSelectionWidgetDismissCount[] =
+    "glic.selection_widget_dismiss_count";
+
+// Bool pref that determines if errors are allowed to be shown.
+inline constexpr char kGlicShowErrorAllowed[] = "glic.show_error_allowed";
 
 // Bool pref for the daisy chain new tabs setting.
 inline constexpr char kGlicKeepSidepanelOpenOnNewTabsEnabled[] =
@@ -141,10 +147,6 @@ inline constexpr char kGlicActuationOnWebAllowedForURLs[] =
     "glic.actuation_on_web_allowed_for_urls";
 inline constexpr char kGlicActuationOnWebBlockedForURLs[] =
     "glic.actuation_on_web_blocked_for_urls";
-
-// Boolean pref for the user-enabled actuation on web setting.
-inline constexpr char kGlicUserEnabledActuationOnWeb[] =
-    "glic.user_enabled_actuation_on_web";
 
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
 void RegisterLocalStatePrefs(PrefRegistrySimple* registry);

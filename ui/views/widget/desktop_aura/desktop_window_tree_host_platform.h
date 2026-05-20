@@ -173,6 +173,7 @@ class VIEWS_EXPORT DesktopWindowTreeHostPlatform
   bool OnRotateFocus(ui::PlatformWindowDelegate::RotateDirection direction,
                      bool reset) override;
   void OnActivationChanged(bool active) override;
+  void OnPaintAsActiveChanged(bool paint_as_active) override;
   std::optional<gfx::Size> GetMinimumSizeForWindow() const override;
   std::optional<gfx::Size> GetMaximumSizeForWindow() const override;
   bool CanMaximize() const override;
@@ -182,6 +183,8 @@ class VIEWS_EXPORT DesktopWindowTreeHostPlatform
       override;
   gfx::Rect ConvertRectToPixels(const gfx::Rect& rect_in_dip) const override;
   gfx::Rect ConvertRectToDIP(const gfx::Rect& rect_in_pixels) const override;
+  gfx::Point ConvertPointToPixels(
+      const gfx::Point& point_in_dip) const override;
   gfx::PointF ConvertScreenPointToLocalDIP(
       const gfx::Point& screen_in_pixels) const override;
   gfx::Insets ConvertInsetsToPixels(
@@ -253,6 +256,10 @@ class VIEWS_EXPORT DesktopWindowTreeHostPlatform
 
   bool is_active_ = false;
 
+  // Holds the platform window's paint-as-active hint. Null on platforms that
+  // do not fire OnPaintAsActiveChanged.
+  std::unique_ptr<Widget::PaintAsActiveLock> paint_as_active_lock_;
+
   bool has_video_capture_ = false;
 
   std::u16string window_title_;
@@ -273,6 +280,7 @@ class VIEWS_EXPORT DesktopWindowTreeHostPlatform
 
   base::WeakPtrFactory<DesktopWindowTreeHostPlatform> close_widget_factory_{
       this};
+  base::WeakPtrFactory<DesktopWindowTreeHostPlatform> weak_factory_{this};
 };
 
 }  // namespace views

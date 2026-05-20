@@ -13,7 +13,7 @@ chrome.runtime.onConnect.addListener(function(port) {
 
 chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
   chrome.test.log('Got update event: ' + JSON.stringify(changeInfo));
-  if (changeInfo.status == 'complete') {
+  if (changeInfo.status === 'complete') {
     chrome.tabs.executeScript(tabId, {file: 'c.js'});
     chrome.tabs.onUpdated.removeListener(arguments.callee);
   }
@@ -22,6 +22,6 @@ chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
 chrome.test.getConfig(function(config) {
   chrome.test.log('Creating tab...');
   chrome.tabs.create({
-    url: `http://localhost:${config.testServer.port}/extensions/test_file.html`
+    url: `http://localhost:${config.testServer.port}/extensions/test_file.html`,
   });
 });

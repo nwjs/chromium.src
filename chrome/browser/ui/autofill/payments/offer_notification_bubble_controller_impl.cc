@@ -15,9 +15,9 @@
 #include "chrome/browser/ui/autofill/payments/payments_ui_constants.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -33,7 +33,7 @@
 #include "ui/base/l10n/l10n_util.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/views/page_action/page_action_controller.h"
+#include "chrome/browser/ui/page_actions/page_action_controller.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 namespace autofill {
@@ -232,7 +232,9 @@ void OfferNotificationBubbleControllerImpl::DoShowBubble() {
     return;
   }
 
-  BrowserWindowInterface* browser = chrome::FindBrowserWithTab(web_contents());
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          web_contents());
   SetBubbleView(*browser->GetBrowserForMigrationOnly()
                      ->window()
                      ->GetAutofillBubbleHandler()
@@ -264,7 +266,7 @@ OfferNotificationBubbleControllerImpl::GetBubbleControllerBaseWeakPtr() {
 
 bool OfferNotificationBubbleControllerImpl::IsWebContentsActive() {
   BrowserWindowInterface* active_browser =
-      chrome::FindBrowserWithActiveWindow();
+      GlobalBrowserCollection::GetInstance()->GetActiveBrowser();
   if (!active_browser) {
     return false;
   }

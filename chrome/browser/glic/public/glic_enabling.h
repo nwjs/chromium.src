@@ -16,10 +16,11 @@
 #include "base/types/expected.h"
 #include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_user_status_fetcher.h"
-#include "chrome/browser/subscription_eligibility/subscription_eligibility_service.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/subscription_eligibility/subscription_eligibility_service.h"
+#include "components/sync_device_info/device_info.h"
 #include "content/public/browser/web_contents.h"
 
 class Profile;
@@ -28,7 +29,8 @@ class ProfileAttributesStorage;
 namespace glic {
 namespace prefs {
 enum class SettingsPolicyState;
-}
+enum class FreStatus;
+}  // namespace prefs
 namespace mojom {
 // TODO(crbug.com/406500707): This forward declaration is needed because we use
 // allow_circular_includes_from. Our build rules should be refactored to avoid
@@ -78,7 +80,8 @@ class GlicGlobalEnabling {
   };
   explicit GlicGlobalEnabling(Delegate& delegate);
   ~GlicGlobalEnabling();
-  bool IsEnabledByFlags();
+  bool IsEnabledByGlobalCriteria();
+  bool IsSystemRequirementMet() const;
   bool IsLocaleEnabled() const { return locale_enablement_.value_or(true); }
   bool IsCountryEnabled() const { return country_enablement_.value_or(true); }
 
@@ -92,10 +95,12 @@ class GlicGlobalEnabling {
 // such as based on user preferences or system settings.
 //
 // There are multiple notions of "enabled". The highest level is
-// IsEnabledByFlags which controls whether any global-Glic infrastructure is
-// created. If flags are off, nothing Glic-related should be created.
+// IsEnabledByGlobalCriteria which controls whether any global-Glic
+// infrastructure is created. It checks the feature flag, country, locale, and
+// system requirements. If these criteria are not met, nothing Glic-related
+// should be created.
 //
-// If flags are enabled, various global objects are created as well as a
+// If the above checks pass, various global objects are created as well as a
 // GlicKeyedService for each "eligible" profile. Eligible profiles exclude
 // incognito, guest mode, system profile, etc. i.e. include only real user
 // profiles. An eligible profile will create various Glic decorations and views
@@ -113,7 +118,7 @@ class GlicEnabling : public signin::IdentityManager::Observer,
  public:
   // Returns whether the global Glic feature is enabled for Chrome. This status
   // will not change at runtime.
-  static bool IsEnabledByFlags();
+  static bool IsEnabledByGlobalCriteria();
 
   // Returns true if a profile is eligible for Glic. Some profiles - such as
   // incognito, guest, system profile, etc. - are never eligible. An eligible
@@ -124,7 +129,7 @@ class GlicEnabling : public signin::IdentityManager::Observer,
   // controls whether Glic infrastructure (e.g., `GlicKeyedService`, UI
   // controllers) is created for the profile.
   //
-  // Always returns false if `IsEnabledByFlags()` is off.
+  // Always returns false if `IsEnabledByGlobalCriteria()` is off.
   static bool IsProfileEligible(const Profile* profile);
 
   // This is a convenience method for code outside of //chrome/browser/glic.
@@ -135,9 +140,9 @@ class GlicEnabling : public signin::IdentityManager::Observer,
   static bool HasConsentedForProfile(Profile* profile);
 
   // Returns true if the given profile has Glic enabled and has completed the
-  // FRE. True implies that IsEnabledByFlags(), IsProfileEligible(profile), and
-  // IsEnabledForProfile(profile) are also true. This value can change at
-  // runtime.
+  // FRE. True implies that IsEnabledByGlobalCriteria(),
+  // IsProfileEligible(profile), and IsEnabledForProfile(profile) are also true.
+  // This value can change at runtime.
   static bool IsEnabledAndConsentForProfile(Profile* profile);
 
   // Returns true if the given profile was shown the FRE but did not complete
@@ -164,26 +169,21 @@ class GlicEnabling : public signin::IdentityManager::Observer,
   // * The profile has completed the first run experience
   static bool ShouldShowSettingsPage(Profile* profile);
 
-  // Whether the Trust-First Onboarding flow should be shown.
-  static bool IsTrustFirstOnboardingEnabledForProfile(Profile* profile);
-
   // Whether the auto open for pdf flow is enabled.
   static bool IsAutoOpenForPdfEnabled(Profile* profile);
 
   // Whether the tab web contents contextual menu item is enabled.
   static bool IsContextualMenuItemEnabled(Profile* profile);
 
-  // Deprecated, Multi-instance is always enabled.
-  static bool IsMultiInstanceEnabledByFlags();
+  // Whether the selection prompt is enabled.
+  static bool IsSelectionPromptEnabledForProfile(Profile* profile);
 
   // Returns true if Glic is enabled for the profile, the feature is enabled,
   // and the account is non-enterprise (or for Glic dev).
   static bool IsShareImageEnabledForProfile(Profile* profile);
 
-  // Whether the required feature flags for multi-instance are enabled. This
-  // serves as the default enablement check for the multi-instance feature and
-  // should be used in most cases.
-  static bool IsMultiInstanceEnabled();
+  // Whether the live mode and floaty window are enabled by flags.
+  static bool IsLiveAndFloatyEnabledByFlags();
 
   struct ProfileEnablement {
     ProfileEnablement();
@@ -210,11 +210,28 @@ class GlicEnabling : public signin::IdentityManager::Observer,
     // Whether disallowed by locale filtering.
     bool disallowed_by_locale_filter : 1 = false;
 
+    // Whether the Glic feature flag is disabled.
+    bool feature_flag_disabled : 1 = false;
+
+    // Whether system requirements (relevant to ChromeOS only) for Glic are not
+    // met.
+    bool system_requirement_not_met : 1 = false;
+
     // Whether live (audio) functionality is disallowed for this account type.
     bool live_disallowed : 1 = false;
 
     // Whether share image functionality is disallowed for this account type.
     bool share_image_disallowed : 1 = false;
+
+    // LINT.IfChange(FeatureDisabledReason)
+    enum class FeatureDisabledReason {
+      kFeatureFlagDisabled = 0,
+      kCountryDisabled = 1,
+      kLocaleDisabled = 2,
+      kSystemRequirementNotMet = 3,
+      kMaxValue = kSystemRequirementNotMet,
+    };
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicFeatureDisabledReason)
 
     enum class Reason {
       kFeatureDisabled = 0,
@@ -275,6 +292,7 @@ class GlicEnabling : public signin::IdentityManager::Observer,
    private:
     // `suffix` should be either "Startup" or "SteadyState".
     void RecordMetrics(const std::string& suffix) const;
+    void RecordFeatureDisabledReason(const std::string& suffix) const;
   };
   static ProfileEnablement EnablementForProfile(Profile* profile);
 
@@ -309,7 +327,32 @@ class GlicEnabling : public signin::IdentityManager::Observer,
 
   // Returns true if the given profile has completed the FRE and false
   // otherwise.
-  bool HasConsented();
+  bool HasConsented() const;
+
+  // Returns the FRE status.
+  prefs::FreStatus GetCompletedFre() const;
+  // Sets the FRE status.
+  void SetCompletedFre(prefs::FreStatus status);
+
+  // Returns whether user enabled actuation on web.
+  bool GetUserEnabledActuationOnWeb() const;
+  // Returns true if the user enabled actuation on web pref is at its default
+  // value.
+  bool IsUserEnabledActuationOnWebDefault() const;
+  // Sets whether user enabled actuation on web.
+  void SetUserEnabledActuationOnWeb(bool enabled);
+
+  // Returns whether experimental triggering is enabled. This only checks the
+  // experimental triggering value, for a complete opt-in check, use
+  // `IsExperimentalTriggeringFullyOptedIn()`.
+  bool GetExperimentalTriggeringEnabled() const;
+
+  // Sets whether experimental triggering is enabled.
+  void SetExperimentalTriggeringEnabled(bool enabled);
+
+  // Returns the state of experimental triggering.
+  syncer::DeviceInfo::GlicExperimentalTriggeringState
+  GetExperimentalTriggeringState() const;
 
   // Checks if startup metrics have already been recorded, and if not, records
   // them.
@@ -348,6 +391,14 @@ class GlicEnabling : public signin::IdentityManager::Observer,
   base::CallbackListSubscription RegisterOnConsentChanged(
       ConsentChangedCallback callback);
 
+  using UserEnabledActuationOnWebChangedCallback = base::RepeatingClosure;
+  base::CallbackListSubscription RegisterOnUserEnabledActuationOnWebChanged(
+      UserEnabledActuationOnWebChangedCallback callback);
+
+  using ExperimentalTriggeringEnabledChangedCallback = base::RepeatingClosure;
+  base::CallbackListSubscription RegisterOnExperimentalTriggeringEnabledChanged(
+      ExperimentalTriggeringEnabledChangedCallback callback);
+
   // This is called anytime ShouldShowSettingsPage() might return a different
   // value.
   using ShowSettingsPageChangedCallback = base::RepeatingClosure;
@@ -360,6 +411,8 @@ class GlicEnabling : public signin::IdentityManager::Observer,
 
  private:
   void OnGlicSettingsPolicyChanged();
+  void OnUserEnabledActuationOnWebChanged();
+  void OnExperimentalTriggeringEnabledChanged();
 
   // IdentityManagerObserver:
   void OnPrimaryAccountChanged(
@@ -388,11 +441,6 @@ class GlicEnabling : public signin::IdentityManager::Observer,
   void UpdateEnabledStatus();
   void UpdateConsentStatus();
 
-  static bool IsTrustFirstOnboardingGatedFeatureEnabled(
-      Profile* profile,
-      const base::Feature& feature,
-      const base::FeatureParam<bool>& onboarding_param);
-
 #if BUILDFLAG(IS_CHROMEOS)
   static bool IsChromeOSProfileEligible(const Profile* profile);
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -405,6 +453,14 @@ class GlicEnabling : public signin::IdentityManager::Observer,
   EnableChangedCallbackList enable_changed_callback_list_;
   using OnConsentChangeCallbackList = base::RepeatingCallbackList<void()>;
   OnConsentChangeCallbackList consent_changed_callback_list_;
+  using UserEnabledActuationOnWebChangedCallbackList =
+      base::RepeatingCallbackList<void()>;
+  UserEnabledActuationOnWebChangedCallbackList
+      user_enabled_actuation_on_web_changed_callback_list_;
+  using ExperimentalTriggeringEnabledChangedCallbackList =
+      base::RepeatingCallbackList<void()>;
+  ExperimentalTriggeringEnabledChangedCallbackList
+      experimental_triggering_enabled_changed_callback_list_;
   using OnShowSettingsPageChangeCallbackList =
       base::RepeatingCallbackList<void()>;
   OnShowSettingsPageChangeCallbackList

@@ -5,12 +5,15 @@
 #ifndef CHROME_BROWSER_GLIC_ANDROID_GLIC_KEYED_SERVICE_ANDROID_H_
 #define CHROME_BROWSER_GLIC_ANDROID_GLIC_KEYED_SERVICE_ANDROID_H_
 
+#include <string>
+
 #include "base/android/scoped_java_ref.h"
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/supports_user_data.h"
 
 class Profile;
+class TabAndroid;
 
 namespace glic {
 
@@ -39,9 +42,18 @@ class GlicKeyedServiceAndroid : public base::SupportsUserData::Data {
                 Profile* profile,
                 int32_t source);
 
+  bool InvokeWithAutoSubmit(JNIEnv* env,
+                            TabAndroid* tab,
+                            std::string text,
+                            int32_t source);
+
   bool IsPanelShowingForBrowser(JNIEnv* env, int64_t browser_window_ptr);
 
+  bool GetUserEnabledActuationOnWeb(JNIEnv* env);
+  void SetUserEnabledActuationOnWeb(JNIEnv* env, bool enabled);
+
   void OnGlobalShowHide();
+  void OnUserEnabledActuationOnWebChanged();
 
   // Returns the GlicKeyedServiceImpl java object.
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject();
@@ -55,6 +67,7 @@ class GlicKeyedServiceAndroid : public base::SupportsUserData::Data {
   base::android::ScopedJavaGlobalRef<jobject> java_obj_;
 
   base::CallbackListSubscription global_show_hide_subscription_;
+  base::CallbackListSubscription web_actuation_pref_subscription_;
 };
 
 }  // namespace glic

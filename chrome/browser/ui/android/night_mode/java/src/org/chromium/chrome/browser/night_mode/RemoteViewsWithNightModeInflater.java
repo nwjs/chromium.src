@@ -66,6 +66,8 @@ public class RemoteViewsWithNightModeInflater {
         }
     }
 
+    // LayoutInflater.Filter.onLoadClass takes a raw Class parameter (framework API).
+    @SuppressWarnings("unchecked")
     private static @Nullable View inflateWithEnforcedDarkMode(
             RemoteViews remoteViews, @Nullable ViewGroup parent, boolean isInLocalNightMode) {
         // This is a modified version of RemoteViews#apply. RemoteViews#apply performs two steps:
@@ -83,13 +85,14 @@ public class RemoteViewsWithNightModeInflater {
             final Context contextForResources =
                     getContextForResources(remoteViews, isInLocalNightMode);
             // App context must be used instead of activity context to avoid the support library
-            // bug, see https://crbug.com/783834
+            // bug, see https://crbug.com/40549339
             Context appContext = ContextUtils.getApplicationContext();
             Context contextForRemoteViews =
                     new RemoteViewsContextWrapper(appContext, contextForResources);
 
             LayoutInflater inflater =
                     LayoutInflater.from(appContext).cloneInContext(contextForRemoteViews);
+            inflater.setFilter(clazz -> clazz.isAnnotationPresent(RemoteViews.RemoteView.class));
             View view = inflater.inflate(remoteViews.getLayoutId(), parent, false);
 
             remoteViews.reapply(appContext, view);

@@ -5,62 +5,71 @@
 // API test for chrome.tabs.captureVisibleTab(), capturing JPEG images.
 // browser_tests.exe --gtest_filter=ExtensionApiTest.CaptureVisibleFile
 
-var pass = chrome.test.callbackPass;
-var fail = chrome.test.callbackFail;
-var assertEq = chrome.test.assertEq;
-var assertTrue = chrome.test.assertTrue;
-var assertFalse = chrome.test.assertFalse;
+const pass = chrome.test.callbackPass;
+const fail = chrome.test.callbackFail;
+const assertEq = chrome.test.assertEq;
+const assertTrue = chrome.test.assertTrue;
+const assertFalse = chrome.test.assertFalse;
 
-var kWindowRect = {
-  'width': 400,
-  'height': 400
+const WINDOW_RECT = {
+  width: 400,
+  height: 400,
 };
 
-var fail_url = "file:///nosuch.html";
+const FAIL_URL = 'file:///nosuch.html';
 
 const scriptUrl =
     '_test_resources/api_test/tabs/capture_visible_tab/common/tabs_util.js';
 
-let loadScript = chrome.test.loadScript(scriptUrl);
-loadScript.then(() => {chrome.test.runTests([
-  // Check that test infrastructure launched us with permissions.
-  function checkAllowedAccess() {
-    chrome.extension.isAllowedFileSchemeAccess(pass(function(hasAccess) {
-       assertTrue(hasAccess);
-    }));
-  },
-
-  // Check that we get image data back (but not the contents, which are
-  // platform-specific)
-  function captureVisibleFile() {
-    createWindow([fail_url], kWindowRect, pass(function(winId, tabIds) {
-      waitForAllTabs(pass(function() {
-        chrome.tabs.query({active: true, windowId: winId}, pass(function(tabs) {
-          assertEq('complete', tabs[0].status);
-          chrome.tabs.captureVisibleTab(winId, pass(function(imgDataUrl) {
-            // The URL should be a data URL with has a JPEG mime type.
-            assertEq('string', typeof(imgDataUrl));
-            assertEq('data:image/jpeg;base64,', imgDataUrl.substr(0,23));
-          }));
-        }));
+const loadScript = chrome.test.loadScript(scriptUrl);
+loadScript.then(() => {
+  chrome.test.runTests([
+    // Check that test infrastructure launched us with permissions.
+    function checkAllowedAccess() {
+      chrome.extension.isAllowedFileSchemeAccess(pass(function(hasAccess) {
+        assertTrue(hasAccess);
       }));
-    }));
-  },
+    },
 
-  function captureVisibleFileInNullWindow() {
-    chrome.tabs.captureVisibleTab(null, pass(function(imgDataUrl) {
-      // The URL should be a data URL with has a JPEG mime type.
-      assertEq('string', typeof(imgDataUrl));
-      assertEq('data:image/jpeg;base64,', imgDataUrl.substr(0,23));
-    }));
-  },
+    // Check that we get image data back (but not the contents, which are
+    // platform-specific)
+    function captureVisibleFile() {
+      createWindow([FAIL_URL], WINDOW_RECT, pass(function(winId, tabIds) {
+                     waitForAllTabs(pass(function() {
+                       chrome.tabs.query(
+                           {active: true, windowId: winId},
+                           pass(function(tabs) {
+                             assertEq('complete', tabs[0].status);
+                             chrome.tabs.captureVisibleTab(
+                                 winId, pass(function(imgDataUrl) {
+                                   // The URL should be a data URL with has a
+                                   // JPEG mime type.
+                                   assertEq('string', typeof (imgDataUrl));
+                                   assertEq(
+                                       'data:image/jpeg;base64,',
+                                       imgDataUrl.substr(0, 23));
+                                 }));
+                           }));
+                     }));
+                   }));
+    },
 
-  function captureVisibleFileInCurrentWindow() {
-    chrome.tabs.captureVisibleTab(chrome.windows.WINDOW_ID_CURRENT,
-                                  pass(function(imgDataUrl) {
-      // The URL should be a data URL with has a JPEG mime type.
-      assertEq('string', typeof(imgDataUrl));
-      assertEq('data:image/jpeg;base64,', imgDataUrl.substr(0,23));
-    }));
-  }
-])});
+    function captureVisibleFileInNullWindow() {
+      chrome.tabs.captureVisibleTab(
+          null, pass(function(imgDataUrl) {
+            // The URL should be a data URL with has a JPEG mime type.
+            assertEq('string', typeof (imgDataUrl));
+            assertEq('data:image/jpeg;base64,', imgDataUrl.substr(0, 23));
+          }));
+    },
+
+    function captureVisibleFileInCurrentWindow() {
+      chrome.tabs.captureVisibleTab(
+          chrome.windows.WINDOW_ID_CURRENT, pass(function(imgDataUrl) {
+            // The URL should be a data URL with has a JPEG mime type.
+            assertEq('string', typeof (imgDataUrl));
+            assertEq('data:image/jpeg;base64,', imgDataUrl.substr(0, 23));
+          }));
+    },
+  ]);
+});

@@ -26,11 +26,6 @@ chromium-metrics-reviews@google.com.
 
 <enums>
 
-<enum name="BooleanStale">
-  <int value="0" label="Fresh"/>
-  <int value="1" label="Stale"/>
-</enum>
-
 <enum name="FirstRunCloudPolicyStoreState">
   <int value="0" label="Loaded before initialization">
     The cloud policy store was already loaded when the FRE intro was first
@@ -338,21 +333,10 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="Create failure all"/>
   <int value="8" label="Webdata payment manifest DB error"/>
   <int value="9" label="Webdata account autofill DB error"/>
+  <int value="10" label="Web App DB error"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/profiles/profile_error_dialog.h:ProfileErrorType) -->
-
-<!-- LINT.IfChange(ProfileGaiaNameShareStatus) -->
-
-<enum name="ProfileGaiaNameShareStatus">
-  <int value="0" label="Not shared"/>
-  <int value="1" label="Shared by non managed profiles"/>
-  <int value="2"
-      label="Appears at most once in non managed profiles, but shared when
-             including managed profiles"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/profiles/profile_metrics.h:GaiaNameShareStatus) -->
 
 <enum name="ProfileKeepAliveOrigin">
   <int value="0" label="kWaitingForFirstBrowserWindow"/>
@@ -399,6 +383,7 @@ chromium-metrics-reviews@google.com.
   <int value="41" label="kWaitingForGlicView"/>
   <int value="42" label="kWaitingForBookmarksImportOnFirstRun"/>
   <int value="43" label="kSkillsDialog"/>
+  <int value="44" label="kWebAppDatabaseCorruptionRecovery"/>
 </enum>
 
 <!-- LINT.IfChange(ProfileManagementFlowStep) -->
@@ -505,15 +490,6 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/profiles/profile_picker.h:EntryPoint) -->
-
-<!-- LINT.IfChange(ProfilePickerOpenAllProfilesButtonAction) -->
-
-<enum name="ProfilePickerOpenAllProfilesButtonAction">
-  <int value="0" label="Open All Profiles button was shown"/>
-  <int value="1" label="Open All Profiles button was clicked"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/ui/webui/signin/profile_picker_handler.h:ProfilePickerOpenAllProfilesButtonAction) -->
 
 <enum name="ProfilePickerPages">
   <int value="0" label="mainView"/>

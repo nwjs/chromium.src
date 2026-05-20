@@ -788,14 +788,14 @@ template <typename T, typename = void>
 struct IsHashCallable : std::false_type {};
 
 template <typename T>
-struct IsHashCallable<T, absl::void_t<decltype(std::declval<absl::Hash<T>>()(
+struct IsHashCallable<T, std::void_t<decltype(std::declval<absl::Hash<T>>()(
                             std::declval<const T&>()))>> : std::true_type {};
 
 template <typename T, typename = void>
 struct IsAggregateInitializable : std::false_type {};
 
 template <typename T>
-struct IsAggregateInitializable<T, absl::void_t<decltype(T{})>>
+struct IsAggregateInitializable<T, std::void_t<decltype(T{})>>
     : std::true_type {};
 
 TEST(IsHashableTest, ValidHash) {
@@ -803,8 +803,8 @@ TEST(IsHashableTest, ValidHash) {
   EXPECT_TRUE(std::is_default_constructible<absl::Hash<int>>::value);
   EXPECT_TRUE(std::is_copy_constructible<absl::Hash<int>>::value);
   EXPECT_TRUE(std::is_move_constructible<absl::Hash<int>>::value);
-  EXPECT_TRUE(absl::is_copy_assignable<absl::Hash<int>>::value);
-  EXPECT_TRUE(absl::is_move_assignable<absl::Hash<int>>::value);
+  EXPECT_TRUE(std::is_copy_assignable<absl::Hash<int>>::value);
+  EXPECT_TRUE(std::is_move_assignable<absl::Hash<int>>::value);
   EXPECT_TRUE(IsHashCallable<int>::value);
   EXPECT_TRUE(IsAggregateInitializable<absl::Hash<int>>::value);
 }
@@ -815,8 +815,8 @@ TEST(IsHashableTest, PoisonHash) {
   EXPECT_FALSE(std::is_default_constructible<absl::Hash<X>>::value);
   EXPECT_FALSE(std::is_copy_constructible<absl::Hash<X>>::value);
   EXPECT_FALSE(std::is_move_constructible<absl::Hash<X>>::value);
-  EXPECT_FALSE(absl::is_copy_assignable<absl::Hash<X>>::value);
-  EXPECT_FALSE(absl::is_move_assignable<absl::Hash<X>>::value);
+  EXPECT_FALSE(std::is_copy_assignable<absl::Hash<X>>::value);
+  EXPECT_FALSE(std::is_move_assignable<absl::Hash<X>>::value);
   EXPECT_FALSE(IsHashCallable<X>::value);
 #if !defined(__GNUC__) || defined(__clang__)
   // TODO(b/144368551): As of GCC 8.4 this does not compile.
@@ -891,7 +891,7 @@ struct CustomHashType {
 
 template <InvokeTag allowed, InvokeTag... tags>
 struct EnableIfContained
-    : std::enable_if<absl::disjunction<
+    : std::enable_if<std::disjunction<
           std::integral_constant<bool, allowed == tags>...>::value> {};
 
 template <

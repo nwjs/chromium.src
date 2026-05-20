@@ -72,8 +72,7 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
       return false;
     DCHECK(Host()->IsOffscreenCanvas());
     auto* offscreen_canvas = static_cast<OffscreenCanvas*>(Host());
-    return offscreen_canvas->HasPlaceholderCanvas() &&
-           !offscreen_canvas->IsDirtyRectEmpty();
+    return offscreen_canvas->IsPendingFrame();
   }
 
   // BaseRenderingContext2D implementation
@@ -97,7 +96,7 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
   const MemoryManagedPaintCanvas* GetPaintCanvas() const final;
   const MemoryManagedPaintRecorder* Recorder() const final;
 
-  void WillDraw(const SkIRect& dirty_rect,
+  void WillDraw(const gfx::Rect& dirty_rect,
                 CanvasPerformanceMonitor::DrawType) final;
 
   sk_sp<PaintFilter> StateGetFilter() final;
@@ -146,8 +145,6 @@ class MODULES_EXPORT OffscreenCanvasRenderingContext2D final
       std::unique_ptr<CanvasResourceProvider>) override;
 
   std::unique_ptr<CanvasResourceProvider> resource_provider_;
-
-  bool is_valid_size_ = false;
 };
 
 }  // namespace blink

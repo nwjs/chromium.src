@@ -22,6 +22,7 @@
 #include "build/build_config.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/services/storage/public/mojom/storage_service.mojom.h"
+#include "components/vrp_flags/buildflags.h"
 #include "content/browser/browser_child_process_host_impl.h"
 #include "content/browser/child_process_host_impl.h"
 #include "content/browser/gpu/gpu_data_manager_impl.h"
@@ -76,6 +77,7 @@
 #include "media/capture/capture_switches.h"
 #include "services/audio/public/mojom/audio_service.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
+#include "services/webnn/webnn_switches.h"
 #endif
 
 #if BUILDFLAG(ENABLE_GPU_CHANNEL_MEDIA_CAPTURE)
@@ -87,6 +89,10 @@
 
 #if BUILDFLAG(ENABLE_VR)
 #include "device/vr/public/cpp/switches.h"
+#endif
+
+#if BUILDFLAG(ENABLE_VRP_FLAGS)
+#include "components/vrp_flags/vrp_flags.h"  // nogncheck
 #endif
 
 namespace content {
@@ -397,6 +403,9 @@ bool UtilityProcessHost::StartProcess() {
 #if BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS)
       switches::kDisableDevShmUsage,
 #endif
+#if BUILDFLAG(ENABLE_VRP_FLAGS)
+      vrp_flags::switches::kVrpFlags,
+#endif
 #if BUILDFLAG(IS_MAC)
       sandbox::policy::switches::kDisableMetalShaderCache,
       sandbox::policy::switches::kEnableSandboxLogging,
@@ -461,6 +470,14 @@ bool UtilityProcessHost::StartProcess() {
 #endif
   };
   cmd_line->CopySwitchesFrom(browser_command_line, kSwitchNames);
+#if BUILDFLAG(IS_WIN)
+  if (options_.sandbox_type_ ==
+      sandbox::mojom::Sandbox::kWebNNModelCompilation) {
+    cmd_line->CopySwitchesFrom(
+        browser_command_line,
+        switches::GetWebNNSwitchesCopiedFromGpuProcessHost());
+  }
+#endif
 
   network_session_configurator::CopyNetworkSwitches(browser_command_line,
                                                     cmd_line.get());

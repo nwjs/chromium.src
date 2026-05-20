@@ -7,12 +7,13 @@
 #import <Cocoa/Cocoa.h>
 #include <stddef.h>
 
+#include <memory>
+
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #import "chrome/browser/chrome_browser_application_mac.h"
 #include "chrome/browser/ui/blocked_content/popunder_preventer.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/javascript_dialogs/chrome_javascript_app_modal_dialog_view_factory.h"
 #include "components/javascript_dialogs/app_modal_dialog_controller.h"
@@ -35,21 +36,22 @@ using remote_cocoa::mojom::AlertDisposition;
 // static
 javascript_dialogs::AppModalDialogView*
 JavaScriptAppModalDialogCocoa::CreateNativeJavaScriptDialog(
-    javascript_dialogs::AppModalDialogController* controller) {
+    std::unique_ptr<javascript_dialogs::AppModalDialogController> controller) {
+  content::WebContents* web_contents = controller->web_contents();
   javascript_dialogs::AppModalDialogView* view =
-      new JavaScriptAppModalDialogCocoa(controller);
+      new JavaScriptAppModalDialogCocoa(std::move(controller));
   // Match Views by activating the tab during creation (rather than
   // when showing).
-  controller->web_contents()->GetDelegate()->ActivateContents(
-      controller->web_contents());
+  web_contents->GetDelegate()->ActivateContents(web_contents);
   return view;
 }
 
 JavaScriptAppModalDialogCocoa::JavaScriptAppModalDialogCocoa(
-    javascript_dialogs::AppModalDialogController* controller)
-    : controller_(controller),
-      popunder_preventer_(new PopunderPreventer(controller->web_contents())),
-      weak_factory_(this) {}
+    std::unique_ptr<javascript_dialogs::AppModalDialogController> controller)
+    : controller_(std::move(controller)), weak_factory_(this) {
+  popunder_preventer_ =
+      std::make_unique<PopunderPreventer>(controller_->web_contents());
+}
 
 JavaScriptAppModalDialogCocoa::~JavaScriptAppModalDialogCocoa() {}
 
@@ -134,7 +136,7 @@ void JavaScriptAppModalDialogCocoa::ShowAppModalDialog() {
   // on which we will call Show. We need different paths (mojo for remote and
   // raw pointers for in-process) to have consistent ordering with other
   // remote_cocoa interfaces.
-  // https://crbug.com/1236369
+  // https://crbug.com/40192708
   if (auto* application_host = remote_cocoa::ApplicationHost::GetForNativeView(
           controller_->web_contents()->GetNativeView())) {
     // If the alert is from a window that is out of process then use the

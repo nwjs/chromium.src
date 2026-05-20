@@ -119,9 +119,11 @@ class CORE_EXPORT CSSParserLocalContext {
     return unresolved_property_name_;
   }
 
-  const AtomicString PropertyNameAndRandomCount() const;
+  const AtomicString PropertyName() const;
 
   wtf_size_t RandomValueCount() const { return random_value_count_; }
+
+  wtf_size_t CurrentRandomValueIndex() const { return random_value_count_ + 1; }
 
   // We currently use this class to get the context for resolving percentages.
   // for instance `30%` in `color-mix(red 30%, white)` and in `translate(30%)`

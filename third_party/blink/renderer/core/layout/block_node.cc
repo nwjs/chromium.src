@@ -72,7 +72,6 @@
 #include "third_party/blink/renderer/core/layout/table/table_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/table/table_row_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/table/table_section_layout_algorithm.h"
-#include "third_party/blink/renderer/core/layout/text_autosizer.h"
 #include "third_party/blink/renderer/core/mathml/mathml_element.h"
 #include "third_party/blink/renderer/core/mathml/mathml_fraction_element.h"
 #include "third_party/blink/renderer/core/mathml/mathml_padded_element.h"
@@ -83,7 +82,6 @@
 #include "third_party/blink/renderer/core/mathml/mathml_under_over_element.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/writing_mode.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
@@ -503,9 +501,6 @@ const LayoutResult* BlockNode::Layout(
           &fragment_geometry, &cache_status);
     }
   }
-
-  TextAutosizer::NGLayoutScope text_autosizer_layout_scope(
-      box_, fragment_geometry->border_box_size.inline_size);
 
   PrepareForLayout();
 

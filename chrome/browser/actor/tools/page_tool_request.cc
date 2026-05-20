@@ -11,6 +11,7 @@
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor/actor_constants.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/render_frame_host.h"
@@ -57,6 +58,10 @@ ToolRequest::CreateToolResult PageToolRequest::CreateTool(
 
   return {std::make_unique<PageTool>(task_id, tool_delegate, *this),
           MakeOkResult()};
+}
+
+std::string PageToolRequest::GetTextContentSentToRenderer() const {
+  return "";
 }
 
 const PageTarget& PageToolRequest::GetTarget() const {

@@ -205,8 +205,9 @@ class WTF_EXPORT StringImpl {
     // SAFETY: The AllocationSize<CharType>() helper function computes a size
     // that includes `length_` UChar/LChar characters in addition to the size
     // required for the StringImpl.
-    return UNSAFE_BUFFERS(
-        {reinterpret_cast<const uint8_t*>(this + 1), CharactersSizeInBytes()});
+    return UNSAFE_BUFFERS(base::span(base::unchecked,
+                                     reinterpret_cast<const uint8_t*>(this + 1),
+                                     CharactersSizeInBytes()));
   }
   // Create a new std::u16string based on this.
   // The character content is always copied.
@@ -405,9 +406,11 @@ class WTF_EXPORT StringImpl {
   scoped_refptr<StringImpl> Substring(size_type pos,
                                       size_type len = npos) const;
 
-  UChar operator[](size_type i) const {
+  // PRECONDITIONS: `i` must be less than `length`.
+  UNSAFE_BUFFER_USAGE UChar operator[](size_type i) const {
     SECURITY_DCHECK(i < length_);
-    // SAFETY: It's safe when i < length.
+    // SAFETY: Performance sensitive. Safety required from caller, enforced
+    // by UNSAFE_BUFFER_USAGE.
     UNSAFE_BUFFERS({
       if (Is8Bit()) {
         return reinterpret_cast<const LChar*>(this + 1)[i];
@@ -605,8 +608,8 @@ class WTF_EXPORT StringImpl {
     // SAFETY: The AllocationSize<CharType>() helper function computes a size
     // that includes `length_` UChar/LChar characters in addition to the size
     // required for the StringImpl.
-    return UNSAFE_BUFFERS(
-        base::span(reinterpret_cast<CharType*>(this + 1), length_));
+    return UNSAFE_BUFFERS(base::span(
+        base::unchecked, reinterpret_cast<CharType*>(this + 1), length_));
   }
   template <typename CharType>
   ALWAYS_INLINE base::span<const CharType> CharacterBuffer() const {
@@ -1046,6 +1049,55 @@ template <>
 struct HashTraits<StringImpl*>;
 template <>
 struct HashTraits<scoped_refptr<StringImpl>>;
+
+namespace internal {
+
+// This is not in string_internal.h because this should be visible from
+// wtf_string.h and we don't want to include string_internal.h from
+// wtf_string.h.
+template <typename StringType, typename FinderType, bool allow_empty_entries>
+Vector<StringType> SplitByFinder(const StringType& input, FinderType finder) {
+  Vector<StringType> result;
+  if (input.empty()) {
+    if (allow_empty_entries) {
+      result.push_back(input);
+    }
+    return result;
+  }
+
+  auto input_view = input.subview(0);
+  using size_type = typename StringType::size_type;
+  size_type start_pos = 0;
+  size_type current_pos = 0;
+
+  while (current_pos < input.length()) {
+    auto separator_length = finder(input_view, current_pos);
+    if (separator_length) {
+      auto sub = input.substr(start_pos, current_pos - start_pos);
+      if (allow_empty_entries || !sub.empty()) {
+        result.push_back(sub);
+      }
+      if (*separator_length == 0) {
+        start_pos = current_pos;
+        current_pos++;
+      } else {
+        current_pos += *separator_length;
+        start_pos = current_pos;
+      }
+    } else {
+      current_pos++;
+    }
+  }
+
+  auto sub = input.substr(start_pos);
+  if (allow_empty_entries || !sub.empty()) {
+    result.push_back(sub);
+  }
+
+  return result;
+}
+
+}  // namespace internal
 
 }  // namespace blink
 

@@ -403,7 +403,8 @@ TEST_F(FrameViewAshTest, NoCrashOnTabletChangesWithinWindowDestruction) {
         window_observation_{this};
   };
 
-  auto test_window = CreateTestWindow(gfx::Rect(200, 200));
+  auto test_window =
+      CreateWindowWithAppType(chromeos::AppType::NON_APP, {200, 200});
   WindowTestObserver obs(test_window.get());
   test_window.reset();
 }
@@ -491,6 +492,31 @@ TEST_F(FrameViewAshTest, HeaderVisibilityInFullscreen) {
 }
 
 namespace {
+
+struct WideFrameTestContext {
+  std::unique_ptr<views::WidgetDelegate> delegate;
+  std::unique_ptr<views::Widget> widget;
+  raw_ptr<WideFrameView> view = nullptr;
+};
+
+WideFrameTestContext CreateWideFrame(views::Widget* target) {
+  WideFrameTestContext context;
+  context.delegate = std::make_unique<views::WidgetDelegate>();
+  context.view = context.delegate->SetContentsView(
+      std::make_unique<WideFrameView>(target));
+
+  views::Widget::InitParams params(
+      views::Widget::InitParams::CLIENT_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_POPUP);
+  params.delegate = context.delegate.get();
+  params.bounds = WideFrameView::GetFrameBounds(target);
+  params.name = "WideFrameView";
+  params.parent = target->GetNativeWindow();
+  params.opacity = views::Widget::InitParams::WindowOpacity::kOpaque;
+  context.widget = std::make_unique<views::Widget>();
+  context.widget->Init(std::move(params));
+  return context;
+}
 
 class TestButtonModel : public chromeos::CaptionButtonModel {
  public:
@@ -731,8 +757,8 @@ TEST_F(FrameViewAshTest, WideFrame) {
   delegate->SetCanMaximize(true);
   widget->Maximize();
 
-  std::unique_ptr<WideFrameView> wide_frame_view =
-      std::make_unique<WideFrameView>(widget.get());
+  auto wide_frame_context = CreateWideFrame(widget.get());
+  WideFrameView* wide_frame_view = wide_frame_context.view;
   wide_frame_view->GetWidget()->Show();
 
   chromeos::HeaderView* wide_header_view = wide_frame_view->header_view();
@@ -805,8 +831,8 @@ TEST_F(FrameViewAshTest, WideFrameButton) {
       views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET, delegate,
       desks_util::GetActiveDeskContainerId(), gfx::Rect(100, 0, 400, 500));
   widget->Maximize();
-  std::unique_ptr<WideFrameView> wide_frame_view =
-      std::make_unique<WideFrameView>(widget.get());
+  auto wide_frame_context = CreateWideFrame(widget.get());
+  WideFrameView* wide_frame_view = wide_frame_context.view;
   wide_frame_view->GetWidget()->Show();
   chromeos::HeaderView* header_view = wide_frame_view->header_view();
   FrameCaptionButtonContainerView::TestApi test_api(
@@ -846,8 +872,8 @@ TEST_F(FrameViewAshTest, MoveFullscreenWideFrameBetweenDisplay) {
       views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET, delegate,
       desks_util::GetActiveDeskContainerId(), gfx::Rect(100, 0, 400, 500));
   widget->SetFullscreen(true);
-  std::unique_ptr<WideFrameView> wide_frame_view =
-      std::make_unique<WideFrameView>(widget.get());
+  auto wide_frame_context = CreateWideFrame(widget.get());
+  WideFrameView* wide_frame_view = wide_frame_context.view;
   wide_frame_view->GetWidget()->Show();
   ASSERT_EQ(display_list[0].id(),
             screen->GetDisplayNearestWindow(widget->GetNativeWindow()).id());
@@ -995,8 +1021,8 @@ TEST_P(FrameViewAshFrameColorTest, WideFrameInitialColor) {
   window->SetProperty(kFrameActiveColorKey, new_active_color);
   window->SetProperty(kFrameInactiveColorKey, new_inactive_color);
 
-  std::unique_ptr<WideFrameView> wide_frame_view =
-      std::make_unique<WideFrameView>(widget.get());
+  auto wide_frame_context = CreateWideFrame(widget.get());
+  WideFrameView* wide_frame_view = wide_frame_context.view;
   chromeos::HeaderView* wide_header_view = wide_frame_view->header_view();
   DefaultFrameHeader* header = wide_header_view->GetFrameHeader();
   EXPECT_EQ(new_active_color, header->active_frame_color_);

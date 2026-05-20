@@ -17,7 +17,7 @@
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/profile_waiter.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -68,7 +68,7 @@ IN_PROC_BROWSER_TEST_F(LoginPolicyTestBase, AllowedLanguages) {
   Browser* browser = CreateBrowser(profile);
   EXPECT_EQ("fr", prefs->GetString(language::prefs::kApplicationLocale));
   ASSERT_TRUE(
-      ui_test_utils::NavigateToURL(browser, GURL(chrome::kChromeUINewTabURL)));
+      ui_test_utils::NavigateToURL(browser, chrome::ChromeUINewTabURLAsGURL()));
   std::u16string french_title = l10n_util::GetStringUTF16(IDS_NEW_TAB_TITLE);
   std::u16string title;
   EXPECT_TRUE(ui_test_utils::GetCurrentTabTitle(browser, &title));
@@ -243,7 +243,8 @@ class StartupBrowserWindowLaunchSuppressedTest : public LoginPolicyTestBase {
 
     Profile* const profile = GetProfileForActiveUser();
 
-    ASSERT_EQ(count, chrome::GetBrowserCount(profile));
+    ASSERT_EQ(count,
+              ProfileBrowserCollection::GetForProfile(profile)->GetSize());
   }
 };
 
@@ -314,7 +315,7 @@ IN_PROC_BROWSER_TEST_F(PrimaryUserPoliciesProxiedTest,
 
   // Make sure that session startup finishes before letting chrome exit.
   // Rationale: We've seen CHECK-failures when exiting chrome right after
-  // a new profile is created, see e.g. https://crbug.com/1002066.
+  // a new profile is created, see e.g. https://crbug.com/40097998.
   ash::test::WaitForPrimaryUserSessionStart();
 }
 

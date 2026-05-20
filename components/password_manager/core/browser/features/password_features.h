@@ -22,14 +22,18 @@ BASE_DECLARE_FEATURE(kActorLogin);
 // Killswitch for the conflicting permission cleanup. Conflicting permissions
 // are the ones granted for 2 different accounts on the same website.
 BASE_DECLARE_FEATURE(kActorLoginConflictingPermissionCleanup);
-// Enables Actor Login form finding with async check
-BASE_DECLARE_FEATURE(kActorLoginFieldVisibilityCheck);
 BASE_DECLARE_FEATURE(kActorLoginLocalClassificationModel);
-// Enables the usage of temporary permissions across affiliated origins for
-// Actor Login.
-BASE_DECLARE_FEATURE(kActorLoginPermissionsUseStrongAffiliations);
-BASE_DECLARE_FEATURE(kActorLoginReauthTaskRefocus);
 #endif  // !BUILDFLAG(IS_IOS)
+
+#if BUILDFLAG(IS_ANDROID)
+// When enabled, it completely ignores existing permanent permissions
+// and does not store new ones.
+// TODO(crbug.com/507403760): Remove once the permissions management UI is
+// available.
+BASE_DECLARE_FEATURE(kActorLoginNoPermanentPermissionsAndroid);
+// Enables the Actor Login Permissions Settings UI on Android.
+BASE_DECLARE_FEATURE(kActorLoginPermissionsUi);
+#endif
 
 // Enables syncing password permissions.
 BASE_DECLARE_FEATURE(kActorLoginSyncsPasswordPermissions);
@@ -83,6 +87,11 @@ extern const base::FeatureParam<int> kCapturePageContentRetryCount;
 
 // Enables Biometrics for the Touch To Fill feature. This only effects Android.
 BASE_DECLARE_FEATURE(kBiometricTouchToFill);
+
+// Kill switch for calling OnAddPasswordFillData() asynchronously to avoid
+// reentrant AutofillManager::Observer events.
+// TODO(crbug.com/500883329): Clean up after M141 BP (June 29, 2026).
+BASE_DECLARE_FEATURE(kCallOnAddPasswordFillDataAsynchronously);
 
 // Checks if submitted form is identical to an observed form before evaluating
 // login success/failure.
@@ -171,12 +180,6 @@ BASE_DECLARE_FEATURE(kPasswordFormClientsideClassifier);
 BASE_DECLARE_FEATURE(kPasswordFormGroupedAffiliations);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
-// Enables "chunking" generated passwords by adding hyphens every 4 characters
-// to make them more readable.
-BASE_DECLARE_FEATURE(kPasswordGenerationChunking);
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
 BASE_DECLARE_FEATURE(kPasswordSaveInContextErrorResolutionOnDesktop);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
@@ -188,14 +191,17 @@ BASE_DECLARE_FEATURE(kPasswordStorePropagatesActionableErrors);
 // terminal.
 BASE_DECLARE_FEATURE(kPasswordManagerLogToTerminal);
 
+// Prevents password manager from showing save/update UI on federated login.
+BASE_DECLARE_FEATURE(kPreventPasswordManagerOnFederatedLogin);
+
+// Prevents offering Automatic Password Change on federated login.
+BASE_DECLARE_FEATURE(kPreventAPCOnFederatedLogin);
+
 // Updates password change flow to await for local ML model availability. The
 // model has a superior performance compared to existing password manager
 // classifications.
 BASE_DECLARE_FEATURE(kProactivelyDownloadModelForPasswordChange);
 
-// Removes country and language restrictions for password change. This allows to
-// control locale/country server side.
-BASE_DECLARE_FEATURE(kReduceRequirementsForPasswordChange);
 
 // Triggers password change glow invoking Glic from settings.
 // This flag is only for the prototype version.

@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/check_op.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -20,10 +21,10 @@
 #include "chromeos/ash/components/dbus/debug_daemon/debug_daemon_client.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "services/tracing/public/cpp/perfetto/perfetto_data_source_names.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_traced_process.h"
 #include "services/tracing/public/cpp/perfetto/system_trace_writer.h"
 #include "services/tracing/public/mojom/constants.mojom.h"
-#include "services/tracing/public/mojom/perfetto_service.mojom.h"
 
 namespace content {
 
@@ -135,11 +136,10 @@ class CrOSDataSource : public tracing::PerfettoTracedProcess::DataSourceBase {
       tracing::SystemTraceWriter<scoped_refptr<base::RefCountedString>,
                                  DataSourceProxy>;
 
-  CrOSDataSource()
-      : DataSourceBase(tracing::mojom::kSystemTraceDataSourceName) {
+  CrOSDataSource() : DataSourceBase(tracing::kSystemTraceDataSourceName) {
     DETACH_FROM_SEQUENCE(ui_sequence_checker_);
     perfetto::DataSourceDescriptor dsd;
-    dsd.set_name(tracing::mojom::kSystemTraceDataSourceName);
+    dsd.set_name(tracing::kSystemTraceDataSourceName);
     DataSourceProxy::Register(dsd, this);
   }
 
@@ -221,8 +221,12 @@ class CrOSDataSource : public tracing::PerfettoTracedProcess::DataSourceBase {
 
 }  // namespace
 
+BASE_FEATURE(kCrOSTracingDataSource, base::FEATURE_DISABLED_BY_DEFAULT);
+
 void RegisterCrOSTracingDataSource() {
-  CrOSDataSource::GetInstance();
+  if (base::FeatureList::IsEnabled(kCrOSTracingDataSource)) {
+    CrOSDataSource::GetInstance();
+  }
 }
 
 }  // namespace content

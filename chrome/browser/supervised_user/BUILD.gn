@@ -7,12 +7,422 @@ import("//third_party/jni_zero/jni_zero.gni")
 import("//tools/grit/grit_rule.gni")
 
 source_set("supervised_user") {
-  sources = []
-  public_deps = []
+  public = [
+    "child_accounts/child_account_service_factory.h",
+    "child_accounts/list_family_members_service_factory.h",
+    "chrome_supervised_user_service_platform_delegate_base.h",
+    "chrome_supervised_user_web_content_handler_base.h",
+    "classify_url_navigation_throttle.h",
+    "family_link_settings_service_factory.h",
+    "metrics_service_accessor_delegate.h",
+    "supervised_user_browser_utils.h",
+    "supervised_user_google_auth_navigation_throttle.h",
+    "supervised_user_interstitial_tab_closer.h",
+    "supervised_user_metrics_service_factory.h",
+    "supervised_user_navigation_observer.h",
+    "supervised_user_service_factory.h",
+    "supervised_user_url_filtering_service_factory.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//chrome/browser/profiles",
+    "//chrome/common:supervised_user_commands_mojom",
+    "//components/keyed_service/core",
+    "//components/prefs",
+    "//components/sessions",
+    "//components/supervised_user/core/browser",
+    "//components/supervised_user/core/browser:device_parental_controls",
+    "//components/supervised_user/core/browser:synthetic_field_trial_delegate",
+    "//components/supervised_user/core/common",
+    "//content/public/browser",
+    "//url",
+  ]
+
+  if (!is_android) {
+    public += [
+      "desktop/supervised_user_service_platform_delegate.h",
+      "supervised_user_verification_controller_client.h",
+    ]
+    public_deps += [
+      "//components/security_interstitials/content:security_interstitial_page",
+    ]
+  }
+
+  if (is_linux || is_mac || is_win) {
+    public += [
+      "linux_mac_windows/parent_access_dialog_result_observer.h",
+      "linux_mac_windows/parent_access_view.h",
+      "linux_mac_windows/supervised_user_extensions_metrics_delegate_impl.h",
+      "linux_mac_windows/supervised_user_web_content_handler_impl.h",
+      "supervised_user_verification_page.h",
+      "supervised_user_verification_page_blocked_sites.h",
+      "supervised_user_verification_page_youtube.h",
+    ]
+    public_deps += [
+      "//components/tabs:public",
+      "//ui/base/interaction",
+      "//ui/views",
+      "//ui/views/controls/webview",
+    ]
+  }
+
+  if (is_android) {
+    public += [
+      "android/extension_parent_approval.h",
+      "android/favicon_fetcher.h",
+      "android/supervised_user_service_platform_delegate.h",
+      "android/supervised_user_web_content_handler_impl.h",
+      "android/website_parent_approval.h",
+      "child_accounts/child_account_service_android.h",
+    ]
+    public_deps += [
+      ":supervised_extension_approval_result_java_enum_srcjar",
+      "//components/favicon/core",
+      "//components/favicon_base",
+      "//components/signin/public/identity_manager",
+    ]
+  }
+
+  if (is_chromeos) {
+    public += [
+      "chromeos/supervised_user_favicon_request_handler.h",
+      "chromeos/supervised_user_web_content_handler_impl.h",
+    ]
+    public_deps += [
+      "//chrome/browser/ui/webui/ash/parent_access",
+      "//components/favicon_base",
+    ]
+  }
 
   if (enable_extensions_core) {
-    sources += [ "supervised_user_extensions_metrics_recorder.h" ]
+    public += [
+      "extension_icon_loader.h",
+      "supervised_user_extensions_delegate_impl.h",
+      "supervised_user_extensions_manager.h",
+      "supervised_user_extensions_metrics_recorder.h",
+    ]
     public_deps += [ "//extensions/browser" ]
+
+    if (is_chromeos) {
+      public += [ "chromeos/parent_access_extension_approvals_manager.h" ]
+    }
+  }
+}
+
+source_set("impl") {
+  sources = [
+    "child_accounts/child_account_service_factory.cc",
+    "child_accounts/list_family_members_service_factory.cc",
+    "chrome_supervised_user_service_platform_delegate_base.cc",
+    "chrome_supervised_user_web_content_handler_base.cc",
+    "classify_url_navigation_throttle.cc",
+    "family_link_settings_service_factory.cc",
+    "metrics_service_accessor_delegate.cc",
+    "supervised_user_browser_utils.cc",
+    "supervised_user_google_auth_navigation_throttle.cc",
+    "supervised_user_interstitial_tab_closer.cc",
+    "supervised_user_metrics_service_factory.cc",
+    "supervised_user_navigation_observer.cc",
+    "supervised_user_service_factory.cc",
+    "supervised_user_url_filtering_service_factory.cc",
+  ]
+
+  public_deps = [
+    ":supervised_user",
+    "//chrome/browser:browser_public_dependencies",
+  ]
+
+  deps = [
+    "//chrome/browser:browser_process",
+    "//chrome/browser:global_features",
+    "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/favicon",
+    "//chrome/browser/history",
+    "//chrome/browser/metrics",
+    "//chrome/browser/prefs",
+    "//chrome/browser/profiles",
+    "//chrome/browser/signin",
+    "//chrome/browser/sync",
+    "//chrome/browser/ui/browser_window",
+    "//components/history/content/browser",
+    "//components/infobars/content",
+    "//components/keyed_service/core",
+    "//components/prefs",
+    "//components/signin/public/identity_manager",
+    "//components/supervised_user/core/browser",
+    "//components/supervised_user/core/browser:synthetic_field_trial_delegate",
+    "//components/supervised_user/core/common",
+    "//components/user_manager:common",
+    "//components/variations/service",
+    "//content/public/browser",
+  ]
+
+  if (is_android) {
+    sources += [
+      "android/extension_parent_approval.cc",
+      "android/favicon_fetcher.cc",
+      "android/supervised_user_service_bridge.cc",
+      "android/supervised_user_service_platform_delegate.cc",
+      "android/supervised_user_web_content_handler_impl.cc",
+      "android/website_parent_approval.cc",
+      "child_accounts/child_account_service_android.cc",
+    ]
+    deps += [
+      ":extension_parent_approval_jni_headers",
+      ":supervised_user_service_bridge_jni_headers",
+      ":supervised_user_service_platform_delegate_jni_headers",
+      ":website_parent_approval_jni_headers",
+      "//chrome/android:chrome_jni_headers",
+      "//components/favicon/core",
+      "//components/supervised_user/core/browser/android",
+      "//ui/android",
+    ]
+  }
+
+  if (!is_android) {
+    sources += [
+      "desktop/supervised_user_service_platform_delegate.cc",
+      "supervised_user_verification_controller_client.cc",
+    ]
+    deps += [
+      "//chrome/browser/profiles:profile",
+      "//components/security_interstitials/content:security_interstitial_page",
+    ]
+  }
+
+  if (is_linux || is_mac || is_win) {
+    sources += [
+      "linux_mac_windows/parent_access_dialog_result_observer.cc",
+      "linux_mac_windows/parent_access_view.cc",
+      "linux_mac_windows/supervised_user_extensions_metrics_delegate_impl.cc",
+      "linux_mac_windows/supervised_user_web_content_handler_impl.cc",
+      "supervised_user_verification_page.cc",
+      "supervised_user_verification_page_blocked_sites.cc",
+      "supervised_user_verification_page_youtube.cc",
+    ]
+    deps += [
+      "//chrome/browser/signin:signin_promo",
+      "//chrome/browser/ui:browser_element_identifiers",
+      "//chrome/browser/ui/color:color_headers",
+      "//components/constrained_window",
+    ]
+  }
+
+  if (is_chromeos) {
+    sources += [
+      "chromeos/supervised_user_favicon_request_handler.cc",
+      "chromeos/supervised_user_web_content_handler_impl.cc",
+    ]
+    deps += [ "//chrome/browser/ash/profiles" ]
+  }
+
+  if (enable_extensions_core) {
+    sources += [
+      "extension_icon_loader.cc",
+      "supervised_user_extensions_delegate_impl.cc",
+      "supervised_user_extensions_manager.cc",
+      "supervised_user_extensions_metrics_recorder.cc",
+    ]
+    deps += [
+      "//chrome/browser/extensions",
+      "//chrome/browser/ui/extensions",
+      "//chrome/browser/ui/supervised_user",
+    ]
+
+    if (is_chromeos) {
+      sources += [ "chromeos/parent_access_extension_approvals_manager.cc" ]
+    }
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [
+    "classify_url_navigation_throttle_unittest.cc",
+    "supervised_user_browser_utils_unittest.cc",
+    "supervised_user_google_auth_navigation_throttle_unittest.cc",
+  ]
+
+  deps = [
+    ":test_support",
+    "//base",
+    "//base/test:test_support",
+    "//chrome/browser",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/signin",
+    "//chrome/browser/sync",
+    "//chrome/test:test_support",
+    "//components/safe_search_api:test_support",
+    "//components/signin/public/base",
+    "//components/signin/public/base:test_support",
+    "//components/signin/public/identity_manager",
+    "//components/signin/public/identity_manager:test_support",
+    "//components/supervised_user/core/browser",
+    "//components/supervised_user/core/browser:device_parental_controls",
+    "//components/supervised_user/core/browser:test_support",
+    "//components/supervised_user/core/common",
+    "//components/supervised_user/test_support",
+    "//components/sync:test_support",
+    "//content/test:test_support",
+    "//testing/gtest",
+  ]
+
+  if (is_android) {
+    sources += [
+      "android/favicon_fetcher_unittest.cc",
+      "android/supervised_user_web_content_handler_impl_unittest.cc",
+    ]
+    deps += [
+      "//components/supervised_user/core/browser/android",
+      "//services/network:test_support",
+    ]
+  }
+
+  if (is_linux || is_mac || is_win) {
+    sources += [ "linux_mac_windows/supervised_user_extensions_metrics_delegate_impl_unittest.cc" ]
+  }
+
+  if (is_chromeos) {
+    sources += [
+      "chromeos/mock_large_icon_service.cc",
+      "chromeos/mock_large_icon_service.h",
+      "chromeos/supervised_user_favicon_request_handler_unittest.cc",
+      "chromeos/supervised_user_web_content_handler_impl_unittest.cc",
+    ]
+    deps += [
+      "//chrome/browser/ash/login/users:test_support",
+      "//components/favicon_base",
+    ]
+  }
+
+  if (enable_extensions_core) {
+    sources += [
+      "supervised_user_extension_unittest.cc",
+      "supervised_user_extensions_manager_unittest.cc",
+      "supervised_user_url_filter_extensions_unittest.cc",
+    ]
+    deps += [
+      "//chrome/browser/extensions",
+      "//extensions/browser",
+      "//extensions/common",
+    ]
+  }
+}
+
+if (!is_android) {
+  source_set("browser_tests") {
+    testonly = true
+    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+    sources = [
+      "advanced_content_restrictions_browsertest.cc",
+      "classify_url_navigation_throttle_browsertest.cc",
+      "family_link_url_filter_browsertest.cc",
+      "supervised_user_incognito_browsertest.cc",
+      "supervised_user_navigation_throttle_browsertest.cc",
+      "supervised_user_regional_url_filter_browsertest.cc",
+      "supervised_user_service_browsertest.cc",
+      "supervised_user_url_filtering_service_common_browsertest.cc",
+      "url_filter_browsertest.cc",
+    ]
+
+    deps = [
+      ":test_support",
+      "//base",
+      "//base/test:test_support",
+      "//chrome/browser",
+      "//chrome/browser:browser_process",
+      "//chrome/browser/content_settings:content_settings_factory",
+      "//chrome/browser/history",
+      "//chrome/browser/profiles",
+      "//chrome/browser/profiles:profile",
+      "//chrome/browser/signin",
+      "//chrome/browser/ssl",
+      "//chrome/browser/ui",
+      "//chrome/browser/ui:test_support",
+      "//chrome/browser/ui/browser_window",
+      "//chrome/common",
+      "//chrome/test:test_support",
+      "//chrome/test/supervised_user:live_tests",
+      "//chrome/test/supervised_user:test_support",
+      "//components/content_settings/core/browser",
+      "//components/content_settings/core/browser:cookie_settings",
+      "//components/content_settings/core/common",
+      "//components/history/core/browser",
+      "//components/infobars/content",
+      "//components/infobars/core",
+      "//components/prefs",
+      "//components/safe_search_api",
+      "//components/supervised_user/core/browser",
+      "//components/supervised_user/core/browser:fetcher_config",
+      "//components/supervised_user/core/browser:mocked",
+      "//components/supervised_user/core/browser:test_support",
+      "//components/supervised_user/core/common",
+      "//components/supervised_user/test_support",
+      "//components/ukm:test_support",
+      "//content/public/browser",
+      "//content/test:browsertest_support",
+      "//content/test:test_support",
+      "//net:test_support",
+      "//testing/gmock",
+      "//testing/gtest",
+      "//ui/base:test_support",
+      "//ui/events:test_support",
+      "//url",
+    ]
+
+    if (is_chromeos) {
+      deps += [
+        "//chrome/browser/ui/webui/ash/parent_access",
+        "//chrome/browser/ui/webui/ash/parent_access:test_support",
+      ]
+    }
+
+    if (is_win || is_mac || is_linux) {
+      sources += [
+        "kids_profile_interactive_uitest.cc",
+        "linux_mac_windows/parent_access_dialog_result_observer_browsertest.cc",
+        "linux_mac_windows/supervised_user_web_content_handler_impl_browsertest.cc",
+      ]
+    }
+
+    if (enable_extensions_core) {
+      sources += [
+        "desktop/supervised_user_extension_browsertest.cc",
+        "extension_icon_loader_browsertest.cc",
+        "extensions_interactive_uitest.cc",
+      ]
+      deps += [
+        "//chrome/browser/extensions",
+        "//chrome/browser/ui/extensions",
+        "//extensions/browser",
+        "//extensions/common",
+      ]
+
+      if (is_win || is_linux || is_mac) {
+        sources += [ "supervised_user_pending_state_navigation_browsertest.cc" ]
+      }
+    }
+  }
+
+  source_set("interactive_ui_tests") {
+    testonly = true
+    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+    sources = [ "incognito_mode_interactive_uitest.cc" ]
+
+    deps = [
+      "//chrome/browser/prefs",
+      "//chrome/browser/ui",
+      "//chrome/test:test_support",
+      "//chrome/test/supervised_user:live_tests",
+      "//chrome/test/supervised_user:test_support",
+      "//content/test:test_support",
+      "//testing/gtest",
+      "//ui/base/interaction:test_support",
+    ]
   }
 }
 
@@ -29,6 +439,7 @@ static_library("test_support") {
   public_deps = [ "//chrome/browser/signin" ]
 
   deps = [
+    ":supervised_user",
     "//chrome/browser",
     "//chrome/browser:browser_process",
     "//chrome/browser:global_features",

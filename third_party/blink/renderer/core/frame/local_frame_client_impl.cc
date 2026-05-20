@@ -645,7 +645,8 @@ void LocalFrameClientImpl::BeginNavigation(
     bool is_container_initiated,
     bool has_rel_opener,
     mojo::PendingReceiver<mojom::blink::NavigationResumeDeferredCommitListener>
-        resume_defer_commit_listener) {
+        resume_defer_commit_listener,
+    std::optional<base::UnguessableToken> script_tool_invocation_id) {
   if (!web_frame_->Client()) {
     return;
   }
@@ -666,6 +667,12 @@ void LocalFrameClientImpl::BeginNavigation(
   navigation_info->is_unfenced_top_navigation = is_unfenced_top_navigation;
   navigation_info->frame_load_type = frame_load_type;
   navigation_info->is_client_redirect = is_client_redirect;
+
+  if (script_tool_invocation_id.has_value()) {
+    navigation_info->script_tool_invocation_id =
+        script_tool_invocation_id.value();
+  }
+
   navigation_info->triggering_event_info = triggering_event_info;
   navigation_info->should_check_main_world_content_security_policy =
       should_check_main_world_content_security_policy;
@@ -699,15 +706,6 @@ void LocalFrameClientImpl::BeginNavigation(
   }
 
   navigation_info->impression = impression;
-
-  // Allow cookie access via Storage Access API during the navigation, if the
-  // initiator has obtained storage access. Note that the network service still
-  // applies cookie semantics and user settings, and that this value is not
-  // trusted by the browser process. (The Storage Access API is only relevant
-  // when third-party cookies are blocked.)
-  navigation_info->storage_access_api_status =
-      origin_window ? origin_window->GetStorageAccessApiStatus()
-                    : net::StorageAccessApiStatus::kNone;
 
   // Can be null.
   LocalFrame* local_parent_frame = GetLocalParentFrame(web_frame_);
@@ -1188,11 +1186,10 @@ void LocalFrameClientImpl::FocusedElementChanged(Element* element) {
   web_frame_->Client()->FocusedElementChanged(element);
 }
 
-void LocalFrameClientImpl::OnMainFrameIntersectionChanged(
-    const gfx::Rect& main_frame_intersection_rect) {
+void LocalFrameClientImpl::OnMainFrameRectangleChanged(
+    const gfx::Rect& main_frame_rect) {
   DCHECK(web_frame_->Client());
-  web_frame_->Client()->OnMainFrameIntersectionChanged(
-      main_frame_intersection_rect);
+  web_frame_->Client()->OnMainFrameRectangleChanged(main_frame_rect);
 }
 
 void LocalFrameClientImpl::OnMainFrameViewportRectangleChanged(

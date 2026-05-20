@@ -123,7 +123,7 @@ This collects each top-level device metric type. For example,
 </variants>
 
 <histogram name="Cras.A2dp100msFailureOverStream" units="units"
-    expires_after="2026-08-16">
+    expires_after="2026-10-18">
   <owner>hychao@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -134,7 +134,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.A2dp20msFailureOverStream" units="units"
-    expires_after="2026-08-16">
+    expires_after="2026-10-18">
   <owner>hychao@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -297,19 +297,8 @@ This collects each top-level device metric type. For example,
   <token key="Device" variants="CrasFinalDeviceBreakdown"/>
 </histogram>
 
-<histogram name="Cras.DeviceNoiseCancellationStatus{Device}"
-    enum="CrasNoiseCancellationStatus" expires_after="2025-02-10">
-  <owner>johnylin@chromium.org</owner>
-  <owner>chromeos-audio@google.com</owner>
-  <summary>
-    Record the staus of Noise Cancellation (blocked/disabled/enabled) for the
-    supported device. It is recorded when the device is opened.
-  </summary>
-  <token key="Device" variants="CrasFinalDeviceBreakdown"/>
-</histogram>
-
 <histogram name="Cras.DeviceOpenStatus.Input{Device}"
-    enum="CrasDeviceOpenStatus" expires_after="2026-08-16">
+    enum="CrasDeviceOpenStatus" expires_after="2026-10-25">
   <owner>yuhsuan@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -319,7 +308,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.DeviceOpenStatus.Output{Device}"
-    enum="CrasDeviceOpenStatus" expires_after="2026-08-16">
+    enum="CrasDeviceOpenStatus" expires_after="2026-10-25">
   <owner>yuhsuan@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -475,7 +464,7 @@ This collects each top-level device metric type. For example,
   <token key="DlcType" variants="CrasDlcType"/>
 </histogram>
 
-<histogram name="Cras.FetchDelayCount" units="count" expires_after="2026-08-09">
+<histogram name="Cras.FetchDelayCount" units="count" expires_after="2026-10-11">
 <!-- Name completed by histogram_suffixes
      name="Cras.ClientType" and
      name="Cras.StreamType" -->
@@ -830,7 +819,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.RtcDevicePair" enum="CrasDevicePair"
-    expires_after="2026-08-09">
+    expires_after="2026-10-11">
   <owner>yuhsuan@chromium.org</owner>
   <owner>chromeos-audio@google.com</owner>
   <summary>
@@ -1081,7 +1070,7 @@ This collects each top-level device metric type. For example,
 </histogram>
 
 <histogram name="Cras.StreamOverrunCount" units="count"
-    expires_after="2026-08-02">
+    expires_after="2026-10-04">
 <!-- Name completed by histogram_suffixes
      name="Cras.ClientType" and
      name="Cras.StreamType" -->
@@ -1108,46 +1097,6 @@ This collects each top-level device metric type. For example,
     when it gets removed and used to investigate the audio glitch/skip problem
     on ChromeOS.
   </summary>
-</histogram>
-
-<histogram
-    name="Cras.StreamRuntimeWithMinimum{Duration}{Direction}{ClientType}{StreamType}"
-    units="seconds" expires_after="2024-11-10">
-  <owner>pteerapong@chromium.org</owner>
-  <owner>chromeos-audio@google.com</owner>
-  <summary>
-    Similar to Cras.StreamRuntime, but only for streams with runtime at least
-    {Duration}. The value is recorded when the stream is destroyed.
-  </summary>
-  <token key="Duration">
-    <variant name=".10s"/>
-  </token>
-  <token key="Direction">
-    <variant name="" summary="aggregated across all breakdowns"/>
-    <variant name=".Input"/>
-    <variant name=".Output"/>
-  </token>
-  <token key="ClientType">
-    <variant name="" summary="aggregated across all breakdowns"/>
-    <variant name=".ARC" summary="A client created by ARC++."/>
-    <variant name=".ARCVM" summary="A client created by ARCVM."/>
-    <variant name=".BOREALIS" summary="A client created by BOREALIS."/>
-    <variant name=".Chrome" summary="A client created by Chrome."/>
-    <variant name=".CrOSVM" summary="A client created by ChromeOS VM."/>
-    <variant name=".InvalidType" summary="Invalid client."/>
-    <variant name=".LaCrOS" summary="A client created by LaCrOS."/>
-    <variant name=".Legacy" summary="A client using an old CRAS lib."/>
-    <variant name=".PCM" summary="A client created by PCM."/>
-    <variant name=".ServerStream" summary="A client created by CRAS server."/>
-    <variant name=".Test" summary="A client created by cras_test_client."/>
-    <variant name=".Unknown" summary="Unknown client."/>
-  </token>
-  <token key="StreamType">
-    <variant name="" summary="aggregated across all breakdowns"/>
-    <variant name=".Default"/>
-    <variant name=".ProAudio"/>
-    <variant name=".VoiceCommunication"/>
-  </token>
 </histogram>
 
 <histogram name="Cras.StreamRuntime{Cras_Direction}" units="seconds"

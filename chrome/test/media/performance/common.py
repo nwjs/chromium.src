@@ -18,9 +18,10 @@ from contextlib import AbstractContextManager
 # pylint: disable=import-error, wrong-import-position
 REPO_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
-MEASURES_ROOT = os.path.join(REPO_ROOT, 'build', 'util', 'lib', 'proto')
-sys.path.append(MEASURES_ROOT)
-import measures  # pylint: disable=unused-import
+BUILD_UTIL_ROOT = os.path.join(REPO_ROOT, 'build', 'util')
+sys.path.append(BUILD_UTIL_ROOT)
+from lib.proto import measures
+from lib.results import result_sink
 
 CHROME_FUCHSIA_ROOT = os.path.join(REPO_ROOT, 'fuchsia_web', 'av_testing')
 sys.path.append(CHROME_FUCHSIA_ROOT)
@@ -41,6 +42,8 @@ SERVER_PORT = int(os.environ.get('SERVER_PORT', '8000'))
 
 RECORDINGS_DIR = os.path.join(os.environ.get('ISOLATED_OUTDIR', '/tmp'),
                               'recordings')
+TRACES_DIR = os.path.join(os.environ.get('ISOLATED_OUTDIR', '/tmp'),
+                          'traces')
 LOCAL_HOST_IP = '127.0.0.1'
 REMOTE_URL = f'http://{LOCAL_HOST_IP}:{CHROMEDRIVER_PORT}'
 
@@ -162,7 +165,7 @@ def send_ssh_command(hostname, username, command, blocking=False):
         process = subprocess.run(ssh_command,
                                  capture_output=True,
                                  text=True,
-                                 timeout=60,
+                                 timeout=120,
                                  check=False)
     else:
         process = subprocess.Popen(  # pylint: disable=consider-using-with
@@ -276,7 +279,7 @@ def download_cft_urls(platform_name, version=None):
             if chrome_url and driver_url:
                 logging.info("Found URLs for version %s on platform %s",
                              v['version'], platform_name)
-                return chrome_url, driver_url
+                return v['version'], chrome_url, driver_url
 
     raise RuntimeError(
         f"Could not find downloads for version {version} on {platform_name}")
@@ -309,7 +312,8 @@ def install_and_setup_chrome(args, chrome_version):
             f"Unsupported OS/Arch: {args.sender_os}/{arch}")
 
     platform_name = platform_map[args.sender_os][arch]
-    chrome_url, driver_url = download_cft_urls(platform_name, chrome_version)
+    chrome_version_actual, chrome_url, driver_url = download_cft_urls(
+        platform_name, chrome_version)
     remote_app_path = None
 
     # --- Download and Unzip on Remote ---
@@ -429,7 +433,7 @@ def install_and_setup_chrome(args, chrome_version):
             f"Unsupported sender_os for install: {args.sender_os}")
 
     logging.info("Finished chromedriver setup attempt.")
-    return remote_app_path
+    return remote_app_path, chrome_version_actual
 
 
 def dump_remote_logs(args):
@@ -489,8 +493,9 @@ def start_ssh_tunnel(args):
         # Optimization for tunnel throughput. Disable compression as video
         # data is already compressed.
         '-o', 'Compression=no',
-        '-o', 'ServerAliveInterval=30',
-        '-o', 'ServerAliveCountMax=3',
+        '-o', 'ServerAliveInterval=10',
+        '-o', 'ServerAliveCountMax=10',
+        '-o', 'TCPKeepAlive=yes',
         '-o', 'ExitOnForwardFailure=yes',
         '-L',
         f'{CHROMEDRIVER_PORT}:{LOCAL_HOST_IP}:{CHROMEDRIVER_PORT}',
@@ -562,3 +567,31 @@ def teardown_test_environment(driver, tunnel_proc, args):
     send_ssh_command(args.sender, args.username,
                      cleanup_command[args.sender_os])
     logging.info("Cleaned up tmp files on remote machine.")
+
+
+def finalize_results(chrome_version=None):
+    """Dumps metrics and uploads to ResultDB if available."""
+    if chrome_version:
+        # Tag results with the chrome version for easier tracking in dashboards.
+        measures.tag(chrome_version)
+
+    log_dir = os.environ.get('ISOLATED_OUTDIR', '/tmp')
+    invocations_dir = os.path.join(log_dir, 'invocations')
+
+    # Dump metrics to the expected location for the result_adapter or
+    # other infra tools to find.
+    logging.info("Dumping metrics to: %s", invocations_dir)
+    measures.dump(invocations_dir)
+
+    # If running in a LUCI environment, try to upload immediately.
+    client = result_sink.TryInitClient()
+    if client:
+        logging.info("LUCI ResultSink detected. Uploading extended properties.")
+        try:
+            records = {
+                measures.TEST_SCRIPT_METRICS_KEY: measures.to_dict()
+            }
+            client.UpdateInvocationExtendedProperties(records)
+            logging.info("Metrics uploaded successfully.")
+        except Exception as e:
+            logging.error("Failed to upload metrics to ResultSink: %s", e)

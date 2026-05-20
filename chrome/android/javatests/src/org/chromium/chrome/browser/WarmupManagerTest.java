@@ -35,6 +35,7 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.WarmupManager.SpareTabFinalStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -48,7 +49,6 @@ import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.util.ChromeTabUtils;
@@ -112,19 +112,16 @@ public class WarmupManagerTest {
 
     private TestWebServer mWebServer;
     private TabModel mTabModel;
-    private TabGroupModelFilter mTabGroupModelFilter;
 
     @Before
     public void setUp() throws Exception {
         mTabModel = mActivityTestRule.getActivity().getTabModelSelector().getModel(false);
 
-        mTabGroupModelFilter =
-                mActivityTestRule.getActivity().getTabModelSelector().getTabGroupModelFilter(false);
-
         // Unlike most of Chrome, the WarmupManager inflates layouts with the application context.
         // This is because the inflation happens before an activity exists. If you're trying to fix
         // a failing test, it's important to not add extra theme/style information to this context
-        // in this test because it could hide a real production issue. See https://crbug.com/1246329
+        // in this test because it could hide a real production issue. See
+        // https://crbug.com/40196491
         // for an example.
         mContext =
                 InstrumentationRegistry.getInstrumentation()
@@ -165,7 +162,7 @@ public class WarmupManagerTest {
             }
             ThreadUtils.runOnUiThreadBlocking(
                     () -> {
-                        mTabGroupModelFilter.mergeListOfTabsToGroup(
+                        mTabModel.mergeListOfTabsToGroup(
                                 tabs,
                                 tabs.get(0),
                                 TabGroupModelFilter.MergeNotificationType.DONT_NOTIFY);

@@ -47,65 +47,6 @@ bool AreAllAppsCanceled(const std::vector<AppCompletionInfo>& apps_info) {
 
 }  // namespace
 
-InstallStoppedWnd::InstallStoppedWnd(WTL::CMessageLoop* message_loop,
-                                     HWND parent)
-    : message_loop_(message_loop), parent_(parent) {
-  CHECK(message_loop);
-  CHECK(::IsWindow(parent));
-}
-
-InstallStoppedWnd::~InstallStoppedWnd() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (IsWindow()) {
-    CloseWindow();
-  }
-}
-
-BOOL InstallStoppedWnd::PreTranslateMessage(MSG* msg) {
-  return CWindow::IsDialogMessage(msg);
-}
-
-HRESULT InstallStoppedWnd::CloseWindow() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(IsWindow());
-  ::EnableWindow(parent_, true);
-  return DestroyWindow() ? S_OK : HRESULTFromLastError();
-}
-
-LRESULT InstallStoppedWnd::OnInitDialog(UINT, WPARAM, LPARAM, BOOL& handled) {
-  // Simulates the modal behavior by disabling its parent window. The parent
-  // window must be enabled before this window is destroyed.
-  ::EnableWindow(parent_, false);
-
-  message_loop_->AddMessageFilter(this);
-
-  default_font_.CreatePointFont(90, kDialogFont);
-  SendMessageToDescendants(
-      WM_SETFONT, reinterpret_cast<WPARAM>(static_cast<HFONT>(default_font_)),
-      0);
-
-  CreateOwnerDrawTitleBar(m_hWnd, GetDlgItem(IDC_TITLE_BAR_SPACER), kBkColor);
-  SetCustomDlgColors(kTextColor, kBkColor);
-
-  EnableFlatButtons(m_hWnd);
-
-  handled = true;
-  return 1;
-}
-
-LRESULT InstallStoppedWnd::OnClickButton(WORD, WORD id, HWND, BOOL& handled) {
-  CHECK(id == IDOK || id == IDCANCEL);
-  ::PostMessage(parent_, WM_INSTALL_STOPPED, id, 0);
-  handled = true;
-  return 0;
-}
-
-LRESULT InstallStoppedWnd::OnDestroy(UINT, WPARAM, LPARAM, BOOL& handled) {
-  message_loop_->RemoveMessageFilter(this);
-  handled = true;
-  return 0;
-}
-
 ProgressWnd::ProgressWnd(WTL::CMessageLoop* message_loop, HWND parent)
     : CompleteWnd(IDD_PROGRESS,
                   ICC_STANDARD_CLASSES | ICC_PROGRESS_CLASS,
@@ -149,6 +90,23 @@ LRESULT ProgressWnd::OnEraseBkgnd(UINT msg,
                                   WPARAM wparam,
                                   LPARAM lparam,
                                   BOOL& handled) {
+  const HDC hdc = reinterpret_cast<HDC>(wparam);
+  CRect rect;
+  GetClientRect(&rect);
+
+  if (IsHighContrastOn()) {
+    ::FillRect(hdc, &rect, ::GetSysColorBrush(COLOR_WINDOW));
+    handled = TRUE;
+    return 1;
+  }
+
+  // Fill the entire client area with solid white first to clear any previous
+  // artifacts.
+  ::FillRect(hdc, &rect, static_cast<HBRUSH>(::GetStockObject(WHITE_BRUSH)));
+
+  const int width = rect.Width();
+  const int height = rect.Height();
+
   // Configuration for the rainbow geometry.
   static constexpr size_t kNumStops = 7;
   static constexpr size_t kNumSegments = kNumStops - 1;
@@ -173,23 +131,11 @@ LRESULT ProgressWnd::OnEraseBkgnd(UINT msg,
       RGB(220, 255, 255)   // Light Aqua
   };
 
-  const HDC hdc = reinterpret_cast<HDC>(wparam);
-  CRect rect;
-  GetClientRect(&rect);
-
-  const int width = rect.right - rect.left;
-  const int height = rect.bottom - rect.top;
-
   // Define the curve parameters:
   // y_edge: The height where the rainbow starts at the left/right edges.
   // y_center: The height where the rainbow is thinnest at the center.
   const int y_edge = static_cast<int>(height * kYEdgeRatio);
   const int y_center = static_cast<int>(height * kYCenterRatio);
-
-  // Fill the top area with solid white.
-  CRect top_rect = {rect.left, rect.top, rect.right, y_edge};
-  ::FillRect(hdc, &top_rect,
-             static_cast<HBRUSH>(::GetStockObject(WHITE_BRUSH)));
 
   // Define the rainbow mesh vertices.
   std::array<TRIVERTEX, kNumVertices> vertices;
@@ -208,7 +154,10 @@ LRESULT ProgressWnd::OnEraseBkgnd(UINT msg,
 
   for (size_t i = 0; i < kNumStops; ++i) {
     const double stop = kStops[i];
-    const int x = static_cast<int>(width * stop);
+
+    // Use the width of the rect to ensure we hit the right edge perfectly.
+    const int x =
+        (i == kNumStops - 1) ? rect.right : static_cast<int>(width * stop);
 
     // Calculate the concave (U-shaped) boundary using a parabola.
     const double factor = (2.0 * stop - 1.0);
@@ -218,8 +167,9 @@ LRESULT ProgressWnd::OnEraseBkgnd(UINT msg,
     // Top row of the mesh (White boundary following the curve).
     set_vertex(v_span, i, x, y_boundary, RGB(255, 255, 255));
 
-    // Bottom row of the mesh (Light rainbow colors).
-    set_vertex(v_span, i + kNumStops, x, height, kColors[i]);
+    // Bottom row of the mesh (Light rainbow colors). Stretch to the very
+    // bottom.
+    set_vertex(v_span, i + kNumStops, x, rect.bottom, kColors[i]);
   }
 
   // Create the triangles, 2 triangles per segment.
@@ -246,8 +196,22 @@ LRESULT ProgressWnd::OnEraseBkgnd(UINT msg,
   return 1;
 }
 
+LRESULT ProgressWnd::OnSysColorChange(UINT msg,
+                                      WPARAM wparam,
+                                      LPARAM lparam,
+                                      BOOL& handled) {
+  handled = FALSE;
+  RedrawWindow(nullptr, nullptr,
+               RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+  return 0;
+}
+
 HBRUSH ProgressWnd::OnCtlColorStatic(WTL::CDCHandle dc,
                                      WTL::CStatic wndStatic) {
+  if (IsHighContrastOn()) {
+    dc.SetTextColor(::GetSysColor(COLOR_WINDOWTEXT));
+    dc.SetBkColor(::GetSysColor(COLOR_WINDOW));
+  }
   dc.SetBkMode(TRANSPARENT);
   return static_cast<HBRUSH>(::GetStockObject(NULL_BRUSH));
 }
@@ -280,8 +244,8 @@ void ProgressWnd::SetControlText(int id, const std::wstring& text) {
 
 // If closing is disabled, then it does not close the window.
 // If in a completion state, then the window is closed.
-// Otherwise, the InstallStoppedWnd is displayed and the window is closed only
-// if the user chooses cancel.
+// Otherwise, `HandleCancelRequest` is called which attempts to cancel the
+// install.
 bool ProgressWnd::MaybeCloseWindow() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!is_close_enabled()) {
@@ -293,33 +257,9 @@ bool ProgressWnd::MaybeCloseWindow() {
       cur_state_ != States::STATE_COMPLETE_RESTART_BROWSER &&
       cur_state_ != States::STATE_COMPLETE_RESTART_ALL_BROWSERS &&
       cur_state_ != States::STATE_COMPLETE_REBOOT) {
-    // The UI is not in final state: ask the user to proceed with closing it.
-    // A modal dialog opens up and sends a message back to this window to
-    // communicate the user decision.
-    install_stopped_wnd_ =
-        std::make_unique<InstallStoppedWnd>(message_loop(), *this);
-    HWND hwnd = install_stopped_wnd_->Create(*this);
-    if (hwnd) {
-      install_stopped_wnd_->SetWindowText(
-          GetLocalizedString(IDS_INSTALLATION_STOPPED_WINDOW_TITLE_BASE, lang())
-              .c_str());
-
-      install_stopped_wnd_->SetDlgItemText(
-          IDOK,
-          GetLocalizedString(IDS_RESUME_INSTALLATION_BASE, lang()).c_str());
-
-      install_stopped_wnd_->SetDlgItemText(
-          IDCANCEL,
-          GetLocalizedString(IDS_CANCEL_INSTALLATION_BASE, lang()).c_str());
-
-      install_stopped_wnd_->SetDlgItemText(
-          IDC_INSTALL_STOPPED_TEXT,
-          GetLocalizedString(IDS_INSTALL_STOPPED_BASE, lang()).c_str());
-
-      install_stopped_wnd_->CenterWindow(*this);
-      install_stopped_wnd_->ShowWindow(SW_SHOWDEFAULT);
-      return false;
-    }
+    // The UI is not in final state: attempt to cancel the install.
+    HandleCancelRequest();
+    return false;
   }
 
   CloseWindow();
@@ -379,28 +319,6 @@ LRESULT ProgressWnd::OnClickedButton(WORD notify_code,
   handled = true;
   CloseWindow();
 
-  return 0;
-}
-
-LRESULT ProgressWnd::OnInstallStopped(UINT msg,
-                                      WPARAM wparam,
-                                      LPARAM,
-                                      BOOL& handled) {
-  install_stopped_wnd_.reset();
-
-  CHECK_EQ(msg, WM_INSTALL_STOPPED);
-  CHECK(wparam == IDOK || wparam == IDCANCEL);
-  switch (wparam) {
-    case IDOK:
-      break;
-    case IDCANCEL:
-      HandleCancelRequest();
-      break;
-    default:
-      NOTREACHED();
-  }
-
-  handled = true;
   return 0;
 }
 
@@ -627,8 +545,6 @@ void ProgressWnd::OnComplete(const ObserverCompletionInfo& observer_info) {
     return;
   }
 
-  CloseInstallStoppedWindow();
-
   bool launch_commands_succeeded = LaunchCmdLines(observer_info);
 
   CompletionCodes overall_completion_code =
@@ -757,19 +673,6 @@ HRESULT ProgressWnd::SetMarqueeMode(bool is_marquee) {
   progress_bar.SendMessage(PBM_SETMARQUEE, is_marquee, 0);
 
   return S_OK;
-}
-
-bool ProgressWnd::IsInstallStoppedWindowPresent() {
-  return install_stopped_wnd_.get() && install_stopped_wnd_->IsWindow();
-}
-
-bool ProgressWnd::CloseInstallStoppedWindow() {
-  if (IsInstallStoppedWindowPresent()) {
-    install_stopped_wnd_->CloseWindow();
-    install_stopped_wnd_.reset();
-    return true;
-  }
-  return false;
 }
 
 }  // namespace updater::ui

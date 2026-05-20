@@ -40,7 +40,6 @@
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
 #include "chrome/browser/signin/account_consistency_mode_manager_factory.h"
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
-#include "chrome/browser/subscription_eligibility/subscription_eligibility_service.h"
 #include "chrome/browser/subscription_eligibility/subscription_eligibility_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/managed_ui.h"
@@ -104,6 +103,7 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/strings/grit/privacy_sandbox_strings.h"
 #include "components/subresource_filter/core/browser/subresource_filter_features.h"
+#include "components/subscription_eligibility/subscription_eligibility_service.h"
 #include "components/supervised_user/core/common/features.h"
 #include "components/sync/base/features.h"
 #include "components/sync/service/sync_service.h"
@@ -454,33 +454,32 @@ void AddAiStrings(content::WebUIDataSource* html_source) {
       {"passwordChangeLearnMore", IDS_SETTINGS_PASSWORD_CHANGE_SUBLABEL},
 
       // AI Mode Search Settings strings for Smart Tab Sharing (STS)
-      {"stsSettingsEntrypointAiModeSearch",
-       IDS_STS_SETTINGS_ENTRYPOINT_AI_MODE_SEARCH},
+      {"stsSettingsEntrypointGoogleSearchAiMode",
+       IDS_STS_SETTINGS_ENTRYPOINT_GOOGLE_SEARCH_AI_MODE},
       {"stsSettingsEntrypointGetResponsesWithContext",
        IDS_STS_SETTINGS_ENTRYPOINT_GET_RESPONSES_WITH_CONTEXT},
-      {"stsSettingsOption1ShareOpenTabsForEveryThread",
-       IDS_STS_SETTINGS_OPTION_1_SHARE_OPEN_TABS_FOR_EVERY_THREAD},
-      {"stsSettingsOption1ShareOpenTabsByDefault",
-       IDS_STS_SETTINGS_OPTION_1_SHARE_OPEN_TABS_BY_DEFAULT},
+      {"stsSettingsOption1ShareOpenTabsForEveryThreadV2",
+       IDS_STS_SETTINGS_OPTION_1_SHARE_OPEN_TABS_FOR_EVERY_THREAD_V2},
+      {"stsSettingsOption1ChooseHowRelevantOpenTabsCanBeUsedV2",
+       IDS_STS_SETTINGS_OPTION_1_CHOOSE_HOW_RELEVANT_OPEN_TABS_CAN_BE_USED_V2},
       {"stsSettingsOption1LearnMore", IDS_STS_SETTINGS_OPTION_1_LEARN_MORE},
-      {"stsSettingsOption1WhenOn", IDS_STS_SETTINGS_OPTION_1_WHEN_ON},
-      {"stsSettingsOption1RelevantOpenTabsAreUsedToPersonalize",
-       IDS_STS_SETTINGS_OPTION_1_RELEVANT_OPEN_TABS_ARE_USED_TO_PERSONALIZE},
-      {"stsSettingsOption1YouCanEasilyAskQuestions",
-       IDS_STS_SETTINGS_OPTION_1_YOU_CAN_EASILY_ASK_QUESTIONS},
-      {"stsSettingsOption1ThingsToConsider",
-       IDS_STS_SETTINGS_OPTION_1_THINGS_TO_CONSIDER},
-      {"stsSettingsOption1SendsYourOpenTabs",
-       IDS_STS_SETTINGS_OPTION_1_SENDS_YOUR_OPEN_TABS},
-      {"stsSettingsOption1SiteExclusions",
-       IDS_STS_SETTINGS_OPTION_1_SITE_EXCLUSIONS},
-      {"stsSettingsOption1SitesAddedHereWontBeReferenced",
-       IDS_STS_SETTINGS_OPTION_1_SITES_ADDED_HERE_WONT_BE_REFERENCED},
-      {"stsSettingsOption1MyGoogleSearchHistory",
-       IDS_STS_SETTINGS_OPTION_1_MY_GOOGLE_SEARCH_HISTORY},
-      {"stsSettingsOption1ReviewAndManage",
-       IDS_STS_SETTINGS_OPTION_1_REVIEW_AND_MANAGE},
-  };
+      {"stsSettingsOption1NeverShareTheseSites",
+       IDS_STS_SETTINGS_OPTION_1_NEVER_SHARE_THESE_SITES},
+      {"stsSettingsOption1SitesAddedHereWontBeReferencedV2",
+       IDS_STS_SETTINGS_OPTION_1_SITES_ADDED_HERE_WONT_BE_REFERENCED_V2},
+
+      // Suggestions strings.
+      {"aiSuggestionsLabel", IDS_CONTEXTUAL_CUEING_SETTINGS_PAGE_TITLE},
+      {"aiSuggestionsSublabel", IDS_CONTEXTUAL_CUEING_SETTINGS_PAGE_SUBLABEL},
+      {"aiSuggestionsToggleLabel", IDS_CONTEXTUAL_CUEING_SETTINGS_TOGGLE_LABEL},
+      {"aiSuggestionsToggleSublabel",
+       IDS_CONTEXTUAL_CUEING_SETTINGS_TOGGLE_SUBLABEL},
+      {"aiSuggestionsWhenOn1", IDS_CONTEXTUAL_CUEING_SETTINGS_WHEN_ON_1},
+      {"aiSuggestionsWhenOn2", IDS_CONTEXTUAL_CUEING_SETTINGS_WHEN_ON_2},
+      {"aiSuggestionsConsider1", IDS_CONTEXTUAL_CUEING_SETTINGS_CONSIDER_1},
+      {"aiSuggestionsConsider2", IDS_CONTEXTUAL_CUEING_SETTINGS_CONSIDER_2},
+      {"aiSuggestionsConsider2Link",
+       IDS_CONTEXTUAL_CUEING_SETTINGS_CONSIDER_2_LINK}};
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
   html_source->AddString("aiPageMainManagedLearnMoreUrl",
@@ -1414,6 +1413,12 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       {"yourSavedInfoTravelInfoChip", IDS_AUTOFILL_AI_TRAVEL_INFO_TITLE},
       {"yourSavedInfoFlightReservationsChip",
        IDS_AUTOFILL_AI_FLIGHT_RESERVATIONS_TITLE},
+      {"shoppingCardTitle", IDS_AUTOFILL_SHOPPING_TITLE},
+      {"yourSavedInfoOrdersChip", IDS_AUTOFILL_AI_ORDERS_TITLE},
+      {"yourSavedInfoShipmentsChip", IDS_AUTOFILL_AI_SHIPMENTS_TITLE},
+      {"shoppingOptInToggleLabel", IDS_AUTOFILL_SHOPPING_OPT_IN_TOGGLE_LABEL},
+      {"shoppingOptInToggleSubLabel",
+       IDS_AUTOFILL_SHOPPING_OPT_IN_TOGGLE_SUB_LABEL},
       {"passwordsDescription", IDS_SETTINGS_PASSWORD_MANAGER_DESCRIPTION},
       {"genericCreditCard", IDS_AUTOFILL_CC_GENERIC},
       {"creditCards", IDS_AUTOFILL_PAYMENT_METHODS},
@@ -1690,7 +1695,9 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
       {"walletablePassDetectionToConsiderDataUsage",
        IDS_SETTINGS_WALLETABLE_PASS_DETECTION_TO_CONSIDER_DATA_USAGE},
       {"walletablePassDetectionToConsiderDataStorage",
-       IDS_SETTINGS_WALLETABLE_PASS_DETECTION_TO_CONSIDER_DATA_STORAGE}};
+       IDS_SETTINGS_WALLETABLE_PASS_DETECTION_TO_CONSIDER_DATA_STORAGE},
+      {"autofillAiSaveOrUpdateLocalEntitySourceNotice",
+       IDS_AUTOFILL_AI_SAVE_OR_UPDATE_LOCAL_ENTITY_SOURCE_NOTICE}};
 
   html_source->AddString("manageAddressesUrl",
                          autofill::payments::GetManageAddressesUrl().spec());
@@ -1736,9 +1743,6 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
                           CheckDeviceAuthAvailability(web_contents));
 
   html_source->AddBoolean("cvcStorageAvailable", true);
-
-  html_source->AddBoolean("autofillCardBenefitsAvailable",
-                          payments_data.IsCardBenefitsFeatureEnabled());
 
   bool is_mandatory_reauth_feature_flag_enabled = false;
 
@@ -2889,6 +2893,12 @@ void AddSearchStrings(content::WebUIDataSource* html_source, Profile* profile) {
       {"searchKeyboardKeyTitle", IDS_SETTINGS_SEARCH_KEYBOARD_KEY_TITLE},
       {"searchKeyboardKeyDescription",
        IDS_SETTINGS_SEARCH_KEYBOARD_KEY_DESCRIPTION},
+      {"controlledByExtensionTitle",
+       IDS_SETTINGS_CONTROLLED_BY_EXTENSION_TITLE},
+      {"controlledByExtensionWithDisableOption",
+       IDS_SETTINGS_CONTROLLED_BY_EXTENSION_WITH_DISABLE_AND_MANAGE_OPTION},
+      {"controlledByExtensionWithoutDisableOption",
+       IDS_SETTINGS_CONTROLLED_BY_EXTENSION_WITH_MANAGE_OPTION},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
   html_source->AddString("searchExplanationLearnMoreURL",
@@ -3979,7 +3989,7 @@ void AddSiteSettingsStrings(content::WebUIDataSource* html_source,
           features::kFileSystemAccessPersistentPermissions));
 
   // The exception placeholder should not be translated. See
-  // crbug.com/1095878.
+  // crbug.com/40700443.
   html_source->AddString("addSiteExceptionPlaceholder", "[*.]example.com");
 }
 

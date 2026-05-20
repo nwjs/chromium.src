@@ -24,8 +24,9 @@
 #include "chrome/browser/importer/importer_list.h"
 #include "chrome/browser/importer/importer_uma.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/select_file_policy/chrome_select_file_policy.h"
 #include "chrome/common/pref_names.h"
 #include "content/public/browser/browser_thread.h"
@@ -81,7 +82,7 @@ void ImportDataHandler::OnJavascriptDisallowed() {
   // When the WebUI is unloading, we ignore all further updates from the host.
   // Because we're no longer listening to the `ImportEnded` callback, we must
   // also clear our pointer, as otherwise this can lead to a use-after-free
-  // in the destructor. https://crbug.com/1302813.
+  // in the destructor. https://crbug.com/40058962.
   if (importer_host_) {
     importer_host_->set_observer(nullptr);
     importer_host_ = nullptr;
@@ -195,12 +196,14 @@ void ImportDataHandler::HandleImportFromBookmarksFile(
   file_type_info.extensions.resize(1);
   file_type_info.extensions[0].push_back(FILE_PATH_LITERAL("html"));
 
-  Browser* browser = chrome::FindBrowserWithTab(web_ui()->GetWebContents());
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+          web_ui()->GetWebContents());
 
   select_file_dialog_->SelectFile(
       ui::SelectFileDialog::SELECT_OPEN_FILE, std::u16string(),
       base::FilePath(), &file_type_info, 0, base::FilePath::StringType(),
-      browser->window()->GetNativeWindow(), nullptr);
+      browser->GetWindow()->GetNativeWindow(), nullptr);
 }
 
 void ImportDataHandler::SendBrowserProfileData(const std::string& callback_id) {

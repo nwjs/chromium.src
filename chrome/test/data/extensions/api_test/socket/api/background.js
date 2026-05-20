@@ -83,8 +83,7 @@ const testSocketCreation = function() {
 };
 
 
-const testGetInfo = function() {
-};
+const testGetInfo = function() {};
 
 function onDataRead(readInfo) {
   if (readInfo.resultCode > 0 || readInfo.data.byteLength > 0) {
@@ -101,67 +100,73 @@ function onDataRead(readInfo) {
 
 function onWriteOrSendToComplete(writeInfo) {
   bytesWritten += writeInfo.bytesWritten;
-  if (bytesWritten == request.length) {
-    if (protocol == 'tcp')
+  if (bytesWritten === request.length) {
+    if (protocol === 'tcp') {
       socket.read(socketId, onDataRead);
-    else
+    } else {
       socket.recvFrom(socketId, onDataRead);
+    }
   }
 }
 
 function onSetKeepAlive(result) {
-  if (protocol == 'tcp')
+  if (protocol === 'tcp') {
     chrome.test.assertTrue(result, 'setKeepAlive failed for TCP.');
-  else
+  } else {
     chrome.test.assertFalse(result, 'setKeepAlive did not fail for UDP.');
+  }
 
   string2ArrayBuffer(request, function(arrayBuffer) {
-      if (protocol == 'tcp')
-        socket.write(socketId, arrayBuffer, onWriteOrSendToComplete);
-      else
-        socket.sendTo(socketId, arrayBuffer, address, port,
-                      onWriteOrSendToComplete);
-    });
+    if (protocol === 'tcp') {
+      socket.write(socketId, arrayBuffer, onWriteOrSendToComplete);
+    } else {
+      socket.sendTo(
+          socketId, arrayBuffer, address, port, onWriteOrSendToComplete);
+    }
+  });
 }
 
 function onSetNoDelay(result) {
-  if (protocol == 'tcp')
+  if (protocol === 'tcp') {
     chrome.test.assertTrue(result, 'setNoDelay failed for TCP.');
-  else
+  } else {
     chrome.test.assertFalse(result, 'setNoDelay did not fail for UDP.');
+  }
   socket.setKeepAlive(socketId, true, 1000, onSetKeepAlive);
 }
 
 function onGetInfo(result) {
-  chrome.test.assertTrue(!!result.localAddress,
-                         'Bound socket should always have local address');
-  chrome.test.assertTrue(!!result.localPort,
-                         'Bound socket should always have local port');
+  chrome.test.assertTrue(
+      !!result.localAddress, 'Bound socket should always have local address');
+  chrome.test.assertTrue(
+      !!result.localPort, 'Bound socket should always have local port');
   chrome.test.assertEq(result.socketType, protocol, 'Unexpected socketType');
 
-  if (protocol == 'tcp') {
+  if (protocol === 'tcp') {
     // NOTE: We're always called with 'localhost', but getInfo will only return
     // IPs, not names.
-    chrome.test.assertEq(result.peerAddress, '127.0.0.1',
-                         'Peer addresss should be the listen server');
-    chrome.test.assertEq(result.peerPort, port,
-                         'Peer port should be the listen server');
+    chrome.test.assertEq(
+        result.peerAddress, '127.0.0.1',
+        'Peer addresss should be the listen server');
+    chrome.test.assertEq(
+        result.peerPort, port, 'Peer port should be the listen server');
     chrome.test.assertTrue(result.connected, 'Socket should be connected');
   } else {
     chrome.test.assertFalse(result.connected, 'UDP socket was not connected');
-    chrome.test.assertTrue(!result.peerAddress,
+    chrome.test.assertTrue(
+        !result.peerAddress,
         'Unconnected UDP socket should not have peer address');
-    chrome.test.assertTrue(!result.peerPort,
-        'Unconnected UDP socket should not have peer port');
+    chrome.test.assertTrue(
+        !result.peerPort, 'Unconnected UDP socket should not have peer port');
   }
 
   socket.setNoDelay(socketId, true, onSetNoDelay);
 }
 
 function onConnectOrBindComplete(result) {
-  chrome.test.assertEq(0, result,
-                       `Connect or bind failed with error ${result}`);
-  if (result == 0) {
+  chrome.test.assertEq(
+      0, result, `Connect or bind failed with error ${result}`);
+  if (result === 0) {
     socket.getInfo(socketId, onGetInfo);
   }
 }
@@ -169,10 +174,11 @@ function onConnectOrBindComplete(result) {
 function onCreate(socketInfo) {
   socketId = socketInfo.socketId;
   chrome.test.assertTrue(socketId > 0, 'failed to create socket');
-  if (protocol == 'tcp')
+  if (protocol === 'tcp') {
     socket.connect(socketId, address, port, onConnectOrBindComplete);
-  else
+  } else {
     socket.bind(socketId, '0.0.0.0', 0, onConnectOrBindComplete);
+  }
 }
 
 function waitForBlockingOperation() {
@@ -203,7 +209,7 @@ const testSocketListening = function() {
     chrome.test.assertEq(0, acceptInfo.resultCode);
     const acceptedSocketId = acceptInfo.socketId;
     socket.read(acceptedSocketId, function(readInfo) {
-      arrayBuffer2String(readInfo.data, function (s) {
+      arrayBuffer2String(readInfo.data, function(s) {
         assertDataMatch(request, s);
         // Rather than using a timeout, use another read to detect the peer
         // termination.
@@ -236,17 +242,16 @@ const testSocketListening = function() {
     // Create a new socket to connect to the TCP server.
     socket.create('tcp', {}, function(socketInfo) {
       tmpSocketId = socketInfo.socketId;
-      socket.connect(tmpSocketId, address, port,
-        function(result) {
-          chrome.test.assertEq(0, result, 'Connect failed');
+      socket.connect(tmpSocketId, address, port, function(result) {
+        chrome.test.assertEq(0, result, 'Connect failed');
 
-          // Write.
-          string2ArrayBuffer(request, function(buf) {
-            socket.write(tmpSocketId, buf, function() {
-              socket.disconnect(tmpSocketId);
-            });
+        // Write.
+        string2ArrayBuffer(request, function(buf) {
+          socket.write(tmpSocketId, buf, function() {
+            socket.disconnect(tmpSocketId);
           });
         });
+      });
     });
   }
 
@@ -303,65 +308,71 @@ const testPendingCallback = function() {
   succeeded = false;
   waitCount = 0;
 
-  console.log('calling create');
+  console.info('calling create');
   chrome.socket.create(protocol, null, onCreate);
 
   function onCreate(createInfo) {
     chrome.test.assertTrue(createInfo.socketId > 0, 'failed to create socket');
     socketId = createInfo.socketId;
-    console.log('calling connect');
-    if (protocol == 'tcp')
+    console.info('calling connect');
+    if (protocol === 'tcp') {
       chrome.socket.connect(socketId, address, port, onConnect1);
-    else
+    } else {
       chrome.socket.bind(socketId, '0.0.0.0', 0, onConnect1);
+    }
   }
 
   function onConnect1(result) {
     chrome.test.assertEq(0, result, 'failed to connect');
-    console.log(`Socket connect: result=${result}`, chrome.runtime.lastError);
+    console.info(`Socket connect: result=${result}`, chrome.runtime.lastError);
 
-    console.log('calling read with readCB1 callback');
-    if (protocol == 'tcp')
+    console.info('calling read with readCB1 callback');
+    if (protocol === 'tcp') {
       chrome.socket.read(socketId, readCB1);
-    else
+    } else {
       chrome.socket.recvFrom(socketId, readCB1);
+    }
 
-    console.log('calling disconnect');
+    console.info('calling disconnect');
     chrome.socket.disconnect(socketId);
 
-    console.log('calling connect');
-    if (protocol == 'tcp')
+    console.info('calling connect');
+    if (protocol === 'tcp') {
       chrome.socket.connect(socketId, address, port, onConnect2);
-    else
+    } else {
       chrome.socket.bind(socketId, '0.0.0.0', 0, onConnect2);
+    }
   }
 
   function onConnect2(result) {
     chrome.test.assertEq(0, result, 'failed to connect');
-    console.log(`Socket connect: result=${result}`, chrome.runtime.lastError);
+    console.info(`Socket connect: result=${result}`, chrome.runtime.lastError);
 
-    console.log('calling read with readCB2 callback');
-    if (protocol == 'tcp')
+    console.info('calling read with readCB2 callback');
+    if (protocol === 'tcp') {
       chrome.socket.read(socketId, readCB2);
-    else
+    } else {
       chrome.socket.recvFrom(socketId, readCB2);
+    }
 
-    string2ArrayBuffer(request, function (arrayBuffer) {
-      if (protocol == 'tcp')
+    string2ArrayBuffer(request, function(arrayBuffer) {
+      if (protocol === 'tcp') {
         chrome.socket.write(socketId, arrayBuffer, onWriteComplete);
-      else
+      } else {
         chrome.socket.sendTo(
             socketId, arrayBuffer, address, port, onWriteComplete);
+      }
     });
   }
 
   function onWriteComplete(res) {
-    console.log(`write callback: bytesWritten=${res.bytesWritten}`);
+    console.info(`write callback: bytesWritten=${res.bytesWritten}`);
   }
 
   // Callback 1 for initial read call
   function readCB1(readInfo) {
-    console.log(`Socket read CB1: result=${readInfo.resultCode}`,
+    console.info(
+        `Socket read CB1: result=${readInfo.resultCode}`,
         chrome.runtime.lastError);
     // We disconnect the socket right after calling read(), so behavior here
     // is undefined.
@@ -370,27 +381,27 @@ const testPendingCallback = function() {
 
   // Second callback, for read call after re-connect
   function readCB2(readInfo) {
-    console.log(`Socket read CB2: result=${readInfo.resultCode}`,
+    console.info(
+        `Socket read CB2: result=${readInfo.resultCode}`,
         chrome.runtime.lastError);
     if (readInfo.resultCode === -1) {
       chrome.test.fail('Unable to register a read 2nd callback on the socket!');
     } else if (readInfo.resultCode < 0) {
       chrome.test.fail(`Error reading from socket: ${readInfo.resultCode}`);
-    }
-    else {
-      arrayBuffer2String(readInfo.data, function (s) {
+    } else {
+      arrayBuffer2String(readInfo.data, function(s) {
         assertDataMatch(expectedResponsePattern, s);
-        console.log('Success!');
+        console.info('Success!');
         succeeded = true;
         chrome.test.succeed();
       });
     }
   }
-}
+};
 
-// See http://crbug.com/418229.
+// See http://crbug.com/41134291.
 const testUsingTCPSocketOnUDPMethods = function() {
-  if (protocol == 'udp') {
+  if (protocol === 'udp') {
     socket.create('tcp', function(createInfo) {
       socket.recvFrom(createInfo.socketId, 256, function(recvFromInfo) {
         chrome.test.assertTrue(recvFromInfo.resultCode < 0);
@@ -405,8 +416,8 @@ const testUsingTCPSocketOnUDPMethods = function() {
 
     string2ArrayBuffer(request, function(arrayBuffer) {
       socket.create('tcp', function(createInfo) {
-          socket.sendTo(createInfo.socketId, arrayBuffer, address, port,
-                        onSendToComplete);
+        socket.sendTo(
+            createInfo.socketId, arrayBuffer, address, port, onSendToComplete);
       });
     });
   } else {
@@ -417,73 +428,73 @@ const testUsingTCPSocketOnUDPMethods = function() {
 };
 
 const testWriteQuota = function() {
-  console.log('calling create, protoocol=', protocol);
+  console.info('calling create, protoocol=', protocol);
   chrome.socket.create(protocol, {}, onCreate);
 
   function onCreate(createInfo) {
     chrome.test.assertTrue(createInfo.socketId > 0, 'failed to create socket');
     socketId = createInfo.socketId;
-    if (protocol == 'tcp') {
-      console.log('calling connect');
+    if (protocol === 'tcp') {
+      console.info('calling connect');
       chrome.socket.connect(socketId, address, port, onConnectOrBindComplete);
     } else {
-      console.log('calling bind');
+      console.info('calling bind');
       socket.bind(socketId, '0.0.0.0', 0, onConnectOrBindComplete);
     }
   }
 
   function onConnectOrBindComplete(result) {
     chrome.test.assertEq(0, result, 'failed to connect');
-    console.log(`Socket connect: result=${result}`, chrome.runtime.lastError);
+    console.info(`Socket connect: result=${result}`, chrome.runtime.lastError);
 
-    string2ArrayBuffer(request, function (arrayBuffer) {
-      if (protocol == 'tcp') {
+    string2ArrayBuffer(request, function(arrayBuffer) {
+      if (protocol === 'tcp') {
         chrome.socket.write(socketId, arrayBuffer, onComplete);
       } else {
-        socket.sendTo(socketId, arrayBuffer, address, port,
-                      onComplete);
+        socket.sendTo(socketId, arrayBuffer, address, port, onComplete);
       }
     });
   }
 
   function onComplete(result) {
-    console.log(`onComplete: result=${result}`, chrome.runtime.lastError);
+    console.info(`onComplete: result=${result}`, chrome.runtime.lastError);
     if (chrome.runtime.lastError &&
-        chrome.runtime.lastError.message == 'Exceeded write quota.') {
+        chrome.runtime.lastError.message === 'Exceeded write quota.') {
       chrome.test.succeed();
       return;
     }
 
     chrome.test.fail('Write quota not enforced');
   }
-}
+};
 
 const onMessageReply = function(message) {
   const parts = message.split(':');
   const testType = parts[0];
   address = parts[1];
   port = parseInt(parts[2]);
-  console.log(`Running tests, protocol ${testType}, echo server ` +
-              `${address}:${port}`);
-  if (testType == 'tcp_server') {
+  console.info(
+      `Running tests, protocol ${testType}, echo server ` +
+      `${address}:${port}`);
+  if (testType === 'tcp_server') {
     chrome.test.runTests([
-        testSocketListening,
-        testSocketListenInUse
+      testSocketListening,
+      testSocketListenInUse,
     ]);
-  } else if (testType == 'multicast') {
-    console.log('Running multicast tests');
-    chrome.test.runTests([ testMulticast ]);
-  } else if (testType == 'tcp_write_quota') {
-    console.log('Running TCP write quota tests');
+  } else if (testType === 'multicast') {
+    console.info('Running multicast tests');
+    chrome.test.runTests([testMulticast]);
+  } else if (testType === 'tcp_write_quota') {
+    console.info('Running TCP write quota tests');
     protocol = 'tcp';
-    chrome.test.runTests([ testWriteQuota ]);
-  } else if (testType == 'udp_sendTo_quota') {
-    console.log('Running UDP sendTo write quota tests');
+    chrome.test.runTests([testWriteQuota]);
+  } else if (testType === 'udp_sendTo_quota') {
+    console.info('Running UDP sendTo write quota tests');
     protocol = 'udp';
-    chrome.test.runTests([ testWriteQuota ]);
+    chrome.test.runTests([testWriteQuota]);
   } else {
     protocol = testType;
-    if (protocol == 'udp') {
+    if (protocol === 'udp') {
       request = UDP_REQUEST;
       expectedResponsePattern = UDP_EXPECTED_RESPONSE_PATTERN;
     } else {
@@ -491,10 +502,11 @@ const onMessageReply = function(message) {
       expectedResponsePattern = TCP_EXPECTED_RESPONSE_PATTERN;
     }
     chrome.test.runTests([
-        testSocketCreation,
-        testSending,
-        testPendingCallback,
-        testUsingTCPSocketOnUDPMethods]);
+      testSocketCreation,
+      testSending,
+      testPendingCallback,
+      testUsingTCPSocketOnUDPMethods,
+    ]);
   }
 };
 

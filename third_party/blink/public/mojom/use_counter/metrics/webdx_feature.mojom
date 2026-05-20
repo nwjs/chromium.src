@@ -492,10 +492,11 @@ enum WebDXFeature {
   kLoadingLazyMedia = 428,
   kManifestLocalization = 429,
   kContrastColor = 430,
-  kDRAFT_WebAppMigration = 431,
+  kAppMigration = 431,
   kDeclarativeWebmcp = 432,
   kWebgl = 433,
   kWebgl2 = 434,
+  kDigitalCredentials = 435,
 
   // Add new features immediately above this line. Don't change assigned
   // numbers of any item, and don't reuse removed slots.

@@ -35,16 +35,6 @@ EnumTraits<network::mojom::CookieExemptionReason,
       return network::mojom::CookieExemptionReason::kNone;
     case net::CookieInclusionStatus::ExemptionReason::kUserSetting:
       return network::mojom::CookieExemptionReason::kUserSetting;
-    case net::CookieInclusionStatus::ExemptionReason::k3PCDMetadata:
-      return network::mojom::CookieExemptionReason::k3PCDMetadata;
-    case net::CookieInclusionStatus::ExemptionReason::k3PCDDeprecationTrial:
-      return network::mojom::CookieExemptionReason::k3PCDDeprecationTrial;
-    case net::CookieInclusionStatus::ExemptionReason::
-        kTopLevel3PCDDeprecationTrial:
-      return network::mojom::CookieExemptionReason::
-          kTopLevel3PCDDeprecationTrial;
-    case net::CookieInclusionStatus::ExemptionReason::k3PCDHeuristics:
-      return network::mojom::CookieExemptionReason::k3PCDHeuristics;
     case net::CookieInclusionStatus::ExemptionReason::kEnterprisePolicy:
       return network::mojom::CookieExemptionReason::kEnterprisePolicy;
     case net::CookieInclusionStatus::ExemptionReason::kStorageAccess:
@@ -70,15 +60,6 @@ EnumTraits<network::mojom::CookieExemptionReason,
       return net::CookieInclusionStatus::ExemptionReason::kNone;
     case network::mojom::CookieExemptionReason::kUserSetting:
       return net::CookieInclusionStatus::ExemptionReason::kUserSetting;
-    case network::mojom::CookieExemptionReason::k3PCDMetadata:
-      return net::CookieInclusionStatus::ExemptionReason::k3PCDMetadata;
-    case network::mojom::CookieExemptionReason::k3PCDDeprecationTrial:
-      return net::CookieInclusionStatus::ExemptionReason::k3PCDDeprecationTrial;
-    case network::mojom::CookieExemptionReason::kTopLevel3PCDDeprecationTrial:
-      return net::CookieInclusionStatus::ExemptionReason::
-          kTopLevel3PCDDeprecationTrial;
-    case network::mojom::CookieExemptionReason::k3PCDHeuristics:
-      return net::CookieInclusionStatus::ExemptionReason::k3PCDHeuristics;
     case network::mojom::CookieExemptionReason::kEnterprisePolicy:
       return net::CookieInclusionStatus::ExemptionReason::kEnterprisePolicy;
     case network::mojom::CookieExemptionReason::kStorageAccess:

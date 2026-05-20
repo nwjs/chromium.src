@@ -46,6 +46,7 @@
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/public/toolbar_utils.h"
 #import "ios/chrome/browser/toolbar/tab_group/ui/tab_group_indicator_constants.h"
 #import "ios/chrome/browser/toolbar/tab_group/ui/tab_group_indicator_view.h"
+#import "ios/chrome/browser/toolbar/ui/toolbar_constants.h"
 #import "ios/chrome/common/NSString+Chromium.h"
 #import "ios/chrome/common/material_timing.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -84,14 +85,16 @@ const CGFloat kEndButtonOmniboxTrailingSpace = 7.0;
 const CGFloat kHintLabelFakeboxTrailingSpace = 12.0f;
 
 // The constants for the constraints the leading-edge aligned UI elements.
-const CGFloat kHintLabelFakeboxLeadingSpace = 28.0;
 const CGFloat kHintLabelFakeboxLeadingSpaceWithIcon = 42.0;
-const CGFloat kHintLabelOmniboxLeadingSpace = 20.0;
+const CGFloat kHintLabelFakeboxLeadingSpaceWithPlus = 46.0;
 const CGFloat kHintLabelOmniboxLeadingSpaceWithIcon = 42.0;
+const CGFloat kHintLabelOmniboxLeadingSpaceWithWithPlus = 52.0;
 
 // The constants for the search engine image.
 const CGFloat kFakeboxImageLeadingSpace = 13.0;
+const CGFloat kFakeboxPlusLeadingSpace = 18.0;
 const CGFloat kOmniboxImageLeadingSpace = 22.0;
+const CGFloat kOmniboxPlusLeadingSpace = 26.0;
 const CGFloat kFakeboxImageSize = 20.0;
 
 // The spacing between the items in the button stack.
@@ -113,10 +116,6 @@ const CGFloat kCustomizationNewBadgeOffset = 14.0;
 // The name of the animation for the MIA button.
 NSString* const kMIACircleAnimationLightMode = @"mia_circle_animation_no_glow";
 NSString* const kMIACircleAnimationDarkMode = @"mia_glowing_circle_animation";
-
-// The value of the sides of the MIA circle animation for the normal size of the
-// fakebox.
-const CGFloat kMIACircleAnimationSizeNormal = 40.0;
 
 // Returns the top color of the Fakebox's gradient background.
 UIColor* FakeboxTopColor() {
@@ -161,18 +160,6 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   return from + (to - from) * percent;
 }
 
-// Computes the opacity of the MIA animation given the scroll percent of the
-// view.
-CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
-  // The progress is inversely proportional with the scroll percentage, meaning
-  // that a scroll percent of 0 corresponds to full opacity.
-  //
-  // To avoid showing a mostly faded animation view for intermediary scrolls,
-  // follow a scaled exponential curve that will ease in the animation.
-  CGFloat unboundOpacity = 1 - 6 * pow(percent, 4);
-  return MIN(MAX(unboundOpacity, 0), 1);
-}
-
 }  // namespace
 
 // `UIStackView` that allows the extended tap area of it's arranged subviews to
@@ -206,8 +193,10 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
 
 // The Lens button. May be null if Lens is not available.
 @property(nonatomic, strong, readwrite) ExtendedTouchTargetButton* lensButton;
-// The MIA button. May be null if MIA is not available.
-@property(nonatomic, strong, readwrite) ExtendedTouchTargetButton* miaButton;
+// The button that opens multiodal actions in Composebox. May be nil if
+// Composebox or multimodal actions are not enabled.
+@property(nonatomic, strong, readwrite) ExtendedTouchTargetButton* plusButton;
+
 @property(nonatomic, strong) UIView* voiceAndLensDivider;
 @property(nonatomic, strong) UIView* miaAndVoiceDivider;
 
@@ -221,9 +210,8 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
 @property(nonatomic, strong)
     NSLayoutConstraint* fakeLocationBarHeightConstraint;
 
-// Constraint between the search field's leading edge and the search engine
-// logo.
-@property(nonatomic, strong) NSLayoutConstraint* leadingLogoConstraint;
+// Constraint between the search field's leading edge and the leading view.
+@property(nonatomic, strong) NSLayoutConstraint* leadingViewConstraint;
 
 @property(nonatomic, strong) NSLayoutConstraint* hintLabelLeadingConstraint;
 @property(nonatomic, strong) NSLayoutConstraint* hintLabelTrailingConstraint;
@@ -260,11 +248,14 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
   NSLayoutConstraint* _toolbarNoTabGroupIndicartorConstraint;
   NSLayoutConstraint* _toolbarTabGroupIndicartorConstraint;
 
-  // Maintains the MIA circle animation.
-  id<LottieAnimation> _miaAnimation;
-  UIView* _miaAnimationView;
   // Whether AIM is allowed.
   BOOL _isAIMAllowed;
+
+  // Whether the current session is eligible to fusebox.
+  BOOL _fuseboxEligible;
+
+  // Whether the omnibox is pinned to the bottom position.
+  BOOL _isBottomOmnibox;
 
   // Location bar view for when it has a colored gradient.
   GradientView* _fakeLocationBarGradientView;
@@ -273,17 +264,6 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
 }
 
 #pragma mark - Public
-
-- (void)setIsGoogleDefaultSearchEngine:(BOOL)isGoogleDefaultSearchEngine {
-  if (_isGoogleDefaultSearchEngine == isGoogleDefaultSearchEngine) {
-    return;
-  }
-
-  _isGoogleDefaultSearchEngine = isGoogleDefaultSearchEngine;
-
-  [self removeAllFakeboxButtonsFromStack];
-  [self addFakeboxButtonsToStack];
-}
 
 - (instancetype)initWithUseNewBadgeForLensButton:
     (BOOL)useNewBadgeForLensButton {
@@ -355,6 +335,22 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
   self.searchHintLabel.text = placeholderText;
 }
 
+- (void)setOmniboxPositionIsBottom:(BOOL)isBottomOmnibox {
+  CHECK(IsChromeNextIaEnabled());
+  _isBottomOmnibox = isBottomOmnibox;
+}
+
+- (void)setIsGoogleDefaultSearchEngine:(BOOL)isGoogleDefaultSearchEngine {
+  if (_isGoogleDefaultSearchEngine == isGoogleDefaultSearchEngine) {
+    return;
+  }
+
+  _isGoogleDefaultSearchEngine = isGoogleDefaultSearchEngine;
+
+  [self removeAllFakeboxButtonsFromStack];
+  [self addFakeboxButtonsToStack];
+}
+
 - (void)addViewsToSearchField:(UIView*)searchField {
   // Fake Toolbar.
   self.fakeToolbar = [[UIView alloc] init];
@@ -364,37 +360,39 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
   // Fake location bar.
   [self.fakeToolbar addSubview:self.fakeLocationBar];
 
-  // Omnibox, used for animations.
-  // TODO(crbug.com/40615993): See if it is possible to share some
-  // initialization code with the real Omnibox.
-  UIColor* color = [UIColor colorNamed:kTextfieldPlaceholderColor];
-  OmniboxContainerView* omnibox = [[OmniboxContainerView alloc]
-            initWithFrame:CGRectZero
-                textColor:color
-            textInputTint:color
-                 iconTint:color
-      presentationContext:OmniboxPresentationContext::kNTPHeader];
-  [omnibox.textInput setDefaultPlaceholderText:self.placeholderText];
-  [omnibox.textInput setText:@""];
-  omnibox.translatesAutoresizingMaskIntoConstraints = NO;
-  [searchField addSubview:omnibox];
-  AddSameConstraints(omnibox, self.fakeLocationBar);
-  omnibox.textInput.view.userInteractionEnabled = NO;
-  omnibox.hidden = YES;
-  self.omnibox = omnibox;
+  if (!IsComposeboxIOSEnabled()) {
+    // Omnibox, used for animations.
+    // TODO(crbug.com/40615993): See if it is possible to share some
+    // initialization code with the real Omnibox.
+    UIColor* color = [UIColor colorNamed:kTextfieldPlaceholderColor];
+    OmniboxContainerView* omnibox = [[OmniboxContainerView alloc]
+              initWithFrame:CGRectZero
+                  textColor:color
+              textInputTint:color
+                   iconTint:color
+        presentationContext:OmniboxPresentationContext::kNTPHeader];
+    [omnibox.textInput setDefaultPlaceholderText:self.placeholderText];
+    [omnibox.textInput setText:@""];
+    omnibox.translatesAutoresizingMaskIntoConstraints = NO;
+    [searchField addSubview:omnibox];
+    AddSameConstraints(omnibox, self.fakeLocationBar);
+    omnibox.textInput.view.userInteractionEnabled = NO;
+    omnibox.hidden = YES;
+    self.omnibox = omnibox;
 
-  // Cancel button, used in animation.
-  LegacyToolbarButtonFactory* factory =
-      [[LegacyToolbarButtonFactory alloc] initWithStyle:ToolbarStyle::kNormal];
-  self.cancelButton = [factory cancelButton];
-  [searchField addSubview:self.cancelButton];
-  self.cancelButton.translatesAutoresizingMaskIntoConstraints = NO;
-  [NSLayoutConstraint activateConstraints:@[
-    [self.cancelButton.centerYAnchor
-        constraintEqualToAnchor:self.fakeLocationBar.centerYAnchor],
-    [self.cancelButton.leadingAnchor
-        constraintEqualToAnchor:self.fakeLocationBar.trailingAnchor],
-  ]];
+    // Cancel button, used in animation.
+    LegacyToolbarButtonFactory* factory = [[LegacyToolbarButtonFactory alloc]
+        initWithStyle:ToolbarStyle::kNormal];
+    self.cancelButton = [factory cancelButton];
+    [searchField addSubview:self.cancelButton];
+    self.cancelButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [NSLayoutConstraint activateConstraints:@[
+      [self.cancelButton.centerYAnchor
+          constraintEqualToAnchor:self.fakeLocationBar.centerYAnchor],
+      [self.cancelButton.leadingAnchor
+          constraintEqualToAnchor:self.fakeLocationBar.trailingAnchor],
+    ]];
+  }
 
   // Hint label.
   self.searchHintLabel = [[UILabel alloc] init];
@@ -407,6 +405,11 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
   self.hintLabelLeadingConstraint = [self.searchHintLabel.leadingAnchor
       constraintEqualToAnchor:self.fakeLocationBar.leadingAnchor
                      constant:self.hintLabelFakeboxLeadingSpace];
+  if (IsNTPHeaderTransformsForAnimationsEnabled()) {
+    // Keep constraints fixed at progress = 0 values.
+    self.hintLabelLeadingConstraint.constant =
+        self.hintLabelFakeboxLeadingSpace;
+  }
   [NSLayoutConstraint activateConstraints:@[
     self.hintLabelLeadingConstraint,
     [self.searchHintLabel.heightAnchor
@@ -465,32 +468,62 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
     self.fakeLocationBarHeightConstraint,
   ]];
 
-  [self addSearchEngineLogoIfNeededToSearchField:searchField];
+  [self addLeadingViewToSearchField:searchField];
 }
 
-- (void)addSearchEngineLogoIfNeededToSearchField:(UIView*)searchField {
-  if (!base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdateV2)) {
+// The leading padding to add in the search field when the fakebox is displayed
+// on top.
+- (CGFloat)omniboxLeadingSpace {
+  if ([self shouldShowPlusButton]) {
+    return kOmniboxPlusLeadingSpace;
+  } else {
+    return kOmniboxImageLeadingSpace;
+  }
+}
+
+// The leading padding to add in the search field when the fakebox is displayed
+// in the middle of the screen.
+- (CGFloat)fakeboxLeadingSpace {
+  if ([self shouldShowPlusButton]) {
+    return kFakeboxPlusLeadingSpace;
+  } else {
+    return kFakeboxImageLeadingSpace;
+  }
+}
+
+// Adds the appropriate leading view on the given search field.
+- (void)addLeadingViewToSearchField:(UIView*)searchField {
+  UIView* leadingView;
+  CGFloat leadingViewYOffset = 0;
+  if ([self shouldShowPlusButton]) {
+    [self createPlusButton];
+    leadingView = self.plusButton;
+    leadingViewYOffset = -3;
+  } else {
+    _logoView = [[UIImageView alloc] init];
+    _logoView.contentMode = UIViewContentModeScaleAspectFit;
+    leadingView = _logoView;
+    leadingViewYOffset = -2;
+  }
+
+  if (!leadingView) {
     return;
   }
 
-  UIImageView* logoView = [[UIImageView alloc] init];
-  logoView.contentMode = UIViewContentModeScaleAspectFit;
-  [searchField addSubview:logoView];
+  leadingView.translatesAutoresizingMaskIntoConstraints = NO;
+  [searchField addSubview:leadingView];
+  AddSquareConstraints(leadingView, kFakeboxImageSize);
 
-  logoView.translatesAutoresizingMaskIntoConstraints = NO;
-  AddSquareConstraints(logoView, kFakeboxImageSize);
-
-  self.leadingLogoConstraint = [logoView.leadingAnchor
+  self.leadingViewConstraint = [leadingView.leadingAnchor
       constraintEqualToAnchor:searchField.leadingAnchor
-                     constant:kOmniboxImageLeadingSpace];
+                     constant:[self omniboxLeadingSpace]];
+
   [NSLayoutConstraint activateConstraints:@[
-    self.leadingLogoConstraint,
-    [logoView.centerYAnchor constraintEqualToAnchor:searchField.centerYAnchor
-                                           constant:-2.0],
+    self.leadingViewConstraint,
+    [leadingView.centerYAnchor constraintEqualToAnchor:searchField.centerYAnchor
+                                              constant:leadingViewYOffset],
 
   ]];
-
-  _logoView = logoView;
 }
 
 - (void)setDefaultSearchEngineLogo:(UIImage*)logo {
@@ -525,10 +558,6 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
       content_suggestions::ConfigureLensButtonWithNewBadgeAlpha(
           self.lensButton, 1 - _lastAnimationPercent);
     }
-  }
-
-  if (self.miaButton) {
-    content_suggestions::ConfigureMIAButton(self.miaButton, useColorIcon);
   }
 }
 
@@ -570,6 +599,167 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
   return percent;
 }
 
+// Animate the leading view from its fakebox position to its scrolled omnibox
+// position linearly. When percent is 0, the fakebox is displayed in the
+// middle of the screen; when it's 1, the fakebox is fully scrolled up.
+- (void)updateLogoAnimationWithProgress:(CGFloat)progress {
+  if (IsNTPHeaderTransformsForAnimationsEnabled()) {
+    self.leadingViewConstraint.constant = kFakeboxImageLeadingSpace;
+    CGFloat translationX =
+        (kOmniboxImageLeadingSpace - kFakeboxImageLeadingSpace) * progress;
+    _logoView.transform = CGAffineTransformMakeTranslation(translationX, 0);
+  } else {
+    self.leadingViewConstraint.constant = Interpolate(
+        [self fakeboxLeadingSpace], [self omniboxLeadingSpace], progress);
+  }
+}
+
+// Updates the background color and opacity of the fakebox based on progress.
+- (void)updateFakeboxBackgroundWithProgress:(CGFloat)progress {
+  // Update the opacity of the header background color as the user scrolls so
+  // that content does not appear beneath it. Since the NTP background might be
+  // a gradient, the opacity must be 0 by default.
+  self.backgroundColor =
+      [HeaderBackgroundColor(self) colorWithAlphaComponent:progress];
+
+  [self setFakeboxColorsWithProgress:progress];
+}
+
+// Animates the hint label position and scale between fakebox and omnibox based
+// on progress.
+- (void)updateHintLabelAnimationWithProgress:(CGFloat)progress {
+  [self scaleHintLabelForPercent:progress];
+  CGFloat hintLabelScalingExtraOffset =
+      (_currentHintLabelScale - 1) *
+      self.searchHintLabel.intrinsicContentSize.width * 0.5;
+
+  if (IsNTPHeaderTransformsForAnimationsEnabled()) {
+    self.hintLabelTrailingConstraint.constant = -kHintLabelFakeboxTrailingSpace;
+    CGFloat tx = 0;
+    if (CanShowTabStrip(self) || !IsSplitToolbarMode(self)) {
+      tx = hintLabelScalingExtraOffset;
+    } else {
+      tx = hintLabelScalingExtraOffset + (self.hintLabelOmniboxLeadingSpace -
+                                          self.hintLabelFakeboxLeadingSpace) *
+                                             progress;
+    }
+
+    // Combine scale (already set in scaleHintLabelForPercent:) and translation.
+    self.searchHintLabel.transform =
+        CGAffineTransformScale(CGAffineTransformMakeTranslation(tx, 0),
+                               _currentHintLabelScale, _currentHintLabelScale);
+  } else {
+    // If MIA animation view is shown then add an aditional spacing to avoid any
+    // overlap with the label.
+    self.hintLabelTrailingConstraint.constant =
+        -hintLabelScalingExtraOffset - kHintLabelFakeboxTrailingSpace;
+
+    if (CanShowTabStrip(self) || !IsSplitToolbarMode(self)) {
+      self.hintLabelLeadingConstraint.constant =
+          self.hintLabelFakeboxLeadingSpace + hintLabelScalingExtraOffset;
+    } else {
+      self.hintLabelLeadingConstraint.constant =
+          hintLabelScalingExtraOffset +
+          Interpolate(self.hintLabelFakeboxLeadingSpace,
+                      self.hintLabelOmniboxLeadingSpace, progress);
+    }
+  }
+}
+
+// Updates constraints for the pinned layout where the search field is
+// collapsed.
+- (void)updatePinnedLayoutWithProgress:(CGFloat)progress
+                searchFieldNormalWidth:(CGFloat)searchFieldNormalWidth
+                       widthConstraint:(NSLayoutConstraint*)widthConstraint {
+  CGFloat fakeOmniboxHeight = content_suggestions::FakeOmniboxHeight();
+
+  // When Voiceover is running, if the header's alpha is set to 0, voiceover
+  // can't scroll back to it, and it will never come back into view. To
+  // prevent that, set the alpha to non-zero when the header is fully
+  // offscreen. It will still not be seen, but it will be accessible to
+  // Voiceover.
+  self.alpha = std::max(1 - progress, 0.01);
+
+  widthConstraint.constant = searchFieldNormalWidth;
+  self.fakeLocationBarHeightConstraint.constant =
+      fakeOmniboxHeight - kFakeLocationBarHeightMargin;
+  self.fakeLocationBar.layer.cornerRadius =
+      self.fakeLocationBarHeightConstraint.constant / 2;
+
+  self.fakeLocationBarLeadingConstraint.constant = 0;
+  self.fakeLocationBarTrailingConstraint.constant = 0;
+  self.fakeLocationBarTopConstraint.constant = 0;
+
+  self.separator.alpha = 0;
+
+  _buttonStack.directionalLayoutMargins = NSDirectionalEdgeInsetsMake(
+      0, 0, 0, [self endButtonFakeboxTrailingSpace]);
+}
+
+// Updates constraints for the expanding layout where the search field grows to
+// fill the width.
+- (void)updateExpandingLayoutWithProgress:(CGFloat)progress
+                           safeAreaInsets:(UIEdgeInsets)safeAreaInsets
+                   searchFieldNormalWidth:(CGFloat)searchFieldNormalWidth
+                          widthConstraint:(NSLayoutConstraint*)widthConstraint
+                         heightConstraint:(NSLayoutConstraint*)heightConstraint
+                      topMarginConstraint:
+                          (NSLayoutConstraint*)topMarginConstraint {
+  CGFloat fakeOmniboxHeight = content_suggestions::FakeOmniboxHeight();
+  CGFloat locationBarHeight = content_suggestions::PinnedFakeOmniboxHeight();
+
+  self.alpha = 1;
+  self.separator.alpha = progress;
+
+  CGFloat maxWidth = self.bounds.size.width;
+  widthConstraint.constant =
+      Interpolate(searchFieldNormalWidth, maxWidth, progress);
+  CGFloat maxTopMarginDiff = fakeOmniboxHeight - locationBarHeight -
+                             kAdaptiveLocationBarVerticalMargin;
+  topMarginConstraint.constant =
+      -content_suggestions::SearchFieldTopMargin(self.logoState) -
+      maxTopMarginDiff * progress;
+  heightConstraint.constant =
+      ntp_header::kFakeLocationBarTopConstraint -
+      content_suggestions::HeaderSeparatorHeight() +
+      Interpolate(fakeOmniboxHeight,
+                  locationBarHeight + kAdaptiveLocationBarVerticalMargin,
+                  progress);
+
+  // Calculate the amount to shrink the width and height of background so that
+  // it's where the focused adapative toolbar focuses.
+  self.fakeLocationBarLeadingConstraint.constant = Interpolate(
+      0, safeAreaInsets.left + kExpandedLocationBarHorizontalMargin, progress);
+  self.fakeLocationBarTrailingConstraint.constant = -Interpolate(
+      0, safeAreaInsets.right + kExpandedLocationBarHorizontalMargin, progress);
+
+  self.fakeLocationBarTopConstraint.constant =
+      ntp_header::kFakeLocationBarTopConstraint * progress;
+  self.fakeLocationBarHeightConstraint.constant =
+      Interpolate(fakeOmniboxHeight, locationBarHeight, progress);
+  self.fakeLocationBar.layer.cornerRadius =
+      self.fakeLocationBarHeightConstraint.constant / 2;
+
+  // Adjust the position of the search field's subviews.
+  CGFloat endButtonInset =
+      Interpolate([self endButtonFakeboxTrailingSpace],
+                  kEndButtonOmniboxTrailingSpace, progress);
+  _buttonStack.directionalLayoutMargins =
+      NSDirectionalEdgeInsetsMake(0, 0, 0, endButtonInset);
+
+  // Fade in badge treatment when scrolled.
+  if (_useNewBadgeForLensButton && !_lensButtonWithNewBadgeTapped &&
+      self.lensButton) {
+    content_suggestions::ConfigureLensButtonWithNewBadgeAlpha(self.lensButton,
+                                                              1 - progress);
+    // Hide divider when N badge is shown.
+    self.voiceAndLensDivider.alpha = progress;
+    self.miaAndVoiceDivider.alpha = progress;
+  }
+}
+
+// Calculates progress and calls appropriate helper methods to update the header
+// layout based on scroll offset.
 - (void)updateSearchFieldWidth:(NSLayoutConstraint*)widthConstraint
                         height:(NSLayoutConstraint*)heightConstraint
                      topMargin:(NSLayoutConstraint*)topMarginConstraint
@@ -587,125 +777,25 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
 
   CGFloat percent = [self searchFieldProgressForOffset:offset];
 
-  _miaAnimationView.alpha = MIAAnimationOpacityForScrollProgress(percent);
+  [self updateFakeboxBackgroundWithProgress:percent];
 
   [self updateTabGroupIndicatorAvailabilityWithOffset:offset];
 
-  // Update the opacity of the header background color as the user scrolls so
-  // that content does not appear beneath it. Since the NTP background might be
-  // a gradient, the opacity must be 0 by default.
-  self.backgroundColor =
-      [HeaderBackgroundColor(self) colorWithAlphaComponent:percent];
+  [self updateHintLabelAnimationWithProgress:percent];
 
-  [self setFakeboxColorsWithProgress:percent];
-
-  // Offset the hint label constraints with half of the change in width
-  // from the original scale, since constraints are calculated before
-  // transformations are applied. This prevents the label from overlapping
-  // with other UI elements.
-  [self scaleHintLabelForPercent:percent];
-  CGFloat hintLabelScalingExtraOffset =
-      (_currentHintLabelScale - 1) *
-      self.searchHintLabel.intrinsicContentSize.width * 0.5;
-
-  // If MIA animation view is shown then add an aditional spacing to avoid any
-  // overlap with the label.
-  self.hintLabelTrailingConstraint.constant = -hintLabelScalingExtraOffset -
-                                              kHintLabelFakeboxTrailingSpace;
-
-  // Animate the leading image from its fakebox position to its scrolled omnibox
-  // position linearly. When `percent` is 0, the fakebox is displayed in the
-  // middle of the screen; when it's 1, the fakebox is fully scrolled up.
-  self.leadingLogoConstraint.constant =
-      kFakeboxImageLeadingSpace * (1 - percent) +
-      kOmniboxImageLeadingSpace * percent;
-
-  CGFloat fakeOmniboxHeight = content_suggestions::FakeOmniboxHeight();
-  CGFloat locationBarHeight = content_suggestions::PinnedFakeOmniboxHeight();
+  [self updateLogoAnimationWithProgress:percent];
 
   if (CanShowTabStrip(self) || !IsSplitToolbarMode(self)) {
-    // When Voiceover is running, if the header's alpha is set to 0, voiceover
-    // can't scroll back to it, and it will never come back into view. To
-    // prevent that, set the alpha to non-zero when the header is fully
-    // offscreen. It will still not be seen, but it will be accessible to
-    // Voiceover.
-    self.alpha = std::max(1 - percent, 0.01);
-
-    widthConstraint.constant = searchFieldNormalWidth;
-    self.fakeLocationBarHeightConstraint.constant =
-        fakeOmniboxHeight - kFakeLocationBarHeightMargin;
-    self.fakeLocationBar.layer.cornerRadius =
-        self.fakeLocationBarHeightConstraint.constant / 2;
-
-    self.fakeLocationBarLeadingConstraint.constant = 0;
-    self.fakeLocationBarTrailingConstraint.constant = 0;
-    self.fakeLocationBarTopConstraint.constant = 0;
-
-    // Reset the view horizontal constraints.
-    self.hintLabelLeadingConstraint.constant =
-        self.hintLabelFakeboxLeadingSpace + hintLabelScalingExtraOffset;
-
-    self.separator.alpha = 0;
-
-    _buttonStack.directionalLayoutMargins = NSDirectionalEdgeInsetsMake(
-        0, 0, 0, [self endButtonFakeboxTrailingSpace]);
-
-    _lastAnimationPercent = percent;
-    return;
-  }
-
-  self.alpha = 1;
-  self.separator.alpha = percent;
-
-  // Calculate the amount to grow the width and height of searchField so that
-  // its frame covers the entire toolbar area.
-  CGFloat maxWidth = self.bounds.size.width;
-  widthConstraint.constant =
-      Interpolate(searchFieldNormalWidth, maxWidth, percent);
-  CGFloat maxTopMarginDiff = fakeOmniboxHeight - locationBarHeight -
-                             kAdaptiveLocationBarVerticalMargin;
-  topMarginConstraint.constant =
-      -content_suggestions::SearchFieldTopMargin(self.logoState) -
-      maxTopMarginDiff * percent;
-  heightConstraint.constant =
-      ntp_header::kFakeLocationBarTopConstraint -
-      content_suggestions::HeaderSeparatorHeight() +
-      Interpolate(fakeOmniboxHeight,
-                  locationBarHeight + kAdaptiveLocationBarVerticalMargin,
-                  percent);
-
-  // Calculate the amount to shrink the width and height of background so that
-  // it's where the focused adapative toolbar focuses.
-  self.fakeLocationBarLeadingConstraint.constant = Interpolate(
-      0, safeAreaInsets.left + kExpandedLocationBarHorizontalMargin, percent);
-  self.fakeLocationBarTrailingConstraint.constant = -Interpolate(
-      0, safeAreaInsets.right + kExpandedLocationBarHorizontalMargin, percent);
-
-  self.fakeLocationBarTopConstraint.constant =
-      ntp_header::kFakeLocationBarTopConstraint * percent;
-  self.fakeLocationBarHeightConstraint.constant =
-      Interpolate(fakeOmniboxHeight, locationBarHeight, percent);
-  self.fakeLocationBar.layer.cornerRadius =
-      self.fakeLocationBarHeightConstraint.constant / 2;
-
-  // Adjust the position of the search field's subviews.
-  CGFloat endButtonInset = Interpolate([self endButtonFakeboxTrailingSpace],
-                                       kEndButtonOmniboxTrailingSpace, percent);
-  _buttonStack.directionalLayoutMargins =
-      NSDirectionalEdgeInsetsMake(0, 0, 0, endButtonInset);
-  self.hintLabelLeadingConstraint.constant =
-      hintLabelScalingExtraOffset +
-      Interpolate(self.hintLabelFakeboxLeadingSpace,
-                  self.hintLabelOmniboxLeadingSpace, percent);
-
-  // Fade N badge treatment when scrolled.
-  if (_useNewBadgeForLensButton && !_lensButtonWithNewBadgeTapped &&
-      self.lensButton) {
-    content_suggestions::ConfigureLensButtonWithNewBadgeAlpha(self.lensButton,
-                                                              1 - percent);
-    // Hide divider when N badge is shown.
-    self.voiceAndLensDivider.alpha = percent;
-    self.miaAndVoiceDivider.alpha = percent;
+    [self updatePinnedLayoutWithProgress:percent
+                  searchFieldNormalWidth:searchFieldNormalWidth
+                         widthConstraint:widthConstraint];
+  } else {
+    [self updateExpandingLayoutWithProgress:percent
+                             safeAreaInsets:safeAreaInsets
+                     searchFieldNormalWidth:searchFieldNormalWidth
+                            widthConstraint:widthConstraint
+                           heightConstraint:heightConstraint
+                        topMarginConstraint:topMarginConstraint];
   }
 
   _lastAnimationPercent = percent;
@@ -935,6 +1025,14 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
   _isAIMAllowed = allowed;
 }
 
+- (void)setFuseboxEligible:(BOOL)eligible {
+  _fuseboxEligible = eligible;
+}
+
+- (BOOL)shouldShowPlusButton {
+  return IsPlusButtonInFakeboxEnabled() && _isAIMAllowed && _fuseboxEligible;
+}
+
 #pragma mark - Property accessors
 
 - (UIView*)fakeLocationBar {
@@ -1013,6 +1111,20 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
 
 #pragma mark - Private
 
+// Handles the creation of the plus button.
+- (void)createPlusButton {
+  self.plusButton =
+      [ExtendedTouchTargetButton buttonWithType:UIButtonTypeSystem];
+  self.plusButton.accessibilityLabel = l10n_util::GetNSString(
+      IDS_IOS_COMPOSEBOX_ADD_ATTACHMENT_BUTTON_ACCESSIBILITY_LABEL);
+  [self.plusButton
+      setImage:DefaultSymbolWithPointSize(kPlusSymbol, kSymbolActionPointSize)
+      forState:UIControlStateNormal];
+  [self.plusButton addTarget:self.NTPShortcutsHandler
+                      action:@selector(openMultimodalActionsMenu)
+            forControlEvents:UIControlEventTouchUpInside];
+}
+
 // Sets the background based on the current NTP background, current color
 // palette, or defaults if neither are set.
 - (void)applyBackgroundTheme {
@@ -1024,24 +1136,11 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
   if (hasBlurredBackground) {
     _fakeLocationBarGradientView.hidden = YES;
     _fakeLocationBarBlurEffectView.hidden = NO;
-    _miaAnimationView.hidden = YES;
     return;
   }
 
   _fakeLocationBarGradientView.hidden = NO;
   _fakeLocationBarBlurEffectView.hidden = YES;
-
-  NewTabPageColorPalette* colorPalette =
-      [self.traitCollection objectForNewTabPageTrait];
-
-  if (colorPalette) {
-    _miaAnimationView.hidden = YES;
-    return;
-  }
-
-  _miaAnimationView.hidden = NO;
-  _miaAnimationView.alpha =
-      MIAAnimationOpacityForScrollProgress(_lastAnimationPercent);
 }
 
 // Empties the fakebox buttons stack.
@@ -1091,9 +1190,6 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
   [self.lensButton addTarget:self
                       action:@selector(openLensViewFinder)
             forControlEvents:UIControlEventTouchUpInside];
-  [self.miaButton addTarget:self
-                     action:@selector(openMIA)
-           forControlEvents:UIControlEventTouchUpInside];
 }
 
 // Updates the trailing constraint of the label to the nearest button stack
@@ -1188,6 +1284,8 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
     // iPads pin slightly earlier than landscape iPhones.
     if (CanShowTabStrip(self)) {
       offset -= content_suggestions::SearchFieldTopMargin(self.logoState);
+    } else if (IsChromeNextIaEnabled() && !_isBottomOmnibox) {
+      offset -= kToolbarHeight + self.safeAreaInsets.top;
     }
   }
   return offset;
@@ -1220,9 +1318,9 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
       colorPalette ? BlendColors(colorPalette.omniboxIconDividerColor,
                                  defaultDividerColor, progress)
                    : defaultDividerColor;
-  _miaButton.tintColor = tintColor;
   _voiceSearchButton.tintColor = tintColor;
   _lensButton.tintColor = tintColor;
+  _plusButton.tintColor = tintColor;
   _voiceAndLensDivider.backgroundColor = dividerColor;
   _miaAndVoiceDivider.backgroundColor = dividerColor;
 }
@@ -1248,13 +1346,6 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
 - (void)addVoiceAndLensDivider {
   UIView* divider = [self createDivider];
   self.voiceAndLensDivider = divider;
-  [_buttonStack addArrangedSubview:divider];
-}
-
-// Adds a short vertical line between the MIA and Voice icons in the fakebox.
-- (void)addMIAAndVoiceDivider {
-  UIView* divider = [self createDivider];
-  self.miaAndVoiceDivider = divider;
   [_buttonStack addArrangedSubview:divider];
 }
 
@@ -1305,84 +1396,28 @@ CGFloat MIAAnimationOpacityForScrollProgress(CGFloat percent) {
   }
 }
 
-#pragma mark - MIA
-
-// Creates an animation view for the MIA entry point.
-- (UIView*)createMIAAnimationView {
-  if (!_miaAnimation) {
-    _miaAnimation = [self createMIAAnimation];
-  }
-
-  UIView* animationView = _miaAnimation.animationView;
-  animationView.translatesAutoresizingMaskIntoConstraints = NO;
-  animationView.contentMode = UIViewContentModeScaleAspectFit;
-
-  return animationView;
-}
-
-// Creates and returns the LottieAnimation for the MIA button.
-- (id<LottieAnimation>)createMIAAnimation {
-  LottieAnimationConfiguration* config =
-      [[LottieAnimationConfiguration alloc] init];
-  config.animationName =
-      self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark
-          ? kMIACircleAnimationDarkMode
-          : kMIACircleAnimationLightMode;
-  config.shouldLoop = YES;
-  return ios::provider::GenerateLottieAnimation(config);
-}
-
-- (void)updateAnimationOnMIAButton {
-  if (!self.miaButton) {
-    return;
-  }
-
-  if (UIAccessibilityIsReduceMotionEnabled()) {
-    return;
-  }
-
-  _miaAnimationView = [self createMIAAnimationView];
-  _miaAnimationView.userInteractionEnabled = NO;
-  // Hide the view when there is a color palette or image background.
-  _miaAnimationView.hidden =
-      [self.traitCollection objectForNewTabPageTrait] != nil ||
-      [self.traitCollection boolForNewTabPageImageBackgroundTrait];
-  _miaAnimationView.alpha =
-      MIAAnimationOpacityForScrollProgress(_lastAnimationPercent);
-  [_miaAnimation play];
-  [self.miaButton addSubview:_miaAnimationView];
-  AddSameCenterConstraints(_miaAnimationView, self.miaButton);
-  AddSizeConstraints(_miaAnimationView, [self miaAnimationSize]);
-}
-
-// The size for the animation view dependant on the fakebox size.
-- (CGSize)miaAnimationSize {
-  return CGSizeMake(kMIACircleAnimationSizeNormal,
-                    kMIACircleAnimationSizeNormal);
-}
-
 #pragma mark - helpers
 
 - (CGFloat)hintLabelFakeboxLeadingSpace {
-  if (base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdateV2)) {
-    return kHintLabelFakeboxLeadingSpaceWithIcon;
+  if ([self shouldShowPlusButton]) {
+    return kHintLabelFakeboxLeadingSpaceWithPlus;
   } else {
-    return kHintLabelFakeboxLeadingSpace;
+    return kHintLabelFakeboxLeadingSpaceWithIcon;
   }
 }
 
 - (CGFloat)hintLabelOmniboxLeadingSpace {
-  if (base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdateV2)) {
-    return kHintLabelOmniboxLeadingSpaceWithIcon;
+  if ([self shouldShowPlusButton]) {
+    return kHintLabelOmniboxLeadingSpaceWithWithPlus;
   } else {
-    return kHintLabelOmniboxLeadingSpace;
+    return kHintLabelOmniboxLeadingSpaceWithIcon;
   }
 }
 
 #pragma mark - Action handling
 
-- (void)openMIA {
-  [self.NTPShortcutsHandler openMIA];
+- (void)openAIM {
+  [self.NTPShortcutsHandler openAIM];
 }
 
 - (void)openLensViewFinder {

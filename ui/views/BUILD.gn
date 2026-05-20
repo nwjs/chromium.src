@@ -41,7 +41,6 @@ aggregate_vector_icons("views_vector_icons") {
     "launch.icon",
     "linux_high_density.icon",
     "linux_low_density.icon",
-    "menu.icon",
     "menu_check.icon",
     "menu_close.icon",
     "menu_open.icon",
@@ -52,9 +51,7 @@ aggregate_vector_icons("views_vector_icons") {
     "new_window.icon",
     "open.icon",
     "options.icon",
-    "password_change.icon",
     "pin.icon",
-    "psychiatry.icon",
     "radio_button_active.icon",
     "radio_button_normal.icon",
     "uninstall.icon",
@@ -131,6 +128,7 @@ component("views") {
     "background.h",
     "badge_painter.h",
     "border.h",
+    "bubble/bubble_anchor.h",
     "bubble/bubble_border.h",
     "bubble/bubble_border_arrow_utils.h",
     "bubble/bubble_dialog_delegate_view.h",
@@ -248,6 +246,7 @@ component("views") {
     "interaction/element_tracker_views.h",
     "interaction/element_tracker_widget_state.h",
     "interaction/interaction_sequence_views.h",
+    "interaction/view_subregion_anchor.h",
     "layout/animating_layout_manager.h",
     "layout/box_layout.h",
     "layout/box_layout_view.h",
@@ -279,6 +278,7 @@ component("views") {
     "rect_based_targeting_utils.h",
     "repeat_controller.h",
     "round_rect_painter.h",
+    "scoped_paint_lock.h",
     "selection_controller.h",
     "selection_controller_delegate.h",
     "style/platform_style.h",
@@ -385,6 +385,7 @@ component("views") {
     "background.cc",
     "badge_painter.cc",
     "border.cc",
+    "bubble/bubble_anchor.cc",
     "bubble/bubble_border.cc",
     "bubble/bubble_border_arrow_utils.cc",
     "bubble/bubble_dialog_delegate_view.cc",
@@ -488,6 +489,7 @@ component("views") {
     "interaction/element_tracker_views.cc",
     "interaction/element_tracker_widget_state.cc",
     "interaction/interaction_sequence_views.cc",
+    "interaction/view_subregion_anchor.cc",
     "layout/animating_layout_manager.cc",
     "layout/box_layout.cc",
     "layout/box_layout_view.cc",
@@ -514,6 +516,7 @@ component("views") {
     "rect_based_targeting_utils.cc",
     "repeat_controller.cc",
     "round_rect_painter.cc",
+    "scoped_paint_lock.cc",
     "selection_controller.cc",
     "style/platform_style.cc",
     "style/typography_provider.cc",
@@ -657,7 +660,21 @@ component("views") {
   if (is_linux) {
     public_deps += [ "//ui/linux:linux_ui" ]
     deps += [ "//ui/base/ime/linux" ]
-    sources += [ "controls/menu/menu_config_linux.cc" ]
+    public += [
+      "window/frame_view_layout_linux.h",
+      "window/frame_view_linux.h",
+      "window/frame_view_utils_linux.h",
+      "window/native_frame_view_layout_linux.h",
+      "window/native_frame_view_linux.h",
+    ]
+    sources += [
+      "controls/menu/menu_config_linux.cc",
+      "window/frame_view_layout_linux.cc",
+      "window/frame_view_linux.cc",
+      "window/frame_view_utils_linux.cc",
+      "window/native_frame_view_layout_linux.cc",
+      "window/native_frame_view_linux.cc",
+    ]
   }
 
   if (is_chromeos) {
@@ -1244,6 +1261,7 @@ test("views_unittests") {
     "animation/square_ink_drop_ripple_unittest.cc",
     "animation/widget_fade_animator_unittest.cc",
     "border_unittest.cc",
+    "bubble/bubble_anchor_unittest.cc",
     "bubble/bubble_border_unittest.cc",
     "bubble/bubble_dialog_delegate_view_unittest.cc",
     "bubble/bubble_dialog_model_host_unittest.cc",
@@ -1324,6 +1342,7 @@ test("views_unittests") {
     "rect_based_targeting_utils_unittest.cc",
     "repeat_controller_unittest.cc",
     "run_all_unittests_main.cc",
+    "scoped_paint_lock_unittest.cc",
     "selection_controller_unittest.cc",
     "test/widget_test_unittest.cc",
     "view_model_unittest.cc",
@@ -1437,6 +1456,10 @@ test("views_unittests") {
   }
 
   if (is_linux) {
+    sources += [
+      "window/frame_view_linux_unittest.cc",
+      "window/native_frame_view_linux_unittest.cc",
+    ]
     deps += [
       "//ui/base/ime/linux",
       "//ui/linux:test_support",

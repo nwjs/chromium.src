@@ -32,6 +32,7 @@
 #include "third_party/blink/public/web/blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/css/css_default_style_sheets.h"
 #include "third_party/blink/renderer/core/css/document_style_environment_variables.h"
 #include "third_party/blink/renderer/core/css/media_feature_overrides.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
@@ -66,7 +67,6 @@
 #include "third_party/blink/renderer/core/inspector/inspector_issue_storage.h"
 #include "third_party/blink/renderer/core/layout/layout_object_inlines.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
-#include "third_party/blink/renderer/core/layout/text_autosizer.h"
 #include "third_party/blink/renderer/core/loader/idleness_detector.h"
 #include "third_party/blink/renderer/core/page/autoscroll_controller.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
@@ -281,7 +281,6 @@ Page::Page(base::PassKey<Page>,
       next_related_page_(this),
       prev_related_page_(this),
       autoplay_flags_(0),
-      web_text_autosizer_page_info_({0, 0, 1.f}),
       v8_compile_hints_producer_(
           MakeGarbageCollected<
               v8_compile_hints::V8CrowdsourcedCompileHintsProducer>(this)),
@@ -690,6 +689,15 @@ void Page::InitialStyleChanged() {
   }
 }
 
+void Page::UAStyleChanged() {
+  for (Frame* frame = MainFrame(); frame;
+       frame = frame->Tree().TraverseNext()) {
+    if (auto* local_frame = DynamicTo<LocalFrame>(frame)) {
+      local_frame->GetDocument()->GetStyleEngine().UAStyleChanged();
+    }
+  }
+}
+
 PluginData* Page::GetPluginData() {
   if (!plugin_data_)
     plugin_data_ = MakeGarbageCollected<PluginData>();
@@ -1020,11 +1028,6 @@ void Page::SettingsChanged(ChangeType change_type) {
             ->GetDocument()
             ->GetViewportData()
             .UpdateViewportDescription();
-        // The text autosizer has dependencies on the viewport. Viewport
-        // description only applies to the main frame. On a viewport description
-        // change; any changes will be calculated starting from the local main
-        // frame renderer and propagated to the OOPIF renderers.
-        TextAutosizer::UpdatePageInfoInAllFrames(MainFrame());
       }
       break;
     case ChangeType::kViewportPaintProperties:
@@ -1075,16 +1078,6 @@ void Page::SettingsChanged(ChangeType change_type) {
           document->GetStyleEngine().InitialStyleChanged();
         }
       }
-      break;
-    case ChangeType::kTextAutosizing:
-      if (!MainFrame())
-        break;
-      // We need to update even for remote main frames since this setting
-      // could be changed via InternalSettings.
-      TextAutosizer::UpdatePageInfoInAllFrames(MainFrame());
-      // The text-size-adjust adjustment in style depends on the text autosizing
-      // setting, so we need to invalidate style.
-      InitialStyleChanged();
       break;
     case ChangeType::kFontFamily:
       for (Frame* frame = MainFrame(); frame;
@@ -1232,6 +1225,10 @@ void Page::SettingsChanged(ChangeType change_type) {
     case ChangeType::kAcceptLanguages:
       AcceptLanguagesChanged();
       break;
+    case ChangeType::kTextTrackStyle:
+      CSSDefaultStyleSheets::Instance().ResetTextTrackStyleSheet();
+      UAStyleChanged();
+      break;
   }
 }
 
@@ -1296,13 +1293,13 @@ void Page::DidCommitLoad(LocalFrame* frame) {
         ScrollOffset(), mojom::blink::ScrollType::kProgrammatic,
         cc::ScrollSourceType::kNone, mojom::blink::ScrollBehavior::kInstant);
   }
-  // crbug/1312107: If DevTools has "Highlight ad frames" checked when the
-  // main frame is refreshed or the ad frame is navigated to a different
-  // process, DevTools calls `Settings::SetHighlightAds` so early that the
-  // local frame is still in provisional state (not swapped in). Explicitly
-  // invalidate the settings here as `Page::DidCommitLoad` is only fired after
-  // the navigation is committed, at which point the local frame must already
-  // be swapped-in.
+  // crbug.com/1312107: If DevTools has "Highlight ads" checked when the main
+  // frame is refreshed or the ad frame is navigated to a different process,
+  // DevTools calls `Settings::SetInspectorHighlightAds` so early that the local
+  // frame is still in provisional state (not swapped in). Explicitly invalidate
+  // the settings here as `Page::DidCommitLoad` is only fired after the
+  // navigation is committed, at which point the local frame must already be
+  // swapped-in.
   //
   // This explicit update is placed outside the above if-block to accommodate
   // iframes. The iframes share the same Page (frame tree) as the main frame,
@@ -1610,6 +1607,31 @@ void Page::PrepareForLeakDetection() {
     // V8CrowdsourcedCompileHintsProducer keeps v8::Script objects alive until
     // the page becomes interactive. Give it a chance to clean up.
     page->v8_compile_hints_producer_->ClearData();
+  }
+}
+
+void Page::UpgradePrerenderUntilScriptToFullPrerender() {
+  CHECK(IsPrerendering());
+  CHECK(ShouldPauseJavaScriptExecutionOnPrerender());
+  should_pause_javascript_execution_on_prerender_ = false;
+
+  // Collect local documents first. Unblocking script execution can
+  // synchronously run parser scripts, which may mutate the frame tree
+  // (e.g. inserting or removing iframes). Snapshotting avoids issues with
+  // iterating a tree that changes under us. This mirrors the pattern used
+  // by WebViewImpl::ActivatePrerenderedPage().
+  HeapVector<Member<Document>> documents;
+  for (Frame* frame = MainFrame(); frame;
+       frame = frame->Tree().TraverseNext()) {
+    if (auto* local_frame = DynamicTo<LocalFrame>(frame)) {
+      if (Document* document = local_frame->GetDocument()) {
+        documents.push_back(document);
+      }
+    }
+  }
+
+  for (auto& document : documents) {
+    document->UnblockScriptExecutionForPrerenderUpgrade();
   }
 }
 

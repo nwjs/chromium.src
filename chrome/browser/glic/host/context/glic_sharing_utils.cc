@@ -30,12 +30,17 @@ bool IsBrowserValidForSharingInProfile(
          !profile->IsOffTheRecord();
 }
 
+bool IsTabValidForPinningInProfile(tabs::TabInterface* tab, Profile* profile) {
+  return tab && profile && tab->GetProfile() == profile &&
+         !profile->IsOffTheRecord();
+}
+
 bool IsTabValidForSharing(content::WebContents* web_contents) {
   // We allow blank pages to avoid flicker during transitions.
   static const base::NoDestructor<std::vector<GURL>> kUrlAllowList{
       {GURL(), GURL(url::kAboutBlankURL),
        GURL(chrome::kChromeUINewTabPageThirdPartyURL),
-       GURL(chrome::kChromeUINewTabPageURL), GURL(chrome::kChromeUINewTabURL),
+       chrome::ChromeUINewTabPageURLAsGURL(), chrome::ChromeUINewTabURLAsGURL(),
 #if BUILDFLAG(IS_ANDROID)
        GURL(chrome::kChromeUINativeNewTabURL),
 #endif

@@ -12,8 +12,10 @@ extern const CGFloat kOmniboxMinHeight;
 extern const CGFloat kOmniboxIPadMinHeight;
 /// The  margin  for the input plate container with its parent view.
 extern const CGFloat kInputPlateMargin;
+extern const CGFloat kInputPlateIpadMargin;
 /// The corner radius for the input plate container.
 extern const CGFloat kInputPlateCornerRadius;
+extern const CGFloat kInputPlateIpadCornerRadius;
 /// The additional horizontal margin to ensure the composebox covers the top
 /// omnibox.
 extern const CGFloat kComposeboxOmniboxLayoutGuideHorizontalMargin;
@@ -52,13 +54,6 @@ extern NSString* const kComposeboxCameraActionAccessibilityIdentifier;
 extern NSString* const kComposeboxAttachCurrentTabActionAccessibilityIdentifier;
 // Accessibility identifier for the Select Tabs button in the plus menu.
 extern NSString* const kComposeboxSelectTabsActionAccessibilityIdentifier;
-
-// Accessibility identifier for the tab picker's collection view.
-extern NSString* const
-    kComposeboxTabPickerCollectionViewAccessibilityIdentifier;
-// Accessibility identifier for the empty state view in the tab picker.
-extern NSString* const
-    kComposeboxTabPickerEmptyStateViewAccessibilityIdentifier;
 
 // Accessibility identifier for the carousel in the composebox.
 extern NSString* const kComposeboxCarouselAccessibilityIdentifier;

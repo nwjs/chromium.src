@@ -91,6 +91,15 @@ network::mojom::NetworkContext*& GetNetworkContextForTesting() {
   return network_context;
 }
 
+bool AreDirectSocketsAllowedByEmbedder(RenderFrameHost* rfh) {
+  return GetContentClient()->browser()->GetDirectSocketsDelegate() &&
+         GetContentClient()
+             ->browser()
+             ->GetDirectSocketsDelegate()
+             ->AreDirectSocketsAllowed(rfh->GetBrowserContext(),
+                                       rfh->GetLastCommittedOrigin());
+}
+
 // Runs the supplied `callback` with `net_error` and default params for other
 // args.
 template <typename... Args>
@@ -150,6 +159,11 @@ bool ValidateRequest(const Context& context,
 bool IsMulticastAllowed(const Context& context) {
   return std::visit(
       absl::Overload{[](content::RenderFrameHost* rfh) {
+                       if (AreDirectSocketsAllowedByEmbedder(rfh)) {
+                         // Embedder-allowed Direct Sockets do not need access
+                         // to multicast.
+                         return false;
+                       }
                        return rfh->IsFeatureEnabled(
                            network::mojom::PermissionsPolicyFeature::
                                kMulticastInDirectSockets);
@@ -229,25 +243,17 @@ void RequestPrivateNetworkAccess(
   return std::visit(
       absl::Overload{
           [&](content::RenderFrameHost* rfh) {
+            if (AreDirectSocketsAllowedByEmbedder(rfh)) {
+              std::move(callback).Run(/*access_allowed=*/true);
+              return;
+            }
+
             if (!rfh->IsFeatureEnabled(
                     network::mojom::PermissionsPolicyFeature::
                         kDirectSocketsPrivate)) {
               std::move(callback).Run(/*access_allowed=*/false);
               return;
             }
-            if (delegate->ShouldAllowPrivateNetworkAccessUnconditionally(
-                    *rfh)) {
-              std::move(callback).Run(/*access_allowed=*/true);
-              return;
-            }
-
-            if (base::FeatureList::IsEnabled(
-                    features::kLocalNetworkAccessPromptDirectSockets)) {
-              if (!delegate->RenderFrameHasDirectSocketsPNAContentSetting(
-                      *rfh)) {
-                std::move(callback).Run(/*access_allowed=*/false);
-                return;
-              }
 
               rfh->GetBrowserContext()
                   ->GetPermissionController()
@@ -270,26 +276,9 @@ void RequestPrivateNetworkAccess(
                                      blink::mojom::PermissionStatus::GRANTED;
                             });
                       }).Then(std::move(callback)));
-            } else {
-              std::move(callback).Run(
-                  /*access_allowed=*/delegate
-                      ->RenderFrameHasDirectSocketsPNAContentSetting(*rfh));
-            }
           },
           [&](base::WeakPtr<SharedWorkerHost> shared_worker) {
-            // TODO(crbug.com/393539884): Figure out the appropriate checks wrt
-            // permissions.
 
-            if (base::FeatureList::IsEnabled(
-                    features::kLocalNetworkAccessPromptDirectSockets)) {
-              if (!shared_worker ||
-                  !delegate->SharedWorkerHasDirectSocketsPNAContentSetting(
-                      CHECK_DEREF(shared_worker->GetProcessHost())
-                          .GetBrowserContext(),
-                      shared_worker->instance().url())) {
-                std::move(callback).Run(/*access_allowed=*/false);
-                return;
-              }
               std::move(callback).Run(
                   /*access_allowed=*/shared_worker &&
                   ArePermissionTypesAllowedForWorker(
@@ -299,29 +288,8 @@ void RequestPrivateNetworkAccess(
                       // origins, are denied sensitive permissions.
                       shared_worker->instance().worker_storage_key().origin(),
                       std::move(required_permissions)));
-            } else {
-              std::move(callback)
-                  .Run(/*access_allowed=*/
-                       shared_worker &&
-                       delegate->SharedWorkerHasDirectSocketsPNAContentSetting(
-                           CHECK_DEREF(shared_worker->GetProcessHost())
-                               .GetBrowserContext(),
-                           shared_worker->instance().url()));
-            }
           },
           [&](base::WeakPtr<ServiceWorkerVersion> service_worker) {
-            // TODO(crbug.com/392843918): Figure out the appropriate checks
-            // wrt permissions.
-
-            if (base::FeatureList::IsEnabled(
-                    features::kLocalNetworkAccessPromptDirectSockets)) {
-              if (!service_worker || !service_worker->context() ||
-                  !delegate->ServiceWorkerHasDirectSocketsPNAContentSetting(
-                      service_worker->context()->wrapper()->browser_context(),
-                      service_worker->key().origin())) {
-                std::move(callback).Run(/*access_allowed=*/false);
-                return;
-              }
               std::move(callback).Run(
                   /*access_allowed=*/service_worker &&
                   ArePermissionTypesAllowedForWorker(
@@ -329,14 +297,6 @@ void RequestPrivateNetworkAccess(
                           service_worker->embedded_worker()->process_id()),
                       service_worker->key().origin(),
                       std::move(required_permissions)));
-            } else {
-              std::move(callback).Run(
-                  /*access_allowed=*/service_worker &&
-                  service_worker->context() &&
-                  delegate->ServiceWorkerHasDirectSocketsPNAContentSetting(
-                      service_worker->context()->wrapper()->browser_context(),
-                      service_worker->key().origin()));
-            }
           }},
       context);
 }
@@ -425,12 +385,6 @@ class DocumentHelper
   const std::unique_ptr<DirectSocketsServiceImpl> service_;
 };
 
-bool ServiceWorkerRunsInIsolatedContext(ServiceWorkerVersion& service_worker) {
-  auto* rph =
-      RenderProcessHost::FromID(service_worker.embedded_worker()->process_id());
-  return rph ? IsIsolatedContext(rph) : false;
-}
-
 }  // namespace
 
 DirectSocketsServiceImpl::DirectSocketsServiceImpl(Context context)
@@ -453,17 +407,19 @@ void DirectSocketsServiceImpl::CreateForFrame(
         "Finch experiment.");
     return;
   }
-  if (!render_frame_host->IsFeatureEnabled(
-          network::mojom::PermissionsPolicyFeature::kDirectSockets)) {
-    mojo::ReportBadMessage(
-        "Permissions policy blocks access to Direct Sockets.");
-    return;
-  }
-  if (!HasIsolatedContextCapability(render_frame_host)) {
+  if (HasIsolatedContextCapability(render_frame_host)) {
+    if (!render_frame_host->IsFeatureEnabled(
+            network::mojom::PermissionsPolicyFeature::kDirectSockets)) {
+      mojo::ReportBadMessage(
+          "Permissions policy blocks access to Direct Sockets.");
+      return;
+    }
+  } else if (!AreDirectSocketsAllowedByEmbedder(render_frame_host)) {
     mojo::ReportBadMessage(
         "Frame is not sufficiently isolated to use Direct Sockets.");
     return;
   }
+
   new DocumentHelper(
       base::WrapUnique(new DirectSocketsServiceImpl(render_frame_host)),
       render_frame_host, std::move(receiver));
@@ -487,6 +443,7 @@ void DirectSocketsServiceImpl::CreateForSharedWorker(
         "parameters or a Finch experiment.");
     return;
   }
+
   if (!IsIsolatedContext(shared_worker.GetProcessHost())) {
     mojo::ReportBadMessage(
         "SharedWorker is not sufficiently isolated to use Direct Sockets.");
@@ -517,7 +474,9 @@ void DirectSocketsServiceImpl::CreateForServiceWorker(
         "parameters or a Finch experiment.");
     return;
   }
-  if (!ServiceWorkerRunsInIsolatedContext(service_worker)) {
+  auto* rph =
+      RenderProcessHost::FromID(service_worker.embedded_worker()->process_id());
+  if (!rph || !IsIsolatedContext(rph)) {
     mojo::ReportBadMessage(
         "ServiceWorker is not sufficiently isolated to use Direct Sockets.");
     return;
@@ -709,27 +668,27 @@ network::mojom::NetworkContext* DirectSocketsServiceImpl::GetNetworkContext()
     return network_context;
   }
   return std::visit(
-      absl::Overload{
-          [](RenderFrameHost* rfh) {
-            return rfh->GetStoragePartition()->GetNetworkContext();
-          },
-          [](base::WeakPtr<SharedWorkerHost> shared_worker)
-              -> network::mojom::NetworkContext* {
-            return shared_worker ? CHECK_DEREF(shared_worker->GetProcessHost())
-                                       .GetStoragePartition()
-                                       ->GetNetworkContext()
-                                 : nullptr;
-          },
-          [](base::WeakPtr<ServiceWorkerVersion> service_worker)
-              -> network::mojom::NetworkContext* {
-            if (!service_worker || !service_worker->context()) {
-              return nullptr;
-            }
-            return service_worker->context()
-                ->wrapper()
-                ->storage_partition()
-                ->GetNetworkContext();
-          }},
+      absl::Overload{[](RenderFrameHost* rfh) {
+                       return rfh->GetStoragePartition()->GetNetworkContext();
+                     },
+                     [](base::WeakPtr<SharedWorkerHost> shared_worker)
+                         -> network::mojom::NetworkContext* {
+                       return shared_worker
+                                  ? CHECK_DEREF(shared_worker->GetProcessHost())
+                                        .GetStoragePartition()
+                                        ->GetNetworkContext()
+                                  : nullptr;
+                     },
+                     [](base::WeakPtr<ServiceWorkerVersion> service_worker)
+                         -> network::mojom::NetworkContext* {
+                       if (!service_worker || !service_worker->context()) {
+                         return nullptr;
+                       }
+                       return service_worker->context()
+                           ->wrapper()
+                           ->storage_partition()
+                           ->GetNetworkContext();
+                     }},
       context_);
 }
 

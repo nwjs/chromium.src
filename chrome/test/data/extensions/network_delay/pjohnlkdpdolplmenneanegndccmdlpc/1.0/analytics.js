@@ -25,16 +25,17 @@
 // Testing note: Accessing external resources is normally a bad idea in a unit
 // test. However, the whole point of this test extension is to ensure that
 // the resource referenced here does not need to load before the test finishes.
-// Otherwise, it will cause a deadlock: see http://crbug.com/107148.
+// Otherwise, it will cause a deadlock: see http://crbug.com/40126792.
 // It should therefore not slow down testing.
 
-var _gaq = _gaq || [];
+const _gaq = _gaq || [];
 _gaq.push(['_setAccount', 'UA-12026369-1']);
 _gaq.push(['_trackPageview']);
 
 (function() {
-  var ga = document.createElement('script'); ga.type = 'text/javascript';
-  ga.src = 'https://ssl.google-analytics.com/ga.js';
-  var s = document.getElementsByTagName('script')[0];
-  s.parentNode.insertBefore(ga, s);
+const ga = document.createElement('script');
+ga.type = 'text/javascript';
+ga.src = 'https://ssl.google-analytics.com/ga.js';
+const s = document.getElementsByTagName('script')[0];
+s.parentNode.insertBefore(ga, s);
 })();

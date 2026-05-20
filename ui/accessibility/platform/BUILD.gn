@@ -32,7 +32,7 @@ component("platform") {
   defines = [ "IS_AX_PLATFORM_IMPL" ]
 
   visibility = [
-    "//chrome/browser/accessibility:utils",
+    "//chrome/browser/accessibility:*",
     "//chrome/browser/ui/webui/accessibility",
     "//ui/accessibility",
     "//ui/views",
@@ -240,6 +240,8 @@ component("platform") {
         "inspect/ax_tree_indexer_win.h",
         "sequence_affine_com_object_root_win.cc",
         "sequence_affine_com_object_root_win.h",
+        "uia_client_info_source_win.cc",
+        "uia_client_info_source_win.h",
         "uia_registrar_win.cc",
         "uia_registrar_win.h",
       ]
@@ -249,6 +251,8 @@ component("platform") {
         "//third_party/isimpledom",
         "//ui/accessibility/platform:ichromeaccessible",
       ]
+
+      deps += [ "//base/tracing/protos:chrome_track_event_zero" ]
 
       libs = [
         "oleacc.lib",

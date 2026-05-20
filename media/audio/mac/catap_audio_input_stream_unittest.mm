@@ -6,6 +6,8 @@
 
 #include <CoreAudioTypes/CoreAudioBaseTypes.h>
 #import <Foundation/Foundation.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include <map>
 #include <memory>
@@ -23,8 +25,10 @@
 #include "base/run_loop.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/multiprocess_test.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "base/test/test_timeouts.h"
 #include "media/audio/application_loopback_device_helper.h"
 #include "media/audio/audio_device_description.h"
 #include "media/audio/audio_features.h"
@@ -33,6 +37,7 @@
 #include "media/audio/mac/catap_api.h"
 #include "media/base/audio_bus.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "testing/multiprocess_func_list.h"
 
 namespace media {
 
@@ -70,13 +75,9 @@ constexpr AudioObjectID kTap = 23;
 constexpr AudioObjectID kDefaultOutputId = 29;
 constexpr std::string kDefaultOutputUID = "default_output_uid";
 
-API_AVAILABLE(macos(14.2))
-const CatapAudioInputStream::AudioDeviceIds kDefaultOutputIds(
-    kDefaultOutputId,
-    kDefaultOutputUID);
-
-API_AVAILABLE(macos(14.2))
-const CatapAudioInputStream::AudioDeviceIds kNoDefaultOutputIds;
+const AudioDeviceIdentity kDefaultOutputIds(kDefaultOutputId,
+                                            kDefaultOutputUID);
+const std::optional<AudioDeviceIdentity> kNoDefaultOutputIds = std::nullopt;
 
 const AudioObjectPropertyAddress kDeviceIsAliveAddress = {
     kAudioDevicePropertyDeviceIsAlive, kAudioObjectPropertyScopeGlobal,
@@ -104,6 +105,10 @@ const AudioObjectPropertyAddress kProcessObjectListAddress = {
 
 const AudioObjectPropertyAddress kProcessPidAddress = {
     kAudioProcessPropertyPID, kAudioObjectPropertyScopeGlobal,
+    kAudioObjectPropertyElementMain};
+
+const AudioObjectPropertyAddress kProcessBundleIdAddress = {
+    kAudioProcessPropertyBundleID, kAudioObjectPropertyScopeGlobal,
     kAudioObjectPropertyElementMain};
 
 const AudioObjectPropertyAddress kTapDescriptionAddress = {
@@ -227,6 +232,16 @@ class FakeCatapApi : public CatapApi {
       }
       return -1;
     }
+    if (*in_address == kProcessBundleIdAddress) {
+      auto it = bundle_ids.find(in_object_id);
+      if (it != bundle_ids.end()) {
+        *reinterpret_cast<CFStringRef*>(outData) = CFStringCreateWithCString(
+            nullptr, it->second.c_str(), kCFStringEncodingUTF8);
+        *ioDataSize = sizeof(CFStringRef);
+        return noErr;
+      }
+      return -1;
+    }
     if (*in_address == kDeviceIsAliveAddress) {
       *reinterpret_cast<UInt32*>(outData) = device_is_alive;
       *ioDataSize = sizeof(UInt32);
@@ -252,6 +267,7 @@ class FakeCatapApi : public CatapApi {
       AudioStreamBasicDescription* stream_format =
           reinterpret_cast<AudioStreamBasicDescription*>(outData);
       stream_format->mChannelsPerFrame = number_of_device_channels;
+      stream_format->mSampleRate = device_sample_rate;
       *ioDataSize = sizeof(AudioStreamBasicDescription);
       return noErr;
     }
@@ -363,12 +379,17 @@ class FakeCatapApi : public CatapApi {
   // format of the default output device. Can be overriden to simulate a mono
   // device.
   int number_of_device_channels = kNumberOfChannelsStereo;
+  int device_sample_rate = kLoopbackSampleRate;
+
   // Used to simulate the list of process audio device IDs that belong to
   // different processes.
   std::vector<AudioDeviceID> process_audio_devices;
   // The key is the device ID and the value is the process ID. This is used to
   // map device IDs to process IDs.
   std::map<AudioDeviceID, pid_t> process_pids;
+  // The key is the device ID and the value is the bundle ID. This is used to
+  // map device IDs to bundle IDs.
+  std::map<AudioDeviceID, std::string> bundle_ids;
 
   // Variables that can be inspected by the tests.
   // The following variables are set when the corresponding `CatapApi` function
@@ -427,7 +448,7 @@ class FakeCatapApi : public CatapApi {
 
 }  // namespace
 
-class CatapAudioInputStreamTest : public testing::Test {
+class CatapAudioInputStreamTest : public base::MultiProcessTest {
  public:
   CatapAudioInputStreamTest() = default;
   ~CatapAudioInputStreamTest() override = default;
@@ -443,13 +464,13 @@ class CatapAudioInputStreamTest : public testing::Test {
   void CreateStream(
       bool with_permissions,
       const std::string& device_id,
-      const CatapAudioInputStream::AudioDeviceIds default_device_ids) {
+      const std::optional<AudioDeviceIdentity> default_device_ids) {
     auto fake_catap_api_object = std::make_unique<FakeCatapApi>();
     fake_catap_api_object->with_permissions = with_permissions;
     fake_catap_api_ = fake_catap_api_object.get();
 
-    auto returning_lambda = [](const CatapAudioInputStream::AudioDeviceIds& ids)
-        -> CatapAudioInputStream::AudioDeviceIds { return ids; };
+    auto returning_lambda = [](const std::optional<AudioDeviceIdentity> ids)
+        -> std::optional<AudioDeviceIdentity> { return ids; };
     auto device_id_callback =
         base::BindRepeating(returning_lambda, default_device_ids);
 
@@ -468,10 +489,17 @@ class CatapAudioInputStreamTest : public testing::Test {
                 kAggregateDeviceId);
       EXPECT_EQ(fake_catap_api()->set_sample_rate_count, 1);
       EXPECT_FLOAT_EQ(fake_catap_api()->last_set_sample_rate.value(),
-                      kLoopbackSampleRate);
+                      fake_catap_api()->device_sample_rate);
       EXPECT_EQ(fake_catap_api()->set_frames_per_buffer_count, 1);
+      int expected_frames = kCatapLoopbackDefaultFramesPerBuffer;
+      if (fake_catap_api()->device_sample_rate != kLoopbackSampleRate) {
+        expected_frames = kCatapLoopbackDefaultFramesPerBuffer *
+                          fake_catap_api()->device_sample_rate /
+                          kLoopbackSampleRate;
+      }
       EXPECT_FLOAT_EQ(fake_catap_api()->last_set_frames_per_buffer.value(),
-                      kCatapLoopbackDefaultFramesPerBuffer);
+                      expected_frames);
+
       EXPECT_EQ(fake_catap_api()->set_tap_description_count, 1);
   }
 
@@ -518,6 +546,10 @@ class CatapAudioInputStreamTest : public testing::Test {
     return true;
   }
 
+  void SetUp() override {
+    ASSERT_NO_FATAL_FAILURE(base::MultiProcessTest::SetUp());
+  }
+
   void TearDown() override {
     if (@available(macOS 14.2, *)) {
       if (!stream_) {
@@ -534,6 +566,11 @@ class CatapAudioInputStreamTest : public testing::Test {
       fake_catap_api_ = nullptr;
       stream_.ClearAndDelete();
     }
+    if (child_process_.IsValid()) {
+      child_process_.Terminate(0, false);
+      child_process_.Close();
+    }
+    base::MultiProcessTest::TearDown();
   }
 
   API_AVAILABLE(macos(14.2)) FakeCatapApi* fake_catap_api() {
@@ -546,7 +583,13 @@ class CatapAudioInputStreamTest : public testing::Test {
   FakeAudioInputCallback fake_callback_;
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
+  base::Process child_process_;
 };
+
+MULTIPROCESS_TEST_MAIN(SimpleChild) {
+  base::PlatformThread::Sleep(TestTimeouts::action_max_timeout());
+  return 0;
+}
 
 TEST_F(CatapAudioInputStreamTest, CreateAndInitializeWithPermissions) {
   if (@available(macOS 14.2, *)) {
@@ -713,10 +756,13 @@ TEST_F(CatapAudioInputStreamTest, LoopbackWithoutChromeId) {
 
 TEST_F(CatapAudioInputStreamTest, ApplicationLoopback) {
   if (@available(macOS 14.2, *)) {
-    base::ProcessId process_id = getpid();
+    std::string bundle_id = "org.chromium";
+    std::string bundle_id_helper = "org.chromium.helper";
+    std::string other_bundle_id = "com.apple";
     CreateStream(
         /*with_permissions=*/true,
-        /*device_id=*/media::CreateApplicationLoopbackDeviceId(process_id));
+        /*device_id=*/media::CreateApplicationLoopbackDeviceId(bundle_id,
+                                                               std::nullopt));
 
     // Arbitrary number of CoreAudio process audio device IDs to be returned by
     // GetProcessAudioDeviceIds.
@@ -725,9 +771,10 @@ TEST_F(CatapAudioInputStreamTest, ApplicationLoopback) {
     constexpr AudioDeviceID kOtherProcessDeviceId = 3;
     fake_catap_api()->process_audio_devices = {
         kProcessFirstDeviceId, kProcessSecondDeviceId, kOtherProcessDeviceId};
-    fake_catap_api()->process_pids[kProcessFirstDeviceId] = process_id;
-    fake_catap_api()->process_pids[kProcessSecondDeviceId] = process_id;
-    fake_catap_api()->process_pids[kOtherProcessDeviceId] = process_id + 1;
+
+    fake_catap_api()->bundle_ids[kProcessFirstDeviceId] = bundle_id;
+    fake_catap_api()->bundle_ids[kProcessSecondDeviceId] = bundle_id_helper;
+    fake_catap_api()->bundle_ids[kOtherProcessDeviceId] = other_bundle_id;
 
     // Initialize the stream.
     EXPECT_EQ(stream_->Open(), AudioInputStream::OpenOutcome::kSuccess);
@@ -755,10 +802,12 @@ TEST_F(CatapAudioInputStreamTest, ApplicationLoopback) {
 TEST_F(CatapAudioInputStreamTest,
        ApplicationLoopbackSucceedWithoutAudioDevices) {
   if (@available(macOS 14.2, *)) {
-    base::ProcessId process_id = getpid();
+    std::string bundle_id = "org.chromium";
+    std::string other_bundle_id = "com.apple";
     CreateStream(
         /*with_permissions=*/true,
-        /*device_id=*/media::CreateApplicationLoopbackDeviceId(process_id));
+        /*device_id=*/media::CreateApplicationLoopbackDeviceId(bundle_id,
+                                                               std::nullopt));
 
     // Arbitrary number of CoreAudio process audio device IDs to be returned by
     // GetProcessAudioDeviceIds.
@@ -767,9 +816,10 @@ TEST_F(CatapAudioInputStreamTest,
     constexpr AudioDeviceID kOtherProcessDeviceId = 3;
     fake_catap_api()->process_audio_devices = {
         kProcessFirstDeviceId, kProcessSecondDeviceId, kOtherProcessDeviceId};
-    fake_catap_api()->process_pids[kProcessFirstDeviceId] = process_id + 1;
-    fake_catap_api()->process_pids[kProcessSecondDeviceId] = process_id + 1;
-    fake_catap_api()->process_pids[kOtherProcessDeviceId] = process_id + 1;
+
+    fake_catap_api()->bundle_ids[kProcessFirstDeviceId] = other_bundle_id;
+    fake_catap_api()->bundle_ids[kProcessSecondDeviceId] = other_bundle_id;
+    fake_catap_api()->bundle_ids[kOtherProcessDeviceId] = other_bundle_id;
 
     // Initialize the stream.
     EXPECT_EQ(stream_->Open(), AudioInputStream::OpenOutcome::kSuccess);
@@ -787,21 +837,92 @@ TEST_F(CatapAudioInputStreamTest,
   }
 }
 
+TEST_F(CatapAudioInputStreamTest, ApplicationLoopbackWithPIDs) {
+  if (@available(macOS 14.2, *)) {
+    std::string bundle_id = "org.chromium";
+    std::string other_bundle_id = "com.apple";
+    pid_t process_id = getpid();
+
+    // Create a child process to test the fallback to parent PID.
+    child_process_ = SpawnChild("SimpleChild");
+    ASSERT_TRUE(child_process_.IsValid());
+    pid_t child_pid = child_process_.Pid();
+
+    CreateStream(
+        /*with_permissions=*/true,
+        /*device_id=*/media::CreateApplicationLoopbackDeviceId(bundle_id,
+                                                               process_id));
+
+    // Arbitrary number of CoreAudio process audio device IDs to be returned by
+    // GetProcessAudioDeviceIds.
+    constexpr AudioDeviceID kProcessFirstDeviceId = 1;
+    constexpr AudioDeviceID kProcessSecondDeviceId = 2;
+    constexpr AudioDeviceID kProcessThirdDeviceId = 3;
+    constexpr AudioDeviceID kProcessFourthDeviceId = 4;
+    constexpr AudioDeviceID kProcessFifthDeviceId = 5;
+    constexpr AudioDeviceID kOtherProcessDeviceId = 6;
+    fake_catap_api()->process_audio_devices = {
+        kProcessFirstDeviceId,  kProcessSecondDeviceId, kProcessThirdDeviceId,
+        kProcessFourthDeviceId, kProcessFifthDeviceId,  kOtherProcessDeviceId};
+
+    // Don't add a bundle id for kProcessFirstDeviceId to trigger an error when
+    // retriving kAudioProcessBundleIdAddress.
+    fake_catap_api()->bundle_ids[kProcessSecondDeviceId] = bundle_id;
+    fake_catap_api()->bundle_ids[kProcessThirdDeviceId] = bundle_id;
+    fake_catap_api()->bundle_ids[kProcessFourthDeviceId] = bundle_id;
+    fake_catap_api()->bundle_ids[kProcessFifthDeviceId] = bundle_id;
+    fake_catap_api()->bundle_ids[kOtherProcessDeviceId] = other_bundle_id;
+
+    fake_catap_api()->process_pids[kProcessFirstDeviceId] = process_id;
+    // child_pid will match getpid() as that's its parent.
+    fake_catap_api()->process_pids[kProcessSecondDeviceId] = child_pid;
+    fake_catap_api()->process_pids[kProcessThirdDeviceId] = process_id;
+    // invalid pid that will fail the pid parent lookup.
+    fake_catap_api()->process_pids[kProcessFourthDeviceId] = -1;
+    // Don't add a pid for kProcessFifthDeviceId to trigger an error when
+    // retriving kAudioProcessPIDAddress.
+    fake_catap_api()->process_pids[kOtherProcessDeviceId] = process_id;
+
+    // Initialize the stream.
+    EXPECT_EQ(stream_->Open(), AudioInputStream::OpenOutcome::kSuccess);
+
+    std::set<AudioObjectID> device_ids_to_include = {kProcessSecondDeviceId,
+                                                     kProcessThirdDeviceId};
+    EXPECT_TRUE(VerifyAudioObjectIDsMatch(
+        device_ids_to_include,
+        [fake_catap_api()->last_tap_description processes]));
+
+    // For application loopback, the `processes` list contains the specific
+    // `AudioObjects` we want to capture (include). Therefore, the `exclusive`
+    // flag must be false.
+    EXPECT_FALSE([fake_catap_api()->last_tap_description isExclusive]);
+
+    // In application loopback we capture all output devices. In that case
+    // Device UID and stream should not have been set.
+    EXPECT_EQ([fake_catap_api()->last_tap_description deviceUID], nullptr);
+    EXPECT_EQ([fake_catap_api()->last_tap_description stream], nullptr);
+  }
+}
+
 TEST_F(CatapAudioInputStreamTest, UpdateStreamOnNewAudioID) {
   if (@available(macOS 14.2, *)) {
-    base::ProcessId process_id = getpid();
+    std::string bundle_id = "org.chromium";
+    std::string bundle_id_helper = "org.chromium.helper";
+    std::string other_bundle_id = "com.apple";
     int expected_set_tap_description_count = 1;
     CreateStream(
         /*with_permissions=*/true,
-        /*device_id=*/media::CreateApplicationLoopbackDeviceId(process_id));
+        /*device_id=*/media::CreateApplicationLoopbackDeviceId(bundle_id,
+                                                               std::nullopt));
     // Arbitrary number of CoreAudio process audio device IDs to be returned by
     // GetProcessAudioDeviceIds.
     constexpr AudioDeviceID kProcessFirstDeviceId = 1;
     constexpr AudioDeviceID kProcessSecondDeviceId = 2;
     constexpr AudioDeviceID kOtherProcessDeviceId = 3;
-    fake_catap_api()->process_pids[kProcessFirstDeviceId] = process_id;
-    fake_catap_api()->process_pids[kProcessSecondDeviceId] = process_id;
-    fake_catap_api()->process_pids[kOtherProcessDeviceId] = process_id + 1;
+
+    fake_catap_api()->bundle_ids[kProcessFirstDeviceId] = bundle_id;
+    fake_catap_api()->bundle_ids[kProcessSecondDeviceId] = bundle_id_helper;
+    fake_catap_api()->bundle_ids[kOtherProcessDeviceId] = other_bundle_id;
 
     // Initialize the stream.
     fake_catap_api()->process_audio_devices = {kOtherProcessDeviceId};
@@ -1110,6 +1231,71 @@ TEST_F(CatapAudioInputStreamTest, ReopensOnSamplerateChange) {
   }
 }
 
+TEST_F(CatapAudioInputStreamTest,
+       ProcessPropertyChangeEarlyReturnOnDestruction) {
+  if (@available(macOS 14.2, *)) {
+    int expected_create_aggregate_device_count = 0;
+    CreateStream();
+    EXPECT_EQ(stream_->Open(), AudioInputStream::OpenOutcome::kSuccess);
+    ++expected_create_aggregate_device_count;
+
+    EXPECT_EQ(fake_catap_api()->create_aggregate_device_count,
+              expected_create_aggregate_device_count);
+
+    // Trigger a sample rate change which will cause destruction of the source
+    // object.
+    fake_catap_api()->last_set_sample_rate = 16000;
+
+    // Call ProcessPropertyChange with two property addresses:
+    // 1. kSampleRateAddress (triggers destruction).
+    // 2. kDefaultOutputDevicePropertyAddress (should not be processed).
+    AudioObjectPropertyAddress addresses[2] = {
+        kSampleRateAddress, kDefaultOutputDevicePropertyAddress};
+
+    fake_catap_api()->property_listener_block(2, addresses);
+
+    // The first address should trigger a restart (destroy and recreate).
+    // If the early return is successful, the second address is ignored,
+    // preventing a UAF and ensuring the stream isn't restarted a second time.
+    ++expected_create_aggregate_device_count;
+    EXPECT_EQ(fake_catap_api()->create_aggregate_device_count,
+              expected_create_aggregate_device_count);
+  }
+}
+
+TEST_F(CatapAudioInputStreamTest,
+       ProcessPropertyChangeEarlyReturnOnDestructionDefaultDevice) {
+  if (@available(macOS 14.2, *)) {
+    int expected_create_aggregate_device_count = 0;
+    CreateStream();
+    EXPECT_EQ(stream_->Open(), AudioInputStream::OpenOutcome::kSuccess);
+    ++expected_create_aggregate_device_count;
+
+    EXPECT_EQ(fake_catap_api()->create_aggregate_device_count,
+              expected_create_aggregate_device_count);
+
+    // Trigger a restart on default device change.
+    // We also change the sample rate so that if the second property is
+    // processed, it would trigger another restart.
+    fake_catap_api()->last_set_sample_rate = 16000;
+
+    // Call ProcessPropertyChange with two property addresses:
+    // 1. kDefaultOutputDevicePropertyAddress (triggers destruction).
+    // 2. kSampleRateAddress (should be ignored).
+    AudioObjectPropertyAddress addresses[2] = {
+        kDefaultOutputDevicePropertyAddress, kSampleRateAddress};
+
+    fake_catap_api()->property_listener_block(2, addresses);
+
+    // The first address should trigger a restart (destroy and recreate).
+    // If the early return is successful, the second address is ignored,
+    // preventing a UAF and ensuring the stream isn't restarted a second time.
+    ++expected_create_aggregate_device_count;
+    EXPECT_EQ(fake_catap_api()->create_aggregate_device_count,
+              expected_create_aggregate_device_count);
+  }
+}
+
 TEST_F(CatapAudioInputStreamTest, RestartFailingForStartedStream) {
   if (@available(macOS 14.2, *)) {
     CreateStream();
@@ -1362,6 +1548,127 @@ TEST_F(CatapAudioInputStreamTest, SurvivesLateCallbackIfDestroyFails) {
                                  output_data, output_time, proxy_client_data);
 
     EXPECT_EQ(status, noErr);
+  }
+}
+
+TEST_F(CatapAudioInputStreamTest, InternalResamplingEnabled) {
+  if (@available(macOS 14.2, *)) {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeature(kMacCatapForceInternalResampling);
+
+    CreateStream();
+    fake_catap_api()->device_sample_rate = 44100;
+    EXPECT_EQ(stream_->Open(), AudioInputStream::OpenOutcome::kSuccess);
+    CheckSuccessfulOpen();
+  }
+}
+
+TEST_F(CatapAudioInputStreamTest, InternalResamplingOutputCorrectness) {
+  if (@available(macOS 14.2, *)) {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeature(kMacCatapForceInternalResampling);
+
+    CreateStream();
+    fake_catap_api()->device_sample_rate = 44100;
+
+    EXPECT_EQ(stream_->Open(), AudioInputStream::OpenOutcome::kSuccess);
+    CheckSuccessfulOpen();
+
+    stream_->Start(&fake_callback_);
+
+    const int device_frames = 882;  // 20 ms @ 44.1 kHz.
+    const uint32_t data_byte_size =
+        device_frames * sizeof(Float32) * kNumberOfChannelsStereo;
+    std::vector<uint8_t> data_buffer(data_byte_size);
+
+    AudioBufferList input_data;
+    input_data.mNumberBuffers = 1;
+    AudioBuffer& input_buffer = input_data.mBuffers[0];
+    input_buffer.mNumberChannels = kNumberOfChannelsStereo;
+    input_buffer.mDataByteSize = data_byte_size;
+    input_buffer.mData = data_buffer.data();
+
+    AudioTimeStamp input_time;
+    input_time.mFlags = kAudioTimeStampHostTimeValid;
+    input_time.mHostTime = mach_absolute_time();
+
+    const AudioTimeStamp* in_now = nullptr;
+    AudioBufferList* output_data = nullptr;
+    const AudioTimeStamp* output_time = nullptr;
+
+    for (int i = 0; i < 3; ++i) {
+      fake_catap_api()->audio_proc(0, in_now, &input_data, &input_time,
+                                   output_data, output_time,
+                                   fake_catap_api()->client_data);
+      input_time.mHostTime += 1000000;
+    }
+
+    EXPECT_GE(fake_callback_.on_data_call_count(), 1);
+    EXPECT_EQ(fake_callback_.last_number_of_frames(),
+              kCatapLoopbackDefaultFramesPerBuffer);
+  }
+}
+
+TEST_F(CatapAudioInputStreamTest, InternalResamplingTimestampGlitch) {
+  if (@available(macOS 14.2, *)) {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeature(kMacCatapForceInternalResampling);
+
+    CreateStream();
+    fake_catap_api()->device_sample_rate = 44100;
+
+    EXPECT_EQ(stream_->Open(), AudioInputStream::OpenOutcome::kSuccess);
+    CheckSuccessfulOpen();
+
+    stream_->Start(&fake_callback_);
+
+    const int device_frames = 882;  // 20 ms @ 44.1 kHz.
+    const uint32_t data_byte_size =
+        device_frames * sizeof(Float32) * kNumberOfChannelsStereo;
+    std::vector<uint8_t> data_buffer(data_byte_size);
+
+    AudioBufferList input_data;
+    input_data.mNumberBuffers = 1;
+    AudioBuffer& input_buffer = input_data.mBuffers[0];
+    input_buffer.mNumberChannels = kNumberOfChannelsStereo;
+    input_buffer.mDataByteSize = data_byte_size;
+    input_buffer.mData = data_buffer.data();
+
+    AudioTimeStamp input_time;
+    input_time.mFlags = kAudioTimeStampHostTimeValid;
+    input_time.mHostTime = mach_absolute_time();
+    AudioBufferList* output_data = nullptr;
+    const AudioTimeStamp* output_time = nullptr;
+    const AudioTimeStamp* in_now = nullptr;
+
+    fake_catap_api()->audio_proc(0, in_now, &input_data, &input_time,
+                                 output_data, output_time,
+                                 fake_catap_api()->client_data);
+
+    // Account for frames in the input buffer if no output was produced.
+    base::TimeDelta buffered_duration =
+        fake_callback_.on_data_call_count() == 0
+            ? base::Seconds(static_cast<double>(device_frames) /
+                            fake_catap_api()->device_sample_rate)
+            : base::Milliseconds(0);
+
+    // Simulate a second captured frame with a host timestamp that exhibits
+    // a significant glitch compared to the expected continuous timestamp.
+    input_time.mHostTime += 50000000;
+
+    fake_catap_api()->audio_proc(0, in_now, &input_data, &input_time,
+                                 output_data, output_time,
+                                 fake_catap_api()->client_data);
+
+    // The output capture time should follow the input time, accounting for the
+    // frames in the input buffer.
+    base::TimeTicks expected_capture_time =
+        base::TimeTicks::FromMachAbsoluteTime(input_time.mHostTime) -
+        buffered_duration;
+
+    EXPECT_EQ(fake_callback_.last_capture_time(), expected_capture_time);
+
+    stream_->Stop();
   }
 }
 

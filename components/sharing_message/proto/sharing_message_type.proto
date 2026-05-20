@@ -9,7 +9,6 @@ option java_package = "org.chromium.components.sharing_message.proto";
 
 package sharing_message;
 
-// Required in Chrome.
 option optimize_for = LITE_RUNTIME;
 
 // Enum for identifying a message type.
@@ -33,5 +32,6 @@ enum MessageType {
   SEND_TAB_TO_SELF_PUSH_NOTIFICATION = 12;
   DESKTOP_TO_MOBILE_PROMO_PUSH_NOTIFICATION = 13;
   ONE_TIME_TOKEN_BACKEND_NOTIFICATION = 14;
+  GLIC_EXPERIMENTAL_TRIGGERING = 15;
 }
 // LINT.ThenChange(//tools/metrics/histograms/enums.xml:SharingMessageType)

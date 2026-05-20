@@ -31,12 +31,12 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.UrlUtils;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.page.WebPageStation;
@@ -114,11 +114,11 @@ public class JavascriptAppModalDialogTest {
      * Verifies behavior when the tab that has an onBeforeUnload handler has no history stack
      * (pressing back should still show the dialog).
      *
-     * <p>Regression test for https://crbug.com/1055540
+     * <p>Regression test for https://crbug.com/40119980
      */
     @Test
     @MediumTest
-    @DisabledTest(message = "https://crbug.com/1237639")
+    @DisabledTest(message = "https://crbug.com/40783574")
     @Feature({"Browser", "Main"})
     public void testBeforeUnloadDialogWithNoHistory() throws TimeoutException, ExecutionException {
         ChromeTabbedActivity activity = mActivityTestRule.getActivity();
@@ -167,7 +167,7 @@ public class JavascriptAppModalDialogTest {
     @Test
     @MediumTest
     @Feature({"Browser", "Main"})
-    @DisabledTest(message = "https://crbug.com/1299944")
+    @DisabledTest(message = "https://crbug.com/40823908")
     public void testDisableRepeatedDialogs() throws TimeoutException, ExecutionException {
         mActivityTestRule.loadUrl(BEFORE_UNLOAD_URL);
         // JavaScript onbeforeunload dialogs require a user gesture.

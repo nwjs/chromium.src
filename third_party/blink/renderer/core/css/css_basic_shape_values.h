@@ -107,8 +107,7 @@ class CSSBasicShapeEllipseValue final : public CSSValue {
 
 class CSSBasicShapePolygonValue final : public CSSValue {
  public:
-  CSSBasicShapePolygonValue()
-      : CSSValue(kBasicShapePolygonClass), wind_rule_(RULE_NONZERO) {}
+  CSSBasicShapePolygonValue() : CSSValue(kBasicShapePolygonClass) {}
 
   void AppendPoint(CSSPrimitiveValue* x, CSSPrimitiveValue* y) {
     values_.push_back(x);
@@ -124,15 +123,22 @@ class CSSBasicShapePolygonValue final : public CSSValue {
   const HeapVector<Member<CSSPrimitiveValue>>& Values() const {
     return values_;
   }
+  CSSPrimitiveValue* RoundingRadius() const { return rounding_radius_.Get(); }
 
   // TODO(sashab): Remove this and pass it as an argument in the constructor.
   void SetWindRule(WindRule w) { wind_rule_ = w; }
   WindRule GetWindRule() const { return wind_rule_; }
+  void SetRoundingRadius(CSSPrimitiveValue* rounding_radius) {
+    rounding_radius_ = rounding_radius;
+  }
 
   String CustomCSSText() const;
   bool Equals(const CSSBasicShapePolygonValue&) const;
 
   bool HasRandomFunctions() const {
+    if (rounding_radius_ && rounding_radius_->HasRandomFunctions()) {
+      return true;
+    }
     for (const CSSPrimitiveValue* value : values_) {
       if (value && value->HasRandomFunctions()) {
         return true;
@@ -145,12 +151,21 @@ class CSSBasicShapePolygonValue final : public CSSValue {
 
  private:
   HeapVector<Member<CSSPrimitiveValue>> values_;
-  WindRule wind_rule_;
+  Member<CSSPrimitiveValue> rounding_radius_;
+  WindRule wind_rule_ = RULE_NONZERO;
 };
 
 class CSSBasicShapeInsetValue final : public CSSValue {
  public:
-  CSSBasicShapeInsetValue() : CSSValue(kBasicShapeInsetClass) {}
+  CSSBasicShapeInsetValue(CSSValue* top,
+                          CSSValue* right,
+                          CSSValue* bottom,
+                          CSSValue* left)
+      : CSSValue(kBasicShapeInsetClass),
+        top_(top),
+        right_(right),
+        bottom_(bottom),
+        left_(left) {}
 
   CSSValue* Top() const { return top_.Get(); }
   CSSValue* Right() const { return right_.Get(); }
@@ -163,35 +178,6 @@ class CSSBasicShapeInsetValue final : public CSSValue {
   CSSValuePair* BottomLeftRadius() const { return bottom_left_radius_.Get(); }
 
   // TODO(sashab): Remove these and pass them as arguments in the constructor.
-  void SetTop(CSSValue* top) { top_ = top; }
-  void SetRight(CSSValue* right) { right_ = right; }
-  void SetBottom(CSSValue* bottom) { bottom_ = bottom; }
-  void SetLeft(CSSValue* left) { left_ = left; }
-
-  void UpdateShapeSize4Values(CSSValue* top,
-                              CSSValue* right,
-                              CSSValue* bottom,
-                              CSSValue* left) {
-    SetTop(top);
-    SetRight(right);
-    SetBottom(bottom);
-    SetLeft(left);
-  }
-
-  void UpdateShapeSize1Value(CSSValue* value1) {
-    UpdateShapeSize4Values(value1, value1, value1, value1);
-  }
-
-  void UpdateShapeSize2Values(CSSValue* value1, CSSValue* value2) {
-    UpdateShapeSize4Values(value1, value2, value1, value2);
-  }
-
-  void UpdateShapeSize3Values(CSSValue* value1,
-                              CSSValue* value2,
-                              CSSValue* value3) {
-    UpdateShapeSize4Values(value1, value2, value3, value2);
-  }
-
   void SetTopLeftRadius(CSSValuePair* radius) { top_left_radius_ = radius; }
   void SetTopRightRadius(CSSValuePair* radius) { top_right_radius_ = radius; }
   void SetBottomRightRadius(CSSValuePair* radius) {

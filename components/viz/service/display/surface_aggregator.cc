@@ -462,7 +462,7 @@ SurfaceAggregator::~SurfaceAggregator() {
 }
 
 // This function is called at each render pass - CopyQuadsToPass().
-void SurfaceAggregator::AddRenderPassFilterDamageToDamageList(
+void SurfaceAggregator::ProcessPixelMovingFilters(
     const ResolvedFrameData& resolved_frame,
     const CompositorRenderPassDrawQuad* render_pass_quad,
     const gfx::Transform& parent_target_transform,
@@ -481,40 +481,52 @@ void SurfaceAggregator::AddRenderPassFilterDamageToDamageList(
     return;
   }
 
-  gfx::Rect damage_rect = render_pass_quad->rect;
-  gfx::Rect damage_rect_in_target_space;
+  gfx::Rect filter_rect_in_target_space;
   if (child_render_pass.filters.HasFilterThatMovesPixels()) {
     // The size of pixel-moving foreground filter is allowed to expand.
     // No intersecting shared_quad_state->clip_rect for the expanded rect.
-    damage_rect_in_target_space = GetTargetExpandedRectForPixelMovingFilters(
+    filter_rect_in_target_space = GetTargetExpandedRectForPixelMovingFilters(
         *render_pass_quad, child_render_pass.filters);
   } else if (child_render_pass.backdrop_filters.HasFilterThatMovesPixels()) {
     const auto* shared_quad_state = render_pass_quad->shared_quad_state;
-    damage_rect_in_target_space = cc::MathUtil::MapEnclosingClippedRect(
-        shared_quad_state->quad_to_target_transform, damage_rect);
+    filter_rect_in_target_space = cc::MathUtil::MapEnclosingClippedRect(
+        shared_quad_state->quad_to_target_transform, render_pass_quad->rect);
     if (shared_quad_state->clip_rect) {
-      damage_rect_in_target_space.Intersect(
+      filter_rect_in_target_space.Intersect(
           shared_quad_state->clip_rect.value());
     }
   }
 
-  gfx::Rect damage_rect_in_root_target_space =
+  gfx::Rect filter_rect_in_root_target_space =
       TransformRectToDestRootTargetSpace(
-          damage_rect_in_target_space, parent_target_transform,
+          filter_rect_in_target_space, parent_target_transform,
           dest_transform_to_root_target, dest_root_target_clip_rect);
 
   // The whole render pass rect with pixel-moving foreground filters or
   // backdrop filters is considered damaged if it intersects with the other
   // damages.
-  if (damage_rect_in_root_target_space.Intersects(root_damage_rect_)) {
-    // Since |damage_rect_in_root_target_space| is available, just pass this
+  if (needs_surface_damage_rect_list_ &&
+      filter_rect_in_root_target_space.Intersects(root_damage_rect_)) {
+    // Since |filter_rect_in_root_target_space| is available, just pass this
     // rect and reset the other arguments.
     AddSurfaceDamageToDamageList(
-        damage_rect_in_root_target_space,
+        filter_rect_in_root_target_space,
         /*parent_target_transform*/ gfx::Transform(),
         /*dest_root_target_clip_rect*/ {},
         /*dest_transform_to_root_target*/ gfx::Transform(),
         /*resolved_frame=*/nullptr, /*zero_damage_texture_draw_quad=*/false);
+  }
+
+  // If any tracked element intersects with pixel-moving foreground filters or
+  // backdrop filters, update the tracked element's visible bounds to include
+  // the filter bounding rect.
+  for (auto& [feature, tracked_elements] : tracked_element_rects_) {
+    for (auto& rect_data : tracked_elements) {
+      if (rect_data.visible_bounds.Intersects(
+              filter_rect_in_root_target_space)) {
+        rect_data.visible_bounds.Union(filter_rect_in_root_target_space);
+      }
+    }
   }
 }
 
@@ -887,6 +899,12 @@ void SurfaceAggregator::EmitSurfaceContent(
 
   gfx::Transform combined_transform = scaled_quad_to_target_transform;
   combined_transform.PostConcat(target_transform);
+
+  if (resolved_frame.WillDraw()) {
+    CollectTrackedElementRects(frame_metadata, combined_transform,
+                               dest_pass->transform_to_root_target,
+                               dest_root_target_clip_rect);
+  }
 
   // If the SurfaceDrawQuad is marked as being reflected and surface contents
   // are going to be scaled then keep the RenderPass. This allows the reflected
@@ -1438,12 +1456,12 @@ void SurfaceAggregator::CopyQuadsToPass(
             pass_quad, resolved_pass_data.render_pass(),
             resolved_pass_data.remapped_id());
 
-        if (needs_surface_damage_rect_list_ &&
-            resolved_pass.aggregation().will_draw) {
-          AddRenderPassFilterDamageToDamageList(
-              resolved_frame, pass_quad, target_transform,
-              new_dest_root_target_clip_rect,
-              dest_pass->transform_to_root_target);
+        if (resolved_pass.aggregation().will_draw &&
+            (needs_surface_damage_rect_list_ ||
+             !tracked_element_rects_.empty())) {
+          ProcessPixelMovingFilters(resolved_frame, pass_quad, target_transform,
+                                    new_dest_root_target_clip_rect,
+                                    dest_pass->transform_to_root_target);
         }
       } else if (const auto* texture_quad =
                      quad->DynamicCast<TextureDrawQuad>()) {
@@ -1501,6 +1519,14 @@ void SurfaceAggregator::CopyPasses(ResolvedFrameData& resolved_frame) {
           surface_transform, root_resolved_pass.render_pass().output_rect);
 
   const auto& frame_metadata = resolved_frame.GetMetadata();
+
+  if (resolved_frame.WillDraw()) {
+    CollectTrackedElementRects(
+        frame_metadata, surface_transform,
+        root_resolved_pass.render_pass().transform_to_root_target,
+        /*root_target_clip_rect=*/std::nullopt);
+  }
+
   if (frame_metadata.delegated_ink_metadata) {
     // Copy delegated ink metadata from the compositor frame metadata. This
     // prevents the delegated ink trail from flickering if a compositor frame
@@ -2139,6 +2165,7 @@ AggregatedFrame SurfaceAggregator::Aggregate(
   is_inside_aggregate_ = true;
 
   root_surface_id_ = surface_id;
+  tracked_element_rects_ = {};
 
   ResolvedFrameData* resolved_frame = GetResolvedFrame(surface_id);
 
@@ -2320,6 +2347,8 @@ AggregatedFrame SurfaceAggregator::Aggregate(
   if (frame_annotator_)
     frame_annotator_->AnnotateAggregatedFrame(&frame);
 
+  frame.tracked_element_rects = std::move(tracked_element_rects_);
+
   return frame;
 }
 
@@ -2447,10 +2476,10 @@ void SurfaceAggregator::TransformAndStoreDelegatedInkMetadata(
       area, metadata->frame_time(), metadata->is_hovering(),
       render_pass_with_delegated_ink.GetUnsafeValue());
 
-  TRACE_EVENT_INSTANT2(
+  TRACE_EVENT_INSTANT(
       "viz", "SurfaceAggregator::TransformAndStoreDelegatedInkMetadata",
-      TRACE_EVENT_SCOPE_THREAD, "original metadata", metadata->ToString(),
-      "transformed metadata", delegated_ink_metadata_->ToString());
+      "original metadata", metadata->ToString(), "transformed metadata",
+      delegated_ink_metadata_->ToString());
 }
 
 void SurfaceAggregator::DebugLogSurface(const Surface* surface,
@@ -2460,6 +2489,23 @@ void SurfaceAggregator::DebugLogSurface(const Surface* surface,
           surface->surface_id().ToString().c_str(),
           surface->size_in_pixels().ToString().c_str(),
           base::ToString(will_draw).c_str());
+}
+
+void SurfaceAggregator::CollectTrackedElementRects(
+    const CompositorFrameMetadata& frame_metadata,
+    const gfx::Transform& target_transform,
+    const gfx::Transform& transform_to_root_target,
+    const std::optional<gfx::Rect> root_target_clip_rect) {
+  for (const auto& [feature, tracked_elements] :
+       frame_metadata.tracked_element_rects) {
+    for (const auto& rect_data : tracked_elements) {
+      TrackedElementRect transformed_rect_data = rect_data;
+      transformed_rect_data.visible_bounds = TransformRectToDestRootTargetSpace(
+          rect_data.visible_bounds, target_transform, transform_to_root_target,
+          root_target_clip_rect);
+      tracked_element_rects_[feature].push_back(transformed_rect_data);
+    }
+  }
 }
 
 }  // namespace viz

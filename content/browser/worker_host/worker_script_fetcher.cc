@@ -312,12 +312,14 @@ void WorkerScriptFetcher::CreateAndStart(
       factory_bundle_for_browser = CreateFactoryBundle(
           LoaderType::kMainResource, worker_process_id, storage_partition,
           storage_domain, constructor_uses_file_url, filesystem_url_support,
-          creator_render_frame_host, request_initiator_storage_key);
+          creator_render_frame_host, request_initiator_storage_key,
+          request_destination);
   std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
       subresource_loader_factories = CreateFactoryBundle(
           LoaderType::kSubResource, worker_process_id, storage_partition,
           storage_domain, constructor_uses_file_url, filesystem_url_support,
-          creator_render_frame_host, request_initiator_storage_key);
+          creator_render_frame_host, request_initiator_storage_key,
+          request_destination);
 
   // Create a resource request for initiating worker script fetch from the
   // browser process.
@@ -603,7 +605,8 @@ WorkerScriptFetcher::CreateFactoryBundle(
     bool file_support,
     bool filesystem_url_support,
     RenderFrameHostImpl* creator_render_frame_host,
-    const blink::StorageKey& request_initiator_storage_key) {
+    const blink::StorageKey& request_initiator_storage_key,
+    network::mojom::RequestDestination request_destination) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   ContentBrowserClient::NonNetworkURLLoaderFactoryMap non_network_factories;
@@ -636,7 +639,9 @@ WorkerScriptFetcher::CreateFactoryBundle(
       GetContentClient()
           ->browser()
           ->RegisterNonNetworkWorkerMainResourceURLLoaderFactories(
-              storage_partition->browser_context(), &non_network_factories);
+              storage_partition->browser_context(),
+              request_initiator_storage_key.origin(), request_destination,
+              &non_network_factories);
       break;
     case LoaderType::kSubResource:
       GetContentClient()

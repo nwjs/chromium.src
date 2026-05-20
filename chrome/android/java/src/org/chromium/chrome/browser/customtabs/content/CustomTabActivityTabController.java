@@ -52,7 +52,6 @@ import org.chromium.chrome.browser.customtabs.FirstMeaningfulPaintObserver;
 import org.chromium.chrome.browser.customtabs.HiddenTabHolder.HiddenTab;
 import org.chromium.chrome.browser.customtabs.PageLoadMetricsObserver;
 import org.chromium.chrome.browser.customtabs.TwaOfflineDataProvider;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -63,7 +62,6 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabAssociatedApp;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
-import org.chromium.chrome.browser.tab.TabLoadIfNeededCaller;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.AsyncTabParams;
@@ -348,7 +346,7 @@ public class CustomTabActivityTabController implements PauseResumeWithNativeObse
         assert tab != null;
         assert mTabProvider.getInitialTabCreationMode() != TabCreationMode.NONE;
 
-        // Put Sync in the correct state by calling tab state initialized. crbug.com/581811.
+        // Put Sync in the correct state by calling tab state initialized. crbug.com/40454188.
         tabModelSelector.markTabStateInitialized();
 
         // Notify ServiceTabLauncher if this is an asynchronous tab launch.
@@ -466,7 +464,7 @@ public class CustomTabActivityTabController implements PauseResumeWithNativeObse
                             null);
         } else if (warmupManager.hasSpareTab(profile, mIntentDataProvider.hasTargetNetwork())) {
             // Start hidden as Tab needs to be shown after observers are attached.
-            boolean startHidden = ChromeFeatureList.isEnabled(ChromeFeatureList.CCT_SHOW_TAB_FIX);
+            boolean startHidden = true;
             tab = warmupManager.takeSpareTab(profile, startHidden, TabLaunchType.FROM_EXTERNAL_APP);
             needsShow = startHidden;
             TabAssociatedApp.from(tab).setAppId(appId);
@@ -486,8 +484,7 @@ public class CustomTabActivityTabController implements PauseResumeWithNativeObse
         initializeTab(tab, false);
 
         if (needsShow) {
-            tab.show(
-                    TabSelectionType.FROM_NEW, TabLoadIfNeededCaller.REQUEST_TO_SHOW_TAB_THEN_SHOW);
+            tab.show(TabSelectionType.FROM_NEW);
         }
 
         if (mIntentDataProvider.getTranslateLanguage() != null) {

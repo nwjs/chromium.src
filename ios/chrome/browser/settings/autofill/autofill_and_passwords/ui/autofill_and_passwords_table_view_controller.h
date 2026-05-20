@@ -9,10 +9,48 @@
 #import "ios/chrome/browser/settings/ui_bundled/settings_controller_protocol.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_root_table_view_controller.h"
 
+@class AutofillAndPasswordsTableViewController;
+
+// Delegate for presentation events related to
+// AutofillAndPasswordsTableViewController.
+@protocol AutofillAndPasswordsTableViewControllerDelegate <NSObject>
+
+// Called when the view controller is removed from its parent.
+- (void)autofillAndPasswordsTableViewControllerDidRemove:
+    (AutofillAndPasswordsTableViewController*)controller;
+
+// Called when the user taps on the passwords item.
+- (void)autofillAndPasswordsTableViewControllerDidSelectPasswords:
+    (AutofillAndPasswordsTableViewController*)controller;
+
+// Called when the user taps on the autofill credit card item.
+- (void)autofillAndPasswordsTableViewControllerDidSelectAutofillCreditCard:
+    (AutofillAndPasswordsTableViewController*)controller;
+
+// Called when the user taps on the autofill profile item.
+- (void)autofillAndPasswordsTableViewControllerDidSelectAutofillProfile:
+    (AutofillAndPasswordsTableViewController*)controller;
+
+// Called when the user taps on the identity docs item.
+- (void)autofillAndPasswordsTableViewControllerDidSelectIdentityDocs:
+    (AutofillAndPasswordsTableViewController*)controller;
+
+// Called when the user taps on the travel info item.
+- (void)autofillAndPasswordsTableViewControllerDidSelectTravelInfo:
+    (AutofillAndPasswordsTableViewController*)controller;
+
+@end
+
 // The TableView for Autofill and passwords settings page.
 @interface AutofillAndPasswordsTableViewController
     : SettingsRootTableViewController <AutofillAndPasswordsConsumer,
                                        SettingsControllerProtocol>
+
+// Presentation delegate.
+@property(nonatomic, weak) id<AutofillAndPasswordsTableViewControllerDelegate>
+    delegate;
+
+- (instancetype)initWithStyle:(UITableViewStyle)style NS_DESIGNATED_INITIALIZER;
 
 @end
 

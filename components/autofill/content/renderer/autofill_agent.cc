@@ -147,13 +147,9 @@ bool ShowPredictions(const WebDocument& document,
       continue;
     }
 
-    // If the flag is enabled, attach the prediction to the field.
+    // Attach the prediction to the field.
     constexpr size_t kMaxLabelSize = 100;
-    std::string label =
-        base::FeatureList::IsEnabled(
-            features::kAutofillEnableSupportForParsingWithSharedLabels)
-            ? field.parseable_label
-            : base::UTF16ToUTF8(field_data.label());
+    std::string label = base::UTF16ToUTF8(field_data.label());
     std::string truncated_label = label.substr(0, kMaxLabelSize);
     // The label may be derived from the placeholder attribute and may contain
     // line wraps which are normalized here.
@@ -279,7 +275,7 @@ bool ShowPredictions(const WebDocument& document,
     // Google Translate is triggered for the site. This is useful for
     // automated processing of the data.
     element.SetAttribute("autofill-information",
-                         WebString::FromUTF8(autofill_info));
+                         WebString::FromUtf8(autofill_info));
 
     //  If the field has password manager's annotation, add it as well.
     if (element.HasAttribute("pm_parser_annotation")) {
@@ -294,11 +290,11 @@ bool ShowPredictions(const WebDocument& document,
     bool title_parameter_on =
         features::debug::kAutofillShowTypePredictionsAsTitleParam.Get();
     if (title_parameter_on) {
-      element.SetAttribute("title", WebString::FromUTF8(autofill_info));
+      element.SetAttribute("title", WebString::FromUtf8(autofill_info));
     }
 
     element.SetAttribute("autofill-prediction",
-                         WebString::FromUTF8(field.overall_type));
+                         WebString::FromUtf8(field.overall_type));
   }
   return true;
 }
@@ -651,6 +647,7 @@ CallTimerState AutofillAgent::GetCallTimerState(
 
 void AutofillAgent::FocusedElementChanged(
     const WebElement& new_focused_element) {
+  inactivity_timer_.Stop();
   ObserveCaret(new_focused_element);
 
   HidePopup();
@@ -754,6 +751,7 @@ void AutofillAgent::ObserveCaret(WebElement element) {
 
 void AutofillAgent::HandleCaretMovedInFormField(WebElement element,
                                                 WebDOMEvent) {
+  inactivity_timer_.Stop();
   auto handle_throttled_caret_change = [](AutofillAgent& self,
                                           WebElement element) {
     if (!self.unsafe_render_frame() || !element.Focused() ||
@@ -926,6 +924,14 @@ void AutofillAgent::OnTextFieldValueChanged(
                     form_cache, password_request);
   }
 
+  // TODO(crbug.com/507716605): Consider if this should be started on typing or
+  // on focus.
+  inactivity_timer_.Start(
+      FROM_HERE, base::Seconds(5),
+      base::BindOnce(&AutofillAgent::OnInactivityTimerFired,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     form_util::GetFieldRendererId(element)));
+
   if (std::optional<FormAndField> form_and_field =
           form_util::FindFormAndFieldForFormControlElement(
               element, field_data_manager(),
@@ -936,6 +942,21 @@ void AutofillAgent::OnTextFieldValueChanged(
       autofill_driver->TextFieldValueChanged(form, field->renderer_id(),
                                              base::TimeTicks::Now());
     }
+  }
+}
+
+void AutofillAgent::OnInactivityTimerFired(FieldRendererId field_id) {
+  WebFormControlElement element =
+      form_util::GetFormControlByRendererId(field_id);
+  if (!element || !element.Focused()) {
+    return;
+  }
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAtMemoryInactivityNudge) &&
+      base::FeatureList::IsEnabled(features::kAutofillAtMemory)) {
+    ShowSuggestions(element,
+                    AutofillSuggestionTriggerSource::kAtMemoryInactivityNudge,
+                    /*form_cache=*/{}, /*password_request=*/std::nullopt);
   }
 }
 
@@ -1039,6 +1060,7 @@ void AutofillAgent::ApplyFieldsAction(
     const std::vector<FormFieldData::FillData>& fields,
     const FillId& fill_id,
     bool supports_refill) {
+  inactivity_timer_.Stop();
   CHECK(!fields.empty());
   WebDocument document = GetDocument();
   if (!document) {
@@ -1170,7 +1192,7 @@ void AutofillAgent::ExposeDomNodeIds() {
        element = all.NextItem()) {
     element.SetAttribute(
         "dom-node-id",
-        WebString::FromUTF8(base::NumberToString(element.GetDomNodeId())));
+        WebString::FromUtf8(base::NumberToString(element.GetDomNodeId())));
   }
 }
 
@@ -1196,32 +1218,6 @@ void AutofillAgent::ClearPreviewedForm() {
   }
   form_util::ClearPreviewedElements(previewed_elements);
   previewed_elements_ = {};
-}
-
-void AutofillAgent::FindPotentialSiwgButtons(
-    base::OnceCallback<void(std::vector<mojom::SiwgButtonDataPtr>)> callback) {
-  std::vector<mojom::SiwgButtonDataPtr> results;
-  WebDocument document = GetDocument();
-  if (document.IsNull()) {
-    std::move(callback).Run(std::move(results));
-    return;
-  }
-
-  for (const WebElement& element :
-       document.QuerySelectorAll(WebString::FromUTF8(
-           R"(button, a, [role="button"], div#g_id_onload, div.g-signin2)"))) {
-    auto button_data = mojom::SiwgButtonData::New();
-    button_data->dom_node_id = element.GetDomNodeId();
-    button_data->text = element.TextContent().Utf16();
-    button_data->id_attribute = element.GetAttribute("id").Utf16();
-    button_data->class_attribute = element.GetAttribute("class").Utf16();
-    button_data->aria_label = element.GetAttribute("aria-label").Utf16();
-    button_data->href_attribute = element.GetAttribute("href").Utf16();
-    button_data->role = element.GetAttribute("role").Utf16();
-    button_data->tag_name = element.TagName().Utf16();
-    results.emplace_back(std::move(button_data));
-  }
-  std::move(callback).Run(std::move(results));
 }
 
 void AutofillAgent::TriggerSuggestions(
@@ -1260,6 +1256,7 @@ void AutofillAgent::ApplyFieldAction(
     mojom::ActionPersistence action_persistence,
     FieldRendererId field_id,
     const std::u16string& value) {
+  inactivity_timer_.Stop();
   if (!unsafe_render_frame()) {
     return;
   }
@@ -1540,11 +1537,9 @@ void AutofillAgent::ShowSuggestions(
 
   last_queried_element_ = FieldRef(element);
 
-  // Password manager takes precedence over Autofill, but not about manual
-  // fallbacks.
+  // Password manager takes precedence over Autofill.
   // TODO(crbug.com/333990908): Test manual fallback on different form types.
-  if (auto input_element = element.DynamicTo<WebInputElement>();
-      input_element && !IsPlusAddressesManuallyTriggered(trigger_source)) {
+  if (auto input_element = element.DynamicTo<WebInputElement>()) {
     // Only manually triggered requests override generation requests.
     if (!IsPasswordsAutofillManuallyTriggered(trigger_source) &&
         password_generation_agent_ &&
@@ -1632,7 +1627,7 @@ void AutofillAgent::DispatchEmailVerifiedEvent(
     const std::string& presentation_token) {
   if (WebFormControlElement element =
           form_util::GetFormControlByRendererId(field_id)) {
-    element.DispatchEmailVerifiedEvent(WebString::FromUTF8(presentation_token));
+    element.DispatchEmailVerifiedEvent(WebString::FromUtf8(presentation_token));
   }
 }
 

@@ -9,10 +9,7 @@ source_set("coordinator") {
     "composebox_navigation_mediator.h",
     "composebox_navigation_mediator.mm",
   ]
-  public_deps = [
-    ":availability",
-    ":entrypoint",
-  ]
+  public_deps = [ ":availability" ]
   deps = [
     ":aim_deps",
     ":clipboard_deps",
@@ -29,6 +26,7 @@ source_set("coordinator") {
     "//ios/chrome/app:tests_hook",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/composebox/debugger",
+    "//ios/chrome/browser/composebox/menu/coordinator",
     "//ios/chrome/browser/composebox/model",
     "//ios/chrome/browser/composebox/public",
     "//ios/chrome/browser/composebox/ui",
@@ -46,17 +44,13 @@ source_set("availability") {
     "composebox_availability.h",
     "composebox_availability.mm",
   ]
-  public_deps = [ ":entrypoint" ]
+  public_deps = [ "//ios/chrome/browser/composebox/public:entrypoint" ]
   deps = [
     "//base",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/public/features",
   ]
-}
-
-source_set("entrypoint") {
-  sources = [ "composebox_entrypoint.h" ]
 }
 
 source_set("input_plate") {
@@ -70,23 +64,19 @@ source_set("input_plate") {
     "composebox_omnibox_client.h",
     "composebox_omnibox_client.mm",
     "composebox_omnibox_client_delegate.h",
-    "composebox_tab_picker_coordinator.h",
-    "composebox_tab_picker_coordinator.mm",
-    "composebox_tab_picker_mediator.h",
-    "composebox_tab_picker_mediator.mm",
+    "composebox_query_contextualizer_delegate_bridge.h",
+    "composebox_query_contextualizer_delegate_bridge.mm",
     "composebox_url_loader.h",
-    "web_state_deferred_executor.h",
-    "web_state_deferred_executor.mm",
   ]
   public_deps = [
     ":availability",
-    ":entrypoint",
     ":mode_holder",
   ]
   deps = [
     ":aim_deps",
     ":bookmarks_deps",
     ":common_deps",
+    ":input_state_manager",
     ":intelligence_deps",
     ":lens_deps",
     ":location_bar_deps",
@@ -94,22 +84,27 @@ source_set("input_plate") {
     ":omnibox_deps",
     ":search_deps",
     ":shared_deps",
-    ":tab_switcher_deps",
     ":url_loading_deps",
     "//components/application_locale_storage",
     "//components/contextual_search:public",
+    "//components/contextual_tasks/public:query_contextualizer",
     "//components/favicon/ios",
     "//components/feature_engagement/public",
     "//components/prefs",
     "//components/security_state/ios",
+    "//components/strings",
     "//ios/chrome/app:tests_hook",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/autocomplete/model",
     "//ios/chrome/browser/cobrowse/model",
+    "//ios/chrome/browser/cobrowse/model:factory",
     "//ios/chrome/browser/composebox/debugger",
+    "//ios/chrome/browser/composebox/menu/coordinator",
     "//ios/chrome/browser/composebox/model",
     "//ios/chrome/browser/composebox/public",
+    "//ios/chrome/browser/composebox/shared/coordinator",
     "//ios/chrome/browser/composebox/ui",
+    "//ios/chrome/browser/composebox/ui:state",
     "//ios/chrome/browser/composebox/ui/presentation",
     "//ios/chrome/browser/default_browser/model:default_browser_interest_signals",
     "//ios/chrome/browser/drag_and_drop/model",
@@ -118,8 +113,11 @@ source_set("input_plate") {
     "//ios/chrome/browser/https_upgrades/model",
     "//ios/chrome/browser/intents/model:model_donation_helper",
     "//ios/chrome/browser/prerender/model",
+    "//ios/chrome/browser/shared/model/utils:web_state_deferred_executor",
     "//ios/chrome/browser/signin/model",
     "//ios/chrome/browser/snapshots/model",
+    "//ios/chrome/browser/tab_picker/coordinator",
+    "//ios/chrome/browser/tab_switcher/ui_bundled:utils",
     "//ios/chrome/browser/tabs/model",
     "//ios/chrome/browser/variations/model/client",
     "//ios/chrome/browser/web/model",
@@ -206,21 +204,6 @@ group("common_deps") {
   ]
 }
 
-group("tab_switcher_deps") {
-  visibility = [ ":*" ]
-  public_deps = [
-    "//ios/chrome/browser/tab_switcher/tab_grid/base_grid/coordinator:mediator",
-    "//ios/chrome/browser/tab_switcher/tab_grid/base_grid/ui",
-    "//ios/chrome/browser/tab_switcher/ui_bundled",
-    "//ios/chrome/browser/tab_switcher/ui_bundled:items",
-    "//ios/chrome/browser/tab_switcher/ui_bundled:utils",
-    "//ios/chrome/browser/tab_switcher/ui_bundled/tab_grid:tab_grid_mode",
-    "//ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid:grid_item_identifier",
-    "//ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid:grid_utils",
-    "//ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid:selected_grid_items",
-  ]
-}
-
 group("intelligence_deps") {
   visibility = [ ":*" ]
   public_deps = [
@@ -273,7 +256,11 @@ group("bookmarks_deps") {
 }
 
 source_set("mode_holder") {
-  visibility = [ ":*" ]
+  visibility = [
+    ":*",
+    "//ios/chrome/browser/composebox/menu/coordinator:*",
+    "//ios/chrome/browser/ntp/ui_bundled:*",
+  ]
   sources = [
     "composebox_mode_holder.h",
     "composebox_mode_holder.mm",
@@ -291,23 +278,66 @@ source_set("constants") {
     "composebox_constants.h",
     "composebox_constants.mm",
   ]
-  deps = [ "//base" ]
+  deps = [
+    "//base",
+    "//ios/chrome/browser/composebox/public:composebox_mode",
+  ]
+}
+
+source_set("input_state_manager") {
+  sources = [
+    "composebox_input_state_manager.h",
+    "composebox_input_state_manager.mm",
+  ]
+  deps = [
+    "//base",
+    "//components/contextual_search:public",
+    "//components/omnibox/browser",
+    "//components/prefs",
+    "//components/search",
+    "//components/search_engines",
+    "//components/signin/public/identity_manager",
+    "//components/strings",
+    "//ios/chrome/browser/composebox/coordinator:constants",
+    "//ios/chrome/browser/composebox/coordinator:mode_holder",
+    "//ios/chrome/browser/composebox/public:attachment_options",
+    "//ios/chrome/browser/composebox/public:composebox_mode",
+    "//ios/chrome/browser/composebox/public:entrypoint",
+    "//ios/chrome/browser/composebox/public:features",
+    "//ios/chrome/browser/composebox/public:model_options",
+    "//ios/chrome/browser/composebox/ui",
+    "//ios/chrome/browser/composebox/ui:state",
+    "//ios/chrome/browser/shared/model/url",
+    "//ios/chrome/browser/shared/model/web_state_list",
+    "//ios/chrome/browser/shared/public/features",
+    "//ios/chrome/browser/shared/public/features:system_flags",
+    "//ios/chrome/common:string_conversions",
+    "//ios/web/public",
+  ]
 }
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "composebox_input_plate_mediator_unittest.mm" ]
+  sources = [
+    "composebox_cobrowse_omnibox_client_unittest.mm",
+    "composebox_input_plate_mediator_unittest.mm",
+    "composebox_input_state_manager_unittest.mm",
+  ]
   deps = [
     ":coordinator",
     ":input_plate",
+    ":input_state_manager",
     ":lens_deps",
     ":mode_holder",
     "//base",
     "//base/test:test_support",
+    "//components/contextual_search:prefs",
     "//components/contextual_search:public",
     "//components/contextual_search:test_support",
     "//components/contextual_search/internal:test_support",
     "//components/contextual_search/internal/ios",
+    "//components/contextual_tasks/public:query_contextualizer",
+    "//components/feature_engagement/test:test_support",
     "//components/omnibox/browser",
     "//components/omnibox/browser:test_support",
     "//components/search_engines",
@@ -315,11 +345,15 @@ source_set("unit_tests") {
     "//components/signin/public/identity_manager",
     "//components/variations",
     "//components/version_info:channel",
+    "//ios/chrome/browser/cobrowse/model:factory",
     "//ios/chrome/browser/composebox/public",
     "//ios/chrome/browser/composebox/ui",
+    "//ios/chrome/browser/composebox/ui:state",
+    "//ios/chrome/browser/shared/model/browser/test:test_support",
     "//ios/chrome/browser/shared/model/profile/test",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/model/web_state_list/test:test_support",
+    "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/signin/model",
     "//ios/web/public/test/fakes",
     "//services/network:test_support",

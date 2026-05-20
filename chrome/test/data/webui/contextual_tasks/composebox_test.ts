@@ -129,9 +129,14 @@ suite('ContextualTasksComposeboxTest', () => {
     BrowserProxyImpl.setInstance(testProxy);
 
     mockComposeboxPageHandler = TestMock.fromClass(ComposeboxPageHandlerRemote);
+    mockComposeboxPageHandler.setResultFor(
+        'getSmartTabSharingActive', Promise.resolve({active: false}));
     mockSearchboxPageHandler = TestMock.fromClass(SearchboxPageHandlerRemote);
     mockSearchboxPageHandler.setResultFor(
         'getRecentTabs', Promise.resolve({tabs: []}));
+    mockSearchboxPageHandler.setResultFor(
+        'getPageClassification',
+        Promise.resolve({metricSource: 'CO_BROWSING_COMPOSEBOX'}));
     mockSearchboxPageHandler.setResultFor(
         'addTabContext', Promise.resolve({high: BigInt(1), low: BigInt(2)}));
     mockSearchboxPageHandler.setResultFor('getInputState', Promise.resolve({
@@ -475,6 +480,9 @@ suite('ContextualTasksComposeboxTest', () => {
     await composebox.updateComplete;
     assertEquals(
         '', inputElement.value, 'Input should be cleared after submit');
+    assertEquals(
+        null, composebox.getDropdownElement().result,
+        'Matches should be cleared after submit');
 
     // 5. Action: Press Enter again on empty input.
     mockSearchboxPageHandler.reset();
@@ -514,6 +522,9 @@ suite('ContextualTasksComposeboxTest', () => {
     // Clear the body and reset the mock to test a fresh instance.
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     mockSearchboxPageHandler.reset();
+    mockSearchboxPageHandler.setResultFor(
+        'getPageClassification',
+        Promise.resolve({metricSource: 'CO_BROWSING_COMPOSEBOX'}));
     mockSearchboxPageHandler.setResultFor('getInputState', Promise.resolve({
       state: {
         allowedModels: [],
@@ -570,6 +581,9 @@ suite('ContextualTasksComposeboxTest', () => {
     // Clear the body and reset the mock to test a fresh instance.
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     mockSearchboxPageHandler.reset();
+    mockSearchboxPageHandler.setResultFor(
+        'getPageClassification',
+        Promise.resolve({metricSource: 'CO_BROWSING_COMPOSEBOX'}));
     mockSearchboxPageHandler.setResultFor('getInputState', Promise.resolve({
       state: {
         allowedModels: [],
@@ -611,6 +625,9 @@ suite('ContextualTasksComposeboxTest', () => {
         // Clear the body and reset the mock to test a fresh instance.
         document.body.innerHTML = window.trustedTypes!.emptyHTML;
         mockSearchboxPageHandler.reset();
+        mockSearchboxPageHandler.setResultFor(
+            'getPageClassification',
+            Promise.resolve({metricSource: 'CO_BROWSING_COMPOSEBOX'}));
         mockSearchboxPageHandler.setResultFor('getInputState', Promise.resolve({
           state: {
             allowedModels: [],
@@ -761,6 +778,9 @@ suite('ContextualTasksComposeboxTest', () => {
     // After submission, verify the input is cleared by your component logic.
     await innerComposebox.updateComplete;
     assertEquals('', innerComposebox.input);
+    assertEquals(
+        null, innerComposebox.getDropdownElement().result,
+        'Matches should be cleared after submit');
   });
 
   test('OfflineStatusReconsideredOnReload', async () => {
@@ -772,6 +792,11 @@ suite('ContextualTasksComposeboxTest', () => {
 
     const threadFrame = contextualTasksApp.$.threadFrame;
     const composebox = contextualTasksApp.$.composebox;
+
+    mockSearchboxPageHandler.reset();
+    mockSearchboxPageHandler.setResultFor(
+        'getPageClassification',
+        Promise.resolve({metricSource: 'CO_BROWSING_COMPOSEBOX'}));
 
     // Set to zero state to ensure autocomplete is queried.
     testProxy.callbackRouterRemote.onZeroStateChange(true);
@@ -1185,5 +1210,49 @@ suite('ContextualTasksComposeboxTest', () => {
     assertEquals(1, files.length);
     // Reference should be exactly the same (no re-allocation or modification)
     assertEquals(updatedFile, files[0]);
+  });
+
+  test('SmartTabSharingActiveChangedFiresMojo', async () => {
+    const contextualComposebox = contextualTasksApp.$.composebox;
+    const crComposebox = $$(contextualComposebox, '#composebox');
+    assertTrue(!!crComposebox);
+    const entrypointAndMenu =
+        $$(crComposebox, 'cr-composebox-contextual-entrypoint-and-menu');
+    assertTrue(!!entrypointAndMenu);
+
+    mockComposeboxPageHandler.reset();
+
+    entrypointAndMenu.dispatchEvent(
+        new CustomEvent('smart-tab-sharing-active-changed', {
+          detail: {active: true},
+          bubbles: true,
+          composed: true,
+        }));
+
+    const activeArg =
+        await mockComposeboxPageHandler.whenCalled('setSmartTabSharingActive');
+    assertEquals(
+        1, mockComposeboxPageHandler.getCallCount('setSmartTabSharingActive'));
+    assertEquals(true, activeArg);
+  });
+
+  test('ContextMenuOpenedFiresMojo', async () => {
+    const contextualComposebox = contextualTasksApp.$.composebox;
+    const crComposebox = $$(contextualComposebox, '#composebox');
+    assertTrue(!!crComposebox);
+    const entrypointAndMenu =
+        $$(crComposebox, 'cr-composebox-contextual-entrypoint-and-menu');
+    assertTrue(!!entrypointAndMenu);
+
+    mockComposeboxPageHandler.reset();
+
+    entrypointAndMenu.dispatchEvent(new CustomEvent('context-menu-opened', {
+      bubbles: true,
+      composed: true,
+    }));
+
+    await mockComposeboxPageHandler.whenCalled('onContextMenuOpened');
+    assertEquals(
+        1, mockComposeboxPageHandler.getCallCount('onContextMenuOpened'));
   });
 });

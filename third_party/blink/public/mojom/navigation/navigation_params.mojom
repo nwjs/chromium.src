@@ -45,6 +45,7 @@ import "third_party/blink/public/mojom/storage_key/storage_key.mojom";
 import "third_party/blink/public/mojom/tokens/tokens.mojom";
 import "url/mojom/origin.mojom";
 import "url/mojom/url.mojom";
+import "mojo/public/mojom/base/unguessable_token.mojom";
 
 enum NavigationType {
   // Reload the page, validating only cache entry for the main resource.
@@ -197,16 +198,15 @@ struct BeginNavigationParams {
   // TODO(https://github.com/whatwg/html/issues/8846): clarify this further.
   bool is_container_initiated = false;
 
-  // The renderer's Storage Access API status (e.g. whether it has opted into
-  // accessing cross-site cookies). Note that this is not trusted; cookies will
-  // not actually be attached unless there is also a matching permission grant
-  // created by the browser process. (Also note that the Storage Access API is
-  // only relevant when third-party cookies are blocked.)
-  network.mojom.StorageAccessApiStatus storage_access_api_status = kNone;
-
   // True if the initiator explicitly asked for opener relationships to be
   // preserved, via rel="opener".
   bool has_rel_opener = false;
+
+  // If the navigation was triggered by an actor script tool, this contains the
+  // ID of the tool invocation. This helps the browser to associate the
+  // navigation with the tool that caused it.
+  // This is null for navigations that were not triggered by a script tool.
+  mojo_base.mojom.UnguessableToken? script_tool_invocation_id;
 };
 
 // Provided by the browser or the renderer -------------------------------------

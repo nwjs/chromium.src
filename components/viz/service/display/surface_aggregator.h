@@ -23,6 +23,7 @@
 #include "components/viz/common/resources/transferable_resource.h"
 #include "components/viz/common/surfaces/surface_id.h"
 #include "components/viz/common/surfaces/surface_range.h"
+#include "components/viz/common/surfaces/tracked_element_rects.h"
 #include "components/viz/service/display/aggregated_frame.h"
 #include "components/viz/service/display/resolved_frame_data.h"
 #include "components/viz/service/surfaces/surface_observer.h"
@@ -289,7 +290,9 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator : public SurfaceObserver {
       ResolvedFrameData* resolved_frame,
       bool force_add_zero_damage_rect);
 
-  void AddRenderPassFilterDamageToDamageList(
+  // Updates the surface damage rect list and tracked element rects based on
+  // pixel moving filters in the render pass.
+  void ProcessPixelMovingFilters(
       const ResolvedFrameData& resolved_frame,
       const CompositorRenderPassDrawQuad* render_pass_quad,
       const gfx::Transform& parent_target_transform,
@@ -327,6 +330,14 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator : public SurfaceObserver {
 
   void SetRenderPassDamageRect(AggregatedRenderPass* copy_pass,
                                ResolvedPassData& resolved_pass);
+
+  // Collects the TrackedElementRects from the given frame metadata and
+  // transforms their bounds to the coordinate space of the root render pass.
+  void CollectTrackedElementRects(
+      const CompositorFrameMetadata& frame_metadata,
+      const gfx::Transform& target_transform,
+      const gfx::Transform& transform_to_root_target,
+      const std::optional<gfx::Rect> root_target_clip_rect);
 
   const raw_ptr<SurfaceManager> manager_;
   const raw_ptr<DisplayResourceProvider> provider_;
@@ -458,6 +469,10 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator : public SurfaceObserver {
 
   // Flow ids for aggregated frames. Used for tracing.
   std::unordered_set<int64_t> flow_ids_for_resolved_frames_;
+
+  // The list of tracked elements from all surfaces in the aggregated frame.
+  // The bounds are transformed to the coordinate space of the root render pass.
+  TrackedElementRects tracked_element_rects_;
 };
 
 }  // namespace viz

@@ -8,6 +8,7 @@
 #include <dispatch/dispatch.h>
 #include <stddef.h>
 
+#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -72,13 +73,14 @@
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_mac.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/cocoa/apps/quit_with_apps_controller_mac.h"
 #import "chrome/browser/ui/cocoa/bookmarks/bookmark_menu_bridge.h"
@@ -99,6 +101,7 @@
 #include "chrome/browser/ui/startup/startup_browser_creator_impl.h"
 #include "chrome/browser/ui/startup/startup_tab.h"
 #include "chrome/browser/ui/startup/startup_types.h"
+#include "chrome/browser/ui/startup/url_util.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -106,6 +109,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/color_provider_browser_helper.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -127,6 +131,7 @@
 #include "content/public/browser/download_manager.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/buildflags/buildflags.h"
 #include "net/base/apple/url_conversions.h"
 #include "net/base/filename_util.h"
 #import "ui/base/cocoa/nsmenu_additions.h"
@@ -186,10 +191,15 @@ void BeginHandlingWebAuthenticationSessionRequestWithProfile(
 // not possible. If the last active browser is minimized (in particular, if
 // there are only minimized windows), it will unminimize it.
 Browser* ActivateBrowser(Profile* profile) {
-  Browser* browser = chrome::FindLastActiveWithProfile(
-      profile->IsGuestSession()
-          ? profile->GetPrimaryOTRProfile(/*create_if_needed=*/true)
-          : profile);
+  ProfileBrowserCollection* collection =
+      ProfileBrowserCollection::GetForProfile(
+          profile->IsGuestSession()
+              ? profile->GetPrimaryOTRProfile(/*create_if_needed=*/true)
+              : profile);
+  BrowserWindowInterface* current_browser =
+      collection ? collection->GetLastActiveBrowser() : nullptr;
+  Browser* browser =
+      current_browser ? current_browser->GetBrowserForMigrationOnly() : nullptr;
 
   if (browser) {
     browser = browser->GetBrowserForOpeningWebUi();
@@ -214,10 +224,21 @@ void LaunchBrowserStartup(Profile* profile) {
 
   base::AutoReset<bool> auto_reset_in_run(&g_is_opening_new_window, true);
   StartupBrowserCreator browser_creator;
-  browser_creator.LaunchBrowser(
-      *base::CommandLine::ForCurrentProcess(), profile, base::FilePath(),
-      chrome::startup::IsProcessStartup::kNo, chrome::startup::IsFirstRun::kYes,
-      /*restore_tabbed_browser=*/true);
+
+  // For user-initiated launches (e.g. Dock icon click), we use a fresh command
+  // line if SmartRestart is enabled. This prevents the new window from being
+  // suppressed by any --no-startup-window flag that might have been used during
+  // the initial background restart.
+  base::CommandLine command_line =
+      base::FeatureList::IsEnabled(features::kSmartRestart)
+          ? base::CommandLine(
+                base::CommandLine::ForCurrentProcess()->GetProgram())
+          : *base::CommandLine::ForCurrentProcess();
+
+  browser_creator.LaunchBrowser(command_line, profile, base::FilePath(),
+                                chrome::startup::IsProcessStartup::kNo,
+                                chrome::startup::IsFirstRun::kYes,
+                                /*restore_tabbed_browser=*/true);
 }
 
 // Creates an empty browser window with the given profile and returns a pointer
@@ -234,7 +255,8 @@ BrowserWindowInterface* CreateBrowser(Profile* profile) {
     chrome::NewEmptyWindow(profile);
   }
 
-  BrowserWindowInterface* browser = chrome::FindLastActive();
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
   //CHECK(browser);
   return browser;
 }
@@ -338,7 +360,7 @@ void FocusWindowSetOnCurrentSpace(NSSet<NSWindow*>* windows) {
   // haphazardly.
   //
   // Also consider both visible and hidden windows; this call races
-  // with the system unhiding the application. http://crbug.com/368238
+  // with the system unhiding the application. http://crbug.com/41104339
   //
   // NOTE: If this is called in the
   // -applicationShouldHandleReopen:hasVisibleWindows: hook when
@@ -436,8 +458,22 @@ void OpenUrlsInBrowser(std::vector<GURL> urls) {
               base::flat_map<base::FilePath, std::vector<GURL>> profile_url_map;
               for (const auto& path : shortcuts) {
                 auto shortcut = shortcuts::ChromeWeblocFile::LoadFromFile(path);
+                // TODO: Consider opening the original file URL?
                 if (!shortcut.has_value()) {
-                  // TODO: Consider opening the original file URL?
+                  continue;
+                }
+                bool is_shortcut_url_valid =
+                    startup::ValidateLaunchUrl(shortcut->target_url());
+        // Do not allow chrome sensitive urls to be launched from a .crwebloc
+        // file.
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+                is_shortcut_url_valid =
+                    is_shortcut_url_valid || shortcut->target_url().SchemeIs(
+                                                 extensions::kExtensionScheme);
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+                if (!is_shortcut_url_valid) {
+                  LOG(ERROR) << "Not allowed to open target url: "
+                             << shortcut->target_url();
                   continue;
                 }
                 profile_url_map[shortcut->profile_path_name().path()].push_back(
@@ -774,7 +810,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
       [AppController.sharedController updateMenuItemKeyEquivalents];
     }];
 
-    // Notify BrowserList to keep the application running so it doesn't go away
+    // Create a keep-alive to keep the application running so it doesn't go away
     // when all the browser windows get closed. This is done as early as
     // possible to make sure we even keep the application alive if some other
     // subsystem creates and destroys a ScopedKeepAlive before the application
@@ -919,7 +955,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
 
   // TODO(viettrungluu): Remove Apple Event handlers here? (It's safe to leave
   // them in, but I'm not sure about UX; we'd also want to disable other things
-  // though.) http://crbug.com/40861
+  // though.) http://crbug.com/40381772
 
   // Check for active apps. If quitting is prevented, only close browsers and
   // sessions.
@@ -960,13 +996,13 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
     browser_shutdown::SetTryingToQuit(false);
     [[ConfirmQuitPanelController sharedController] cancel];
     // TODO(viettrungluu): Were we to remove Apple Event handlers above, we
-    // would have to reinstall them here. http://crbug.com/40861
+    // would have to reinstall them here. http://crbug.com/40381772
   }
 }
 
 - (void)allowApplicationToTerminate {
-  // Tell BrowserList to stop the RunLoop and terminate the application when the
-  // last Browser is closed.
+  // Reset the keep-alive to stop the RunLoop and terminate the application when
+  // the last Browser is closed.
   _keepAlive.reset();
 }
 
@@ -987,11 +1023,14 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
     return YES;
   }
 
+  NSEvent* event = [NSApp currentEvent];
   // Run only for keyboard-initiated quits.
-  if ([[NSApp currentEvent] type] != NSEventTypeKeyDown)
-    return NSTerminateNow;
+  if (event.type != NSEventTypeKeyDown) {
+    return YES;
+  }
 
-  return [[ConfirmQuitPanelController sharedController] runModalLoop];
+  return [[ConfirmQuitPanelController sharedController]
+      runConfirmQuitLoopWithEvent:event];
 }
 
 // Called when the app is shutting down. Clean-up as appropriate.
@@ -1000,7 +1039,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   CHECK(!KeepAliveRegistry::GetInstance()->IsOriginRegistered(
       KeepAliveOrigin::BROWSER));
 
-  // Tell BrowserList not to keep the browser process alive. Once all the
+  // Reset the keep-alive to keep the browser process alive. Once all the
   // browsers get dealloc'd, it will stop the RunLoop and fall back into main().
   _keepAlive.reset();
 
@@ -1036,8 +1075,10 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
     // loaded when main message loop ends and we cannot load it from disk now.
     return;
   }
-  DCHECK_EQ(0u, chrome::GetBrowserCount(_lastProfile));
-  if (!chrome::GetBrowserCount(_lastProfile)) {
+  auto* browser_collection =
+      ProfileBrowserCollection::GetForProfile(_lastProfile);
+  DCHECK_EQ(0u, browser_collection ? browser_collection->GetSize() : 0u);
+  if (!browser_collection || !browser_collection->GetSize()) {
     // As we're shutting down, we need to nuke the TabRestoreService, which
     // will start the shutdown of the NavigationControllers and allow for
     // proper shutdown. If we don't do this, Chrome won't shut down cleanly,
@@ -1066,8 +1107,9 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
 }
 
 - (void)windowDidBecomeMain:(NSNotification*)notify {
-  Browser* browser =
-      chrome::FindBrowserWithWindow(gfx::NativeWindow([notify object]));
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithWindow(
+          gfx::NativeWindow([notify object]));
   if (!browser)
     return;
 
@@ -1075,12 +1117,12 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   // subscription each time a window becomes the main.
   _verticalTabSubscription = {};
 
-  if (browser->is_type_normal()) {
+  if (browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL) {
     if (!_tabMenuBridge) {
       _tabMenuBridge = std::make_unique<TabMenuBridge>(
           [[NSApp mainMenu] itemWithTag:IDC_TAB_MENU]);
     }
-    _tabMenuBridge->SetTabStripModel(browser->tab_strip_model());
+    _tabMenuBridge->SetTabStripModel(browser->GetTabStripModel());
 
     if (tabs::IsVerticalTabsFeatureEnabled()) {
       if (auto* vertical_tab_strip_state_controller =
@@ -1105,7 +1147,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
     _tabMenuBridge->SetTabStripModel(nullptr);
   }
 
-  Profile* profile = browser->profile();
+  Profile* profile = browser->GetProfile();
 
   _lastActiveBrowser = browser->GetWeakPtr();
   [self setLastProfile:profile];
@@ -1274,7 +1316,8 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kKioskMode))
     ConfigureNSAppForKioskMode();
 
-  BrowserWindowInterface* browser = chrome::FindLastActive();
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
   content::WebContents* activeWebContents = nullptr;
   if (browser) {
     activeWebContents = browser->GetTabStripModel()->GetActiveWebContents();
@@ -1357,53 +1400,85 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
 // user to see if we should continue to exit (and thus cancel the downloads), or
 // if we should wait.
 - (BOOL)shouldQuitWithInProgressDownloads {
-  ProfileManager* profile_manager = g_browser_process->profile_manager();
-  if (!profile_manager)
+  ProfileManager* profileManager = g_browser_process->profile_manager();
+  if (!profileManager) {
     return YES;
-
-  std::vector<Profile*> profiles(profile_manager->GetLoadedProfiles());
-
-  std::vector<Profile*> added_profiles;
-  for (Profile* profile : profiles) {
-    for (Profile* otr : profile->GetAllOffTheRecordProfiles())
-      added_profiles.push_back(otr);
   }
-  profiles.insert(profiles.end(), added_profiles.begin(), added_profiles.end());
 
-  for (Profile* profile : profiles) {
-    DownloadCoreService* download_core_service =
-        DownloadCoreServiceFactory::GetForBrowserContext(profile);
-    // `DownloadCoreService` can be nullptr for some irregular profiles, e.g.
-    // the System Profile.
-    content::DownloadManager* download_manager =
-        download_core_service &&
-                download_core_service->HasCreatedDownloadManager()
-            ? profile->GetDownloadManager()
-            : nullptr;
-    if (download_manager && download_manager->BlockingShutdownCount() > 0) {
-      int downloadCount = download_manager->BlockingShutdownCount();
-      if ([self userWillWaitForInProgressDownloads:downloadCount]) {
-        // Create a new browser window (if necessary) and navigate to the
-        // downloads page if the user chooses to wait.
-        BrowserWindowInterface* browser =
-            chrome::FindBrowserWithProfile(profile);
-        if (!browser) {
-          browser = Browser::Create(Browser::CreateParams(profile, true));
-          browser->GetWindow()->Show();
+  std::vector<Profile*> profiles = profileManager->GetLoadedProfiles();
+
+  // Also consider related OTR profiles.
+  std::vector<Profile*> otrProfiles;
+  for (const auto& profile : profiles) {
+    std::ranges::copy(profile->GetAllOffTheRecordProfiles(),
+                      std::back_inserter(otrProfiles));
+  }
+  std::ranges::copy(otrProfiles, std::back_inserter(profiles));
+
+  // Remove all profiles for which there are no ongoing downloads.
+  int totalBlockingDownloadCount = 0;
+  auto removed = std::ranges::remove_if(
+      profiles, [&totalBlockingDownloadCount](Profile* profile) {
+        // `DownloadCoreService` can be nullptr for some irregular profiles,
+        // e.g. the System Profile.
+        DownloadCoreService* downloadCoreService =
+            DownloadCoreServiceFactory::GetForBrowserContext(profile);
+        if (!downloadCoreService) {
+          return true;
         }
-        [[ConfirmQuitPanelController sharedController] cancel];
-        DCHECK(browser);
-        chrome::ShowDownloads(browser->GetBrowserForMigrationOnly());
-        return NO;
-      }
 
-      // User wants to exit.
-      return YES;
-    }
+        // Avoid creating a new download manager if one doesn't already exist.
+        if (!downloadCoreService->HasCreatedDownloadManager()) {
+          return true;
+        }
+
+        int blockingDownloads =
+            profile->GetDownloadManager()->BlockingShutdownCount();
+        totalBlockingDownloadCount += blockingDownloads;
+        return blockingDownloads == 0;
+      });
+  profiles.erase(removed.begin(), removed.end());
+
+  if (profiles.empty()) {
+    // No profiles with active downloads were found, so it is okay to exit.
+    return YES;
   }
 
-  // No profiles or active downloads found, okay to exit.
-  return YES;
+  // A dialog is about to be shown to the user, and that involves running a
+  // nested run loop, during which it is possible that Profiles may disappear.
+  // Therefore, from this point forward, be sure to refer to Profile objects via
+  // weak pointers. See https://crbug.com/507386203.
+  std::vector<base::WeakPtr<Profile>> weakProfiles;
+  weakProfiles.reserve(profiles.size());
+  std::ranges::transform(
+      profiles, std::back_inserter(weakProfiles),
+      [](Profile* profile) { return profile->GetWeakPtr(); });
+
+  // Pop the question, and return if the user chooses to quit.
+  if (![self userWillWaitForInProgressDownloads:totalBlockingDownloadCount]) {
+    return YES;
+  }
+
+  // Display the active downloads, creating new browser windows if necessary.
+  for (auto& profile : weakProfiles) {
+    if (!profile.get()) {
+      continue;
+    }
+
+    BrowserWindowInterface* browser =
+        ProfileBrowserCollection::GetForProfile(profile.get())
+            ->GetLastActiveBrowser();
+    if (!browser) {
+      browser = Browser::Create(
+          Browser::CreateParams(profile.get(), /*user_gesture=*/true));
+      browser->GetWindow()->Show();
+    }
+
+    chrome::ShowDownloads(browser);
+  }
+
+  [ConfirmQuitPanelController.sharedController cancel];
+  return NO;
 }
 
 // Called to determine if we should enable the "restore tab" menu item.
@@ -1462,7 +1537,8 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   if ([NSApp modalWindow])
     return YES;
 
-  BrowserWindowInterface* browser = chrome::FindLastActive();
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
   return browser &&
          [[browser->GetWindow()->GetNativeWindow().GetNativeNSWindow()
              attachedSheet] isKindOfClass:[NSWindow class]];
@@ -1948,7 +2024,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
     base::FilePath::StringViewType urlStringView = urlString;
     if (startup::StripGoogleChromeScheme(urlStringView)) {
       GURL gurl(urlStringView);
-      if (startup::ValidateUrl(gurl)) {
+      if (startup::ValidateLaunchUrl(gurl)) {
         gurlVector.push_back(gurl);
       }
     } else {
@@ -2111,7 +2187,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
     // visible, and restore its original hidden state after resetting the
     // submenu. This works around an apparent AppKit bug where setting a
     // *different* NSMenu submenu on a *hidden* menu item forces the item to
-    // become visible. See https://crbug.com/497813 for more details.
+    // become visible. See https://crbug.com/40421657 for more details.
     bookmarkItem.hidden = NO;
     _bookmarkMenuBridge = nullptr;
   } else if (_bookmarkMenuBridge && !_isShuttingDown) {
@@ -2230,10 +2306,13 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   if (!window) {
     return NO;
   }
-  Browser* browser = chrome::FindBrowserWithWindow(gfx::NativeWindow(window));
+  BrowserWindowInterface* browser =
+      GlobalBrowserCollection::GetInstance()->FindBrowserWithWindow(
+          gfx::NativeWindow(window));
 
-  return browser && browser->is_type_normal() &&
-         !browser->tab_strip_model()->empty();
+  return browser &&
+         browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL &&
+         !browser->GetTabStripModel()->empty();
 }
 
 - (void)configureMenuItemForCloseTab:(NSMenuItem*)menuItem {
@@ -2424,7 +2503,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
       // started.
       [GetPendingWebAuthRequests() removeObjectForKey:key];
 
-      // Take care of the undocumented requirement (https://crbug.com/1400714)
+      // Take care of the undocumented requirement (https://crbug.com/40250389)
       // that -[ASWebAuthenticationSessionRequest cancelWithError:] be called
       // for authentication sessions canceled by the OS.
       NSError* error = [NSError
@@ -2453,8 +2532,12 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
 
 - (void)setLastProfileForTesting:(Profile*)profile {
   _lastProfile = profile;
-  Browser* browser = chrome::FindLastActiveWithProfile(profile);
-  _lastActiveBrowser = browser->GetWeakPtr();
+  ProfileBrowserCollection* collection =
+      ProfileBrowserCollection::GetForProfile(profile);
+  if (!collection) {
+    return;
+  }
+  _lastActiveBrowser = collection->GetLastActiveBrowser()->GetWeakPtr();
 }
 
 @end  // @implementation AppController
@@ -2479,22 +2562,22 @@ void OpenUrlsInBrowserWithProfile(const std::vector<GURL>& urls,
     profile = ProfileManager::MaybeForceOffTheRecordMode(
         profile->GetOriginalProfile());
   }
-  // Use FindTabbedBrowser to ensure URLs open in a normal tabbed browser
+  // Use FindTabbedBrowser() to ensure URLs open in a normal tabbed browser
   // window, not in PWA/app windows which cannot accept new tabs.
-  Browser* browser =
-      chrome::FindTabbedBrowser(profile, /*match_original_profiles=*/false);
+  BrowserWindowInterface* browser =
+      ProfileBrowserCollection::GetForProfile(profile)->FindTabbedBrowser();
   int startupIndex = TabStripModel::kNoTab;
   content::WebContents* startupContent = nullptr;
-  if (browser && browser->tab_strip_model()->count() == 1) {
+  if (browser && browser->GetTabStripModel()->count() == 1) {
     // If there's only 1 tab and the tab is NTP, close this NTP tab and open all
     // startup urls in new tabs, because the omnibox will stay focused if we
     // load url in NTP tab.
-    startupIndex = browser->tab_strip_model()->active_index();
-    startupContent = browser->tab_strip_model()->GetActiveWebContents();
+    startupIndex = browser->GetTabStripModel()->active_index();
+    startupContent = browser->GetTabStripModel()->GetActiveWebContents();
   } else if (!browser) {
     // if no browser window exists then create one with no tabs to be filled in.
     browser = Browser::Create(Browser::CreateParams(profile, true));
-    browser->window()->Show();
+    browser->GetWindow()->Show();
   }
 
   // Various methods to open URLs that we get in a native fashion. We use
@@ -2506,15 +2589,15 @@ void OpenUrlsInBrowserWithProfile(const std::vector<GURL>& urls,
       first_run::IsChromeFirstRun() ? chrome::startup::IsFirstRun::kYes
                                     : chrome::startup::IsFirstRun::kNo;
   StartupBrowserCreatorImpl launch(base::FilePath(), dummy, first_run);
-  launch.OpenURLsInBrowser(browser, chrome::startup::IsProcessStartup::kNo,
-                           urls);
+  launch.OpenURLsInBrowser(browser->GetBrowserForMigrationOnly(),
+                           chrome::startup::IsProcessStartup::kNo, urls);
 
-  // This NTP check should be replaced once https://crbug.com/624410 is fixed.
+  // This NTP check should be replaced once https://crbug.com/41261582 is fixed.
   if (startupIndex != TabStripModel::kNoTab &&
       (startupContent->GetVisibleURL() == chrome::kChromeUINewTabURL ||
        startupContent->GetVisibleURL() == chrome::kChromeUINewTabPageURL)) {
-    browser->tab_strip_model()->CloseWebContentsAt(startupIndex,
-                                                   TabCloseTypes::CLOSE_NONE);
+    browser->GetTabStripModel()->CloseWebContentsAt(startupIndex,
+                                                    TabCloseTypes::CLOSE_NONE);
   }
 }
 
@@ -2634,7 +2717,8 @@ void TabRestorer::DoRestoreTab(Profile* profile, SessionID session_id) {
   auto* service = TabRestoreServiceFactory::GetForProfile(profile);
   if (!service)
     return;
-  Browser* browser = chrome::FindTabbedBrowser(profile, false);
+  BrowserWindowInterface* browser =
+      ProfileBrowserCollection::GetForProfile(profile)->FindTabbedBrowser();
   BrowserLiveTabContext* context =
       browser ? browser->GetFeatures().live_tab_context() : nullptr;
   if (session_id.is_valid()) {

@@ -41,7 +41,7 @@ const availableTests = [
           username: 'username',
           password: 'password',
           note: '',
-          useAccountStore: false
+          useAccountStore: false,
         },
         () => {
           chrome.test.assertNoLastError();
@@ -57,7 +57,7 @@ const availableTests = [
           username: 'username',
           password: 'password',
           note: '',
-          useAccountStore: false
+          useAccountStore: false,
         },
         () => {
           chrome.test.assertLastError(
@@ -75,7 +75,7 @@ const availableTests = [
           username: 'username',
           password: '',
           note: '',
-          useAccountStore: true
+          useAccountStore: true,
         },
         () => {
           chrome.test.assertLastError(
@@ -97,7 +97,7 @@ const availableTests = [
     await chrome.passwordsPrivate.changeCredential(credential);
 
     groups = await chrome.passwordsPrivate.getCredentialGroups();
-    credential = groups[0].entries.find(entry => entry.username == 'anya');
+    credential = groups[0].entries.find(entry => entry.username === 'anya');
     chrome.test.assertTrue(!!credential);
     chrome.test.assertEq(credential.note, 'note');
     chrome.test.succeed();
@@ -112,7 +112,7 @@ const availableTests = [
     await chrome.passwordsPrivate.changeCredential(credential);
 
     groups = await chrome.passwordsPrivate.getCredentialGroups();
-    credential = groups[0].entries.find(entry => entry.username == 'anya');
+    credential = groups[0].entries.find(entry => entry.username === 'anya');
     chrome.test.assertTrue(!!credential);
     chrome.test.assertEq(credential.displayName, 'Anya Forger');
     chrome.test.succeed();
@@ -146,14 +146,15 @@ const availableTests = [
     const callback = function(savedPasswordsList) {
       numCalls++;
 
-      if (numCalls == 1) {
+      if (numCalls === 1) {
         numSavedPasswords = savedPasswordsList.length;
-        chrome.passwordsPrivate.removeCredential(savedPasswordsList[0].id,
+        chrome.passwordsPrivate.removeCredential(
+            savedPasswordsList[0].id,
             chrome.passwordsPrivate.PasswordStoreSet.DEVICE);
-      } else if (numCalls == 2) {
+      } else if (numCalls === 2) {
         chrome.test.assertEq(savedPasswordsList.length, numSavedPasswords - 1);
         chrome.passwordsPrivate.undoRemoveSavedPasswordOrException();
-      } else if (numCalls == 3) {
+      } else if (numCalls === 3) {
         chrome.test.assertEq(savedPasswordsList.length, numSavedPasswords);
         chrome.test.succeed();
       } else {
@@ -171,13 +172,12 @@ const availableTests = [
     const callback = function(credentials) {
       numCalls++;
 
-      if (numCalls == 1) {
+      if (numCalls === 1) {
         numSavedCredentials = credentials.length;
         const passkey = credentials[numSavedCredentials - 1];
         chrome.test.assertTrue(passkey.isPasskey);
-        chrome.passwordsPrivate.removeCredential(passkey.id,
-                                                 passkey.storedIn);
-      } else if (numCalls == 2) {
+        chrome.passwordsPrivate.removeCredential(passkey.id, passkey.storedIn);
+      } else if (numCalls === 2) {
         chrome.test.assertEq(credentials.length, numSavedCredentials - 1);
         chrome.test.assertEq(credentials.find(c => c.isPasskey), undefined);
         chrome.test.succeed();
@@ -195,15 +195,15 @@ const availableTests = [
     const callback = function(passwordExceptionsList) {
       numCalls++;
 
-      if (numCalls == 1) {
+      if (numCalls === 1) {
         numPasswordExceptions = passwordExceptionsList.length;
         chrome.passwordsPrivate.removePasswordException(
             passwordExceptionsList[0].id);
-      } else if (numCalls == 2) {
+      } else if (numCalls === 2) {
         chrome.test.assertEq(
             passwordExceptionsList.length, numPasswordExceptions - 1);
         chrome.passwordsPrivate.undoRemoveSavedPasswordOrException();
-      } else if (numCalls == 3) {
+      } else if (numCalls === 3) {
         chrome.test.assertEq(
             passwordExceptionsList.length, numPasswordExceptions);
         chrome.test.succeed();
@@ -330,7 +330,7 @@ const availableTests = [
           publicKey: {
             value: 'test',
             version: 47,
-          }
+          },
         }],
         () => {
           chrome.test.assertNoLastError();
@@ -350,8 +350,7 @@ const availableTests = [
       chrome.test.succeed();
     };
     chrome.passwordsPrivate.importPasswords(
-      chrome.passwordsPrivate.PasswordStoreSet.DEVICE,
-      callback);
+        chrome.passwordsPrivate.PasswordStoreSet.DEVICE, callback);
   },
 
   function importPasswordsOperationDisabledByPolicy() {
@@ -409,48 +408,44 @@ const availableTests = [
   },
 
   function getInsecureCredentials() {
-    chrome.passwordsPrivate.getInsecureCredentials(
-        insecureCredentials => {
-          chrome.test.assertEq(2, insecureCredentials.length);
+    chrome.passwordsPrivate.getInsecureCredentials(insecureCredentials => {
+      chrome.test.assertEq(2, insecureCredentials.length);
 
-          const compromisedCredential = insecureCredentials[0];
-          chrome.test.assertEq(
-              1, compromisedCredential.affiliatedDomains.length);
-          chrome.test.assertEq(
-              'example.com', compromisedCredential.affiliatedDomains[0].name);
-          chrome.test.assertEq(
-              'https://example.com',
-              compromisedCredential.affiliatedDomains[0].url);
-          chrome.test.assertEq(
-              'https://example.com/change-password',
-              compromisedCredential.changePasswordUrl);
-          chrome.test.assertEq('alice', compromisedCredential.username);
-          const compromiseTime =
-              new Date(compromisedCredential.compromisedInfo.compromiseTime);
-          chrome.test.assertEq(
-              'Tue, 03 Mar 2020 12:00:00 GMT', compromiseTime.toUTCString());
-          chrome.test.assertEq(
-              '3 days ago',
-              compromisedCredential.compromisedInfo.elapsedTimeSinceCompromise);
-          chrome.test.assertEq(
-              ['LEAKED'],
-              compromisedCredential.compromisedInfo.compromiseTypes);
+      const compromisedCredential = insecureCredentials[0];
+      chrome.test.assertEq(1, compromisedCredential.affiliatedDomains.length);
+      chrome.test.assertEq(
+          'example.com', compromisedCredential.affiliatedDomains[0].name);
+      chrome.test.assertEq(
+          'https://example.com',
+          compromisedCredential.affiliatedDomains[0].url);
+      chrome.test.assertEq(
+          'https://example.com/change-password',
+          compromisedCredential.changePasswordUrl);
+      chrome.test.assertEq('alice', compromisedCredential.username);
+      const compromiseTime =
+          new Date(compromisedCredential.compromisedInfo.compromiseTime);
+      chrome.test.assertEq(
+          'Tue, 03 Mar 2020 12:00:00 GMT', compromiseTime.toUTCString());
+      chrome.test.assertEq(
+          '3 days ago',
+          compromisedCredential.compromisedInfo.elapsedTimeSinceCompromise);
+      chrome.test.assertEq(
+          ['LEAKED'], compromisedCredential.compromisedInfo.compromiseTypes);
 
-          const weakredential = insecureCredentials[1];
-          chrome.test.assertEq(1, weakredential.affiliatedDomains.length);
-          chrome.test.assertEq(
-              'example.com', weakredential.affiliatedDomains[0].name);
-          chrome.test.assertEq(
-              'https://example.com', weakredential.affiliatedDomains[0].url);
-          chrome.test.assertEq(
-              'https://example.com/change-password',
-              weakredential.changePasswordUrl);
-          chrome.test.assertEq('bob', weakredential.username);
-          chrome.test.assertEq(
-              ['LEAKED'],
-              compromisedCredential.compromisedInfo.compromiseTypes);
-          chrome.test.succeed();
-        });
+      const weakredential = insecureCredentials[1];
+      chrome.test.assertEq(1, weakredential.affiliatedDomains.length);
+      chrome.test.assertEq(
+          'example.com', weakredential.affiliatedDomains[0].name);
+      chrome.test.assertEq(
+          'https://example.com', weakredential.affiliatedDomains[0].url);
+      chrome.test.assertEq(
+          'https://example.com/change-password',
+          weakredential.changePasswordUrl);
+      chrome.test.assertEq('bob', weakredential.username);
+      chrome.test.assertEq(
+          ['LEAKED'], compromisedCredential.compromisedInfo.compromiseTypes);
+      chrome.test.succeed();
+    });
   },
 
   function muteInsecureCredentialSucceeds() {
@@ -632,38 +627,36 @@ const availableTests = [
 
   function getCredentialsWithReusedPassword() {
     chrome.passwordsPrivate.getCredentialsWithReusedPassword(
-      credentialsGroupedByPassword => {
-        chrome.test.assertEq(1, credentialsGroupedByPassword.length);
+        credentialsGroupedByPassword => {
+          chrome.test.assertEq(1, credentialsGroupedByPassword.length);
 
-        const credentialsWithReusedPassword = credentialsGroupedByPassword[0];
-        chrome.test.assertEq(2, credentialsWithReusedPassword.entries.length);
+          const credentialsWithReusedPassword = credentialsGroupedByPassword[0];
+          chrome.test.assertEq(2, credentialsWithReusedPassword.entries.length);
 
-        const firstCredentials = credentialsWithReusedPassword.entries[0];
-        chrome.test.assertEq(1, firstCredentials.affiliatedDomains.length);
-        chrome.test.assertEq(
-            'example.com', firstCredentials.affiliatedDomains[0].name);
-        chrome.test.assertEq(
-            'https://example.com', firstCredentials.affiliatedDomains[0].url);
-        chrome.test.assertEq(
-            'https://example.com/change-password',
-            firstCredentials.changePasswordUrl);
-        chrome.test.assertEq('bob', firstCredentials.username);
-        chrome.test.assertEq(
-            ['REUSED'],
-            firstCredentials.compromisedInfo.compromiseTypes);
+          const firstCredentials = credentialsWithReusedPassword.entries[0];
+          chrome.test.assertEq(1, firstCredentials.affiliatedDomains.length);
+          chrome.test.assertEq(
+              'example.com', firstCredentials.affiliatedDomains[0].name);
+          chrome.test.assertEq(
+              'https://example.com', firstCredentials.affiliatedDomains[0].url);
+          chrome.test.assertEq(
+              'https://example.com/change-password',
+              firstCredentials.changePasswordUrl);
+          chrome.test.assertEq('bob', firstCredentials.username);
+          chrome.test.assertEq(
+              ['REUSED'], firstCredentials.compromisedInfo.compromiseTypes);
 
-        const secondCredential = credentialsWithReusedPassword.entries[1];
-        chrome.test.assertEq(1, secondCredential.affiliatedDomains.length);
-        chrome.test.assertEq(
-            'test.com', secondCredential.affiliatedDomains[0].name);
-        chrome.test.assertEq(
-            'https://test.com', secondCredential.affiliatedDomains[0].url);
-        chrome.test.assertEq('angela', secondCredential.username);
-        chrome.test.assertEq(
-            ['REUSED'],
-            secondCredential.compromisedInfo.compromiseTypes);
-        chrome.test.succeed();
-      });
+          const secondCredential = credentialsWithReusedPassword.entries[1];
+          chrome.test.assertEq(1, secondCredential.affiliatedDomains.length);
+          chrome.test.assertEq(
+              'test.com', secondCredential.affiliatedDomains[0].name);
+          chrome.test.assertEq(
+              'https://test.com', secondCredential.affiliatedDomains[0].url);
+          chrome.test.assertEq('angela', secondCredential.username);
+          chrome.test.assertEq(
+              ['REUSED'], secondCredential.compromisedInfo.compromiseTypes);
+          chrome.test.succeed();
+        });
   },
 
   function showExportedFileInShell() {
@@ -688,10 +681,10 @@ const availableTests = [
     };
 
     chrome.passwordsPrivate.isConnectedToCloudAuthenticator(callback);
-  }
+  },
 ];
 
 const testToRun = window.location.search.substring(1);
 chrome.test.runTests(availableTests.filter(function(op) {
-  return op.name == testToRun;
+  return op.name === testToRun;
 }));

@@ -17,7 +17,7 @@ const callback = chrome.test.callback;
 
 function getItemNamed(list, name) {
   for (let i = 0; i < list.length; i++) {
-    if (list[i].name == name) {
+    if (list[i].name === name) {
       return list[i];
     }
   }
@@ -34,10 +34,11 @@ function checkItem(item, name, enabled, type, additionalProperties) {
   assertEq(type, item.type);
   assertEq(enabled, item.enabled);
 
-  for (let propname in additionalProperties) {
+  for (const propname in additionalProperties) {
     let value = additionalProperties[propname];
-    if (typeof value === 'string')
+    if (typeof value === 'string') {
       value = value.replace('<ID>', item.id);
+    }
     assertTrue(propname in item);
     assertEq(value, item[propname]);
   }

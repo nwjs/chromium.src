@@ -52,9 +52,14 @@ class COMPONENT_EXPORT(ON_DEVICE_MODEL_ML) SessionAccessor {
                                 ChromeMLGetProbabilitiesBlockingFn get_prob_fn);
   void SizeInTokens(on_device_model::mojom::InputPtr input,
                     ChromeMLSizeInTokensFn size_in_tokens_fn);
-  void CreateAsrStream(on_device_model::mojom::AsrStreamOptionsPtr options,
-                       const ChromeMLASRStreamOutputFn output_fn);
+  void CreateAsrStream(
+      on_device_model::mojom::AsrStreamOptionsPtr options,
+      const ChromeMLASRStreamOutputFn output_fn,
+      base::OnceCallback<void(std::optional<on_device_model::mojom::AsrError>)>
+          done_callback);
   void AsrAddAudioChunk(on_device_model::mojom::AudioDataPtr data);
+  void Hint(on_device_model::mojom::HintOptionsPtr options,
+            ConstraintFactory* constraint_factory);
 
  private:
   class Canceler;
@@ -85,10 +90,12 @@ class COMPONENT_EXPORT(ON_DEVICE_MODEL_ML) SessionAccessor {
       ChromeMLGetProbabilitiesBlockingFn get_prob_fn);
   void SizeInTokensInternal(on_device_model::mojom::InputPtr input,
                             ChromeMLSizeInTokensFn size_in_tokens_fn);
-  void CreateAsrStreamInternal(
+  std::optional<on_device_model::mojom::AsrError> CreateAsrStreamInternal(
       on_device_model::mojom::AsrStreamOptionsPtr asr_options,
       const ChromeMLASRStreamOutputFn output_fn);
   void AsrAddAudioChunkInternal(on_device_model::mojom::AudioDataPtr data);
+  void HintInternal(on_device_model::mojom::HintOptionsPtr options,
+                    ConstraintFactory* constraint_factory);
 
   const raw_ref<const ChromeML> chrome_ml_;
   scoped_refptr<base::SequencedTaskRunner> task_runner_;

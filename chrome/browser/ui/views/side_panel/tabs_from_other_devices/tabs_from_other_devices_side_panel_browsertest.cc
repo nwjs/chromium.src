@@ -30,6 +30,8 @@ class TabsFromOtherDevicesSidePanelBrowserTest : public InProcessBrowserTest {
     return SidePanelCoordinator::From(browser());
   }
 
+  SidePanel* GetSidePanel() { return browser()->GetBrowserView().side_panel(); }
+
  private:
   base::test::ScopedFeatureList features_;
 };
@@ -39,16 +41,11 @@ IN_PROC_BROWSER_TEST_F(TabsFromOtherDevicesSidePanelBrowserTest,
   coordinator()->SetNoDelaysForTesting(true);
   coordinator()->Show(SidePanelEntryId::kTabsFromOtherDevices);
 
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    return browser()
-        ->GetBrowserView()
-        .contents_height_side_panel()
-        ->GetVisible();
-  }));
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return GetSidePanel()->GetVisible(); }));
 
-  EXPECT_EQ(
-      coordinator()->GetCurrentEntryId(SidePanelEntry::PanelType::kContent),
-      SidePanelEntryId::kTabsFromOtherDevices);
+  EXPECT_EQ(coordinator()->GetCurrentEntryId(),
+            SidePanelEntryId::kTabsFromOtherDevices);
 
   actions::ActionItem* action_item = actions::ActionManager::Get().FindAction(
       kActionSidePanelShowTabsFromOtherDevices,
@@ -57,4 +54,16 @@ IN_PROC_BROWSER_TEST_F(TabsFromOtherDevicesSidePanelBrowserTest,
   EXPECT_TRUE(action_item->GetVisible());
   EXPECT_EQ(action_item->GetProperty(actions::kActionItemPinnableKey),
             static_cast<int>(actions::ActionPinnableState::kPinnable));
+}
+
+IN_PROC_BROWSER_TEST_F(TabsFromOtherDevicesSidePanelBrowserTest, ShowFromMenu) {
+  coordinator()->SetNoDelaysForTesting(true);
+  chrome::ExecuteCommand(browser(),
+                         IDC_SHOW_TABS_FROM_OTHER_DEVICES_SIDE_PANEL);
+
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return GetSidePanel()->GetVisible(); }));
+
+  EXPECT_EQ(coordinator()->GetCurrentEntryId(),
+            SidePanelEntryId::kTabsFromOtherDevices);
 }

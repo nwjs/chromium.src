@@ -81,6 +81,7 @@ message AdaptationRecipe {
 // A recipe for a safety model.
 message SafetyModelRecipe {
   FileReference weights_file = 1;
+  FileReference language_detection_model_file = 2;
 }
 
 // A recipe for a ModelSolution provided by the ModelBroker.
@@ -131,6 +132,21 @@ message UseCaseConfig {
 
   // This could be extended to include multiple solution recipe IDs per use
   // case, if the Broker needs to select solutions for e.g. memory pressure.
+
+  // True if assets for this use case should be downloaded proactively.
+  bool background_download = 2;
+}
+
+message ValidationTask {
+  // Device will only do validation if this version is different from their
+  // most recent validation version.
+  string version = 1;
+  // The use case to do validation with. Validation will be performed once
+  // the necessary assets for the use case are available, but the use case
+  // assets will not be requested for download by the validation.
+  string use_case = 2;
+  // The prompt and expected outputs.
+  OnDeviceModelValidationConfig config = 3;
 }
 
 // Device category specific configuration.
@@ -143,6 +159,10 @@ message DeviceCategoryConfig {
   // These are opaque to the Broker, and are intended to allow the feature to
   // configure how use cases are selected based on feature specific parameters.
   map<string, Any> feature_configs = 2;
+
+  // Optional validation executions to be performed by this device, once assets
+  // are available.
+  ValidationTask validations = 3 [features.field_presence = EXPLICIT];
 }
 
 // The top-level message in the manifest file of manifest component.

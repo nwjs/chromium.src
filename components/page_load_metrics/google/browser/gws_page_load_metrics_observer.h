@@ -37,6 +37,13 @@ extern const char
     kHistogramGWSConnectTimingFirstRequestDomainLookupDelaySecureDns[];
 extern const char
     kHistogramGWSConnectTimingFirstRequestDomainLookupDelayInsecureDns[];
+extern const char
+    kHistogramGWSConnectTimingFirstRequestResolutionDetailsTaskCompletionDelay
+        [];
+extern const char
+    kHistogramGWSConnectTimingFirstRequestDohDetailsSessionSource[];
+extern const char
+    kHistogramGWSConnectTimingFirstRequestDohDetailsConnectionInfo[];
 extern const char kHistogramGWSConnectTimingFirstRequestConnectDelay[];
 extern const char kHistogramGWSConnectTimingFirstRequestSslDelay[];
 extern const char kHistogramGWSConnectTimingFinalRequestDomainLookupDelay[];
@@ -57,8 +64,12 @@ extern const char kHistogramGWSActualNavigationStartToParseStart[];
 extern const char kHistogramGWSActualNavigationStartToFirstContentfulPaint[];
 extern const char kHistogramGWSActualNavigationStartToDOMContentLoaded[];
 extern const char kHistogramGWSActualNavigationStartToLargestContentfulPaint[];
+extern const char kHistogramGWSActualNavigationStartToAFTEnd[];
+extern const char
+    kHistogramGWSActualNavigationStartToAFTEndWithPreNavigationLatency[];
 
 extern const char kHistogramGWSAFTEnd[];
+extern const char kHistogramGWSAFTEndWithPreNavigationLatency[];
 extern const char kHistogramGWSAFTStart[];
 
 extern const char kHistogramGWSFirstContentfulPaint[];
@@ -94,6 +105,7 @@ extern const char kHistogramGWSActivationToLargestContentfulPaint[];
 
 extern const char kHistogramPrerenderSuffix[];
 extern const char kHistogramNonPrerenderSuffix[];
+extern const char kHistogramDuplicateIgnoredSuffix[];
 
 }  // namespace internal
 
@@ -250,6 +262,10 @@ class GWSPageLoadMetricsObserver
   // Indicates if the navigation was started from the context menu, for checking
   // the percentage of context menu triggered navigations.
   bool was_started_from_context_menu_ = false;
+
+  // Indicates if this navigation caused a subsequent duplicate request to be
+  // ignored.
+  bool did_ignore_duplicate_navigation_ = false;
 
   NavigationSourceType source_type_ = kUnknown;
   net::HttpConnectionInfoCoarse http_connection_info_ =

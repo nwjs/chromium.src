@@ -403,6 +403,7 @@
 <translation id="2618015542787108131">เนินทราย</translation>
 <translation id="2619761439309613843">รีเฟรชทุกวัน</translation>
 <translation id="2620436844016719705">ระบบ</translation>
+<translation id="2626848494898563581">เข้าถึงบริการของ Google ไม่ได้</translation>
 <translation id="2637303424821734920">ปิด - หากต้องการแสดงสภาพอากาศในพื้นที่ ให้<ph name="BEGIN_LINK" />เปิดการเข้าถึงตำแหน่งของระบบ<ph name="END_LINK" /></translation>
 <translation id="2638662041295312666">รูปภาพการลงชื่อเข้าใช้</translation>
 <translation id="2640549051766135490">เลือกอัลบั้ม <ph name="TITLE" /> <ph name="DESC" /> อยู่</translation>
@@ -1183,6 +1184,7 @@
 <translation id="6234024205316847054">แสดงโครงร่าง</translation>
 <translation id="6243280677745499710">วอลเปเปอร์ปัจจุบัน</translation>
 <translation id="6250316632541035980">เบคอนและไข่</translation>
+<translation id="6262413940100821797">ผู้รับที่ไม่รู้จัก</translation>
 <translation id="6265268291107409527">คีย์ที่เลือกคือ <ph name="KEYS" /> <ph name="ASSIGN_INSTRUCTION" /></translation>
 <translation id="6275224645089671689">ลูกศรขวา</translation>
 <translation id="6278428485366576908">ธีม</translation>

@@ -102,8 +102,8 @@ static_library("test_support") {
   visibility = [ "//media:test_support" ]
   testonly = true
   sources = [
-    "shared_image_video_frame_test_utils.cc",
-    "shared_image_video_frame_test_utils.h",
+    "video_frame_test_utils.cc",
+    "video_frame_test_utils.h",
   ]
   configs += [ "//media:media_config" ]
   deps = [
@@ -113,6 +113,7 @@ static_library("test_support") {
     "//gpu/command_buffer/client:raster_interface",
     "//gpu/command_buffer/common",
     "//media/base:test_support",
+    "//third_party/libyuv",
     "//ui/gfx",
   ]
 }
@@ -152,6 +153,7 @@ source_set("unit_tests") {
     sources += [
       "win/media_foundation_renderer_integration_test.cc",
       "win/media_foundation_renderer_unittest.cc",
+      "win/media_foundation_source_wrapper_unittest.cc",
       "win/media_foundation_stream_wrapper_unittest.cc",
     ]
     deps += [ "//media/test:pipeline_integration_test_base" ]

@@ -823,6 +823,21 @@ TEST_F(LabelTest, SetTextNotifiesAccessibilityEvent) {
   EXPECT_EQ(2, counter.GetCount(ax::mojom::Event::kTextChanged));
 }
 
+TEST_F(LabelTest, SetTextFiresExactlyOneTextChangedEvent) {
+  test::AXEventCounter counter(views::AXUpdateNotifier::Get());
+
+  EXPECT_EQ(0, counter.GetCount(ax::mojom::Event::kTextChanged));
+
+  label()->SetText(u"First");
+  EXPECT_EQ(1, counter.GetCount(ax::mojom::Event::kTextChanged));
+
+  label()->SetText(u"Second");
+  EXPECT_EQ(2, counter.GetCount(ax::mojom::Event::kTextChanged));
+
+  label()->SetText(u"Second");
+  EXPECT_EQ(2, counter.GetCount(ax::mojom::Event::kTextChanged));
+}
+
 TEST_F(LabelTest, TextChangeWithoutLayout) {
   label()->SetText(u"Example");
   label()->SetBounds(0, 0, 200, 200);
@@ -1238,6 +1253,26 @@ TEST_F(LabelTest, CanForceDirectionality) {
                            gfx::DirectionalityMode::DIRECTIONALITY_FORCE_RTL);
   EXPECT_EQ(base::i18n::TextDirection::RIGHT_TO_LEFT,
             ltr_text_force_rtl.GetTextDirectionForTesting());
+}
+
+TEST_F(LabelTest, SetDirectionalityMode) {
+  Label label(ToRTL("0123456"));
+  EXPECT_EQ(base::i18n::TextDirection::RIGHT_TO_LEFT,
+            label.GetTextDirectionForTesting());
+
+  label.SetDirectionalityMode(
+      gfx::DirectionalityMode::DIRECTIONALITY_FORCE_LTR);
+  EXPECT_EQ(base::i18n::TextDirection::LEFT_TO_RIGHT,
+            label.GetTextDirectionForTesting());
+
+  label.SetDirectionalityMode(
+      gfx::DirectionalityMode::DIRECTIONALITY_FORCE_RTL);
+  EXPECT_EQ(base::i18n::TextDirection::RIGHT_TO_LEFT,
+            label.GetTextDirectionForTesting());
+
+  label.SetDirectionalityMode(gfx::DirectionalityMode::DIRECTIONALITY_AS_URL);
+  EXPECT_EQ(base::i18n::TextDirection::LEFT_TO_RIGHT,
+            label.GetTextDirectionForTesting());
 }
 
 TEST_F(LabelTest, DefaultDirectionalityIsFromText) {
