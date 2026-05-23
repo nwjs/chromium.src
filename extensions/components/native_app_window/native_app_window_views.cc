@@ -440,13 +440,11 @@ void NativeAppWindowViews::SetShowInTaskbar(bool show) {
   HRESULT result = ::CoCreateInstance(CLSID_TaskbarList, nullptr,
                                       CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&taskbar));
   if (FAILED(result)) {
-    VLOG(1) << "Failed creating a TaskbarList object: " << result;
     return;
   }
 
   result = taskbar->HrInit();
   if (FAILED(result)) {
-    LOG(ERROR) << "Failed initializing an ITaskbarList interface.";
     return;
   }
 
@@ -456,7 +454,6 @@ void NativeAppWindowViews::SetShowInTaskbar(bool show) {
     result = taskbar->DeleteTab(views::HWNDForWidget(widget));
 
   if (FAILED(result)) {
-    LOG(ERROR) << "Failed to change the show in taskbar attribute";
     return;
   }
 #endif
