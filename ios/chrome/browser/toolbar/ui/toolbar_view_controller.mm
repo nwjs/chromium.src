@@ -72,6 +72,11 @@ constexpr CGFloat kFullscreenCollapsedThreshold = 0.05;
 const base::TimeDelta kProgressBarEndAnimationDuration =
     base::Milliseconds(250);
 
+// The vertical offset between the bottom of the location bar container and
+// the top of the outer separator. Used to keep the spacing symmetrical
+// around the URL text when the bottom toolbar is collapsed above the keyboard.
+constexpr CGFloat kOuterSeparatorVerticalOffset = 4;
+
 }  // namespace
 
 @interface ToolbarViewController () <TabGroupIndicatorViewDelegate>
@@ -98,9 +103,24 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
   // Page load progress bar on the edge of the toolbar.
   ToolbarProgressBar* _progressBar;
 
-  // Separator line for the toolbar. Visible when the toolbar has the omnibox
+  // The inner separator line for the toolbar. Positioned at the top edge of the
+  // bottom toolbar or bottom edge of the top toolbar to separate the toolbar
+  // content from the web page content. Visible when the toolbar has the omnibox
   // or when the tab group indicator is visible.
-  UIView* _separator;
+  UIView* _innerSeparator;
+
+  // The outer separator line for the bottom toolbar. Positioned at the bottom
+  // edge of the bottom toolbar to separate it from external system elements
+  // like the keyboard when the bottom toolbar is elevated.
+  UIView* _outerSeparator;
+
+  // Whether the location indicator is currently active (toolbar above
+  // keyboard).
+  BOOL _locationIndicatorActive;
+
+  // The centerX constraint used to center the location bar container on the
+  // screen/window when the keyboard is visible.
+  NSLayoutConstraint* _locationBarKeyboardCenterXConstraint;
 
   // Closure to cancel hiding the progress bar when a new page load starts.
   base::CancelableOnceClosure _hideProgressBarClosure;
@@ -468,16 +488,31 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 - (void)setLocationIndicatorVisible:(BOOL)locationIndicatorVisible
                     forNotification:(NSNotification*)notification {
   CHECK(!_topPosition);
+  _locationIndicatorActive = locationIndicatorVisible;
   if (locationIndicatorVisible) {
     _locationBarBottomPaddingConstraint.active = NO;
     _locationBarTopConstraint.active = YES;
     [self.toolbarHeightDelegate secondaryToolbarMovedAboveKeyboard];
+
+    [NSLayoutConstraint deactivateConstraints:_portraitOrientationConstraints];
+    [NSLayoutConstraint deactivateConstraints:_landscapeOrientationConstraints];
+    [NSLayoutConstraint deactivateConstraints:_regularRegularConstraints];
+    if (!_locationBarKeyboardCenterXConstraint) {
+      _locationBarKeyboardCenterXConstraint =
+          [_locationBarContainer.centerXAnchor
+              constraintEqualToAnchor:self.view.window.centerXAnchor];
+    }
+    _locationBarKeyboardCenterXConstraint.active = YES;
   } else {
     _locationBarTopConstraint.active = NO;
     _locationBarBottomPaddingConstraint.active = YES;
     [self.toolbarHeightDelegate secondaryToolbarRemovedFromKeyboard];
     [GetFirstResponder() resignFirstResponder];
+
+    _locationBarKeyboardCenterXConstraint.active = NO;
+    [self updateLayoutConstraints];
   }
+  [self updateSeparatorVisibility];
 
   [self.view layoutIfNeeded];
 
@@ -493,7 +528,7 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
       visibleKeyboardHeight = [self inputAccessoryHeightInWindow];
     } else {
       visibleKeyboardHeight =
-          [self keyboardHeightInWindowFromNotification:notification];
+          VisibleKeyboardHeightFromNotification(notification, self.view.window);
     }
   }
 
@@ -615,12 +650,32 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 
 - (void)tabGroupIndicatorViewVisibilityUpdated:(BOOL)visible {
   _tabGroupIndicatorView.hidden = !visible;
-  _separator.hidden = !(visible || [self hasOmnibox]);
+  [self updateSeparatorVisibility];
   [self.toolbarHeightDelegate toolbarsHeightChanged];
   [self.mutator tabGroupIndicatorVisibilityUpdated:visible];
 }
 
 #pragma mark - Private
+
+// Creates and configures a separator line for the toolbar.
+- (UIView*)createSeparator {
+  UIView* separator = [[UIView alloc] init];
+  separator.backgroundColor = [UIColor colorNamed:kToolbarShadowColor];
+  separator.translatesAutoresizingMaskIntoConstraints = NO;
+  separator.hidden = YES;
+  return separator;
+}
+
+// Updates the visibility of both the inner and outer separators.
+- (void)updateSeparatorVisibility {
+  BOOL tabGroupIndicatorVisible =
+      _tabGroupIndicatorView && !_tabGroupIndicatorView.hidden;
+  _innerSeparator.hidden = !(tabGroupIndicatorVisible || [self hasOmnibox]);
+
+  if (!_topPosition) {
+    _outerSeparator.hidden = !_locationIndicatorActive;
+  }
+}
 
 // Helper method to actually do the animation to show the banner promo.
 - (void)showBannerPromoAnimationBlock {
@@ -811,22 +866,6 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
   return self.view.window.frame.size.height - rectInWindow.origin.y;
 }
 
-// Returns the user visible height of the keyboard.
-- (CGFloat)keyboardHeightInWindowFromNotification:
-    (NSNotification*)notification {
-  NSDictionary* userInfo = notification.userInfo;
-  // Part of the keyboard might be hidden. Keep only the visible area.
-  CGRect keyboardFrame = [userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
-  id<UICoordinateSpace> fromCoordinateSpace =
-      ((UIScreen*)notification.object).coordinateSpace;
-  id<UICoordinateSpace> toCoordinateSpace = self.view.window;
-  CGRect keyboardFrameInWindow =
-      [fromCoordinateSpace convertRect:keyboardFrame
-                     toCoordinateSpace:toCoordinateSpace];
-  return CGRectIntersection(keyboardFrameInWindow, self.view.window.bounds)
-      .size.height;
-}
-
 // Returns a new background for the location bar.
 - (UIView*)createLocationBarBackground {
   UIView* locationBarBackground = [[UIView alloc] init];
@@ -868,11 +907,17 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
       l10n_util::GetNSString(IDS_IOS_COLLAPSED_PRIMARY_TOOLBAR_BUTTON);
   collapsedToolbarButton.hidden = YES;
 
-  UITapGestureRecognizer* tapRecognizer =
-      [[UITapGestureRecognizer alloc] initWithTarget:self.mutator
-                                              action:@selector(exitFullscreen)];
+  UITapGestureRecognizer* tapRecognizer = [[UITapGestureRecognizer alloc]
+      initWithTarget:self
+              action:@selector(collapsedToolbarButtonTapped)];
   [collapsedToolbarButton addGestureRecognizer:tapRecognizer];
   return collapsedToolbarButton;
+}
+
+// Called when the collapsed toolbar button is tapped.
+- (void)collapsedToolbarButtonTapped {
+  [self.mutator exitFullscreen];
+  [GetFirstResponder() resignFirstResponder];
 }
 
 // Creates a loading progress bar.
@@ -897,10 +942,8 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
   _progressBar = [self createProgressBar];
   _collapsedToolbarButton = [self createCollapsedToolbarButton];
 
-  _separator = [[UIView alloc] init];
-  _separator.backgroundColor = [UIColor colorNamed:kToolbarShadowColor];
-  _separator.translatesAutoresizingMaskIntoConstraints = NO;
-  _separator.hidden = YES;
+  _innerSeparator = [self createSeparator];
+  _outerSeparator = [self createSeparator];
 
   _backButton = [self.buttonFactory makeBackButton];
   _backButton.menu = _backButtonMenu;
@@ -1031,7 +1074,7 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 
   [self.view addSubview:_trailingStackView];
   [self.view addSubview:_progressBar];
-  [self.view addSubview:_separator];
+  [self.view addSubview:_innerSeparator];
   [self.view addSubview:_collapsedToolbarButton];
   AddSameConstraints(self.view, _collapsedToolbarButton);
 
@@ -1050,21 +1093,38 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
     progressBarEdgeConstraint
   ]];
 
-  NSLayoutConstraint* separatorEdgeConstraint =
-      _topPosition
-          ? [_separator.bottomAnchor
-                constraintEqualToAnchor:self.view.bottomAnchor]
-          : [_separator.topAnchor constraintEqualToAnchor:self.view.topAnchor];
+  NSLayoutConstraint* innerSeparatorEdgeConstraint =
+      _topPosition ? [_innerSeparator.bottomAnchor
+                         constraintEqualToAnchor:self.view.bottomAnchor]
+                   : [_innerSeparator.topAnchor
+                         constraintEqualToAnchor:self.view.topAnchor];
 
   [NSLayoutConstraint activateConstraints:@[
-    [_separator.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-    [_separator.trailingAnchor
+    [_innerSeparator.leadingAnchor
+        constraintEqualToAnchor:self.view.leadingAnchor],
+    [_innerSeparator.trailingAnchor
         constraintEqualToAnchor:self.view.trailingAnchor],
-    [_separator.heightAnchor
+    [_innerSeparator.heightAnchor
         constraintEqualToConstant:ui::AlignValueToUpperPixel(
                                       kToolbarSeparatorHeight)],
-    separatorEdgeConstraint
+    innerSeparatorEdgeConstraint
   ]];
+
+  if (!_topPosition) {
+    [self.view addSubview:_outerSeparator];
+    [NSLayoutConstraint activateConstraints:@[
+      [_outerSeparator.leadingAnchor
+          constraintEqualToAnchor:self.view.leadingAnchor],
+      [_outerSeparator.trailingAnchor
+          constraintEqualToAnchor:self.view.trailingAnchor],
+      [_outerSeparator.heightAnchor
+          constraintEqualToConstant:ui::AlignValueToUpperPixel(
+                                        kToolbarSeparatorHeight)],
+      [_outerSeparator.topAnchor
+          constraintEqualToAnchor:_locationBarContainer.bottomAnchor
+                         constant:-kOuterSeparatorVerticalOffset],
+    ]];
+  }
 
   _locationBarHeightConstraint = [_locationBarContainer.heightAnchor
       constraintEqualToConstant:kLocationBarHeight];
@@ -1286,9 +1346,7 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
   _leadingStackView.hidden = !_visible;
   _locationBarContainer.hidden = !_visible;
   _trailingStackView.hidden = !_visible;
-  BOOL tabGroupIndicatorVisible =
-      _tabGroupIndicatorView && !_tabGroupIndicatorView.hidden;
-  _separator.hidden = !(tabGroupIndicatorVisible || [self hasOmnibox]);
+  [self updateSeparatorVisibility];
   [self.toolbarHeightDelegate toolbarsHeightChanged];
 }
 

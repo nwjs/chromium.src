@@ -5,8 +5,9 @@
 import 'chrome://resources/cr_components/composebox/composebox.js';
 
 import type {ComposeboxElement} from 'chrome://resources/cr_components/composebox/composebox.js';
-import {ComposeboxProxyImpl} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
 import {PageCallbackRouter, PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
+import type {ComposeboxInputElement} from 'chrome://resources/cr_components/composebox/composebox_input.js';
+import {ComposeboxProxyImpl} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
 import type {ContextualEntrypointAndMenuElement} from 'chrome://resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
@@ -51,15 +52,19 @@ suite('ComposeboxTest', () => {
       composeboxCancelButtonTitle: 'Cancel',
       voiceSearchButtonLabel: 'Voice search',
       lensSearchButtonLabel: 'Lens search',
+      lensSearchHint: 'Lens search',
       suggestionActivityLink: '<a>Activity</a>',
       composeboxSubmitButtonTitle: 'Submit',
       composeboxSmartComposeTabTitle: 'Tab',
+      composeboxSmartComposeTitle: 'Smart Compose',
       voiceListening: 'Listening',
       voiceDetails: 'Details',
       voiceClose: 'Close',
+      voiceStop: 'Stop',
       dismissButton: 'Dismiss',
       composeboxDragAndDropHint: 'Hint',
       removeSuggestion: 'Remove',
+      contextManagementInComposeboxEnabled: false,
     });
 
     handler = installMock(
@@ -271,6 +276,132 @@ suite('ComposeboxTest', () => {
     assertEquals(null, composebox.result);
     assertEquals('', composebox.lastQueriedInput);
   });
+
+  test(
+      'smartComposeEnabled forwards from <cr-composebox> to <cr-composebox-input>',
+      async () => {
+        loadTimeData.overrideValues({composeboxSmartComposeEnabled: true});
+
+        document.body.innerHTML = window.trustedTypes!.emptyHTML;
+        const fresh = document.createElement('cr-composebox');
+        document.body.appendChild(fresh);
+        await fresh.updateComplete;
+
+        const input = fresh.shadowRoot.querySelector<ComposeboxInputElement>(
+            'cr-composebox-input');
+        assertTrue(!!input);
+        await input.updateComplete;
+
+        assertTrue(input.hasAttribute('smart-compose-enabled'));
+      });
+
+  test('smartComposeInlineHint is sliced on sequential typing', async () => {
+    composebox.smartComposeEnabled = true;
+    composebox.input = 'hello';
+    composebox.smartComposeInlineHint = ' world';
+    await composebox.updateComplete;
+
+    const inputElem = composebox.getInputElement();
+    const innerInput = inputElem.inputElement;
+
+    // User types the space.
+    innerInput.value = 'hello ';
+    innerInput.dispatchEvent(
+        new Event('input', {bubbles: true, composed: true}));
+    await composebox.updateComplete;
+
+    assertEquals('world', composebox.smartComposeInlineHint);
+    assertEquals('hello ', composebox.input);
+
+    // User types 'w'.
+    innerInput.value = 'hello w';
+    innerInput.dispatchEvent(
+        new Event('input', {bubbles: true, composed: true}));
+    await composebox.updateComplete;
+
+    assertEquals('orld', composebox.smartComposeInlineHint);
+  });
+
+  test('smartComposeInlineHint is cleared on non-matching typing', async () => {
+    composebox.smartComposeEnabled = true;
+    composebox.input = 'hello';
+    composebox.smartComposeInlineHint = ' world';
+    await composebox.updateComplete;
+
+    const inputElem = composebox.getInputElement();
+    const innerInput = inputElem.inputElement;
+
+    // User types something else (unexpected char).
+    innerInput.value = 'hello!';
+    innerInput.dispatchEvent(
+        new Event('input', {bubbles: true, composed: true}));
+    await composebox.updateComplete;
+
+    assertEquals('', composebox.smartComposeInlineHint);
+  });
+
+  test(
+      'filters tabs from carousel when context management flag is enabled',
+      async () => {
+        // Override the feature flag to true before creating the component.
+        loadTimeData.overrideValues({
+          contextManagementInComposeboxEnabled: true,
+        });
+
+        document.body.innerHTML = window.trustedTypes!.emptyHTML;
+        const freshComposebox = document.createElement('cr-composebox');
+        document.body.appendChild(freshComposebox);
+
+        // Prepare mock files: one regular file, one tab (identified by having a
+        // 'url').
+        const regularFile = {name: 'image.png', type: 'image/png'} as any;
+        const tabFile = {name: 'Google', url: 'https://www.google.com/'} as any;
+        freshComposebox.files =
+            new Map([['uuid-1', regularFile], ['uuid-2', tabFile]]);
+
+        freshComposebox.requestUpdate();
+        await freshComposebox.updateComplete;
+
+        // Retrieve the carousel component for assertions.
+        const carousel = freshComposebox.shadowRoot.querySelector(
+            'cr-composebox-file-carousel');
+        assertTrue(!!carousel);
+
+        // Assert: The carousel should only receive 1 file (the regular image).
+        // The tab file should be successfully filtered out.
+        assertEquals(1, carousel.files.length);
+        assertEquals('image.png', carousel.files[0]!.name);
+      });
+
+  test('does not filter tabs from carousel when flag is disabled', async () => {
+    // Override the feature flag to false.
+    loadTimeData.overrideValues({
+      contextManagementInComposeboxEnabled: false,
+    });
+
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    const freshComposebox = document.createElement('cr-composebox');
+    document.body.appendChild(freshComposebox);
+
+    // Prepare mock files: one regular file, one tab (identified by having a
+    // 'url').
+    const regularFile = {name: 'image.png', type: 'image/png'} as any;
+    const tabFile = {name: 'Google', url: 'https://www.google.com/'} as any;
+    freshComposebox.files =
+        new Map([['uuid-1', regularFile], ['uuid-2', tabFile]]);
+
+    freshComposebox.requestUpdate();
+    await freshComposebox.updateComplete;
+
+    // Retrieve the carousel component for assertions.
+    const carousel =
+        freshComposebox.shadowRoot.querySelector('cr-composebox-file-carousel');
+    assertTrue(!!carousel);
+
+    // Assert: When the flag is disabled, no filtering occurs.
+    // The carousel should receive both files exactly as they were added.
+    assertEquals(2, carousel.files.length);
+  });
 });
 
 suite('composeboxSharedMountAutoRepostionDefault', () => {
@@ -281,7 +412,8 @@ suite('composeboxSharedMountAutoRepostionDefault', () => {
 
     loadTimeData.resetForTesting({
       // Reuse the ComposeboxTest suite's key set, but sets
-      // `composeboxShowContextMenu` to true so composebox_context_menu.html.ts's
+      // `composeboxShowContextMenu` to true so
+      // composebox_context_menu.html.ts's
       // shared `<cr-composebox-contextual-entrypoint-and-menu>` mount renders.
       composeboxShowImageSuggest: false,
       composeboxSmartComposeEnabled: false,
@@ -301,16 +433,16 @@ suite('composeboxSharedMountAutoRepostionDefault', () => {
       composeCreateImagePlaceholder: 'Create Image',
       searchboxComposePlaceholder: 'Compose',
       composeboxShowContextMenu: true,
-      // Keys accessed by ContextualActionMenuElement /
-      // ContextualEntrypointAndMenuElement class-field initializations once the
-      // shared `<cr-composebox-contextual-entrypoint-and-menu>` mount renders.
-      // loadTimeData.getBoolean() asserts on absent keys, so these are required.
+      // Keys accessed by ContextualActionMenuElement class-field
+      // initialization once the shared
+      // `<cr-composebox-contextual-entrypoint-and-menu>` mount renders.
+      // loadTimeData.getBoolean() asserts on absent keys, so these are
+      // required.
       // Not optional with defaults - when `composeboxShowContextMenu` is true.
       composeboxContextMenuEnableMultiTabSelection: false,
       composeboxShowContextMenuTabPreviews: false,
       ShowContextMenuHeaders: false,
       composeboxSmartTabSharingVisible: false,
-      contextualMenuUsePecApi: true,
       menu: 'menu',
       addContextTile: 'Add context',
       addContext: 'Add context',
@@ -319,15 +451,18 @@ suite('composeboxSharedMountAutoRepostionDefault', () => {
       composeboxCancelButtonTitle: 'Cancel',
       voiceSearchButtonLabel: 'Voice search',
       lensSearchButtonLabel: 'Lens search',
+      lensSearchHint: 'Lens search',
       suggestionActivityLink: '<a>Activity</a>',
       composeboxSubmitButtonTitle: 'Submit',
       composeboxSmartComposeTabTitle: 'Tab',
+      composeboxSmartComposeTitle: 'Smart Compose',
       voiceListening: 'Listening',
       voiceDetails: 'Details',
       voiceClose: 'Close',
       dismissButton: 'Dismiss',
       composeboxDragAndDropHint: 'Hint',
       removeSuggestion: 'Remove',
+      contextManagementInComposeboxEnabled: false,
     });
 
     const handler = installMock(
@@ -344,6 +479,7 @@ suite('composeboxSharedMountAutoRepostionDefault', () => {
 
     composebox = document.createElement('cr-composebox');
     composebox.showMenuOnClick = true;
+    composebox.usePecApi = true;
     document.body.appendChild(composebox);
     await composebox.updateComplete;
   });

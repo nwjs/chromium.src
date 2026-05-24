@@ -68,6 +68,7 @@ chromium-metrics-reviews@google.com.
   <variant name="OnExperimentalTriggeringUpdate"/>
   <variant name="OnMicrophoneStatusChange"/>
   <variant name="OnModeChange"/>
+  <variant name="OnOptinImpression"/>
   <variant name="OnReaction"/>
   <variant name="OnRecordUseCounter"/>
   <variant name="OnResponseRated"/>
@@ -382,6 +383,16 @@ chromium-metrics-reviews@google.com.
   <summary>
     Record the reason for attaching the panel to a browser when the panel is
     attached.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Auth.CheckAuthBeforeLoadOutcome"
+    enum="GlicCheckAuthBeforeLoadOutcome" expires_after="2027-04-27">
+  <owner>harringtond@chromium.org</owner>
+  <owner>carlosk@chromium.org</owner>
+  <summary>
+    Records the outcome of CheckAuthBeforeLoad in AuthController, indicating why
+    cookie sync was skipped or attempted.
   </summary>
 </histogram>
 
@@ -1563,6 +1574,18 @@ chromium-metrics-reviews@google.com.
     answers the question: What is the total number of times each event occurred
     across all Glic instances created via {InvocationSource}? An event is
     recorded each time it occurs.
+  </summary>
+  <token key="InvocationSource" variants="GlicInvocationSource"/>
+</histogram>
+
+<histogram
+    name="Glic.InvocationSource.{InvocationSource}.FloatyFirstOpenDuration"
+    units="ms" expires_after="2027-05-06">
+  <owner>andreaxg@google.com</owner>
+  <owner>perrier@google.com</owner>
+  <summary>
+    Records the duration that a Glic Floaty window was open. Recorded for the
+    first time the floaty was open for an instance without an error.
   </summary>
   <token key="InvocationSource" variants="GlicInvocationSource"/>
 </histogram>

@@ -24,6 +24,7 @@
   --context-carousel-top-position: 20px;
   --context-top-carousel-bottom-margin: 0;
   --context-top-carousel-top-margin: 0;
+  /* Set by resize observer of composebox component child. */
   --composebox-container-height:
     calc(var(--composebox-height) + var(--composebox-dropdown-height)
       + var(--composebox-margin-bottom)
@@ -31,6 +32,7 @@
   /* Shared sizing between voice cancel and regular cancel buttons. */
   --composebox-cancel-button-size: 40px;
   --composebox-icon-menu-bottom: 12px;
+  --composebox-min-height: 112px;
   --composebox-submit-container-size: 48px;
   --composebox-submit-container-inline-end:
       var(--composebox-last-icon-inline-end);
@@ -51,6 +53,7 @@
   --pdf-icon-size: 16px;
   --document-icon-size: 16px;
   --injected-input-icon-size: 24px;
+  --lens-submit-icon-extra-spacing: 0;
 }
 
 :host([energy-effect-enabled_]) {
@@ -58,18 +61,37 @@
   --cr-composebox-collapse-duration: 500ms;
   --cr-composebox-expand-curve: cubic-bezier(0.40, 1.38, 0.22, 0.96);
   --cr-composebox-expand-duration: 500ms;
-  --cr-composebox-file-thumbnail-animation-curve: cubic-bezier(0.38, 1.21, 0.22, 1);
-  --cr-composebox-file-thumbnail-animation-duration: var(--cr-composebox-expand-duration);
+  --cr-composebox-carousel-fade-curve: cubic-bezier(0.38, 1.21, 0.22, 1);
+  --cr-composebox-carousel-fade-delay: 65ms;
+  --cr-composebox-carousel-fade-duration: 450ms;
+  --cr-composebox-input-position: relative;
   --cr-composebox-tool-chip-animation:
     fade-in 100ms cubic-bezier(0, 0, 0, 1) forwards,
     slide-in 350ms cubic-bezier(0.42, 1.67, 0.21, 0.9) forwards;
-  --cancel-button-inline-end: 12px;
+  --cr-composebox-file-thumbnail-entry-animation:
+    slide-in 350ms cubic-bezier(0.27, 1.06, 0.18, 1.00) forwards,
+    fade-in 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00) forwards;
+  --cr-composebox-file-thumbnail-exit-animation:
+    slide-out 350ms cubic-bezier(0.27, 1.06, 0.18, 1.00) forwards,
+    fade-out 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00) forwards,
+    shrink-out 500ms cubic-bezier(0.38, 1.21, 0.22, 1) 35ms forwards;
+  --cr-composebox-file-thumbnail-exit-animation-last:
+    slide-out 350ms cubic-bezier(0.27, 1.06, 0.18, 1.00) forwards,
+    fade-out 150ms cubic-bezier(0.31, 0.94, 0.34, 1.00) forwards;
+  --cancel-button-inline-end: 16px;
   --context-carousel-inline-start-spacing: 12px;
   --context-carousel-top-position: 12px;
   --cr-composebox-text-container-padding-block-start: 12px;
   --cr-composebox-tool-chip-height: 36px;
   --file-thumbnail-border-radius: 6px;
   --file-chip-border-radius: 12px;
+  --icon-menu-button-size: 36px;
+  --lens-submit-icon-extra-spacing: 8px;
+}
+
+:host([energy-effect-enabled_][is-zero-state]) {
+  --cr-composebox-carousel-fade-delay: 85ms;
+  --cr-composebox-carousel-fade-duration: 500ms;
 }
 
 @media (prefers-color-scheme: light) {
@@ -78,8 +100,10 @@
   }
 }
 
-:host([energy-effect-enabled_][is-zero-state]) {
-  --cr-composebox-file-thumbnail-animation-name: zero-state-thumbnail-fade;
+@media (prefers-color-scheme: dark) {
+  :host([energy-effect-enabled_]) {
+    --color-composebox-file-chip-background: rgba(78, 80, 89, 1);
+  }
 }
 
 /* Composebox default colors are for light mode on AIM results. */
@@ -119,24 +143,13 @@
   position: fixed;
 }
 
+#composebox::part(composebox) {
+  min-height: var(--composebox-min-height);
+}
+
 :host(:not([input-enabled])) #composebox::part(composebox) {
   opacity: 0.4;
   pointer-events: none;
-}
-
-:host([is-zero-state][energy-effect-enabled_]) #composebox::part(composebox) {
-  will-change: opacity;
-  animation: zero-state-composebox-fade-in 50ms
-      var(--emphasized-accelerate-curve) both;
-}
-
-@keyframes zero-state-composebox-fade-in {
-  0% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
 }
 
 :host(:not([input-enabled])) #composebox::part(input) {
@@ -181,7 +194,7 @@
   --expanded-border-radius: var(--composebox-border-radius);
   --input-bottom-spacing: 16px;
   --text-input-inline-start-spacing: 20px;
-  --text-input-top-spacing: 16px;
+  --text-input-top-spacing: 12px;
   --composebox-context-menu-entrypoint-button-color:
       var(--color-composebox-voice-lens-button);
   --contextual-entrypoint-and-carousel-context-entrypoint-padding-inline-start: 0;
@@ -212,10 +225,6 @@
   min-width: 200px;
 }
 
-:host([energy-effect-enabled_]) #composebox::part(composebox) {
-  box-shadow: 0 4px 18px -2px rgba(60, 64, 67, 0.12);
-}
-
 #composebox::part(thumbnail) {
   --thumbnail-size_: var(--file-chip-thumbnail-full-size);
   height: var(--thumbnail-size_);
@@ -237,7 +246,8 @@
 #composebox::part(input),
 #composebox::part(tool-chip-label),
 #composebox::part(file-thumbnail-title),
-#composebox::part(mirror) {
+#composebox::part(mirror),
+#composebox::part(smart-compose) {
   font-family: var(--google-sans-font);
 }
 
@@ -277,7 +287,7 @@
 }
 
 :host([energy-effect-enabled_]) #composebox[show-file-carousel][expanding_]::part(carousel-container) {
-  transition: opacity var(--cr-composebox-expand-duration) var(--cr-composebox-expand-curve);
+  transition: opacity var(--cr-composebox-carousel-fade-duration) var(--cr-composebox-carousel-fade-curve) var(--cr-composebox-carousel-fade-delay);
 }
 
 #composebox[show-file-carousel]::part(carousel-container) {
@@ -323,17 +333,12 @@
   color: var(--color-composebox-font);
 }
 
-#composebox::part(input),
-#composebox::part(smart-compose) {
-  min-height: 48px;
-}
-
 #composebox::part(context-menu-and-tools) {
   min-height: var(--cr-icon-button-size);
 }
 
 #composebox::part(input)::placeholder {
-  color: revert;
+  color: var(--color-composebox-hint-text);
 }
 
 #composebox::part(context-menu-entrypoint-icon) {
@@ -368,8 +373,10 @@
   will-change: transform;
 }
 
-:host([energy-effect-animation-enabled_]) #composebox::part(context-menu-entrypoint-icon):active,
-:host([energy-effect-animation-enabled_]) #composebox::part(entrypoint-button):active {
+:host([energy-effect-animation-enabled_]) #composebox::part(context-menu-entrypoint-icon):active:hover,
+:host([energy-effect-animation-enabled_]) #composebox::part(context-menu-entrypoint-icon):active:focus-visible,
+:host([energy-effect-animation-enabled_]) #composebox::part(entrypoint-button):active:hover,
+:host([energy-effect-animation-enabled_]) #composebox::part(entrypoint-button):active:focus-visible {
   --cr-icon-button-icon-size:
     calc(var(--icon-menu-icon-size, 24px) * var(--icon-scale-x));
   --cr-icon-button-transition:
@@ -382,6 +389,20 @@
 :host([energy-effect-enabled_][in-tool-mode_]) #composebox::part(context-menu-entrypoint-icon),
 :host([energy-effect-enabled_][in-tool-mode_]) #composebox::part(entrypoint-button) {
   --cr-composebox-entrypoint-background-color: transparent;
+}
+
+:host([energy-effect-enabled_]) #composebox::part(entrypoint-button)::before {
+  background-color: var(--color-composebox-context-entrypoint-hover-background);
+  border-radius: inherit;
+  content: '';
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+:host([energy-effect-enabled_]) #composebox::part(entrypoint-button):hover::before {
+  opacity: 0.06;
 }
 
 /* Controls cancel and submit buttons. */
@@ -428,6 +449,7 @@
 #composebox[submit-enabled]::part(lens-icon) {
   inset-inline-end: calc(var(--composebox-submit-container-size)
       + var(--icon-menu-spacing)
+      + var(--lens-submit-icon-extra-spacing)
       + var(--composebox-submit-container-inline-end));
 }
 
@@ -545,16 +567,23 @@
       + var(--composebox-submit-container-inline-end));
 }
 
+:host([voice-search-coherence-enabled_])
+    #composebox::part(voice-submit-button) {
+  --cr-composebox-submit-icon-offset: 0;
+}
+
 /* Lens is only shown in side panel, so adjust spacing. */
 :host([is-side-panel]) #composebox[submit-enabled]::part(voice-icon) {
   inset-inline-end: calc(var(--composebox-submit-container-size)
       + var(--icon-menu-button-size)
       + 2 * var(--icon-menu-spacing)
+      + var(--lens-submit-icon-extra-spacing)
       + var(--composebox-submit-container-inline-end));
 }
 
 #composebox::part(voice-icon) {
   --cr-icon-button-fill-color: var(--color-composebox-voice-lens-button);
+  --cr-icon-button-hover-background-color: var(--color-composebox-voice-button-hover-background);
   --cr-icon-button-icon-size: var(--icon-menu-icon-size);
   --cr-icon-button-size: var(--icon-menu-button-size);
   bottom: var(--composebox-icon-menu-bottom);
@@ -581,6 +610,7 @@
 :host([is-side-panel][active-tool-mode='1']) #composebox[submit-enabled]::part(voice-icon) {
   inset-inline-end: calc(var(--composebox-submit-container-size)
       + var(--icon-menu-spacing)
+      + var(--lens-submit-icon-extra-spacing)
       + var(--composebox-submit-container-inline-end));
 }
 
@@ -590,16 +620,17 @@
  top: var(--cancel-button-top);
 }
 
+#composebox::part(voice-details-link) {
+ pointer-events: auto;
+ cursor: pointer;
+}
+
 #composebox[in-voice-search-mode_]::part(composebox-background)::before {
  background-color: var(--cr-composebox-background-color);
 }
 
 #composebox::part(composebox-background)::before {
  transition: background-color 400ms ease-in-out;
-}
-
-#composebox[in-voice-search-mode_] {
- box-shadow: 2px 17px 18px -10px rgba(0, 0, 0, 0.05);
 }
 
 :host([is-zero-state]) #contextualTasksSuggestionsContainer {
@@ -637,6 +668,24 @@
   padding-inline-end: 10px;
 }
 
+:host([is-zero-state][energy-effect-animation-enabled_]) #contextualTasksSuggestionsContainer {
+  animation: zero-state-recommendations-enter 600ms
+    var(--emphasized-decelerate-curve) forwards;
+}
+
+@keyframes zero-state-recommendations-enter {
+  0% {
+    opacity: 0;
+    transform: translate(0, 60px);
+  }
+  15% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
 
 :host([is-zero-state]) #contextualTasksSuggestionsContainer::part(match-focus-indicator) {
   /* 'Important' is used to override all higher-specificity
@@ -771,7 +820,7 @@
   }
 }
 
-:host([energy-effect-enabled_]) #composebox[animation-state='submitting'] {
+:host(:not([energy-effect-enabled_])) #composebox[animation-state='submitting'] {
   animation: bump-on-submit 350ms;
   animation-delay: 50ms;
   transform-origin: bottom;
@@ -782,13 +831,12 @@
     animation-timing-function: cubic-bezier(0, 0, 0, 1);
     transform: scaleY(1);
   }
-
   28.5% {
     animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transform: scaleY(1.12);
   }
-
   100% {
     transform: scaleY(1);
   }
 }
+

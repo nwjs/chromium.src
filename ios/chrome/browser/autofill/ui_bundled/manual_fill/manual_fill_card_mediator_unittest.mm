@@ -13,11 +13,12 @@
 #import "components/autofill/core/browser/test_utils/autofill_test_utils.h"
 #import "components/autofill/ios/browser/autofill_client_ios.h"
 #import "components/autofill/ios/browser/test_autofill_client_ios.h"
+#import "ios/chrome/browser/autofill/model/manual_fill_virtual_card_cache.h"
 #import "ios/chrome/browser/autofill/ui_bundled/chrome_autofill_client_ios.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/card_consumer.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/card_list_delegate.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_card_cell+Testing.h"
-#import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_virtual_card_cache.h"
+#import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_injection_handler.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -65,6 +66,34 @@ class TestChromeAutofillClient : public autofill::ChromeAutofillClientIOS {
 
 }  // namespace
 
+// A fake implementation of ManualFillContentInjector for testing.
+@interface FakeContentInjector : NSObject <ManualFillContentInjector>
+@property(nonatomic, assign) url::Origin activeOrigin;
+@end
+
+@implementation FakeContentInjector
+- (url::Origin)activeWebFrameOrigin {
+  return self.activeOrigin;
+}
+- (BOOL)canUserInjectInPasswordField:(BOOL)passwordField
+                       requiresHTTPS:(BOOL)requiresHTTPS {
+  return YES;
+}
+- (void)userDidPickContent:(NSString*)content
+             passwordField:(BOOL)passwordField
+             requiresHTTPS:(BOOL)requiresHTTPS {
+}
+- (void)autofillFormWithCredential:(ManualFillCredential*)credential
+                      shouldReauth:(BOOL)shouldReauth {
+}
+- (void)autofillFormWithSuggestion:(FormSuggestion*)formSuggestion
+                           atIndex:(NSInteger)index {
+}
+- (BOOL)isActiveFormAPasswordForm {
+  return NO;
+}
+@end
+
 // Test fixture for testing the ManualFillCardMediator class.
 class ManualFillCardMediatorTest : public PlatformTest {
  protected:
@@ -97,6 +126,7 @@ class ManualFillCardMediatorTest : public PlatformTest {
                                       autofill::test::NextMonth().c_str(),
                                       autofill::test::NextYear().c_str(), "1");
     card.set_guid(guid);
+    card.set_server_id(guid);
     card.set_instrument_id(0);
     card.set_record_type(CreditCard::RecordType::kMaskedServerCard);
     if (enrolled_for_virtual_card) {
@@ -158,83 +188,6 @@ TEST_F(ManualFillCardMediatorTest, CreateManualFillCardItemsWithVirtualCard) {
   EXPECT_OCMOCK_VERIFY(consumer());
 }
 
-// Tests that successfully retrieving a virtual card caches the unmasked card
-// in the WebState's virtual card cache.
-TEST_F(ManualFillCardMediatorTest,
-       OnFullCardRequestSucceeded_CachesVirtualCard) {
-  // Set up ScopedTestingWebClient with FakeWebClient.
-  web::ScopedTestingWebClient web_client(
-      std::make_unique<web::FakeWebClient>());
-
-  // Create a REAL WebState.
-  std::unique_ptr<TestProfileIOS> profile = TestProfileIOS::Builder().Build();
-  web::WebState::CreateParams params(profile.get());
-  auto web_state = web::WebState::Create(params);
-
-  // Set up InfoBarManager.
-  InfoBarManagerImpl::CreateForWebState(web_state.get());
-  infobars::InfoBarManager* infobar_manager =
-      InfoBarManagerImpl::FromWebState(web_state.get());
-
-  // Attach Client.
-  auto client = std::make_unique<
-      autofill::WithFakedFromWebState<TestChromeAutofillClient>>(
-      profile.get(), web_state.get(), infobar_manager, /*bridge=*/nil);
-
-  // Prepare test data.
-  CreditCard card = autofill::test::GetVirtualCard();
-  card.set_server_id("test_server_id");
-  card.set_record_type(CreditCard::RecordType::kVirtualCard);
-
-  // Simulate the request.
-  [mediator()
-      onFullCardRequestSucceeded:card
-                       fieldType:manual_fill::PaymentFieldType::kCardNumber
-                     forWebState:web_state.get()];
-
-  // Verify the cache.
-  ManualFillVirtualCardCache* cache =
-      ManualFillVirtualCardCache::FromWebState(web_state.get());
-  ASSERT_TRUE(cache);
-
-  const CreditCard* cached_card = cache->GetUnmaskedCard(card.server_id());
-  ASSERT_TRUE(cached_card);
-  EXPECT_EQ(cached_card->number(), card.number());
-}
-
-// Tests that successfully retrieving a non-virtual card (e.g. server card)
-// does NOT cache it.
-TEST_F(ManualFillCardMediatorTest,
-       OnFullCardRequestSucceeded_DoesNotCacheServerCard) {
-  web::ScopedTestingWebClient web_client(
-      std::make_unique<web::FakeWebClient>());
-  std::unique_ptr<TestProfileIOS> profile = TestProfileIOS::Builder().Build();
-  web::WebState::CreateParams params(profile.get());
-  auto web_state = web::WebState::Create(params);
-
-  InfoBarManagerImpl::CreateForWebState(web_state.get());
-  infobars::InfoBarManager* infobar_manager =
-      InfoBarManagerImpl::FromWebState(web_state.get());
-
-  auto client = std::make_unique<
-      autofill::WithFakedFromWebState<TestChromeAutofillClient>>(
-      profile.get(), web_state.get(), infobar_manager, /*bridge=*/nil);
-
-  CreditCard card = autofill::test::GetMaskedServerCard();
-  card.set_server_id("test_server_id");
-
-  [mediator()
-      onFullCardRequestSucceeded:card
-                       fieldType:manual_fill::PaymentFieldType::kCardNumber
-                     forWebState:web_state.get()];
-
-  ManualFillVirtualCardCache* cache =
-      ManualFillVirtualCardCache::FromWebState(web_state.get());
-
-  if (cache) {
-    EXPECT_EQ(nullptr, cache->GetUnmaskedCard(card.server_id()));
-  }
-}
 
 // Tests that the mediator notifies the delegate when a full card request
 // succeeds. This signal is used to re-show the manual fallback UI if it was
@@ -310,9 +263,15 @@ TEST_F(ManualFillCardMediatorTest,
   unmaskedCard.SetRawInfo(autofill::CREDIT_CARD_NUMBER, u"4234567890123456");
   unmaskedCard.set_cvc(u"123");
 
+  // Use FakeContentInjector to return a specific origin.
+  FakeContentInjector* fake_injector = [[FakeContentInjector alloc] init];
+  url::Origin test_origin = url::Origin::Create(GURL("https://example.com"));
+  fake_injector.activeOrigin = test_origin;
+  mediator_.contentInjector = fake_injector;
+
   ManualFillVirtualCardCache::CreateForWebState(web_state.get());
   ManualFillVirtualCardCache::FromWebState(web_state.get())
-      ->CacheUnmaskedCard(unmaskedCard);
+      ->CacheUnmaskedCard(unmaskedCard, test_origin);
 
   auto captured_card_items =
       std::make_shared<NSArray<ManualFillCardItem*>*>(nil);

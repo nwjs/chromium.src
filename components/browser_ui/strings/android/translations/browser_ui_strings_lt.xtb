@@ -290,6 +290,7 @@
 <translation id="3843916486309149084">„Chrome“ vėl užblokuos slapukus šiandien</translation>
 <translation id="385051799172605136">Atgal</translation>
 <translation id="3859306556332390985">Eiti pirmyn</translation>
+<translation id="3870711497942672548">Suasmeninkite „Chrome“ naudodami tinkintas pagrindinio puslapio spalvas ir vaizdus</translation>
 <translation id="389521680295183045">Svetainės gali prašyti leisti sužinoti, kada aktyviai naudojate įrenginį</translation>
 <translation id="3895926599014793903">Priverstinai įgalinti mastelio keitimą</translation>
 <translation id="3903738175795615004">Vilkite nuo viršaus arba paspauskite „Esc“, kad išeitumėte iš viso ekrano režimo.</translation>
@@ -333,6 +334,7 @@
 <translation id="4290791284969893584">Uždarius puslapį, pradėtos užduotys gali likti nebaigtos</translation>
 <translation id="429312253194641664">Svetainėje leidžiama medija</translation>
 <translation id="42981349822642051">Išskleisti</translation>
+<translation id="4310738531374808763">Tinkinkite pagrindinį puslapį</translation>
 <translation id="4336219115486912529">{COUNT,plural, =1{Galiojimo laikas baigsis rytoj}one{Galiojimo laikas baigsis po # dienos}few{Galiojimo laikas baigsis po # dienų}many{Galiojimo laikas baigsis po # dienos}other{Galiojimo laikas baigsis po # dienų}}</translation>
 <translation id="4338831206024587507">Visos svetainės su domenu <ph name="DOMAIN" /></translation>
 <translation id="4340799661701629185">Neleisti svetainėms siųsti pranešimų</translation>
@@ -524,6 +526,7 @@
 <translation id="6262279340360821358">Užblokuota: <ph name="PERMISSION_1" /> ir <ph name="PERMISSION_2" /></translation>
 <translation id="6270391203985052864">Svetainės gali prašyti siųsti pranešimus</translation>
 <translation id="6295158916970320988">Visos svetainės</translation>
+<translation id="6305257382500066042">Išbandykite dabar</translation>
 <translation id="6320088164292336938">Vibruoti</translation>
 <translation id="6367753977865761591">Blokuoti trečiosios šalies prisijungimą prie konkrečios svetainės.</translation>
 <translation id="6398765197997659313">Išeiti iš viso ekrano režimo</translation>
@@ -609,6 +612,7 @@
 <translation id="7250468141469952378">Pasirinkta: <ph name="ITEM_COUNT" /></translation>
 <translation id="7260727271532453612">Leidžiama: <ph name="PERMISSION_1" /> ir <ph name="PERMISSION_2" /></translation>
 <translation id="7276071417425470385">Įjungus svetainėse gali būti prašoma naudoti virtualiosios realybės įrenginius. Išjungus svetainėse negalima naudoti virtualiosios realybės įrenginių.</translation>
+<translation id="7279851812866769760">Kontaktų bendrinimas</translation>
 <translation id="7282197670900591579">Citrinų spalvos tema</translation>
 <translation id="728412880473384942">Svetainės bus spartesnės, bet mažiau saugios</translation>
 <translation id="7352902948037373520">Tvarkykite <ph name="BEGIN_LINK1" />„Android“ nustatymuose<ph name="END_LINK1" />
@@ -700,6 +704,7 @@ Naudojant Papildomą apsaugą valdomi toliau nurodyti „Chrome“ nustatymai.</
 <translation id="823874716226307142">Įjungus svetainės gali prašyti pasiekti kitus įrenginius vietiniame tinkle. Išjungus svetainės negali pasiekti kitų įrenginių vietiniame tinkle.</translation>
 <translation id="8249310407154411074">Perkelti į viršų</translation>
 <translation id="8261506727792406068">Ištrinti</translation>
+<translation id="8273596202562472147">Daugiau <ph name="SITE_NAME" /> parinkčių</translation>
 <translation id="8284326494547611709">Subtitrai</translation>
 <translation id="8300705686683892304">Valdo programa</translation>
 <translation id="8301363963630676147">Leidžiama šį kartą • Naudojama apytikslė vietovė</translation>
@@ -794,6 +799,7 @@ Naudojant Papildomą apsaugą valdomi toliau nurodyti „Chrome“ nustatymai.</
 <translation id="9156722768168878035">Leiskite „Chrome“ rodyti naujausius skirtukus įrenginio programų sąraše ir paieškos rezultatuose. Galite bet kada išjungti tai „Chrome“ nustatymuose.</translation>
 <translation id="9162462602695099906">Šis puslapis pavojingas</translation>
 <translation id="9182556968660520230">Neleisti svetainėms leisti apsaugoto turinio</translation>
+<translation id="927148002081263046">Kontakto bendrinimas</translation>
 <translation id="947156494302904893">Svetainės, kuriose lankotės, gali patvirtinti, kad esate realus asmuo, o ne robotas</translation>
 <translation id="959682366969460160">Sutvarkykite</translation>
 <translation id="960590623979248167">Rodyti hipersaitus</translation>

@@ -13,9 +13,9 @@
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "ios/chrome/browser/browser_content/ui_bundled/browser_edit_menu_utils.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
-#import "ios/chrome/browser/intelligence/bwg/model/bwg_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
@@ -60,7 +60,7 @@ typedef void (^ProceduralBlockWithBlockWithItemArray)(
       ProfileIOS::FromBrowserState(webState->GetBrowserState());
   raw_ptr<GeminiService> geminiService =
       GeminiServiceFactory::GetForProfile(profile);
-  BwgTabHelper* geminiTabHelper = BwgTabHelper::FromWebState(webState);
+  GeminiTabHelper* geminiTabHelper = GeminiTabHelper::FromWebState(webState);
   const BOOL geminiAvailable =
       geminiService && geminiService->IsProfileEligibleForGemini() &&
       geminiTabHelper && geminiTabHelper->IsGeminiAvailableForWebState();
@@ -74,6 +74,10 @@ typedef void (^ProceduralBlockWithBlockWithItemArray)(
 
 // Returns the title of button Explain With Gemini.
 - (NSString*)buttonTitle {
+  if (ExplainGeminiEditMenuPosition() ==
+      PositionForExplainGeminiEditMenu::kAdjacent) {
+    return l10n_util::GetNSString(IDS_IOS_ASK_GEMINI_EDIT_MENU);
+  }
   return l10n_util::GetNSString(IDS_IOS_EXPLAIN_GEMINI_EDIT_MENU);
 }
 
@@ -233,6 +237,12 @@ typedef void (^ProceduralBlockWithBlockWithItemArray)(
     menuElement = [UIDeferredMenuElement elementWithProvider:provider];
   }
 
+  if (ExplainGeminiEditMenuPosition() ==
+      PositionForExplainGeminiEditMenu::kAdjacent) {
+    edit_menu::AddElementToChromeMenu(builder, menuElement,
+                                      /*primary*/ YES);
+    return;
+  }
   if (ExplainGeminiEditMenuPosition() ==
       PositionForExplainGeminiEditMenu::kAfterSearch) {
     edit_menu::AddElementToChromeMenu(builder, menuElement,

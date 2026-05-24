@@ -831,6 +831,8 @@ bool IsFullscreenNextIAEnabled() {
   _urlLoadingBrowserAgent = nullptr;
   _tabUsageRecorderBrowserAgent = nullptr;
   _snapshotBrowserAgent = nullptr;
+  _fullscreenUIUpdater = nullptr;
+  _fullscreenController = nullptr;
   _fullscreenBrowserAgentObserverBridge = nullptr;
   _fullscreenBrowserAgent = nullptr;
 }
@@ -1104,6 +1106,10 @@ bool IsFullscreenNextIAEnabled() {
     return;
   }
   CHECK(_fullscreenBrowserAgent);
+  // Reset the keyboard inset to 0 during rotation to avoid using a stale
+  // portrait height on the smaller landscape frame, which might be larger
+  // than the new viewport height.
+  _fullscreenBrowserAgent->SetKeyboardObscuredInset(0);
   _fullscreenBrowserAgent->InvalidateInsetRange();
 }
 
@@ -2004,6 +2010,9 @@ bool IsFullscreenNextIAEnabled() {
 #pragma mark - FullscreenUIElement methods
 
 - (void)updateForFullscreenProgress:(CGFloat)progress {
+  if (_isShutdown) {
+    return;
+  }
   [self updateHeadersForFullscreenProgress:progress];
   [self updateFootersForFullscreenProgress:progress];
   if (!IsFullscreenRefactoringEnabled() &&

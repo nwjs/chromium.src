@@ -54,11 +54,14 @@ class GlicEnabling;
 class GlicFreController;
 class GlicMetrics;
 class GlicProfileManager;
-class GlicRegionCaptureController;
 class GlicShareImageHandler;
 class GlicTabDataObserver;
 class GlicTabFaviconObserver;
 class GlicInstanceCoordinator;
+
+#if !BUILDFLAG(IS_ANDROID)
+class GlicExperimentalOptInController;
+#endif
 
 enum class GlicPrewarmingChecksResult;
 
@@ -98,13 +101,14 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   // prevent_close is false. If `bwi` is non-null, attach the panel to its
   // Browser.
   // TODO(b:448888544): remove `prevent_close` in favor of a Show method.
+
   virtual void ToggleUI(BrowserWindowInterface* bwi,
                         bool prevent_close,
                         mojom::InvocationSource source,
                         std::optional<std::string> prompt_suggestion);
-  void ToggleUI(BrowserWindowInterface* bwi,
-                bool prevent_close,
-                mojom::InvocationSource source);
+  virtual void ToggleUI(BrowserWindowInterface* bwi,
+                        bool prevent_close,
+                        mojom::InvocationSource source);
 
   // Invokes Glic with the given options and automatically submits the prompt.
   // Access is restricted to authorized callers via InvokeWithAutoSubmitPasskey.
@@ -137,6 +141,9 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
 
   GlicMetrics* metrics() { return metrics_.get(); }
   virtual GlicFreController& fre_controller();
+#if !BUILDFLAG(IS_ANDROID)
+  virtual GlicExperimentalOptInController& opt_in_controller();
+#endif
   virtual GlicInstanceCoordinator& instance_coordinator() const;
 
   // Return a `GlicActiveInstanceSharingManager` which tracks the sharing state
@@ -144,12 +151,6 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   // on the `GlicInstance` if you don't need one that automatically tracks the
   // active instance.
   GlicSharingManager& active_instance_sharing_manager();
-
-  bool IsTabPinnedToAnyInstance(const tabs::TabHandle& tab_handle) const;
-
-  // Unpins the specified tabs from all instances.
-  void UnpinTabsFromAllInstances(base::span<const tabs::TabHandle> tab_handles,
-                                 GlicUnpinTrigger trigger);
 
   // Virtual for testing.
   virtual bool IsWindowShowing() const;
@@ -206,13 +207,6 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   base::CallbackListSubscription AddUserInputSubmittedCallback(
       base::RepeatingClosure callback);
 
-#if !BUILDFLAG(IS_ANDROID)  // Single instance only
-  void CaptureRegion(tabs::TabInterface* tab,
-                     mojo::PendingRemote<mojom::CaptureRegionObserver> observer,
-                     mojom::GetTabContextOptionsPtr options = nullptr);
-  void DeleteCapturedRegion(tabs::TabInterface* tab,
-                            const base::UnguessableToken& id);
-#endif
 
   // Fetches the image for the context menu item (if possible, and potentially
   // scaling and reencoding) and sends the result to the web client as
@@ -223,9 +217,6 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
 
   AuthController& GetAuthController() { return *auth_controller_; }
 
-#if !BUILDFLAG(IS_ANDROID)  // Single instance only
-  GlicRegionCaptureController& region_capture_controller();
-#endif
 
   void AddPreloadCallback(base::OnceCallback<void()> callback);
 
@@ -280,12 +271,11 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
           GetZeroStateSuggestionsForFocusedTabCallback callback,
       std::vector<std::string> returned_suggestions);
 
-  // Shared implementation for ToggleUI and ShowUIWithAutoSend.
+  // Shared implementation for ToggleUI.
   void ToggleUIInternal(BrowserWindowInterface* bwi,
                         bool prevent_close,
                         mojom::InvocationSource source,
                         std::optional<std::string> prompt_suggestion,
-                        bool auto_send,
                         std::optional<std::string> conversation_id);
 
   bool MaybeInvoke(BrowserWindowInterface* bwi,
@@ -315,13 +305,14 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   std::unique_ptr<GlicEnabling> enabling_;
   std::unique_ptr<GlicMetrics> metrics_;
   std::unique_ptr<GlicFreController> fre_controller_;
+#if !BUILDFLAG(IS_ANDROID)
+  std::unique_ptr<GlicExperimentalOptInController> opt_in_controller_;
+#endif
   // Is a GlicInstanceCoordinatorImpl.
   std::unique_ptr<GlicInstanceCoordinator> instance_coordinator_;
   std::unique_ptr<GlicSharingManager> sharing_manager_;
   std::unique_ptr<GlicShareImageHandler> share_image_handler_;
-#if !BUILDFLAG(IS_ANDROID)  // Single instance only
-  std::unique_ptr<GlicRegionCaptureController> region_capture_controller_;
-#endif
+
   std::unique_ptr<AuthController> auth_controller_;
 
   base::OnceCallback<void()> preload_callback_;

@@ -136,9 +136,8 @@ void VizLayerContextTest::UpdateDisplayTreeAndWait() {
 
   viz_layer_context_->UpdateDisplayTreeFrom(
       *host_impl_->active_tree(), *host_impl_->resource_provider(),
-      /*shared_image_interface=*/nullptr, host_impl_->CurrentBeginFrameArgs(),
-      viewport_damage_rect, frame_has_damage, /*is_flush=*/false,
-      std::move(latency_info));
+      /*shared_image_interface=*/nullptr, viewport_damage_rect,
+      frame_has_damage, /*is_flush=*/false, std::move(latency_info));
 
   base::RunLoop run_loop;
   fake_layer_context_.on_update_display_tree_ = run_loop.QuitClosure();
@@ -290,9 +289,8 @@ TEST_F(VizLayerContextTest, FlushOnlyUpdate) {
 
   viz_layer_context_->UpdateDisplayTreeFrom(
       *host_impl_->active_tree(), *host_impl_->resource_provider(),
-      /*shared_image_interface=*/nullptr, host_impl_->CurrentBeginFrameArgs(),
-      viewport_damage_rect, frame_has_damage, /*is_flush=*/true,
-      std::move(latency_info));
+      /*shared_image_interface=*/nullptr, viewport_damage_rect,
+      frame_has_damage, /*is_flush=*/true, std::move(latency_info));
 
   base::RunLoop run_loop;
   fake_layer_context_.on_update_display_tree_ = run_loop.QuitClosure();
@@ -312,7 +310,7 @@ TEST_F(VizLayerContextTest, RecoveryFromMojoConnectionError) {
   // host_impl_->DidLoseLayerTreeFrameSink() should have been called, which
   // in turn calls the client method.
   EXPECT_TRUE(base::test::RunUntil([&]() {
-    return host_impl_->client()
+    return host_impl_->delegate()
         ->did_lose_layer_tree_frame_sink_on_impl_thread();
   }));
 }
@@ -326,7 +324,7 @@ TEST_F(VizLayerContextTest, NoRecoveryFromNormalMojoDisconnect) {
 
   // host_impl_->DidLoseLayerTreeFrameSink() should NOT have been called.
   EXPECT_FALSE(
-      host_impl_->client()->did_lose_layer_tree_frame_sink_on_impl_thread());
+      host_impl_->delegate()->did_lose_layer_tree_frame_sink_on_impl_thread());
 }
 
 }  // namespace viz

@@ -231,6 +231,14 @@ class BubbleDialogDelegate::AnchorViewObserver : public ViewObserver {
 
   View* anchor_view() const { return anchor_view_; }
 
+  void UpdateBubbleVisibility(bool visible) {
+    bubble_widget_visible_ = visible;
+    if (visible && update_bounds_when_visible_) {
+      parent_->OnAnchorBoundsChanged();
+      update_bounds_when_visible_ = false;
+    }
+  }
+
   // ViewObserver:
   void OnViewIsDeleting(View* observed_view) override {
     // The anchor is being deleted, make sure the parent bubble no longer
@@ -242,7 +250,11 @@ class BubbleDialogDelegate::AnchorViewObserver : public ViewObserver {
 
   void OnViewVisibleBoundsChanged(View* observed_view) override {
     DCHECK_EQ(anchor_view_, observed_view);
-    parent_->OnAnchorBoundsChanged();
+    if (bubble_widget_visible_) {
+      parent_->OnAnchorBoundsChanged();
+    } else {
+      update_bounds_when_visible_ = true;
+    }
   }
 
   // TODO(pbos): Consider observing View visibility changes and only updating
@@ -277,6 +289,8 @@ class BubbleDialogDelegate::AnchorViewObserver : public ViewObserver {
       scoped_notify_;
   const raw_ptr<BubbleDialogDelegate> parent_;
   const raw_ptr<View> anchor_view_;
+  bool bubble_widget_visible_ = true;
+  bool update_bounds_when_visible_ = false;
 };
 
 // This class is responsible for observing events on a BubbleDialogDelegate's
@@ -510,7 +524,7 @@ BubbleDialogDelegate::~BubbleDialogDelegate() {
 }
 
 // static
-Widget* BubbleDialogDelegate::CreateBubble(
+Widget* BubbleDialogDelegate::CreateBubbleDeprecated(
     BubbleDialogDelegate* bubble_delegate,
     Widget::InitParams::Ownership ownership) {
   // On Mac, ModalType::kWindow is implemented using sheets, which can't be
@@ -539,10 +553,10 @@ Widget* BubbleDialogDelegate::CreateBubble(
 }
 
 // static
-Widget* BubbleDialogDelegate::CreateBubble(
+Widget* BubbleDialogDelegate::CreateBubbleDeprecated(
     std::unique_ptr<BubbleDialogDelegate> bubble_delegate_unique,
     Widget::InitParams::Ownership ownership) {
-  return CreateBubble(bubble_delegate_unique.release(), ownership);
+  return CreateBubbleDeprecated(bubble_delegate_unique.release(), ownership);
 }
 
 // static
@@ -582,9 +596,9 @@ BubbleDialogDelegate* BubbleDialogDelegate::AsBubbleDialogDelegate() {
 std::unique_ptr<FrameView> BubbleDialogDelegate::CreateFrameView(
     Widget* widget) {
   const FrameMargins& margin = frame_margins();
-  auto frame = std::make_unique<BubbleDialogFrameView>(margin.title.value());
+  auto frame = std::make_unique<BubbleDialogFrameView>(margin.title);
 
-  frame->SetFootnoteMargins(margin.footnote.value());
+  frame->SetFootnoteMargins(margin.footnote);
   frame->SetFootnoteView(DisownFootnoteView());
 
   std::unique_ptr<BubbleBorder> border =
@@ -1268,6 +1282,10 @@ void BubbleDialogDelegate::OnBubbleWidgetVisibilityChanged(bool visible) {
       bubble_shown_duration_ += base::TimeTicks::Now() - *bubble_shown_time_;
       bubble_shown_time_.reset();
     }
+  }
+
+  if (anchor_view_observer_) {
+    anchor_view_observer_->UpdateBubbleVisibility(visible);
   }
 
   UpdateHighlightedButton(visible);

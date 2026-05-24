@@ -1872,6 +1872,25 @@ IPv4 地址的前缀为 0010；IPv6 地址的前缀为 0020。对于双栈网络
 <translation id="225340736558643885">启用针对不安全表单的警告</translation>
 <translation id="2258126710006312594">允许远程访问用户将文件传到主机或接收从主机传出的文件</translation>
 <translation id="225830954785359083">禁止页面在卸载期间显示弹出式窗口</translation>
+<translation id="2260635608598936994">配置过滤条件，选择要包含在 <ph name="PRODUCT_NAME" /> 安全信号报告中的客户端证书。这些报告会将浏览器和设备状态信息发送至 <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" />，管理员可据此配置 <ph name="GOOGLE_CONTEXT_AWARE_ACCESS" /> 规则。
+
+您可以通过此政策，根据客户端证书属性（例如 ISSUER 和/或 SUBJECT 标识名）来定义过滤条件。只有当证书与指定的至少一个过滤条件相匹配时，<ph name="PRODUCT_NAME" /> 才会将其纳入信号报告中。
+
+     <ph name="SELECTOR_PLACEHOLDER" /> 部分的用法示例：
+
+      * 如果 <ph name="SELECTOR_PLACEHOLDER" /> 设为 <ph name="SECURITY_SIGNALS_CLIENT_CERTIFICATE_SELECTORS_FILTER_EXAMPLE" />，则系统只会选择由 CommonName 为 <ph name="ISSUER_CN_PLACEHOLDER" /> 的证书颁发机构颁发的客户端证书。
+
+      * 如果 <ph name="SELECTOR_PLACEHOLDER" /> 既包含 <ph name="ISSUER_STRING_VALUE" /> 部分也包含 <ph name="SUBJECT_STRING_VALUE" /> 部分，则系统只会选择与这两项条件都相符的客户端证书。
+
+      * 如果 <ph name="SELECTOR_PLACEHOLDER" /> 包含值为 <ph name="FILTER_STRING_ORGANIZATION" /> 的 <ph name="SUBJECT_STRING_VALUE" /> 部分，则证书需要包含至少 1 个与指定值匹配的组织，才会被选中。
+
+      * 如果 <ph name="SELECTOR_PLACEHOLDER" /> 包含值为 <ph name="FILTER_STRING_ORGANIZATIONAL_UNIT" /> 的 <ph name="SUBJECT_STRING_VALUE" /> 部分，则证书需要包含至少 1 个与指定值匹配的组织部门，才会被选中。
+
+      * 如果 <ph name="SELECTOR_PLACEHOLDER" /> 设为 <ph name="EMPTY_DICTIONARY" />，系统会忽略此政策的空白详情。
+
+      如果您未设置此政策，则系统在报告信号时不会选择客户端证书。
+
+*重要提示：*此政策仅在启用 <ph name="USER_SECURITY_SIGNALS_REPORTING_POLICY_NAME" /> 政策后才会生效，后者负责控制从 Chrome 发送安全信号的整体功能。</translation>
 <translation id="2261648512244797294">停用已弃用的 Privet 本地打印</translation>
 <translation id="2262701937800507517">使用 <ph name="PRODUCT_OS_NAME" /> 的默认加密算法顺序</translation>
 <translation id="2263881357524831360">允许在 <ph name="ANDROID_NAME" /> 设备上的 <ph name="PRODUCT_NAME" /> 中使用第三方密码管理工具</translation>
@@ -2678,6 +2697,15 @@ PAC 样式的字符串：
 如果此政策已启用或未设置，用户将可以通过 Kerberos 设置页中的“Kerberos 账号”设置来添加 Kerberos 账号。用户对自己添加的账号拥有完全控制权，可以修改或移除这些账号。
 
 如果此政策已停用，用户将无法添加 Kerberos 账号。此时，只能通过“配置 Kerberos 账号”政策添加 Kerberos 账号。这一方式可以有效地锁定账号。</translation>
+<translation id="2771222727845689796">此政策允许您指定一个网址格式列表。匹配这些格式的后台 Web 内容将强制以前台优先级运行。
+
+如果启用了 <ph name="FORCE_FOREGROUND_PRIORITY_FOR_ALL_TABS_POLICY_NAME" /> 政策，系统会忽略此列表，因为所有标签页都将强制以前台优先级运行。
+
+如果已停用或未设置 <ph name="FORCE_FOREGROUND_PRIORITY_FOR_ALL_TABS_POLICY_NAME" />，仅当内容与此列表中的格式匹配时，才会强制以前台优先级运行。
+
+如需详细了解有效的<ph name="URL_LABEL" />格式，请访问 https://support.google.com/chrome/a?p=url_blocklist_filter_format。
+
+如果此列表为空或未设置，系统不会强制任何后台内容以前台优先级运行。</translation>
 <translation id="2772231477628401250">使用 HTTP 下载更新</translation>
 <translation id="2772955711376920612">如果此政策已启用，且 <ph name="DEVICE_POWER_PEAK_SHIFT_BATTERY_THRESHOLD_POLICY_NAME" /> 和 <ph name="DEVICE_POWER_PEAK_SHIFT_DAY_CONFIG_POLICY_NAME" /> 均已设置，“用电高峰期切换电源”功能会保持开启状态（如果相应设备支持的话）。“用电高峰期切换电源”电源管理政策是一种节电政策，可在用电高峰期间尽可能少用交流电。您可分别为每个工作日设置“用电高峰期切换电源”模式的运行开始时间和结束时间。在您所设定的时段内，只要电池电量高于指定阈值，即使连接了交流电，设备也会仅使用电池来维持运行。待指定的结束时间过后，设备会使用交流电（如果已连接）来维持运行，但不会为电池充电。待指定的充电开始时间过后，设备会恢复正常运行方式，使用交流电来维持运行并为电池充电。
 
@@ -4369,6 +4397,22 @@ ServiceWorkerAutoPreload 功能会在 ServiceWorker 引导过程开始的同时�
           如果您未设置此政策，粘滞键在登录屏幕上最初会处于停用状态，但用户可随时启用它。</translation>
 <translation id="3927291637826333102">允许这些来源使用桌面、窗口和标签页截取功能</translation>
 <translation id="3928726028264020458">启用设备 VPD 信息报告功能</translation>
+<translation id="393516164454995927">通过设置此政策，您可以指定每个代理服务器针对 WebSocket 请求的并发连接数上限。
+
+如需针对非 WebSocket 请求修改此上限，请参阅 <ph name="MAX_CONNECTIONS_PER_PROXY_POLICY_NAME" />。
+
+如果您未设置此政策，系统将使用默认值 128。
+
+有些 Web 应用会通过“挂起 GET”占用大量连接。因此，如果将此值设为小于 128，并且同时打开了太多此类 Web 应用，就可能会导致浏览器网络连接挂起。
+某些代理服务器无法处理由同一客户端发起的大量并发连接，这时只需将此政策的值调低即可解决问题。
+
+此值应大于或等于 6。
+如果设置的值小于该限制，系统将使用 6。
+如果设置的值小于默认值 (128)，您需自担风险。
+
+此值应小于或等于 256。
+如果设置的值大于该限制，系统将使用 256。
+如果设置的值大于默认值 (128)，您需自担风险。</translation>
 <translation id="3935592079035695061">自午夜起的毫秒数。</translation>
 <translation id="3937800910397007337">强制将所有标签页设为前台优先级</translation>
 <translation id="3941289958028934630">为登录屏幕停用语音反馈</translation>
@@ -4816,6 +4860,7 @@ ServiceWorkerAutoPreload 功能会在 ServiceWorker 引导过程开始的同时�
       如果此政策已关闭或未设置，用户便能更改此设置。
 
       注意：对于 Android 设备，请改用 <ph name="ISOLATE_ORIGINS_ANDROID_POLICY_NAME" /> 政策。</translation>
+<translation id="4261641564041253502">自动为 <ph name="PRODUCT_NAME" /> 安全信号报告选择与过滤条件匹配的客户端证书。</translation>
 <translation id="4261820385751181068">设备登录屏幕语言区域</translation>
 <translation id="4263788921751326798">停用设备崩溃报告信息报告功能</translation>
 <translation id="4268586991084547853">更好地兼容 Microsoft IE/Edge 企业模式 sitelist。</translation>
@@ -6470,22 +6515,6 @@ JavaScript 优化政策的例外情况仅在网站级别 (eTLD+1) 上强制执�
 <translation id="5293285950307241933">清除所有本地用户数据</translation>
 <translation id="5293619885162445352">允许 <ph name="PEPPER_NAME" /> 使用新版视频解码器。</translation>
 <translation id="529457411593078576">在 CCT 首次运行期间启用《服务条款》</translation>
-<translation id="529718811410033393">通过设置此政策，您可以指定每个代理服务器针对非 WebSocket 请求的并发连接数上限。
-
-如需针对 WebSocket 请求修改此上限，请参阅 <ph name="MAX_CONNECTIONS_PER_PROXY_FOR_WEBSOCKET_POLICY_NAME" />。
-
-如果您未设置此政策，系统将使用默认值 32。
-
-某些 Web 应用会通过“挂起 GET”占用大量连接。因此，如果将此值设为小于 32，并且同时打开了太多此类 Web 应用，就可能会导致浏览器网络连接挂起。
-某些代理服务器无法处理由同一客户端发起的大量并发连接，这时只需将此政策的值调低即可解决问题。
-
-此值应大于或等于 6。
-如果设置的值小于该限制，系统将使用 6。
-如果设置的值小于默认值 (32)，您需自担风险。
-
-此值应小于或等于 256（在 <ph name="PRODUCT_NAME" /> 147 及更早版本中为 99）。
-如果设置的值大于该限制，系统将使用 256（在 <ph name="PRODUCT_NAME" /> 147 及更早版本中为 99）。
-如果设置的值大于默认值 (32)，您需自担风险。</translation>
 <translation id="5297873769621042075">通过设置此政策，您能以列表形式指定：在启用了 HTTPS-First 模式的情况下，哪些主机名或主机名格式（例如“[*.]example.com”）不会升级到 HTTPS 且不会显示错误插页。组织可以使用此政策保留对不支持 HTTPS 的服务器的访问权限，而无需停用 HTTPS 升级和/或 HTTPS-First 模式。
 
 必须将所提供的主机名规范化：任何 IDN 都必须转换为对应的 A 标签格式，而且所有 ASCII 字母都必须小写。
@@ -6500,13 +6529,6 @@ JavaScript 优化政策的例外情况仅在网站级别 (eTLD+1) 上强制执�
 <translation id="5303080953475303561">通过设置此政策，您可以控制锁定屏幕将会按照什么样的频率要求用户输入密码以实现快速解锁。每当系统显示锁定屏幕时，如果与上次输入密码相距的时间超出了所选值指定的时长，便无法快速解锁。如果用户在锁定屏幕上的停留时长超过了此时长，那么当用户下次输错代码或重新进入锁定屏幕时（以先发生者为准），系统就会要求输入密码。
 
       如果您未设置此政策，使用快速解锁功能的用户需要每天在锁定屏幕上输入其密码一次。</translation>
-<translation id="530488290401810961">配置 <ph name="PRODUCT_NAME" /> 如何下载基础生成式 AI 模型并在本地用于推理。
-
-如果此政策设为“允许”（即值为 0）或未经设置，系统会自动下载模型，并将其用于推理。
-
-如果此政策设为“停用”（即值为 1），系统将不会下载模型，并且会删除现有模型（如果已下载）。
-
-在桌面平台上，也可以通过 <ph name="COMPONENT_UPDATES_ENABLED_POLICY_NAME" /> 禁止下载模型。</translation>
 <translation id="5306186200045823863">信任 Symantec Corporation 的旧版 PKI 基础架构</translation>
 <translation id="5307432759655324440">无痕模式的可用性</translation>
 <translation id="5308551343115571396"><ph name="LACROS_NAME" /> 停用后，系统会尝试保留尽可能多的用户数据，但会移除所有浏览器数据。</translation>
@@ -7652,6 +7674,22 @@ IP 地址空间覆盖有两种形式：
 如果此政策的值设为 true 或未设置，教师可以使用 Google 课堂课程学生名单。
 
 如果此政策的值设为 false，教师将无法使用该功能。</translation>
+<translation id="6061604539167728530">通过设置此政策，您可以指定每个代理服务器针对非 WebSocket 请求的并发连接数上限。
+
+如需针对 WebSocket 请求修改此上限，请参阅 <ph name="MAX_CONNECTIONS_PER_PROXY_FOR_WEBSOCKET_POLICY_NAME" />。
+
+如果您未设置此政策，系统将使用默认值 128。
+
+有些 Web 应用会通过“挂起 GET”占用大量连接。因此，如果将此值设为小于 128，并且同时打开了太多此类 Web 应用，就可能会导致浏览器网络连接挂起。
+某些代理服务器无法处理由同一客户端发起的大量并发连接，这时只需将此政策的值调低即可解决问题。
+
+此值应大于或等于 6。
+如果设置的值小于该限制，系统将使用 6。
+如果设置的值小于默认值 (128)，您需自担风险。
+
+此值应小于或等于 256（在 <ph name="PRODUCT_NAME" /> 147 及更早版本中为 99）。
+如果设置的值大于该限制，系统将使用 256（在 <ph name="PRODUCT_NAME" /> 147 及更早版本中为 99）。
+如果设置的值大于默认值 (128)，您需自担风险。</translation>
 <translation id="6066761914755798079">如果 <ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" /> 已开启，您便可通过设置 <ph name="DEFAULT_SEARCH_PROVIDER_SUGGEST_URL_POLICY_NAME" /> 来指定用于提供搜索建议的搜索引擎网址。该网址应包含字符串<ph name="SEARCH_TERM_MARKER" />；当用户执行查询时，系统会将此字符串替换成用户的搜索字词。
 
       您可按以下格式指定 Google 的搜索网址：<ph name="GOOGLE_SUGGEST_SEARCH_URL" />。</translation>
@@ -8132,6 +8170,7 @@ Origin-Agent-Cluster HTTP 标头可控制是将某个文档隔离在以源为键
 
       无论您是否设置了此政策，用户都无法更改 WPAD 优化设置。</translation>
 <translation id="6363485842496031347">Delete 快捷键设置使用包含 Alt 辅助键的快捷键</translation>
+<translation id="6364336078281746235">对特定网址强制执行前台优先级</translation>
 <translation id="6366574325767783825">如果此政策设为 True 或未设置，<ph name="PRODUCT_NAME" /> 将会接受通过 Signed HTTP Exchange (SXG) 提供的网络内容。
 
       如果此政策设为 False，系统会阻止加载 Signed HTTP Exchange (SXG) 内容。</translation>
@@ -10026,22 +10065,6 @@ Gemini 只能在部分国家/地区启用，并且仅支持部分语言。设置
 
       如果用户的设备不是受管理设备，则此功能的可用性还取决于用户是不是设备所有者。</translation>
 <translation id="7570291542739287032">仅限云端</translation>
-<translation id="7571158727244273239">通过设置此政策，您可以指定每个代理服务器针对 WebSocket 请求的并发连接数上限。
-
-如需针对非 WebSocket 请求修改此上限，请参阅 <ph name="MAX_CONNECTIONS_PER_PROXY_POLICY_NAME" />。
-
-如果您未设置此政策，系统将使用默认值 32。
-
-某些 Web 应用会通过“挂起 GET”占用大量连接。因此，如果将此值设为小于 32，并且同时打开了太多此类 Web 应用，就可能会导致浏览器网络连接挂起。
-某些代理服务器无法处理由同一客户端发起的大量并发连接，这时只需将此政策的值调低即可解决问题。
-
-此值应大于或等于 6。
-如果设置的值小于该限制，系统将使用 6。
-如果设置的值小于默认值 (32)，您需自担风险。
-
-此值应小于或等于 256。
-如果设置的值大于该限制，系统将使用 256。
-如果设置的值大于默认值 (32)，您需自担风险。</translation>
 <translation id="7572641760104970905">无复杂度</translation>
 <translation id="757395965347379751">启用此设置后，只要 SHA-1 签名证书成功验证并关联到本地安装的 CA 证书，<ph name="PRODUCT_NAME" /> 就会允许使用这些证书。
 

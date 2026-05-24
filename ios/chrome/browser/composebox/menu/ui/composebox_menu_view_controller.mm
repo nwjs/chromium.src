@@ -6,6 +6,7 @@
 
 #import <optional>
 
+#import "ios/chrome/browser/composebox/menu/ui/composebox_menu_attachment_cell.h"
 #import "ios/chrome/browser/composebox/menu/ui/composebox_menu_attachment_view.h"
 #import "ios/chrome/browser/composebox/menu/ui/composebox_menu_item.h"
 #import "ios/chrome/browser/composebox/menu/ui/composebox_menu_section.h"
@@ -22,20 +23,21 @@
 
 namespace {
 
-// The height of the attachments group.
-const CGFloat kAttachmentGroupHeight = 80.0f;
+// The estimated height of the attachments group.
+const CGFloat kAttachmentGroupEstimatedHeight = 80.0f;
 
-// Insets for the safe area (top, left, bottom, right).
-const UIEdgeInsets kSafeAreaInsets = {20.0, 15.0, 20.0, 15.0};
+// The top padding for the collection view.
+const CGFloat kCollectionViewTopPadding = 20.0f;
 
-// Trailing inset for the attachment item.
-const CGFloat kAttachmentItemTrailingInset = 6.0f;
+// Spacing between attachment items.
+const CGFloat kAttachmentItemSpacing = 6.0f;
 
 // Insets for the model and tools sections.
-const NSDirectionalEdgeInsets kListSectionInsets = {0, 15.0, 20.0, 15.0};
+const NSDirectionalEdgeInsets kListSectionInsets = {0, 16.0, 20.0, 16.0};
 
 // Insets for the attachments section.
-const NSDirectionalEdgeInsets kAttachmentSectionInsets = {20.0, 0, 20.0, 0};
+const NSDirectionalEdgeInsets kAttachmentSectionInsets = {16.0, 16.0, 8.0,
+                                                          16.0};
 
 // Leading constant for the header label.
 const CGFloat kHeaderLabelLeadingPadding = 15.0f;
@@ -46,12 +48,11 @@ const CGFloat kHeaderLabelVerticalPadding = 10.0f;
 // Font size for the header label.
 const CGFloat kHeaderLabelFontSize = 16.0f;
 
-// Composebox menu section identifier.
-enum class ComposeboxMenuSectionIdentifier {
-  kAttachments = 0,
-  kTools,
-  kModels,
-};
+// Vertical padding for the separator.
+const CGFloat kSeparatorVerticalPadding = 10.0f;
+
+// Height of the separator line.
+const CGFloat kSeparatorHeight = 1.0f;
 
 // Maps a menu item type to its corresponding attachment option.
 std::optional<ComposeboxAttachmentOption> AttachmentOptionForMenuItemType(
@@ -138,6 +139,31 @@ UIImage* IconForModel(ComposeboxModelOption option) {
 
 }  // namespace
 
+@interface ComposeboxMenuSeparatorFooter : UICollectionReusableView
+@end
+
+@implementation ComposeboxMenuSeparatorFooter
+
+- (instancetype)initWithFrame:(CGRect)frame {
+  self = [super initWithFrame:frame];
+  if (self) {
+    UIView* separator = [[UIView alloc] init];
+    separator.backgroundColor = [UIColor colorNamed:kSeparatorColor];
+    separator.translatesAutoresizingMaskIntoConstraints = NO;
+    [self addSubview:separator];
+
+    [NSLayoutConstraint activateConstraints:@[
+      [separator.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
+      [separator.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
+      [separator.centerYAnchor constraintEqualToAnchor:self.centerYAnchor],
+      [separator.heightAnchor constraintEqualToConstant:kSeparatorHeight],
+    ]];
+  }
+  return self;
+}
+
+@end
+
 @interface ComposeboxMenuViewController () <UICollectionViewDelegate>
 @end
 
@@ -155,8 +181,7 @@ UIImage* IconForModel(ComposeboxModelOption option) {
 
 - (void)viewDidLoad {
   [super viewDidLoad];
-  [self setAdditionalSafeAreaInsets:kSafeAreaInsets];
-  self.view.backgroundColor = [UIColor colorNamed:kGrey100Color];
+  self.view.backgroundColor = [UIColor colorNamed:kPrimaryBackgroundColor];
 
   [self setUpCollectionView];
   [self setUpDataSource];
@@ -166,9 +191,8 @@ UIImage* IconForModel(ComposeboxModelOption option) {
 - (CGSize)preferredContentSize {
   CGSize size = super.preferredContentSize;
   [self.view layoutIfNeeded];
-  size.height = _collectionView.contentSize.height +
-                _collectionView.contentInset.top +
-                _collectionView.contentInset.bottom;
+  size.height =
+      _collectionView.contentSize.height + _collectionView.contentInset.top;
   return size;
 }
 
@@ -192,9 +216,10 @@ UIImage* IconForModel(ComposeboxModelOption option) {
   }
 
   if (attachmentsItems.count > 0) {
-    ComposeboxMenuSection* attachmentsSection =
-        [[ComposeboxMenuSection alloc] initWithTitle:nil
-                                               items:attachmentsItems];
+    ComposeboxMenuSection* attachmentsSection = [[ComposeboxMenuSection alloc]
+        initWithTitle:nil
+                items:attachmentsItems
+           identifier:ComposeboxMenuSectionIdentifier::kAttachments];
     [sections addObject:attachmentsSection];
   }
 
@@ -219,9 +244,10 @@ UIImage* IconForModel(ComposeboxModelOption option) {
   }
 
   if (toolsItems.count > 0) {
-    ComposeboxMenuSection* toolsSection =
-        [[ComposeboxMenuSection alloc] initWithTitle:strings.toolsSectionHeader
-                                               items:toolsItems];
+    ComposeboxMenuSection* toolsSection = [[ComposeboxMenuSection alloc]
+        initWithTitle:strings.toolsSectionHeader
+                items:toolsItems
+           identifier:ComposeboxMenuSectionIdentifier::kTools];
     [sections addObject:toolsSection];
   }
 
@@ -245,9 +271,10 @@ UIImage* IconForModel(ComposeboxModelOption option) {
   }
 
   if (modelsItems.count > 0) {
-    ComposeboxMenuSection* modelsSection =
-        [[ComposeboxMenuSection alloc] initWithTitle:strings.modelSectionHeader
-                                               items:modelsItems];
+    ComposeboxMenuSection* modelsSection = [[ComposeboxMenuSection alloc]
+        initWithTitle:strings.modelSectionHeader
+                items:modelsItems
+           identifier:ComposeboxMenuSectionIdentifier::kModels];
     [sections addObject:modelsSection];
   }
 
@@ -260,9 +287,14 @@ UIImage* IconForModel(ComposeboxModelOption option) {
                          collectionViewLayout:[self createLayout]];
   _collectionView.translatesAutoresizingMaskIntoConstraints = NO;
   _collectionView.delegate = self;
-  _collectionView.backgroundColor = [UIColor colorNamed:kGrey100Color];
+  _collectionView.backgroundColor =
+      [UIColor colorNamed:kPrimaryBackgroundColor];
   _collectionView.showsVerticalScrollIndicator = NO;
   _collectionView.showsHorizontalScrollIndicator = NO;
+  _collectionView.contentInsetAdjustmentBehavior =
+      UIScrollViewContentInsetAdjustmentNever;
+  _collectionView.contentInset =
+      UIEdgeInsetsMake(kCollectionViewTopPadding, 0, 0, 0);
 
   [self.view addSubview:_collectionView];
   AddSameConstraints(_collectionView, self.view);
@@ -286,26 +318,39 @@ UIImage* IconForModel(ComposeboxModelOption option) {
 - (NSCollectionLayoutSection*)
     layoutSectionForIndex:(NSInteger)sectionIndex
         layoutEnvironment:(id<NSCollectionLayoutEnvironment>)layoutEnvironment {
-  if (sectionIndex ==
-      static_cast<NSInteger>(ComposeboxMenuSectionIdentifier::kAttachments)) {
-    CGFloat itemsCount = MAX(1.0, (CGFloat)_sections[sectionIndex].items.count);
-    CGFloat fractionalWidth = 1.0 / itemsCount;
+  ComposeboxMenuSectionIdentifier identifier =
+      ComposeboxMenuSectionIdentifier::kAttachments;
+  if (sectionIndex < (NSInteger)_sections.count) {
+    identifier = _sections[sectionIndex].identifier;
+  }
+
+  if (identifier == ComposeboxMenuSectionIdentifier::kAttachments) {
+    CGFloat itemsCount = 1.0;
+    if (sectionIndex < (NSInteger)_sections.count) {
+      itemsCount = MAX(1.0, (CGFloat)_sections[sectionIndex].items.count);
+    }
+
+    CGFloat containerWidth = layoutEnvironment.container.contentSize.width;
+    CGFloat availableWidth = containerWidth - kAttachmentSectionInsets.leading -
+                             kAttachmentSectionInsets.trailing;
+    CGFloat totalSpacing = (itemsCount - 1) * kAttachmentItemSpacing;
+    CGFloat itemWidth = (availableWidth - totalSpacing) / itemsCount;
 
     NSCollectionLayoutSize* itemSize = [NSCollectionLayoutSize
         sizeWithWidthDimension:[NSCollectionLayoutDimension
-                                   fractionalWidthDimension:fractionalWidth]
+                                   absoluteDimension:itemWidth]
                heightDimension:[NSCollectionLayoutDimension
                                    fractionalHeightDimension:1.0]];
+
     NSCollectionLayoutItem* item =
         [NSCollectionLayoutItem itemWithLayoutSize:itemSize];
-    item.contentInsets =
-        NSDirectionalEdgeInsetsMake(0, 0, 0, kAttachmentItemTrailingInset);
 
     NSCollectionLayoutSize* groupSize = [NSCollectionLayoutSize
         sizeWithWidthDimension:[NSCollectionLayoutDimension
-                                   fractionalWidthDimension:1.0]
-               heightDimension:[NSCollectionLayoutDimension
-                                   absoluteDimension:kAttachmentGroupHeight]];
+                                   absoluteDimension:itemWidth]
+               heightDimension:
+                   [NSCollectionLayoutDimension
+                       estimatedDimension:kAttachmentGroupEstimatedHeight]];
     NSCollectionLayoutGroup* group =
         [NSCollectionLayoutGroup horizontalGroupWithLayoutSize:groupSize
                                                       subitems:@[ item ]];
@@ -315,12 +360,32 @@ UIImage* IconForModel(ComposeboxModelOption option) {
     section.contentInsets = kAttachmentSectionInsets;
     section.orthogonalScrollingBehavior =
         UICollectionLayoutSectionOrthogonalScrollingBehaviorContinuous;
+    section.interGroupSpacing = kAttachmentItemSpacing;
+
+    if (_sections.count > 1) {
+      NSCollectionLayoutSize* footerSize = [NSCollectionLayoutSize
+          sizeWithWidthDimension:[NSCollectionLayoutDimension
+                                     fractionalWidthDimension:1.0]
+                 heightDimension:
+                     [NSCollectionLayoutDimension
+                         absoluteDimension:2 * kSeparatorVerticalPadding +
+                                           kSeparatorHeight]];
+      NSCollectionLayoutBoundarySupplementaryItem* footer =
+          [NSCollectionLayoutBoundarySupplementaryItem
+              boundarySupplementaryItemWithLayoutSize:footerSize
+                                          elementKind:
+                                              UICollectionElementKindSectionFooter
+                                            alignment:NSRectAlignmentBottom];
+      section.boundarySupplementaryItems = @[ footer ];
+    }
+
     return section;
   } else {
     UICollectionLayoutListConfiguration* listConfig =
         [[UICollectionLayoutListConfiguration alloc]
             initWithAppearance:UICollectionLayoutListAppearanceInsetGrouped];
     listConfig.headerMode = UICollectionLayoutListHeaderModeSupplementary;
+    listConfig.backgroundColor = [UIColor colorNamed:kPrimaryBackgroundColor];
     NSCollectionLayoutSection* section = [NSCollectionLayoutSection
         sectionWithListConfiguration:listConfig
                    layoutEnvironment:layoutEnvironment];
@@ -397,13 +462,11 @@ UIImage* IconForModel(ComposeboxModelOption option) {
 
   UICollectionViewCellRegistration* attachmentCellRegistration =
       [UICollectionViewCellRegistration
-          registrationWithCellClass:[UICollectionViewCell class]
-               configurationHandler:^(UICollectionViewCell* cell,
+          registrationWithCellClass:[ComposeboxMenuAttachmentCell class]
+               configurationHandler:^(ComposeboxMenuAttachmentCell* cell,
                                       NSIndexPath* indexPath,
                                       ComposeboxMenuItem* item) {
-                 [weakSelf configureAttachmentCell:cell
-                                       atIndexPath:indexPath
-                                          withItem:item];
+                 [cell configureWithItem:item];
                }];
 
   UICollectionViewSupplementaryRegistration* headerRegistration =
@@ -418,14 +481,25 @@ UIImage* IconForModel(ComposeboxModelOption option) {
                                             atIndexPath:indexPath];
                         }];
 
+  UICollectionViewSupplementaryRegistration* footerRegistration =
+      [UICollectionViewSupplementaryRegistration
+          registrationWithSupplementaryClass:[ComposeboxMenuSeparatorFooter
+                                                 class]
+                                 elementKind:
+                                     UICollectionElementKindSectionFooter
+                        configurationHandler:^(
+                            ComposeboxMenuSeparatorFooter* view,
+                            NSString* elementKind, NSIndexPath* indexPath){
+                            // The view handles its own configuration in
+                            // initWithFrame:.
+                        }];
+
   _dataSource = [[UICollectionViewDiffableDataSource alloc]
       initWithCollectionView:_collectionView
                 cellProvider:^UICollectionViewCell*(
                     UICollectionView* collectionView, NSIndexPath* indexPath,
                     ComposeboxMenuItem* item) {
-                  if (indexPath.section ==
-                      static_cast<NSInteger>(
-                          ComposeboxMenuSectionIdentifier::kAttachments)) {
+                  if ([item isAttachmentType]) {
                     return [collectionView
                         dequeueConfiguredReusableCellWithRegistration:
                             attachmentCellRegistration
@@ -443,11 +517,18 @@ UIImage* IconForModel(ComposeboxModelOption option) {
   _dataSource.supplementaryViewProvider = ^UICollectionReusableView*(
       UICollectionView* collectionView, NSString* elementKind,
       NSIndexPath* indexPath) {
-    if ([elementKind isEqualToString:UICollectionElementKindSectionHeader] &&
-        indexPath.section > 0) {
+    __strong __typeof(weakSelf) strongSelf = weakSelf;
+    if (strongSelf &&
+        [elementKind isEqualToString:UICollectionElementKindSectionHeader]) {
       return [collectionView
           dequeueConfiguredReusableSupplementaryViewWithRegistration:
               headerRegistration
+                                                        forIndexPath:indexPath];
+    }
+    if ([elementKind isEqualToString:UICollectionElementKindSectionFooter]) {
+      return [collectionView
+          dequeueConfiguredReusableSupplementaryViewWithRegistration:
+              footerRegistration
                                                         forIndexPath:indexPath];
     }
     return nil;
@@ -458,34 +539,15 @@ UIImage* IconForModel(ComposeboxModelOption option) {
   NSDiffableDataSourceSnapshot<NSNumber*, ComposeboxMenuItem*>* snapshot =
       [[NSDiffableDataSourceSnapshot alloc] init];
 
-  // Attachments
-  if (_sections.count > 0) {
-    NSNumber* attachmentsIdentifier = @(
-        static_cast<NSInteger>(ComposeboxMenuSectionIdentifier::kAttachments));
-    [snapshot appendSectionsWithIdentifiers:@[ attachmentsIdentifier ]];
-    [snapshot appendItemsWithIdentifiers:_sections[0].items
-               intoSectionWithIdentifier:attachmentsIdentifier];
-  }
-
-  // Tools
-  if (_sections.count > 1) {
-    NSNumber* toolsIdentifier =
-        @(static_cast<NSInteger>(ComposeboxMenuSectionIdentifier::kTools));
-    [snapshot appendSectionsWithIdentifiers:@[ toolsIdentifier ]];
-    [snapshot appendItemsWithIdentifiers:_sections[1].items
-               intoSectionWithIdentifier:toolsIdentifier];
-  }
-
-  // Models
-  if (_sections.count > 2) {
-    NSNumber* modelsIdentifier =
-        @(static_cast<NSInteger>(ComposeboxMenuSectionIdentifier::kModels));
-    [snapshot appendSectionsWithIdentifiers:@[ modelsIdentifier ]];
-    [snapshot appendItemsWithIdentifiers:_sections[2].items
-               intoSectionWithIdentifier:modelsIdentifier];
+  for (ComposeboxMenuSection* section in _sections) {
+    NSNumber* identifier = @(static_cast<NSInteger>(section.identifier));
+    [snapshot appendSectionsWithIdentifiers:@[ identifier ]];
+    [snapshot appendItemsWithIdentifiers:section.items
+               intoSectionWithIdentifier:identifier];
   }
 
   [_dataSource applySnapshot:snapshot animatingDifferences:NO];
+  [_collectionView.collectionViewLayout invalidateLayout];
 }
 
 #pragma mark - ComposeboxMenuConsumer
@@ -493,6 +555,7 @@ UIImage* IconForModel(ComposeboxModelOption option) {
 - (void)setUIInputState:(ComposeboxUIInputState*)state {
   _inputState = state;
   [self computeSections];
+  [self applySnapshot];
 }
 
 #pragma mark - Private Configuration Helpers
@@ -520,6 +583,12 @@ UIImage* IconForModel(ComposeboxModelOption option) {
 
   cell.contentConfiguration = configuration;
 
+  UIBackgroundConfiguration* backgroundConfiguration =
+      [UIBackgroundConfiguration listCellConfiguration];
+  backgroundConfiguration.backgroundColor =
+      [UIColor colorNamed:kSecondaryBackgroundColor];
+  cell.backgroundConfiguration = backgroundConfiguration;
+
   BOOL isSelected = NO;
   if (_inputState.activeTool != ComposeboxMode::kRegularSearch &&
       item.type == MenuItemTypeForTool(_inputState.activeTool)) {
@@ -538,31 +607,6 @@ UIImage* IconForModel(ComposeboxModelOption option) {
   }
 }
 
-- (void)configureAttachmentCell:(UICollectionViewCell*)cell
-                    atIndexPath:(NSIndexPath*)indexPath
-                       withItem:(ComposeboxMenuItem*)item {
-  ComposeboxMenuAttachmentView* attachmentView =
-      [[ComposeboxMenuAttachmentView alloc] init];
-  attachmentView.translatesAutoresizingMaskIntoConstraints = NO;
-  attachmentView.title = item.title;
-  if (item.disabled) {
-    attachmentView.image = SymbolWithPalette(
-        item.image, @[ [UIColor colorNamed:kTextSecondaryColor] ]);
-    attachmentView.alpha = 0.5;
-    cell.userInteractionEnabled = NO;
-  } else {
-    attachmentView.image = SymbolWithPalette(
-        item.image, @[ [UIColor colorNamed:kTextPrimaryColor] ]);
-    attachmentView.alpha = 1.0;
-    cell.userInteractionEnabled = YES;
-  }
-
-  attachmentView.userInteractionEnabled = NO;
-  attachmentView.accessibilityLabel = item.title;
-
-  [cell.contentView addSubview:attachmentView];
-  AddSameConstraints(attachmentView, cell.contentView);
-}
 
 - (void)configureHeaderView:(UICollectionReusableView*)view
                 atIndexPath:(NSIndexPath*)indexPath {

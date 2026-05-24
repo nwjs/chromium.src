@@ -9,7 +9,9 @@
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/login_screen_test_api.h"
 #include "ash/public/cpp/reauth_reason.h"
+#include "base/logging.h"
 #include "base/run_loop.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/test_future.h"
 #include "base/values.h"
 #include "chrome/browser/ash/login/auth_factors_policy/local_auth_factors_policy_controller_factory.h"
@@ -141,10 +143,13 @@ class LocalAuthFactorsPolicyControllerTest : public LoginManagerTest {
   void PerformLoginAndVerifyPolicyEnforcement(
       const LoginManagerMixin::TestUserInfo& user,
       ReauthReason expected_reason) {
-    LoginUser(user.account_id);
-    ClearPendingPrefProcessedCallback();
     DisableAllAllowedAuthFactorsPolicy();
-    WaitForPrefProcessedCallback();
+    ClearPendingPrefProcessedCallback();
+    LoginUser(user.account_id);
+    if (LocalAuthFactorsPolicyControllerFactory::GetForProfile(
+            GetProfile(user.account_id))) {
+      WaitForPrefProcessedCallback();
+    }
     AssertReauthReason(user.account_id, expected_reason);
   }
 
@@ -186,6 +191,11 @@ class LocalAuthFactorsPolicyControllerTest : public LoginManagerTest {
       UserAuthConfig::Create({AshAuthFactor::kLocalPassword})
           .RequireReauth(/*require_reauth=*/false)};
 
+  const LoginManagerMixin::TestUserInfo unmanaged_user_{
+      LoginManagerMixin::CreateConsumerAccountId(7),
+      UserAuthConfig::Create({AshAuthFactor::kGaiaPassword})
+          .RequireReauth(/*require_reauth=*/false)};
+
   base::test::TestFuture<void> on_pref_processed_future_;
   base::test::TestFuture<void> on_notification_shown_future_;
   base::test::TestFuture<void> on_notification_closed_future_;
@@ -206,9 +216,12 @@ class LocalAuthFactorsPolicyControllerTest : public LoginManagerTest {
 
 IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
                        PRE_ForceReauthForLocalPasswordAndPin) {
+  base::HistogramTester histogram_tester;
   PerformLoginAndVerifyPolicyEnforcement(
       local_password_and_pin_user_,
       ReauthReason::kForcedByLocalAuthFactorsPolicy);
+  histogram_tester.ExpectBucketCount(
+      "Enterprise.LocalAuthFactorsPolicy.ForcedReauth", true, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
@@ -275,14 +288,38 @@ IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
 
 IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
                        PRE_NoForceReauthForGaiaPassword) {
+  base::HistogramTester histogram_tester;
   PerformLoginAndVerifyPolicyEnforcement(gaia_password_user_,
                                          ReauthReason::kNone);
+  histogram_tester.ExpectBucketCount(
+      "Enterprise.LocalAuthFactorsPolicy.ForcedReauth", false, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
                        NoForceReauthForGaiaPassword) {
   EXPECT_FALSE(
       LoginScreenTestApi::IsForcedOnlineSignin(gaia_password_user_.account_id));
+}
+
+IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
+                       PRE_NoForceReauthForUnmanagedGaiaPassword) {
+  base::HistogramTester histogram_tester;
+  PerformLoginAndVerifyPolicyEnforcement(unmanaged_user_, ReauthReason::kNone);
+  histogram_tester.ExpectBucketCount(
+      "Enterprise.LocalAuthFactorsPolicy.ForcedReauth", false, 0);
+  histogram_tester.ExpectBucketCount(
+      "Enterprise.LocalAuthFactorsPolicy.ForcedReauth", true, 0);
+}
+
+IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
+                       NoForceReauthForUnmanagedGaiaPassword) {
+  // Reauth might be forced for other reasons (e.g. invalid tokens in tests),
+  // but it should NOT be ReauthReason::kForcedByLocalAuthFactorsPolicy.
+  auto known_user = user_manager::KnownUser(g_browser_process->local_state());
+  auto actual_reason = static_cast<ReauthReason>(
+      known_user.FindReauthReason(unmanaged_user_.account_id)
+          .value_or(static_cast<int>(ReauthReason::kNone)));
+  EXPECT_NE(actual_reason, ReauthReason::kForcedByLocalAuthFactorsPolicy);
 }
 
 IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
@@ -311,6 +348,7 @@ IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
 
 IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
                        ShowComplexityUpdateNotificationOnPolicyUpdate) {
+  base::HistogramTester histogram_tester;
   const AccountId& account_id = local_password_and_pin_user_.account_id;
   LoginUser(account_id);
   Profile* profile = GetProfile(account_id);
@@ -322,6 +360,10 @@ IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
   // The notification is shown after an async call to
   // GetAuthFactorsConfiguration.
   WaitForNotificationShownCallback();
+
+  histogram_tester.ExpectBucketCount(
+      "Enterprise.LocalAuthFactorsPolicy.PasswordComplexity",
+      static_cast<int>(LocalAuthFactorsComplexity::kLow), 1);
 
   std::optional<message_center::Notification> notification =
       tester.GetNotification(
@@ -335,6 +377,7 @@ IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
 
 IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
                        NotificationPersistsUntilAllFactorsUpdated) {
+  base::HistogramTester histogram_tester;
   const AccountId& account_id = local_password_and_pin_user_.account_id;
   LoginUser(account_id);
   Profile* profile = GetProfile(account_id);
@@ -376,6 +419,13 @@ IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,
   // Notification should finally be dismissed.
   EXPECT_FALSE(
       tester.GetNotification(kComplexityUpdateNotificationId).has_value());
+
+  histogram_tester.ExpectBucketCount(
+      "Enterprise.LocalAuthFactorsPolicy.LocalAuthFactorChanged",
+      static_cast<int>(LocalAuthFactorType::kLocalPassword), 1);
+  histogram_tester.ExpectBucketCount(
+      "Enterprise.LocalAuthFactorsPolicy.LocalAuthFactorChanged",
+      static_cast<int>(LocalAuthFactorType::kPin), 1);
 }
 
 IN_PROC_BROWSER_TEST_F(LocalAuthFactorsPolicyControllerTest,

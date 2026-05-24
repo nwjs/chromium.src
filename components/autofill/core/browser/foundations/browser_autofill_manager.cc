@@ -343,6 +343,7 @@ FillDataType GetEventTypeFromSingleFieldSuggestionType(SuggestionType type) {
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kBnplFootnote:
     case SuggestionType::kAutocompleteAtMemoryButton:
+    case SuggestionType::kOpenGemini:
       NOTREACHED();
   }
   NOTREACHED();
@@ -705,6 +706,7 @@ bool IsManagementFooterOption(const Suggestion& suggestion) {
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
     case SuggestionType::kWebauthnSignInWithAnotherDevice:
+    case SuggestionType::kOpenGemini:
       return true;
     case SuggestionType::kAutocompleteEntry:
     case SuggestionType::kAddressEntry:
@@ -1160,6 +1162,10 @@ void BrowserAutofillManager::OnAskForValuesToFillImpl(
   if (form_structure && autofill_field) {
     AutofillMetrics::LogParsedFormUntilInteractionTiming(
         base::TimeTicks::Now() - form_structure->form_parsed_timestamp());
+    if (AutofillAiManager* ai_manager = client().GetAutofillAiManager()) {
+      ai_manager->OnFormInteracted(*form_structure,
+                                   driver().GetPageUkmSourceId());
+    }
     if (autofill_metrics::FormEventLoggerBase* logger =
             GetEventFormLogger(*autofill_field);
         logger && ShouldBeParsed(*form_structure, /*log_manager=*/nullptr)) {
@@ -1990,6 +1996,7 @@ void BrowserAutofillManager::FillOrPreviewCreditCardForm(
   auto on_fetched = [](base::WeakPtr<BrowserAutofillManager> self,
                        decltype(fill_or_preview) fill_or_preview,
                        const FormData& form, const FieldGlobalId& field_id,
+                       const url::Origin& origin,
                        AutofillTriggerSource fetched_credit_card_trigger_source,
                        const base::flat_set<FieldGlobalId>& blocked_fields,
                        const CreditCard& credit_card) {
@@ -2029,7 +2036,8 @@ void BrowserAutofillManager::FillOrPreviewCreditCardForm(
       // FilledCardInformationBubbleOptions.
       options.cvc = credit_card.cvc();
       options.card_image = self->GetCardImage(credit_card);
-      self->client().GetPaymentsAutofillClient()->OnCardDataAvailable(options);
+      self->client().GetPaymentsAutofillClient()->OnCardDataAvailable(options,
+                                                                      origin);
     }
 
     fill_or_preview(*self, mojom::ActionPersistence::kFill, form, field_id,
@@ -2057,13 +2065,14 @@ void BrowserAutofillManager::FillOrPreviewCreditCardForm(
         &credit_card,
         base::BindOnce(on_fetched, weak_ptr_factory_.GetWeakPtr(),
                        fill_or_preview, form, autofill_field.global_id(),
-                       trigger_source, blocked_fields));
+                       autofill_field.origin(), trigger_source,
+                       blocked_fields));
   } else if (fetched_independently) {
     // Cards fetched independently, such as for BNPL, have all of their data on
     // creation and do not need further fetching.
     on_fetched(weak_ptr_factory_.GetWeakPtr(), fill_or_preview, form,
-               autofill_field.global_id(), trigger_source, blocked_fields,
-               credit_card);
+               autofill_field.global_id(), autofill_field.origin(),
+               trigger_source, blocked_fields, credit_card);
   } else {
     fill_or_preview(*this, action_persistence, form, autofill_field.global_id(),
                     credit_card, trigger_source, blocked_fields);

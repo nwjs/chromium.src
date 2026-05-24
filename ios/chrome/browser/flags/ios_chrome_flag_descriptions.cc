@@ -467,6 +467,12 @@ const char kCrossDeviceSigninName[] = "Cross-Device Sign-in";
 const char kCrossDeviceSigninDescription[] =
     "Guards the logic to start sign-in from a given QR Code.";
 
+const char kDataControlsSearchWithName[] =
+    "Data Controls enforcement for search context menu item";
+const char kDataControlsSearchWithDescription[] =
+    "Enables the Enterprise Data Controls for restricting data exfiltration "
+    "with the \"Search with...\" context menu item.";
+
 const char kDataSharingDebugLogsName[] = "Enable data sharing debug logs";
 const char kDataSharingDebugLogsDescription[] =
     "Enables the data sharing infrastructure to log and save debug messages "
@@ -952,10 +958,6 @@ const char kIOSProvidesAppNotificationSettingsName[] =
     "IOS Provides App Notification Settings";
 const char kIOSProvidesAppNotificationSettingsDescription[] =
     "Enabled integration with iOS's ProvidesAppNotificationSettings feature.";
-
-const char kIOSSaveToDriveClientFolderName[] = "Save to Drive client folder";
-const char kIOSSaveToDriveClientFolderDescription[] =
-    "Enables a feature to use a client folder API for Save to Drive on iOS.";
 
 const char kIOSSaveToDriveSignedOutName[] = "Save to Drive Signed Out";
 const char kIOSSaveToDriveSignedOutDescription[] =

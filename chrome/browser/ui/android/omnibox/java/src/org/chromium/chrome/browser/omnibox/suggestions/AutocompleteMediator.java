@@ -1426,27 +1426,29 @@ class AutocompleteMediator
                                 finalTransition);
                     };
 
+            // The url's q= parameter may strip certain useful characters, like '://' in https://
+            // This string should maintain those characters, allowing the url to be properly
+            // contextualized in the AIM chat.
+            String suggestionDisplayText = suggestion.getDisplayText();
+
             if (OmniboxFeatures.sShowModelPicker.getValue()) {
                 @AutocompleteRequestType int requestType = mAutocompleteInput.getRequestType();
-                boolean isVerbatimMatch =
-                        type != OmniboxSuggestionType.SEARCH_WHAT_YOU_TYPED
-                                && type != OmniboxSuggestionType.URL_WHAT_YOU_TYPED;
-                if (isVerbatimMatch || ToolModeUtils.isConventionalRequest(requestType)) {
+                if (ToolModeUtils.isConventionalRequest(requestType)) {
                     onUrlReady.onResult(url);
                 } else {
                     assert ToolModeUtils.isAimRequest(requestType);
                     ComposeboxQueryControllerBridge bridge =
                             assumeNonNull(mSessionState.getComposeboxQueryControllerBridge());
-                    bridge.getAimUrlFromInputState(url, onUrlReady);
+                    bridge.getAimUrlFromInputState(url, suggestionDisplayText, onUrlReady);
                 }
             } else {
                 switch (mAutocompleteInput.getRequestType()) {
                     case AutocompleteRequestType.AI_MODE ->
                             assumeNonNull(mSessionState.getComposeboxQueryControllerBridge())
-                                    .getAimUrl(url, onUrlReady);
+                                    .getAimUrl(url, suggestionDisplayText, onUrlReady);
                     case AutocompleteRequestType.IMAGE_GENERATION ->
                             assumeNonNull(mSessionState.getComposeboxQueryControllerBridge())
-                                    .getImageGenerationUrl(url, onUrlReady);
+                                    .getImageGenerationUrl(url, suggestionDisplayText, onUrlReady);
                     default -> onUrlReady.onResult(url);
                 }
             }

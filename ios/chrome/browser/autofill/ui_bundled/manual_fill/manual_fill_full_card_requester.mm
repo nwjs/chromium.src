@@ -4,13 +4,17 @@
 
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_full_card_requester.h"
 
+#import <memory>
 #import <vector>
 
+#import "base/functional/callback_helpers.h"
+#import "base/memory/weak_ptr.h"
 #import "components/autofill/core/browser/data_model/payments/credit_card.h"
 #import "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #import "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #import "components/autofill/ios/browser/autofill_driver_ios.h"
 #import "components/autofill/ios/browser/autofill_java_script_feature.h"
+#import "ios/chrome/browser/autofill/model/manual_fill_virtual_card_cache.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/full_card_request_result_delegate_bridge.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_constants.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
@@ -57,7 +61,8 @@ class CreditCard;
 - (void)requestFullCreditCard:(const autofill::CreditCard)card
        withBaseViewController:(UIViewController*)viewController
                    recordType:(autofill::CreditCard::RecordType)recordType
-                    fieldType:(manual_fill::PaymentFieldType)fieldType {
+                    fieldType:(manual_fill::PaymentFieldType)fieldType
+                       origin:(url::Origin)origin {
   // Payment Request is only enabled in main frame.
   web::WebState* webState = self.webStateList->GetActiveWebState();
   web::WebFramesManager* frames_manager =
@@ -82,18 +87,27 @@ class CreditCard;
   BOOL isVirtualCard = (recordType == kVirtualCard);
   creditCardAccessManager->FetchCreditCard(
       (isVirtualCard ? &virtualCard : &card),
-      base::BindOnce(^(const autofill::CreditCard& fetchedCard) {
-        autofill::CreditCard resultCard = fetchedCard;
-        // The `CreditCardAccessManager` returns a card with record type
-        // `kFullServerCard` for unmasked cards. We need to force it back to
-        // `kVirtualCard` so that the iOS manual fill flow can recognize it
-        // correctly.
-        if (isVirtualCard) {
-          resultCard.set_record_type(
-              autofill::CreditCard::RecordType::kVirtualCard);
-        }
-        [weakSelf onCreditCardFetched:resultCard fieldType:fieldType];
-      }));
+      base::BindOnce(
+          [](__weak ManualFillFullCardRequester* weak_self,
+             manual_fill::PaymentFieldType field_type, BOOL is_virtual_card,
+             url::Origin origin, base::WeakPtr<web::WebState> web_state,
+             const autofill::CreditCard& fetched_card) {
+            autofill::CreditCard result_card = fetched_card;
+            // The `CreditCardAccessManager` returns a card with record type
+            // `kFullServerCard` for unmasked cards. We need to force it back to
+            // `kVirtualCard` so that the iOS manual fill flow can recognize it
+            // correctly.
+            if (is_virtual_card) {
+              result_card.set_record_type(
+                  autofill::CreditCard::RecordType::kVirtualCard);
+            }
+            [weak_self onCreditCardFetched:result_card
+                                 fieldType:field_type
+                                    origin:std::move(origin)
+                                  webState:web_state];
+          },
+          weakSelf, fieldType, isVirtualCard, std::move(origin),
+          webState->GetWeakPtr()));
 
   // TODO(crbug.com/40577448): closing CVC requester doesn't restore icon bar
   // above keyboard.
@@ -105,10 +119,20 @@ class CreditCard;
 // delegate the result of the card retrieval process and provides the card if
 // the process succeeded.
 - (void)onCreditCardFetched:(const autofill::CreditCard&)fetchedCard
-                  fieldType:(manual_fill::PaymentFieldType)fieldType {
+                  fieldType:(manual_fill::PaymentFieldType)fieldType
+                     origin:(url::Origin)origin
+                   webState:(base::WeakPtr<web::WebState>)webState {
+  if (!webState) {
+    return;
+  }
+  if (fetchedCard.record_type() == kVirtualCard) {
+    ManualFillVirtualCardCache::CreateForWebState(webState.get());
+    ManualFillVirtualCardCache::FromWebState(webState.get())
+        ->CacheUnmaskedCard(fetchedCard, std::move(origin));
+  }
   [_delegate onFullCardRequestSucceeded:fetchedCard
                               fieldType:fieldType
-                            forWebState:self.webStateList->GetActiveWebState()];
+                            forWebState:webState.get()];
 }
 
 @end

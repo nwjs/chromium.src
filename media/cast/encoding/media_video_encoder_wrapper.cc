@@ -260,10 +260,10 @@ bool MediaVideoEncoderWrapper::EncodeVideoFrame(
                      ? &QuantizerEstimator::EstimateForKeyFrame
                      : &QuantizerEstimator::EstimateForDeltaFrame)
       .WithArgs(std::cref(*video_frame))
-      .Then(base::BindOnce(&MediaVideoEncoderWrapper::OnQuantizerEstimated,
-                           weak_factory_.GetWeakPtr(), video_frame,
-                           encode_options_, reference_time,
-                           std::move(frame_encoded_callback)));
+      .Then(base::BindOnce(
+          &MediaVideoEncoderWrapper::OnQuantizerEstimated,
+          weak_factory_.GetWeakPtr(), video_frame, encode_options_,
+          reference_time, std::move(frame_encoded_callback), encoder_version_));
 
   encode_options_.key_frame = false;
 
@@ -275,8 +275,17 @@ void MediaVideoEncoderWrapper::OnQuantizerEstimated(
     media::VideoEncoder::EncodeOptions encode_options,
     base::TimeTicks reference_time,
     FrameEncodedCallback frame_encoded_callback,
+    int encoder_version,
     std::optional<double> estimated_quantizer) {
   CHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
+
+  if (encoder_version != encoder_version_) {
+    // The encoder was reconstructed while we were estimating the quantizer.
+    // Drop this frame as it was meant for the old encoder.
+    std::move(frame_encoded_callback).Run(nullptr);
+    return;
+  }
+
   CHECK(encoder_);
 
   recent_metadata_.emplace(
@@ -430,6 +439,7 @@ MediaVideoEncoderWrapper::CachedMetadata::~CachedMetadata() = default;
 
 void MediaVideoEncoderWrapper::ConstructEncoder() {
   CHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
+  encoder_version_++;
 
   if (is_hardware_encoder_) {
     CHECK(gpu_factories_);
@@ -529,12 +539,13 @@ void MediaVideoEncoderWrapper::OnFrameEncodeDone(base::TimeTicks reference_time,
   recent_metadata_.pop();
 
   std::move(callback).Run(nullptr);
+
+  OnEncoderStatus(status);
 }
 
 void MediaVideoEncoderWrapper::OnOptionsUpdated(EncoderStatus status) {
   CHECK(cast_environment_->CurrentlyOn(CastEnvironment::ThreadId::kMain));
   --num_pending_updates_;
-  OnEncoderStatus(status);
 
   if (num_pending_updates_ == 0) {
     for (auto& task : pending_encodes_) {
@@ -542,6 +553,8 @@ void MediaVideoEncoderWrapper::OnOptionsUpdated(EncoderStatus status) {
     }
     pending_encodes_.clear();
   }
+
+  OnEncoderStatus(status);
 }
 
 }  //  namespace media::cast

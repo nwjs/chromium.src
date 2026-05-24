@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -48,6 +49,7 @@
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/grit/theme_resources.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_search/contextual_search_service.h"
@@ -521,12 +523,47 @@ ui::ImageModel OmniboxEditModel::GetSuperGIcon(int image_size,
     return ui::ImageModel::FromVectorIcon(
         vector_icons::kGoogleGLogoMonochromeIcon, ui::kColorRefPrimary100,
         image_size);
-  } else {
-    // The icon color does not matter in this case since this icon has colors
-    // hardcoded into it.
+  }
+
+  // TODO(crbug.com/507061157): Remove this once
+  //   `location_bar::GetSecurityChipIconEnum` and
+  //   `location_bar::IsSecurityChipInteractive` support non-vector icons.
+  if (base::FeatureList::IsEnabled(features::kWebUILocationBar)) {
     return ui::ImageModel::FromVectorIcon(vector_icons::kGoogleSuperGIcon,
                                           gfx::kPlaceholderColor, image_size);
   }
+
+  std::optional<int> resource_id;
+  // Note: The gradient "Super G" logo requires gradients and clip paths,
+  // which are not supported by Chromium vector icons (see
+  // `ui/gfx/vector_icon_types.h`). Therefore, we must use multi-size PNGs.
+  // LINT.IfChange(SuperGIconSize)
+  switch (image_size) {
+    case 16:
+      resource_id = IDR_GOOGLE_G_GRADIENT_16_ALT;
+      break;
+    case 20:
+      resource_id = IDR_GOOGLE_G_GRADIENT_20;
+      break;
+  }
+  // LINT.ThenChange(//chrome/browser/ui/layout_constants.cc:LocationBarIconSize)
+
+  if (resource_id) {
+    const gfx::ImageSkia* image =
+        ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(*resource_id);
+    if (image->width() == image_size) {
+      return ui::ImageModel::FromImageSkia(*image);
+    }
+  }
+
+  // Fallback if somehow a new size bypasses the lint or if the loaded resource
+  // size was incorrect.
+  DCHECK(false) << "Unexpected icon size: " << image_size
+                << ". Please add a matching IDR_GOOGLE_G_GRADIENT resource.";
+  return ui::ImageModel::FromImage(controller_->client()->GetSizedIcon(
+      ui::ResourceBundle::GetSharedInstance()
+          .GetImageNamed(IDR_GOOGLE_G_GRADIENT_16_ALT)
+          .ToSkBitmap()));
 #else
   return ui::ImageModel();
 #endif
@@ -886,13 +923,12 @@ void OmniboxEditModel::OpenAiMode(bool via_keyboard, bool via_context_menu) {
             contextual_tasks::ContextualTasksContextServiceFactory::
                 GetForProfile(profile),
             chrome_omnibox_client->browser());
-        if (auto* service =
-                contextual_tasks::ContextualTasksServiceFactory::GetForProfile(
-                    profile)) {
-          query_contextualizer_ =
-              std::make_unique<contextual_tasks::QueryContextualizer>(
-                  service, query_contextualizer_delegate_.get());
-        }
+        auto* service =
+            contextual_tasks::ContextualTasksServiceFactory::GetForProfile(
+                profile);
+        query_contextualizer_ =
+            std::make_unique<contextual_tasks::QueryContextualizer>(
+                service, query_contextualizer_delegate_.get());
       }
     }
   }
@@ -2100,9 +2136,12 @@ std::u16string OmniboxEditModel::GetSuggestionGroupHeaderText(
     // Show contextual search suggestion group header if the Lens action has
     // been moved to the Omnibox toolbelt OR the "Omnibox Next" Lens search chip
     // is currently active.
+    // TODO (crbug.com/510907230) - Clean up this logic once it's confirmed that
+    // a header is not needed for the omnibox contextual search results.
     if (suggestion_group_id.value() == omnibox::GROUP_CONTEXTUAL_SEARCH &&
         (has_toolbelt_lens_action || has_lens_search_chip)) {
-      if (base::FeatureList::IsEnabled(omnibox::kHideContextualGroupHeaders)) {
+      if (base::FeatureList::IsEnabled(omnibox::kHideContextualGroupHeaders) ||
+          has_lens_search_chip) {
         return u"";
       }
       // TODO(khalidpeer): Make direct use of `header_text` once we start

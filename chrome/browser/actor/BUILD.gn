@@ -17,6 +17,7 @@ if (is_android) {
 
 source_set("actor") {
   public = [
+    "actor_container_config.h",
     "actor_keyed_service.h",
     "actor_keyed_service_factory.h",
     "actor_metrics.h",
@@ -33,6 +34,7 @@ source_set("actor") {
     "enterprise_policy_checker.h",
     "execution_engine.h",
     "site_policy.h",
+    "tab_observation_controller.h",
     "tools/attempt_form_filling_tool_request.h",
     "tools/attempt_login_tool_request.h",
     "tools/attempt_otp_filling_tool_request.h",
@@ -102,6 +104,7 @@ source_set("impl") {
   sources = [
     "action_tracker_for_metrics.cc",
     "action_tracker_for_metrics.h",
+    "actor_container_config.cc",
     "actor_keyed_service.cc",
     "actor_keyed_service_factory.cc",
     "actor_metrics.cc",
@@ -119,6 +122,7 @@ source_set("impl") {
     "aggregated_journal_serializer.cc",
     "execution_engine.cc",
     "site_policy.cc",
+    "tab_observation_controller.cc",
     "tools/attempt_form_filling_tool.cc",
     "tools/attempt_form_filling_tool.h",
     "tools/attempt_form_filling_tool_metrics.cc",
@@ -319,6 +323,7 @@ source_set("test_support") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "actor_container_config_unittest.cc",
     "actor_keyed_service_unittest.cc",
     "actor_metrics_unittest.cc",
     "actor_navigation_throttle_unittest.cc",
@@ -441,6 +446,7 @@ source_set("browser_tests") {
       "execution_engine_browsertest.cc",
       "execution_engine_origin_gating_browsertest.cc",
       "site_policy_browsertest.cc",
+      "tab_observation_controller_browsertest.cc",
       "tools/action_tracker_for_metrics_browsertest.cc",
       "tools/attempt_form_filling_tool_browsertest.cc",
       "tools/attempt_login_tool_browsertest.cc",

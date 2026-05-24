@@ -333,6 +333,7 @@
 <translation id="4290791284969893584">Take wat jy begin het, sal dalk nie klaarmaak as jy 'n bladsy toemaak nie</translation>
 <translation id="429312253194641664">'n Werf speel tans media</translation>
 <translation id="42981349822642051">Vou uit</translation>
+<translation id="4310738531374808763">Pasmaak jou tuisblad</translation>
 <translation id="4336219115486912529">{COUNT,plural, =1{Verval môre}other{Verval oor # dae}}</translation>
 <translation id="4338831206024587507">Alle werwe onder <ph name="DOMAIN" /></translation>
 <translation id="4340799661701629185">Moenie werwe toelaat om kennisgewings te stuur nie</translation>
@@ -524,6 +525,7 @@
 <translation id="6262279340360821358"><ph name="PERMISSION_1" /> en <ph name="PERMISSION_2" /> word geblokkeer.</translation>
 <translation id="6270391203985052864">Werwe kan vra om kennisgewings te stuur</translation>
 <translation id="6295158916970320988">Alle werwe</translation>
+<translation id="6305257382500066042">Probeer dit nou</translation>
 <translation id="6320088164292336938">Vibreer</translation>
 <translation id="6367753977865761591">Blokkeer aanmelding deur derde partye vir ’n spesifieke werf.</translation>
 <translation id="6398765197997659313">Gaan by volskerm uit</translation>
@@ -609,6 +611,7 @@
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> gekies</translation>
 <translation id="7260727271532453612"><ph name="PERMISSION_1" /> en <ph name="PERMISSION_2" /> word toegelaat</translation>
 <translation id="7276071417425470385">Wanneer dit aan is, kan werwe vra om virtuelerealiteittoestelle en te gebruik. Wanneer dit af is, kan werwe nie virtuelerealiteittoestelle gebruik nie.</translation>
+<translation id="7279851812866769760">Deel kontakte</translation>
 <translation id="7282197670900591579">Sitroengeel tema</translation>
 <translation id="728412880473384942">Werwe is vinniger maar minder veilig</translation>
 <translation id="7352902948037373520">Bestuur in <ph name="BEGIN_LINK1" />Android-instellings<ph name="END_LINK1" />
@@ -700,6 +703,7 @@ Gevorderde Beskerming beheer hierdie Chrome-instellings:</translation>
 <translation id="823874716226307142">Wanneer dit aan is, kan werwe vra om toegang tot ander toestelle op jou plaaslike netwerk te kry. Wanneer dit af is, kan werwe nie toegang tot ander toestelle op jou plaaslike netwerk kry nie.</translation>
 <translation id="8249310407154411074">Skuif na bo</translation>
 <translation id="8261506727792406068">Vee uit</translation>
+<translation id="8273596202562472147">Meer opsies vir <ph name="SITE_NAME" /></translation>
 <translation id="8284326494547611709">Onderskrifte</translation>
 <translation id="8300705686683892304">Bestuur deur app</translation>
 <translation id="8301363963630676147">Hierdie keer toegelaat • Gebruik geskatte ligging</translation>
@@ -794,6 +798,7 @@ Gevorderde Beskerming beheer hierdie Chrome-instellings:</translation>
 <translation id="9156722768168878035">Laat Chrome jou onlangse oortjies in jou toestel se applys en soekresultate wys. Jy kan dit enige tyd in Chrome-instellings afskakel.</translation>
 <translation id="9162462602695099906">Hierdie bladsy is gevaarlik</translation>
 <translation id="9182556968660520230">Moenie werwe toelaat om beskermde inhoud te speel nie</translation>
+<translation id="927148002081263046">Deel ’n kontak</translation>
 <translation id="947156494302904893">Werwe wat jy besoek, kan verifieer dat jy ’n regte persoon is en nie ’n bot nie</translation>
 <translation id="959682366969460160">Raak georganiseerd</translation>
 <translation id="960590623979248167">Wys hiperskakels</translation>

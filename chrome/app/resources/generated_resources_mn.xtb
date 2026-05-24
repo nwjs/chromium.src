@@ -1728,6 +1728,7 @@
 <translation id="2164131635608782358"><ph name="FIRST_SWITCH" />, <ph name="SECOND_SWITCH" />, <ph name="THIRD_SWITCH" /> болон өөр 1 сэлгүүр</translation>
 <translation id="2165177462441582039">Тодруулгыг зүйл бүрд хэр удаан байлгахыг сонгоно уу</translation>
 <translation id="2166369534954157698">The quick brown fox jumps over the lazy dog</translation>
+<translation id="2168036794078614559">Мэдүүлгийг илгээсэн</translation>
 <translation id="2169062631698640254">Ямар ч байсан нэвтэр</translation>
 <translation id="2173302385160625112">Интернэт холболтоо шалгана уу</translation>
 <translation id="2173801458090845390">Энэ төхөөрөмжид шаардлагын ID-г нэмэх</translation>
@@ -2071,6 +2072,7 @@
 <translation id="2402226831639195063">Хөг</translation>
 <translation id="2405887402346713222">Төхөөрөмж болон бүрэлдэхүүн хэсгийн серийн дугаарууд</translation>
 <translation id="2406153734066939945">Энэ профайл болон үүний өгөгдлийг устгах уу?</translation>
+<translation id="2406942743794219791">Хүссэн өгөгдмөл хайлтын системээ баталгаажуулах</translation>
 <translation id="2407671304279211586">DNS-н үйлчилгээ үзүүлэгчийг сонгох</translation>
 <translation id="2408018932941436077">Картыг хадгалж байна</translation>
 <translation id="2408742686124047357">Дараагийн удаа хялбар хандахад зориулж самбартаа Google Lens-г бэхэлнэ үү</translation>
@@ -3052,6 +3054,7 @@
 <translation id="3046892784550338476">Хувилбар <ph name="PRODUCT_VERSION" /><ph name="PRODUCT_VERSION_SUFFIX" />  (<ph name="PRODUCT_CHANNEL" />) <ph name="PRODUCT_MODIFIER" /> <ph name="PRODUCT_VERSION_BITS" /></translation>
 <translation id="3046910703532196514">Веб хуудас, дууссан</translation>
 <translation id="304747341537320566">Ярианы хөдөлгүүр</translation>
+<translation id="3047618804758101928">"<ph name="EXTENSION_NAME" />" өргөтгөл таны тохиргоог өөрчилсөн</translation>
 <translation id="3047678109605649715">Таны төхөөрөмж дээр ямар ч <ph name="LANGUAGE" /> хэлээрх дуу хоолой байхгүй. Төхөөрөмж дээрх зайгаа цэвэрлээд, дахин оролдоно уу.</translation>
 <translation id="3048336643003835855"><ph name="VENDOR_ID" /> нийлүүлэгчийн HID төхөөрөмжүүд</translation>
 <translation id="3048589239114571785">Тоглуулах (k)</translation>
@@ -5641,6 +5644,7 @@
 <translation id="4865063548323785458">Сайт, аппад хялбархан нэвтрэхийн тулд нууц үгээ хадгалж, автоматаар бөглөөрэй</translation>
 <translation id="486635084936119914">Татаж авсны дараа тодорхой файлын хэлбэрийг автоматаар нээх</translation>
 <translation id="4867272607148176509">Эцэг эхчүүд аппуудыг зөвшөөрөх эсвэл блоклох, цагийн хязгаар тохируулах болон веб үзэхийг хянах боломжтой. Сургуулийн бүртгэлийг сургуулийн ихэнх нөөцөд хандахын тулд дараа нь нэмэх боломжтой.</translation>
+<translation id="486796517585164369">· Саяхны таб</translation>
 <translation id="4868284252360267853">Энэ харилцаг яриаг одоогоор сонгоогүй байна. Энэ харилцан яриаг сонгохын тулд Command-Shift-Option дээр дарна уу.</translation>
 <translation id="4868351661310357223"><ph name="DEVICE_TYPE" /> дээрээ Google Play-с апп, тоглоомууд суулгана уу.</translation>
 <translation id="4869170227080975044">ChromeOS-н сүлжээний мэдээллийг унших</translation>
@@ -7291,6 +7295,7 @@
 <translation id="604388835206766544">Тохируулгын задаргаа амжилтгүй боллоо</translation>
 <translation id="6043994281159824495">Яг одоо гарах</translation>
 <translation id="6045114302329202345">Үндсэн TrackPoint товчлуур</translation>
+<translation id="6045425183320109397">Сонгосон</translation>
 <translation id="6047632800149092791">Синк хийх ажиллахгүй байна. Гараад, дахин нэвтэрч үзнэ үү.</translation>
 <translation id="6048747414605857443">ChromeVox болон Ярихаар сонгох онцлогийн бичвэрийг ярианд хувиргах дуу хоолойг сонгож, өөрчилнө үү</translation>
 <translation id="6050189528197190982">Хараас цагаан өнгө</translation>
@@ -8696,7 +8701,6 @@
 <translation id="701020165009334820">Та Play Store-р дамжуулан Android апп, тоглоомуудыг татах боломжтой.</translation>
 <translation id="701080569351381435">Эх үүсвэрийг харах</translation>
 <translation id="7012430956470647760">Аппуудад зориулсан эцэг эхийн хяналт</translation>
-<translation id="7013762323294215682">Энэ нэвтрэх түлхүүрийг таны нууц үгний менежерт хадгална. Үүнд хандах эрхтэй дурын хүн энэ нэвтрэх түлхүүрийг ашиглах боломжтой болно.</translation>
 <translation id="7014174261166285193">Суулгах ажиллагаа амжилтгүй боллоо.</translation>
 <translation id="7014480873681694324">Тодруулгыг хасах</translation>
 <translation id="7014741021609395734">Томруулалтын түвшин</translation>
@@ -10008,6 +10012,7 @@
 <translation id="7939062555109487992">Дэвшилтэт сонголт</translation>
 <translation id="793923212791838">Таны төхөөрөмжийг энэ сайттай ашиглах боломжгүй</translation>
 <translation id="7939328347457537652">Төхөөрөмжийн гэрчилгээг удирдах</translation>
+<translation id="7939918959917132075">Өргөтгөл ийм болгож өөрчилсөн</translation>
 <translation id="7940087892955752820">Аппликэйшн энэ фолдерыг ашиглаж байгаа тул хуваалцсаныг болиулж чадсангүй. <ph name="SPECIFIC_NAME" />-г дараагийн удаа унтраах үед фолдерыг хуваалцсаныг болиулна.</translation>
 <translation id="7940265372707990269"><ph name="SORT_TYPE" />-р эрэмбэлэх</translation>
 <translation id="7941179291434537290">Модем болгох явцын бэлэн байдал:</translation>
@@ -10135,6 +10140,7 @@
 <translation id="8017004049696748317">Дуу хоолойгоор бичихийг эхлүүлэх эсвэл зогсоох</translation>
 <translation id="8017176852978888182">Linux-н хуваалцсан лавлахууд</translation>
 <translation id="8017679124341497925">Товчлолыг зассан</translation>
+<translation id="8018192911041116887">Табуудыг хуваалцах</translation>
 <translation id="8018298733481692628">Энэ профайлыг устгах уу?</translation>
 <translation id="8018313076035239964">Вебсайтын ашиглах боломжтой мэдээлэл болон танд харуулах агуулгыг удирдах</translation>
 <translation id="802154636333426148">Татаж чадсангүй</translation>
@@ -11781,7 +11787,6 @@
 <translation id="9120800848981545750">Утсан дээрээсээ таб, хавчуурга, нууц үгэндээ хандахын тулд iOS-т зориулсан Chrome-г татна уу.</translation>
 <translation id="9121814364785106365">Тусгайлан сонгосон цонх хэлбэрээр нээх</translation>
 <translation id="9122099953033442610">{MULTI_GROUP_TAB_COUNT,plural, =0{Табыг хааж, бүлгийг устгах уу?}=1{Табуудыг хааж, бүлгийг устгах уу?}other{Табуудыг хааж, бүлгүүдийг устгах уу?}}</translation>
-<translation id="9122788874051694311">Нууцлалтай горимоос гадуур энэ нэвтрэх түлхүүрийг хадгалах уу?</translation>
 <translation id="9123287046453017203">Таны төхөөрөмжийг шинэчлээгүй байна</translation>
 <translation id="9125910124977405374">Автоматаар орчуулсан хэлнүүдээс <ph name="LANGUAGE_NAME" />-г хасах</translation>
 <translation id="9125912770834459638">Танай байгууллага танд нэвтрэхийг зөвшөөрдөггүй</translation>
@@ -11866,6 +11871,7 @@
 <translation id="918352324374649435">{COUNT,plural, =1{Апп}other{# апп}}</translation>
 <translation id="9186743636216815027">{NUM_APPS,plural,offset:2 =1{Танай администратор таны дэлгэцийг <ph name="APP0_NAME" />-р бичиж болно. Бичиж эхлэх үед танд мэдэгдэхгүй.}=2{Танай администратор таны дэлгэцийг <ph name="APP0_NAME" />, <ph name="APP1_NAME" />-р бичиж болно. Бичиж эхлэх үед танд мэдэгдэхгүй.}=3{Танай администратор таны дэлгэцийг <ph name="APP0_NAME" />, <ph name="APP1_NAME" /> болон өөр 1 аппаар бичиж болно. Бичиж эхлэх үед танд мэдэгдэхгүй.}other{Танай администратор таны дэлгэцийг <ph name="APP0_NAME" />, <ph name="APP1_NAME" /> болон өөр # аппаар бичиж болно. Бичиж эхлэх үед танд мэдэгдэхгүй.}}</translation>
 <translation id="9186963452600581158">Хүүхдийн Google Бүртгэлээр нэвтрэх</translation>
+<translation id="9187249589560413026">{TAB_COUNT,plural, =1{1 таб хуваалцаж байна}other{# таб хуваалцаж байна}}</translation>
 <translation id="9187967020623675250">Товчнууд таарахгүй байна. <ph name="RESPONSE" />-н тулд дурын товчийг дарна уу.</translation>
 <translation id="9188142767272053574">Процессын тусгаарлалтыг идэвхжүүлэх</translation>
 <translation id="9192019773545828776">Яриагаар өгөх саналыг сонссоноор та төхөөрөмжөө дэлгэц рүү нь харалгүйгээр ашиглах боломжтой. Холбогдсон төхөөрөмжөөр брайл санал хүсэлт өгөх боломжтой. ChromeVox-г асаах болон унтраахын тулд Ctrl + Alt + Z-г ашиглана уу. Шилжихийн тулд Search + Зүүн сум эсвэл баруун сумыг ашиглана уу. Сонгох (Идэвхжүүлэх) бол Search + Space-г ашиглана уу.</translation>

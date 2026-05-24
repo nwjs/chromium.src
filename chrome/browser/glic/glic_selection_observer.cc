@@ -10,6 +10,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "build/build_config.h"
@@ -59,9 +60,6 @@
 namespace glic {
 
 namespace {
-
-// The minimum amount of time to wait between processing selection changes.
-constexpr base::TimeDelta kSelectionProcessingDelay = base::Milliseconds(200);
 
 // The maximum length of the selection text sent as a suggested prompt.
 // Selections longer than this are ignored.
@@ -127,6 +125,29 @@ void PostUpdateNudgeLabel(
                                 std::move(text), std::move(prompt_suggestion),
                                 std::move(anchored_message_text), activity,
                                 std::move(invoke_glic)));
+}
+
+mojom::AdditionalContextPtr CreateAdditionalContext(
+    content::WebContents* web_contents,
+    const std::u16string& selected_text) {
+  auto context = mojom::AdditionalContext::New();
+  context->source = mojom::AdditionalContextSource::kTextSelection;
+  std::vector<mojom::AdditionalContextPartPtr> parts;
+  if (!selected_text.empty()) {
+    auto context_data = mojom::ContextData::New();
+    context_data->mime_type = kSelectionMimeType;
+    std::string utf8_text = base::UTF16ToUTF8(selected_text);
+    context_data->data =
+        mojo_base::BigBuffer(base::as_bytes(base::span(utf8_text)));
+    parts.push_back(
+        mojom::AdditionalContextPart::NewData(std::move(context_data)));
+  }
+  if (auto* tab_interface =
+          tabs::TabInterface::MaybeGetFromContents(web_contents)) {
+    context->tab_id = tab_interface->GetHandle().raw_value();
+  }
+  context->parts = std::move(parts);
+  return context;
 }
 
 }  // namespace
@@ -242,10 +263,7 @@ void GlicSelectionObserver::OnWebContentsLostFocus(
   }
 
   // If the web contents loses focus, process any pending selection immediately.
-  if (selection_debounce_timer_.IsRunning()) {
-    selection_debounce_timer_.Stop();
-    ProcessPendingSelection();
-  }
+  ProcessPendingSelection();
 }
 
 void GlicSelectionObserver::OnInputEvent(
@@ -287,9 +305,11 @@ void GlicSelectionObserver::OnInputEvent(
       // initiating a new drag), we preemptively clear the context here to
       // ensure it is not left hanging.
       if (is_left_click_or_touch) {
+        is_selecting_ = true;
         ResetPendingSelection();
         if (has_sent_selection_context_) {
-          UpdateSelectionState(std::u16string());
+          UpdateSelectionState(std::u16string(),
+                               /*is_pending_selection=*/false);
         }
       }
       break;
@@ -301,12 +321,7 @@ void GlicSelectionObserver::OnInputEvent(
     case blink::WebInputEvent::Type::kTouchEnd:
     case blink::WebInputEvent::Type::kTouchCancel:
     case blink::WebInputEvent::Type::kGestureTapCancel:
-      // If the user lifts their finger/mouse and we have a pending selection
-      // timer, trigger it instantly so the UI feels perfectly responsive.
-      if (selection_debounce_timer_.IsRunning()) {
-        selection_debounce_timer_.Stop();
-        ProcessPendingSelection();
-      }
+      ProcessPendingSelection();
       break;
 
     case blink::WebInputEvent::Type::kRawKeyDown:
@@ -342,31 +357,40 @@ void GlicSelectionObserver::OnTextSelectionChanged(
 
   if (is_key_selection_) {
     pending_selection_text_ = std::u16string();
-    UpdateSelectionState(std::u16string());
+    UpdateSelectionState(std::u16string(), /*is_pending_selection=*/false);
     return;
   }
 
   bounds_retry_count_ = 0;
 
-  if (selected_text.length() < kMinSelectionLength ||
-      selected_text.length() > kMaxSelectionLength) {
+  std::u16string_view trimmed_text =
+      base::TrimWhitespace(selected_text, base::TRIM_ALL);
+
+  size_t non_whitespace_count = 0;
+  bool exceeds_minimum_selection_length = false;
+  for (char16_t c : trimmed_text) {
+    if (!base::IsUnicodeWhitespace(c)) {
+      non_whitespace_count++;
+    }
+    if (non_whitespace_count == kMinSelectionLength) {
+      exceeds_minimum_selection_length = true;
+      break;
+    }
+  }
+
+  if (!exceeds_minimum_selection_length ||
+      trimmed_text.length() > kMaxSelectionLength) {
     pending_selection_text_ = std::u16string();
   } else {
-    pending_selection_text_ = std::u16string(selected_text);
+    pending_selection_text_ = std::u16string(trimmed_text);
   }
   if (render_frame_host) {
     last_selection_frame_token_ = render_frame_host->GetGlobalFrameToken();
   }
 
-  // Always debounce selection changes. If the user is actively dragging,
-  // this timer will be continually pushed back until they pause or release
-  // the mouse. If the mouse is released cleanly, OnInputEvent intercepts the
-  // MouseUp and triggers ProcessPendingSelection instantly. If the OS drops
-  // the MouseUp event, the timer will naturally fire 200ms after they stop
-  // dragging.
-  selection_debounce_timer_.Start(
-      FROM_HERE, kSelectionProcessingDelay, this,
-      &GlicSelectionObserver::ProcessPendingSelection);
+  if (!is_selecting_) {
+    ProcessPendingSelection();
+  }
 }
 
 void GlicSelectionObserver::DismissUI(bool keep_nudge) {
@@ -384,6 +408,7 @@ void GlicSelectionObserver::DismissUI(bool keep_nudge) {
 }
 
 void GlicSelectionObserver::ProcessPendingSelection() {
+  is_selecting_ = false;
   if (!pending_selection_text_.has_value()) {
     return;
   }
@@ -391,11 +416,10 @@ void GlicSelectionObserver::ProcessPendingSelection() {
   std::u16string selected_text = std::move(*pending_selection_text_);
   ResetPendingSelection();
 
-  UpdateSelectionState(selected_text);
+  UpdateSelectionState(selected_text, /*is_pending_selection=*/true);
 }
 
 void GlicSelectionObserver::ResetPendingSelection() {
-  selection_debounce_timer_.Stop();
   pending_selection_text_.reset();
 }
 
@@ -441,26 +465,10 @@ void GlicSelectionObserver::InvokeGlicFromSelectionAffordance(
         Profile* profile =
             Profile::FromBrowserContext(web_contents->GetBrowserContext());
         if (auto* glic_keyed_service = GlicKeyedService::Get(profile)) {
-          auto context = mojom::AdditionalContext::New();
-          context->source = mojom::AdditionalContextSource::kTextSelection;
-          std::vector<mojom::AdditionalContextPartPtr> parts;
-
-          {
-            auto context_data = mojom::ContextData::New();
-            context_data->mime_type = kSelectionMimeType;
-            std::string utf8_text = base::UTF16ToUTF8(selected_text);
-            context_data->data =
-                mojo_base::BigBuffer(base::as_bytes(base::span(utf8_text)));
-            parts.push_back(
-                mojom::AdditionalContextPart::NewData(std::move(context_data)));
-          }
-
-          context->parts = std::move(parts);
-
           GlicInvokeOptions options(glic::Target(tab_interface),
                                     mojom::InvocationSource::kNudge);
-          options.additional_context = std::move(context);
-
+          options.additional_context =
+              CreateAdditionalContext(web_contents.get(), selected_text);
           glic_keyed_service->Invoke(std::move(options));
         }
       }
@@ -469,7 +477,8 @@ void GlicSelectionObserver::InvokeGlicFromSelectionAffordance(
 }
 
 void GlicSelectionObserver::UpdateSelectionState(
-    const std::u16string& selected_text) {
+    const std::u16string& selected_text,
+    bool is_pending_selection) {
   last_selected_text_ = selected_text;
   auto* tab_interface =
       tabs::TabInterface::MaybeGetFromContents(web_contents());
@@ -491,14 +500,8 @@ void GlicSelectionObserver::UpdateSelectionState(
                            base::DoNothing());
     }
 
-    if (has_sent_selection_context_ && glic_keyed_service_) {
-      if (glic_keyed_service_->GetInstanceForTab(tab_interface)) {
-        auto context = mojom::AdditionalContext::New();
-        context->source = mojom::AdditionalContextSource::kTextSelection;
-        context->parts = std::vector<mojom::AdditionalContextPartPtr>();
-        glic_keyed_service_->SendAdditionalContext(tab_interface->GetHandle(),
-                                                   std::move(context));
-      }
+    if (has_sent_selection_context_) {
+      SendAdditionalContextToPanel(tab_interface, u"");
       has_sent_selection_context_ = false;
     }
 
@@ -509,39 +512,25 @@ void GlicSelectionObserver::UpdateSelectionState(
     return;
   }
 
-  bool panel_showing = false;
-  if (glic_keyed_service_ &&
-      glic_keyed_service_->GetInstanceForTab(tab_interface)) {
-    panel_showing = glic_keyed_service_->IsPanelShowingForBrowser(*bwi);
-  }
+  bool panel_showing = IsPanelShowing(tab_interface, bwi);
 
   if (panel_showing) {
-    if (selection_widget_) {
+    if (is_pending_selection && features::kGlicSelectionPromptUseWidget.Get()) {
+      if (!features::kGlicSelectionPromptUpdatesOnly.Get()) {
+        ShowSelectionAffordance(selected_text, bwi);
+      }
+    } else if (selection_widget_) {
       selection_widget_->CloseWithReason(
           views::Widget::ClosedReason::kLostFocus);
     }
 
-    auto context = mojom::AdditionalContext::New();
-    context->source = mojom::AdditionalContextSource::kTextSelection;
-    std::vector<mojom::AdditionalContextPartPtr> parts;
-
-    {
-      auto context_data = mojom::ContextData::New();
-      context_data->mime_type = kSelectionMimeType;
-      std::string utf8_text = base::UTF16ToUTF8(selected_text);
-      context_data->data =
-          mojo_base::BigBuffer(base::as_bytes(base::span(utf8_text)));
-      parts.push_back(
-          mojom::AdditionalContextPart::NewData(std::move(context_data)));
-    }
-
-    context->parts = std::move(parts);
-
-    glic_keyed_service_->SendAdditionalContext(tab_interface->GetHandle(),
-                                               std::move(context));
+    // TODO(b/508916357): Use the invoke API.
+    SendAdditionalContextToPanel(tab_interface, selected_text);
     has_sent_selection_context_ = true;
   } else {
-    if (!features::kGlicSelectionPromptUpdatesOnly.Get()) {
+    if ((!features::kGlicSelectionPromptUseWidget.Get() ||
+         is_pending_selection) &&
+        !features::kGlicSelectionPromptUpdatesOnly.Get()) {
       ShowSelectionAffordance(selected_text, bwi);
     }
     has_sent_selection_context_ = false;
@@ -639,9 +628,11 @@ void GlicSelectionObserver::ShowSelectionAffordance(
         // to IPC timing (especially on double click).
         bounds_retry_count_++;
         pending_selection_text_ = selected_text;
-        selection_debounce_timer_.Start(
-            FROM_HERE, base::Milliseconds(100), this,
-            &GlicSelectionObserver::ProcessPendingSelection);
+        base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+            FROM_HERE,
+            base::BindOnce(&GlicSelectionObserver::ProcessPendingSelection,
+                           weak_ptr_factory_.GetWeakPtr()),
+            base::Milliseconds(100));
       }
     }
   }
@@ -707,7 +698,7 @@ void GlicSelectionObserver::RequestLinkGeneration(
   rfh->GetRemoteInterfaces()->GetInterface(
       text_fragment_remote_.BindNewPipeAndPassReceiver());
 
-  text_fragment_remote_->RequestSelector(
+  text_fragment_remote_->RequestSelectorForSelection(
       base::BindOnce(&GlicSelectionObserver::OnLinkGenerated,
                      weak_ptr_factory_.GetWeakPtr(), url));
 }
@@ -764,6 +755,25 @@ void GlicSelectionObserver::OnLinkGenerated(
   }
 }
 
+bool GlicSelectionObserver::IsPanelShowing(tabs::TabInterface* tab_interface,
+                                           BrowserWindowInterface* bwi) {
+  if (glic_keyed_service_ &&
+      glic_keyed_service_->GetInstanceForTab(tab_interface)) {
+    return glic_keyed_service_->IsPanelShowingForBrowser(*bwi);
+  }
+  return false;
+}
+
+void GlicSelectionObserver::SendAdditionalContextToPanel(
+    tabs::TabInterface* tab_interface,
+    const std::u16string& selected_text) {
+  if (!glic_keyed_service_) {
+    return;
+  }
+  glic_keyed_service_->SendAdditionalContext(tab_interface->GetHandle(),
+      CreateAdditionalContext(web_contents(), selected_text));
+}
+
 void GlicSelectionObserver::CopyLinkToHighlight(
     content::WeakDocumentPtr weak_document_ptr) {
   if (generated_link_.has_value() && generated_link_->is_valid()) {
@@ -792,13 +802,13 @@ void GlicSelectionObserver::OnPanelStateChanged() {
   auto* instance = glic_keyed_service_->GetInstanceForTab(tab_interface);
   if (!instance || !panel_showing) {
     host_observation_.Reset();
-    UpdateSelectionState(last_selected_text_);
+    UpdateSelectionState(last_selected_text_, /*is_pending_selection=*/false);
     return;
   }
 
   if (instance->host().IsWebClientConnected()) {
     host_observation_.Reset();
-    UpdateSelectionState(last_selected_text_);
+    UpdateSelectionState(last_selected_text_, /*is_pending_selection=*/false);
   } else {
     if (!host_observation_.IsObservingSource(&instance->host())) {
       host_observation_.Reset();
@@ -812,7 +822,7 @@ void GlicSelectionObserver::WebClientConnected() {
   if (last_selected_text_.empty()) {
     return;
   }
-  UpdateSelectionState(last_selected_text_);
+  UpdateSelectionState(last_selected_text_, /*is_pending_selection=*/false);
 }
 
 }  // namespace glic

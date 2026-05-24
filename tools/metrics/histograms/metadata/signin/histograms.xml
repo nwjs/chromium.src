@@ -96,6 +96,18 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/signin/bound_session_credentials/bound_session_refresh_cookie_fetcher_impl.cc:GetRotationHistogramTriggerSuffix) -->
 
+<!-- LINT.IfChange(PartitionSuffix) -->
+
+<variants name="PartitionSuffix">
+  <variant name="" summary="Overall result across all partitions."/>
+  <variant name=".ContextualTasks"
+      summary="For the ContextualTasks partition."/>
+  <variant name=".Default" summary="For the default partition."/>
+  <variant name=".Glic" summary="For the Glic partition."/>
+</variants>
+
+<!-- LINT.ThenChange(//components/signin/public/identity_manager/accounts_cookie_mutator.h:PartitionSuffix) -->
+
 <!-- LINT.IfChange(ReauthFlowEvent) -->
 
 <variants name="ReauthFlowEvent">
@@ -175,6 +187,30 @@ chromium-metrics-reviews@google.com.
     Records the success events when fetching access tokens. The events are
     bucketed by OAuthConsumerId. Recorded on every access token fetch request
     success.
+  </summary>
+</histogram>
+
+<histogram name="Signin.AccountCapabilities.CanSignInToChrome.FetchDuration"
+    units="ms" expires_after="2027-05-01">
+  <owner>ddac@chromium.org</owner>
+  <owner>ljjlee@google.com</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Records the duration of fetching the can_sign_in_to_chrome capability for
+    age mismatch checks. Recorded when the fetch completes (either succeeds or
+    times out).
+  </summary>
+</histogram>
+
+<histogram name="Signin.AccountCapabilities.CanSignInToChrome.FetchResult"
+    enum="CanSignInToChromeCapabilityResult" expires_after="2027-05-01">
+  <owner>ddac@chromium.org</owner>
+  <owner>ljjlee@google.com</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Records the result of the capability fetch in AgeMismatchCapabilitiesFetcher
+    (False, True, or Timeout). Recorded once on the completion of each fetch
+    attempt.
   </summary>
 </histogram>
 
@@ -737,6 +773,43 @@ prefs when the profile is loaded.  -->
     <variant name="Interrupted" summary="is interrupted"/>
     <variant name="Success" summary="is successful"/>
   </token>
+</histogram>
+
+<histogram name="Signin.AgeMismatchSignout.Action"
+    enum="AgeMismatchSignoutAction" expires_after="2027-05-01">
+  <owner>ddac@chromium.org</owner>
+  <owner>ljjlee@google.com</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Records the user choice in the Age Mismatch Sign-Out dialog (Use another
+    account, Use without an account). Logged when the user taps one of the
+    buttons.
+  </summary>
+</histogram>
+
+<histogram name="Signin.AgeMismatchSignout.PromptMode"
+    enum="AgeMismatchPromptMode" expires_after="2027-05-01">
+  <owner>ddac@chromium.org</owner>
+  <owner>ljjlee@google.com</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Records the mode of the Age Mismatch Sign-Out dialog. &quot;Standard&quot;
+    mode is used when the check is triggered outside of a sign-in flow (e.g. on
+    app foreground). &quot;Signin Flow&quot; mode is used when the check is part
+    of a sign-in operation. Logged when the dialog is presented.
+  </summary>
+</histogram>
+
+<histogram name="Signin.AgeMismatchSignout.StaySignedOutButtonState"
+    enum="AgeMismatchStaySignedOutButtonState" expires_after="2027-05-01">
+  <owner>ddac@chromium.org</owner>
+  <owner>ljjlee@google.com</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Records whether the 'Stay signed out' button is shown or hidden in the Age
+    Mismatch prompt because the user is already signed in to a primary account.
+    Logged when the prompt is displayed.
+  </summary>
 </histogram>
 
 <histogram name="Signin.Android.FRESigninEvents" enum="FRESigninEvents"
@@ -1510,17 +1583,11 @@ prefs when the profile is loaded.  -->
     for Chrome instances that support DBSC standard and OAuthMultilogin cookies
     binding. {PartitionSuffix}
   </summary>
-  <token key="PartitionSuffix">
-    <variant name="" summary="Overall result across all partitions."/>
-    <variant name=".ContextualTasks"
-        summary="For the ContextualTasks partition."/>
-    <variant name=".Default" summary="For the default partition."/>
-    <variant name=".Glic" summary="For the Glic partition."/>
-  </token>
+  <token key="PartitionSuffix" variants="PartitionSuffix"/>
 </histogram>
 
 <histogram
-    name="Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError"
+    name="Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError{PartitionSuffix}"
     enum="DeviceBoundSessionError" expires_after="2026-10-04">
   <owner>ernn@google.com</owner>
   <owner>alexilin@chromium.org</owner>
@@ -1532,8 +1599,9 @@ prefs when the profile is loaded.  -->
     result is recorded in
     `Signin.DeviceBoundSessions.OAuthMultilogin.CreateSessionsResult`. Only
     recorded for Chrome instances that support DBSC standard and OAuthMultilogin
-    cookies binding.
+    cookies binding. {PartitionSuffix}
   </summary>
+  <token key="PartitionSuffix" variants="PartitionSuffix"/>
 </histogram>
 
 <histogram name="Signin.DiceAuthorizationCode" enum="BooleanPresent"
@@ -2760,13 +2828,7 @@ should be kept to monitor/debug signin Multilogin issues-->
   <summary>
     Response status received from gaia Multilogin. {PartitionSuffix}
   </summary>
-  <token key="PartitionSuffix">
-    <variant name="" summary="Overall result across all partitions."/>
-    <variant name=".ContextualTasks"
-        summary="For the ContextualTasks partition."/>
-    <variant name=".Default" summary="For the default partition."/>
-    <variant name=".Glic" summary="For the Glic partition."/>
-  </token>
+  <token key="PartitionSuffix" variants="PartitionSuffix"/>
 </histogram>
 
 <histogram name="Signin.OpenTabsCount.{ConsentLevel}" units="count"

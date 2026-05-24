@@ -1313,6 +1313,7 @@ static_library("browser") {
     "//components/offline_pages/core/background:background_offliner",
     "//components/offline_pages/core/request_header",
     "//components/omnibox/browser",
+    "//components/omnibox/common:features",
     "//components/onc",
     "//components/open_from_clipboard",
     "//components/optimization_guide/core",
@@ -2459,6 +2460,8 @@ static_library("browser") {
     #!is_android
     deps += [
       "//chrome/browser/accessibility/live_caption:impl",
+      "//chrome/browser/dictation",
+      "//chrome/browser/dictation:impl",
       "//chrome/browser/payments:impl",
       "//chrome/browser/webapps:desktop",
       "//chrome/browser/webapps:desktop_impl",
@@ -5268,10 +5271,6 @@ group("browser_generated_files") {
 
   if (is_win || is_linux || is_android || is_chromeos) {
     public_deps += [ "//chrome/browser/privacy:traffic_annotation_proto" ]
-  }
-
-  if (chrome_root_store_cert_management_ui || enable_webui_certificate_viewer) {
-    public_deps += [ "//components/server_certificate_database:proto" ]
   }
 }
 

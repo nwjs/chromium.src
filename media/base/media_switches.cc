@@ -1020,6 +1020,11 @@ BASE_FEATURE(kResolutionBasedDecoderPriority, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kAutoPictureInPictureForVideoPlayback,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Allows the AutoPictureInPictureTabHelper to automatically enter
+// picture-in-picture when a webpage is occluded by another window.
+BASE_FEATURE(kAutoPictureInPictureOnWindowOccluded,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables Happiness Tracking Surveys for Auto Picture-in-Picture.
 BASE_FEATURE(kAutoPictureInPictureSurveys, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1073,6 +1078,10 @@ BASE_FEATURE(kMatchSourceAudioChannelLayout, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables media capturing to continue in the background.
 BASE_FEATURE(kAndroidEnableBackgroundMediaCapturing,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Allows audio playback capture on Android.
+BASE_FEATURE(kAllowAudioPlaybackCapture, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Allows media playback to start when the audio focus request is delayed
 // (e.g. during a phone call).
 BASE_FEATURE(kAllowDelayedAudioFocusGainAndroid,
@@ -1547,8 +1556,7 @@ const base::FeatureParam<double>
 BASE_FEATURE(kCastStreamingHardwareHevc, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // TODO(crbug.com/282984511): Remove after M151.
-BASE_FEATURE(kCastStreamingMediaVideoEncoder,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kCastStreamingMediaVideoEncoder, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCastStreamingPerformanceOverlay,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1703,7 +1711,7 @@ bool IsChromeWideEchoCancellationEnabled() {
 #endif
 }
 
-BASE_FEATURE(kMP4TimedMetadataTrack, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kMP4TimedMetadataTrack, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebRtcAudioNeuralResidualEchoEstimation,
              base::FEATURE_DISABLED_BY_DEFAULT);

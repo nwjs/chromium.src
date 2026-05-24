@@ -9,7 +9,7 @@ import '//resources/cr_components/searchbox/searchbox_dropdown.js';
 import '//resources/cr_components/search/animated_glow.js';
 import '//resources/cr_components/searchbox/searchbox_input.js';
 
-import type {ComposeboxState, ContextualUpload, TabUpload, TabUploadOrigin} from '//resources/cr_components/composebox/common.js';
+import type {ComposeboxState, ContextualUpload, DriveUpload, TabUpload, TabUploadOrigin} from '//resources/cr_components/composebox/common.js';
 import {ContextType, GlifAnimationState, recordContextAdditionMethod, recordContextualElementClickedMetric, recordInputTypeShown, recordModelModeSelection, recordModelModeShown, recordToolModeSelection, recordToolModeShown} from '//resources/cr_components/composebox/common.js';
 import type {ContextualEntrypointAndMenuElement} from '//resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
 import {ComposeboxContextAddedMethod, GlowAnimationState} from '//resources/cr_components/search/constants.js';
@@ -28,7 +28,7 @@ import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
-import type {PageCallbackRouter, PageHandlerInterface, TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {DriveUploadError, PageCallbackRouter, PageHandlerInterface, TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {InputState} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {InputType, ModelMode, ToolMode} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
@@ -166,6 +166,10 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
 
       showThumbnail: {type: Boolean},
 
+      hasVoiceSearchError: {type: Boolean},
+
+      isListening: {type: Boolean},
+
       //========================================================================
       // Protected properties
       //========================================================================
@@ -216,6 +220,11 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
   accessor placeholderText: string = '';
 
   accessor inVoiceSearchMode: boolean = false;
+  // If voice search error scrim is showing:
+  accessor hasVoiceSearchError: boolean = false;
+  // Voice search is listening if there is no error and voice search overlay
+  // is open (and active).
+  accessor isListening: boolean = false;
   protected accessor tabSuggestions_: TabInfo[] = [];
   protected accessor inputState_: InputState|null = null;
   protected accessor searchboxIcon_: string =
@@ -288,6 +297,11 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
         changedProperties.has('colorSourceIsBaseline')) {
       this.useWebkitSearchIcons_ = this.composeButtonEnabled ||
           (this.searchboxChromeRefreshTheming && !this.colorSourceIsBaseline);
+    }
+
+    if (changedProperties.has('inVoiceSearchMode') ||
+        changedProperties.has('hasVoiceSearchError')) {
+      this.isListening = this.inVoiceSearchMode && !this.hasVoiceSearchError;
     }
   }
 
@@ -425,6 +439,21 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
   // Event handlers
   //============================================================================
 
+  // Perform animation work in this file (`ntp_searchbox.ts`) since this
+  // file owns the animation state while `new_tab_page/app.ts` owns the
+  // voice component and its initialization.
+  async onVoiceSearchClick() {
+    this.animationState = GlowAnimationState.NONE;
+    await this.updateComplete;
+    this.animationState = GlowAnimationState.LISTENING;
+    this.inVoiceSearchMode = true;
+    // `new_tab_page/app.ts` controls the voice component and when it will
+    // start. `new_tab_page/app.ts` sets `inVoiceSearchMode` to `true`
+    // with `new_tab_page/app.ts`'s equivalent state
+    // `showVoiceSearchOverlay`.
+    this.dispatchEvent(new Event('open-voice-search'));
+  }
+
   protected onFileChange_(e: CustomEvent<{files: FileList}>) {
     this.processFiles_(
         e.detail.files, ComposeboxContextAddedMethod.CONTEXT_MENU);
@@ -515,22 +544,25 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
     }
   }
 
-  // Perform animation work in this file (`ntp_searchbox.ts`) since this
-  // file owns the animation state while `new_tab_page/app.ts` owns the
-  // voice component and its initialization.
-  protected async onWrapperVoiceSearchClick_() {
-    this.animationState = GlowAnimationState.NONE;
-    await this.updateComplete;
-    this.animationState = GlowAnimationState.LISTENING;
-    // `new_tab_page/app.ts` controls the voice component and when it will
-    // start. `new_tab_page/app.ts` sets `inVoiceSearchMode` to `true`
-    // with `new_tab_page/app.ts`'s equivalent state
-    // `showVoiceSearchOverlay`.
-    this.onVoiceSearchClick_();
-  }
+  protected async onOpenDriveUpload_() {
+    const {response} = await this.pageHandler().onDriveUploadClicked();
 
-  protected onOpenDriveUpload_() {
-    this.pageHandler().onDriveUploadClicked();
+    const driveUploads: DriveUpload[] =
+        response.files.map(file => ({
+                             token: file.token,
+                             mimeType: file.mimeType,
+                             fileName: file.fileName,
+                             thumbnailUrl: file.thumbnailUrl ?? null,
+                           }));
+
+    recordContextualElementClickedMetric(
+        this.composeboxSource, 'ClassicPopup', ContextType.DRIVE);
+
+    if (driveUploads.length > 0 || response.error !== null) {
+      this.openComposebox_(
+          driveUploads, ToolMode.kUnspecified, ModelMode.kUnspecified,
+          response.error ?? undefined);
+    }
   }
 
   protected onContextMenuEntrypointClick_() {
@@ -575,7 +607,7 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
       // LINT.IfChange(ContextualSearchContextState)
       chrome.histograms.recordEnumerationValue(
           histogramName, /*WithoutContext */ 0,
-          /*ContextualSearchContextState.Size + 1*/ 4);
+          /*ContextualSearchContextState.Size + 1*/ 5);
       // LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_search/enums.xml:ContextualSearchContextState)
 
       const userActionName =
@@ -601,7 +633,7 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
 
   protected openComposebox_(
       uploads: ContextualUpload[] = [], mode: ToolMode = ToolMode.kUnspecified,
-      model: ModelMode = ModelMode.kUnspecified) {
+      model: ModelMode = ModelMode.kUnspecified, error?: DriveUploadError) {
     if (this.ntpRealboxNextEnabled) {
       const context =
           this.shadowRoot.querySelector<ContextualEntrypointAndMenuElement>(
@@ -622,6 +654,7 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
       files: uploads,
       mode: mode,
       model: model,
+      error: error,
     });
     this.setInputText('');
   }
@@ -656,10 +689,6 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
   protected onSearchboxInputTextUpdated_(
       e: CustomEvent<{value: string, isComposing: boolean}>) {
     this.onSearchboxInputTextUpdated(e, /*is_composing=*/ false);
-  }
-
-  protected onVoiceSearchClick_() {
-    this.dispatchEvent(new Event('open-voice-search'));
   }
 
   protected onLensSearchClick_() {

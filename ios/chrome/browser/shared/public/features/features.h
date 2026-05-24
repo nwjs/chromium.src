@@ -183,9 +183,6 @@ BASE_DECLARE_FEATURE(kIOSDateToCalendarSignedOut);
 // Feature flag enabling a fix for the Download manager mediator.
 BASE_DECLARE_FEATURE(kIOSDownloadNoUIUpdateInBackground);
 
-// Feature flag enabling the client folder implementation of Save to Drive.
-BASE_DECLARE_FEATURE(kIOSSaveToDriveClientFolder);
-
 // Feature flag enabling the save to drive feature for signed out users.
 BASE_DECLARE_FEATURE(kIOSSaveToDriveSignedOut);
 
@@ -1026,5 +1023,11 @@ bool IsAssistantAimMinimizedStateEnabled();
 
 // Feature flag to enable the use of UIGraphicsImageRenderer for fallback icons.
 BASE_DECLARE_FEATURE(kUseUIGraphicsImageRendererForFallbackIcons);
+
+// Enables the Native Dark Mode Detection feature.
+BASE_DECLARE_FEATURE(kIOSDarkModeDetection);
+
+// Returns true if the Native Dark Mode Detection feature is enabled.
+bool IsIOSDarkModeDetectionEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

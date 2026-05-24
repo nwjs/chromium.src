@@ -19,6 +19,7 @@
 #include "ui/compositor/layer_tree_owner.h"
 #include "ui/compositor/layer_type.h"
 #include "ui/views/view_class_properties.h"
+#include "ui/views/widget/widget.h"
 
 #if defined(USE_AURA)
 #include "ui/aura/window.h"
@@ -73,12 +74,26 @@ void ContentsWebView::SetBackgroundRadii(const gfx::RoundedCornersF& radii) {
   background_layer->SetIsFastRoundedCorner(true);
 }
 
+void ContentsWebView::SetIsAnimatingBounds(bool is_animating) {
+  if (is_animating_bounds_ == is_animating) {
+    return;
+  }
+
+  is_animating_bounds_ = is_animating;
+
+  if (is_animating_bounds_) {
+    if (status_bubble_) {
+      status_bubble_->Hide();
+    }
+  }
+}
+
 bool ContentsWebView::GetNeedsNotificationWhenVisibleBoundsChange() const {
   return true;
 }
 
 void ContentsWebView::OnVisibleBoundsChanged() {
-  if (status_bubble_) {
+  if (!is_animating_bounds_ && status_bubble_) {
     status_bubble_->Reposition();
   }
 }
@@ -97,14 +112,14 @@ void ContentsWebView::OnLetterboxingChanged() {
 void ContentsWebView::SetWebContents(content::WebContents* web_contents) {
   views::WebView::SetWebContents(web_contents);
   if (web_contents == nullptr) {
-    status_bubble_ = nullptr;
+    status_bubble_.reset();
     // Early exit: Without web contents, views dependent on ContentsWebView's
     // bounds cannot be properly created or positioned. These views will
     // initialize later when valid web contents exist.
     return;
   }
 
-  if (status_bubble_ == nullptr) {
+  if (!status_bubble_) {
     status_bubble_ = std::make_unique<StatusBubbleViews>(this);
     status_bubble_->Reposition();
   }
@@ -171,6 +186,12 @@ void ContentsWebView::CloneWebContentsLayer() {
   if (!web_contents()) {
     return;
   }
+
+  views::Widget* widget = GetWidget();
+  if (!widget || !widget->GetNativeWindow()) {
+    return;
+  }
+
 #if defined(USE_AURA)
   // We don't need to clone the layers on non-Aura (Mac), because closing an
   // NSWindow does not animate.

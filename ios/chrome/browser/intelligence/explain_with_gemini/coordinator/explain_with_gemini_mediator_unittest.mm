@@ -10,9 +10,9 @@
 #import "base/test/scoped_feature_list.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/sync/test/test_sync_service.h"
-#import "ios/chrome/browser/intelligence/bwg/model/bwg_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/model/fake_gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
@@ -30,6 +30,7 @@
 #import "ios/web/public/test/fakes/fake_web_frames_manager.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/web_task_environment.h"
+#import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
@@ -49,6 +50,7 @@
 - (void)addItemWithResponse:(WebSelectionResponse*)response
                  completion:(void (^)(NSArray*))completion
                    webState:(web::WebState*)webState;
+- (NSString*)buttonTitle;
 @end
 
 class ExplainWithGeminiMediatorTest : public PlatformTest {
@@ -93,7 +95,7 @@ class ExplainWithGeminiMediatorTest : public PlatformTest {
     web_state_->SetBrowserState(browser_state_.get());
     web_state_->SetVisibleURL(GURL("https://example.com"));
 
-    BwgTabHelper::CreateForWebState(web_state_.get());
+    GeminiTabHelper::CreateForWebState(web_state_.get());
     WebSelectionTabHelper::CreateForWebState(web_state_.get());
 
     mediator_ = [[ExplainWithGeminiMediator alloc]
@@ -119,6 +121,28 @@ class ExplainWithGeminiMediatorTest : public PlatformTest {
 // Tests that the mediator can be instantiated.
 TEST_F(ExplainWithGeminiMediatorTest, Initialisation) {
   EXPECT_NE(mediator_, nil);
+}
+
+// Tests that the button title is 'Ask Gemini' when position is adjacent.
+TEST_F(ExplainWithGeminiMediatorTest, ButtonTitle_Adjacent) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kPageActionMenu, {}},
+       {kExplainGeminiEditMenu, {{"PositionForExplainGeminiEditMenu", "3"}}}},
+      {});
+
+  EXPECT_NSEQ([mediator_ buttonTitle], @"Ask Gemini");
+}
+
+// Tests that the button title is 'Explain with Gemini' by default.
+TEST_F(ExplainWithGeminiMediatorTest, ButtonTitle_Default) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{kPageActionMenu, {}},
+       {kExplainGeminiEditMenu, {{"PositionForExplainGeminiEditMenu", "1"}}}},
+      {});
+
+  EXPECT_NSEQ([mediator_ buttonTitle], @"Explain with Gemini");
 }
 
 // Tests that triggering the action calls the BWGHandler.

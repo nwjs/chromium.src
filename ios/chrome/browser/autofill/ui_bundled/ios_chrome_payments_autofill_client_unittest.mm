@@ -23,8 +23,8 @@
 #import "ios/chrome/browser/autofill/autofill_ai/error_dialog/model/autofill_ai_error_dialog_context.h"
 #import "ios/chrome/browser/autofill/autofill_ai/public/save_entity_params.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
+#import "ios/chrome/browser/autofill/model/manual_fill_virtual_card_cache.h"
 #import "ios/chrome/browser/autofill/ui_bundled/chrome_autofill_client_ios.h"
-#import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_virtual_card_cache.h"
 #import "ios/chrome/browser/infobars/model/infobar_ios.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/infobars/model/infobar_type.h"
@@ -796,20 +796,24 @@ TEST_F(IOSChromePaymentsAutofillClientTest,
        OnCardDataAvailable_CachesVirtualCard) {
   // Create a virtual card
   autofill::CreditCard card = autofill::test::GetVirtualCard();
+  card.set_server_id("test_server_id");
+  card.set_record_type(autofill::CreditCard::RecordType::kVirtualCard);
 
   autofill::FilledCardInformationBubbleOptions options;
   options.filled_card = card;
   options.cvc = u"123";
 
-  payments_client()->OnCardDataAvailable(options);
+  url::Origin test_origin = url::Origin::Create(GURL("https://example.com"));
+  ManualFillVirtualCardCache::CreateForWebState(web_state_.get());
 
-  // Verify that the card is in the cache
+  payments_client()->OnCardDataAvailable(options, test_origin);
+
   ManualFillVirtualCardCache* cache =
       ManualFillVirtualCardCache::FromWebState(web_state_.get());
   ASSERT_TRUE(cache);
 
   const autofill::CreditCard* cached_card =
-      cache->GetUnmaskedCard(card.server_id());
+      cache->GetUnmaskedCard(card.server_id(), test_origin);
   ASSERT_TRUE(cached_card);
   EXPECT_EQ(cached_card->cvc(), u"123");
 }

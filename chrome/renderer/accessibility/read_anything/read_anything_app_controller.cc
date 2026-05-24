@@ -1060,6 +1060,12 @@ void ReadAnythingAppController::OnAXTreeDistilled(
             << " and selection node size: "
             << model_.selection_node_ids().size();
     Draw(should_recompute_display_nodes);
+
+    // Call DrawSelection again after Draw to ensure selection is not lost
+    // when DOM is recreated by Draw.
+    if (model_.unprocessed_selections_from_reading_mode() == 0) {
+      DrawSelection();
+    }
   }
 
   if (model_.is_empty()) {
@@ -3061,8 +3067,7 @@ void ReadAnythingAppController::MaybeMapRenderedTextToTree() {
   }
 
   if (model_.MapRenderedTextToTree(model_.readability_text_blocks())) {
-    // TODO(crbug.com/507447796): Notify frontend that readability text has been
-    // mapped to create readability nodestore.
+    ExecuteJavaScript("chrome.readingMode.onRenderedTextMappingReady();");
   }
 }
 

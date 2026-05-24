@@ -39,6 +39,8 @@ import {BrowserProxyImpl} from './contextual_tasks_browser_proxy.js';
 import {PostMessageHandler} from './post_message_handler.js';
 import type {Rect} from './post_message_handler.js';
 import {getNonOccludedClipPath} from './utils/clip_path.js';
+import {recordAction} from './utils.js';
+import {WindowManager} from './window_manager.js';
 
 declare global {
   interface HTMLElementEventMap {
@@ -342,6 +344,9 @@ export class ContextualTasksAppElement extends CrLitElement {
   // even if the load is aborted and the frame therefore never changes.
   private lastThreadFrameLoadStartEvent_: chrome.webviewTag.LoadStartEvent|
       LoadEvent|null = null;
+  // Tracks whether the frame is loading for the very first time to prevent
+  // double animations.
+  private isInitialFrameLoad_: boolean = true;
 
   private updateThemeFromUrl(url: URL) {
     const csParam = url.searchParams.get('cs');
@@ -492,11 +497,8 @@ export class ContextualTasksAppElement extends CrLitElement {
         }
 
         if (this.isShownInTab_) {
-          chrome.metricsPrivate.recordUserAction(
+          recordAction(
               'ContextualTasks.HistoryNavigation.UserAction.NavigatedInFullTab');
-          chrome.metricsPrivate.recordBoolean(
-              'ContextualTasks.HistoryNavigation.UserAction.NavigatedInFullTab',
-              true);
         }
 
         this.browserProxy_.handler.setTaskId({value: taskUuid});
@@ -528,6 +530,9 @@ export class ContextualTasksAppElement extends CrLitElement {
 
     // Setup the webview request overrides before loading the first URL.
     this.setupWebviewRequestOverrides();
+
+    // Handle newwindow events with mock webviews.
+    new WindowManager(this.$.threadFrame);
 
     // Check if the URL that loaded this page has a task attached to it. If it
     // does, we'll use the tasks URL to load the embedded page.
@@ -584,7 +589,10 @@ export class ContextualTasksAppElement extends CrLitElement {
     // Check if the initial render should be zero state.
     const {isZeroState} =
         await this.browserProxy_.handler.isZeroState(threadUrlAsUrl.href);
+    const {isAiPage} =
+        await this.browserProxy_.handler.isAiPage(threadUrlAsUrl.href);
     this.isZeroState_ = isZeroState;
+    this.isAiPage_ = isAiPage;
 
     this.inNlm_ = this.checkInNlm_(threadUrlAsUrl);
 
@@ -698,7 +706,7 @@ export class ContextualTasksAppElement extends CrLitElement {
   }
 
   private setStyleVariable(variable: string, value: string) {
-    this.composebox_?.style.setProperty(variable, `${value}px`);
+    this.composebox_?.style.setProperty(variable, value);
   }
 
   private onThreadFrameLoadStart(e: Event) {
@@ -823,7 +831,9 @@ export class ContextualTasksAppElement extends CrLitElement {
 
     if (isAiPage && isZeroState) {
       this.isZeroState_ = true;
-      this.playZeroStateAnimations_();
+      if (!this.isInitialFrameLoad_) {
+        this.playZeroStateAnimations_();
+      }
     }
 
     if (!wasZeroState && isZeroState) {
@@ -851,6 +861,8 @@ export class ContextualTasksAppElement extends CrLitElement {
       }
       this.isInBasicMode_ = true;
     }
+
+    this.isInitialFrameLoad_ = false;
 
     if (this.onLoadStartFinishedCallbackForTesting_) {
       this.onLoadStartFinishedCallbackForTesting_();
@@ -925,9 +937,10 @@ export class ContextualTasksAppElement extends CrLitElement {
           {opacity: 1},
         ],
         {
-          duration: 150,
-          easing: 'ease-in-out',
-          fill: 'forwards',
+          duration: 300,
+          delay: 100,
+          easing: 'cubic-bezier(0, 0, 0, 1)',
+          fill: 'both',
         });
   }
 
@@ -1003,7 +1016,7 @@ export class ContextualTasksAppElement extends CrLitElement {
     const style: string[] = [
       `--composebox-margin-bottom: 0;`,  // Need to remove margin on the child
                                          // container.
-      `position: fixed;`,
+      `position: ${this.inNlm_ ? 'fixed' : 'absolute'};`,
       `bottom: ${window.innerHeight - relativeRect.bottom}px;`,
       `left: ${relativeRect.left}px;`,
       `width: ${relativeRect.width}px;`,
@@ -1064,10 +1077,7 @@ export class ContextualTasksAppElement extends CrLitElement {
   }
 
   protected async onNewThreadClick_() {
-    chrome.metricsPrivate.recordUserAction(
-        'ContextualTasks.WebUI.UserAction.OpenNewThread');
-    chrome.metricsPrivate.recordBoolean(
-        'ContextualTasks.WebUI.UserAction.OpenNewThread', true);
+    recordAction('ContextualTasks.WebUI.UserAction.OpenNewThread');
     const {url} = await this.browserProxy_.handler.getThreadUrl();
     const newThreadUrl = new URL(url);
     const currentUrl = new URL(this.$.threadFrame.src);

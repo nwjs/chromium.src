@@ -118,6 +118,7 @@ enum class PositionForExplainGeminiEditMenu {
   kDisabled = 0,
   kAfterEdit = 1,
   kAfterSearch = 2,
+  kAdjacent = 3,
 };
 
 // Returns the position of Explain Gemini in the EditMenu.
@@ -307,6 +308,7 @@ BASE_DECLARE_FEATURE(kActorTools);
 bool IsActorEnabled();
 extern const char kActorToolsPageStabilityParam[];
 bool IsPageStabilityEnabled();
+base::TimeDelta GetActorObservationDelayTimeout();
 
 // Returns true if the specified tool is disabled via the "DisabledTools"
 // feature parameter of the `kActorTools` feature.

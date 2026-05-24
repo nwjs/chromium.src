@@ -171,6 +171,13 @@
     "messages": [2540],
     "includes": [2600],
   },
+  # chrome/browser/indigo/resources/internal/browser_resources.grd and
+  # chrome/browser/indigo/resources/browser_resources.grd must share the same id
+  # because they define the same resources, but only one of them is built
+  # depending on whether src_internal is available.
+  "chrome/browser/indigo/resources/internal/browser_resources.grd": {
+    "includes": [2640],
+  },
   "chrome/browser/indigo/resources/browser_resources.grd": {
     "includes": [2640],
   },
@@ -431,7 +438,7 @@
     "includes": [3765],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/contextual_tasks/resources.grd": {
-    "META": {"sizes": {"includes": [50]}},
+    "META": {"sizes": {"includes": [60]}},
     "includes": [3770],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/data_sharing/resources.grd": {

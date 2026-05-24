@@ -116,11 +116,7 @@ class ContextualSearchboxHandler
   void AddTabContext(int32_t tab_id,
                      bool delay_upload,
                      AddTabContextCallback callback) override;
-  void AddDriveContext(const std::string& drive_id,
-                       const std::string& resource_key,
-                       const std::string& mime_type_string,
-                       AddDriveContextCallback callback) override;
-  void OnDriveUploadClicked() override;
+  void OnDriveUploadClicked(OnDriveUploadClickedCallback callback) override;
   void DeleteContext(const base::UnguessableToken& file_token,
                      bool from_automatic_chip) override;
   void ClearFiles(bool should_block_auto_suggested_tabs) override;
@@ -141,6 +137,8 @@ class ContextualSearchboxHandler
                              bool ctrl_key,
                              bool meta_key,
                              bool shift_key) override;
+  void SetSmartComposeStats(
+      searchbox::mojom::SmartComposeStatsPtr smart_compose_stats) override;
   void ShouldShowDriveDisclaimer(
       ShouldShowDriveDisclaimerCallback callback) override;
   void OnDriveDisclaimerAccepted() override;
@@ -284,11 +282,19 @@ class ContextualSearchboxHandler
   void RecordTabAddedMetric(tabs::TabInterface* const tab,
                             bool is_tab_suggestion_chip);
 
+  // Returns true if the query should be opened in the Lens side panel.
+  bool ShouldOpenInLensSidePanel(
+      content::WebContents* active_web_contents,
+      contextual_search::ContextualSearchSessionHandle* session_handle);
+
   virtual void InitializeInputStateModel();
+
+  base::WeakPtr<contextual_search::InputStateModel>
+  GetOrCreateInputStateModel();
 
   void UpdateTabListObservation(TabListInterface* tab_list);
 
-  std::unique_ptr<contextual_search::InputStateModel> input_state_model_;
+  base::WeakPtr<contextual_search::InputStateModel> input_state_model_;
 
   void OnInputStateChanged(const contextual_search::InputState& state);
 
@@ -318,11 +324,6 @@ class ContextualSearchboxHandler
       WindowOpenDisposition disposition,
       omnibox::ChromeAimEntryPoint aim_entry_point,
       std::map<std::string, std::string> additional_params,
-      std::vector<base::WeakPtr<content::WebContents>> relevant_tabs);
-
-  // Callback invoked when relevant tabs are determined for the query to inform
-  // if the smart tab sharing promo should be shown to the user.
-  void OnRelevantTabsReceivedToMaybeShowPromo(
       std::vector<base::WeakPtr<content::WebContents>> relevant_tabs);
 
   std::optional<base::Uuid> GetTaskId();
@@ -357,6 +358,16 @@ class ContextualSearchboxHandler
 
  protected:
   std::optional<bool> smart_tab_sharing_active_for_thread_;
+
+  // Checks eligibility and triggers the smart tab sharing IPH promo logic.
+  void MaybeTriggerSmartTabSharingPromo(
+      const std::string& query,
+      content::WebContents* web_contents_for_window);
+
+  // Callback invoked when relevant tabs are determined for the query to inform
+  // if the smart tab sharing promo should be shown to the user.
+  virtual void OnRelevantTabsReceivedToMaybeShowPromo(
+      std::vector<base::WeakPtr<content::WebContents>> relevant_tabs);
 
   base::WeakPtrFactory<ContextualSearchboxHandler> weak_ptr_factory_{this};
 };

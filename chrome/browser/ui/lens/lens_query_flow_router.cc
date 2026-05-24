@@ -57,6 +57,18 @@ std::vector<lens::ContextualInput> ConvertPageContentToContextualInput(
   }
   return contextual_inputs;
 }
+
+omnibox::ChromeAimEntryPoint AimEntryPointFromInvocationSource(
+    lens::LensOverlayInvocationSource invocation_source) {
+  // TODO(crbug.com/483805922): Create individual AIM entry points for each
+  // Lens invocation source.
+  if (invocation_source ==
+      lens::LensOverlayInvocationSource::kOmniboxContextualSuggestion) {
+    return omnibox::DESKTOP_CHROME_OTHER_OMNIBOX_COMPOSEBOX_ENTRY_POINT;
+  }
+  return omnibox::DESKTOP_CHROME_LENS_CONTEXTUAL_SEARCHBOX_ENTRY_POINT;
+}
+
 }  // namespace
 
 namespace lens {
@@ -481,6 +493,10 @@ void LensQueryFlowRouter::OnContextualizedComplete(
         !request_info->image_crop.has_value() &&
         request_info->search_url_type == SearchUrlType::kAim;
 
+    if (is_contextual_text_query) {
+      effective_session_handle->set_is_contextual_lens_session(true);
+    }
+
     // We do not add the token to file_tokens here because
     // CreateSearchUrl will automatically add all uploaded context tokens from
     // the session if file_tokens is empty.
@@ -808,10 +824,8 @@ LensQueryFlowRouter::CreateSearchUrlRequestInfoFromInteraction(
 
   request_info->additional_params = additional_search_query_params;
   request_info->invocation_source = invocation_source;
-  // TODO(crbug.com/483805922): Create individual AIM entry points for each
-  // Lens invocation source.
   request_info->aim_entry_point =
-      omnibox::DESKTOP_CHROME_LENS_CONTEXTUAL_SEARCHBOX_ENTRY_POINT;
+      AimEntryPointFromInvocationSource(invocation_source);
 
   if (region) {
     auto client_logs =

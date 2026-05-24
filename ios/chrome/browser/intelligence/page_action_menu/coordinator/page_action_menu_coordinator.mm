@@ -11,10 +11,11 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
 #import "ios/chrome/browser/dom_distiller/model/distiller_service_factory.h"
-#import "ios/chrome/browser/intelligence/bwg/model/bwg_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_entry_flow_result.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/page_action_menu/coordinator/page_action_menu_mediator.h"
 #import "ios/chrome/browser/intelligence/page_action_menu/ui/page_action_menu_content_entry_point.h"
@@ -40,6 +41,7 @@
 #import "ios/chrome/browser/shared/public/commands/reader_mode_options_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -90,7 +92,8 @@ constexpr NSTimeInterval kEligibilityPollTimeout = 5.0;
 
   ReaderModeTabHelper* readerModeTabHelper =
       ReaderModeTabHelper::FromWebState(activeWebState);
-  BwgTabHelper* geminiTabHelper = BwgTabHelper::FromWebState(activeWebState);
+  GeminiTabHelper* geminiTabHelper =
+      GeminiTabHelper::FromWebState(activeWebState);
 
   HostContentSettingsMap* hostContentSettingsMap =
       ios::HostContentSettingsMapFactory::GetForProfile(self.profile);
@@ -178,7 +181,7 @@ constexpr NSTimeInterval kEligibilityPollTimeout = 5.0;
   if (IsPageActionMenuAuthFlowEnabled() &&
       [_mediator isGeminiEligibilityLoading] && [_mediator isManagedAccount]) {
     [_viewController updateGeminiLoadingState:YES];
-    [self startEligibilityPolling];
+    [self startManagedAccountEligibilityPolling];
   }
 
   [super start];
@@ -239,6 +242,63 @@ constexpr NSTimeInterval kEligibilityPollTimeout = 5.0;
 
 - (void)viewControllerDidTapSignedOutGemini:
     (PageActionMenuViewController*)viewController {
+  if (IsGeneralizedGeminiEntryFlowEnabled()) {
+    [self startGeminiEntryFlowViaCommand];
+    return;
+  }
+
+  [self startGeminiAuthFlowDirectly];
+}
+
+// Starts the Gemini entry flow via the generalized BWGCommands method.
+// Used when GeneralizedGeminiEntryFlow is enabled.
+- (void)startGeminiEntryFlowViaCommand {
+  __weak __typeof(self) weakSelf = self;
+
+  id<BWGCommands> bwgHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), BWGCommands);
+
+  [bwgHandler
+      startGeminiEntryFlowWithStartupState:
+          [[GeminiStartupState alloc]
+              initWithEntryPoint:gemini::EntryPoint::AIHubSignInSheet]
+                        baseViewController:_navigationController
+                               accessPoint:signin_metrics::AccessPoint::
+                                               kIosPageActionMenu
+                  showSnackbarOnCompletion:YES
+                                completion:^(GeminiEntryFlowResult result) {
+                                  [weakSelf handleEntryFlowResult:result];
+                                }];
+}
+
+// Handles the result of the Gemini entry flow for the PAM context.
+- (void)handleEntryFlowResult:(GeminiEntryFlowResult)result {
+  switch (result) {
+    case kGeminiEntryFlowResultSuccess:
+      // Dismiss PAM. Gemini session is started by BrowserCoordinator
+      // after this completion returns.
+      [self.pageActionMenuHandler dismissPageActionMenuWithCompletion:nil];
+      break;
+    case kGeminiEntryFlowResultCancelled:
+      // User cancelled sign-in — PAM stays open.
+      break;
+    case kGeminiEntryFlowResultAccountIneligibleByGemini:
+    case kGeminiEntryFlowResultAccountIneligibleByEnterprise:
+    case kGeminiEntryFlowResultAccountCapabilityRestricted:
+    case kGeminiEntryFlowResultPageIneligible:
+    case kGeminiEntryFlowResultUnknown:
+      // Ineligible — dismiss PAM. Snackbar handled by the command.
+      [self.pageActionMenuHandler dismissPageActionMenuWithCompletion:nil];
+      break;
+    case kGeminiEntryFlowResultTimeout:
+      // Currently unreachable.
+      break;
+  }
+}
+
+// Starts the Gemini auth flow directly within the PAM coordinator.
+// Used when ChromeNextIA is not enabled.
+- (void)startGeminiAuthFlowDirectly {
   signin_metrics::PromoAction promoAction =
       signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO;
   _signinCoordinator = [SigninCoordinator
@@ -467,6 +527,35 @@ constexpr NSTimeInterval kEligibilityPollTimeout = 5.0;
 - (void)stopAccountMenu {
   [_accountMenuCoordinator stop];
   _accountMenuCoordinator = nil;
+}
+
+// Polls until the workspace policy check resolves, then updates the
+// Ask Gemini button state. Used only for managed accounts when the PAM
+// opens and the check is still in flight.
+- (void)startManagedAccountEligibilityPolling {
+  __weak __typeof(self) weakSelf = self;
+  NSDate* startTime = [NSDate date];
+  _eligibilityPollTimer = [NSTimer
+      scheduledTimerWithTimeInterval:kEligibilityPollInterval
+                             repeats:YES
+                               block:^(NSTimer* timer) {
+                                 [weakSelf
+                                     pollManagedAccountEligibilityWithStartTime:
+                                         startTime];
+                               }];
+}
+
+// Called by the managed account poll timer. Hides the spinner when
+// the eligibility check resolves or times out.
+- (void)pollManagedAccountEligibilityWithStartTime:(NSDate*)startTime {
+  NSTimeInterval elapsed = -[startTime timeIntervalSinceNow];
+  if (elapsed < kEligibilityPollTimeout &&
+      [_mediator isGeminiEligibilityLoading]) {
+    return;
+  }
+
+  [self stopEligibilityPolling];
+  [_viewController updateGeminiLoadingState:NO];
 }
 
 @end

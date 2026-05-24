@@ -281,6 +281,8 @@ BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationSavePayments);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationLensOverlayHomework);
 BASE_DECLARE_FEATURE_PARAM(bool, kPageActionsMigrationBookmarkStar);
 
+BASE_DECLARE_FEATURE(kPageActionsPrioritySelector);
+
 // Determines whether the "save password" page action displays different UI if
 // the user has said to never save passwords for that site.
 BASE_DECLARE_FEATURE(kSavePasswordsContextualUi);
@@ -314,6 +316,8 @@ bool IsWebUIHomeButtonEnabled();
 bool IsWebUIBackForwardButtonEnabled();
 
 bool IsWebUIPinnedToolbarActionsEnabled();
+
+bool IsWebUIExtensionsContainerEnabled();
 
 bool IsWebUISplitTabsButtonEnabled();
 
@@ -350,6 +354,11 @@ BASE_DECLARE_FEATURE(kTabGroupsFocusing);
 BASE_DECLARE_FEATURE_PARAM(bool, kTabGroupsFocusingPinnedTabs);
 BASE_DECLARE_FEATURE_PARAM(bool, kTabGroupsFocusingAutoClose);
 BASE_DECLARE_FEATURE_PARAM(bool, kTabGroupsFocusingDefaultToFocused);
+
+BASE_DECLARE_FEATURE(kVerticalTabsGrabHandleRemoval);
+BASE_DECLARE_FEATURE_PARAM(bool, kVerticalTabsGrabHandleRemovalAlways);
+
+BASE_DECLARE_FEATURE(kOmniboxResizingPrioritization);
 
 }  // namespace features
 

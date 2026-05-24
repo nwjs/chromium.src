@@ -72,7 +72,7 @@ class ImageTransportSurfaceOverlayMacEGL : public gl::Presenter,
 
 #if BUILDFLAG(IS_MAC)
   // gl::Presenter
-  void SetVSyncDisplayID(int64_t display_id) override;
+  void SetVSyncDisplayID(int64_t display_id, bool force_update) override;
   void RefreshRateChangedOnSameDisplay() override;
 
   void OnVSyncPresentation(ui::VSyncParamsMac params);
@@ -91,7 +91,6 @@ class ImageTransportSurfaceOverlayMacEGL : public gl::Presenter,
 
 #if BUILDFLAG(IS_MAC)
   // Implements base::PowerSuspendObserver.
-  void OnSuspend() override;
   void OnResume() override;
 
   // The expected display time from CVDisplayLinkCallback for the frame being

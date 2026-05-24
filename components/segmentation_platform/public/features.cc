@@ -182,26 +182,6 @@ BASE_FEATURE(kSegmentationPlatformFedCmUser, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kDefaultBrowserPromoPropensityModel,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAppBundlePromoEphemeralCard,
-#if BUILDFLAG(IS_IOS)
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
-constexpr base::FeatureParam<int> kMaxAppBundlePromoImpressions{
-    &kAppBundlePromoEphemeralCard, "max_app_bundle_promo_impressions",
-    /*default_value=*/3};
-
-constexpr base::FeatureParam<int> kMaxAppBundleAppsInstalled{
-    &kAppBundlePromoEphemeralCard, "max_app_bundle_apps_installed",
-    /*default_value=*/4};
-
-bool IsAppBundlePromoEphemeralCardEnabled() {
-  return base::FeatureList::IsEnabled(
-      segmentation_platform::features::kAppBundlePromoEphemeralCard);
-}
-
 BASE_FEATURE(kDefaultBrowserMagicStackIos,
 #if BUILDFLAG(IS_IOS)
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -281,5 +261,19 @@ constexpr base::FeatureParam<bool> kEnableCustomizeMVTTip{
 constexpr base::FeatureParam<bool> kEnableRecentTabsTip{
     &kAndroidTipsNotificationsV2, "enable_recent_tabs_tip",
     /*default_value=*/true};
+
+BASE_FEATURE(kNewTabPageCustomizationV2, base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<bool> kNewTabPageCustomizationV2ShowPromo{
+    &kNewTabPageCustomizationV2, "show_promo",
+    /*default_value=*/false};
+
+constexpr base::FeatureParam<int> kNewTabPageCustomizationV2IphMaxImpression{
+    &kNewTabPageCustomizationV2, "iph_max_impression",
+    /*default_value=*/3};
+
+constexpr base::FeatureParam<int>
+    kNewTabPageCustomizationV2IphDisplayIntervalDays{
+        &kNewTabPageCustomizationV2, "iph_display_interval_days",
+        /*default_value=*/7};
 
 }  // namespace segmentation_platform::features

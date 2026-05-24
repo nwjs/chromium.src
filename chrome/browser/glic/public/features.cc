@@ -115,7 +115,9 @@ const base::FeatureParam<GlicToolbarButtonLocation>::Option
         {GlicToolbarButtonLocation::kRightOfOmnibox,
          kGlicToolbarButtonLocationRightOfOmnibox},
         {GlicToolbarButtonLocation::kLeftOfProfileChip,
-         kGlicToolbarButtonLocationLeftOfProfileChip}};
+         kGlicToolbarButtonLocationLeftOfProfileChip},
+        {GlicToolbarButtonLocation::kLeftOfProfileChipWithBackground,
+         kGlicToolbarButtonLocationLeftOfProfileChipWithBackground}};
 
 const base::FeatureParam<GlicToolbarButtonLocation>
     kGlicToolbarButtonLocationParam{
@@ -145,5 +147,7 @@ BASE_FEATURE(kGlicContextualCueingV2AutoSubmit,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicWebDragAndDropFileUpload, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicOptInImpressionMetrics, base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

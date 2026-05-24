@@ -52,11 +52,11 @@
 #import "components/signin/public/base/consent_level.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
 #import "ios/chrome/browser/autofill/model/credit_card/autofill_save_card_infobar_delegate_ios.h"
+#import "ios/chrome/browser/autofill/model/manual_fill_virtual_card_cache.h"
 #import "ios/chrome/browser/autofill/ui_bundled/card_expiration_date_fix_flow_view_bridge.h"
 #import "ios/chrome/browser/autofill/ui_bundled/card_name_fix_flow_view_bridge.h"
 #import "ios/chrome/browser/autofill/ui_bundled/card_unmask_prompt_view_bridge.h"
 #import "ios/chrome/browser/autofill/ui_bundled/chrome_autofill_client_ios.h"
-#import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_virtual_card_cache.h"
 #import "ios/chrome/browser/infobars/model/infobar_ios.h"
 #import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
 #import "ios/public/provider/chrome/browser/risk_data/risk_data_api.h"
@@ -267,15 +267,17 @@ void IOSChromePaymentsAutofillClient::VirtualCardEnrollCompleted(
 }
 
 void IOSChromePaymentsAutofillClient::OnCardDataAvailable(
-    const FilledCardInformationBubbleOptions& options) {
+    const FilledCardInformationBubbleOptions& options,
+    const url::Origin& origin) {
   if (options.filled_card.record_type() ==
       CreditCard::RecordType::kVirtualCard) {
     autofill::CreditCard card = options.filled_card;
     card.set_cvc(options.cvc);
 
     ManualFillVirtualCardCache::CreateForWebState(web_state_);
+
     ManualFillVirtualCardCache::FromWebState(web_state_)
-        ->CacheUnmaskedCard(card);
+        ->CacheUnmaskedCard(card, origin);
   }
 }
 

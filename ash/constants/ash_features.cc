@@ -206,6 +206,18 @@ constexpr base::FeatureParam<std::string> kBocaSpotlightUrlTemplate{
     &kBocaSpotlight, "spotlight-url-template",
     "https://remotedesktop.google.com/support/session/{sessionCode}"};
 
+// Enables or disables Gemini integration for Boca on ChromeOS.
+BASE_FEATURE(kBocaGeminiIntegration, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// The URL to use for Gemini integration in Boca.
+constexpr base::FeatureParam<std::string> kBocaGeminiUrl{
+    &kBocaGeminiIntegration, "BocaGeminiUrl", "https://gemini.google.com"};
+
+// The URL to use for Gemini guided learning in Boca.
+constexpr base::FeatureParam<std::string> kBocaGeminiGuidedLearningUrl{
+    &kBocaGeminiIntegration, "BocaGeminiGuidedLearningUrl",
+    "https://gemini.google.com/guided-learning"};
+
 // Enables or disables Boca network restriction for Boca on ChromeOS.
 BASE_FEATURE(kBocaNetworkRestriction, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1858,7 +1870,7 @@ BASE_FEATURE(kUseDHCPCD10, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, the new `TokenHandleStoreImpl` will be used instead of
 // `TokenHandleUtil`.
-BASE_FEATURE(kUseTokenHandleStore, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kUseTokenHandleStore, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Use the AnnotatedAccountId for mapping between User and BrowserContext
 // (a.k.a. browser's Profile).
@@ -2358,6 +2370,10 @@ bool IsBocaStudentHeartbeatCustomIntervalEnabled() {
 
 bool IsBocaSpotlightEnabled() {
   return base::FeatureList::IsEnabled(kBocaSpotlight);
+}
+
+bool IsBocaGeminiIntegrationEnabled() {
+  return base::FeatureList::IsEnabled(kBocaGeminiIntegration);
 }
 
 bool IsBocaNetworkRestrictionEnabled() {

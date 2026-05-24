@@ -24,6 +24,7 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_web_contents_user_data.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -302,6 +303,10 @@ void ContextualTasksComposeboxHandler::CreateAndSendQueryMessage(
       lens::LensOverlayDismissalSource::kContextualTasksQuerySubmitted);
   std::optional<base::Uuid> task_id = web_ui_interface_->GetTaskId();
   auto* contextual_tasks_service = GetContextualTasksService();
+
+  MaybeTriggerSmartTabSharingPromo(query,
+                                   web_ui_interface_->GetWebUIWebContents());
+
   bool is_only_visual_selection =
       has_visual_selection && !IsAnyContextUploading() && session_handle &&
       session_handle->GetUploadedContextTokens().empty();
@@ -399,7 +404,20 @@ void ContextualTasksComposeboxHandler::InitializeInputStateModel() {
 
     if (current_input_state) {
       ResetInputStateModel();
-      input_state_model_ = std::move(current_input_state);
+
+      content::WebContents* web_contents =
+          web_ui_interface_->GetWebUIWebContents();
+      auto* user_data =
+          contextual_tasks::ContextualTasksWebContentsUserData::FromWebContents(
+              web_contents);
+      if (!user_data) {
+        contextual_tasks::ContextualTasksWebContentsUserData::
+            CreateForWebContents(web_contents);
+        user_data = contextual_tasks::ContextualTasksWebContentsUserData::
+            FromWebContents(web_contents);
+      }
+      user_data->set_input_state_model(std::move(current_input_state));
+      input_state_model_ = user_data->input_state_model();
 
       input_state_subscription_ =
           input_state_model_->subscribe(base::BindRepeating(
@@ -440,9 +458,6 @@ void ContextualTasksComposeboxHandler::AddFileContextFromBrowser(
                                                     std::move(file_info));
   std::move(callback).Run(base::ok(token));
 }
-
-
-
 
 void ContextualTasksComposeboxHandler::OnPageContextIneligible() {
   web_ui_interface_->OnPageContextEligibilityChecked(false);
@@ -669,30 +684,6 @@ void ContextualTasksComposeboxHandler::AddTabContext(
                                                     std::move(callback));
 }
 
-void ContextualTasksComposeboxHandler::AddDriveContext(
-    const std::string& drive_id,
-    const std::string& resource_key,
-    const std::string& mime_type_string,
-    AddDriveContextCallback callback) {
-  if (!contextual_search::ContextualSearchService::IsContextSharingEnabled(
-          profile_->GetPrefs())) {
-    std::move(callback).Run(base::unexpected(
-        contextual_search::ContextUploadErrorType::kBrowserProcessingError));
-    return;
-  }
-  auto* contextual_session_handle = GetContextualSessionHandle();
-  if (!contextual_session_handle) {
-    std::move(callback).Run(base::unexpected(
-        contextual_search::ContextUploadErrorType::kBrowserProcessingError));
-    return;
-  }
-  auto token = contextual_session_handle->CreateContextToken();
-  pending_context_uploads_.insert(token);
-  std::move(callback).Run(base::ok(token));
-  contextual_session_handle->StartDriveContextUploadFlow(
-      token, drive_id, resource_key, mime_type_string);
-}
-
 void ContextualTasksComposeboxHandler::ClearFiles(
     bool should_block_auto_suggested_tabs) {
   // Clear all files from the UI.
@@ -885,7 +876,11 @@ void ContextualTasksComposeboxHandler::UpdateSuggestedTabContext(
     const contextual_tasks::SuggestedTabInfo* suggested_tab) {
   // Always use the passed info as the result of the manager's filtering.
   searchbox::mojom::TabInfoPtr filtered_suggestion;
-  if (contextual_tasks::GetIsTabAutoSuggestionChipEnabled() && suggested_tab) {
+  const bool is_tab_suggestion_enabled =
+      contextual_tasks::GetIsTabAutoSuggestionChipEnabled() ||
+      (suggested_tab && ShouldForceAllowTabSuggestion(suggested_tab->tab_id));
+
+  if (is_tab_suggestion_enabled && suggested_tab) {
     filtered_suggestion = searchbox::mojom::TabInfo::New();
     filtered_suggestion->tab_id = suggested_tab->tab_id;
     filtered_suggestion->title = base::UTF16ToUTF8(suggested_tab->title);
@@ -989,6 +984,30 @@ ContextualTasksComposeboxHandler::GetActiveTabContextId() {
     }
   }
   return std::nullopt;
+}
+
+bool ContextualTasksComposeboxHandler::ShouldForceAllowTabSuggestion(
+    int32_t tab_id) {
+  auto* browser = web_ui_interface_->GetBrowser();
+  if (!browser) {
+    return false;
+  }
+  auto* active_tab = TabListInterface::From(browser)->GetActiveTab();
+  if (!active_tab) {
+    return false;
+  }
+
+  // If the tab being evaluated is not the currently active tab, ignore it.
+  if (active_tab->GetHandle().raw_value() != tab_id) {
+    return false;
+  }
+
+  auto* session_handle = GetContextualSessionHandle();
+  if (!session_handle) {
+    return false;
+  }
+
+  return session_handle->is_contextual_lens_session();
 }
 
 void ContextualTasksComposeboxHandler::MaybeSendPendingQuery() {

@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import type {NavigationPredictor} from '//resources/mojo/components/omnibox/browser/omnibox.mojom-webui.js';
-import type {OmniboxPopupSelection, PageHandlerInterface, PageRemote, PlaceholderConfig, SelectedFileInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {OmniboxPopupSelection, PageHandlerInterface, PageRemote, PlaceholderConfig, SelectedFileInfo, SmartComposeStats} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {ModelMode, ToolMode} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {BigBuffer} from '//resources/mojo/mojo/public/mojom/base/big_buffer.mojom-webui.js';
 import type {String16} from '//resources/mojo/mojo/public/mojom/base/string16.mojom-webui.js';
@@ -43,7 +43,6 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
       'notifySessionAbandoned',
       'addFileContext',
       'addTabContext',
-      'addDriveContext',
       'onDriveUploadClicked',
       'deleteContext',
       'clearFiles',
@@ -59,6 +58,7 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
       'setPopupSelection',
       'openPopupSelection',
       'getPageClassification',
+      'setSmartComposeStats',
     ]);
   }
 
@@ -123,6 +123,10 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
       metaKey,
       shiftKey,
     });
+  }
+
+  setSmartComposeStats(smartComposeStats: SmartComposeStats) {
+    this.methodCalled('setSmartComposeStats', {smartComposeStats});
   }
 
   onNavigationLikely(
@@ -192,13 +196,9 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
     return Promise.resolve('');
   }
 
-  addDriveContext(driveId: string, resourceKey: string, mimeType: string) {
-    this.methodCalled('addDriveContext', driveId, resourceKey, mimeType);
-    return Promise.resolve('');
-  }
-
   onDriveUploadClicked() {
     this.methodCalled('onDriveUploadClicked');
+    return Promise.resolve({response: {files: [], error: null}});
   }
 
   addTabContext(tabId: number, delayUpload: boolean) {

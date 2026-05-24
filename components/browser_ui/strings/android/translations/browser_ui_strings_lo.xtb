@@ -333,6 +333,7 @@
 <translation id="4290791284969893584">ຫຼັງຈາກການປິດໜ້າໃດໜຶ່ງ, ໜ້າວຽກທີ່ທ່ານເລີ່ມຕົ້ນໄວ້ອາດບໍ່ແລ້ວ</translation>
 <translation id="429312253194641664">ເວັບໄຊກຳລັງຫຼິ້ນສື່ຢູ່</translation>
 <translation id="42981349822642051">ຂະ​ຫຍາຍ</translation>
+<translation id="4310738531374808763">ປັບແຕ່ງໜ້າຫຼັກຂອງທ່ານ</translation>
 <translation id="4336219115486912529">{COUNT,plural, =1{ໝົດອາຍຸມື້ອື່ນ}other{ໝົດອາຍຸໃນ # ມື້}}</translation>
 <translation id="4338831206024587507">ເວັບໄຊທັງໝົດພາຍໃຕ້ <ph name="DOMAIN" /></translation>
 <translation id="4340799661701629185">ບໍ່ອະນຸຍາດໃຫ້ເວັບໄຊສົ່ງການແຈ້ງເຕືອນ</translation>
@@ -524,6 +525,7 @@
 <translation id="6262279340360821358">ບລັອກ <ph name="PERMISSION_1" /> ແລະ <ph name="PERMISSION_2" /> ໄວ້ແລ້ວ</translation>
 <translation id="6270391203985052864">ເວັບໄຊສາມາດຂໍໃຫ້ສົ່ງການແຈ້ງເຕືອນໄດ້</translation>
 <translation id="6295158916970320988">ທຸກ​ເວັບ​ໄຊ​ທ໌</translation>
+<translation id="6305257382500066042">ລອງໃຊ້ເລີຍ</translation>
 <translation id="6320088164292336938">ສັ່ນ</translation>
 <translation id="6367753977865761591">ບລັອກການເຂົ້າສູ່ລະບົບພາກສ່ວນທີສາມສຳລັບເວັບໄຊສະເພາະໃດໜຶ່ງ.</translation>
 <translation id="6398765197997659313">ອອກຈາກເຕັມໜ້າຈໍ</translation>
@@ -609,6 +611,7 @@
 <translation id="7250468141469952378">ເລືອກ <ph name="ITEM_COUNT" /> ລາຍການແລ້ວ</translation>
 <translation id="7260727271532453612">ອະນຸຍາດ <ph name="PERMISSION_1" /> ແລະ <ph name="PERMISSION_2" /> ແລ້ວ</translation>
 <translation id="7276071417425470385">ເມື່ອເປີດ, ເວັບໄຊສາມາດຂໍໃຫ້ໃຊ້ອຸປະກອນເວີຊົວ ຣິອາລິຕີໄດ້. ເມື່ອປິດ, ເວັບໄຊບໍ່ສາມາດໃຊ້ອຸປະກອນເວີຊົວ ຣິອາລິຕີໄດ້.</translation>
+<translation id="7279851812866769760">ແບ່ງປັນລາຍຊື່ຜູ້ຕິດຕໍ່</translation>
 <translation id="7282197670900591579">ຮູບແບບສີສັນສີເຫຼືອງອົມຂຽວໝາກນາວ</translation>
 <translation id="728412880473384942">ເວັບໄຊໄວຂຶ້ນແຕ່ປອດໄພໜ້ອຍລົງ</translation>
 <translation id="7352902948037373520">ຈັດການໃນ <ph name="BEGIN_LINK1" />ການຕັ້ງຄ່າ Android<ph name="END_LINK1" />
@@ -700,6 +703,7 @@
 <translation id="823874716226307142">ເມື່ອເປີດ, ເວັບໄຊສາມາດຂໍເຂົ້າເຖິງອຸປະກອນອື່ນໆໃນເຄືອຂ່າຍທ້ອງຖິ່ນຂອງທ່ານໄດ້. ເມື່ອປິດ, ເວັບໄຊຈະບໍ່ສາມາດເຂົ້າເຖິງອຸປະກອນອື່ນໆໃນເຄືອຂ່າຍທ້ອງຖິ່ນຂອງທ່ານໄດ້.</translation>
 <translation id="8249310407154411074">ຍ້າຍໄປເທິງສຸດ</translation>
 <translation id="8261506727792406068">ລຶບ</translation>
+<translation id="8273596202562472147">ຕົວເລືອກເພີ່ມເຕີມສຳລັບ <ph name="SITE_NAME" /></translation>
 <translation id="8284326494547611709">ຄໍາບັນຍາຍພາບ</translation>
 <translation id="8300705686683892304">ຈັດການໂດຍແອັບ</translation>
 <translation id="8301363963630676147">ອະນຸຍາດໃນເທື່ອນີ້ • ໃຊ້ສະຖານທີ່ໂດຍປະມານ</translation>
@@ -794,6 +798,7 @@
 <translation id="9156722768168878035">ໃຫ້ Chrome ສະແດງແຖບຫຼ້າສຸດຂອງທ່ານໃນຂໍ້ມູນແອັບ ແລະ ຜົນການຊອກຫາຂອງອຸປະກອນຂອງທ່ານ. ທ່ານສາມາດປິດການຕັ້ງຄ່ານີ້ໄດ້ທຸກເວລາໃນການຕັ້ງຄ່າ Chrome.</translation>
 <translation id="9162462602695099906">ໜ້ານີ້ອັນຕະລາຍ</translation>
 <translation id="9182556968660520230">ບໍ່ອະນຸຍາດໃຫ້ເວັບໄຊຫຼິ້ນເນື້ອຫາທີ່ຖືກປົກປ້ອງໄວ້</translation>
+<translation id="927148002081263046">ແບ່ງປັນລາຍຊື່ຜູ້ຕິດຕໍ່</translation>
 <translation id="947156494302904893">ເວັບໄຊທີ່ທ່ານເຂົ້າເບິ່ງສາມາດຢັ້ງຢືນໄດ້ວ່າທ່ານແມ່ນບຸກຄົນທີ່ແທ້ຈິງ ແລະ ບໍ່ແມ່ນບັອດ</translation>
 <translation id="959682366969460160">ຈັດໃຫ້ເປັນລະບຽບ</translation>
 <translation id="960590623979248167">ສະແດງລິ້ງລັດ</translation>

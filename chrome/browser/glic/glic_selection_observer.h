@@ -56,7 +56,8 @@ class GlicSelectionObserver
  protected:
   // Updates the Glic UI (nudge or panel) with the selected text.
   // Virtual for testing.
-  virtual void UpdateSelectionState(const std::u16string& text);
+  virtual void UpdateSelectionState(const std::u16string& text,
+                                    bool is_pending_selection);
 
   // Dismisses the selection UI (widget and/or nudge).
   // Virtual for testing.
@@ -64,6 +65,22 @@ class GlicSelectionObserver
 
   // Returns true if the selection prompt is enabled for the current profile.
   virtual bool IsSelectionPromptEnabled() const;
+
+  // Returns true if Glic panel is showing for the current browser.
+  // Virtual for testing.
+  virtual bool IsPanelShowing(tabs::TabInterface* tab_interface,
+                              BrowserWindowInterface* bwi);
+
+  // Sends the selection context to the Glic panel.
+  // Virtual for testing.
+  virtual void SendAdditionalContextToPanel(
+      tabs::TabInterface* tab_interface,
+      const std::u16string& selected_text);
+
+  // Shows the selection affordance UI (widget or nudge).
+  // Virtual for testing.
+  virtual void ShowSelectionAffordance(const std::u16string& selected_text,
+                                       BrowserWindowInterface* bwi);
 
   // content::WebContentsObserver:
   void RenderFrameCreated(content::RenderFrameHost* render_frame_host) override;
@@ -95,8 +112,6 @@ class GlicSelectionObserver
       base::WeakPtr<content::WebContents> web_contents,
       GlicNudgeActivity activity);
 
-  void ShowSelectionAffordance(const std::u16string& selected_text,
-                               BrowserWindowInterface* bwi);
 
   bool ShouldShowSelectionWidget();
   void OnWidgetDismissed();
@@ -119,9 +134,6 @@ class GlicSelectionObserver
   base::CallbackListSubscription panel_state_subscription_;
   std::u16string last_selected_text_;
 
-  // Timer to process the selection after a timeout.
-  base::OneShotTimer selection_debounce_timer_;
-
   // The text of the last selection that was ignored due to rate limiting.
   std::optional<std::u16string> pending_selection_text_;
 
@@ -135,6 +147,7 @@ class GlicSelectionObserver
 
   bool has_sent_selection_context_ = false;
   bool is_widget_pinned_ = false;
+  bool is_selecting_ = false;
 
   base::WeakPtr<views::Widget> selection_widget_;
 

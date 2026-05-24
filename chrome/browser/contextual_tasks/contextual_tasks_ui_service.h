@@ -61,6 +61,7 @@ inline constexpr char kChromeHostParam[] = "chrome_host";
 class ContextualTasksCookieSynchronizer;
 class ContextualTasksService;
 class ContextualTasksUIInterface;
+class ContextualTasksWindowTracker;
 
 // A service used to coordinate all of the side panel instances showing an AI
 // thread. Events like tab switching and Intercepted navigations from both the
@@ -68,6 +69,8 @@ class ContextualTasksUIInterface;
 class ContextualTasksUiService : public KeyedService {
   FRIEND_TEST_ALL_PREFIXES(ContextualTasksUiServiceTest,
                            IsAllowedHost_WithOverride);
+  FRIEND_TEST_ALL_PREFIXES(ContextualTasksUiServiceTest,
+                           IsAllowedHost_LensDebugNotAllowed);
 
  public:
   class Observer : public base::CheckedObserver {
@@ -112,6 +115,13 @@ class ContextualTasksUiService : public KeyedService {
       base::WeakPtr<tabs::TabInterface> tab,
       base::WeakPtr<BrowserWindowInterface> browser);
 
+  // Determines if a new tab should be allowed to open for a thread link click.
+  // Returns false if the link can be handled by focusing an existing tab or
+  // scrolling a citation.
+  bool ShouldAllowNewTabOpen(const GURL& url,
+                             BrowserWindowInterface* browser,
+                             const base::Uuid& task_id);
+
   // A notification that a navigation to a link that is not related to the ai
   // thread occurred in the contextual tasks WebUI while being viewed in a tab
   // (as opposed to side panel).
@@ -138,7 +148,9 @@ class ContextualTasksUiService : public KeyedService {
   virtual bool HandleNavigation(content::OpenURLParams url_params,
                                 content::WebContents* source_contents,
                                 bool is_from_embedded_page,
-                                bool is_to_new_tab);
+                                bool from_can_create_window,
+                                bool is_same_site_or_from_ui,
+                                bool is_mobile_ua = false);
 
   // Returns the contextual_task UI for a task.
   virtual GURL GetContextualTaskUrlForTask(const base::Uuid& task_id);
@@ -186,7 +198,8 @@ class ContextualTasksUiService : public KeyedService {
                              bool is_shown_in_tab);
 
   // Called when the WebUI is ready.
-  virtual void OnWebUIReady(const base::Uuid& task_id,
+  virtual void OnWebUIReady(BrowserWindowInterface* browser_window_interface,
+                            const base::Uuid& task_id,
                             content::WebContents* web_contents);
 
   // Called when the WebUI controller is destroyed.
@@ -255,6 +268,10 @@ class ContextualTasksUiService : public KeyedService {
   static GURL CopyParamsFromWebUIUrl(const GURL& base_url,
                                      const GURL& webui_url);
 
+  // Returns a copy of base_url with the URL params from webui_url applied to
+  // it. If the result is empty, returns base_url.
+  static GURL GetAiUrlFromWebUIUrl(const GURL& base_url, const GURL& webui_url);
+
   // Returns whether the provided host is trusted for overrides.
   static bool IsTrustedHost(const std::string& host);
 
@@ -314,6 +331,14 @@ class ContextualTasksUiService : public KeyedService {
   virtual void ShowUndoSnackbar(
       BrowserWindowInterface* browser_window_interface);
 
+  // Returns whether the provided URL is for the primary account in Chrome.
+  virtual bool IsUrlForPrimaryAccount(const GURL& url);
+
+  const std::vector<std::unique_ptr<ContextualTasksWindowTracker>>&
+  window_trackers_for_testing() const {
+    return window_trackers_;
+  }
+
   base::WeakPtr<ContextualTasksUiService> GetWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
   }
@@ -326,14 +351,14 @@ class ContextualTasksUiService : public KeyedService {
                                     content::WebContents* source_contents,
                                     tabs::TabInterface* tab,
                                     bool is_from_embedded_page,
-                                    bool is_to_new_tab);
-
-  // Returns whether the provided URL is for the primary account in Chrome.
-  virtual bool IsUrlForPrimaryAccount(const GURL& url);
+                                    bool from_can_create_window,
+                                    bool is_same_site_or_from_ui,
+                                    bool is_mobile_ua = false);
 
   // Used primarily for debugging - loads a URL in the specified WebContents.
-  virtual void LoadUrlInWebContents(const GURL& url,
-                                    content::WebContents* web_contents);
+  virtual void LoadUrlInWebContents(
+      const GURL& url,
+      base::WeakPtr<content::WebContents> web_contents);
 
   // Creates a LensMediaLinkHandler for the given WebContents.
   // Virtual to allow overriding in tests to mock the handler.
@@ -383,6 +408,11 @@ class ContextualTasksUiService : public KeyedService {
                                 tabs::TabInterface* tab,
                                 const base::Uuid& task_id);
 
+#if !BUILDFLAG(IS_ANDROID)
+  // Called when back button expands side panel.
+  void OnBackButtonExpandsSidePanel(base::WeakPtr<tabs::TabInterface> weak_tab);
+#endif
+
   // A callback for checking whether text fragments from a URL are on a page.
   void OnTextFinderLookupComplete(
       base::WeakPtr<tabs::TabInterface> tab,
@@ -412,6 +442,9 @@ class ContextualTasksUiService : public KeyedService {
 
   // Returns the host override for a given task if it differs from the default.
   std::string GetHostForTask(const base::Uuid& task_id);
+
+  // Removes a window tracker from the list of trackers.
+  void RemoveWindowTracker(ContextualTasksWindowTracker* tracker);
 
  private:
   base::ObserverList<Observer> observers_;
@@ -471,6 +504,9 @@ class ContextualTasksUiService : public KeyedService {
   // has been added yet.
   std::map<base::Uuid, base::OnceCallback<void(const GURL&)>>
       tasks_waiting_for_url_;
+
+  // List of window trackers that are actively tracking windows for tasks.
+  std::vector<std::unique_ptr<ContextualTasksWindowTracker>> window_trackers_;
 
   base::WeakPtrFactory<ContextualTasksUiService> weak_ptr_factory_{this};
 };

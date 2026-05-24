@@ -154,9 +154,6 @@ public class OmniboxFeatures {
     public static final BooleanCachedFeatureParam sRedirectComposeplateButton =
             newBooleanParam(sOmniboxMultimodalInput, "redirect_composeplate_button", true);
 
-    public static final BooleanCachedFeatureParam sEnableAllFileTypes =
-            newBooleanParam(sOmniboxMultimodalInput, "all_file_types", false);
-
     /** A necessary but not sufficient condition to show the current tab button. */
     public static final BooleanCachedFeatureParam sAllowCurrentTab =
             newBooleanParam(sOmniboxMultimodalInput, "allow_current_tab", true);
@@ -174,6 +171,9 @@ public class OmniboxFeatures {
 
     public static final BooleanCachedFeatureParam sUseAskHintForNtp =
             newBooleanParam(sOmniboxMultimodalInput, "use_ask_hint_for_ntp", false);
+
+    public static final BooleanCachedFeatureParam sShowNtpPlusButton =
+            newBooleanParam(sOmniboxMultimodalInput, "show_ntp_plus_button", false);
 
     public static final CachedFlag sAndroidDesktopAimGate =
             newFlag(OmniboxFeatureList.ANDROID_DESKTOP_AIM_GATE, FeatureState.ENABLED_IN_TEST);

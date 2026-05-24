@@ -584,6 +584,7 @@ public class SettingsSearchCoordinator
                                     @Override
                                     public void onTransitionEnd(Transition transition) {
                                         searchBox.setOnClickListener(v -> onClickSearchBox(v));
+                                        updateSearchUiWidth();
                                     }
                                 });
         var parentView = (ViewGroup) mActivity.findViewById(R.id.settings_activity);
@@ -816,7 +817,7 @@ public class SettingsSearchCoordinator
 
         setFragmentState(FS_SETTINGS);
         mBackActionCallback.setEnabled(false);
-        if (mUseMultiColumn) mUpdateFirstVisibleTitle.onResult(0);
+        mUpdateFirstVisibleTitle.onResult(0);
 
         updateHelpMenuVisibility();
         adjustTalkbackTraversalOrder(searchBox);
@@ -1191,6 +1192,7 @@ public class SettingsSearchCoordinator
                 var lp = (Toolbar.LayoutParams) searchBox.getLayoutParams();
                 lp.gravity = Gravity.END;
                 searchBox.setLayoutParams(lp);
+                showTitleTextView(true);
             }
             adjustTalkbackTraversalOrder(isVisible(query) ? query : searchBox);
         } else {
@@ -1218,9 +1220,10 @@ public class SettingsSearchCoordinator
 
             // When switching from 2-column to single-column mode, we may be at non-main
             // settings where search cannot be initiated and search UI should be hidden.
-            // For UI consistency, we revert to default state (FS_SETTINGS).
+            // For UI consistency, we revert to default state (FS_SETTINGS) after clearing
+            // the fragment to prevent fragments overlapping crbug.com/511065590.
             if (mFragmentState == FS_SEARCH && !showingMain) {
-                exitSearchState(/* clearFragment= */ false);
+                exitSearchState(/* clearFragment= */ true);
                 mUpdateFirstVisibleTitle.onResult(0);
                 return;
             }

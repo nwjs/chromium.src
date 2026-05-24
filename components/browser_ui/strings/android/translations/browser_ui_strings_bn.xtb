@@ -290,6 +290,7 @@
 <translation id="3843916486309149084">Chrome আজ আবার কুকি ব্লক করে দেবে</translation>
 <translation id="385051799172605136">ফিরুন</translation>
 <translation id="3859306556332390985">সামনে এগোন</translation>
+<translation id="3870711497942672548">আপনার হোমপেজের জন্য কাস্টমাইজ রঙ ও ছবি ব্যবহার করে Chrome-কে নিজের মতো করে সাজিয়ে নিন</translation>
 <translation id="389521680295183045">আপনি কখন ডিভাইস সক্রিয়ভাবে ব্যবহার করেন তা সাইট জানতে চাইতে পারে</translation>
 <translation id="3895926599014793903">ফোর্স জুম চালু করুন</translation>
 <translation id="3903738175795615004">ফুল-স্ক্রিন মোড থেকে বেরিয়ে আসতে উপর থেকে নিচে টেনে আনুন বা Esc কী প্রেস করুন।</translation>
@@ -333,6 +334,7 @@
 <translation id="4290791284969893584">কোনও পৃষ্ঠা বন্ধ করে দিলে, আপনার শুরু করা টাস্ক নাও শেষ হতে পারে</translation>
 <translation id="429312253194641664">একটি সাইট মিডিয়া চালাচ্ছে</translation>
 <translation id="42981349822642051">প্রসারিত করুন</translation>
+<translation id="4310738531374808763">আপনার হোমপেজ কাস্টমাইজ করুন</translation>
 <translation id="4336219115486912529">{COUNT,plural, =1{আগামীকাল মেয়াদ শেষ হবে}one{# দিনে মেয়াদ শেষ হবে}other{# দিনে মেয়াদ শেষ হবে}}</translation>
 <translation id="4338831206024587507"><ph name="DOMAIN" />-এর সবকটি সাইট</translation>
 <translation id="4340799661701629185">সাইটগুলিকে বিজ্ঞপ্তি পাঠানোর অনুমতি দেয় না</translation>
@@ -524,6 +526,7 @@
 <translation id="6262279340360821358"><ph name="PERMISSION_1" /> ও <ph name="PERMISSION_2" /> ব্লক করা হয়েছে</translation>
 <translation id="6270391203985052864">সাইট আপনাকে বিজ্ঞপ্তি পাঠানোর আগে অনুমতি চাইতে পারে</translation>
 <translation id="6295158916970320988">সমস্ত সাইট</translation>
+<translation id="6305257382500066042">এখনই ব্যবহার করে দেখুন</translation>
 <translation id="6320088164292336938">কম্পন</translation>
 <translation id="6367753977865761591">কোনও নির্দিষ্ট সাইটের জন্য থার্ড-পার্টি সাইন-ইন ব্লক করুন।</translation>
 <translation id="6398765197997659313">পূর্ণ স্ক্রীণ বন্ধ করুন</translation>
@@ -609,6 +612,7 @@
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" />টি বেছে নেওয়া হয়েছে</translation>
 <translation id="7260727271532453612"><ph name="PERMISSION_1" /> ও <ph name="PERMISSION_2" /> ব্যবহারের অনুমতি দেওয়া হয়েছে</translation>
 <translation id="7276071417425470385">চালু থাকলে, সাইট ভার্চুয়াল রিয়ালিটি ডিভাইস ব্যবহার করার জন্য অনুমতি চাইতে পারে। বন্ধ থাকলে, সাইট ভার্চুয়াল রিয়ালিটি ডিভাইস ব্যবহার করতে পারে না।</translation>
+<translation id="7279851812866769760">পরিচিতি শেয়ার করুন</translation>
 <translation id="7282197670900591579">সিট্রন থিম</translation>
 <translation id="728412880473384942">সাইট দ্রুত কাজ করে কিন্তু সুরক্ষা সম্পর্কিত ঝুঁকি বেড়ে যায়</translation>
 <translation id="7352902948037373520"><ph name="BEGIN_LINK1" />Android সেটিংস<ph name="END_LINK1" /> থেকে ম্যানেজ করুন
@@ -700,6 +704,7 @@
 <translation id="823874716226307142">চালু থাকলে, সাইট আপনার লোকাল নেটওয়ার্কে অন্যান্য ডিভাইস অ্যাক্সেস করার অনুমতি চাইতে পারে। বন্ধ থাকলে, সাইট আপনার লোকাল নেটওয়ার্কে অন্যান্য ডিভাইস অ্যাক্সেস করতে পারবে না।</translation>
 <translation id="8249310407154411074">শীর্ষে সরান</translation>
 <translation id="8261506727792406068">মুছুন</translation>
+<translation id="8273596202562472147"><ph name="SITE_NAME" />-এর জন্য আরও বিকল্প</translation>
 <translation id="8284326494547611709">পরিচয়লিপিগুলি</translation>
 <translation id="8300705686683892304">অ্যাপ ম্যানেজ করে</translation>
 <translation id="8301363963630676147">এই সময়ের জন্য অনুমতি দেওয়া হয়েছে • আনুমানিক লোকেশন ব্যবহার করা হচ্ছে</translation>
@@ -794,6 +799,7 @@
 <translation id="9156722768168878035">Chrome-কে সাম্প্রতিক ট্যাব আপনার ডিভাইসের অ্যাপ তালিকা ও সার্চ ফলাফলে দেখানোর অনুমতি দিন। আপনি Chrome সেটিংস থেকে যেকোনও সময়ে এটি বন্ধ করতে পারবেন।</translation>
 <translation id="9162462602695099906">এই পৃষ্ঠাটি বিপজ্জনক</translation>
 <translation id="9182556968660520230">সাইটগুলিকে Play নিরাপত্তা কানেক্ট করতে দেয় না</translation>
+<translation id="927148002081263046">পরিচিতি শেয়ার করুন</translation>
 <translation id="947156494302904893">আপনি যে সাইটগুলি দেখেন সেগুলি যাচাই করতে পারে যে আপনি একজন প্রকৃত ব্যক্তি এবং বট নন</translation>
 <translation id="959682366969460160">সবকিছু গুছিয়ে রাখুন</translation>
 <translation id="960590623979248167">হাইপারলিঙ্ক দেখান</translation>

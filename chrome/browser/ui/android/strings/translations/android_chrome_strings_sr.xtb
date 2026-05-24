@@ -292,6 +292,7 @@
 <translation id="230115972905494466">Није пронађен ниједан компатибилан уређај</translation>
 <translation id="2316129865977710310">Не, хвала</translation>
 <translation id="2318045970523081853">Додирните да бисте упутили позив</translation>
+<translation id="232137538351753795">Превуците од леве ивице да бисте се вратили</translation>
 <translation id="2323763861024343754">Меморијски простор за сајт</translation>
 <translation id="2328474416100889417">Сви ће одмах изгубити приступ групи картица <ph name="GROUP_NAME" /> и сви линкови позивнице ће бити искључени</translation>
 <translation id="2330186936255788117">Још обележивача</translation>
@@ -942,7 +943,6 @@ Google налог можда има друге облике историје п�
 <translation id="5040262127954254034">Приватност</translation>
 <translation id="504456571576643789">Шта треба имати у виду</translation>
 <translation id="5052017727857614804">{WINDOW_COUNT,plural, =1{Изабран је <ph name="WINDOW_COUNT_ONE" /> прозор}one{Изабран је <ph name="WINDOW_COUNT_NORMAL" /> прозор}few{Изабрана су <ph name="WINDOW_COUNT_NORMAL" /> прозора}other{Изабрано је <ph name="WINDOW_COUNT_NORMAL" /> прозора}}</translation>
-<translation id="5056587122125565772">Направи слику</translation>
 <translation id="506254248375231072">Нема картица</translation>
 <translation id="5075939510584558547">Сачувајте без шифровања</translation>
 <translation id="5078638979202084724">Обележавање свих картица</translation>
@@ -1621,7 +1621,7 @@ Google налог можда има друге облике историје п�
 <translation id="7758884017823246335">Додајте претрагу веб локација</translation>
 <translation id="7759809451544302770">Опционално</translation>
 <translation id="7762668264895820836">SD картица <ph name="SD_CARD_NUMBER" /></translation>
-<translation id="7764225426217299476">Додајте адресу</translation>
+<translation id="7764225426217299476">Додај адресу</translation>
 <translation id="7772032839648071052">Потврди приступну фразу</translation>
 <translation id="7772375229873196092">Затвори <ph name="APP_NAME" /></translation>
 <translation id="7774125747223422443">На основу закона у вашем региону, треба да одаберете прегледач и претраживач</translation>
@@ -1676,6 +1676,7 @@ Google налог можда има друге облике историје п�
 <translation id="7977451675950311423">Упозорава вас ако користите лозинку која је угрожена при повреди података.</translation>
 <translation id="7987499071758862048"><ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />, <ph name="PERMISSION_3" /> <ph name="SEPARATOR" /> Chrome је уклонио дозволе за ове сајтове јер их нисте недавно посећивали</translation>
 <translation id="799576009106109668">Прегледаћете брже јер се садржај проактивно учитава на основу актуелне посете веб-страници</translation>
+<translation id="7997875520309653083">Превуците од десне ивице да бисте се вратили</translation>
 <translation id="7998918019931843664">Поново отворите затворену картицу</translation>
 <translation id="8001245658307297681">Прегледате локални фајл</translation>
 <translation id="8004582292198964060">Прегледач</translation>
@@ -1869,6 +1870,7 @@ Google налог можда има друге облике историје п�
 <translation id="8765470054473112089">Када куцате у траци за адресу или у оквиру за претрагу, Chrome шаље текст који уносите подразумеваном претраживачу да бисте добијали боље предлоге. Ово је искључено у режиму без архивирања.</translation>
 <translation id="8765617695893461815">{NUM_PASSWORDS,plural, =1{Chrome је пронашао слабу лозинку коју можете да побољшате}one{Chrome је пронашао # слабу лозинку коју можете да побољшате}few{Chrome је пронашао # слабе лозинке које можете да побољшате}other{Chrome је пронашао # слабих лозинки које можете да побољшате}}</translation>
 <translation id="8766529642647037772">Желите ли да направите истакнути линк попут овог?</translation>
+<translation id="8769783688897433958">Прикажи информације о сајту и дозволе</translation>
 <translation id="8788265440806329501">Историја навигације је затворена</translation>
 <translation id="8790193082819560975">Додирните да бисте претражили опције куповине за производ на новој картици.</translation>
 <translation id="8798449543960971550">Прочитано</translation>

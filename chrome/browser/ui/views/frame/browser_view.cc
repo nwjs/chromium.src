@@ -937,18 +937,16 @@ BrowserView::BrowserView(Browser* browser)
   if (browser_->is_transparent())
     contents_container->SetBackground(views::CreateSolidBackground(SK_ColorTRANSPARENT));
 
-  views::View* contents_view;
   auto multi_contents_view = std::make_unique<MultiContentsView>(
       this, std::make_unique<MultiContentsViewDelegateImpl>(*browser_));
   multi_contents_view_ =
       contents_container->AddChildView(std::move(multi_contents_view));
-  contents_view = multi_contents_view_;
 
   // Create the view that will house the Lens overlay. This view is visible but
   // transparent view that is used as a container for the Lens overlay WebView.
-  // It must have a higher index than contents_view so that it is drawn on top
-  // of it. Uses a fill layout so that the overlay WebView can fill the entire
-  // container.
+  // It must have a higher index than multi_contents_view so that it is drawn on
+  // top of it. Uses a fill layout so that the overlay WebView can fill the
+  // entire container.
   auto lens_overlay_view = std::make_unique<views::View>();
   lens_overlay_view->SetID(VIEW_ID_LENS_OVERLAY);
   lens_overlay_view->SetProperty(views::kElementIdentifierKey,
@@ -970,7 +968,7 @@ BrowserView::BrowserView(Browser* browser)
       contents_container->AddChildView(std::move(context_highlight_view));
 
   contents_container->SetLayoutManager(std::make_unique<ContentsLayoutManager>(
-      contents_view, lens_overlay_view_, context_highlight_view_));
+      multi_contents_view_, lens_overlay_view_, context_highlight_view_));
 
   toolbar_ = top_container_->AddChildView(
       std::make_unique<ToolbarView>(browser_.get(), this));
@@ -3629,10 +3627,10 @@ void BrowserView::OnTabStripModelChanged(
     TabStripModel* tab_strip_model,
     const TabStripModelChange& change,
     const TabStripSelectionChange& selection) {
-  // When the selected tab changes, elements in the omnibox can change, which
+  // When the active tab changes, elements in the omnibox can change, which
   // can change its preferred size. Re-lay-out the toolbar to reflect the
   // possible change.
-  if (selection.selection_changed()) {
+  if (selection.active_tab_changed()) {
     toolbar_->InvalidateLayout();
 
     // Update the accessible URL when the selected tab changes. This ensures

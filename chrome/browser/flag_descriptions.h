@@ -56,6 +56,16 @@ inline constexpr char kAiModeEntryPointAlwaysNavigatesDescription[] =
     "If enabled, clicking aim button in omnibox always navigates directly to "
     "google.com/aimode.";
 
+inline constexpr char kOmniboxDynamicAimSubmitName[] = "Dynamic Aim Submit";
+inline constexpr char kOmniboxDynamicAimSubmitDescription[] =
+    "Enables dynamic aim button submission variants.";
+
+inline constexpr char kOmniboxAiModeSpaceDoesNotActivateName[] =
+    "Omnibox AI Mode Space Does Not Activate";
+inline constexpr char kOmniboxAiModeSpaceDoesNotActivateDescription[] =
+    "If enabled, pressing space when the AI mode button has focus will "
+    "insert a space into the omnibox instead of activating the button.";
+
 inline constexpr char kOmniboxAimServerEligibilityName[] =
     "AIM Server Eligibility";
 inline constexpr char kOmniboxAimServerEligibilityDescription[] =
@@ -447,6 +457,12 @@ inline constexpr char kDataControlsDragEnforcementName[] =
 inline constexpr char kDataControlsDragEnforcementDescription[] =
     "Enables Data Controls drag-and-drop enforcement.";
 
+inline constexpr char kEnableCancelUploadOnContentAnalysisName[] =
+    "Cancel file uploads on content analysis";
+inline constexpr char kEnableCancelUploadOnContentAnalysisDescription[] =
+    "Allows users to cancel file uploads while content analysis is in "
+    "progress.";
+
 inline constexpr char kDataControlsSearchWithName[] =
     "Data Controls enforcement for search context menu item";
 inline constexpr char kDataControlsSearchWithDescription[] =
@@ -573,6 +589,12 @@ inline constexpr char kDesktopUAOnConnectedDisplayName[] =
 inline constexpr char kDesktopUAOnConnectedDisplayDescription[] =
     "When enabled, this feature will request a desktop user agent on external "
     "displays.";
+
+inline constexpr char kTabFaviconChipsToCoinsName[] =
+    "Tab favicon chips to coins";
+inline constexpr char kTabFaviconChipsToCoinsDescription[] =
+    "Removes existing tab chips from the composebox and instead adds favicon "
+    "coins next to the \"+\" button.";
 
 inline constexpr char kTabsFromOtherDevicesSidePanelName[] =
     "Tabs from other devices side panel";
@@ -1057,6 +1079,14 @@ inline constexpr char kAutofillEnableTouchToFillReshowForBnplDescription[] =
     "When enabled, the Touch To Fill bottom sheet on Android can be reshown "
     "after a BNPL flow is dismissed by a user.";
 
+inline constexpr char
+    kAutofillEnableTravelCategoryAndMerchantBenefitsFromCurinosName[] =
+        "Enable travel category and merchant benefits from Curinos";
+inline constexpr char
+    kAutofillEnableTravelCategoryAndMerchantBenefitsFromCurinosDescription[] =
+        "When enabled, travel category and merchant benefits sourced from "
+        "Curinos will be shown in Autofill.";
+
 inline constexpr char kAutofillEnableVcn3dsAuthenticationName[] =
     "Enable 3DS authentication for virtual cards";
 inline constexpr char kAutofillEnableVcn3dsAuthenticationDescription[] =
@@ -1146,6 +1176,12 @@ inline constexpr char kAutoPictureInPictureForVideoPlaybackName[] =
     "Auto picture in picture for video playback";
 inline constexpr char kAutoPictureInPictureForVideoPlaybackDescription[] =
     "Enables auto picture in picture for video playback";
+
+inline constexpr char kAutoPictureInPictureOnWindowOccludedName[] =
+    "Auto picture in picture on window occluded";
+inline constexpr char kAutoPictureInPictureOnWindowOccludedDescription[] =
+    "Allows auto picture-in-picture to trigger when the window is occluded "
+    "by another window.";
 
 inline constexpr char kBiometricReauthForPasswordFillingName[] =
     "Biometric reauth for password filling";
@@ -1421,6 +1457,12 @@ inline constexpr char kCompressionDictionaryTTLName[] =
 inline constexpr char kCompressionDictionaryTTLDescription[] =
     "Enables support for the 'ttl' parameter in the 'use-as-dictionary' HTTP "
     "response header.";
+
+inline constexpr char kContextManagementInComposeboxName[] =
+    "Context management in the Composebox";
+inline constexpr char kContextManagementInComposeboxDescription[] =
+    "Enables an updated tab context management UI in the plus button and "
+    "composebox context menu.";
 
 inline constexpr char kContextMenuEmptySpaceName[] =
     "Context menu at empty space";
@@ -2858,10 +2900,6 @@ inline constexpr char kLensOverlaySidePanelOpenInNewTabName[] =
 inline constexpr char kLensOverlaySidePanelOpenInNewTabDescription[] =
     "Enables open in new tab in the Lens overlay side panel.";
 
-inline constexpr char kLensOverlayStraightToSrpName[] =
-    "Lens overlay straight to SRP";
-inline constexpr char kLensOverlayStraightToSrpDescription[] =
-    "Enables straight to SRP flows for the Lens overlay.";
 
 inline constexpr char kLensOverlayPermissionBubbleAltName[] =
     "Lens overlay permission bubble alt appearance";
@@ -2923,10 +2961,6 @@ inline constexpr char kLensSearchSidePanelNewFeedbackName[] =
 inline constexpr char kLensSearchSidePanelNewFeedbackDescription[] =
     "Enables a new feedback entry point in the Lens side panel.";
 
-inline constexpr char kLensSearchZeroStateCsbName[] =
-    "Lens search zero state CSB";
-inline constexpr char kLensSearchZeroStateCsbDescription[] =
-    "Enables a zero state CSB query in Lens.";
 
 inline constexpr char kLensVideoCitationsName[] = "Lens video citations";
 inline constexpr char kLensVideoCitationsDescription[] =
@@ -3450,9 +3484,17 @@ inline constexpr char kEmbeddedPermissionEnabledDescription[] =
     "and contextual "
     "tasks' permission requests.";
 
-inline constexpr char kVoiceSearchCoherenceName[] =
+inline constexpr char kVoiceSearchCoherenceComposeboxName[] =
+    "Composebox Voice Search Coherence";
+inline constexpr char kVoiceSearchCoherenceComposeboxDescription[] =
+    "Enables the voice search coherence (new recording animation, "
+    "new metrics, new stop/submit button, no live transcription) "
+    "for all the composeboxes by default. Options include cobrowsing "
+    "only.";
+
+inline constexpr char kVoiceSearchCoherenceSearchboxName[] =
     "NTP Searchbox (Realbox) Voice Search Coherence";
-inline constexpr char kVoiceSearchCoherenceDescription[] =
+inline constexpr char kVoiceSearchCoherenceSearchboxDescription[] =
     "Enables the voice search coherence experiment (new recording animation, "
     "new metrics, added stop/submit button) for the New Tab Page "
     "searchbox, with option for live transcription.";
@@ -3539,6 +3581,12 @@ inline constexpr char kWebUIOmniboxPopupSelectionControlName[] =
     "WebUI Omnibox Popup Selection Control";
 inline constexpr char kWebUIOmniboxPopupSelectionControlDescription[] =
     "If enabled, the WebUI omnibox popup will control its own selection state.";
+
+inline constexpr char kWebUIOmniboxSimplificationName[] =
+    "WebUI Omnibox Simplification";
+inline constexpr char kWebUIOmniboxSimplificationDescription[] =
+    "If enabled, the WebUI omnibox popup will have a different UX for the "
+    "entrypoint to composebox.";
 
 inline constexpr char kWebuiRefresh2026Name[] = "WebUI Refresh 2026";
 inline constexpr char kWebuiRefresh2026Description[] =
@@ -4443,6 +4491,12 @@ inline constexpr char kRefactorMinWidthContextOverrideDescription[] =
     "parent "
     "ChromeBaseAppCompatActivity";
 
+inline constexpr char kToolbarCaptureFixForSPAsName[] =
+    "Toolbar Capture Fix for SPAs";
+inline constexpr char kToolbarCaptureFixForSPAsDescription[] =
+    "When enabled, this flag fixes a bug where the toolbar capture can become "
+    "stale in Single Page Applications.";
+
 inline constexpr char kToolbarStaleCaptureBugFixName[] =
     "Fix for stale toolbar captures";
 inline constexpr char kToolbarStaleCaptureBugFixDescription[] =
@@ -4934,6 +4988,14 @@ inline constexpr const char* kAIAPIsForGeminiNanoLinks[2] = {
     "https://goo.gle/chrome-ai-dev-preview",
     "https://policies.google.com/terms/generative-ai/use-policy"};
 
+inline constexpr char kGemma4ForBuiltInAIName[] = "Gemma 4 for Built-in AI";
+inline constexpr char kGemma4ForBuiltInAIDescription[] =
+    "Enables all built-in AI APIs (Prompt, Summarizer, Writer, etc.) with the "
+    "Gemma 4 model.";
+inline constexpr const char* kGemma4ForBuiltInAILinks[2] = {
+    "https://goo.gle/chrome-ai-dev-preview",
+    "https://policies.google.com/terms/generative-ai/use-policy"};
+
 inline constexpr char kPromptAPIForGeminiNanoMultimodalInputName[] =
     "Prompt API for Gemini Nano with Multimodal Input";
 inline constexpr char kPromptAPIForGeminiNanoMultimodalInputDescription[] =
@@ -4996,7 +5058,10 @@ inline constexpr char kSummarizerAPIWithPerformancePreferenceName[] =
 inline constexpr char kSummarizerAPIWithPerformancePreferenceDescription[] =
     "Adds the \"preference\" create option to the Summarizer API. Allows the "
     "developer to choose between \"capability\", \"speed\", and \"auto\" to "
-    "hint at the desired balance between performance and capability.";
+    "hint at the desired balance between performance and capability. "
+    "We're rapidly iterating on the training set for the smaller expert "
+    "model used with the 'speed' preference, and welcome your feedback "
+    "here: https://issues.chromium.org/issues/new?component=1617227";
 inline constexpr const char* kSummarizerAPIWithPerformancePreferenceLink[1] = {
     "https://chromestatus.com/feature/6309243756085248"};
 
@@ -5220,6 +5285,11 @@ inline constexpr char kAndroidPkAutocorrectUnderlineV2Description[] =
     "by underlining the original typo after a correction is made, which then "
     "disappears as typing resumes. V2 simplifies V1 implementation, while "
     "improving the input app-compatibility.";
+
+inline constexpr char kAndroidShareFullLinkName[] =
+    "Share Full Link on Android";
+inline constexpr char kAndroidShareFullLinkDescription[] =
+    "Enables sharing the full link instead of the canonical URL on Android.";
 
 inline constexpr char kAndroidSpellcheckFullApiBlinkName[] =
     "Enable full Android Spellchecker API support for Blink";

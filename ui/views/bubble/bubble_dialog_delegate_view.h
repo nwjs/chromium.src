@@ -250,12 +250,13 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // unique_ptr using base::WrapUnique().
   //
   //  If you encounter problems with this ownership mode, please file a bug.
-  static Widget* CreateBubble(
+  static Widget* CreateBubbleDeprecated(
       std::unique_ptr<BubbleDialogDelegate> bubble_delegate,
       Widget::InitParams::Ownership ownership);
 
-  static Widget* CreateBubble(BubbleDialogDelegate* bubble_delegate,
-                              Widget::InitParams::Ownership ownership);
+  static Widget* CreateBubbleDeprecated(
+      BubbleDialogDelegate* bubble_delegate,
+      Widget::InitParams::Ownership ownership);
 
   //////////////////////////////////////////////////////////////////////////////
   // The anchor view and rectangle:
@@ -477,9 +478,7 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   void SetBackgroundColor(ui::ColorVariant color);
 
   // TODO(crbug.com/431219296): Deprecate after API migration.
-  gfx::Insets footnote_margins() const {
-    return frame_margins().footnote.value_or(gfx::Insets());
-  }
+  gfx::Insets footnote_margins() const { return frame_margins().footnote; }
 
   // Sets the content margins to a default picked for smaller bubbles.
   void UseCompactMargins();
@@ -733,17 +732,19 @@ class VIEWS_EXPORT BubbleDialogDelegateView : public View,
   }
 
   // Create and initialize the bubble Widget(s) with proper bounds.
-  // Like BubbleDialogDelegate::CreateBubble, the default ownership for now is
-  // NATIVE_WIDGET_OWNS_WIDGET. If any other ownership mode is used, the
-  // returned Widget's lifetime must be managed by the caller. This is usually
-  // done by wrapping the pointer as a unique_ptr using base::WrapUnique().
+  // Like BubbleDialogDelegate::CreateBubbleDeprecated, the default ownership
+  // for now is NATIVE_WIDGET_OWNS_WIDGET. If any other ownership mode is used,
+  // the returned Widget's lifetime must be managed by the caller. This is
+  // usually done by wrapping the pointer as a unique_ptr using
+  // base::WrapUnique().
   template <typename T>
   static Widget* CreateBubble(
       std::unique_ptr<T> delegate,
       Widget::InitParams::Ownership ownership =
           Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET) {
     CHECK(IsBubbleDialogDelegateView<T>(delegate.get()));
-    return BubbleDialogDelegate::CreateBubble(std::move(delegate), ownership);
+    return BubbleDialogDelegate::CreateBubbleDeprecated(std::move(delegate),
+                                                        ownership);
   }
   static Widget* CreateBubble(
       BubbleDialogDelegateView* bubble_delegate,
@@ -965,7 +966,8 @@ VIEW_BUILDER_PROPERTY(int, DefaultButton)
 VIEW_BUILDER_METHOD(SetButtonLabel, ui::mojom::DialogButton, std::u16string)
 VIEW_BUILDER_METHOD(SetButtonEnabled, ui::mojom::DialogButton, bool)
 VIEW_BUILDER_METHOD(set_margins, gfx::Insets)
-VIEW_BUILDER_METHOD(set_frame_margins, const DialogDelegate::FrameMargins&)
+VIEW_BUILDER_METHOD(set_frame_margins,
+                    const DialogDelegate::FrameMarginsParams&)
 VIEW_BUILDER_METHOD(set_use_round_corners, bool)
 VIEW_BUILDER_METHOD(set_corner_radius, int)
 VIEW_BUILDER_METHOD(set_draggable, bool)

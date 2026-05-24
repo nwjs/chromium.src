@@ -39,6 +39,7 @@
 #include "google_apis/gaia/oauth_multilogin_result.h"
 #include "net/http/http_status_code.h"
 #include "services/network/public/cpp/resource_request.h"
+#include "services/network/public/mojom/url_response_head.mojom.h"
 #include "services/network/test/test_cookie_manager.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -951,7 +952,8 @@ TEST_F(OAuthMultiloginHelperTest, InvalidTokenErrorMaxRetries) {
   EXPECT_EQ(result_, SetAccountsInCookieResult::kTransientError);
 }
 
-TEST_F(OAuthMultiloginHelperTest, ResponseStatusHistogramSkippedOnRetry) {
+TEST_F(OAuthMultiloginHelperTest,
+       ResponseStatusHistogramSkippedOnNetworkError) {
   base::HistogramTester histogram_tester;
   token_service()->UpdateCredentials(kAccountId, "refresh_token");
   CreateHelper({{kAccountId, kGaiaId}});
@@ -961,15 +963,43 @@ TEST_F(OAuthMultiloginHelperTest, ResponseStatusHistogramSkippedOnRetry) {
   success_response.access_token = kAccessToken;
   token_service()->IssueAllTokensForAccount(kAccountId, success_response);
 
-  // Multilogin call fails with transient error.
+  // Multilogin call fails with a network error.
+  EXPECT_TRUE(url_loader()->IsPending(multilogin_url()));
+  url_loader()->SimulateResponseForPendingRequest(
+      GURL(multilogin_url()),
+      network::URLLoaderCompletionStatus(net::ERR_FAILED),
+      network::mojom::URLResponseHead::New(), "");
+
+  // Histogram should not be recorded for NetworkError to prevent skewing.
+  histogram_tester.ExpectTotalCount("Signin.OAuthMultiloginResponseStatus", 0);
+  histogram_tester.ExpectTotalCount("Signin.OAuthMultiloginResponseStatus.Test",
+                                    0);
+}
+
+TEST_F(OAuthMultiloginHelperTest,
+       ResponseStatusHistogramRecordedOnServerRetry) {
+  base::HistogramTester histogram_tester;
+  token_service()->UpdateCredentials(kAccountId, "refresh_token");
+  CreateHelper({{kAccountId, kGaiaId}});
+
+  // Issue access token.
+  OAuth2AccessTokenConsumer::TokenResponse success_response;
+  success_response.access_token = kAccessToken;
+  token_service()->IssueAllTokensForAccount(kAccountId, success_response);
+
+  // Multilogin call fails with server-side retry status.
   EXPECT_TRUE(url_loader()->IsPending(multilogin_url()));
   url_loader()->SimulateResponseForPendingRequest(multilogin_url(),
                                                   kMultiloginRetryResponse);
 
-  // Histogram should not be recorded for Retry.
-  histogram_tester.ExpectTotalCount("Signin.OAuthMultiloginResponseStatus", 0);
-  histogram_tester.ExpectTotalCount("Signin.OAuthMultiloginResponseStatus.Test",
-                                    0);
+  // Histogram should be successfully recorded for kRetry.
+  histogram_tester.ExpectUniqueSample("Signin.OAuthMultiloginResponseStatus",
+                                      OAuthMultiloginResponseStatus::kRetry,
+                                      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "Signin.OAuthMultiloginResponseStatus.Test",
+      OAuthMultiloginResponseStatus::kRetry,
+      /*expected_bucket_count=*/1);
 }
 
 TEST_F(OAuthMultiloginHelperTest, ResponseStatusHistogramWithSuffix) {
@@ -1586,6 +1616,10 @@ TEST_F(OAuthMultiloginHelperStandardBoundSessionsEnabledTest,
       "Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError",
       net::device_bound_sessions::SessionError::ErrorType::kSuccess,
       /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError.Test",
+      net::device_bound_sessions::SessionError::ErrorType::kSuccess,
+      /*expected_bucket_count=*/1);
 }
 
 TEST_F(OAuthMultiloginHelperStandardBoundSessionsEnabledTest,
@@ -1881,6 +1915,16 @@ TEST_F(OAuthMultiloginHelperStandardBoundSessionsEnabledTest,
           base::Bucket(net::device_bound_sessions::SessionError::ErrorType::
                            kInvalidSessionId,
                        1)));
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples(
+          "Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError."
+          "Test"),
+      UnorderedElementsAre(
+          base::Bucket(
+              net::device_bound_sessions::SessionError::ErrorType::kSuccess, 1),
+          base::Bucket(net::device_bound_sessions::SessionError::ErrorType::
+                           kInvalidSessionId,
+                       1)));
 }
 
 TEST_F(OAuthMultiloginHelperStandardBoundSessionsEnabledTest,
@@ -1932,6 +1976,9 @@ TEST_F(OAuthMultiloginHelperStandardBoundSessionsEnabledTest,
       /*expected_bucket_count=*/1);
   histogram_tester.ExpectTotalCount(
       "Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError",
+      /*expected_count=*/0);
+  histogram_tester.ExpectTotalCount(
+      "Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError.Test",
       /*expected_count=*/0);
 }
 
@@ -2010,6 +2057,9 @@ TEST_F(OAuthMultiloginHelperStandardBoundSessionsEnabledTest,
   histogram_tester.ExpectTotalCount(
       "Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError",
       /*expected_count=*/0);
+  histogram_tester.ExpectTotalCount(
+      "Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError.Test",
+      /*expected_count=*/0);
 }
 
 TEST_F(
@@ -2063,6 +2113,9 @@ TEST_F(
       /*expected_count=*/0);
   histogram_tester.ExpectTotalCount(
       "Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError",
+      /*expected_count=*/0);
+  histogram_tester.ExpectTotalCount(
+      "Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError.Test",
       /*expected_count=*/0);
 }
 
@@ -2126,6 +2179,10 @@ TEST_F(OAuthMultiloginHelperStandardBoundSessionsEnabledPrototypeDisabledTest,
       "Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError",
       net::device_bound_sessions::SessionError::ErrorType::kSuccess,
       /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError.Test",
+      net::device_bound_sessions::SessionError::ErrorType::kSuccess,
+      /*expected_bucket_count=*/1);
 }
 
 TEST_F(
@@ -2175,6 +2232,9 @@ TEST_F(
       /*expected_count=*/0);
   histogram_tester.ExpectTotalCount(
       "Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError",
+      /*expected_count=*/0);
+  histogram_tester.ExpectTotalCount(
+      "Signin.DeviceBoundSessions.OAuthMultilogin.SessionCreationError.Test",
       /*expected_count=*/0);
 }
 

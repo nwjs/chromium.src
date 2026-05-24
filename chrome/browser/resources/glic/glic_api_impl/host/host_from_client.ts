@@ -639,6 +639,10 @@ export class HostMessageHandler implements HostMessageHandlerInterface {
     this.handler.setAudioDucking(request.enabled);
   }
 
+  glicBrowserOnOptinImpression(): void {
+    this.handler.onOptinImpression();
+  }
+
   glicBrowserOnUserInputSubmitted(request: {mode: number}): void {
     this.handler.onUserInputSubmitted(request.mode);
   }
@@ -1019,6 +1023,8 @@ export class HostMessageHandler implements HostMessageHandlerInterface {
       chrome.histograms.recordEnumerationValue(
           'Glic.Api.Client.ErrorDialogShown', request.shownDialogType,
           ClientErrorDialogTypeMojo.MAX_VALUE + 1);
+      this.handler.clientErrorDialogStateChanged(
+          enumFromClient(request.shownDialogType));
     }
     // TODO(b/506142920): Avoid showing error panels to the user if it is
     // presented while the panel is backgrounded. Automatically reload the

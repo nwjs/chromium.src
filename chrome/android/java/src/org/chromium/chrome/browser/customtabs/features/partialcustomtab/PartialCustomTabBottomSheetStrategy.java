@@ -386,8 +386,12 @@ public class PartialCustomTabBottomSheetStrategy extends PartialCustomTabBaseStr
                 new PartialCustomTabHandleStrategy(
                         mActivity, this::isFullHeight, () -> mStatus, this);
         toolbar.setHandleStrategy(mHandleStrategy);
-        assumeNonNull(toolbarButtonsCoordinator);
-        toolbarButtonsCoordinator.setMinimizeButtonEnabled(false);
+        if (ChromeFeatureList.sCctToolbarRefactor.isEnabled()) {
+            assumeNonNull(toolbarButtonsCoordinator);
+            toolbarButtonsCoordinator.setMinimizeButtonEnabled(false);
+        } else {
+            toolbar.setMinimizeButtonEnabled(false);
+        }
         CustomTabDragBar dragBar = mActivity.findViewById(R.id.drag_bar);
         dragBar.setHandleStrategy(mHandleStrategy);
         View dragHandle = mActivity.findViewById(R.id.drag_handle);
@@ -626,9 +630,10 @@ public class PartialCustomTabBottomSheetStrategy extends PartialCustomTabBaseStr
                                 .getResources()
                                 .getDimensionPixelSize(R.dimen.custom_tabs_shadow_offset);
         int sideMargin = isMaxWidthLandscapeBottomSheet ? sideOffset : 0;
-        if (handleView != null) {
+        View handleContainer = mActivity.findViewById(R.id.custom_tabs_handle_container);
+        if (handleContainer != null) {
             ViewGroup.MarginLayoutParams lp =
-                    (ViewGroup.MarginLayoutParams) handleView.getLayoutParams();
+                    (ViewGroup.MarginLayoutParams) handleContainer.getLayoutParams();
             lp.setMargins(sideMargin, shadowOffset, sideMargin, 0);
         }
 

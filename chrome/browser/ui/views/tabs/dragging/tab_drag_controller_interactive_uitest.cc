@@ -3918,7 +3918,92 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
             gfx::Range(0, 2));
 }
 
-// Drags a tab group by the header to a new position toward the left and presses
+// Drags a tab within a tab group and presses escape to revert the drag.
+IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
+                       RevertTabDragWithinGroup) {
+  ASSERT_TRUE(browser()->tab_strip_model()->SupportsTabGroups());
+
+  TabStrip* tab_strip = GetTabStripForBrowser(browser());
+  TabStripModel* model = browser()->tab_strip_model();
+  AddTabsAndResetBrowser(browser(), 3);
+  tab_groups::TabGroupId group = model->AddToNewGroup({0, 1, 2});
+  StopAnimating(tab_strip);
+  EnsureFocusToTabStrip(tab_strip);
+
+  // Drag the first tab in the group to the end of the group.
+  ASSERT_TRUE(PressInputAtCenter(tab_strip->tab_at(0)));
+  ASSERT_TRUE(DragInputToCenter(tab_strip->tab_at(2)));
+
+  ASSERT_TRUE(ui_test_utils::SendKeyPressToWindowSync(
+      browser()->window()->GetNativeWindow(), ui::VKEY_ESCAPE, false, false,
+      false, false));
+  StopAnimating(tab_strip);
+
+  EXPECT_EQ("0 1 2 3", IDString(model));
+  EXPECT_EQ(model->group_model()->GetTabGroup(group)->ListTabs(),
+            gfx::Range(0, 3));
+}
+
+// Drags a tab from a tab group to after the group and presses escape to revert
+// the drag.
+IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
+                       RevertTabDragOutOfGroup) {
+  ASSERT_TRUE(browser()->tab_strip_model()->SupportsTabGroups());
+
+  TabStrip* tab_strip = GetTabStripForBrowser(browser());
+  TabStripModel* model = browser()->tab_strip_model();
+  AddTabsAndResetBrowser(browser(), 3);
+  tab_groups::TabGroupId group = model->AddToNewGroup({0, 1, 2});
+  StopAnimating(tab_strip);
+  EnsureFocusToTabStrip(tab_strip);
+
+  // Drag the first tab in the group to after the group.
+  ASSERT_TRUE(PressInputAtCenter(tab_strip->tab_at(0)));
+  ASSERT_TRUE(DragInputToCenter(tab_strip->tab_at(3)));
+
+  ASSERT_TRUE(ui_test_utils::SendKeyPressToWindowSync(
+      browser()->window()->GetNativeWindow(), ui::VKEY_ESCAPE, false, false,
+      false, false));
+  StopAnimating(tab_strip);
+
+  EXPECT_EQ("0 1 2 3", IDString(model));
+  EXPECT_EQ(model->group_model()->GetTabGroup(group)->ListTabs(),
+            gfx::Range(0, 3));
+}
+
+// Drags multiple tabs from a tab group and presses escape to revert the drag.
+IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
+                       RevertMultipleTabsInGroupDrag) {
+  ASSERT_TRUE(browser()->tab_strip_model()->SupportsTabGroups());
+
+  TabStrip* tab_strip = GetTabStripForBrowser(browser());
+  TabStripModel* model = browser()->tab_strip_model();
+  AddTabsAndResetBrowser(browser(), 3);
+  tab_groups::TabGroupId group = model->AddToNewGroup({0, 1, 2});
+  StopAnimating(tab_strip);
+  EnsureFocusToTabStrip(tab_strip);
+
+  // Select tabs 0 and 1.
+  ui::ListSelectionModel selection;
+  selection.AddIndexToSelection(0);
+  selection.AddIndexToSelection(1);
+  selection.set_active(0);
+  model->SetSelectionFromModel(selection);
+
+  // Drag the selected tabs to after the group.
+  ASSERT_TRUE(PressInputAtCenter(tab_strip->tab_at(0)));
+  ASSERT_TRUE(DragInputToCenter(tab_strip->tab_at(3)));
+
+  ASSERT_TRUE(ui_test_utils::SendKeyPressToWindowSync(
+      browser()->window()->GetNativeWindow(), ui::VKEY_ESCAPE, false, false,
+      false, false));
+  StopAnimating(tab_strip);
+
+  EXPECT_EQ("0 1 2 3", IDString(model));
+  EXPECT_EQ(model->group_model()->GetTabGroup(group)->ListTabs(),
+            gfx::Range(0, 3));
+}
+
 // escape to revert the drag.
 IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
                        RevertHeaderDragLeft) {
@@ -4067,6 +4152,68 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
   EXPECT_EQ(1u, groups.size());
   EXPECT_EQ(model->group_model()->GetTabGroup(groups[0])->ListTabs(),
             gfx::Range(0, 1));
+}
+
+IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
+                       RevertSplitTabDragWhileDetachedWithGroupShift) {
+#if BUILDFLAG(IS_MAC)
+  if (base::FeatureList::IsEnabled(features::kInitialWebUI)) {
+    GTEST_SKIP() << "Skipping test because it fails on Mac with InitialWebUI "
+                    "enabled. See b/464087732.";
+  }
+#endif
+
+  ASSERT_TRUE(browser()->tab_strip_model()->SupportsTabGroups());
+
+  TabStrip* tab_strip = GetTabStripForBrowser(browser());
+  TabStripModel* model = browser()->tab_strip_model();
+  // Start with 4 tabs: 0, 1, 2, 3
+  AddTabsAndResetBrowser(browser(), 3);
+  // Group tabs 1, 2, 3
+  tab_groups::TabGroupId group = model->AddToNewGroup({1, 2, 3});
+  // Turn 2, 3 into a split tab.
+  model->ActivateTabAt(2);
+  split_tabs::SplitTabId split_id =
+      model->AddToNewSplit({3}, split_tabs::SplitTabVisualData(),
+                           split_tabs::SplitTabCreatedSource::kToolbarButton);
+
+  StopAnimating(tab_strip);
+  EnsureFocusToTabStrip(tab_strip);
+
+  ui_test_utils::BrowserDestroyedObserver browser_removed_observer;
+  AsyncBrowserWaiter waiter(
+      base::BindLambdaForTesting([this](BrowserWindowInterface* new_browser) {
+        if (!new_browser) {
+          new_browser = ui_test_utils::GetBrowserNotInSet({this->browser()});
+        }
+        CHECK(new_browser);
+        // Shift the group in the source window.
+        // Current source: [0] [G: 1]
+        // Move 1 to 0: [G: 1] [0]
+        this->browser()->tab_strip_model()->MoveWebContentsAt(1, 0, false);
+
+        new AsyncEscapePresser(
+            BrowserView::GetBrowserViewForBrowser(new_browser)->GetWidget());
+      }));
+
+  test::QuitDraggingObserver observer(tab_strip);
+  // Split tab is at model index 2.
+  Tab* split_tab = tab_strip->tab_at(2);
+  ASSERT_TRUE(PressInputAtCenter(split_tab));
+  ASSERT_TRUE(DragInputToCenterNotifyWhenDone(
+      split_tab, base::BindLambdaForTesting([]() {
+        test::PostTaskToRunMoveLoop(base::DoNothing());
+      }),
+      gfx::Vector2d(0, GetDetachY(tab_strip))));
+  observer.Wait();
+
+  // Ensure completion of asynchronous browser closure.
+  browser_removed_observer.Wait();
+
+  EXPECT_EQ("1 2 3 0", IDString(model));
+  EXPECT_EQ(model->GetSplitData(split_id)->ListTabs().size(), 2u);
+  EXPECT_EQ(model->group_model()->GetTabGroup(group)->ListTabs(),
+            gfx::Range(0, 3));
 }
 
 // Creates a browser with four tabs where the second and third tab is in a

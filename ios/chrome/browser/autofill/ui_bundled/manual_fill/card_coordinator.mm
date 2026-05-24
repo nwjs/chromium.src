@@ -12,6 +12,7 @@
 #import "components/autofill/core/browser/data_model/payments/credit_card.h"
 #import "components/autofill/ios/browser/autofill_driver_ios.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/autofill/model/manual_fill_virtual_card_cache.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/card_list_delegate.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/card_view_controller.h"
@@ -19,7 +20,6 @@
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_constants.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_full_card_requester.h"
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_injection_handler.h"
-#import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_virtual_card_cache.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -200,7 +200,8 @@
         ManualFillVirtualCardCache::FromWebState(activeWebState);
     if (cache) {
       const autofill::CreditCard* cachedCard =
-          cache->GetUnmaskedCard(autofillCreditCard->guid());
+          cache->GetUnmaskedCard(autofillCreditCard->guid(),
+                                 [self.injectionHandler activeWebFrameOrigin]);
 
       if (cachedCard) {
         // Cache Hit: Skip network request and fill directly.
@@ -212,10 +213,12 @@
     }
   }
 
-  [self.cardRequester requestFullCreditCard:*autofillCreditCard
-                     withBaseViewController:self.baseViewController
-                                 recordType:card.recordType
-                                  fieldType:fieldType];
+  [self.cardRequester
+       requestFullCreditCard:*autofillCreditCard
+      withBaseViewController:self.baseViewController
+                  recordType:card.recordType
+                   fieldType:fieldType
+                      origin:[self.injectionHandler activeWebFrameOrigin]];
 }
 
 - (void)didTriggerOpenCardDetails:(autofill::CreditCard)card

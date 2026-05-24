@@ -213,14 +213,19 @@ void ApplyComposeboxBaselineColors(ui::ColorMixer& mixer,
   constexpr SkColor kComposeboxSubmitButtonBackgroundDark =
       SkColorSetRGB(0xA8, 0xC7, 0xFA);
   constexpr SkColor kComposeboxSubmitButtonBackgroundLight =
-      SkColorSetRGB(0x34, 0x6B, 0xF1);
+      SkColorSetRGB(0x33, 0x6E, 0xF3);
   constexpr SkColor kComposeboxSubmitButtonIconDark =
       SkColorSetRGB(0x06, 0x2E, 0x6F);
+  constexpr SkColor kComposeboxSubmitButtonEnergy =
+      SkColorSetRGB(0x77, 0x9C, 0xFF);
 
   mixer[kColorOmniboxComposeboxSubmitButtonBackground] =
       ui::SelectBasedOnDarkInput(kColorOmniboxResultsBackground,
                                  kComposeboxSubmitButtonBackgroundDark,
                                  kComposeboxSubmitButtonBackgroundLight);
+  mixer[kColorOmniboxComposeboxSubmitButtonEnergy] = ui::SelectBasedOnDarkInput(
+      kColorOmniboxResultsBackground, SK_ColorTRANSPARENT,
+      kComposeboxSubmitButtonEnergy);
   mixer[kColorOmniboxComposeboxSubmitButtonIcon] = ui::SelectBasedOnDarkInput(
       kColorOmniboxResultsBackground, kComposeboxSubmitButtonIconDark,
       SK_ColorWHITE);
@@ -307,6 +312,8 @@ void AddOmniboxColorMixer(ui::ColorProvider* provider,
       ui::GetColorWithMaxContrast(kColorOmniboxResultsTextSelected),
       gfx::kGoogleGreyAlpha200);
   mixer[kColorOmniboxResultsChipBackground] = {ui::kColorSysNeutralContainer};
+  mixer[kColorOmniboxComposeboxContextEntrypointBackground] = {
+      ui::kColorSysNeutralContainer};
   mixer[kColorOmniboxResultsButtonBorder] = ui::BlendTowardMaxContrast(
       kColorToolbarBackgroundSubtleEmphasis, gfx::kGoogleGreyAlpha400);
   mixer[kColorOmniboxResultsButtonIcon] = {kColorOmniboxResultsIcon};
@@ -501,6 +508,7 @@ void AddOmniboxColorMixer(ui::ColorProvider* provider,
       kColorOmniboxResultsBackground, gfx::kGoogleBlue200, gfx::kGoogleBlue600);
   mixer[kColorOmniboxComposeboxSubmitButtonBackground] = {
       kColorOmniboxComposeboxPrimaryAction};
+  mixer[kColorOmniboxComposeboxSubmitButtonEnergy] = {SK_ColorTRANSPARENT};
   mixer[kColorOmniboxComposeboxSubmitButtonIcon] = ui::SelectBasedOnDarkInput(
       kColorOmniboxResultsBackground, gfx::kGoogleGrey900, gfx::kGoogleBlue200);
 

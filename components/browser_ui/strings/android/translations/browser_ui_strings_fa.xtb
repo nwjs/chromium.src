@@ -333,6 +333,7 @@
 <translation id="4290791284969893584">پس‌از بستن صفحه، ممکن است کارهایی که شروع کرده‌اید تمام نشوند</translation>
 <translation id="429312253194641664">سایتی درحال پخش رسانه است</translation>
 <translation id="42981349822642051">بزرگ کردن</translation>
+<translation id="4310738531374808763">سفارشی کردن صفحه اصلی شما.</translation>
 <translation id="4336219115486912529">{COUNT,plural, =1{فردا منقضی می‌شود}one{‫# روز دیگر منقضی می‌شود}other{‫# روز دیگر منقضی می‌شود}}</translation>
 <translation id="4338831206024587507">همه سایت‌های تحت <ph name="DOMAIN" /></translation>
 <translation id="4340799661701629185">به سایت‌ها اجازه داده نشود اعلان ارسال کنند</translation>
@@ -524,6 +525,7 @@
 <translation id="6262279340360821358"><ph name="PERMISSION_1" /> و <ph name="PERMISSION_2" /> مسدود هستند</translation>
 <translation id="6270391203985052864">سایت‌ها می‌توانند برای ارسال اعلان درخواست دهند</translation>
 <translation id="6295158916970320988">همه سایت‌ها</translation>
+<translation id="6305257382500066042">اکنون امتحان کنید</translation>
 <translation id="6320088164292336938">لرزش</translation>
 <translation id="6367753977865761591">ورود به سیستم طرف سوم برای سایت خاصی مسدود می‌شود.</translation>
 <translation id="6398765197997659313">خروج از حالت تمام صفحه</translation>
@@ -609,6 +611,7 @@
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> مورد انتخاب شد</translation>
 <translation id="7260727271532453612"><ph name="PERMISSION_1" /> و <ph name="PERMISSION_2" /> مجاز هستند</translation>
 <translation id="7276071417425470385">هرگاه روشن باشد، سایت‌ها می‌توانند استفاده از دستگاه‌های واقعیت مجازی را درخواست کنند. هرگاه خاموش باشد، سایت‌ها نمی‌توانند از دستگاه‌های واقعیت مجازی استفاده کنند.</translation>
+<translation id="7279851812866769760">هم‌رسانی کردن مخاطبین</translation>
 <translation id="7282197670900591579">زمینه لیمویی</translation>
 <translation id="728412880473384942">سایت‌ها سرعت بیشتری دارند اما امنیت آن‌ها کمتر است</translation>
 <translation id="7352902948037373520">‏در <ph name="BEGIN_LINK1" />تنظیمات Android<ph name="END_LINK1" /> مدیریت کنید
@@ -700,6 +703,7 @@
 <translation id="823874716226307142">وقتی‌که روشن باشد، سایت‌ها می‌توانند برای دسترسی به دستگاه‌های دیگر در شبکه محلی‌تان درخواست دهند. وقتی‌که خاموش باشد، سایت‌ها نمی‌توانند به دستگاه‌های دیگر در شبکه محلی‌تان دسترسی داشته باشند.</translation>
 <translation id="8249310407154411074">انتقال به بالا</translation>
 <translation id="8261506727792406068">حذف</translation>
+<translation id="8273596202562472147">گزینه‌های بیشتر برای <ph name="SITE_NAME" /></translation>
 <translation id="8284326494547611709">زیرنویس‌ها</translation>
 <translation id="8300705686683892304">مدیریت‌شده توسط برنامه</translation>
 <translation id="8301363963630676147">این بار اجازه هست • از مکان تقریبی استفاده می‌شود</translation>
@@ -794,6 +798,7 @@
 <translation id="9156722768168878035">‏اجازه دهید Chrome برگه‌های اخیرتان را در فهرست برنامه‌ها و نتایج جستجوی دستگاهتان نشان دهد. هرزمان بخواهید می‌توانید این گزینه را در تنظیمات Chrome خاموش کنید.</translation>
 <translation id="9162462602695099906">این صفحه خطرناک است</translation>
 <translation id="9182556968660520230">به سایت‌ها اجازه داده نشود محتوای محافظت‌شده را پخش کنند</translation>
+<translation id="927148002081263046">هم‌رسانی کردن مخاطب</translation>
 <translation id="947156494302904893">سایت‌هایی که بازدید می‌کنید می‌توانند درستی‌سنجی کنند که شما شخص واقعی هستید و روبات نیستید</translation>
 <translation id="959682366969460160">سازمان‌دهی شوید</translation>
 <translation id="960590623979248167">نمایش پیوندها</translation>

@@ -327,6 +327,10 @@ export class AppElement extends AppElementBase implements SpeechListener,
     chrome.readingMode.onPinStateReceived = (pinState: boolean) => {
       this.$.toolbar.isReadAnythingPinned = pinState;
     };
+
+    chrome.readingMode.onRenderedTextMappingReady = () => {
+      this.contentController_.onRenderedTextMappingReady();
+    };
   }
 
   override disconnectedCallback() {
@@ -401,9 +405,12 @@ export class AppElement extends AppElementBase implements SpeechListener,
       this.$.container.appendChild(newRoot);
     }
 
-    // Send rendered text blocks to the controller so that it can
-    // map the rendered text to the AXTree.
-    this.onRenderedTextBlocksAvailable_();
+    // Wait for the next animation frame to ensure the DOM is visible and then
+    // send rendered text blocks to the controller so that it can map the
+    // rendered text to the AXTree.
+    requestAnimationFrame(() => {
+      this.onRenderedTextBlocksAvailable_();
+    });
 
     const wordCountContainer =
         isDistilledByReadability() ? this.$.container : newRoot;

@@ -44,6 +44,7 @@ export class ComposeboxFileThumbnailElement extends CrLitElement {
         type: Boolean,
         reflect: true,
       },
+      contextManagementInComposeboxEnabled_: {type: Boolean},
     };
   }
 
@@ -60,6 +61,7 @@ export class ComposeboxFileThumbnailElement extends CrLitElement {
     isDeletable: true,
     iconName: null,
     supportsUnimodal: true,
+    thumbnailUrl: null,
   };
 
   getIsUploadingForTesting(): boolean {
@@ -68,6 +70,9 @@ export class ComposeboxFileThumbnailElement extends CrLitElement {
 
   protected lensSendRawFileMediaTypesEnabled_: boolean =
       loadTimeData.getBoolean('lensSendRawFileMediaTypesEnabled');
+
+  protected accessor contextManagementInComposeboxEnabled_: boolean =
+      loadTimeData.getBoolean('contextManagementInComposeboxEnabled');
 
   protected accessor isUploading_: boolean = false;
 
@@ -87,10 +92,38 @@ export class ComposeboxFileThumbnailElement extends CrLitElement {
     }
   }
 
+  override firstUpdated(changedProperties: PropertyValues<this>) {
+    super.firstUpdated(changedProperties);
+    requestAnimationFrame(() => {
+      this.classList.add('entering');
+      const animations = this.getAnimations();
+      if (animations.length > 0) {
+        Promise.allSettled(animations.map(a => a.finished)).then(() => {
+          this.classList.remove('entering');
+        });
+      } else {
+        this.classList.remove('entering');
+      }
+    });
+  }
+
   protected onRemoveButtonClick_() {
-    // TODO(crbug.com/422559977): Send call to handler to delete file from
-    // cache.
-    this.fire('delete-file', {uuid: this.file.uuid, fromUserAction: true});
+    if (this.classList.contains('exiting')) {
+      return;
+    }
+
+    this.classList.add('exiting');
+    const animations = this.getAnimations();
+
+    if (animations.length === 0) {
+      this.classList.remove('exiting');
+      this.fire('delete-file', {uuid: this.file.uuid, fromUserAction: true});
+    } else {
+      Promise.allSettled(animations.map(a => a.finished)).then(() => {
+        this.classList.remove('exiting');
+        this.fire('delete-file', {uuid: this.file.uuid, fromUserAction: true});
+      });
+    }
   }
 
   protected getDeleteFileButtonTitle_(): string {

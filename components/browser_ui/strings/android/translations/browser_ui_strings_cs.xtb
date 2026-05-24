@@ -333,6 +333,7 @@
 <translation id="4290791284969893584">Po zavření stránky se zahájené úlohy nemusí dokončit</translation>
 <translation id="429312253194641664">Web přehrává média</translation>
 <translation id="42981349822642051">Rozbalit</translation>
+<translation id="4310738531374808763">Přizpůsobte si domovskou stránku</translation>
 <translation id="4336219115486912529">{COUNT,plural, =1{Platnost skončí zítra}few{Platnost skončí za # dny}many{Platnost skončí za # dne}other{Platnost skončí za # dní}}</translation>
 <translation id="4338831206024587507">Všechny weby v doméně <ph name="DOMAIN" /></translation>
 <translation id="4340799661701629185">Nepovolovat webům odesílat oznámení</translation>
@@ -524,6 +525,7 @@
 <translation id="6262279340360821358">Oprávnění <ph name="PERMISSION_1" /> a <ph name="PERMISSION_2" /> jsou zablokována</translation>
 <translation id="6270391203985052864">Weby mohou žádat o oprávnění zasílat vám oznámení</translation>
 <translation id="6295158916970320988">Všechny weby</translation>
+<translation id="6305257382500066042">Vyzkoušet</translation>
 <translation id="6320088164292336938">Vibrovat</translation>
 <translation id="6367753977865761591">Blokování přihlášení třetích stran na konkrétní web.</translation>
 <translation id="6398765197997659313">Ukončit režim celé obrazovky</translation>
@@ -609,6 +611,7 @@
 <translation id="7250468141469952378">Vybráno: <ph name="ITEM_COUNT" /></translation>
 <translation id="7260727271532453612">Oprávnění <ph name="PERMISSION_1" /> a <ph name="PERMISSION_2" /> jsou povolena</translation>
 <translation id="7276071417425470385">Když je tato možnost zapnutá, mohou weby žádat o použití zařízení pro virtuální realitu. Když je vypnutá, weby zařízení pro virtuální realitu používat nemohou.</translation>
+<translation id="7279851812866769760">Sdílení kontaktů</translation>
 <translation id="7282197670900591579">Citronový motiv</translation>
 <translation id="728412880473384942">Weby jsou rychlejší, ale méně bezpečné</translation>
 <translation id="7352902948037373520">Spravujte v <ph name="BEGIN_LINK1" />nastavení systému Android<ph name="END_LINK1" />
@@ -700,6 +703,7 @@ Pokročilá ochrana spravuje tato nastavení Chromu:</translation>
 <translation id="823874716226307142">Když je tato možnost zapnutá, mohou weby žádat o přístup k dalším zařízením v místní síti. Když je vypnutá, weby nemají přístup k dalším zařízením v místní síti.</translation>
 <translation id="8249310407154411074">Přesunout na začátek</translation>
 <translation id="8261506727792406068">Smazat</translation>
+<translation id="8273596202562472147">Další možnosti pro web <ph name="SITE_NAME" /></translation>
 <translation id="8284326494547611709">Titulky</translation>
 <translation id="8300705686683892304">Spravováno aplikací</translation>
 <translation id="8301363963630676147">Pro tentokrát povoleno • Používá se přibližná</translation>
@@ -794,6 +798,7 @@ Pokročilá ochrana spravuje tato nastavení Chromu:</translation>
 <translation id="9156722768168878035">Umožněte Chromu zobrazovat nedávno použité karty v seznamu aplikací a ve výsledcích vyhledávání v zařízení. Tuto funkci můžete v nastavení Chromu kdykoli vypnout.</translation>
 <translation id="9162462602695099906">Tato stránka je nebezpečná</translation>
 <translation id="9182556968660520230">Nepovolovat webům přehrávání chráněného obsahu</translation>
+<translation id="927148002081263046">Sdílení kontaktu</translation>
 <translation id="947156494302904893">Weby, které navštěvujete, mohou ověřit, že jste člověk, a ne robot</translation>
 <translation id="959682366969460160">Uspořádejte si položky</translation>
 <translation id="960590623979248167">Zobrazit hypertextové odkazy</translation>

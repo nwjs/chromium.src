@@ -9,6 +9,17 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
+async function pollUntil(predicate: () => boolean, timeoutMs = 1000):
+    Promise<void> {
+  const start = Date.now();
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) {
+      throw new Error('pollUntil timed out');
+    }
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+  }
+}
+
 suite('ComposeboxInputTest', () => {
   let inputElement: ComposeboxInputElement;
 
@@ -130,27 +141,53 @@ suite('ComposeboxInputTest', () => {
       assertTrue(getComputedStyle(smartCompose).display !== 'none');
   });
 
-  test('#tabChip has fixed 38*24 box model', async () => {
-    inputElement.smartComposeInlineHint = 'foo';
+  test('input minHeight stays unset for short hint', async () => {
     inputElement.smartComposeEnabled = true;
+    inputElement.smartComposeInlineHint = 'short';
+    await inputElement.updateComplete;
+    await new Promise<void>(
+        resolve => requestAnimationFrame(
+            () => requestAnimationFrame(() => resolve())));
+
+    const input = inputElement.$.input;
+    const smartCompose =
+        inputElement.shadowRoot.querySelector<HTMLElement>('#smartCompose');
+    assertTrue(!!smartCompose);
+    assertEquals('', input.style.minHeight);
+    assertEquals('', smartCompose.style.minHeight);
+  });
+
+  test('input minHeight extends for multi-line hint', async () => {
+    inputElement.smartComposeEnabled = true;
+    inputElement.smartComposeInlineHint = 'first line\nsecond line';
     await inputElement.updateComplete;
 
-    const chip =
-        inputElement.shadowRoot.querySelector<HTMLElement>('#tabChip');
-    assertTrue(!!chip);
+    const input = inputElement.$.input;
+    await pollUntil(() => input.style.minHeight !== '');
 
-    const rect = chip.getBoundingClientRect();
-    assertEquals(38, rect.width);
-    assertEquals(24, rect.height);
-
-    const computed = getComputedStyle(chip);
-    assertEquals('0px', computed.paddingTop);
-    assertEquals('0px', computed.paddingBottom);
-    assertEquals('0px', computed.paddingLeft);
-    assertEquals('0px', computed.paddingRight);
-    assertEquals('inline-flex', computed.display);
-    assertEquals('18px', computed.lineHeight);
+    const smartCompose =
+        inputElement.shadowRoot.querySelector<HTMLElement>('#smartCompose');
+    assertTrue(!!smartCompose);
+    assertTrue(input.style.minHeight !== '');
+    assertEquals('', smartCompose.style.minHeight);
   });
+
+  test('inline minHeight is reset when hint clears', async () => {
+    inputElement.smartComposeEnabled = true;
+    inputElement.smartComposeInlineHint = 'first line\nsecond line';
+    await inputElement.updateComplete;
+
+    const input = inputElement.$.input;
+    await pollUntil(() => input.style.minHeight !== '');
+    assertTrue(input.style.minHeight !== '');
+
+    inputElement.smartComposeInlineHint = '';
+    await inputElement.updateComplete;
+    await pollUntil(() => input.style.minHeight === '');
+
+    assertEquals('', input.style.minHeight);
+  });
+
 });
 
 suite('ComposeboxScrollCaret', () => {

@@ -4,6 +4,7 @@
 
 import type {CrA11yAnnouncerMessagesSentEvent} from 'chrome://new-tab-page/new_tab_page.js';
 import {$$} from 'chrome://new-tab-page/new_tab_page.js';
+import type {ComposeboxFile} from 'chrome://resources/cr_components/composebox/common.js';
 import {ContextualSearchInputStateDeletionType} from 'chrome://resources/cr_components/composebox/common.js';
 import {ContextUploadErrorType, ContextUploadStatus, InputType, ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
@@ -766,8 +767,10 @@ suite('NewTabPageComposeboxUploadPasteTest', () => {
 
     //  Check if the image was identified as an image.
     //  (has objectUrl) and the PDF was identified as a PDF (no objectUrl).
-    const imageFile = files.find(f => f.type.includes('image'));
-    const pdfFileInCarousel = files.find(f => f.type.includes('pdf'));
+    const imageFile =
+        files.find((f: ComposeboxFile) => f.type.includes('image'));
+    const pdfFileInCarousel =
+        files.find((f: ComposeboxFile) => f.type.includes('pdf'));
 
     // Ensure we found both.
     assertTrue(!!imageFile);
@@ -1354,6 +1357,7 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
       name: 'test.jpg',
       imageDataUrl: 'data:image/jpeg;base64,...',
       mimeType: 'image/jpeg',
+      errorType: null,
     };
 
     const context = {
@@ -1386,6 +1390,8 @@ suite('NewTabPageComposeboxUploadContextTest', () => {
       name: 'test.txt',
       imageDataUrl: null,
       mimeType: 'text/plain',
+      errorType:
+          ContextUploadErrorType.kBrowserProcessingUnsupportedFileTypeError,
     };
 
     const context = {

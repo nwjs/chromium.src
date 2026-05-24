@@ -282,6 +282,10 @@ void ContextualCueingHelper::DocumentOnLoadCompletedInPrimaryMainFrame() {
   }
 }
 
+void ContextualCueingHelper::WebContentsDestroyed() {
+  weak_ptr_factory_.InvalidateWeakPtrs();
+}
+
 void ContextualCueingHelper::OnOptimizationGuideCueingMetadata(
     base::TimeTicks document_available_time,
     optimization_guide::OptimizationGuideDecision decision,
@@ -501,6 +505,11 @@ ContextualCueingHelper::AutoOpenGlicSidePanel(
         kMinWindowWidthForPdfAutoOpen.Get()) {
       return RecordAutoOpenResult(
           GlicAutoOpenResult::kPreventedFromWindowTooNarrow);
+    }
+    if (decision_result.pdf_page_count.value_or(0) <
+        static_cast<size_t>(glic::kMinPageCountForPdfAutoOpen.Get())) {
+      return RecordAutoOpenResult(
+          GlicAutoOpenResult::kPreventedFromPdfPageCountBelowThreshold);
     }
   }
 

@@ -20,6 +20,7 @@
   --cr-searchbox-voice-search-button-width: 0px;
   --cr-compose-button-width: 104px;
   --cr-searchbox-icon-spacing: 11px;
+  border: var(--cr-searchbox-border, none);
   border-radius: var(--cr-searchbox-border-radius);
   font-size: var(--cr-searchbox-font-size, 16px);
   height: var(--cr-searchbox-height);
@@ -49,6 +50,10 @@
 
 :host([is-dark]) {
   --cr-searchbox-shadow: 0 2px 6px 0 var(--color-searchbox-shadow);
+}
+
+:host-context([energy-effect-enabled_]) {
+  --cr-searchbox-shadow: 0 4px 18px -2px rgba(60, 64, 67, 0.12);
 }
 
 :host([searchbox-voice-search-enabled_]) {
@@ -236,6 +241,11 @@ cr-searchbox-input::part(searchbox-input) {
 
   /* Used in search-animated-glow-element. */
   --search-animated-glow-drag-drop-placeholder-top: 16px;
+}
+
+:host-context([energy-effect-enabled_]):host([ntp-realbox-next-enabled]) {
+  --cr-searchbox-border-radius: 28px;
+  --cr-searchbox-border: 1px solid var(--color-searchbox-border);
 }
 
 cr-searchbox-dropdown::part(dropdown-content) {

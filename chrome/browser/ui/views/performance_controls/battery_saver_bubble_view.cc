@@ -6,6 +6,7 @@
 
 #include "base/functional/bind.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/performance_controls/battery_saver_bubble_delegate.h"
 #include "chrome/browser/ui/performance_controls/battery_saver_bubble_observer.h"
 #include "chrome/grit/generated_resources.h"
@@ -56,9 +57,13 @@ views::BubbleDialogModelHost* BatterySaverBubbleView::CreateBubble(
       std::move(dialog_model), anchor_view, anchor_position);
   auto* bubble = bubble_unique.get();
 
-  views::Widget* const widget = views::BubbleDialogDelegate::CreateBubble(
-      std::move(bubble_unique),
-      views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
+  views::Widget* const widget =
+      views::BubbleDialogDelegate::CreateBubbleDeprecated(
+          std::move(bubble_unique),
+          views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
+
+  widget->GetContentsView()->SetProperty(views::kElementIdentifierKey,
+                                         kToolbarBatterySaverBubbleElementId);
   widget->Show();
 
   observer->OnBubbleShown();

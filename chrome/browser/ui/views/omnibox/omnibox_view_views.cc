@@ -2081,6 +2081,18 @@ bool OmniboxViewViews::HandleKeyEvent(views::Textfield* textfield,
   const bool command = event.IsCommandDown();
   switch (event.key_code()) {
     case ui::VKEY_RETURN: {
+      if (omnibox::kShowRhsAimHint.Get()) {
+#if BUILDFLAG(IS_MAC)
+        const bool ai_mode_modifier = command;
+#else
+        const bool ai_mode_modifier = control;
+#endif
+        if (ai_mode_modifier && !shift) {
+          controller()->edit_model()->OpenAiMode(/*via_keyboard=*/true,
+                                                 /*via_context_menu=*/false);
+          return true;
+        }
+      }
       WindowOpenDisposition disposition = WindowOpenDisposition::CURRENT_TAB;
       OpenMatchWithKeyboardModifiers metric_value;
       if (alt && !shift) {
@@ -2236,11 +2248,15 @@ bool OmniboxViewViews::HandleKeyEvent(views::Textfield* textfield,
       break;
 
     case ui::VKEY_SPACE: {
-      if (!controller()->IsPopupOpen()) {
-        // If the popup is not open and the page action icon has "fake" focus
-        // (see comments in `HandleEarlyTabActions`), have `OmniboxEditModel`
-        // open a `kNoMatch`/`FOCUSED_BUTTON_AIM` selection.
-        if (aim_page_action_icon_has_fake_focus_) {
+      if (aim_page_action_icon_has_fake_focus_) {
+        if (base::FeatureList::IsEnabled(
+                omnibox::kAiModeSpaceDoesNotActivate)) {
+          // Pressing space should add a space to user input, cause AIM button
+          // to lose focus, and move focus back to first suggestion.
+          ApplyFocusRingToAimButton(false);
+          controller()->edit_model()->SetCaretVisibility(true);
+          return false;  // Fallthrough to insert space
+        } else {
           controller()->edit_model()->OpenSelection(
               OmniboxPopupSelection(
                   OmniboxPopupSelection::kNoMatch,
@@ -2249,7 +2265,9 @@ bool OmniboxViewViews::HandleKeyEvent(views::Textfield* textfield,
               /*via_keyboard=*/true);
           return true;
         }
-      } else if (!control && !alt && !shift) {
+      }
+
+      if (controller()->IsPopupOpen() && !control && !alt && !shift) {
         if (controller()->edit_model()->OnSpacePressed()) {
           return true;
         }

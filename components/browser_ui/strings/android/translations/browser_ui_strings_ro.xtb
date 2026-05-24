@@ -333,6 +333,7 @@
 <translation id="4290791284969893584">După ce închizi o pagină, este posibil ca activitățile începute să nu se finalizeze</translation>
 <translation id="429312253194641664">Un site redă fișiere media</translation>
 <translation id="42981349822642051">Extinde</translation>
+<translation id="4310738531374808763">Personalizează pagina de pornire</translation>
 <translation id="4336219115486912529">{COUNT,plural, =1{Expiră mâine}few{Expiră peste # zile}other{Expiră peste # de zile}}</translation>
 <translation id="4338831206024587507">Toate site-urile din <ph name="DOMAIN" /></translation>
 <translation id="4340799661701629185">Nu permite site-urilor să trimită notificări</translation>
@@ -524,6 +525,7 @@
 <translation id="6262279340360821358">Sunt blocate <ph name="PERMISSION_1" /> și <ph name="PERMISSION_2" /></translation>
 <translation id="6270391203985052864">Site-urile îți pot solicita să îți trimită notificări</translation>
 <translation id="6295158916970320988">Toate site-urile</translation>
+<translation id="6305257382500066042">Încearcă acum</translation>
 <translation id="6320088164292336938">Vibrații</translation>
 <translation id="6367753977865761591">Blochează conectarea terță parte pentru un anumit site.</translation>
 <translation id="6398765197997659313">Ieși din ecranul complet</translation>
@@ -609,6 +611,7 @@
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> selectate</translation>
 <translation id="7260727271532453612"><ph name="PERMISSION_1" /> și <ph name="PERMISSION_2" /> sunt permise</translation>
 <translation id="7276071417425470385">Când opțiunea este activată, site-urile pot solicita permisiunea de a folosi dispozitive de realitate virtuală. Când opțiunea este dezactivată, site-urile nu pot folosi dispozitive de realitate virtuală.</translation>
+<translation id="7279851812866769760">Trimite intrări din agendă</translation>
 <translation id="7282197670900591579">Temă galben-lămâi</translation>
 <translation id="728412880473384942">Site-urile sunt mai rapide, dar mai puțin sigure</translation>
 <translation id="7352902948037373520">Gestionează în <ph name="BEGIN_LINK1" />setările Android<ph name="END_LINK1" />
@@ -700,6 +703,7 @@ Protecția avansată gestionează următoarele setări Chrome:</translation>
 <translation id="823874716226307142">Când opțiunea este activată, site-urile pot solicita permisiunea de a accesa alte dispozitive din rețeaua ta locală. Când opțiunea este dezactivată, site-urile nu pot accesa alte dispozitive din rețeaua ta locală.</translation>
 <translation id="8249310407154411074">Mută la început</translation>
 <translation id="8261506727792406068">Șterge</translation>
+<translation id="8273596202562472147">Mai multe opțiuni pentru <ph name="SITE_NAME" /></translation>
 <translation id="8284326494547611709">Subtitrări</translation>
 <translation id="8300705686683892304">Gestionate de aplicație</translation>
 <translation id="8301363963630676147">Permisă de data aceasta • Se folosește locația aproximativă</translation>
@@ -794,6 +798,7 @@ Protecția avansată gestionează următoarele setări Chrome:</translation>
 <translation id="9156722768168878035">Permite ca Chrome să-ți afișeze filele recente în lista de aplicații și în rezultatele căutării de pe dispozitiv. Poți dezactiva oricând această opțiune din setările Chrome.</translation>
 <translation id="9162462602695099906">Pagina este periculoasă</translation>
 <translation id="9182556968660520230">Nu permite site-urilor să redea conținut protejat</translation>
+<translation id="927148002081263046">Trimite o intrare din agendă</translation>
 <translation id="947156494302904893">Site-urile pe care le accesezi pot confirma că ești o persoană reală, nu o aplicație bot</translation>
 <translation id="959682366969460160">Organizează-te</translation>
 <translation id="960590623979248167">Afișează hyperlinkurile</translation>

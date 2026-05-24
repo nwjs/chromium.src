@@ -294,7 +294,8 @@ bool IsValidContextUploadStatusForMultimodalRequest(
 bool RequestIdHasImage(const lens::LensOverlayRequestId& request_id) {
   lens::LensOverlayRequestId::MediaType media_type = request_id.media_type();
   if (media_type == lens::LensOverlayRequestId::MEDIA_TYPE_RAW_FILE) {
-    return request_id.mime_type().starts_with("image/");
+    return request_id.mime_type().starts_with("image/") &&
+           request_id.mime_type() != "image/svg+xml";
   }
   return media_type == lens::LensOverlayRequestId::MEDIA_TYPE_DEFAULT_IMAGE ||
          media_type ==
@@ -1172,6 +1173,13 @@ void ComposeboxQueryController::
         std::optional<std::string> page_title,
         std::optional<std::string> file_name,
         lens::ImageData image_data) {
+  // Validate that client-side image compression/encoding succeeded.
+  if (image_data.payload().image_bytes().empty()) {
+    std::move(callback).Run(
+        lens::LensOverlayServerRequest(),
+        contextual_search::ContextUploadErrorType::kImageProcessingError);
+    return;
+  }
   lens::LensOverlayServerRequest request;
   auto* objects_request = request.mutable_objects_request();
   objects_request->mutable_request_context()->mutable_request_id()->CopyFrom(
@@ -2241,7 +2249,6 @@ ComposeboxQueryController::GetFileInfoList() {
   return file_infos;
 }
 
-
 base::WeakPtr<contextual_search::ContextualSearchContextController>
 ComposeboxQueryController::AsWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
@@ -2307,6 +2314,29 @@ ComposeboxQueryController::ConstructVisualSearchInteractionData(
     return std::nullopt;
   }
 
+  // If there was an interaction request which has not been used to create a
+  // vsint yet, then set the interaction data from the request.
+  bool has_interaction_request =
+      latest_interaction_request_data_ &&
+      latest_interaction_request_data_->request_ &&
+      latest_interaction_request_data_->request_->has_interaction_request();
+  bool should_include_interaction_request_data =
+      has_interaction_request &&
+      (!latest_interaction_request_data_->interaction_details_used_in_vsint_ ||
+       force_include_latest_interaction_request_data);
+
+  if (!should_include_interaction_request_data) {
+    return std::nullopt;
+  }
+
+  auto sent_interaction_request =
+      latest_interaction_request_data_->request_->interaction_request();
+  if (!sent_interaction_request.has_image_crop()) {
+    return std::nullopt;
+  }
+
+  latest_interaction_request_data_->interaction_details_used_in_vsint_ = true;
+
   // Set the interaction data based on the last file request type.
   lens::LensOverlayVisualSearchInteractionData interaction_data;
   interaction_data.mutable_log_data()->mutable_filter_data()->set_filter_type(
@@ -2332,65 +2362,11 @@ ComposeboxQueryController::ConstructVisualSearchInteractionData(
         query_text.value());
   }
 
-  switch (file_info->mime_type) {
-    case lens::MimeType::kPdf:
-      interaction_data.set_interaction_type(
-          lens::LensOverlayInteractionRequestMetadata::PDF_QUERY);
-      break;
-    case lens::MimeType::kAnnotatedPageContent:
-      interaction_data.set_interaction_type(
-          lens::LensOverlayInteractionRequestMetadata::WEBPAGE_QUERY);
-      break;
-    case lens::MimeType::kUnknown:
-      [[fallthrough]];
-    case lens::MimeType::kImage:
-      interaction_data.set_interaction_type(
-          lens::LensOverlayInteractionRequestMetadata::REGION);
-      break;
-    default:
-      NOTREACHED();
-  }
+  interaction_data.set_interaction_type(
+      sent_interaction_request.interaction_request_metadata().type());
 
-  auto media_type = file_info->request_id->media_type();
-  bool use_full_region =
-      media_type == lens::LensOverlayRequestId::MEDIA_TYPE_DEFAULT_IMAGE ||
-      media_type == lens::LensOverlayRequestId::MEDIA_TYPE_WEBPAGE_AND_IMAGE ||
-      media_type == lens::LensOverlayRequestId::MEDIA_TYPE_PDF_AND_IMAGE;
-
-  // If there was an interaction request which has not been used to create a
-  // vsint yet, then set the interaction data from the request.
-  bool has_interaction_request =
-      latest_interaction_request_data_ &&
-      latest_interaction_request_data_->request_ &&
-      latest_interaction_request_data_->request_->has_interaction_request();
-  bool should_include_interaction_request_data =
-      has_interaction_request &&
-      (!latest_interaction_request_data_->interaction_details_used_in_vsint_ ||
-       force_include_latest_interaction_request_data);
-  if (should_include_interaction_request_data) {
-    latest_interaction_request_data_->interaction_details_used_in_vsint_ = true;
-    auto sent_interaction_request =
-        latest_interaction_request_data_->request_->interaction_request();
-    interaction_data.set_interaction_type(
-        sent_interaction_request.interaction_request_metadata().type());
-    if (sent_interaction_request.has_image_crop()) {
-      // The zoomed crop field should only be set if the object id is not set.
-      interaction_data.mutable_zoomed_crop()->CopyFrom(
-          sent_interaction_request.image_crop().zoomed_crop());
-      use_full_region = false;
-    }
-  }
-
-  // Set the zoomed crop if there is an image associated with the request.
-  if (use_full_region) {
-    interaction_data.mutable_zoomed_crop()->mutable_crop()->set_center_x(0.5f);
-    interaction_data.mutable_zoomed_crop()->mutable_crop()->set_center_y(0.5f);
-    interaction_data.mutable_zoomed_crop()->mutable_crop()->set_width(1);
-    interaction_data.mutable_zoomed_crop()->mutable_crop()->set_height(1);
-    interaction_data.mutable_zoomed_crop()->mutable_crop()->set_coordinate_type(
-        ::lens::CoordinateType::NORMALIZED);
-    interaction_data.mutable_zoomed_crop()->set_zoom(1);
-  }
+  interaction_data.mutable_zoomed_crop()->CopyFrom(
+      sent_interaction_request.image_crop().zoomed_crop());
 
   return interaction_data;
 }

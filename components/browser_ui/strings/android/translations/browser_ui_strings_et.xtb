@@ -333,6 +333,7 @@
 <translation id="4290791284969893584">Pärast lehe sulgemist ei pruugita alustatud toiminguid lõpule viia</translation>
 <translation id="429312253194641664">Sait esitab meediasisu</translation>
 <translation id="42981349822642051">Laienda</translation>
+<translation id="4310738531374808763">Avalehe kohandamine</translation>
 <translation id="4336219115486912529">{COUNT,plural, =1{Aegub homme}other{Aegub # päeva pärast}}</translation>
 <translation id="4338831206024587507">Kõik saidid domeenil <ph name="DOMAIN" /></translation>
 <translation id="4340799661701629185">Ära luba saitidel saata märguandeid</translation>
@@ -524,6 +525,7 @@
 <translation id="6262279340360821358"><ph name="PERMISSION_1" /> ja <ph name="PERMISSION_2" /> on keelatud</translation>
 <translation id="6270391203985052864">Saidid saavad küsida luba märguannete saatmiseks</translation>
 <translation id="6295158916970320988">Kõik saidid</translation>
+<translation id="6305257382500066042">Proovige kohe</translation>
 <translation id="6320088164292336938">Vibreerimine</translation>
 <translation id="6367753977865761591">Konkreetse saidi jaoks kolmanda osapoole sisselogimise blokeerimine.</translation>
 <translation id="6398765197997659313">Välju täisekraanilt</translation>
@@ -609,6 +611,7 @@
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> on valitud</translation>
 <translation id="7260727271532453612"><ph name="PERMISSION_1" /> ja <ph name="PERMISSION_2" /> on lubatud</translation>
 <translation id="7276071417425470385">Kui see on sisse lülitatud, võivad saidid küsida luba VR-seadmete kasutamiseks. Kui see on välja lülitatud, ei saa saidid VR-seadmeid kasutada.</translation>
+<translation id="7279851812866769760">Kontaktide jagamine</translation>
 <translation id="7282197670900591579">Sidrunikollane teema</translation>
 <translation id="728412880473384942">Saidid on kiiremad, aga ebaturvalisemad</translation>
 <translation id="7352902948037373520">Hallake <ph name="BEGIN_LINK1" />Androidi seadetes<ph name="END_LINK1" />
@@ -700,6 +703,7 @@ Täiustatud kaitse reguleerib neid Chrome’i seadeid:</translation>
 <translation id="823874716226307142">Kui see on sisse lülitatud, võivad saidid küsida luba teie kohaliku võrgu teistele seadmetele juurdepääsemiseks. Kui see on välja lülitatud, ei pääse saidid teie kohaliku võrgu teistele seadmetele juurde.</translation>
 <translation id="8249310407154411074">Teisalda kõige üles</translation>
 <translation id="8261506727792406068">Kustuta</translation>
+<translation id="8273596202562472147">Rohkem saidi <ph name="SITE_NAME" /> valikuid</translation>
 <translation id="8284326494547611709">Subtiitrid</translation>
 <translation id="8300705686683892304">Neid haldab rakendus</translation>
 <translation id="8301363963630676147">Lubatud sel korral • Kasutab ligikaudset asukohta</translation>
@@ -794,6 +798,7 @@ Täiustatud kaitse reguleerib neid Chrome’i seadeid:</translation>
 <translation id="9156722768168878035">Laske Chrome'il kuvada teie hiljutisi vahelehti teie seadme rakenduste loendis ja otsingutulemustes. Saate selle Chrome’i seadetes igal ajal välja lülitada.</translation>
 <translation id="9162462602695099906">See leht on ohtlik</translation>
 <translation id="9182556968660520230">Ära luba saitidel kaitstud sisu esitada</translation>
+<translation id="927148002081263046">Kontakti jagamine</translation>
 <translation id="947156494302904893">Külastatavad saidid saavad kinnitada, et olete päris inimene, mitte robot</translation>
 <translation id="959682366969460160">Lööge kord majja</translation>
 <translation id="960590623979248167">Kuva hüperlingid</translation>

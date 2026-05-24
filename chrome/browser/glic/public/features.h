@@ -62,6 +62,7 @@ BASE_DECLARE_FEATURE(kGlicHorizontalTabToolbarButton);
 enum class GlicToolbarButtonLocation {
   kRightOfOmnibox,
   kLeftOfProfileChip,
+  kLeftOfProfileChipWithBackground,
 };
 BASE_DECLARE_FEATURE(kGlicToolbarButtonLocation);
 extern const base::FeatureParam<GlicToolbarButtonLocation>
@@ -72,6 +73,9 @@ inline constexpr char kGlicToolbarButtonLocationRightOfOmnibox[] =
     "RightOfOmnibox";
 inline constexpr char kGlicToolbarButtonLocationLeftOfProfileChip[] =
     "LeftOfProfileChip";
+inline constexpr char
+    kGlicToolbarButtonLocationLeftOfProfileChipWithBackground[] =
+        "LeftOfProfileChipWithBackground";
 
 BASE_DECLARE_FEATURE(kGlicButtonAutoSummarize);
 
@@ -90,6 +94,8 @@ extern const base::FeatureParam<int> kGlicReloadMaxLoadingTimeMs;
 BASE_DECLARE_FEATURE(kGlicContextualCueingV2AutoSubmit);
 
 BASE_DECLARE_FEATURE(kGlicWebDragAndDropFileUpload);
+
+BASE_DECLARE_FEATURE(kGlicOptInImpressionMetrics);
 }  // namespace features
 
 #endif  // CHROME_BROWSER_GLIC_PUBLIC_FEATURES_H_

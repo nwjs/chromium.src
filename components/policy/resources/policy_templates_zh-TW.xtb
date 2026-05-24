@@ -1827,6 +1827,25 @@ Chrome 政策的優先順序高於這項政策，例如擴充功能是否列在 
 <translation id="225340736558643885">啟用不安全表單的警告功能</translation>
 <translation id="2258126710006312594">允許遠端存取使用者向主機傳輸檔案，或從主機接收檔案</translation>
 <translation id="225830954785359083">禁止網頁在卸載時顯示彈出式視窗</translation>
+<translation id="2260635608598936994">設定篩選器，選取要納入 <ph name="PRODUCT_NAME" /> 安全性信號報告的用戶端憑證。這些報告會將瀏覽器和裝置的安全狀態資訊傳送到 <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" />，方便管理員設定<ph name="GOOGLE_CONTEXT_AWARE_ACCESS" /> 規則。
+
+你可以透過這項政策，根據用戶端憑證屬性 (例如 ISSUER 和/或 SUBJECT 辨別名稱) 定義篩選器。<ph name="PRODUCT_NAME" /> 只會在信號報告中加入符合至少一個指定篩選條件的憑證。
+
+     <ph name="SELECTOR_PLACEHOLDER" /> 區段的實際應用範例：
+
+      * 如果將 <ph name="SELECTOR_PLACEHOLDER" /> 設為 <ph name="SECURITY_SIGNALS_CLIENT_CERTIFICATE_SELECTORS_FILTER_EXAMPLE" />，系統只會選取核發者為 CommonName <ph name="ISSUER_CN_PLACEHOLDER" /> 的用戶端憑證。
+
+      * 如果 <ph name="SELECTOR_PLACEHOLDER" /> 包含 <ph name="ISSUER_STRING_VALUE" /> 和 <ph name="SUBJECT_STRING_VALUE" /> 區段，系統只會選取同時符合兩個條件的用戶端憑證。
+
+      * 如果 <ph name="SELECTOR_PLACEHOLDER" /> 的 <ph name="SUBJECT_STRING_VALUE" /> 區段包含 <ph name="FILTER_STRING_ORGANIZATION" /> 值，憑證至少要有一個組織符合該值，系統才會選取。
+
+      * 如果 <ph name="SELECTOR_PLACEHOLDER" /> 的 <ph name="SUBJECT_STRING_VALUE" /> 區段包含 <ph name="FILTER_STRING_ORGANIZATIONAL_UNIT" /> 值，憑證至少要有一個組織單位符合該值，系統才會選取。
+
+      * 如果將 <ph name="SELECTOR_PLACEHOLDER" /> 設為 <ph name="EMPTY_DICTIONARY" />，執行這項政策時，系統會忽略空白欄位。
+
+      如果未設定這項政策，系統在回報信號時不會選取用戶端憑證。
+
+*重要事項：*這項政策只有在 <ph name="USER_SECURITY_SIGNALS_REPORTING_POLICY_NAME" /> 政策啟用時才會生效。後者負責控管 Chrome 的安全信號回報功能。</translation>
 <translation id="2261648512244797294">停用已淘汰的 Privet 列印功能</translation>
 <translation id="2262701937800507517">使用 <ph name="PRODUCT_OS_NAME" /> 的預設加密演算法順序</translation>
 <translation id="2263881357524831360">允許在 <ph name="ANDROID_NAME" /> 的 <ph name="PRODUCT_NAME" /> 中使用第三方密碼管理工具</translation>
@@ -2625,6 +2644,15 @@ PAC 樣式的字串：
 如果將這項政策設為啟用或不設定，使用者或許可以透過 Kerberos 設定頁面中的「Kerberos 帳戶」設定新增 Kerberos 帳戶。使用者可以完全控管自己新增的帳戶，也可以修改或移除帳戶。
 
 如果停用這項政策，使用者就無法新增 Kerberos 帳戶，只能透過「設定 Kerberos 帳戶」政策新增帳戶。這個方法可以有效地鎖定帳戶。</translation>
+<translation id="2771222727845689796">你可以透過這項政策指定網址模式清單。符合這些模式的背景網路內容強制用前景優先等級執行。
+
+如果啟用 <ph name="FORCE_FOREGROUND_PRIORITY_FOR_ALL_TABS_POLICY_NAME" /> 政策，系統會忽略這份清單，因為所有分頁都會強制用前景優先等級執行。
+
+如果 <ph name="FORCE_FOREGROUND_PRIORITY_FOR_ALL_TABS_POLICY_NAME" /> 已停用或未設定，系統只會強制讓符合這份清單模式的內容用前景優先等級執行。
+
+如要進一步瞭解有效的<ph name="URL_LABEL" />模式，請參閱 https://support.google.com/chrome/a?p=url_blocklist_filter_format。
+
+如果這份清單空白或未設定，系統就不會強制用前景優先等級執行任何背景內容。</translation>
 <translation id="2772231477628401250">透過 HTTP 下載更新</translation>
 <translation id="2772955711376920612">如果將這項政策設為啟用，同時設定 <ph name="DEVICE_POWER_PEAK_SHIFT_BATTERY_THRESHOLD_POLICY_NAME" /> 和 <ph name="DEVICE_POWER_PEAK_SHIFT_DAY_CONFIG_POLICY_NAME" />，電源尖峰轉移功能將保持在開啟狀態，前提是裝置提供相關支援。尖峰轉移電源管理政策是一項節電政策，能夠在用電尖峰時段將交流電的使用量降到最低。你可以針對每個平日，個別設定「電源尖峰轉移」模式的開始和結束時間。在這些時間範圍內，只要電池電量高於指定閾值，即使裝置已連接到交流電源，也仍會使用電池的電力。到達指定的結束時間後，如果裝置已連接到交流電源，則將改用交流電源，但不會為電池充電。到達指定的充電開始時間後，如果裝置已連接到交流電源，裝置一樣會使用交流電源運作，並為電池充電。
 
@@ -4280,6 +4308,22 @@ Protected Audience API 已淘汰，因此這項政策已在 <ph name="PRODUCT_NA
           如果不設定這項政策，系統會在初次顯示登入畫面時停用相黏鍵功能，但使用者隨時可以啟用。</translation>
 <translation id="3927291637826333102">依這些來源允許執行螢幕畫面、視窗和分頁擷取功能</translation>
 <translation id="3928726028264020458">啟用裝置 VPD 資訊回報功能</translation>
+<translation id="393516164454995927">你可以透過這項政策，指定每個 Proxy 伺服器 WebSocket 要求的同時連線數量上限。
+
+如要修改非 WebSocket 要求限制，請參閱 <ph name="MAX_CONNECTIONS_PER_PROXY_POLICY_NAME" />。
+
+如果未設定這項政策，預設值為 128。
+
+已知部分網頁應用程式會耗用許多連線處理停滯的 GET 要求，因此如果設定值低於 128，開啟太多這類網頁應用程式可能會導致瀏覽器網路當機。
+部分 Proxy 伺服器無法處理單一用戶端的大量並行連線，調降這項政策值即可解決這個問題。
+
+最小值為 6。
+如果設定值低於該下限，系統會使用 6。
+請自行承擔低於預設值 (128) 的風險。
+
+最大值為 256。
+如果設定值超過該上限，系統會使用 256。
+請自行承擔高於預設值 (128) 的風險。</translation>
 <translation id="3935592079035695061">毫秒數 (自午夜起算)。</translation>
 <translation id="3937800910397007337">強制將所有分頁設為前景優先</translation>
 <translation id="3941289958028934630">在登入畫面上停用互動朗讀功能</translation>
@@ -4722,6 +4766,7 @@ Protected Audience API 已淘汰，因此這項政策已在 <ph name="PRODUCT_NA
       如果將這項政策設為停用或不設定，就代表使用者可以變更這項設定。
 
       注意：對於 Android 裝置，請改用 <ph name="ISOLATE_ORIGINS_ANDROID_POLICY_NAME" /> 政策。</translation>
+<translation id="4261641564041253502">自動選取符合篩選條件的用戶端憑證，用於 <ph name="PRODUCT_NAME" /> 安全信號報告。</translation>
 <translation id="4261820385751181068">裝置登入畫面語言代碼</translation>
 <translation id="4263788921751326798">停用裝置當機報告資訊回報功能</translation>
 <translation id="4268586991084547853">與 Microsoft IE/Edge 企業模式網站清單的相容性更高。</translation>
@@ -6353,22 +6398,6 @@ Attribution Reporting API 已淘汰，因此這項政策已在 <ph name="PRODUCT
 <translation id="5293285950307241933">清除所有本機使用者資料</translation>
 <translation id="5293619885162445352">允許 <ph name="PEPPER_NAME" /> 使用新版影片解碼器。</translation>
 <translation id="529457411593078576">在第一次執行 CCT 時啟用《服務條款》</translation>
-<translation id="529718811410033393">你可以透過這項政策，指定每個 Proxy 伺服器非 WebSocket 要求的同時連線數量上限。
-
-如要修改 WebSocket 要求的限制，請參閱 <ph name="MAX_CONNECTIONS_PER_PROXY_FOR_WEBSOCKET_POLICY_NAME" />。
-
-如果未設定這項政策，預設值為 32。
-
-已知部分網頁應用程式會耗用許多連線處理停滯的 GET 動作，因此如果設定的值低於 32，開啟太多這類網頁應用程式，可能會導致瀏覽器網路當機。
-部分 Proxy 伺服器無法處理單一用戶端的大量並行連線，調降這項政策的值即可解決這個問題。
-
-最小值為 6。
-如果設定的值低於該限制，系統會使用 6。
-請自行承擔低於預設值 (32) 的風險。
-
-最大值為 256 (<ph name="PRODUCT_NAME" /> 147 版和更早版本為 99)。
-如果設定的值超過上限，系統會使用 256 (<ph name="PRODUCT_NAME" /> 147 版和更早版本為 99)。
-請自行承擔高於預設值 (32) 的風險。</translation>
 <translation id="5297873769621042075">你可以透過這項政策建立清單，指定哪些主機名稱或主機名稱模式 (例如「[*.]example.com」) 不會在 HTTPS-First 模式啟用時升級到 HTTPS 及顯示插頁式錯誤訊息。啟用這項政策後，機構可以繼續存取不支援 HTTPS 的伺服器，不必停用 HTTPS 升級和/或 HTTPS-First 模式。
 
 請務必提供標準化的主機名稱：所有 IDN 都必須轉換為單一標籤格式，而且所有 ASCII 字母都必須為小寫。請勿使用主機綜合萬用字元 (即「*」或「[*]」)，而且必須透過特定政策明確停用 HTTPS-First 模式和 HTTPS 升級。
@@ -6381,13 +6410,6 @@ Attribution Reporting API 已淘汰，因此這項政策已在 <ph name="PRODUCT
 <translation id="5303080953475303561">你可以透過這項政策，控管螢幕鎖定畫面要求使用者輸入密碼以快速解鎖的頻率。每當螢幕鎖定畫面顯示時，如果上一次輸入密碼的時間點落在所選值指定的時間範圍之前，裝置將無法快速解鎖。如果使用者停留在螢幕鎖定畫面的時間超過這個時間長度，則下次當他們輸入錯誤的解鎖碼或重新進入螢幕鎖定畫面時 (以先發生者為準)，系統就會要求輸入密碼。
 
       如果不設定這項政策，則使用快速解鎖功能的使用者每天都必須在螢幕鎖定畫面輸入密碼。</translation>
-<translation id="530488290401810961">設定 <ph name="PRODUCT_NAME" /> 如何下載基礎生成式 AI 模型，並在本機用於推論。
-
-如果將這項政策設為允許 (0) 或不設定，系統會自動下載模型並用於推論。
-
-如果將這項政策設為停用 (1)，系統就不會下載模型，並會刪除現有模型 (如果已下載)。
-
-在電腦平台上，<ph name="COMPONENT_UPDATES_ENABLED_POLICY_NAME" /> 也可以停用模型下載功能。</translation>
 <translation id="5306186200045823863">信任 Symantec 公司的舊版 PKI 基礎架構</translation>
 <translation id="5307432759655324440">無痕模式適用性</translation>
 <translation id="5308551343115571396"><ph name="LACROS_NAME" /> 停用後，我們將移除所有瀏覽器資料，但會盡可能嘗試保留使用者資料。</translation>
@@ -6569,7 +6591,7 @@ Attribution Reporting API 已淘汰，因此這項政策已在 <ph name="PRODUCT
 
       如果不設定這項政策，使用者可以選擇登入畫面上代表自己的顯示圖片。</translation>
 <translation id="5428716437928918274">Privacy Sandbox 設定控制選項</translation>
-<translation id="5430760800138878127">系統將啟用新的 HTML 剖析器行為，允許更多標記。</translation>
+<translation id="5430760800138878127">系統將啟用新的 HTML 剖析器行為，允許使用更多標記。</translation>
 <translation id="5431392643649571773">啟用 <ph name="PRODUCT_NAME" /> 功能時，系統會允許使用往返快取。當使用者離開頁面時，系統可能會將網頁的目前狀態 (文件樹狀結構、指令碼等等) 保存在往返快取中。如果瀏覽器返回該頁面，系統可能會透過往返快取還原頁面，以快取前的狀態顯示頁面。
 
           這項功能可能會讓某些並未預期會受到此快取的網站無法正常運作，尤其是瀏覽器離開頁面時，需要傳送「<ph name="UNLOAD_HANDLER_NAME" />」事件的網站。如果頁面進入往返快取，系統就不會傳送「<ph name="UNLOAD_HANDLER_NAME" />」事件。
@@ -7519,6 +7541,22 @@ IP 位址空間覆寫有兩種形式：
 如果值設為 True 或未設定，老師可以使用 Google Classroom 課程學生名單。
 
 如果設為 False，老師就無法存取這項功能。</translation>
+<translation id="6061604539167728530">你可以透過這項政策，指定每個 Proxy 伺服器非 WebSocket 要求的同時連線數量上限。
+
+如要修改 WebSocket 要求限制，請參閱 <ph name="MAX_CONNECTIONS_PER_PROXY_FOR_WEBSOCKET_POLICY_NAME" />。
+
+如果未設定這項政策，預設值為 128。
+
+已知部分網頁應用程式會耗用許多連線處理停滯的 GET 要求，因此如果設定值低於 128，開啟太多這類網頁應用程式可能會導致瀏覽器網路當機。
+部分 Proxy 伺服器無法處理單一用戶端的大量並行連線，調降這項政策值即可解決這個問題。
+
+最小值為 6。
+如果設定值低於該下限，系統會使用 6。
+請自行承擔低於預設值 (128) 的風險。
+
+最大值為 256 (<ph name="PRODUCT_NAME" /> 147 以下版本為 99)。
+如果設定值超過上限，系統會使用 256 (<ph name="PRODUCT_NAME" /> 147 以下版本為 99)。
+請自行承擔高於預設值 (128) 的風險。</translation>
 <translation id="6066761914755798079">如果已啟用 <ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" /> 政策，你可以設定 <ph name="DEFAULT_SEARCH_PROVIDER_SUGGEST_URL_POLICY_NAME" /> 政策來指定搜尋引擎提供搜尋建議的網址。網址應包含字串 <ph name="SEARCH_TERM_MARKER" />，系統會在查詢中將其替換為使用者的搜尋字詞。
 
       你可以將 Google 的搜尋網址指定為：<ph name="GOOGLE_SUGGEST_SEARCH_URL" />。</translation>
@@ -7988,6 +8026,7 @@ Origin-Agent-Cluster HTTP 標頭會控制文件要在 origin-keyed 代理程式�
 
       無論這項政策是否有設定，使用者都無法變更 WPAD 最佳化設定。</translation>
 <translation id="6363485842496031347">Delete 快速鍵設定採用含有 Alt 輔助鍵的快速鍵</translation>
+<translation id="6364336078281746235">強制將特定網址設為用前景優先等級執行</translation>
 <translation id="6366574325767783825">如果將這項政策設為 True 或不設定，<ph name="PRODUCT_NAME" /> 將接受透過 Signed HTTP Exchange 提供的網路內容。
 
       如果將這項政策設為 False，系統將無法載入 Signed HTTP Exchange。</translation>
@@ -9852,22 +9891,6 @@ Gemini 啟動功能僅支援部分國家/地區和語言。設定這項政策無
 
       如果是未受到管理的使用者裝置，這項功能的可用性會根據使用者是否為裝置擁有者而定。</translation>
 <translation id="7570291542739287032">僅限雲端</translation>
-<translation id="7571158727244273239">你可以透過這項政策，指定每個 Proxy 伺服器 WebSocket 要求的同時連線數量上限。
-
-如要修改非 WebSocket 要求的限制，請參閱 <ph name="MAX_CONNECTIONS_PER_PROXY_POLICY_NAME" />。
-
-如果未設定這項政策，預設值為 32。
-
-已知部分網頁應用程式會耗用許多連線處理停滯的 GET 動作，因此如果設定的值低於 32，開啟太多這類網頁應用程式，可能會導致瀏覽器網路當機。
-部分 Proxy 伺服器無法處理單一用戶端的大量並行連線，調降這項政策的值即可解決這個問題。
-
-最小值為 6。
-如果設定的值低於該限制，系統會使用 6。
-請自行承擔低於預設值 (32) 的風險。
-
-值應小於或等於 256。
-如果設定的值超過該上限，系統會使用 256。
-請自行承擔高於預設值 (32) 的風險。</translation>
 <translation id="7572641760104970905">無複雜度要求</translation>
 <translation id="757395965347379751">啟用這項設定時，只要 SHA-1 簽署憑證成功通過驗證並鏈結至本機安裝的 CA 憑證，即可在 <ph name="PRODUCT_NAME" /> 中使用。
 

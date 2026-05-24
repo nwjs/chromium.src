@@ -30,7 +30,6 @@ class MockGlicInstanceCoordinator
                bool,
                mojom::InvocationSource,
                std::optional<std::string>,
-               bool,
                std::optional<std::string>),
               (override));
   MOCK_METHOD(void, EnsurePreload, (), (override));
@@ -84,6 +83,14 @@ class MockGlicInstanceCoordinator
   MOCK_METHOD(std::vector<ConversationInfo>,
               GetRecentlyActiveInstances,
               (size_t),
+              (override));
+  MOCK_METHOD(bool,
+              IsTabPinnedToAnyInstance,
+              (const tabs::TabHandle&),
+              (const, override));
+  MOCK_METHOD(void,
+              UnpinTabsFromAllInstances,
+              (base::span<const tabs::TabHandle>, GlicUnpinTrigger),
               (override));
   MOCK_METHOD(void,
               ArchiveInstanceWithFrame,

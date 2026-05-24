@@ -290,6 +290,7 @@
 <translation id="3843916486309149084">Chrome akan menyekat kuki lagi hari ini</translation>
 <translation id="385051799172605136">Kembali</translation>
 <translation id="3859306556332390985">Cari ke hadapan</translation>
+<translation id="3870711497942672548">Peribadikan Chrome mengikut cita rasa anda dengan warna dan imej tersuai untuk halaman utama anda</translation>
 <translation id="389521680295183045">Laman boleh meminta untuk mengetahui waktu anda aktif menggunakan peranti</translation>
 <translation id="3895926599014793903">Zum didaya paksa</translation>
 <translation id="3903738175795615004">Seret daripada bahagian atas atau tekan kekunci Esc untuk keluar daripada skrin penuh.</translation>
@@ -333,6 +334,7 @@
 <translation id="4290791284969893584">Selepas menutup halaman, tugas yang anda mulakan mungkin tidak selesai</translation>
 <translation id="429312253194641664">Tapak sedang memainkan media</translation>
 <translation id="42981349822642051">Kembangkan</translation>
+<translation id="4310738531374808763">Sesuaikan halaman utama anda</translation>
 <translation id="4336219115486912529">{COUNT,plural, =1{Tamat tempoh esok}other{Tamat tempoh dalam masa # hari}}</translation>
 <translation id="4338831206024587507">Semua laman di bawah <ph name="DOMAIN" /></translation>
 <translation id="4340799661701629185">Jangan benarkan laman menghantar pemberitahuan</translation>
@@ -524,6 +526,7 @@
 <translation id="6262279340360821358"><ph name="PERMISSION_1" /> dan <ph name="PERMISSION_2" /> disekat</translation>
 <translation id="6270391203985052864">Tapak boleh membuat permintaan untuk menghantar pemberitahuan</translation>
 <translation id="6295158916970320988">Semua tapak</translation>
+<translation id="6305257382500066042">Cubalah sekarang</translation>
 <translation id="6320088164292336938">Getar</translation>
 <translation id="6367753977865761591">Sekat log masuk pihak ketiga untuk laman tertentu.</translation>
 <translation id="6398765197997659313">Keluar daripada skrin penuh</translation>
@@ -609,6 +612,7 @@
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> dipilih</translation>
 <translation id="7260727271532453612"><ph name="PERMISSION_1" /> dan <ph name="PERMISSION_2" /> dibenarkan</translation>
 <translation id="7276071417425470385">Apabila dihidupkan, laman dapat meminta untuk menggunakan peranti realiti maya. Apabila dimatikan, laman tidak dapat menggunakan peranti realiti maya.</translation>
+<translation id="7279851812866769760">Kongsi kenalan</translation>
 <translation id="7282197670900591579">Tema kuning sitron</translation>
 <translation id="728412880473384942">Laman lebih pantas tetapi kurang selamat</translation>
 <translation id="7352902948037373520">Urus dalam <ph name="BEGIN_LINK1" />tetapan Android<ph name="END_LINK1" />
@@ -700,6 +704,7 @@ Perlindungan Lanjutan mengawal tetapan Chrome ini:</translation>
 <translation id="823874716226307142">Apabila dihidupkan, laman boleh meminta untuk mengakses peranti lain pada rangkaian setempat anda. Apabila dimatikan, laman tidak boleh mengakses peranti lain pada rangkaian setempat anda.</translation>
 <translation id="8249310407154411074">Alihkan ke atas</translation>
 <translation id="8261506727792406068">Padam</translation>
+<translation id="8273596202562472147">Lagi pilihan untuk <ph name="SITE_NAME" /></translation>
 <translation id="8284326494547611709">Kapsyen</translation>
 <translation id="8300705686683892304">Diurus oleh apl</translation>
 <translation id="8301363963630676147">Dibenarkan pada masa ini • Menggunakan anggaran</translation>
@@ -794,6 +799,7 @@ Perlindungan Lanjutan mengawal tetapan Chrome ini:</translation>
 <translation id="9156722768168878035">Benarkan Chrome memaparkan tab terbaharu anda dalam senarai apl dan hasil carian peranti anda. Anda boleh mematikan ciri ini dalam tetapan Chrome pada bila-bila masa.</translation>
 <translation id="9162462602695099906">Halaman ini berbahaya</translation>
 <translation id="9182556968660520230">Jangan benarkan laman memainkan kandungan yang dilindungi</translation>
+<translation id="927148002081263046">Kongsi kenalan</translation>
 <translation id="947156494302904893">Laman yang anda lawati boleh mengesahkan bahawa anda orang sebenar dan bukan bot</translation>
 <translation id="959682366969460160">Jadi teratur</translation>
 <translation id="960590623979248167">Tunjukkan hiperpautan</translation>

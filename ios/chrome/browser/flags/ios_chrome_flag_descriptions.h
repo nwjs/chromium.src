@@ -301,6 +301,9 @@ extern const char kCredentialProviderPerformanceImprovementsDescription[];
 extern const char kCrossDeviceSigninName[];
 extern const char kCrossDeviceSigninDescription[];
 
+extern const char kDataControlsSearchWithName[];
+extern const char kDataControlsSearchWithDescription[];
+
 extern const char kDataSharingDebugLogsName[];
 extern const char kDataSharingDebugLogsDescription[];
 
@@ -600,9 +603,6 @@ extern const char kIOSProactivePasswordGenerationBottomSheetDescription[];
 
 extern const char kIOSProvidesAppNotificationSettingsName[];
 extern const char kIOSProvidesAppNotificationSettingsDescription[];
-
-extern const char kIOSSaveToDriveClientFolderName[];
-extern const char kIOSSaveToDriveClientFolderDescription[];
 
 extern const char kIOSSaveToDriveSignedOutName[];
 extern const char kIOSSaveToDriveSignedOutDescription[];

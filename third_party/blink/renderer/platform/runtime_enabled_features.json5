@@ -593,14 +593,6 @@
       status: "stable",
     },
     {
-      // Enables the new behavior for this spec change:
-      // https://github.com/whatwg/html/pull/11457
-      // https://issues.chromium.org/issues/433545121
-      // https://chromestatus.com/feature/5179013869993984
-      name: "AncestorRevealingNewSpec",
-      status: "stable",
-    },
-    {
       // This is a bug fix for rendering a missing focus ring on <a> elements.
       // Shipping in M147, safe to remove in M150.
       name: "AnchorFocusRingFix",
@@ -2457,6 +2449,12 @@
       status: "stable",
     },
     {
+      // Uses the original event delta to choose the initial elastic overscroll
+      // axis.
+      name: "ElasticOverscrollUseEventDeltaForAxisSelection",
+      status: "stable",
+    },
+    {
       public: true,
       name: "ElementCapture",
       status: {"Android": "experimental", "iOS": "", "default": "stable"},
@@ -3095,6 +3093,7 @@
     {
       name: "GamepadRawInputChangeEvent",
       status: "experimental",
+      origin_trial_feature_name: "GamepadRawInputChangeEvent",
     },
     {
       name: "GamepadWindowEventHandlers",
@@ -3370,14 +3369,6 @@
       settable_from_internals: true,
       status: {"Android": "stable"},
       base_feature: "none",
-    },
-    {
-      // Improved retargeting behavior of ToggleEvent.source and
-      // CommandEvent.source to match Event.relatedTarget.
-      // crbug.com/420639769
-      // Enabled in M142, can be removed in M144.
-      name: "ImprovedSourceRetargeting",
-      status: "stable",
     },
     {
       name: "IncomingCallNotifications",
@@ -4114,6 +4105,14 @@
       // This will be shipped in M142, and it can be removed in M144.
       // See https://issues.chromium.org/issues/443031270.
       name: "OpenPopoverInvokerRestrictToSameTreeScope",
+      status: "stable",
+    },
+    {
+      // Makes option elements match :enabled or :disabled based on whether
+      // their ancestor select element is disabled.
+      // https://github.com/w3c/csswg-drafts/issues/13383
+      // https://issues.chromium.org/issues/490082172
+      name: "OptionDisablednessCheckAncestors",
       status: "stable",
     },
     {
@@ -6613,6 +6612,8 @@
       name: "WebMCP",
       origin_trial_feature_name: "WebMCP",
       public: true,
+      base_feature_status: "enabled",
+      copied_from_base_feature_if: "overridden",
       // Note that `depends_on` isn't supported by origin trials.
       implied_by: [
         "WebMCPDeclarativeFileInput",

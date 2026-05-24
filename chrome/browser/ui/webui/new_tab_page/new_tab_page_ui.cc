@@ -99,6 +99,7 @@
 #include "components/ntp_tiles/tile_type.h"
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
+#include "components/omnibox/common/composebox_features.h"
 #include "components/page_image_service/image_service.h"
 #include "components/page_image_service/image_service_handler.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -758,6 +759,8 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
                      ntp_composebox::kShowContextMenuTabPreviews.Get());
   source->AddBoolean("composeboxContextMenuEnableMultiTabSelection",
                      ntp_composebox::kContextMenuEnableMultiTabSelection.Get());
+  source->AddBoolean("contextManagementInComposeboxEnabled",
+  base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox));
   source->AddBoolean("searchboxShowComposebox",
                      ntp_composebox::IsNtpComposeboxEnabled(profile));
   source->AddBoolean("composeboxShowZps", true);
@@ -791,6 +794,9 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
 #else
   source->AddBoolean("enableThreadsRailLogo", false);
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+
+  source->AddBoolean("useNtpComposeboxFork",
+                     ntp_composebox::kUseNtpComposeboxFork.Get());
 
   // Action Chips LoadTimeData
 // TODO(b/502297163): Implement for Android.
@@ -970,6 +976,8 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
   auto plural_string_handler = std::make_unique<PluralStringHandler>();
   plural_string_handler->AddLocalizedString("modulesTabGroupsTabsText",
                                             IDS_SAVED_TAB_GROUP_TABS_COUNT);
+  plural_string_handler->AddLocalizedString("sharingTabs",
+                                            IDS_COMPOSE_SHARING_TABS);
   web_ui->AddMessageHandler(std::move(plural_string_handler));
 
   content::URLDataSource::Add(profile_,

@@ -4,6 +4,7 @@
 
 import './icons.html.js';
 import './composebox_tab_favicon.js';
+import './composebox_favicon_group.js';
 import '//resources/cr_elements/icons.html.js';
 import '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import '//resources/cr_elements/cr_icon/cr_icon.js';
@@ -17,6 +18,7 @@ import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
 import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import type {TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {InputState} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {InputType, ModelMode, ToolMode} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
@@ -25,9 +27,13 @@ import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/ung
 import {getLoadTimeBoolean, recordContextAdditionMethod, TabUploadOrigin} from './common.js';
 import {getCss} from './contextual_action_menu.css.js';
 import {getHtml} from './contextual_action_menu.html.js';
+import {WindowProxy} from './window_proxy.js';
 
 /** The width of the dropdown menu in pixels. */
 const MENU_WIDTH_PX = 190;
+
+const SHARE_TABS_MENU_WIDTH_PX = 320;
+const SHARE_TABS_FLYOUT_CLOSE_DELAY_MS = 300;
 
 export interface ContextualActionMenuElement {
   $: {
@@ -67,6 +73,8 @@ export class ContextualActionMenuElement extends
       showContextMenuHeaders_: {type: Boolean},
       smartTabSharingVisible_: {type: Boolean},
       disableAutoReposition: {type: Boolean},
+      contextManagementInComposeboxEnabled_: {type: Boolean},
+      shareTabsFlyoutOpen_: {type: Boolean},
     };
   }
 
@@ -89,6 +97,14 @@ export class ContextualActionMenuElement extends
       loadTimeData.getBoolean('ShowContextMenuHeaders');
   protected accessor smartTabSharingVisible_: boolean =
       getLoadTimeBoolean('composeboxSmartTabSharingVisible', false);
+  protected accessor contextManagementInComposeboxEnabled_: boolean =
+      getLoadTimeBoolean('contextManagementInComposeboxEnabled', false);
+  protected accessor shareTabsFlyoutOpen_: boolean = false;
+
+  private closeTimer_: number|null = null;
+  private pointerOverTrigger_: boolean = false;
+  private pointerOverFlyout_: boolean = false;
+
   protected get supportedTools_(): Map<ToolMode, {
     icon: string,
   }> {
@@ -151,6 +167,16 @@ export class ContextualActionMenuElement extends
     ]);
   }
 
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this.resetShareTabsFlyout_();
+  }
+
+  override updated(changedProperties: PropertyValues<this>) {
+    super.updated(changedProperties);
+
+    this.manageShareTabsInitialFocus_(changedProperties);
+  }
   get open(): boolean {
     return this.$.menu.open;
   }
@@ -163,12 +189,36 @@ export class ContextualActionMenuElement extends
 
   showAt(anchor: HTMLElement) {
     this.$.menu.showAt(anchor, {
-      width: MENU_WIDTH_PX,
+      width: this.contextManagementInComposeboxEnabled_ ? SHARE_TABS_MENU_WIDTH_PX : MENU_WIDTH_PX,
       anchorAlignmentX: AnchorAlignment.AFTER_START,
       anchorAlignmentY: AnchorAlignment.AFTER_END,
       noOffset: true,
     });
     window.addEventListener('blur', this.onWindowBlur_);
+  }
+
+  private manageShareTabsInitialFocus_(
+      changedProperties: PropertyValues<this>) {
+    // Manually manage the initial keyboard focus for the "Share Tabs" menu item.
+    // Because `tabSuggestions` are fetched asynchronously, the
+    // `#shareTabsTrigger` button may not exist in the DOM at the exact moment
+    // the menu is opened. This causes the underlying <cr-action-menu> to
+    // incorrectly assign the initial focus to the next available item. To fix
+    // this, we reclaim the focus once the tab data arrives and the DOM is updated.
+    if (changedProperties.has('tabSuggestions')) {
+      const isNowPopulated =
+          this.tabSuggestions && this.tabSuggestions.length > 0;
+
+      if (isNowPopulated && this.open) {
+        requestAnimationFrame(() => {
+          const triggerBtn =
+              this.shadowRoot.querySelector<HTMLElement>('#shareTabsTrigger');
+          if (triggerBtn) {
+            triggerBtn.focus();
+          }
+        });
+      }
+    }
   }
 
   protected isToolAllowed_(tool: ToolMode): boolean {
@@ -355,6 +405,11 @@ export class ContextualActionMenuElement extends
     return noNewContextAllowed || isTabInContext;
   }
 
+  protected getSelectedTabs_(): TabInfo[] {
+    return this.tabSuggestions.filter(
+        tab => this.disabledTabIds.has(tab.tabId));
+  }
+
   protected onSmartTabSharingToggleChange_(e: Event) {
     const toggle = e.target as CrToggleElement;
     this.fire('smart-tab-sharing-active-changed', {active: toggle.checked});
@@ -407,6 +462,82 @@ export class ContextualActionMenuElement extends
     if (!this.enableMultiTabSelection_) {
       this.$.menu.close();
     }
+  }
+
+  protected onShareTabsRowPointerenter_() {
+    this.pointerOverTrigger_ = true;
+    this.cancelCloseTimer_();
+    this.shareTabsFlyoutOpen_ = true;
+  }
+
+  protected onShareTabsRowPointerleave_() {
+    this.pointerOverTrigger_ = false;
+    this.scheduleCloseTimer_();
+  }
+
+  protected onShareTabsFlyoutPointerenter_() {
+    this.pointerOverFlyout_ = true;
+    this.cancelCloseTimer_();
+  }
+
+  protected onShareTabsFlyoutPointerleave_() {
+    this.pointerOverFlyout_ = false;
+    this.scheduleCloseTimer_();
+  }
+
+  protected onShareTabsRowKeydown_(e: KeyboardEvent) {
+    if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      this.shareTabsFlyoutOpen_ = true;
+
+      this.updateComplete.then(() => {
+        const firstTabItem = this.shadowRoot.querySelector<HTMLElement>(
+            '.share-tabs-flyout button.dropdown-item');
+        if (firstTabItem) {
+          firstTabItem.focus();
+        }
+      });
+    }
+  }
+
+  protected onShareTabsFlyoutKeydown_(e: KeyboardEvent) {
+    if (e.key === 'ArrowLeft' || e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      this.shareTabsFlyoutOpen_ = false;
+
+      const row =
+          this.shadowRoot.querySelector<HTMLElement>('#shareTabsTrigger');
+      if (row) {
+        row.focus();
+      }
+    }
+  }
+
+
+  private scheduleCloseTimer_() {
+    this.cancelCloseTimer_();
+    this.closeTimer_ = WindowProxy.getInstance().setTimeout(() => {
+      this.closeTimer_ = null;
+      if (!this.pointerOverTrigger_ && !this.pointerOverFlyout_) {
+        this.shareTabsFlyoutOpen_ = false;
+      }
+    }, SHARE_TABS_FLYOUT_CLOSE_DELAY_MS);
+  }
+
+  private cancelCloseTimer_() {
+    if (this.closeTimer_ !== null) {
+      WindowProxy.getInstance().clearTimeout(this.closeTimer_);
+      this.closeTimer_ = null;
+    }
+  }
+
+  private resetShareTabsFlyout_() {
+    this.cancelCloseTimer_();
+    this.pointerOverTrigger_ = false;
+    this.pointerOverFlyout_ = false;
+    this.shareTabsFlyoutOpen_ = false;
   }
 
   protected onTabPointerenter_(e: Event) {
@@ -463,6 +594,7 @@ export class ContextualActionMenuElement extends
 
   protected onMenuClose_() {
     window.removeEventListener('blur', this.onWindowBlur_);
+    this.resetShareTabsFlyout_();
     this.fire('close');
   }
 

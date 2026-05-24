@@ -9,6 +9,9 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/entry_point_eligibility_manager.h"
 #include "chrome/browser/lens/core/mojom/geometry.mojom.h"
 #include "chrome/browser/profiles/profile.h"
@@ -219,10 +222,6 @@ void LensSearchController::OpenLensOverlay(
     return;
   }
 
-  if (lens::features::IsLensSearchZeroStateCsbEnabled() && IsOff()) {
-    IssueZeroStateRequest(invocation_source);
-    return;
-  }
 
   // If the overlay is already active, don't start a new session. This can
   // happen if the side panel is open and the user reinvokes the overlay.
@@ -384,30 +383,6 @@ void LensSearchController::IssueTextSearchRequest(
       is_zero_prefix_suggestion, invocation_source);
 }
 
-void LensSearchController::IssueZeroStateRequest(
-    lens::LensOverlayInvocationSource invocation_source) {
-  CheckInitialized(initialized_);
-  if (!RunLensEligibilityChecks(
-          invocation_source,
-          base::BindRepeating(&LensSearchController::IssueZeroStateRequest,
-                              weak_ptr_factory_.GetWeakPtr(),
-                              invocation_source))) {
-    return;
-  }
-
-  auto query_start_time = base::Time::Now();
-  if (IsOff()) {
-    StartLensSession(invocation_source);
-  }
-
-  lens_contextualization_controller_->StartContextualization(
-      invocation_source,
-      base::BindOnce(
-          &LensSearchController::OnPageContextUpdatedForZeroStateRequest,
-          weak_ptr_factory_.GetWeakPtr(), invocation_source, query_start_time));
-  // Show the side panel right away so the ghost loader is shown.
-  lens_overlay_side_panel_coordinator()->RegisterEntryAndShow();
-}
 
 void LensSearchController::CloseLensAsync(
     lens::LensOverlayDismissalSource dismissal_source) {
@@ -1112,6 +1087,34 @@ void LensSearchController::TabWillEnterBackground(tabs::TabInterface* tab) {
     return;
   }
 
+  // Dismisses the Lens session and closes the side panel if the tab is
+  // backgrounded in the contextual tasks flow while waiting for results.
+  // This prevents a broken state where the overlay or a blank panel might be
+  // left open on a background tab.
+  if (should_route_to_contextual_tasks() && IsShowingUI()) {
+    auto* panel_controller =
+        contextual_tasks::ContextualTasksPanelController::From(
+            tab_->GetBrowserWindowInterface());
+    if (panel_controller) {
+      content::WebContents* panel_contents =
+          panel_controller->GetActiveWebContents();
+      if (panel_contents) {
+        GURL url = panel_contents->GetVisibleURL();
+        base::Uuid task_id =
+            contextual_tasks::ContextualTasksUiService::GetTaskIdFromUrl(url);
+
+        auto* ui_service = contextual_tasks::ContextualTasksUiServiceFactory::
+            GetForBrowserContext(tab_->GetContents()->GetBrowserContext());
+        if (ui_service && ui_service->IsTaskWaitingForUrl(task_id)) {
+          panel_controller->Close();
+          CloseLensSync(lens::LensOverlayDismissalSource::
+                            kTabBackgroundedWhileInitializing);
+          return;
+        }
+      }
+    }
+  }
+
   // If no Lens UI is showing when the tab is backgrounded, then the entire Lens
   // session should be closed.
   if (!IsShowingUI()) {
@@ -1151,26 +1154,6 @@ void LensSearchController::WillDetach(tabs::TabInterface* tab,
   }
 }
 
-void LensSearchController::OnPageContextUpdatedForZeroStateRequest(
-    lens::LensOverlayInvocationSource invocation_source,
-    base::Time query_start_time) {
-  lens_searchbox_controller()->SetSearchboxInputText(std::string());
-  if (lens_search_contextualization_controller()
-          ->GetCurrentPageContextEligibility()) {
-    // Create a region that consists of the entire viewport.
-    auto full_viewport_region = lens::mojom::CenterRotatedBox::New();
-    full_viewport_region->box =
-        gfx::RectF(/*x=*/0.5, /*y=*/0.5, /*width=*/1.0, /*height=*/1.0);
-    full_viewport_region->coordinate_type =
-        lens::mojom::CenterRotatedBox_CoordinateType::kNormalized;
-
-    lens_overlay_query_controller()->SendRegionSearch(
-        query_start_time, std::move(full_viewport_region),
-        lens::LensOverlaySelectionType::REGION_SEARCH,
-        /*additional_search_query_params=*/std::map<std::string, std::string>(),
-        /*region_bytes=*/std::nullopt);
-  }
-}
 
 Profile* LensSearchController::GetProfile() {
   return Profile::FromBrowserContext(tab_->GetContents()->GetBrowserContext());

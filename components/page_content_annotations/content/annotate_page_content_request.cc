@@ -414,7 +414,9 @@ AnnotatedPageContentRequest::ShouldScheduleExtraction(bool on_hide) const {
           features::PageContentExtractionTriggeringMode::kOnLoadAndHidden;
 
   if (trigger_on_load || !on_demand_callbacks_.empty()) {
-    CHECK(!on_hide);
+    // TODO(b/490161242): Investigate why this check can fail and then consider
+    // re-enabling it.
+    // CHECK(!on_hide);
     if (!on_demand_callbacks_.empty()) {
       return TriggerSource::kOnDemand;
     }
@@ -492,7 +494,7 @@ void AnnotatedPageContentRequest::OnPageContextFetched(
       web_contents()->GetPrimaryPage(), page_content.value(), screenshot_data,
       get_tab_id_callback_.Run(web_contents()));
 
-  if (std::holds_alternative<RefCountedPDFTextPtr>(page_content.value())) {
+  if (IsPDFTextPtr(page_content.value())) {
     // Note: Unlike APC result, PDF text result is not stored to the
     // `cached_content_` below, which is used for supporting on-demand APC
     // fetching.
@@ -504,7 +506,7 @@ void AnnotatedPageContentRequest::OnPageContextFetched(
 
   // Move APC into the cache.
   cached_content_ =
-      ExtractedPageContentResult(std::get<RefCountedAnnotatedPageContentPtr>(
+      ExtractedPageContentResult(GetAnnotatedPageContentPtrFromPageContent(
                                      std::move(page_content.value())),
                                  extraction_time, is_eligible_for_server_upload,
                                  std::move(screenshot_data));

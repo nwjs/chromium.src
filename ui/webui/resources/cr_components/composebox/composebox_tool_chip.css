@@ -11,7 +11,7 @@
   align-items: center;
   animation: var(--cr-composebox-tool-chip-animation, none);
   background-color:
-    var(--color-composebox-context-entrypoint-hover-background);
+    var(--color-composebox-tool-chip-background);
   border: none;
   color: var(--color-searchbox-results-foreground);
   display: flex;
@@ -25,6 +25,7 @@
 }
 
 :host-context([energy-effect-enabled_]) #toolEnabledButton {
+  --cr-button-ripple-color: transparent;
   gap: 4px;
   padding: 8px;
   padding-inline-start: 12px;
@@ -80,7 +81,7 @@
 }
 
 #rightCloseIcon {
-  color: var(--color-searchbox-results-foreground-dimmed);
+  color: var(--cr-composebox-tool-chip-right-close-icon-color);
   display: none;
   height: 10px;
   padding: 7px;

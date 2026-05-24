@@ -6528,6 +6528,14 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5884" label="PreventSvgFilterPaint"/>
   <int value="5885" label="LanguageModel_Prompt_ResponseConstraint"/>
   <int value="5886" label="LanguageModel_Prompt_Prefix"/>
+  <int value="5887" label="CapabilityElementIsValid"/>
+  <int value="5888" label="CapabilityElementInvalidReason"/>
+  <int value="5889" label="CapabilityElementInitialPermissionStatus"/>
+  <int value="5890" label="CapabilityElementPermissionStatus"/>
+  <int value="5891" label="CapabilityElementOnPromptAction"/>
+  <int value="5892" label="CapabilityElementOnPromptDismiss"/>
+  <int value="5893" label="CapabilityElementOnValidationStatusChange"/>
+  <int value="5894" label="InputParsedParentSelectNoOptions"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom:WebFeature) -->
@@ -7130,6 +7138,7 @@ Called by update_permissions_policy_enum.py.-->
   <int value="50" label="ConfigNotMatchingType"/>
   <int value="51" label="LoginPopupClosedWithoutSignin"/>
   <int value="52" label="SuppressedBySegmentationPlatform"/>
+  <int value="53" label="SuccessUsingRedirectTo"/>
 </enum>
 
 <!-- LINT.ThenChange(//content/browser/webid/metrics.h:RequestIdTokenStatus) -->
@@ -7230,6 +7239,30 @@ Called by update_permissions_policy_enum.py.-->
              received"/>
   <int value="7"
       label="Token not received and error received and continue_on received"/>
+  <int value="8"
+      label="Token received and error not received and continue_on not
+             received and redirect_to received"/>
+  <int value="9"
+      label="Token received and error received and continue_on not received
+             and redirect_to received"/>
+  <int value="10"
+      label="Token not received and error not received and continue_on not
+             received and redirect_to received"/>
+  <int value="11"
+      label="Token not received and error received and continue_on not
+             received and redirect_to received"/>
+  <int value="12"
+      label="Token received and error not received and continue_on received
+             and redirect_to received"/>
+  <int value="13"
+      label="Token received and error received and continue_on received and
+             redirect_to received"/>
+  <int value="14"
+      label="Token not received and error not received and continue_on
+             received and redirect_to received"/>
+  <int value="15"
+      label="Token not received and error received and continue_on received
+             and redirect_to received"/>
 </enum>
 
 <!-- LINT.ThenChange(//content/browser/webid/idp_network_request_manager.h:FedCmTokenResponseType) -->

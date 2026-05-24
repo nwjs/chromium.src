@@ -191,10 +191,6 @@ class ContextualSearchboxHandlerTest
 
   void SetUp() override {
     ContextualSearchboxHandlerTestHarness::SetUp();
-    // TODO(crbug.com/503732217): Fix tests to support lazy fetching of cluster
-    // info and enable this feature by default in tests.
-    scoped_feature_list_.InitAndDisableFeature(
-        contextual_tasks::kContextualTasksLazyFetchClusterInfo);
 
     auto query_controller_config_params = std::make_unique<
         contextual_search::ContextualSearchContextController::ConfigParams>();
@@ -296,7 +292,6 @@ class ContextualSearchboxHandlerTest
   raw_ptr<MockQueryController> query_controller_;
   raw_ptr<contextual_search::ContextualSearchService> service_;
   raw_ptr<MockContextualSearchMetricsRecorder> metrics_recorder_;
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 TEST_F(ContextualSearchboxHandlerTest, SessionStarted) {
@@ -549,6 +544,16 @@ TEST_F(ContextualSearchboxHandlerTest, AddFileFromBrowser_PolicyEnabled) {
       static_cast<int>(
           contextual_search::SearchContentSharingSettingsValue::kEnabled));
 
+  scoped_config().config.mutable_composebox()->set_max_num_files(5);
+  scoped_config()
+      .config.mutable_composebox()
+      ->mutable_attachment_upload()
+      ->set_max_size_bytes(100);
+  scoped_config()
+      .config.mutable_composebox()
+      ->mutable_attachment_upload()
+      ->set_mime_types_allowed("application/pdf");
+
   std::string file_name = "test.pdf";
   std::string mime_type = "application/pdf";
   std::vector<uint8_t> test_data = {1, 2, 3, 4};
@@ -574,18 +579,288 @@ TEST_F(ContextualSearchboxHandlerTest, AddFileFromBrowser_PolicyEnabled) {
   EXPECT_TRUE(callback_token.has_value());
 }
 
-TEST_F(ContextualSearchboxHandlerTest, SubmitQuery) {
-  // Wait until the state changes to kClusterInfoReceived.
-  base::RunLoop run_loop;
-  query_controller().set_on_query_controller_state_changed_callback(
-      base::BindLambdaForTesting(
-          [&](ComposeboxQueryController::QueryControllerState state) {
-            if (state == ComposeboxQueryController::QueryControllerState::
-                             kClusterInfoReceived) {
-              run_loop.Quit();
-            }
-          }));
+TEST_F(ContextualSearchboxHandlerTest,
+       AddFileFromBrowser_DeepSearchNotAllowed) {
+  profile()->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kEnabled));
 
+  // Set the active tool to Deep Search.
+  handler().input_state_model()->setActiveTool(omnibox::TOOL_MODE_DEEP_SEARCH);
+
+  std::string file_name = "test.pdf";
+  std::string mime_type = "application/pdf";
+  std::vector<uint8_t> test_data = {1, 2, 3};
+  mojo_base::BigBuffer file_data(test_data);
+
+  base::test::TestFuture<base::expected<
+      base::UnguessableToken, contextual_search::ContextUploadErrorType>>
+      future;
+  handler().AddFileContextFromBrowser(file_name, mime_type,
+                                      std::move(file_data), std::nullopt,
+                                      future.GetCallback());
+
+  auto result = future.Take();
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), contextual_search::ContextUploadErrorType::
+                                kBrowserProcessingFileUploadNotAllowedError);
+}
+
+TEST_F(ContextualSearchboxHandlerTest, AddFileFromBrowser_DisabledInputType) {
+  profile()->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kEnabled));
+
+  // Set the active tool to something other than Unspecified or Deep Search.
+  omnibox::InputState state = handler().input_state_model()->GetInputState();
+  state.active_tool = omnibox::TOOL_MODE_IMAGE_GEN;
+  state.disabled_input_types.push_back(omnibox::INPUT_TYPE_LENS_FILE);
+  handler().input_state_model()->set_state_for_testing(state);
+
+  std::string file_name = "test.pdf";
+  std::string mime_type = "application/pdf";
+  std::vector<uint8_t> test_data = {1, 2, 3};
+  mojo_base::BigBuffer file_data(test_data);
+
+  base::test::TestFuture<base::expected<
+      base::UnguessableToken, contextual_search::ContextUploadErrorType>>
+      future;
+  handler().AddFileContextFromBrowser(file_name, mime_type,
+                                      std::move(file_data), std::nullopt,
+                                      future.GetCallback());
+
+  auto result = future.Take();
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), contextual_search::ContextUploadErrorType::
+                                kBrowserProcessingUnsupportedFileTypeError);
+}
+
+TEST_F(ContextualSearchboxHandlerTest, AddFileFromBrowser_FileEmpty) {
+  profile()->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kEnabled));
+
+  std::string file_name = "empty.pdf";
+  std::string mime_type = "application/pdf";
+  std::vector<uint8_t> test_data = {};
+  mojo_base::BigBuffer file_data(test_data);
+
+  base::test::TestFuture<base::expected<
+      base::UnguessableToken, contextual_search::ContextUploadErrorType>>
+      future;
+  handler().AddFileContextFromBrowser(file_name, mime_type,
+                                      std::move(file_data), std::nullopt,
+                                      future.GetCallback());
+
+  auto result = future.Take();
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), contextual_search::ContextUploadErrorType::
+                                kBrowserProcessingFileEmptyError);
+}
+
+TEST_F(ContextualSearchboxHandlerTest, AddFileFromBrowser_FileTooLarge) {
+  profile()->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kEnabled));
+
+  // Set the maximum file size to 2 bytes.
+  scoped_config()
+      .config.mutable_composebox()
+      ->mutable_attachment_upload()
+      ->set_max_size_bytes(2);
+
+  std::string file_name = "large.pdf";
+  std::string mime_type = "application/pdf";
+  std::vector<uint8_t> test_data = {1, 2, 3};  // 3 bytes > 2 bytes limit
+  mojo_base::BigBuffer file_data(test_data);
+
+  base::test::TestFuture<base::expected<
+      base::UnguessableToken, contextual_search::ContextUploadErrorType>>
+      future;
+  handler().AddFileContextFromBrowser(file_name, mime_type,
+                                      std::move(file_data), std::nullopt,
+                                      future.GetCallback());
+
+  auto result = future.Take();
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), contextual_search::ContextUploadErrorType::
+                                kBrowserProcessingFileTooLargeError);
+}
+
+TEST_F(ContextualSearchboxHandlerTest, AddFileFromBrowser_UnsupportedType) {
+  profile()->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kEnabled));
+
+  // Only allow PDF.
+  scoped_config()
+      .config.mutable_composebox()
+      ->mutable_attachment_upload()
+      ->set_mime_types_allowed("application/pdf");
+  scoped_config()
+      .config.mutable_composebox()
+      ->mutable_image_upload()
+      ->set_mime_types_allowed("");
+
+  std::string file_name = "test.txt";
+  std::string mime_type = "text/plain";
+  std::vector<uint8_t> test_data = {1, 2, 3};
+  mojo_base::BigBuffer file_data(test_data);
+
+  base::test::TestFuture<base::expected<
+      base::UnguessableToken, contextual_search::ContextUploadErrorType>>
+      future;
+  handler().AddFileContextFromBrowser(file_name, mime_type,
+                                      std::move(file_data), std::nullopt,
+                                      future.GetCallback());
+
+  auto result = future.Take();
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), contextual_search::ContextUploadErrorType::
+                                kBrowserProcessingUnsupportedFileTypeError);
+}
+
+TEST_F(ContextualSearchboxHandlerTest, AddFileFromBrowser_MaxImagesExceeded) {
+  profile()->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kEnabled));
+
+  omnibox::InputState state = handler().input_state_model()->GetInputState();
+  state.max_inputs_by_type[omnibox::INPUT_TYPE_LENS_IMAGE] = 0;
+  handler().input_state_model()->set_state_for_testing(state);
+
+  scoped_config()
+      .config.mutable_composebox()
+      ->mutable_image_upload()
+      ->set_mime_types_allowed("image/jpeg");
+
+  std::string file_name = "test.jpg";
+  std::string mime_type = "image/jpeg";
+  std::vector<uint8_t> test_data = {1, 2, 3};
+  mojo_base::BigBuffer file_data(test_data);
+
+  base::test::TestFuture<base::expected<
+      base::UnguessableToken, contextual_search::ContextUploadErrorType>>
+      future;
+  handler().AddFileContextFromBrowser(file_name, mime_type,
+                                      std::move(file_data), std::nullopt,
+                                      future.GetCallback());
+
+  auto result = future.Take();
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), contextual_search::ContextUploadErrorType::
+                                kBrowserProcessingMaxImagesExceededError);
+}
+
+TEST_F(ContextualSearchboxHandlerTest, AddFileFromBrowser_MaxPdfsExceeded) {
+  profile()->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kEnabled));
+
+  omnibox::InputState state = handler().input_state_model()->GetInputState();
+  state.max_inputs_by_type[omnibox::INPUT_TYPE_LENS_FILE] = 0;
+  handler().input_state_model()->set_state_for_testing(state);
+
+  scoped_config()
+      .config.mutable_composebox()
+      ->mutable_attachment_upload()
+      ->set_mime_types_allowed("application/pdf");
+
+  std::string file_name = "test.pdf";
+  std::string mime_type = "application/pdf";
+  std::vector<uint8_t> test_data = {1, 2, 3};
+  mojo_base::BigBuffer file_data(test_data);
+
+  base::test::TestFuture<base::expected<
+      base::UnguessableToken, contextual_search::ContextUploadErrorType>>
+      future;
+  handler().AddFileContextFromBrowser(file_name, mime_type,
+                                      std::move(file_data), std::nullopt,
+                                      future.GetCallback());
+
+  auto result = future.Take();
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), contextual_search::ContextUploadErrorType::
+                                kBrowserProcessingMaxPdfsExceededError);
+}
+
+TEST_F(ContextualSearchboxHandlerTest, AddFileFromBrowser_MaxFilesExceeded) {
+  profile()->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kEnabled));
+
+  omnibox::InputState state = handler().input_state_model()->GetInputState();
+  state.max_inputs_by_type[omnibox::INPUT_TYPE_BROWSER_TAB] = 0;
+  handler().input_state_model()->set_state_for_testing(state);
+
+  scoped_config()
+      .config.mutable_composebox()
+      ->mutable_attachment_upload()
+      ->set_mime_types_allowed("tab");
+
+  std::string file_name = "test.tab";
+  std::string mime_type = "tab";
+  std::vector<uint8_t> test_data = {1, 2, 3};
+  mojo_base::BigBuffer file_data(test_data);
+
+  base::test::TestFuture<base::expected<
+      base::UnguessableToken, contextual_search::ContextUploadErrorType>>
+      future;
+  handler().AddFileContextFromBrowser(file_name, mime_type,
+                                      std::move(file_data), std::nullopt,
+                                      future.GetCallback());
+
+  auto result = future.Take();
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), contextual_search::ContextUploadErrorType::
+                                kBrowserProcessingMaxFilesExceededError);
+}
+
+TEST_F(ContextualSearchboxHandlerTest,
+       AddFileFromBrowser_MaxTotalFilesExceeded) {
+  profile()->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kEnabled));
+
+  omnibox::InputState state = handler().input_state_model()->GetInputState();
+  state.max_total_inputs = 0;
+  state.max_inputs_by_type[omnibox::INPUT_TYPE_LENS_FILE] =
+      1;  // bypass specific type check
+  handler().input_state_model()->set_state_for_testing(state);
+
+  scoped_config()
+      .config.mutable_composebox()
+      ->mutable_attachment_upload()
+      ->set_mime_types_allowed("application/pdf");
+
+  std::string file_name = "test.pdf";
+  std::string mime_type = "application/pdf";
+  std::vector<uint8_t> test_data = {1, 2, 3};
+  mojo_base::BigBuffer file_data(test_data);
+
+  base::test::TestFuture<base::expected<
+      base::UnguessableToken, contextual_search::ContextUploadErrorType>>
+      future;
+  handler().AddFileContextFromBrowser(file_name, mime_type,
+                                      std::move(file_data), std::nullopt,
+                                      future.GetCallback());
+
+  auto result = future.Take();
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error(), contextual_search::ContextUploadErrorType::
+                                kBrowserProcessingMaxFilesExceededError);
+}
+
+TEST_F(ContextualSearchboxHandlerTest, SubmitQuery) {
   std::vector<SessionState> session_states;
   auto* metrics_recorder_ptr = GetMetricsRecorderPtr();
   ASSERT_THAT(metrics_recorder_ptr, testing::NotNull());
@@ -595,9 +870,9 @@ TEST_F(ContextualSearchboxHandlerTest, SubmitQuery) {
       .WillRepeatedly([&](SessionState session_state) {
         session_states.push_back(session_state);
       });
-  EXPECT_CALL(
-      *metrics_recorder_ptr,
-      NotifyQuerySubmitted(testing::_, testing::_, testing::_, testing::_))
+  EXPECT_CALL(*metrics_recorder_ptr,
+              NotifyQuerySubmitted(testing::_, testing::_, testing::_,
+                                   testing::_, testing::_))
       .Times(1)
       .WillOnce(testing::Invoke(
           metrics_recorder_ptr,
@@ -615,7 +890,6 @@ TEST_F(ContextualSearchboxHandlerTest, SubmitQuery) {
       .Times(0);
 
   handler().NotifySessionStarted();
-  run_loop.Run();
 
   SubmitQueryAndWaitForNavigation();
 
@@ -645,16 +919,6 @@ TEST_F(ContextualSearchboxHandlerTest, SubmitQuery) {
 
 TEST_F(ContextualSearchboxHandlerTest, SubmitQuery_DelayUpload) {
   // Arrange
-  // Wait until the state changes to kClusterInfoReceived.
-  base::RunLoop run_loop;
-  query_controller().set_on_query_controller_state_changed_callback(
-      base::BindLambdaForTesting(
-          [&](ComposeboxQueryController::QueryControllerState state) {
-            if (state == ComposeboxQueryController::QueryControllerState::
-                             kClusterInfoReceived) {
-              run_loop.Quit();
-            }
-          }));
 
   std::vector<SessionState> session_states;
   auto* metrics_recorder_ptr = GetMetricsRecorderPtr();
@@ -665,9 +929,9 @@ TEST_F(ContextualSearchboxHandlerTest, SubmitQuery_DelayUpload) {
       .WillRepeatedly([&](SessionState session_state) {
         session_states.push_back(session_state);
       });
-  EXPECT_CALL(
-      *metrics_recorder_ptr,
-      NotifyQuerySubmitted(testing::_, testing::_, testing::_, testing::_))
+  EXPECT_CALL(*metrics_recorder_ptr,
+              NotifyQuerySubmitted(testing::_, testing::_, testing::_,
+                                   testing::_, testing::_))
       .Times(1)
       .WillOnce(testing::Invoke(
           metrics_recorder_ptr,
@@ -695,7 +959,6 @@ TEST_F(ContextualSearchboxHandlerTest, SubmitQuery_DelayUpload) {
       .Times(1);
 
   handler().NotifySessionStarted();
-  run_loop.Run();
 
   // Act
   SubmitQueryAndWaitForNavigation();
@@ -1036,6 +1299,103 @@ TEST_F(ContextualSearchboxHandlerTest, DriveDisclaimer_FlagDisabled) {
   EXPECT_FALSE(future.Get());
 }
 
+TEST_F(ContextualSearchboxHandlerTest, OnDriveUploadClicked) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(omnibox::kComposeboxDriveContextMenuOption);
+
+  omnibox::InputState state;
+  state.max_total_inputs = 10;
+  handler().input_state_model()->set_state_for_testing(state);
+  handler().OnInputStateChangedForTesting(state);
+
+  base::MockCallback<ComposeboxHandler::OnDriveUploadClickedCallback> callback;
+
+  std::vector<base::UnguessableToken> start_file_upload_flow_tokens;
+  EXPECT_CALL(query_controller(), StartFileUploadFlow)
+      .WillRepeatedly(
+          [&](const base::UnguessableToken& file_token,
+              std::unique_ptr<lens::ContextualInputData> contextual_input,
+              std::optional<lens::ImageEncodingOptions> image_options) {
+            start_file_upload_flow_tokens.push_back(file_token);
+          });
+
+  searchbox::mojom::DriveUploadResponsePtr callback_response;
+  EXPECT_CALL(callback, Run)
+      .WillOnce([&](searchbox::mojom::DriveUploadResponsePtr response) {
+        callback_response = std::move(response);
+      });
+
+  handler().OnDriveUploadClicked(callback.Get());
+
+  ASSERT_TRUE(callback_response);
+  EXPECT_EQ(callback_response->files.size(),
+            start_file_upload_flow_tokens.size());
+  for (size_t i = 0; i < callback_response->files.size(); ++i) {
+    EXPECT_EQ(callback_response->files[i]->token,
+              start_file_upload_flow_tokens[i]);
+  }
+}
+
+// TODO(crbug.com/508693783): Update these tests once the Drive file upload flow
+// is implemented.
+TEST_F(ContextualSearchboxHandlerTest, OnDriveUploadClicked_SizeLimitExceeded) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(omnibox::kComposeboxDriveContextMenuOption);
+
+  omnibox::InputState state;
+  state.max_total_inputs = 10;
+  handler().input_state_model()->set_state_for_testing(state);
+  handler().OnInputStateChangedForTesting(state);
+
+  base::MockCallback<ComposeboxHandler::OnDriveUploadClickedCallback> callback;
+
+  EXPECT_CALL(query_controller(), StartFileUploadFlow)
+      .WillRepeatedly(testing::Return());
+
+  searchbox::mojom::DriveUploadResponsePtr callback_response;
+  EXPECT_CALL(callback, Run)
+      .WillOnce([&](searchbox::mojom::DriveUploadResponsePtr response) {
+        callback_response = std::move(response);
+      });
+
+  handler().OnDriveUploadClicked(callback.Get());
+
+  ASSERT_TRUE(callback_response);
+  EXPECT_EQ(callback_response->files.size(), 2u);
+  EXPECT_EQ(callback_response->error,
+            searchbox::mojom::DriveUploadError::kSizeLimitExceeded);
+}
+
+// TODO(crbug.com/508693783): Update these tests once the Drive file upload flow
+// is implemented.
+TEST_F(ContextualSearchboxHandlerTest, OnDriveUploadClicked_MaxFilesExceeded) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(omnibox::kComposeboxDriveContextMenuOption);
+
+  omnibox::InputState state;
+  state.max_total_inputs = 1;
+  handler().input_state_model()->set_state_for_testing(state);
+  handler().OnInputStateChangedForTesting(state);
+
+  base::MockCallback<ComposeboxHandler::OnDriveUploadClickedCallback> callback;
+
+  EXPECT_CALL(query_controller(), StartFileUploadFlow)
+      .WillRepeatedly(testing::Return());
+
+  searchbox::mojom::DriveUploadResponsePtr callback_response;
+  EXPECT_CALL(callback, Run)
+      .WillOnce([&](searchbox::mojom::DriveUploadResponsePtr response) {
+        callback_response = std::move(response);
+      });
+
+  handler().OnDriveUploadClicked(callback.Get());
+
+  ASSERT_TRUE(callback_response);
+  EXPECT_EQ(callback_response->files.size(), 1u);
+  EXPECT_EQ(callback_response->error,
+            searchbox::mojom::DriveUploadError::kMaxFilesExceeded);
+}
+
 TEST_F(ContextualSearchboxHandlerTest, OpenAutocompleteMatch_ZeroSuggestClick) {
   base::UserActionTester user_action_tester;
 
@@ -1216,6 +1576,40 @@ TEST_F(ContextualSearchboxHandlerTest, SubmitQueryWithAdditionalParams) {
   std::string udm_param;
   EXPECT_TRUE(net::GetValueForKeyInQuery(query_url, "udm", &udm_param));
   EXPECT_EQ("50", udm_param);
+}
+
+TEST_F(ContextualSearchboxHandlerTest, SubmitQuery_NoContextualTasksService) {
+  // Force the ContextualTasksService to be null.
+  contextual_tasks::ContextualTasksServiceFactory::GetInstance()
+      ->SetTestingFactory(
+          profile(), base::BindRepeating([](content::BrowserContext* context)
+                                             -> std::unique_ptr<KeyedService> {
+            return nullptr;
+          }));
+
+  // Recreate handler to test initialization with a null service.
+  mock_searchbox_page_.receiver_.reset();
+  auto handler_without_service =
+      std::make_unique<FakeContextualSearchboxHandler>(
+          mojo::PendingReceiver<searchbox::mojom::PageHandler>(),
+          mock_searchbox_page_.BindAndGetRemote(), profile(), web_contents(),
+          std::make_unique<OmniboxController>(
+              std::make_unique<TestOmniboxClient>()),
+          base::BindLambdaForTesting(
+              [&]() { return contextual_session_handle_.get(); }));
+
+  content::TestNavigationObserver navigation_observer(web_contents());
+  handler_without_service->SubmitQuery(kQueryText, 1, false, false, false,
+                                       false);
+  auto navigation = content::NavigationSimulator::CreateFromPending(
+      web_contents()->GetController());
+  ASSERT_TRUE(navigation);
+  navigation->Commit();
+  navigation_observer.Wait();
+
+  GURL query_url =
+      web_contents()->GetController().GetLastCommittedEntry()->GetURL();
+  EXPECT_TRUE(query_url.spec().find(kQueryText) != std::string::npos);
 }
 
 TEST_F(ContextualSearchboxHandlerTest, QueryAutocomplete_SetsLensInputs) {

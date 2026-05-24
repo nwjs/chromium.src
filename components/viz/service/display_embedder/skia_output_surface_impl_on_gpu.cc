@@ -866,9 +866,9 @@ void SkiaOutputSurfaceImplOnGpu::CopyOutputRGBAInMemory(
       geometry.result_selection.width(), geometry.result_selection.height(),
       color_type, kPremul_SkAlphaType, sk_color_space);
   std::unique_ptr<ReadPixelsContext> context =
-      std::make_unique<ReadPixelsContext>(std::move(request),
-                                          geometry.result_selection,
-                                          dest_color_space, weak_ptr_);
+      std::make_unique<ReadPixelsContext>(
+          std::move(request), geometry.result_selection, dest_color_space,
+          geometry.tracked_element_rects, weak_ptr_);
   // Skia readback could be synchronous. Incremement counter in case
   // ReadbackCompleted is called immediately.
   num_readbacks_pending_++;
@@ -1768,7 +1768,7 @@ void SkiaOutputSurfaceImplOnGpu::CopyOutput(
                         geometry.result_selection.height());
       auto context = std::make_unique<ReadPixelsContext>(
           std::move(request), geometry.result_selection, color_space,
-          weak_ptr_);
+          geometry.tracked_element_rects, weak_ptr_);
       // Skia readback could be synchronous. Incremement counter in case
       // ReadbackCompleted is called immediately.
       num_readbacks_pending_++;
@@ -1889,8 +1889,9 @@ void SkiaOutputSurfaceImplOnGpu::ScheduleOverlays(
   overlays_ = std::move(overlays);
 }
 
-void SkiaOutputSurfaceImplOnGpu::SetVSyncDisplayID(int64_t display_id) {
-  output_device_->SetVSyncDisplayID(display_id);
+void SkiaOutputSurfaceImplOnGpu::SetVSyncDisplayID(int64_t display_id,
+                                                   bool force_update) {
+  output_device_->SetVSyncDisplayID(display_id, force_update);
 }
 
 void SkiaOutputSurfaceImplOnGpu::RefreshRateChangedOnSameDisplay() {
@@ -1996,7 +1997,8 @@ bool SkiaOutputSurfaceImplOnGpu::InitializeForGL() {
     }
 
 #if BUILDFLAG(IS_MAC)
-    presenter_->SetVSyncDisplayID(renderer_settings_.display_id);
+    presenter_->SetVSyncDisplayID(renderer_settings_.display_id,
+                                  /*force_update=*/false);
 #endif
 
     if (MakeCurrent(/*need_framebuffer=*/true)) {
@@ -2201,7 +2203,8 @@ bool SkiaOutputSurfaceImplOnGpu::InitializeForDawn() {
     return !!output_device_;
   }
 #elif BUILDFLAG(IS_MAC)
-  presenter_->SetVSyncDisplayID(renderer_settings_.display_id);
+  presenter_->SetVSyncDisplayID(renderer_settings_.display_id,
+                                /*force_update=*/false);
 #elif BUILDFLAG(IS_CHROMEOS)
   if (!presenter_) {
     return false;

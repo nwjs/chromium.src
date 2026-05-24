@@ -116,6 +116,12 @@ class GlicInstanceCoordinatorImpl
   std::vector<ConversationInfo> GetRecentlyActiveInstances(
       size_t limit) override;
 
+  bool IsTabPinnedToAnyInstance(
+      const tabs::TabHandle& tab_handle) const override;
+
+  void UnpinTabsFromAllInstances(base::span<const tabs::TabHandle> tab_handles,
+                                 GlicUnpinTrigger trigger) override;
+
   // Creates a new conversation and pins the given tabs.
   // This overrides any conversation that was already associated with any
   // of the given tabs.
@@ -134,7 +140,6 @@ class GlicInstanceCoordinatorImpl
               bool prevent_close,
               mojom::InvocationSource source,
               std::optional<std::string> deprecated_prompt_suggestion,
-              bool deprecated_auto_send,
               std::optional<std::string> deprecated_conversation_id) override;
   void EnsurePreload() override;
   // Shuts down all hosts. Only call it before destruction of the instance
@@ -223,7 +228,6 @@ class GlicInstanceCoordinatorImpl
                        bool prevent_close,
                        glic::mojom::InvocationSource source,
                        std::optional<std::string> prompt_suggestion,
-                       bool auto_send,
                        std::optional<std::string> conversation_id);
 
   void CloseFloaty(const CloseOptions& options = {});

@@ -10,6 +10,7 @@
 #include "components/feature_engagement/public/event_constants.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/feature_engagement/public/group_constants.h"
+#include "components/segmentation_platform/public/features.h"
 
 #if BUILDFLAG(IS_IOS)
 #include "base/metrics/field_trial_params.h"
@@ -912,6 +913,18 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                               Comparator(EQUAL, 0), 360, 360);
     return config;
   }
+  if (kIPHSiteControlsFeature.name == feature->name) {
+    // A config that allows the site controls IPH to be shown at most once.
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(EQUAL, 0);
+    config.trigger = EventConfig("site_controls_iph_trigger",
+                                 Comparator(LESS_THAN, 1), 360, 360);
+    config.used = EventConfig("site_controls_menu_item_clicked",
+                              Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
   if (kIPHBottomToolbarTipFeature.name == feature->name) {
     // A config that allows the Bottom Toolbar IPH to be shown once
     // a week, up to 3 times, unless the user interacts with Bottom Toolbar
@@ -1098,10 +1111,11 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 
   if (kIPHAdaptiveButtonInTopToolbarCustomizationGlicFeature.name ==
       feature->name) {
-    // A config that allows the Glic adaptive toolbar button IPH to be shown:
-    // * If no other adaptive toolbar button has been used.
+    // A config that allows the Glic adaptive toolbar bottom sheet promo to be
+    // shown:
+    // * If any other adaptive toolbar button has been used in the last 90 days.
     // * If the Glic button itself hasn't been used.
-    // * Once per 90 days.
+    // * Only once in its lifetime.
     FeatureConfig config;
     config.valid = true;
     config.availability = Comparator(ANY, 0);
@@ -1113,25 +1127,25 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                               Comparator(EQUAL, 0), 90, 360);
     config.event_configs.insert(
         EventConfig("adaptive_toolbar_customization_new_tab_opened",
-                    Comparator(EQUAL, 0), 90, 360));
+                    Comparator(GREATER_THAN, 0), 90, 360));
     config.event_configs.insert(
         EventConfig("adaptive_toolbar_customization_open_in_browser_opened",
-                    Comparator(EQUAL, 0), 90, 360));
+                    Comparator(GREATER_THAN, 0), 90, 360));
     config.event_configs.insert(
         EventConfig("adaptive_toolbar_customization_share_opened",
-                    Comparator(EQUAL, 0), 90, 360));
+                    Comparator(GREATER_THAN, 0), 90, 360));
     config.event_configs.insert(
         EventConfig("adaptive_toolbar_customization_voice_search_opened",
-                    Comparator(EQUAL, 0), 90, 360));
+                    Comparator(GREATER_THAN, 0), 90, 360));
     config.event_configs.insert(
         EventConfig("adaptive_toolbar_customization_translate_opened",
-                    Comparator(EQUAL, 0), 90, 360));
+                    Comparator(GREATER_THAN, 0), 90, 360));
     config.event_configs.insert(
         EventConfig("adaptive_toolbar_customization_read_aloud_clicked",
-                    Comparator(EQUAL, 0), 90, 360));
+                    Comparator(GREATER_THAN, 0), 90, 360));
     config.event_configs.insert(
         EventConfig("adaptive_toolbar_customization_add_to_bookmarks_opened",
-                    Comparator(EQUAL, 0), 90, 360));
+                    Comparator(GREATER_THAN, 0), 90, 360));
     return config;
   }
   if (kIPHMenuAddToGroup.name == feature->name) {
@@ -1168,21 +1182,30 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 
   if (kIPHNewTabPageThemeCustomizationFeature.name == feature->name) {
     // Allows an IPH for the theme customization entry point.
-    // * Once per 14 days. 3 times as maximum for lifetime.
+    // Once per kNewTabPageCustomizationV2IphDisplayIntervalDays days.
+    // kNewTabPageCustomizationV2IphMaxImpression times as maximum for lifetime.
     FeatureConfig config;
     config.valid = true;
     config.availability = Comparator(ANY, 0);
     config.session_rate = Comparator(EQUAL, 0);
-    config.trigger =
-        EventConfig("ntp_theme_customization_iph_triggered",
-                    Comparator(LESS_THAN, 3), k10YearsInDays, k10YearsInDays);
+    // TODO(https://crbug.com/423579377): Clean up these feature params and use
+    // the default values after the feature NewTabPageCustomizationV2 is fully
+    // launched.
+    config.trigger = EventConfig(
+        "ntp_theme_customization_iph_triggered",
+        Comparator(LESS_THAN,
+                   segmentation_platform::features::
+                       kNewTabPageCustomizationV2IphMaxImpression.Get()),
+        k10YearsInDays, k10YearsInDays);
     config.used =
         EventConfig("ntp_theme_customization_iph_used", Comparator(EQUAL, 0),
                     k10YearsInDays, k10YearsInDays);
 
-    config.event_configs.insert(
-        EventConfig("ntp_theme_customization_iph_triggered",
-                    Comparator(LESS_THAN, 1), 14, k10YearsInDays));
+    config.event_configs.insert(EventConfig(
+        "ntp_theme_customization_iph_triggered", Comparator(LESS_THAN, 1),
+        segmentation_platform::features::
+            kNewTabPageCustomizationV2IphDisplayIntervalDays.Get(),
+        k10YearsInDays));
     return config;
   }
   if (kIPHPageSummaryWebMenuFeature.name == feature->name) {
@@ -2156,7 +2179,7 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 
     // Only show the IPH once per year
     config.trigger = EventConfig("gesture_user_education_trigger",
-                                 Comparator(ANY, 0), 360, 360);
+                                 Comparator(EQUAL, 0), 360, 360);
     // The IPH will only be shown if the back swipe has been used less than two
     // times in the last 360 days.
     config.used = EventConfig("swipe_on_left_edge_for_navigation_used",

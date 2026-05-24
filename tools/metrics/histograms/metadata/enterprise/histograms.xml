@@ -799,6 +799,19 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Enterprise.DataControls.SearchWith.Verdict"
+    enum="EnterpriseDlpPolicyLevel" expires_after="2027-05-11">
+  <owner>anaercegovac@google.com</owner>
+  <owner>cep-se@google.com</owner>
+  <summary>
+    Records the verdict of the Data Controls policy check for a user clicking
+    the &quot;Search [Default Search Engine] with [selected text]&quot; button.
+    Increases in 'WARN' counts within this histogram indicate potential data
+    exfiltration being actioned by the policy. The 'BLOCK' bucket is expected to
+    be empty since the 'Search' item is hidden for block verdicts.
+  </summary>
+</histogram>
+
 <histogram name="Enterprise.DataProtection.URLVerdictSource"
     enum="DataProtectionURLVerdictSource" expires_after="2026-09-20">
   <owner>alshawwa@chromium.org</owner>
@@ -2832,12 +2845,56 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="Enterprise.IOS.WebState.DataControls.SearchWith.Verdict"
+    enum="EnterpriseDlpPolicyLevel" expires_after="2027-05-11">
+  <owner>anaercegovac@google.com</owner>
+  <owner>cep-se@google.com</owner>
+  <summary>
+    Records the verdict of the Data Controls policy check for a user clicking
+    the &quot;Search [Default Search Engine] with [selected text]&quot; button.
+    Increases in 'WARN' counts within this histogram indicate potential data
+    exfiltration being actioned by the policy. The 'BLOCK' bucket is expected to
+    be empty since the 'Search' item is hidden for block verdicts.
+  </summary>
+</histogram>
+
 <histogram name="Enterprise.KeySignatureVerification"
     enum="EnterpriseKeySignatureVerification" expires_after="2026-09-13">
   <owner>igorcov@chromium.org</owner>
   <owner>emaxx@chromium.org</owner>
   <owner>chromeos-commercial-remote-management@google.com</owner>
   <summary>Result of key signature verification from the policy data.</summary>
+</histogram>
+
+<histogram name="Enterprise.LocalAuthFactorsPolicy.ForcedReauth" enum="Boolean"
+    expires_after="2026-12-31">
+  <owner>fahadmansoor@google.com</owner>
+  <owner>chromeos-commercial-identity@google.com</owner>
+  <summary>
+    Recorded whenever the local auth factors policy is evaluated to determine if
+    online reauth should be forced. Recorded as true if forced, and false
+    otherwise.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.LocalAuthFactorsPolicy.LocalAuthFactorChanged"
+    enum="LocalAuthFactorType" expires_after="2026-12-31">
+  <owner>fahadmansoor@google.com</owner>
+  <owner>chromeos-commercial-identity@google.com</owner>
+  <summary>
+    Recorded whenever a local auth factor (PIN or local password) is changed for
+    a user under the local auth factors policy. Tracks which factor was changed.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.LocalAuthFactorsPolicy.PasswordComplexity"
+    enum="LocalAuthFactorsComplexity" expires_after="2026-12-31">
+  <owner>fahadmansoor@google.com</owner>
+  <owner>chromeos-commercial-identity@google.com</owner>
+  <summary>
+    Recorded whenever the password complexity policy is updated. Tracks the
+    enforced complexity level.
+  </summary>
 </histogram>
 
 <histogram name="Enterprise.LoginApiCleanup.{CleanupHandler}.Success"
@@ -3410,6 +3467,26 @@ chromium-metrics-reviews@google.com.
     next chrome run. This metric tracks the recorded session length on an
     enrolled device rounded down to the nearest 10-minute bucket and capped at
     24 hours.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.RemoveLocalAuthFactorsScreen.Shown" enum="Boolean"
+    expires_after="2026-12-31">
+  <owner>fahadmansoor@google.com</owner>
+  <owner>chromeos-commercial-identity@google.com</owner>
+  <summary>
+    Recorded whenever the RemoveLocalAuthFactors screen is shown to the user.
+  </summary>
+</histogram>
+
+<histogram name="Enterprise.RemoveLocalAuthFactorsScreen.Success"
+    enum="Boolean" expires_after="2026-12-31">
+  <owner>fahadmansoor@google.com</owner>
+  <owner>chromeos-commercial-identity@google.com</owner>
+  <summary>
+    Tracks the result of the local auth factor removal process. Recorded as true
+    when all local auth factors are successfully removed, and false if any part
+    of the removal process fails.
   </summary>
 </histogram>
 

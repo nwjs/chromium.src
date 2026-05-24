@@ -671,6 +671,11 @@ bool ChromeAutocompleteProviderClient::IsOmniboxNextAimPopupEnabled() const {
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 
+bool ChromeAutocompleteProviderClient::IsGeminiStarterPackEnabled() const {
+  return AutocompleteProviderClient::IsGeminiStarterPackEnabled() &&
+         profile_->GetPrefs()->GetInteger(prefs::kGeminiSettings) == 0;
+}
+
 base::CallbackListSubscription
 ChromeAutocompleteProviderClient::GetLensSuggestInputsWhenReady(
     LensOverlaySuggestInputsCallback callback) const {
@@ -747,12 +752,9 @@ void ChromeAutocompleteProviderClient::OpenLensOverlay(bool show) {
   if (auto* lens_search_controller =
           GetLensSearchController(GetWebContents(web_contents_getter_))) {
     if (show) {
-      // If the Omnibox Next Lens search chip feature is enabled, do not show
-      // the contextual search box in the Lens Overlay.
-      bool should_show_csb = !IsOmniboxNextLensSearchChipEnabled();
+      // Force showing the contextual search box in the Lens Overlay.
       lens_search_controller->OpenLensOverlay(
-          lens::LensOverlayInvocationSource::kOmniboxPageAction,
-          should_show_csb);
+          lens::LensOverlayInvocationSource::kOmniboxPageAction, true);
     } else {
       // TODO(crbug.com/402497756): For prototyping, reusing the existing
       // omnibox entry point. However, for production, create a new invocation

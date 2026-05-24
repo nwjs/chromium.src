@@ -35,6 +35,8 @@
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
+#include "chrome/browser/feedback/feedback_uploader_chrome.h"
+#include "chrome/browser/feedback/feedback_uploader_factory_chrome.h"
 #include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
 #include "chrome/browser/glic/common/future_browser_features.h"
 #include "chrome/browser/glic/common/glic_navigation.h"
@@ -68,7 +70,6 @@
 #include "chrome/browser/glic/suggestions/contextual_cueing_features.h"
 #include "chrome/browser/glic/widget/browser_conditions.h"
 #include "chrome/browser/global_features.h"
-#include "chrome/browser/lens/region_search/lens_region_search_controller.h"
 #include "chrome/browser/permissions/system/system_permission_settings.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
@@ -141,11 +142,10 @@
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/feedback/feedback_uploader_chrome.h"
-#include "chrome/browser/feedback/feedback_uploader_factory_chrome.h"
 #include "chrome/browser/feedback/system_logs/chrome_system_logs_fetcher.h"
 #include "chrome/browser/glic/glic_hotkey.h"
 #include "chrome/browser/glic/host/context/glic_focused_browser_manager.h"
+#include "chrome/browser/glic/selection/selection_overlay_controller.h"
 #include "chrome/browser/media/audio_ducker.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
@@ -528,8 +528,6 @@ class JournalHandler {
 
  private:
   void SendResponseFeedback(const std::string& reason) {
-// NEEDS_ANDROID_IMPL: FeedbackUploaderFactoryChrome
-#if !BUILDFLAG(IS_ANDROID)
     base::WeakPtr<feedback::FeedbackUploader> uploader =
         feedback::FeedbackUploaderFactoryChrome::GetForBrowserContext(
             actor_keyed_service_->GetProfile())
@@ -559,6 +557,11 @@ class JournalHandler {
               .email);
     }
 
+// NEEDS_ANDROID_IMPL: ChromeSystemLogsFetcher
+#if BUILDFLAG(IS_ANDROID)
+    feedback_data->CompressSystemInfo();
+    feedback_data->OnFeedbackPageDataComplete();
+#else
     system_logs::BuildChromeSystemLogsFetcher(
         actor_keyed_service_->GetProfile(), /*scrub_data=*/false)
         ->Fetch(base::BindOnce(
@@ -1371,8 +1374,9 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
       // "focusable" by Glic (e.g. chrome:// pages).
       tab = focus.is_focus() ? focus.focus() : focus.unfocused_tab();
     }
-    glic_service_->CaptureRegion(tab, std::move(observer),
-                                 std::move(tab_context_options));
+    SelectionOverlayController::CaptureRegion(tab, sharing_manager(),
+                                              std::move(observer),
+                                              std::move(tab_context_options));
 #else
     NOTIMPLEMENTED();
 #endif
@@ -1388,7 +1392,12 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     if (tab->GetProfile() != profile_) {
       return;
     }
-    glic_service_->DeleteCapturedRegion(tab, id);
+    if (auto* web_contents = tab->GetContents()) {
+      if (auto* selection_overlay_controller =
+              SelectionOverlayController::FromTabWebContents(web_contents)) {
+        selection_overlay_controller->DeleteRegion(id);
+      }
+    }
 #else
     NOTIMPLEMENTED();
 #endif
@@ -1566,6 +1575,14 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     glic_service_->GetAuthController().ForceSyncCookies(std::move(callback));
   }
 
+  void ClientErrorDialogStateChanged(
+      std::optional<glic::mojom::ClientErrorDialogType> shown_dialog_type)
+      override {
+    if (shown_dialog_type) {
+      glic_service_->GetAuthController().OnClientError();
+    }
+  }
+
   void LogBeginAsyncEvent(uint64_t event_async_id,
                           int32_t task_id,
                           const std::string& event,
@@ -1621,6 +1638,10 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     if (journal_handler_) {
       journal_handler_->RecordFeedback(positive, reason);
     }
+  }
+
+  void OnOptinImpression() override {
+    host().instance_metrics().OnOptinImpression();
   }
 
   void OnUserInputSubmitted(mojom::WebClientMode mode) override {

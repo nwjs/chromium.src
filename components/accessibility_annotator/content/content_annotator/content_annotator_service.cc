@@ -20,6 +20,7 @@
 #include "base/time/time.h"
 #include "base/types/optional_util.h"
 #include "components/accessibility_annotator/core/accessibility_annotator_features.h"
+#include "components/accessibility_annotator/core/content_annotator/content_annotations_data.h"
 #include "components/accessibility_annotator/core/content_annotator/content_classifier.h"
 #include "components/accessibility_annotator/core/content_annotator/content_classifier_types.h"
 #include "components/history/core/browser/history_service.h"
@@ -166,11 +167,11 @@ void ContentAnnotatorService::OnPageContentExtracted(
     page_content_annotations::PageContent page_content) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  page_content_annotations::RefCountedAnnotatedPageContentPtr*
-      annotated_page_content_ptr = std::get_if<
-          page_content_annotations::RefCountedAnnotatedPageContentPtr>(
-          &page_content);
-  if (!annotated_page_content_ptr || !(*annotated_page_content_ptr)) {
+  page_content_annotations::RefCountedAnnotatedPageContentPtr
+      annotated_page_content_ptr =
+          page_content_annotations::GetAnnotatedPageContentPtrFromPageContent(
+              page_content);
+  if (!annotated_page_content_ptr) {
     return;
   }
 
@@ -186,12 +187,12 @@ void ContentAnnotatorService::OnPageContentExtracted(
 
   CacheIterator it =
       GetOrCreateJoinEntry(page.GetMainDocument().GetLastCommittedURL());
-  if ((*annotated_page_content_ptr)->data.has_main_frame_data()) {
+  if (annotated_page_content_ptr->data.has_main_frame_data()) {
     it->second.page_title =
-        (*annotated_page_content_ptr)->data.main_frame_data().title();
+        annotated_page_content_ptr->data.main_frame_data().title();
   }
 
-  it->second.annotated_page_content = std::move(*annotated_page_content_ptr);
+  it->second.annotated_page_content = std::move(annotated_page_content_ptr);
   it->second.ukm_source_id = page.GetMainDocument().GetPageUkmSourceId();
   it->second.tab_id = tab_id;
   MaybeAnnotate(it);
@@ -286,7 +287,7 @@ void ContentAnnotatorService::MaybeAnnotate(CacheIterator it) {
     *page_context.mutable_annotated_page_content() =
         complete_data.annotated_page_content->data;
 
-    AccessibilityAnnotatorBackend::ContentAnnotationsData data;
+    ContentAnnotationsData data;
     data.page_title = complete_data.page_title.value();
     data.url = complete_data.url;
     data.tab_id = complete_data.tab_id;
@@ -301,7 +302,7 @@ void ContentAnnotatorService::MaybeAnnotate(CacheIterator it) {
 void ContentAnnotatorService::GenerateAnnotations(
     optimization_guide::proto::PageContext page_context,
     history::VisitID visit_id,
-    AccessibilityAnnotatorBackend::ContentAnnotationsData data) {
+    ContentAnnotationsData data) {
   if (visit_id == history::kInvalidVisitID) {
     return;
   }
@@ -321,7 +322,7 @@ void ContentAnnotatorService::GenerateAnnotations(
 
 void ContentAnnotatorService::HandleModelExecutionResult(
     history::VisitID visit_id,
-    AccessibilityAnnotatorBackend::ContentAnnotationsData data,
+    ContentAnnotationsData data,
     optimization_guide::OptimizationGuideModelExecutionResult result,
     std::unique_ptr<optimization_guide::ModelQualityLogEntry> log_entry) {
   if (visit_id == history::kInvalidVisitID) {

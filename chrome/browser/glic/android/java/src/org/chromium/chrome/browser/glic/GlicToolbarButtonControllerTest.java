@@ -7,9 +7,11 @@ package org.chromium.chrome.browser.glic;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.drawable.LayerDrawable;
 import android.view.View;
@@ -24,6 +26,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -74,12 +77,15 @@ public class GlicToolbarButtonControllerTest {
     @Mock private GlicEnabling.Natives mGlicEnablingJniMock;
     @Captor private ArgumentCaptor<ActorKeyedService.Observer> mActorObserverCaptor;
 
+    private Activity mActivity;
     private Context mContext;
     private GlicToolbarButtonController mController;
 
     @Before
     public void setUp() {
         mContext = ContextUtils.getApplicationContext();
+        mActivity = Robolectric.setupActivity(Activity.class);
+
         when(mTab.getProfile()).thenReturn(mProfile);
         when(mTab.getUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
         ActorKeyedServiceFactory.setForTesting(mActorService);
@@ -94,7 +100,7 @@ public class GlicToolbarButtonControllerTest {
         when(mGlicEnablingJniMock.isEnabledForProfile(any())).thenReturn(true);
         mController =
                 new GlicToolbarButtonController(
-                        mContext,
+                        mActivity,
                         () -> mTab,
                         mToggleGlicCallback,
                         () -> mTracker,
@@ -102,6 +108,7 @@ public class GlicToolbarButtonControllerTest {
                         mBrowserControlsVisibilityManager,
                         () -> mTabModelSelector);
     }
+
 
     @Test
     public void testButtonData() {
@@ -325,12 +332,12 @@ public class GlicToolbarButtonControllerTest {
     @Test
     public void testIsPanelOpen_Initial() {
         ChromeAndroidTask task = mock(ChromeAndroidTask.class);
-        when(task.getOrCreateNativeBrowserWindowPtr(mProfile)).thenReturn(123L);
+        when(task.getNativeBrowserWindowPtr(mProfile, mActivity)).thenReturn(123L);
         when(mGlicKeyedService.isPanelShowingForBrowser(123L)).thenReturn(true);
 
         GlicToolbarButtonController controller =
                 new GlicToolbarButtonController(
-                        mContext,
+                        mActivity,
                         () -> mTab,
                         mToggleGlicCallback,
                         () -> mTracker,
@@ -346,12 +353,12 @@ public class GlicToolbarButtonControllerTest {
     @Test
     public void testIsPanelOpen_GlobalShowHide() {
         ChromeAndroidTask task = mock(ChromeAndroidTask.class);
-        when(task.getOrCreateNativeBrowserWindowPtr(mProfile)).thenReturn(123L);
+        when(task.getNativeBrowserWindowPtr(mProfile, mActivity)).thenReturn(123L);
         when(mGlicKeyedService.isPanelShowingForBrowser(123L)).thenReturn(true);
 
         GlicToolbarButtonController controller =
                 new GlicToolbarButtonController(
-                        mContext,
+                        mActivity,
                         () -> mTab,
                         mToggleGlicCallback,
                         () -> mTracker,
@@ -418,6 +425,8 @@ public class GlicToolbarButtonControllerTest {
         ActorTask task = mock(ActorTask.class);
         when(task.getTitle()).thenReturn("Test Task");
         when(mActorService.getActiveTasks()).thenReturn(Collections.singletonList(task));
+        when(mTab.getId()).thenReturn(1);
+        when(mActorService.getActiveTaskIdOnTab(1)).thenReturn(null);
 
         // Set up show hook.
         Runnable showHook = mock(Runnable.class);
@@ -429,5 +438,31 @@ public class GlicToolbarButtonControllerTest {
 
         // Verify popup was shown.
         verify(showHook).run();
+    }
+
+    @Test
+    public void testOnClick_WithActiveTaskOnActingTab_BypassesMenu() {
+        mController.get(mTab);
+
+        // Mock an active task.
+        ActorTask task = mock(ActorTask.class);
+        when(task.getTitle()).thenReturn("Test Task");
+        when(mActorService.getActiveTasks()).thenReturn(Collections.singletonList(task));
+
+        // Set active tab as acting tab.
+        when(mTab.getId()).thenReturn(1);
+        when(mActorService.getActiveTaskIdOnTab(1)).thenReturn(123); // Some task ID.
+
+        // Set up show hook.
+        Runnable showHook = mock(Runnable.class);
+        AnchoredPopupWindow.setShowHookForTesting(showHook);
+
+        // Click should bypass menu.
+        View view = new View(mContext);
+        mController.onClick(view);
+
+        // Verify popup was NOT shown.
+        verify(showHook, never()).run();
+        verify(mToggleGlicCallback).onClick(false);
     }
 }

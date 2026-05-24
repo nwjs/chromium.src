@@ -18,6 +18,7 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
+#include "net/http/http_request_headers.h"
 
 using ThrottleCheckResult = content::NavigationThrottle::ThrottleCheckResult;
 
@@ -96,13 +97,24 @@ ThrottleCheckResult ContextualTasksNavigationThrottle::ProcessNavigation() {
       ContextualTasksUiServiceFactory::GetForBrowserContext(
           web_contents->GetBrowserContext());
 
+  content::SiteInstance* site = navigation_handle()->GetSourceSiteInstance();
+  bool is_same_site_or_from_ui =
+      site && site->IsSameSiteWithURL(navigation_handle()->GetURL());
+
+  const net::HttpRequestHeaders& headers =
+      navigation_handle()->GetRequestHeaders();
+  std::optional<std::string> sec_ch_ua_mobile =
+      headers.GetHeader("sec-ch-ua-mobile");
+  bool is_mobile_ua = sec_ch_ua_mobile.has_value() && *sec_ch_ua_mobile == "?1";
+
   if (ui_service &&
       ui_service->HandleNavigation(
           std::move(url_params), web_contents->GetResponsibleWebContents(),
           /*is_from_embedded_page=*/web_contents !=
                   web_contents->GetResponsibleWebContents() ||
               navigation_handle()->IsGuestViewMainFrame(),
-          /*is_to_new_tab=*/false)) {
+          /*from_can_create_window=*/false, is_same_site_or_from_ui,
+          is_mobile_ua)) {
     return CANCEL;
   }
   return PROCEED;

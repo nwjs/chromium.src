@@ -129,9 +129,10 @@ BrowserViewTabbedLayoutImpl::GetTopSeparatorType() const {
       is_fullscreen(window_state)) {
     // If the top container is always visible, then the top container still
     // needs a separator to visually distinguish it from the content, unless
-    // there's also a shadow box.
+    // there's also a shadow box or in split view.
     if (window_state == WindowState::kFullscreenWithToolbar &&
-        ShadowOverlayVisible()) {
+        (ShadowOverlayVisible() ||
+         (delegate().IsActiveTabSplit() && !delegate().IsInfobarVisible()))) {
       return TopSeparatorType::kNone;
     }
     return TopSeparatorType::kTopContainer;
@@ -296,8 +297,11 @@ BrowserViewTabbedLayoutImpl::CalculateHorizontalLayout(
     preferred_side_panel_width =
         std::max(min_side_panel_width, preferred_side_panel_width);
 
+    // Add additional padding except when it's not needed around a split view.
     layout.side_panel_padding =
-        GetLayoutConstant(LayoutConstant::kSidePanelInset);
+        layout.force_top_container_to_top && delegate().IsActiveTabSplit()
+            ? 0
+            : GetLayoutConstant(LayoutConstant::kSidePanelInset);
 
     // See if the toolbar-height side panel can fit next to the toolbar. If not,
     // it is forced into content height.
@@ -305,6 +309,11 @@ BrowserViewTabbedLayoutImpl::CalculateHorizontalLayout(
       const int remainder = params.visual_client_area.width() -
                             (toolbar_minimum_width + layout.side_panel_padding);
       layout.force_top_container_to_top = remainder < min_side_panel_width;
+
+      // Update the padding if necessary.
+      if (layout.force_top_container_to_top && delegate().IsActiveTabSplit()) {
+        layout.side_panel_padding = 0;
+      }
 
       // If still allowing toolbar height, clamp the side panel based on what
       // the toolbar actually supports.
@@ -465,6 +474,14 @@ BrowserViewTabbedLayoutImpl::CalculateVerticalTabStripAnimation(
 }
 
 int BrowserViewTabbedLayoutImpl::GetMinimumGrabHandlePadding() const {
+  if (base::FeatureList::IsEnabled(features::kVerticalTabsGrabHandleRemoval)) {
+    if (features::kVerticalTabsGrabHandleRemovalAlways.Get() ||
+        GetVerticalTabStripCollapsedState() ==
+            VerticalTabStripCollapsedState::kExpanded) {
+      return 0;
+    }
+  }
+
   return kVerticalTabsGrabHandleSize -
          GetLayoutInsets(LayoutInset::TOOLBAR_INTERIOR_MARGIN).right();
 }
@@ -595,7 +612,7 @@ gfx::Size BrowserViewTabbedLayoutImpl::GetMinimumSize(
                             kMainBrowserContentsMinimumWidth});
 
   // Maybe adjust for additional padding when the side panel is visible.
-  if (side_panel_size.width() > 0) {
+  if (side_panel_size.width() > 0 && !delegate().IsActiveTabSplit()) {
     const auto padding = GetLayoutConstant(LayoutConstant::kSidePanelInset);
     min_height += 2 * padding;
     min_width += padding;
@@ -841,14 +858,27 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
   // Lay out the main area background.
   ProposedLayout* main_background_layout = nullptr;
   if (IsParentedTo(views().main_background_region, views().browser_view)) {
-    gfx::Rect main_background_bounds = params.visual_client_area;
+    gfx::Rect main_background_bounds;
+    if (window_state == WindowState::kFullscreenWithToolbar) {
+      // Put the main background behind the entire content area, since in this
+      // case the top row of pixels may be exposed when the separator isn't
+      // shown (typically when a side panel is open).
+      main_background_bounds = gfx::Rect(
+          browser_params.visual_client_area.x(), params.visual_client_area.y(),
+          browser_params.visual_client_area.width(),
+          params.visual_client_area.height());
+    } else {
+      main_background_bounds = params.visual_client_area;
+    }
     if (adjust_for_cracking &&
         main_background_bounds.y() > browser_params.visual_client_area.y()) {
       main_background_bounds.Outset(gfx::Outsets::TLBR(1, 0, 0, 0));
     }
-    main_background_layout = &layout.AddChild(
-        views().main_background_region, params.visual_client_area,
-        horizontal_layout.has_side_panel() || adjust_for_cracking);
+    const bool show_main_background =
+        horizontal_layout.has_side_panel() || adjust_for_cracking;
+    main_background_layout =
+        &layout.AddChild(views().main_background_region, main_background_bounds,
+                         show_main_background);
   }
 
   // Lay out toolbar-height side panel.
@@ -920,7 +950,16 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
     }
   }
 
-  const bool show_shadow_overlay = ShadowOverlayVisible();
+  // The split view has outlines and padding around the web contents, so there's
+  // no need for an additional shadow box or separator around the split view.
+  // We still draw the shadow box in toolbar-height side panel mode, because it
+  // surrounds other elements like the toolbar.
+  const bool is_split_outline_replacing_shadow_or_separator =
+      delegate().IsActiveTabSplit() &&
+      (horizontal_layout.force_top_container_to_top ||
+       is_fullscreen(window_state));
+  const bool show_shadow_overlay =
+      ShadowOverlayVisible() && !is_split_outline_replacing_shadow_or_separator;
   gfx::Insets shadow_overlay_insets;
   if (show_shadow_overlay) {
     // As the side panel animates in, the main panel shrinks and moves over to
@@ -961,9 +1000,9 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
   }
 
   // Lay out infobar container.
+  const bool infobar_visible = delegate().IsInfobarVisible();
   if (IsParentedTo(views().infobar_container, views().browser_view)) {
     gfx::Rect infobar_bounds;
-    const bool infobar_visible = delegate().IsInfobarVisible();
     if (infobar_visible) {
       // Infobars slide down with top container reveal, but not when they're in
       // the toolbar-height side panel shadow box. This is because they only
@@ -991,8 +1030,49 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
   // the required top padding.
   const auto top_separator_type = GetTopSeparatorType();
   views().multi_contents_view->SetShouldShowTopSeparator(
-      !suppress_top_separator &&
-      top_separator_type == TopSeparatorType::kMultiContents);
+      is_split_outline_replacing_shadow_or_separator ||
+      (!suppress_top_separator &&
+       top_separator_type == TopSeparatorType::kMultiContents));
+
+  // Updating the top, left and right insets for contents container view when
+  // in split view. This is dependent on a number of other browser states.
+  if (delegate().IsActiveTabSplit()) {
+    const bool include_top_inset =
+        window_state == WindowState::kFullscreen || infobar_visible;
+    const bool include_leading_inset =
+        !(is_split_outline_replacing_shadow_or_separator &&
+          horizontal_layout.has_side_panel() && side_panel_leading);
+    const bool include_trailing_inset =
+        !(is_split_outline_replacing_shadow_or_separator &&
+          horizontal_layout.has_side_panel() && !side_panel_leading);
+
+    gfx::Insets start_contents_view_inset;
+    start_contents_view_inset
+        .set_top(include_top_inset ? MultiContentsView::kSplitViewContentInset
+                                   : 0)
+        .set_bottom(MultiContentsView::kSplitViewContentInset)
+        .set_left(include_leading_inset
+                      ? MultiContentsView::kSplitViewContentInset
+                      : 0);
+
+    gfx::Insets end_contents_view_inset;
+    end_contents_view_inset
+        .set_top(include_top_inset ? MultiContentsView::kSplitViewContentInset
+                                   : 0)
+        .set_bottom(MultiContentsView::kSplitViewContentInset)
+        .set_right(include_trailing_inset
+                       ? MultiContentsView::kSplitViewContentInset
+                       : 0);
+
+    views().multi_contents_view->SetSplitViewInsets(start_contents_view_inset,
+                                                    end_contents_view_inset);
+  }
+
+  // Update the multi-contents view about if we will be animating content
+  // bounds. This is to make optimizations during animations e.g. avoid
+  // repositioning status bubble.
+  views().multi_contents_view->SetIsAnimatingContent(
+      side_panel_is_animating || vertical_tab_strip_animation.current_motion);
 
   // Lay out contents container. The contents container contains the multi-
   // contents view when multi-contents are enabled. The checks here are to
@@ -1036,7 +1116,8 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
       // If the top separator is suppressed now, it won't be at the extent of
       // the animation.
       if (top_separator_type == TopSeparatorType::kMultiContents &&
-          suppress_top_separator && side_panel_is_animating) {
+          suppress_top_separator && side_panel_is_animating &&
+          !is_split_outline_replacing_shadow_or_separator) {
         unclipped_contents_region.Inset(
             gfx::Insets::TLBR(views::Separator::kThickness, 0, 0, 0));
       }
@@ -1263,9 +1344,6 @@ void BrowserViewTabbedLayoutImpl::DoPostLayoutVisualAdjustments(
         static_cast<CustomCornersBackground*>(
             views().vertical_tab_strip_region_view->background());
     CHECK(vertical_tabs_background);
-    const bool is_expand_on_hover_visible = animation.expand_on_hover > 0.0;
-    vertical_tabs_background->SetVisible(!features::IsGlassFrameEnabled() ||
-                                         is_expand_on_hover_visible);
 
     if (features::IsGlassFrameEnabled()) {
       float background_alpha = 0.0f;
@@ -1363,7 +1441,8 @@ void BrowserViewTabbedLayoutImpl::DoPostLayoutVisualAdjustments(
     vertical_tabs_outline.trailing = true;
     // Top edge is drawn if the layout is below the top of the parent.
     if (animation.expand_on_hover ||
-        views().vertical_tab_strip_region_view->y() > 0) {
+        views().vertical_tab_strip_region_view->y() > 0 ||
+        animation.top_corner < 0.0) {
       vertical_tabs_outline.top = true;
     }
     if (animation.expand_on_hover) {

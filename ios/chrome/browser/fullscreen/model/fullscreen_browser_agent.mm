@@ -125,14 +125,24 @@ void FullscreenBrowserAgent::UpdateProgressAndBroadcast(
 
 void FullscreenBrowserAgent::NotifyObserversOfUpdatedState(
     base::TimeDelta duration) {
+  // Prevent reentrant calls that can occur when layout changes or scroll
+  // events are synchronously triggered while notifying observers.
+  if (updating_insets_) {
+    return;
+  }
   animation_duration_ = duration;
-  CHECK(!updating_insets_);
   updating_insets_ = true;
   UIEdgeInsets old_insets = insets_;
   insets_ = UIEdgeInsetsZero;
   for (auto& observer : observers_) {
     observer.WillUpdateState(this);
   }
+
+  // Apply keyboard height as overlapping.
+  if (keyboard_obscured_inset_ > 0) {
+    insets_.bottom = std::max(insets_.bottom, keyboard_obscured_inset_);
+  }
+
   updating_insets_ = false;
 
   if (!UIEdgeInsetsEqualToEdgeInsets(old_insets, insets_)) {
@@ -196,6 +206,13 @@ void FullscreenBrowserAgent::InvalidateInsetRange() {
   for (auto& observer : observers_) {
     observer.WillUpdateObscuredInsetRange(this);
   }
+
+  // Apply keyboard height as overlapping.
+  if (keyboard_obscured_inset_ > 0) {
+    min_insets_.bottom = std::max(min_insets_.bottom, keyboard_obscured_inset_);
+    max_insets_.bottom = std::max(max_insets_.bottom, keyboard_obscured_inset_);
+  }
+
   updating_obscured_insets_ = false;
 
   for (auto& observer : observers_) {
@@ -236,4 +253,12 @@ void FullscreenBrowserAgent::AddObscuredInset(UIRectEdge edge, CGFloat amount) {
   } else if (edge == UIRectEdgeRight) {
     insets_.right += amount;
   }
+}
+
+void FullscreenBrowserAgent::SetKeyboardObscuredInset(CGFloat inset) {
+  if (keyboard_obscured_inset_ == inset) {
+    return;
+  }
+  keyboard_obscured_inset_ = inset;
+  InvalidateInsetRange();
 }

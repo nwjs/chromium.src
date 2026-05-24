@@ -13,6 +13,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "components/unexportable_keys/background_task_priority.h"
+#include "components/unexportable_keys/service_error.h"
 #include "components/unexportable_keys/unexportable_key_service.h"
 #include "net/base/features.h"
 #include "net/base/net_errors.h"
@@ -20,6 +21,7 @@
 #include "net/device_bound_sessions/registration_request_param.h"
 #include "net/device_bound_sessions/session_binding_utils.h"
 #include "net/device_bound_sessions/session_challenge_param.h"
+#include "net/device_bound_sessions/session_error.h"
 #include "net/device_bound_sessions/session_json_utils.h"
 #include "net/device_bound_sessions/session_key.h"
 #include "net/device_bound_sessions/url_fetcher.h"
@@ -36,10 +38,6 @@ namespace {
 constexpr char kSessionIdHeaderName[] = "Sec-Secure-Session-Id";
 constexpr char kJwtSessionHeaderName[] = "Secure-Session-Response";
 
-// New session registration doesn't block the user and can be done with a delay.
-constexpr unexportable_keys::BackgroundTaskPriority kTaskPriority =
-    unexportable_keys::BackgroundTaskPriority::kBestEffort;
-
 void RecordHttpResponseOrErrorCode(const char* metric_name,
                                    int net_error,
                                    int http_response_code) {
@@ -55,10 +53,13 @@ void OnDataSigned(
     unexportable_keys::UnexportableKeyService& unexportable_key_service,
     std::string header_and_payload,
     base::OnceCallback<
-        void(std::optional<RegistrationFetcher::RegistrationToken>)> callback,
+        void(SessionErrorOr<RegistrationFetcher::RegistrationToken>)> callback,
     unexportable_keys::ServiceErrorOr<std::vector<uint8_t>> result) {
   if (!result.has_value()) {
-    std::move(callback).Run(std::nullopt);
+    std::move(callback).Run(
+        base::unexpected(unexportable_keys::IsPersistentError(result.error())
+                             ? SessionError::kSigningError
+                             : SessionError::kTransientSigningError));
     return;
   }
 
@@ -66,29 +67,40 @@ void OnDataSigned(
   std::optional<std::string> registration_token =
       AppendSignatureToHeaderAndPayload(header_and_payload, algorithm, pubkey,
                                         signature);
-  std::move(callback).Run(std::move(registration_token));
+  if (!registration_token.has_value()) {
+    std::move(callback).Run(base::unexpected(SessionError::kSigningError));
+    return;
+  }
+  std::move(callback).Run(std::move(registration_token).value());
 }
 
 void SignChallengeWithKey(
     bool is_for_refresh,
     unexportable_keys::UnexportableKeyService& unexportable_key_service,
     unexportable_keys::UnexportableSigningKeyId key_id,
+    unexportable_keys::BackgroundTaskPriority priority,
     const GURL& registration_url,
     std::optional<std::string> challenge,
     std::optional<std::string> authorization,
     std::optional<std::string> session_identifier,
-    base::OnceCallback<
-        void(std::optional<RegistrationFetcher::RegistrationToken>)> callback) {
+    base::OnceCallback<void(
+        SessionErrorOr<RegistrationFetcher::RegistrationToken>)> callback) {
   auto expected_algorithm = unexportable_key_service.GetAlgorithm(key_id);
   if (!expected_algorithm.has_value()) {
-    std::move(callback).Run(std::nullopt);
+    std::move(callback).Run(base::unexpected(
+        unexportable_keys::IsPersistentError(expected_algorithm.error())
+            ? SessionError::kSigningError
+            : SessionError::kTransientSigningError));
     return;
   }
 
   auto expected_public_key =
       unexportable_key_service.GetSubjectPublicKeyInfo(key_id);
   if (!expected_public_key.has_value()) {
-    std::move(callback).Run(std::nullopt);
+    std::move(callback).Run(base::unexpected(
+        unexportable_keys::IsPersistentError(expected_public_key.error())
+            ? SessionError::kSigningError
+            : SessionError::kTransientSigningError));
     return;
   }
 
@@ -103,12 +115,12 @@ void SignChallengeWithKey(
   }
 
   if (!header_and_payload.has_value()) {
-    std::move(callback).Run(std::nullopt);
+    std::move(callback).Run(base::unexpected(SessionError::kSigningError));
     return;
   }
 
   unexportable_key_service.SignSlowlyAsync(
-      key_id, base::as_byte_span(*header_and_payload), kTaskPriority,
+      key_id, base::as_byte_span(*header_and_payload), priority,
       base::BindOnce(&OnDataSigned, expected_algorithm.value(),
                      std::move(expected_public_key).value(),
                      std::ref(unexportable_key_service), *header_and_payload,
@@ -171,7 +183,8 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
       const URLRequestContext* context,
       const IsolationInfo& isolation_info,
       std::optional<NetLogSource> net_log_source,
-      const std::optional<url::Origin>& original_request_initiator)
+      const std::optional<url::Origin>& original_request_initiator,
+      unexportable_keys::BackgroundTaskPriority priority)
       : fetcher_endpoint_(fetcher_endpoint),
         session_identifier_(std::move(session_identifier)),
         session_service_(session_service),
@@ -179,7 +192,8 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
         context_(context),
         isolation_info_(isolation_info),
         net_log_source_(std::move(net_log_source)),
-        original_request_initiator_(original_request_initiator) {}
+        original_request_initiator_(original_request_initiator),
+        priority_(priority) {}
 
   ~RegistrationFetcherImpl() override {}
 
@@ -272,7 +286,7 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
     callback_ = std::move(callback);
 
     key_service_->GenerateSigningKeySlowlyAsync(
-        supported_algos, kTaskPriority,
+        supported_algos, priority_,
         base::BindOnce(&RegistrationFetcherImpl::OnSigningKeyGenerated,
                        GetWeakPtr())
             .Then(base::BindOnce(&RegistrationFetcherImpl::StartFetch,
@@ -469,7 +483,7 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
 
   void AttemptChallengeSigning() {
     base::OnceCallback<void(
-        std::optional<RegistrationFetcher::RegistrationToken>)>
+        SessionErrorOr<RegistrationFetcher::RegistrationToken>)>
         callback =
             base::BindOnce(&RegistrationFetcherImpl::OnRegistrationTokenCreated,
                            GetWeakPtr(), current_challenge_, *key_id_);
@@ -508,7 +522,7 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
     }
 
     SignChallengeWithKey(IsForRefreshRequest(), *key_service_, *key_id_,
-                         fetcher_endpoint_, current_challenge_,
+                         priority_, fetcher_endpoint_, current_challenge_,
                          current_authorization_, session_identifier_,
                          std::move(callback));
     // `this` may be deleted.
@@ -517,11 +531,11 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
   void OnRegistrationTokenCreated(
       std::optional<std::string> challenge,
       unexportable_keys::UnexportableSigningKeyId key_id,
-      std::optional<RegistrationFetcher::RegistrationToken>
+      SessionErrorOr<RegistrationFetcher::RegistrationToken>
           registration_token) {
-    if (!registration_token) {
+    if (!registration_token.has_value()) {
       RunCallback(CreateErrorRegistrationResult(
-          SessionError(SessionError::kSigningError)));
+          SessionError(registration_token.error())));
       // `this` may be deleted.
       return;
     }
@@ -842,6 +856,8 @@ class RegistrationFetcherImpl : public RegistrationFetcher {
   IsolationInfo isolation_info_;
   std::optional<net::NetLogSource> net_log_source_;
   std::optional<url::Origin> original_request_initiator_;
+  const unexportable_keys::BackgroundTaskPriority priority_ =
+      unexportable_keys::BackgroundTaskPriority::kBestEffort;
   // This is called once the registration or refresh request completes, whether
   // or not it was successful.
   RegistrationFetcher::RegistrationCompleteCallback callback_;
@@ -866,11 +882,13 @@ std::unique_ptr<RegistrationFetcher> RegistrationFetcher::CreateFetcher(
     const URLRequestContext* context,
     const IsolationInfo& isolation_info,
     std::optional<NetLogSource> net_log_source,
-    const std::optional<url::Origin>& original_request_initiator) {
+    const std::optional<url::Origin>& original_request_initiator,
+    unexportable_keys::BackgroundTaskPriority priority) {
   return std::make_unique<RegistrationFetcherImpl>(
       request_params.TakeRegistrationEndpoint(),
       request_params.TakeSessionIdentifier(), session_service, key_service,
-      context, isolation_info, net_log_source, original_request_initiator);
+      context, isolation_info, net_log_source, original_request_initiator,
+      priority);
 }
 
 void RegistrationFetcher::SetFetcherForTesting(FetcherType* func) {
@@ -883,30 +901,34 @@ void RegistrationFetcher::CreateRegistrationTokenAsyncForTesting(
     unexportable_keys::UnexportableKeyService& unexportable_key_service,
     std::string challenge,
     std::optional<std::string> authorization,
-    base::OnceCallback<
-        void(std::optional<RegistrationFetcher::RegistrationToken>)> callback) {
+    base::OnceCallback<void(
+        SessionErrorOr<RegistrationFetcher::RegistrationToken>)> callback) {
   static constexpr crypto::SignatureVerifier::SignatureAlgorithm
       kSupportedAlgos[] = {crypto::SignatureVerifier::ECDSA_SHA256,
                            crypto::SignatureVerifier::RSA_PKCS1_SHA256};
   unexportable_key_service.GenerateSigningKeySlowlyAsync(
-      kSupportedAlgos, kTaskPriority,
+      kSupportedAlgos, unexportable_keys::BackgroundTaskPriority::kBestEffort,
       base::BindOnce(
           [](unexportable_keys::UnexportableKeyService& key_service,
              const std::string& challenge,
              std::optional<std::string>&& authorization,
              base::OnceCallback<void(
-                 std::optional<RegistrationFetcher::RegistrationToken>)>
+                 SessionErrorOr<RegistrationFetcher::RegistrationToken>)>
                  callback,
              unexportable_keys::ServiceErrorOr<
                  unexportable_keys::UnexportableSigningKeyId> key_result) {
             if (!key_result.has_value()) {
-              std::move(callback).Run(std::nullopt);
+              std::move(callback).Run(base::unexpected(
+                  unexportable_keys::IsPersistentError(key_result.error())
+                      ? SessionError::kSigningError
+                      : SessionError::kTransientSigningError));
               return;
             }
 
             SignChallengeWithKey(
                 /*is_for_refresh=*/false, key_service, key_result.value(),
-                GURL(), challenge, std::move(authorization),
+                unexportable_keys::BackgroundTaskPriority::kBestEffort, GURL(),
+                challenge, std::move(authorization),
                 /*session_identifier=*/std::nullopt, std::move(callback));
           },
           std::ref(unexportable_key_service), std::move(challenge),

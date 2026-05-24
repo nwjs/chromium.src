@@ -14,7 +14,8 @@ if (is_android) {
   import("//third_party/jni_zero/jni_zero.gni")
 }
 
-# This target is only for public headers for classes used outside this directory (i.e. services and factories).
+# This target is only for public headers for classes used outside this directory
+# (i.e. services and factories).
 source_set("contextual_tasks") {
   sources = [
     "active_task_context_provider.h",
@@ -63,7 +64,8 @@ source_set("contextual_tasks") {
   ]
 }
 
-# This target is for all non-public files (all .c - including factories and services - and non-public .h).
+# This target is for all non-public files (all .c - including factories and
+# services - and non-public .h).
 source_set("impl") {
   visibility = [
     ":*",
@@ -165,6 +167,7 @@ source_set("ui") {
     "contextual_tasks_ui.h",
     "contextual_tasks_ui_service.h",
     "contextual_tasks_ui_service_factory.h",
+    "contextual_tasks_window_tracker.h",
     "entry_point_eligibility_manager.h",
   ]
 
@@ -243,6 +246,23 @@ source_set("ui") {
   }
 }
 
+source_set("user_data") {
+  sources = [
+    "contextual_tasks_web_contents_user_data.cc",
+    "contextual_tasks_web_contents_user_data.h",
+  ]
+  deps = [
+    ":ui",
+    "//base",
+    "//chrome/browser/autocomplete:aim_eligibility_service",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/signin",
+    "//components/contextual_search:public",
+    "//components/omnibox/browser",
+    "//content/public/browser",
+  ]
+}
+
 source_set("ui_impl") {
   sources = [
     "contextual_search_session_finder.cc",
@@ -257,6 +277,7 @@ source_set("ui_impl") {
     "contextual_tasks_ui_service_factory.cc",
     "contextual_tasks_url_loader_factory_interceptor.cc",
     "contextual_tasks_url_loader_factory_interceptor.h",
+    "contextual_tasks_window_tracker.cc",
     "entry_point_eligibility_manager.cc",
   ]
 
@@ -279,6 +300,7 @@ source_set("ui_impl") {
   deps = [
     ":impl",
     ":ui",
+    ":user_data",
     "//base",
     "//chrome/browser:browser_process",
     "//chrome/browser:global_features",
@@ -310,6 +332,7 @@ source_set("ui_impl") {
     "//components/keyed_service/core",
     "//components/lens",
     "//components/omnibox/browser:mojo_bindings",
+    "//components/omnibox/common:features",
     "//components/sessions",
     "//components/shared_highlighting/core/common",
     "//components/tabs:public",
@@ -459,6 +482,7 @@ source_set("unit_tests") {
     "contextual_tasks_tab_visit_tracker_unittest.cc",
     "contextual_tasks_ui_service_unittest.cc",
     "contextual_tasks_ui_unittest.cc",
+    "contextual_tasks_window_tracker_unittest.cc",
     "entry_point_eligibility_manager_unittest.cc",
   ]
 
@@ -470,6 +494,7 @@ source_set("unit_tests") {
     sources += [
       "contextual_tasks_composebox_handler_unittest.cc",
       "contextual_tasks_panel_host_desktop_unittest.cc",
+      "contextual_tasks_web_contents_user_data_unittest.cc",
     ]
   }
 
@@ -479,6 +504,7 @@ source_set("unit_tests") {
     ":test_support",
     ":ui",
     ":ui_impl",
+    ":user_data",
     "//base",
     "//base/test:test_support",
     "//chrome/browser:global_features",
@@ -535,6 +561,7 @@ source_set("interactive_ui_tests") {
 
   if (!is_android) {
     sources += [
+      "contextual_tasks_interactive_uitest.cc",
       "contextual_tasks_side_panel_coordinator_interactive_uitest.cc",
       "contextual_tasks_ui_service_interactive_uitest.cc",
     ]
@@ -566,6 +593,8 @@ source_set("interactive_ui_tests") {
     deps += [
       ":ui",
       "//chrome/browser/tab_list",
+      "//chrome/browser/ui/contextual_search",
+      "//chrome/browser/ui/webui/searchbox:searchbox_test_utils",
     ]
   }
 }

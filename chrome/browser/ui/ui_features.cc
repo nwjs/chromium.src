@@ -333,6 +333,8 @@ BASE_FEATURE_PARAM(bool,
                    "bookmark_star",
                    false);
 
+BASE_FEATURE(kPageActionsPrioritySelector, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kSavePasswordsContextualUi, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kByDateHistoryInSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -394,6 +396,11 @@ bool IsWebUIPinnedToolbarActionsEnabled() {
          base::FeatureList::IsEnabled(features::kWebUIPinnedToolbarActions);
 }
 
+bool IsWebUIExtensionsContainerEnabled() {
+  return base::FeatureList::IsEnabled(features::kInitialWebUI) &&
+         base::FeatureList::IsEnabled(features::kWebUIExtensionsContainer);
+}
+
 bool IsWebUISplitTabsButtonEnabled() {
   return base::FeatureList::IsEnabled(features::kInitialWebUI) &&
          base::FeatureList::IsEnabled(features::kWebUISplitTabsButton);
@@ -413,7 +420,8 @@ bool IsWebUIToolbarEnabled() {
   return IsWebUIReloadButtonEnabled() || IsWebUISplitTabsButtonEnabled() ||
          IsWebUIHomeButtonEnabled() || IsWebUILocationBarEnabled() ||
          IsWebUIBackForwardButtonEnabled() ||
-         IsWebUIPinnedToolbarActionsEnabled() || IsWebUIAvatarButtonEnabled() ||
+         IsWebUIPinnedToolbarActionsEnabled() ||
+         IsWebUIExtensionsContainerEnabled() || IsWebUIAvatarButtonEnabled() ||
          IsWebUIAppMenuButtonEnabled();
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -459,5 +467,17 @@ BASE_FEATURE_PARAM(bool,
                    &kTabGroupsFocusing,
                    "tab_groups_focusing_default_to_focused",
                    false);
+
+BASE_FEATURE(kVerticalTabsGrabHandleRemoval, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If false, then the grab handle will only be removed when the vertical tab
+// strip is expanded.
+BASE_FEATURE_PARAM(bool,
+                   kVerticalTabsGrabHandleRemovalAlways,
+                   &kVerticalTabsGrabHandleRemoval,
+                   "vertical_tab_grab_handle_remove_always",
+                   true);
+
+BASE_FEATURE(kOmniboxResizingPrioritization, base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

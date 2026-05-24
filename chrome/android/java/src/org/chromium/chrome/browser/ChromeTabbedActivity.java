@@ -690,6 +690,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements PreAttachInt
     private TipsPromoCoordinator mTipsPromoCoordinator;
     private RecentlyClosedEntriesManager mRecentlyClosedEntriesManager;
     private FindsManager mFindsManager;
+    private @Nullable Boolean mCanEnableEdgeToEdgeForCustomizedThemeOnPhone;
 
     /** Constructs a ChromeTabbedActivity. */
     public ChromeTabbedActivity() {
@@ -3395,6 +3396,20 @@ public class ChromeTabbedActivity extends ChromeActivity implements PreAttachInt
             }
 
             @Override
+            public void openNtpThemeCustomizationBottomSheet() {
+                NtpCustomizationCoordinator coordinator =
+                        NtpCustomizationCoordinatorFactory.getInstance()
+                                .create(
+                                        ChromeTabbedActivity.this,
+                                        mRootUiCoordinator.getBottomSheetController(),
+                                        mTabModelProfileSupplier,
+                                        NtpCustomizationCoordinator.BottomSheetType.THEME,
+                                        getWindowAndroid(),
+                                        mModuleRegistrySupplier.get());
+                coordinator.showBottomSheet();
+            }
+
+            @Override
             public void showHistorySyncOptInLegacy(Runnable dismissHistorySyncModuleCallback) {
                 BottomSheetSigninAndHistorySyncConfig bottomSheetConfig =
                         createHistorySyncBottomSheetConfig();
@@ -3530,6 +3545,19 @@ public class ChromeTabbedActivity extends ChromeActivity implements PreAttachInt
                                 getWindowAndroid(),
                                 tracker,
                                 DefaultBrowserPromoUtils.DefaultBrowserPromoEntryPoint.SET_UP_LIST);
+            }
+
+            @Override
+            public boolean supportCustomizedNtpTheme() {
+                if (getTabletMode().isTablet) return true;
+
+                // On phones, we need to check if edge-to-edge is enabled.
+                if (mCanEnableEdgeToEdgeForCustomizedThemeOnPhone == null) {
+                    mCanEnableEdgeToEdgeForCustomizedThemeOnPhone =
+                            NtpCustomizationUtils.canEnableEdgeToEdgeForCustomizedTheme(
+                                    getWindowAndroid(), /* isTablet= */ false);
+                }
+                return mCanEnableEdgeToEdgeForCustomizedThemeOnPhone;
             }
         };
     }

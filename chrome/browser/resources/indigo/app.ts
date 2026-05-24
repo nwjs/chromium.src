@@ -9,10 +9,6 @@ import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 
-// TODO(b/486887445): Remove the hardcoded duration once there is a way
-// to receive the transformed image.
-const EXIT_ANIMATION_DELAY_MS: number = 8000;
-
 export interface IndigoImageReplacementAppElement {
   $: {
     image: HTMLImageElement,
@@ -37,14 +33,14 @@ export class IndigoImageReplacementAppElement extends CrLitElement {
       showOverlay_: {type: Boolean},
       overlayAnimationState_: {type: String},
       imageSrc_: {type: String},
+      objectFit_: {type: String},
     };
   }
 
   protected accessor showOverlay_: boolean = false;
   protected accessor overlayAnimationState_: 'entry'|'exit'|'none' = 'none';
   protected accessor imageSrc_: string = '';
-
-  private exitTimeout_: number|null = null;
+  protected accessor objectFit_: 'contain'|'cover' = 'contain';
 
   override async connectedCallback() {
     super.connectedCallback();
@@ -52,30 +48,54 @@ export class IndigoImageReplacementAppElement extends CrLitElement {
     requestAnimationFrame(async () => {
       await chrome.indigoPrivate.readyToRender();
       this.startAnimation_();
+      this.getReplacementImage_();
     });
   }
 
   protected onMotionComplete_() {
     this.showOverlay_ = false;
-    if (this.exitTimeout_) {
-      window.clearTimeout(this.exitTimeout_);
-    }
   }
 
   private async loadOriginalImage_() {
     const imageData = await chrome.indigoPrivate.getOriginalImage();
-    const blob = new Blob([imageData.webpBytes], {type: 'image/webp'});
-    this.imageSrc_ = URL.createObjectURL(blob);
-    await this.updateComplete;
-    await this.$.image.decode();
+    if (imageData.value instanceof ArrayBuffer) {
+      const blob = new Blob([imageData.value], {type: 'image/webp'});
+      await this.updateAndDecodeImage_(URL.createObjectURL(blob));
+    }
   }
 
   private startAnimation_() {
     this.showOverlay_ = true;
     this.overlayAnimationState_ = 'entry';
-    this.exitTimeout_ = window.setTimeout(() => {
+  }
+
+  private async getReplacementImage_() {
+    const imageData = await chrome.indigoPrivate.getReplacementImage();
+    if (typeof imageData.value === 'string') {
+      URL.revokeObjectURL(this.imageSrc_);
+      await this.updateAndDecodeImage_(imageData.value);
+      this.objectFit_ = this.computeObjectFitForReplacement_();
       this.overlayAnimationState_ = 'exit';
-    }, EXIT_ANIMATION_DELAY_MS);
+    }
+  }
+
+  private async updateAndDecodeImage_(src: string) {
+    this.imageSrc_ = src;
+    await this.updateComplete;
+    await this.$.image.decode();
+  }
+
+  private computeObjectFitForReplacement_(): 'contain'|'cover' {
+    const {naturalWidth, naturalHeight} = this.$.image;
+    if (naturalWidth !== naturalHeight) {
+      return 'contain';
+    }
+    const {clientWidth, clientHeight} = document.documentElement;
+    if (clientWidth === 0 || clientHeight === 0) {
+      return 'contain';
+    }
+    const aspectRatio = clientWidth / clientHeight;
+    return 0.5 <= aspectRatio && aspectRatio <= 1.0 ? 'cover' : 'contain';
   }
 }
 

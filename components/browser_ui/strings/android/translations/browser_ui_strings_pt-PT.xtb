@@ -290,6 +290,7 @@
 <translation id="3843916486309149084">O Chrome vai bloquear os cookies novamente hoje</translation>
 <translation id="385051799172605136">Anterior</translation>
 <translation id="3859306556332390985">Procurar para a frente</translation>
+<translation id="3870711497942672548">Personalize o Chrome com cores e imagens personalizadas para a página inicial</translation>
 <translation id="389521680295183045">Os sites podem pedir para saber quando está a utilizar ativamente o dispositivo</translation>
 <translation id="3895926599014793903">Forçar ativação do zoom</translation>
 <translation id="3903738175795615004">Arraste a partir da parte superior ou prima a tecla Esc para sair do modo de ecrã inteiro.</translation>
@@ -333,6 +334,7 @@
 <translation id="4290791284969893584">Depois de fechar uma página, as tarefas que iniciou podem não ser concluídas</translation>
 <translation id="429312253194641664">Um site está a reproduzir multimédia.</translation>
 <translation id="42981349822642051">Expandir</translation>
+<translation id="4310738531374808763">Personalize a sua Página inicial</translation>
 <translation id="4336219115486912529">{COUNT,plural, =1{Expira amanhã}other{Expira dentro de # dias}}</translation>
 <translation id="4338831206024587507">Todos os sites em <ph name="DOMAIN" /></translation>
 <translation id="4340799661701629185">Não permitir que os sites enviem notificações</translation>
@@ -524,6 +526,7 @@
 <translation id="6262279340360821358">Bloqueio de <ph name="PERMISSION_1" /> e <ph name="PERMISSION_2" />.</translation>
 <translation id="6270391203985052864">Os sites podem pedir para enviar notificações.</translation>
 <translation id="6295158916970320988">Todos os sites</translation>
+<translation id="6305257382500066042">Experimentar agora</translation>
 <translation id="6320088164292336938">Vibrar</translation>
 <translation id="6367753977865761591">Bloqueie o início de sessão de terceiros para um site específico.</translation>
 <translation id="6398765197997659313">Sair do modo de ecrã inteiro</translation>
@@ -609,6 +612,7 @@
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> selecionado(s).</translation>
 <translation id="7260727271532453612">Autorização de <ph name="PERMISSION_1" /> e <ph name="PERMISSION_2" />.</translation>
 <translation id="7276071417425470385">Quando esta opção está ativada, os sites podem pedir para usar dispositivos de realidade virtual. Quando esta opção está desativada, os sites não podem usar dispositivos de realidade virtual.</translation>
+<translation id="7279851812866769760">Partilhar contactos</translation>
 <translation id="7282197670900591579">Tema citrino</translation>
 <translation id="728412880473384942">Os sites são mais rápidos, mas menos seguros</translation>
 <translation id="7352902948037373520">Faça a gestão em <ph name="BEGIN_LINK1" />Definições do Android<ph name="END_LINK1" />
@@ -700,6 +704,7 @@ A Proteção avançada controla estas definições do Chrome:</translation>
 <translation id="823874716226307142">Quando esta opção está ativada, os sites podem pedir para aceder a outros dispositivos na sua rede local. Quando esta opção está desativada, os sites não podem aceder a outros dispositivos na sua rede local.</translation>
 <translation id="8249310407154411074">Mover para o início</translation>
 <translation id="8261506727792406068">Eliminar</translation>
+<translation id="8273596202562472147">Mais opções para <ph name="SITE_NAME" /></translation>
 <translation id="8284326494547611709">Legendas</translation>
 <translation id="8300705686683892304">Geridos por aplicação</translation>
 <translation id="8301363963630676147">Permitida desta vez • A usar a localização aproximada</translation>
@@ -794,6 +799,7 @@ A Proteção avançada controla estas definições do Chrome:</translation>
 <translation id="9156722768168878035">Permita que o Chrome mostre os seus separadores recentes na lista de apps e nos resultados da pesquisa do seu dispositivo. Pode desativar esta opção em qualquer altura nas definições do Chrome.</translation>
 <translation id="9162462602695099906">Esta página é perigosa</translation>
 <translation id="9182556968660520230">Não permitir que os sites reproduzam conteúdo protegido</translation>
+<translation id="927148002081263046">Partilhar um contacto</translation>
 <translation id="947156494302904893">Os sites que visita podem validar que é uma pessoa real e não um bot</translation>
 <translation id="959682366969460160">Organize-se</translation>
 <translation id="960590623979248167">Mostrar hiperligações</translation>

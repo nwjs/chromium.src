@@ -1718,6 +1718,7 @@
 <translation id="2164131635608782358"><ph name="FIRST_SWITCH" />、<ph name="SECOND_SWITCH" />、<ph name="THIRD_SWITCH" />、他 1 個のスイッチ</translation>
 <translation id="2165177462441582039">各項目のハイライト表示の長さを選択します</translation>
 <translation id="2166369534954157698">あいうえおアイウエオABCabc123漢字</translation>
+<translation id="2168036794078614559">報告を送信しました</translation>
 <translation id="2169062631698640254">このままログインする</translation>
 <translation id="2173302385160625112">インターネット接続を確認してください</translation>
 <translation id="2173801458090845390">登録 ID をこのデバイスに追加します</translation>
@@ -2057,6 +2058,7 @@
 <translation id="2402226831639195063">通知音</translation>
 <translation id="2405887402346713222">デバイスとコンポーネントのシリアル番号</translation>
 <translation id="2406153734066939945">このプロフィールとデータを削除しますか？</translation>
+<translation id="2406942743794219791">デフォルトで使用する検索エンジンを確認してください</translation>
 <translation id="2407671304279211586">DNS プロバイダを選択</translation>
 <translation id="2408018932941436077">カードを保存しています</translation>
 <translation id="2408742686124047357">ツールバーに Google レンズを固定すると、次から簡単にアクセスできます</translation>
@@ -3037,6 +3039,7 @@
 <translation id="3046892784550338476">バージョン <ph name="PRODUCT_VERSION" /><ph name="PRODUCT_VERSION_SUFFIX" />（<ph name="PRODUCT_CHANNEL" />）<ph name="PRODUCT_MODIFIER" /> <ph name="PRODUCT_VERSION_BITS" /></translation>
 <translation id="3046910703532196514">ウェブページ、完全</translation>
 <translation id="304747341537320566">読み上げエンジン</translation>
+<translation id="3047618804758101928">拡張機能「<ph name="EXTENSION_NAME" />」によって設定が変更されました</translation>
 <translation id="3047678109605649715">デバイスに <ph name="LANGUAGE" /> の音声がありません。デバイスで容量を確保してから、もう一度お試しください。</translation>
 <translation id="3048336643003835855">ベンダー <ph name="VENDOR_ID" /> の HID デバイス</translation>
 <translation id="3048589239114571785">再生（K）</translation>
@@ -5621,6 +5624,7 @@
 <translation id="4865063548323785458">パスワードを保存し、サイトやアプリに自動入力して簡単にログインできます</translation>
 <translation id="486635084936119914">ダウンロード後に特定の種類のファイルを自動的に開きます</translation>
 <translation id="4867272607148176509">保護者はアプリの承認とブロック、利用時間の上限の設定、ウェブ ブラウジングの制御を行えます。学校のリソースのほとんどにアクセスするための学校用アカウントは、後で追加できます。</translation>
+<translation id="486796517585164369">· 最近使用したタブ</translation>
 <translation id="4868284252360267853">このダイアログは現在フォーカスされていません。このダイアログをフォーカスするには command+shift+option+a キーを押してください。</translation>
 <translation id="4868351661310357223">Google Play のアプリとゲームを <ph name="DEVICE_TYPE" /> にインストールします。</translation>
 <translation id="4869170227080975044">ChromeOS のネットワーク情報を読み取る</translation>
@@ -7267,6 +7271,7 @@
 <translation id="604388835206766544">設定を解析処理できませんでした</translation>
 <translation id="6043994281159824495">ログアウト</translation>
 <translation id="6045114302329202345">メインの TrackPoint ボタン</translation>
+<translation id="6045425183320109397">作成:</translation>
 <translation id="6047632800149092791">同期が機能していません。ログアウトして再度ログインしてみてください。</translation>
 <translation id="6048747414605857443">ChromeVox と「選択して読み上げ」のテキスト読み上げ用の音声を選択してカスタマイズします</translation>
 <translation id="6050189528197190982">グレースケール</translation>
@@ -8670,7 +8675,6 @@
 <translation id="701020165009334820">Google Play ストアから Android のアプリやゲームをダウンロードできます。</translation>
 <translation id="701080569351381435">ソースを表示</translation>
 <translation id="7012430956470647760">アプリの保護者による使用制限</translation>
-<translation id="7013762323294215682">このパスキーはパスワード マネージャーに保存されます。パスワード マネージャーにアクセスできるユーザーなら誰でも、このパスキーを使用できます。</translation>
 <translation id="7014174261166285193">インストールできませんでした。</translation>
 <translation id="7014480873681694324">テキストの選択を解除</translation>
 <translation id="7014741021609395734">ズームレベル</translation>
@@ -9982,6 +9986,7 @@
 <translation id="7939062555109487992">詳細オプション</translation>
 <translation id="793923212791838">このサイトはお使いのデバイスではご利用いただけません</translation>
 <translation id="7939328347457537652">デバイス証明書の管理</translation>
+<translation id="7939918959917132075">拡張機能によってこの検索プロバイダに変更されました</translation>
 <translation id="7940087892955752820">このフォルダを使用しているアプリケーションがあるため、共有を停止できませんでした。次回 <ph name="SPECIFIC_NAME" /> をシャットダウンするときに、フォルダの共有を停止します。</translation>
 <translation id="7940265372707990269"><ph name="SORT_TYPE" /> で並べ替え</translation>
 <translation id="7941179291434537290">テザリングの準備:</translation>
@@ -10110,6 +10115,7 @@
 <translation id="8017004049696748317">音声入力を開始または停止する</translation>
 <translation id="8017176852978888182">Linux の共有ディレクトリ</translation>
 <translation id="8017679124341497925">ショートカットを編集しました</translation>
+<translation id="8018192911041116887">タブを共有</translation>
 <translation id="8018298733481692628">このプロフィールを削除しますか？</translation>
 <translation id="8018313076035239964">ウェブサイトに使用を許可する情報や、表示してもよいコンテンツを管理します</translation>
 <translation id="802154636333426148">ダウンロード エラー</translation>
@@ -10608,7 +10614,7 @@
 <translation id="8357388086258943206">Linux のインストール中にエラーが発生しました</translation>
 <translation id="8357883857705092796">認識できないサイト</translation>
 <translation id="8358685469073206162">ページを復元しますか？</translation>
-<translation id="835927394551949760">Google で調べる</translation>
+<translation id="835927394551949760">Google に質問する</translation>
 <translation id="835951711479681002">Google アカウントに保存</translation>
 <translation id="8360140320636871023">ディスプレイのテーマをカスタマイズ</translation>
 <translation id="8360267485906769442">フィードバックの送信ボタン</translation>
@@ -11758,7 +11764,6 @@
 <translation id="9120800848981545750">Chrome for iOS をダウンロードすると、スマートフォンでタブ、ブックマーク、パスワードにアクセスできます。</translation>
 <translation id="9121814364785106365">固定されたタブとして開く</translation>
 <translation id="9122099953033442610">{MULTI_GROUP_TAB_COUNT,plural, =0{タブを閉じてグループを削除しますか？}=1{タブを閉じてグループを削除しますか？}other{タブを閉じてグループを削除しますか？}}</translation>
-<translation id="9122788874051694311">シークレット モード以外でこのパスキーを保存しますか？</translation>
 <translation id="9123287046453017203">お使いのデバイスは最新の状態ではありません</translation>
 <translation id="9125910124977405374">自動的に翻訳する言語から <ph name="LANGUAGE_NAME" /> を削除します</translation>
 <translation id="9125912770834459638">組織がログインを許可していません</translation>
@@ -11843,6 +11848,7 @@
 <translation id="918352324374649435">{COUNT,plural, =1{アプリ}other{# 件のアプリ}}</translation>
 <translation id="9186743636216815027">{NUM_APPS,plural,offset:2 =1{管理者は <ph name="APP0_NAME" /> を使用して、あなたの画面を録画できます。録画の開始時には通知されません。}=2{管理者は <ph name="APP0_NAME" /> と <ph name="APP1_NAME" /> を使用して、あなたの画面を録画できます。録画の開始時には通知されません。}=3{管理者は <ph name="APP0_NAME" />、<ph name="APP1_NAME" />、その他 1 個のアプリを使用して、あなたの画面を録画できます。録画の開始時には通知されません。}other{管理者は <ph name="APP0_NAME" />、<ph name="APP1_NAME" />、その他 # 個のアプリを使用して、あなたの画面を録画できます。録画の開始時には通知されません。}}</translation>
 <translation id="9186963452600581158">お子様の Google アカウントでログインする</translation>
+<translation id="9187249589560413026">{TAB_COUNT,plural, =1{1 個のタブを共有中}other{# 個のタブを共有中}}</translation>
 <translation id="9187967020623675250">キーが一致しません。<ph name="RESPONSE" />には、いずれかのキーを押してください。</translation>
 <translation id="9188142767272053574">プロセスの分離を有効にする</translation>
 <translation id="9192019773545828776">画面を見なくてもデバイスを使用できるように、音声フィードバックを読み上げます。点字によるフィードバックは接続されたデバイスで利用できます。ChromeVox のオンとオフを切り替えるには Ctrl+Alt+Z キーを使用します。移動するには検索+左矢印または右矢印キーを使用します。選択（有効化）するには検索+Space キーを使用します。</translation>
